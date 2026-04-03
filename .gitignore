@@ -20,6 +20,7 @@ backend/*.log
 runtime/
 *.log
 
+.codex/
 .vercel/
 
 .DS_Store
