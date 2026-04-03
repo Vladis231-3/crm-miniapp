@@ -3,7 +3,6 @@
   "buildCommand": "cd frontend && npm ci && npm run build",
   "functions": {
     "app.py": {
-      "runtime": "python3.12",
       "maxDuration": 60
     }
   },
