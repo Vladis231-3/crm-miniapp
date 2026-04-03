@@ -64,6 +64,13 @@ from .schemas import (
     NotificationCreateRequest,
     NotificationPayload,
     OwnerCompanyPayload,
+    OwnerDatabaseResetApprovePayload,
+    OwnerDatabaseResetApproveRequest,
+    OwnerDatabaseResetExecutePayload,
+    OwnerDatabaseResetExecuteRequest,
+    OwnerDatabaseResetPreviewPayload,
+    OwnerDatabaseResetStartPayload,
+    OwnerDatabaseResetStartRequest,
     OwnerExportDeliveryPayload,
     OwnerIntegrationsPayload,
     OwnerNotificationSettings,
@@ -132,6 +139,10 @@ bot_thread: Thread | None = None
 PRIMARY_OWNER_ID = "owner-primary"
 PRIMARY_OWNER_LOGIN = "creator_owner"
 SECONDARY_OWNER_ID = "owner-1"
+OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
+OWNER_DATABASE_RESET_CONFIRMATION_PHRASE = "ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
+OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES = 10
+OWNER_DATABASE_RESET_DELAY_SECONDS = 10
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -1335,6 +1346,119 @@ def _owner_export_recipients(db: Session, actor_id: str) -> list[StaffUser]:
     return recipients
 
 
+def _serialize_state_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return _as_utc(value).isoformat()
+
+
+def _parse_state_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    if not isinstance(value, str):
+        return None
+    try:
+        return _as_utc(datetime.fromisoformat(value))
+    except ValueError:
+        return None
+
+
+def _owner_database_reset_state(db: Session) -> dict[str, Any] | None:
+    row = db.get(AppSetting, OWNER_DATABASE_RESET_SETTING_KEY)
+    if row is None or not isinstance(row.value, dict):
+        return None
+    return row.value
+
+
+def _save_owner_database_reset_state(db: Session, value: dict[str, Any]) -> dict[str, Any]:
+    return _upsert_setting(db, OWNER_DATABASE_RESET_SETTING_KEY, value)
+
+
+def _clear_owner_database_reset_state(db: Session) -> None:
+    row = db.get(AppSetting, OWNER_DATABASE_RESET_SETTING_KEY)
+    if row is not None:
+        db.delete(row)
+        db.flush()
+
+
+def _normalize_database_reset_phrase(value: str) -> str:
+    normalized = " ".join(value.replace("\n", " ").split()).strip().upper()
+    return normalized.replace("Ё", "Е")
+
+
+def _owner_database_reset_preview(
+    db: Session,
+    *,
+    current_session_id: str | None = None,
+) -> OwnerDatabaseResetPreviewPayload:
+    active_session_ids = db.scalars(select(AuthSession.id)).all()
+    sessions_closed = len([item_id for item_id in active_session_ids if not current_session_id or item_id != current_session_id])
+    return OwnerDatabaseResetPreviewPayload(
+        ownersPreserved=len(db.scalars(select(StaffUser.id).where(StaffUser.role == "owner")).all()),
+        employeesDeleted=len(db.scalars(select(StaffUser.id).where(StaffUser.role.in_(("admin", "worker")))).all()),
+        clientsDeleted=len(db.scalars(select(Client.id)).all()),
+        bookingsDeleted=len(db.scalars(select(Booking.id)).all()),
+        notificationsDeleted=len(db.scalars(select(Notification.id)).all()),
+        stockItemsDeleted=len(db.scalars(select(StockItem.id)).all()),
+        expensesDeleted=len(db.scalars(select(Expense.id)).all()),
+        penaltiesDeleted=len(db.scalars(select(Penalty.id)).all()),
+        sessionsClosed=sessions_closed,
+        servicesReset=len(db.scalars(select(Service.id)).all()),
+        boxesReset=len(db.scalars(select(Box.id)).all()),
+        scheduleReset=len(db.scalars(select(ScheduleEntry.id)).all()),
+        settingsReset=len(db.scalars(select(AppSetting.key)).all()),
+    )
+
+
+def _owner_database_reset_warnings(preview: OwnerDatabaseResetPreviewPayload) -> list[str]:
+    return [
+        (
+            "Будут удалены все клиенты, записи, уведомления, склад, расходы и жалобы "
+            f"({preview.clientsDeleted} клиентов, {preview.bookingsDeleted} записей, {preview.notificationsDeleted} уведомлений)."
+        ),
+        (
+            "Будут удалены все сотрудники с ролями администратор и мастер "
+            f"({preview.employeesDeleted} сотрудников)."
+        ),
+        (
+            "Услуги, боксы, расписание и настройки CRM будут сброшены до стартовых значений "
+            f"({preview.servicesReset} услуг, {preview.boxesReset} боксов, {preview.scheduleReset} дней расписания)."
+        ),
+        f"Сохранятся только аккаунты владельцев ({preview.ownersPreserved}) и текущая сессия инициатора.",
+    ]
+
+
+def _perform_owner_database_reset(db: Session, *, current_session_id: str | None) -> None:
+    db.execute(sa_delete(TelegramLinkCode))
+    if current_session_id:
+        db.execute(sa_delete(AuthSession).where(AuthSession.id != current_session_id))
+    else:
+        db.execute(sa_delete(AuthSession))
+    db.execute(sa_delete(Notification))
+    db.execute(sa_delete(BookingWorker))
+    db.execute(sa_delete(Booking))
+    db.execute(sa_delete(Penalty))
+    db.execute(sa_delete(Expense))
+    db.execute(sa_delete(StockItem))
+    db.execute(sa_delete(Client))
+    db.execute(sa_delete(Service))
+    db.execute(sa_delete(Box))
+    db.execute(sa_delete(ScheduleEntry))
+    db.execute(sa_delete(AppSetting))
+    db.execute(sa_delete(StaffUser).where(StaffUser.role.in_(("admin", "worker"))))
+
+    for owner in db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all():
+        owner.two_factor_code_hash = None
+        owner.two_factor_expires_at = None
+        owner.updated_at = _now()
+
+    seed_database(db)
+    _ensure_owner_accounts(db)
+    _repair_text_data(db)
+    _normalize_worker_rules(db)
+    _clear_owner_database_reset_state(db)
+
+
 def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport:
     owner = db.get(StaffUser, actor_id)
     if owner is None or owner.role != "owner":
@@ -1625,6 +1749,147 @@ def send_owner_summary_report_to_telegram(
     report = _owner_summary_report(db, session_data["actorId"], period, segment)
     export_file = _owner_summary_export_file(db, session_data["actorId"], period, segment)
     return _send_owner_summary_report(db, session_data["actorId"], report, export_file)
+
+
+@app.post("/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload)
+def start_owner_database_reset(
+    payload: OwnerDatabaseResetStartRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetStartPayload:
+    _ensure_staff_role(session_data, {"owner"})
+    owner = db.get(StaffUser, session_data["actorId"])
+    if owner is None or owner.role != "owner":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+    if not verify_password(payload.password, owner.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Текущий пароль неверный")
+
+    recipient_owner = _owner_two_factor_recipient(db)
+    generated_code = f"{secrets.randbelow(1_000_000):06d}"
+    expires_at = _now() + timedelta(minutes=OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES)
+    request_id = str(uuid4())
+    preview = _owner_database_reset_preview(db, current_session_id=session_data.get("sessionId"))
+    warnings = _owner_database_reset_warnings(preview)
+
+    _save_owner_database_reset_state(
+        db,
+        {
+            "requestId": request_id,
+            "requestedBy": owner.id,
+            "requestedByLogin": owner.login,
+            "requestedByName": owner.name,
+            "codeHash": hash_one_time_code(generated_code, settings.app_secret),
+            "codeExpiresAt": _serialize_state_datetime(expires_at),
+            "approvedAt": None,
+            "finalizeAfter": None,
+            "createdAt": _serialize_state_datetime(_now()),
+        },
+    )
+    try:
+        send_telegram_message(
+            recipient_owner.telegram_chat_id,
+            (
+                "Запрошена полная очистка CRM\n"
+                f"Инициатор: {owner.name} ({owner.login})\n"
+                f"Код подтверждения: {generated_code}\n"
+                "Код действует 10 минут.\n"
+                "Подтверждайте только если действительно хотите удалить клиентов, записи, склад, расходы, "
+                "жалобы, сотрудников и настройки CRM."
+            ),
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Не удалось отправить код создателю в Telegram. Проверьте доступность бота и Telegram создателя.",
+        ) from exc
+    db.commit()
+    return OwnerDatabaseResetStartPayload(
+        requestId=request_id,
+        creatorCodeExpiresAt=expires_at,
+        confirmationPhrase=OWNER_DATABASE_RESET_CONFIRMATION_PHRASE,
+        preview=preview,
+        warnings=warnings,
+        message="Код подтверждения отправлен создателю в Telegram. Проверьте список того, что будет удалено.",
+    )
+
+
+@app.post("/api/owner/database-reset/approve", response_model=OwnerDatabaseResetApprovePayload)
+def approve_owner_database_reset(
+    payload: OwnerDatabaseResetApproveRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetApprovePayload:
+    _ensure_staff_role(session_data, {"owner"})
+    state = _owner_database_reset_state(db)
+    if state is None or state.get("requestId") != payload.requestId:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запрос на очистку не найден. Начните заново.")
+    if state.get("requestedBy") != session_data["actorId"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Этот запрос на очистку создан другим владельцем.")
+
+    if _normalize_database_reset_phrase(payload.confirmationPhrase) != OWNER_DATABASE_RESET_CONFIRMATION_PHRASE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Введите фразу точно: {OWNER_DATABASE_RESET_CONFIRMATION_PHRASE}",
+        )
+
+    code_expires_at = _parse_state_datetime(state.get("codeExpiresAt"))
+    code_hash = str(state.get("codeHash") or "")
+    if not code_hash or code_expires_at is None or code_expires_at < _now():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код создателя истёк. Запросите новый.")
+    if not payload.creatorCode.strip().isdigit():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Введите 6-значный код от создателя.")
+    if not verify_one_time_code(payload.creatorCode.strip(), code_hash, settings.app_secret):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код создателя неверный.")
+
+    finalize_after = _now() + timedelta(seconds=OWNER_DATABASE_RESET_DELAY_SECONDS)
+    state["approvedAt"] = _serialize_state_datetime(_now())
+    state["finalizeAfter"] = _serialize_state_datetime(finalize_after)
+    state["codeHash"] = None
+    state["codeExpiresAt"] = None
+    _save_owner_database_reset_state(db, state)
+    preview = _owner_database_reset_preview(db, current_session_id=session_data.get("sessionId"))
+    warnings = _owner_database_reset_warnings(preview)
+    db.commit()
+    return OwnerDatabaseResetApprovePayload(
+        requestId=payload.requestId,
+        finalizeAfter=finalize_after,
+        preview=preview,
+        warnings=warnings,
+        message="Финальный шаг разблокируется через 10 секунд. Ещё раз проверьте, что именно будет удалено.",
+    )
+
+
+@app.post("/api/owner/database-reset/execute", response_model=OwnerDatabaseResetExecutePayload)
+def execute_owner_database_reset(
+    payload: OwnerDatabaseResetExecuteRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetExecutePayload:
+    _ensure_staff_role(session_data, {"owner"})
+    state = _owner_database_reset_state(db)
+    if state is None or state.get("requestId") != payload.requestId:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запрос на очистку не найден. Начните заново.")
+    if state.get("requestedBy") != session_data["actorId"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Этот запрос на очистку создан другим владельцем.")
+
+    finalize_after = _parse_state_datetime(state.get("finalizeAfter"))
+    if finalize_after is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сначала подтвердите пароль, код создателя и фразу.")
+    if finalize_after > _now():
+        seconds_left = max(1, int((finalize_after - _now()).total_seconds()) + 1)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Финальная кнопка ещё заблокирована. Подождите {seconds_left} сек.",
+        )
+
+    preview = _owner_database_reset_preview(db, current_session_id=session_data.get("sessionId"))
+    _perform_owner_database_reset(db, current_session_id=session_data.get("sessionId"))
+    db.commit()
+    return OwnerDatabaseResetExecutePayload(
+        message="Полная очистка CRM завершена. Владельцы сохранены, остальные данные сброшены до стартового состояния.",
+        preview=preview,
+    )
 
 
 @app.post("/api/auth/client", response_model=AuthResponse)

@@ -140,6 +140,44 @@ export interface OwnerExportDelivery {
   telegramChatId?: string | null;
 }
 
+export interface OwnerDatabaseResetPreview {
+  ownersPreserved: number;
+  employeesDeleted: number;
+  clientsDeleted: number;
+  bookingsDeleted: number;
+  notificationsDeleted: number;
+  stockItemsDeleted: number;
+  expensesDeleted: number;
+  penaltiesDeleted: number;
+  sessionsClosed: number;
+  servicesReset: number;
+  boxesReset: number;
+  scheduleReset: number;
+  settingsReset: number;
+}
+
+export interface OwnerDatabaseResetStart {
+  requestId: string;
+  creatorCodeExpiresAt: Date;
+  confirmationPhrase: string;
+  preview: OwnerDatabaseResetPreview;
+  warnings: string[];
+  message: string;
+}
+
+export interface OwnerDatabaseResetApproval {
+  requestId: string;
+  finalizeAfter: Date;
+  preview: OwnerDatabaseResetPreview;
+  warnings: string[];
+  message: string;
+}
+
+export interface OwnerDatabaseResetResult {
+  message: string;
+  preview: OwnerDatabaseResetPreview;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -346,6 +384,9 @@ interface AppContextType {
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  requestOwnerDatabaseReset: (password: string) => Promise<OwnerDatabaseResetStart>;
+  approveOwnerDatabaseReset: (requestId: string, creatorCode: string, confirmationPhrase: string) => Promise<OwnerDatabaseResetApproval>;
+  executeOwnerDatabaseReset: (requestId: string) => Promise<OwnerDatabaseResetResult>;
   refreshActiveSessions: () => Promise<void>;
   revokeSession: (sessionId: string) => Promise<void>;
 }
@@ -874,6 +915,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  async function requestOwnerDatabaseReset(password: string) {
+    const response = await apiRequest<{
+      requestId: string;
+      creatorCodeExpiresAt: string;
+      confirmationPhrase: string;
+      preview: OwnerDatabaseResetPreview;
+      warnings: string[];
+      message: string;
+    }>('/api/owner/database-reset/start', {
+      method: 'POST',
+      body: { password },
+    });
+    return {
+      ...response,
+      creatorCodeExpiresAt: new Date(response.creatorCodeExpiresAt),
+    };
+  }
+
+  async function approveOwnerDatabaseReset(requestId: string, creatorCode: string, confirmationPhrase: string) {
+    const response = await apiRequest<{
+      requestId: string;
+      finalizeAfter: string;
+      preview: OwnerDatabaseResetPreview;
+      warnings: string[];
+      message: string;
+    }>('/api/owner/database-reset/approve', {
+      method: 'POST',
+      body: { requestId, creatorCode, confirmationPhrase },
+    });
+    return {
+      ...response,
+      finalizeAfter: new Date(response.finalizeAfter),
+    };
+  }
+
+  async function executeOwnerDatabaseReset(requestId: string) {
+    const response = await apiRequest<OwnerDatabaseResetResult>('/api/owner/database-reset/execute', {
+      method: 'POST',
+      body: { requestId },
+    });
+    await refreshBootstrap();
+    await refreshActiveSessions();
+    return response;
+  }
+
   async function revokeSession(sessionId: string) {
     await apiRequest(`/api/auth/sessions/${sessionId}/revoke`, { method: 'POST' });
     if (session?.sessionId === sessionId) {
@@ -980,6 +1066,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       hireWorker,
       fireWorker,
       changePassword,
+      requestOwnerDatabaseReset,
+      approveOwnerDatabaseReset,
+      executeOwnerDatabaseReset,
       refreshActiveSessions,
       revokeSession,
     }}>

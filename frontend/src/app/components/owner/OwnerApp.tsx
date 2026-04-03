@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp } from '../../context/AppContext';
+import { useApp, type OwnerDatabaseResetPreview } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates } from '../../utils/date';
 
@@ -53,6 +53,9 @@ export function OwnerApp() {
     saveOwnerIntegrations,
     saveOwnerSecurity,
     changePassword,
+    requestOwnerDatabaseReset,
+    approveOwnerDatabaseReset,
+    executeOwnerDatabaseReset,
     hireWorker,
     fireWorker,
     staffProfile,
@@ -82,6 +85,20 @@ export function OwnerApp() {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [securitySaved, setSecuritySaved] = useState(false);
   const [securityError, setSecurityError] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetCreatorCode, setResetCreatorCode] = useState('');
+  const [resetConfirmationPhrase, setResetConfirmationPhrase] = useState('');
+  const [resetRequestId, setResetRequestId] = useState<string | null>(null);
+  const [resetPreview, setResetPreview] = useState<OwnerDatabaseResetPreview | null>(null);
+  const [resetWarnings, setResetWarnings] = useState<string[]>([]);
+  const [resetRequiredPhrase, setResetRequiredPhrase] = useState('');
+  const [resetCodeExpiresAt, setResetCodeExpiresAt] = useState<Date | null>(null);
+  const [resetFinalizeAfter, setResetFinalizeAfter] = useState<Date | null>(null);
+  const [resetCountdown, setResetCountdown] = useState(0);
+  const [resetStage, setResetStage] = useState<'idle' | 'code' | 'armed'>('idle');
+  const [resetLoadingStep, setResetLoadingStep] = useState<'start' | 'approve' | 'execute' | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetInfo, setResetInfo] = useState<string | null>(null);
 
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' });
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
@@ -116,6 +133,23 @@ export function OwnerApp() {
     telegramChatId: '',
   });
 
+  const clearOwnerResetFlow = () => {
+    setResetPassword('');
+    setResetCreatorCode('');
+    setResetConfirmationPhrase('');
+    setResetRequestId(null);
+    setResetPreview(null);
+    setResetWarnings([]);
+    setResetRequiredPhrase('');
+    setResetCodeExpiresAt(null);
+    setResetFinalizeAfter(null);
+    setResetCountdown(0);
+    setResetStage('idle');
+    setResetLoadingStep(null);
+    setResetError(null);
+    setResetInfo(null);
+  };
+
   useEffect(() => setCompany(settings.ownerCompany), [settings.ownerCompany]);
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
@@ -133,6 +167,7 @@ export function OwnerApp() {
     if (settingsSection !== 'security') {
       setSecurityError(null);
       setSecuritySaved(false);
+      clearOwnerResetFlow();
     }
   }, [settingsSection]);
   useEffect(() => {
@@ -140,6 +175,21 @@ export function OwnerApp() {
       void refreshActiveSessions();
     }
   }, [page, settingsSection]);
+  useEffect(() => {
+    if (!resetFinalizeAfter) {
+      setResetCountdown(0);
+      return;
+    }
+
+    const syncCountdown = () => {
+      const diffMs = resetFinalizeAfter.getTime() - Date.now();
+      setResetCountdown(Math.max(0, Math.ceil(diffMs / 1000)));
+    };
+
+    syncCountdown();
+    const intervalId = window.setInterval(syncCountdown, 250);
+    return () => window.clearInterval(intervalId);
+  }, [resetFinalizeAfter]);
 
   const ownerNotifications = notifications.filter(n => n.recipientRole === 'owner');
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
@@ -169,6 +219,22 @@ export function OwnerApp() {
   });
   const payrollTotal = payrollRows.reduce((sum, row) => sum + row.payout, 0);
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const resetPreviewRows = resetPreview ? [
+    { label: 'Сохранятся владельцы', value: resetPreview.ownersPreserved },
+    { label: 'Удалятся сотрудники', value: resetPreview.employeesDeleted },
+    { label: 'Удалятся клиенты', value: resetPreview.clientsDeleted },
+    { label: 'Удалятся записи', value: resetPreview.bookingsDeleted },
+    { label: 'Удалятся уведомления', value: resetPreview.notificationsDeleted },
+    { label: 'Удалятся позиции склада', value: resetPreview.stockItemsDeleted },
+    { label: 'Удалятся расходы', value: resetPreview.expensesDeleted },
+    { label: 'Удалятся жалобы', value: resetPreview.penaltiesDeleted },
+    { label: 'Закроются лишние сессии', value: resetPreview.sessionsClosed },
+    { label: 'Сбросятся услуги', value: resetPreview.servicesReset },
+    { label: 'Сбросятся боксы', value: resetPreview.boxesReset },
+    { label: 'Сбросится график', value: resetPreview.scheduleReset },
+    { label: 'Пересоздадутся настройки', value: resetPreview.settingsReset },
+  ] : [];
+  const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
   const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
@@ -297,6 +363,88 @@ export function OwnerApp() {
     if (settingsSection === 'integrations') await saveOwnerIntegrations(integrations);
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleStartOwnerReset = async () => {
+    if (!resetPassword.trim()) {
+      setResetError('Введите текущий пароль владельца, чтобы запросить код создателя.');
+      return;
+    }
+
+    try {
+      setResetLoadingStep('start');
+      setResetError(null);
+      setResetInfo(null);
+      const response = await requestOwnerDatabaseReset(resetPassword.trim());
+      setResetStage('code');
+      setResetRequestId(response.requestId);
+      setResetPreview(response.preview);
+      setResetWarnings(response.warnings);
+      setResetRequiredPhrase(response.confirmationPhrase);
+      setResetCodeExpiresAt(response.creatorCodeExpiresAt);
+      setResetFinalizeAfter(null);
+      setResetCreatorCode('');
+      setResetConfirmationPhrase('');
+      setResetPassword('');
+      setResetInfo(response.message);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : 'Не удалось запросить код подтверждения.');
+    } finally {
+      setResetLoadingStep(null);
+    }
+  };
+
+  const handleApproveOwnerReset = async () => {
+    if (!resetRequestId) {
+      setResetError('Сначала заново запросите код создателя.');
+      return;
+    }
+    if (!resetCreatorCode.trim()) {
+      setResetError('Введите код, который пришёл создателю в Telegram.');
+      return;
+    }
+    if (!resetConfirmationPhrase.trim()) {
+      setResetError('Введите контрольную фразу подтверждения.');
+      return;
+    }
+
+    try {
+      setResetLoadingStep('approve');
+      setResetError(null);
+      setResetInfo(null);
+      const response = await approveOwnerDatabaseReset(resetRequestId, resetCreatorCode.trim(), resetConfirmationPhrase);
+      setResetStage('armed');
+      setResetPreview(response.preview);
+      setResetWarnings(response.warnings);
+      setResetFinalizeAfter(response.finalizeAfter);
+      setResetCodeExpiresAt(null);
+      setResetCreatorCode('');
+      setResetInfo(response.message);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : 'Не удалось подтвердить очистку.');
+    } finally {
+      setResetLoadingStep(null);
+    }
+  };
+
+  const handleExecuteOwnerReset = async () => {
+    if (!resetRequestId) {
+      setResetError('Запрос на очистку потерян. Начните заново.');
+      return;
+    }
+
+    try {
+      setResetLoadingStep('execute');
+      setResetError(null);
+      const response = await executeOwnerDatabaseReset(resetRequestId);
+      clearOwnerResetFlow();
+      setBottomToast(response.message);
+      setTimeout(() => setBottomToast(null), 5000);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : 'Не удалось выполнить очистку CRM.');
+    } finally {
+      setResetLoadingStep(null);
+    }
   };
 
   const handleAddExpense = () => {
@@ -504,7 +652,7 @@ export function OwnerApp() {
   );
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-3">
+    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-4">
       {/* Header */}
       <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
         <div>
@@ -1259,6 +1407,165 @@ export function OwnerApp() {
                     ? `Telegram подключён: ${staffProfile.telegramChatId}`
                     : 'Сначала привяжите Telegram владельца, иначе 2FA не включится.'}
                 </div>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-3 border ${isDark ? 'border-red-400/20' : 'border-red-200'}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: isDark ? 'rgba(239,68,68,0.16)' : '#FEE2E2', color: '#EF4444' }}>
+                    <AlertCircle size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold">Опасная зона: полная очистка CRM</div>
+                    <div className={`text-xs ${sub} mt-1`}>
+                      Эта операция удалит почти все рабочие данные CRM и пересоздаст систему до стартового состояния. Сохранятся только владельцы и текущая сессия инициатора.
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`mt-4 rounded-2xl border p-3 text-xs ${isDark ? 'border-red-400/20 bg-red-500/10 text-red-100' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                  <div className="font-semibold">Будут удалены клиенты, записи, сотрудники, склад, расходы, жалобы, уведомления, лишние сессии и временные коды.</div>
+                  <div className="mt-2">Подтверждение идёт в три шага: пароль владельца, код создателя из Telegram и точный ввод контрольной фразы.</div>
+                </div>
+
+                {resetPreviewRows.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {resetPreviewRows.map((item) => (
+                      <div key={item.label} className={`${glass} rounded-xl px-3 py-2`}>
+                        <div className={`text-[11px] ${sub}`}>{item.label}</div>
+                        <div className="text-sm font-semibold mt-1">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {resetWarnings.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {resetWarnings.map((warning) => (
+                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#E6EEF8]' : 'bg-black/[0.03] text-[#0B1226]'}`}>
+                        {warning}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Шаг 1. Введите пароль владельца</label>
+                    <input
+                      className={inputCls}
+                      type="password"
+                      placeholder="Текущий пароль"
+                      value={resetPassword}
+                      onChange={(e) => {
+                        setResetError(null);
+                        setResetInfo(null);
+                        setResetPassword(e.target.value);
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => void handleStartOwnerReset()}
+                      disabled={resetLoadingStep === 'start'}
+                      className="flex-1 py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
+                      style={{ background: '#EF4444' }}
+                    >
+                      {resetLoadingStep === 'start' ? 'Запрашиваем код...' : resetStage === 'idle' ? 'Запросить код создателя' : 'Запросить новый код'}
+                    </button>
+                    {resetStage !== 'idle' && (
+                      <button
+                        type="button"
+                        onClick={clearOwnerResetFlow}
+                        disabled={Boolean(resetLoadingStep)}
+                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E6EEF8]' : 'border-black/10 text-[#0B1226]'} disabled:opacity-60`}
+                      >
+                        Сбросить сценарий
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {resetStage !== 'idle' && (
+                  <div className="mt-4 space-y-3">
+                    <div className={`text-xs ${sub}`}>
+                      Шаг 2. Проверьте Telegram создателя и введите код
+                      {resetCodeExpiresAt ? ` до ${resetCodeExpiresAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}.
+                    </div>
+                    <div className={`${glass} rounded-xl px-3 py-3`}>
+                      <div className={`text-[11px] ${sub}`}>Контрольная фраза</div>
+                      <div className="text-sm font-semibold mt-1 break-words">{resetRequiredPhrase || 'Фраза появится после запроса кода'}</div>
+                    </div>
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Код создателя</label>
+                      <input
+                        className={inputCls}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="6 цифр из Telegram"
+                        value={resetCreatorCode}
+                        onChange={(e) => {
+                          setResetError(null);
+                          setResetInfo(null);
+                          setResetCreatorCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Введите фразу подтверждения</label>
+                      <input
+                        className={inputCls}
+                        type="text"
+                        placeholder="ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
+                        value={resetConfirmationPhrase}
+                        onChange={(e) => {
+                          setResetError(null);
+                          setResetInfo(null);
+                          setResetConfirmationPhrase(e.target.value);
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleApproveOwnerReset()}
+                      disabled={resetLoadingStep === 'approve' || resetStage === 'armed'}
+                      className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
+                      style={{ background: '#B91C1C' }}
+                    >
+                      {resetLoadingStep === 'approve' ? 'Проверяем подтверждения...' : resetStage === 'armed' ? 'Финальный шаг уже разблокирован' : 'Подтвердить и разблокировать очистку'}
+                    </button>
+                  </div>
+                )}
+
+                {resetStage === 'armed' && (
+                  <div className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-red-400/20 bg-red-500/10' : 'border-red-200 bg-red-50'}`}>
+                    <div className="text-sm font-semibold text-red-500">Финальное подтверждение</div>
+                    <div className={`text-xs mt-2 ${isDark ? 'text-red-100' : 'text-red-700'}`}>
+                      Будут удалены сотрудники, клиенты, все записи, склад, расходы, жалобы, уведомления, временные коды и почти все настройки CRM. Действие необратимо.
+                    </div>
+                    <div className={`text-xs mt-3 ${sub}`}>
+                      {resetCountdown > 0
+                        ? `Кнопка активируется через ${resetCountdown} сек. За это время ещё раз проверьте, что именно будет удалено.`
+                        : 'Таймер завершён. Если всё верно, можно запускать полную очистку CRM.'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleExecuteOwnerReset()}
+                      disabled={resetExecuteLocked}
+                      className="w-full mt-4 py-3 rounded-2xl text-white font-semibold disabled:opacity-50"
+                      style={{ background: '#991B1B' }}
+                    >
+                      {resetLoadingStep === 'execute'
+                        ? 'Удаляем данные...'
+                        : resetCountdown > 0
+                          ? `Кнопка активируется через ${resetCountdown} сек`
+                          : 'Подтверждаю полную очистку CRM'}
+                    </button>
+                  </div>
+                )}
+
+                {resetError && <div className="mt-4 text-xs text-red-500">{resetError}</div>}
+                {resetInfo && <div className="mt-4 text-xs text-green-600">{resetInfo}</div>}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-2`}>АКТИВНЫЕ СЕССИИ</div>

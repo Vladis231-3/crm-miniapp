@@ -244,6 +244,27 @@ class BookingLogicTests(unittest.TestCase):
             db.commit()
 
     @staticmethod
+    def extract_owner_reset_code(message: str) -> str:
+        prefix = "Код подтверждения: "
+        for line in message.splitlines():
+            if line.startswith(prefix):
+                return line[len(prefix) :].strip()
+        raise AssertionError(f"Owner reset code not found in message: {message}")
+
+    def force_owner_reset_ready(self) -> None:
+        from app.database import SessionLocal
+        from app.models import AppSetting
+
+        with SessionLocal() as db:
+            setting = db.get(AppSetting, "owner_database_reset")
+            self.assertIsNotNone(setting)
+            assert setting is not None
+            next_value = dict(setting.value or {})
+            next_value["finalizeAfter"] = (datetime.now().astimezone() - timedelta(seconds=1)).isoformat()
+            setting.value = next_value
+            db.commit()
+
+    @staticmethod
     def auth_headers(token: str) -> dict[str, str]:
         return {"Authorization": f"Bearer {token}"}
 
@@ -2020,6 +2041,166 @@ class BookingLogicTests(unittest.TestCase):
             },
         )
         self.assertEqual(notification_response.status_code, 403, notification_response.text)
+
+    def test_owner_database_reset_execute_requires_delay_after_approval(self) -> None:
+        self.disable_owner_two_factor()
+        self.set_primary_owner_telegram()
+        owner_token = self.login_staff("owner", "owner")
+        sent_messages: list[tuple[str, str]] = []
+
+        def fake_send_message(chat_id: str, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            start_response = self.client.post(
+                "/api/owner/database-reset/start",
+                headers=self.auth_headers(owner_token),
+                json={"password": "owner"},
+            )
+            self.assertEqual(start_response.status_code, 200, start_response.text)
+
+        self.assertEqual(len(sent_messages), 1)
+        creator_code = self.extract_owner_reset_code(sent_messages[0][1])
+        start_payload = start_response.json()
+        approve_response = self.client.post(
+            "/api/owner/database-reset/approve",
+            headers=self.auth_headers(owner_token),
+            json={
+                "requestId": start_payload["requestId"],
+                "creatorCode": creator_code,
+                "confirmationPhrase": start_payload["confirmationPhrase"],
+            },
+        )
+        self.assertEqual(approve_response.status_code, 200, approve_response.text)
+
+        execute_response = self.client.post(
+            "/api/owner/database-reset/execute",
+            headers=self.auth_headers(owner_token),
+            json={"requestId": start_payload["requestId"]},
+        )
+        self.assertEqual(execute_response.status_code, 409, execute_response.text)
+        self.assertIn("кнопка", execute_response.json()["detail"].lower())
+
+    def test_owner_database_reset_clears_operational_data_and_preserves_owners(self) -> None:
+        from app.database import SessionLocal
+        from app.models import (
+            AppSetting,
+            Booking,
+            Box,
+            Client,
+            Expense,
+            Notification,
+            Service,
+            StaffUser,
+            StockItem,
+        )
+
+        self.disable_owner_two_factor()
+        self.set_primary_owner_telegram()
+        owner_token = self.login_staff("owner", "owner")
+        admin_token = self.login_staff("admin", "admin")
+        admin_bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(admin_token))
+        self.assertEqual(admin_bootstrap.status_code, 200, admin_bootstrap.text)
+        box_name = admin_bootstrap.json()["boxes"][0]["name"]
+        client_token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
+        client_session = self.client.get("/api/auth/session", headers=self.auth_headers(client_token))
+        self.assertEqual(client_session.status_code, 200, client_session.text)
+
+        booking_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": client_id,
+                "clientName": "Alice",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Base wash",
+                "serviceId": "s1",
+                "date": self.next_active_date(),
+                "time": "12:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": box_name,
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(booking_response.status_code, 200, booking_response.text)
+
+        stock_response = self.client.post(
+            "/api/stock-items",
+            headers=self.auth_headers(owner_token),
+            json={"name": "Шампунь", "qty": 5, "unit": "шт", "unitPrice": 400, "category": "Химия"},
+        )
+        self.assertEqual(stock_response.status_code, 200, stock_response.text)
+
+        expense_response = self.client.post(
+            "/api/expenses",
+            headers=self.auth_headers(owner_token),
+            json={"title": "Проверка", "amount": 900, "category": "Прочее", "date": self.next_active_date(), "note": ""},
+        )
+        self.assertEqual(expense_response.status_code, 200, expense_response.text)
+
+        sent_messages: list[tuple[str, str]] = []
+
+        def fake_send_message(chat_id: str, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            start_response = self.client.post(
+                "/api/owner/database-reset/start",
+                headers=self.auth_headers(owner_token),
+                json={"password": "owner"},
+            )
+            self.assertEqual(start_response.status_code, 200, start_response.text)
+
+        self.assertEqual(len(sent_messages), 1)
+        start_payload = start_response.json()
+        creator_code = self.extract_owner_reset_code(sent_messages[0][1])
+        approve_response = self.client.post(
+            "/api/owner/database-reset/approve",
+            headers=self.auth_headers(owner_token),
+            json={
+                "requestId": start_payload["requestId"],
+                "creatorCode": creator_code,
+                "confirmationPhrase": start_payload["confirmationPhrase"],
+            },
+        )
+        self.assertEqual(approve_response.status_code, 200, approve_response.text)
+
+        self.force_owner_reset_ready()
+        execute_response = self.client.post(
+            "/api/owner/database-reset/execute",
+            headers=self.auth_headers(owner_token),
+            json={"requestId": start_payload["requestId"]},
+        )
+        self.assertEqual(execute_response.status_code, 200, execute_response.text)
+        execute_payload = execute_response.json()
+        self.assertGreaterEqual(execute_payload["preview"]["clientsDeleted"], 1)
+        self.assertGreaterEqual(execute_payload["preview"]["bookingsDeleted"], 1)
+        self.assertGreaterEqual(execute_payload["preview"]["stockItemsDeleted"], 1)
+        self.assertGreaterEqual(execute_payload["preview"]["expensesDeleted"], 1)
+
+        with SessionLocal() as db:
+            owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all()
+            self.assertEqual(len(owners), 2)
+            self.assertEqual(len(db.scalars(select(StaffUser).where(StaffUser.role != "owner")).all()), 0)
+            self.assertEqual(len(db.scalars(select(Client)).all()), 0)
+            self.assertEqual(len(db.scalars(select(Booking)).all()), 0)
+            self.assertEqual(len(db.scalars(select(StockItem)).all()), 0)
+            self.assertEqual(len(db.scalars(select(Expense)).all()), 0)
+            self.assertEqual(len(db.scalars(select(Notification)).all()), 0)
+            self.assertGreater(len(db.scalars(select(Service)).all()), 0)
+            self.assertGreater(len(db.scalars(select(Box)).all()), 0)
+            self.assertIsNone(db.get(AppSetting, "owner_database_reset"))
+
+        owner_session = self.client.get("/api/auth/session", headers=self.auth_headers(owner_token))
+        self.assertEqual(owner_session.status_code, 200, owner_session.text)
+
+        admin_relogin = self.client.post("/api/auth/staff/login", json={"login": "admin", "password": "admin"})
+        self.assertEqual(admin_relogin.status_code, 401, admin_relogin.text)
 
 
 if __name__ == "__main__":

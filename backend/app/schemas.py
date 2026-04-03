@@ -528,6 +528,58 @@ class ChangePasswordRequest(BaseModel):
     newPassword: str
 
 
+class OwnerDatabaseResetPreviewPayload(BaseModel):
+    ownersPreserved: int
+    employeesDeleted: int
+    clientsDeleted: int
+    bookingsDeleted: int
+    notificationsDeleted: int
+    stockItemsDeleted: int
+    expensesDeleted: int
+    penaltiesDeleted: int
+    sessionsClosed: int
+    servicesReset: int
+    boxesReset: int
+    scheduleReset: int
+    settingsReset: int
+
+
+class OwnerDatabaseResetStartRequest(BaseModel):
+    password: str
+
+
+class OwnerDatabaseResetApproveRequest(BaseModel):
+    requestId: str
+    creatorCode: str
+    confirmationPhrase: str
+
+
+class OwnerDatabaseResetExecuteRequest(BaseModel):
+    requestId: str
+
+
+class OwnerDatabaseResetStartPayload(BaseModel):
+    requestId: str
+    creatorCodeExpiresAt: datetime
+    confirmationPhrase: str
+    preview: OwnerDatabaseResetPreviewPayload
+    warnings: list[str]
+    message: str
+
+
+class OwnerDatabaseResetApprovePayload(BaseModel):
+    requestId: str
+    finalizeAfter: datetime
+    preview: OwnerDatabaseResetPreviewPayload
+    warnings: list[str]
+    message: str
+
+
+class OwnerDatabaseResetExecutePayload(BaseModel):
+    message: str
+    preview: OwnerDatabaseResetPreviewPayload
+
+
 class GenericMessage(BaseModel):
     message: str
 
