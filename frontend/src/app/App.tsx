@@ -4,6 +4,7 @@ import {
   Sun, Moon, Shield, Eye, EyeOff, X, Car, Phone, User, Hash,
   ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn
 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { AppProvider, Role, useApp } from './context/AppContext';
 import { ClientApp } from './components/client/ClientApp';
 import { AdminApp } from './components/admin/AdminApp';
@@ -309,7 +310,7 @@ const handleStaffLogin = async () => {
                 <div className="grid grid-cols-3 gap-2 mb-5">
                   {[
                     { icon: Shield, label: 'Админ', login: 'admin', color: '#A855F7' },
-                    { icon: Wrench, label: 'Мастер', login: 'ivan', color: '#34C759' },
+                    { icon: Wrench, label: 'Мас��ер', login: 'ivan', color: '#34C759' },
                     { icon: BarChart3, label: 'Владелец', login: 'owner', color: '#FF9500' },
                   ].map(r => (
                     <button
@@ -472,6 +473,7 @@ export default function App() {
   return (
     <AppProvider>
       <AppContent />
+      <Analytics />
     </AppProvider>
   );
 }
