@@ -1752,8 +1752,8 @@ def authenticate_staff(payload: StaffLoginRequest, request: Request, db: Session
                 send_telegram_message(
                     recipient_owner.telegram_chat_id,
                     (
-                        f"РљРѕРґ РІС…РѕРґР° РґР»СЏ РІС‚РѕСЂРѕРіРѕ РІР»Р°РґРµР»СЊС†Р°: {generated_code}\n"
-                        f"Р›РѕРіРёРЅ: {staff.login}\n"
+                        f"Код входа для второго владельца: {generated_code}\n"
+                        f"Логин: {staff.login}\n"
                         "Код действует 10 минут."
                     ),
                 )
