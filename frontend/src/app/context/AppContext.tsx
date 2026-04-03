@@ -3,7 +3,7 @@ import { apiDownload, apiRequest, getTelegramInitData, getTelegramWebApp, tokenS
 import { getScheduleDayIndex, getUpcomingDates, isPastTimeSlot, parseFlexibleDate } from '../utils/date';
 
 export type Role = 'client' | 'admin' | 'worker' | 'owner';
-export type BookingStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'admin_review';
+export type BookingStatus = 'new' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'no_show' | 'cancelled' | 'admin_review';
 export type PaymentType = 'cash' | 'card' | 'online';
 
 export interface SessionInfo {
@@ -37,6 +37,8 @@ export interface RegisteredClient {
   phone: string;
   car: string;
   plate: string;
+  notes: string;
+  debtBalance: number;
 }
 
 export interface Worker {
@@ -254,6 +256,15 @@ export interface OwnerNotificationSettings {
   lowStock: boolean;
   dailyReport: boolean;
   weeklyReport: boolean;
+  bookingReminders: boolean;
+}
+
+export interface OwnerReminderDispatchResult {
+  message: string;
+  targetDate: string;
+  clientReminders: number;
+  workerReminders: number;
+  telegramDelivered: number;
 }
 
 export interface OwnerIntegrations {
@@ -351,6 +362,7 @@ interface AppContextType {
   loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
   loginPrimaryOwnerViaTelegram: () => Promise<Role>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
+  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance'>>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
@@ -369,6 +381,7 @@ interface AppContextType {
   downloadOwnerExport: (kind: OwnerExportKind) => Promise<string>;
   sendOwnerExportToTelegram: (kind: OwnerExportKind) => Promise<OwnerExportDelivery>;
   sendOwnerSummaryReport: (period: OwnerReportPeriod, segment: OwnerReportSegment) => Promise<string>;
+  dispatchOwnerReminders: (options?: { targetDate?: string; force?: boolean }) => Promise<OwnerReminderDispatchResult>;
   saveServices: (services: Service[]) => Promise<void>;
   saveBoxes: (boxes: Box[]) => Promise<void>;
   saveSchedule: (schedule: ScheduleDay[]) => Promise<void>;
@@ -397,11 +410,13 @@ const EMPTY_SETTINGS: SettingsBundle = {
   adminProfile: { name: 'Администратор', email: '', phone: '', telegramChatId: '' },
   adminNotificationSettings: { newBooking: true, cancelled: true, paymentDue: false, workerAssigned: true, reminders: true },
   ownerCompany: { name: 'ATMOSFERA', legalName: '', inn: '', address: '', phone: '', email: '' },
-  ownerNotificationSettings: { telegramBot: true, emailReports: true, smsReminders: false, lowStock: true, dailyReport: true, weeklyReport: false },
+  ownerNotificationSettings: { telegramBot: true, emailReports: true, smsReminders: false, lowStock: true, dailyReport: true, weeklyReport: false, bookingReminders: true },
   ownerIntegrations: { telegram: true, yookassa: false, amoCrm: false, googleCalendar: false },
   ownerSecurity: { twoFactor: false },
   workerNotificationSettings: {},
 };
+const ACTIVE_BOOKING_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled', 'in_progress'];
+
 function timeToMinutes(value: string): number | null {
   const [hours, minutes] = value.split(':').map(Number);
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
@@ -483,7 +498,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setServices(normalized.services);
     setBoxes(normalized.boxes);
     setSchedule(normalized.schedule);
-    setSettings({ ...EMPTY_SETTINGS, ...normalized.settings });
+    setSettings({
+      ...EMPTY_SETTINGS,
+      ...normalized.settings,
+      adminProfile: { ...EMPTY_SETTINGS.adminProfile, ...normalized.settings.adminProfile },
+      adminNotificationSettings: { ...EMPTY_SETTINGS.adminNotificationSettings, ...normalized.settings.adminNotificationSettings },
+      ownerCompany: { ...EMPTY_SETTINGS.ownerCompany, ...normalized.settings.ownerCompany },
+      ownerNotificationSettings: { ...EMPTY_SETTINGS.ownerNotificationSettings, ...normalized.settings.ownerNotificationSettings },
+      ownerIntegrations: { ...EMPTY_SETTINGS.ownerIntegrations, ...normalized.settings.ownerIntegrations },
+      ownerSecurity: { ...EMPTY_SETTINGS.ownerSecurity, ...normalized.settings.ownerSecurity },
+      workerNotificationSettings: normalized.settings.workerNotificationSettings || {},
+    });
   }
 
   async function refreshBootstrap() {
@@ -679,6 +704,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClientProfile(saved);
   }
 
+  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance'>>) {
+    const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
+    setClients((current) => current.map((client) => (client.id === clientId ? saved : client)));
+  }
+
   async function deleteClient(clientId: string) {
     await apiRequest<{ message: string }>(`/api/clients/${clientId}`, { method: 'DELETE' });
     setClients((current) => current.filter((client) => client.id !== clientId));
@@ -710,6 +740,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           phone: created.clientPhone,
           car: created.car || '',
           plate: created.plate || '',
+          notes: '',
+          debtBalance: current.find((client) => client.id === created.clientId)?.debtBalance || 0,
         };
         if (current.some((client) => client.id === created.clientId)) {
           return current.map((client) => (client.id === created.clientId ? { ...client, ...nextClient } : client));
@@ -738,6 +770,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       settings,
     }).bookings[0];
     setBookings((current) => current.map((booking) => (booking.id === id ? updated : booking)));
+    if (updated.clientId) {
+      setClients((current) => current.map((client) => (
+        client.id === updated.clientId
+          ? { ...client, name: updated.clientName, phone: updated.clientPhone, car: updated.car || '', plate: updated.plate || '' }
+          : client
+      )));
+    }
   }
 
   async function deleteBooking(id: string) {
@@ -832,6 +871,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function sendOwnerSummaryReport(period: OwnerReportPeriod, segment: OwnerReportSegment) {
     const response = await apiRequest<{ message: string }>(`/api/owner/reports/${period}/${segment}/telegram`, { method: 'POST' });
     return response.message;
+  }
+
+  async function dispatchOwnerReminders(options: { targetDate?: string; force?: boolean } = {}) {
+    return apiRequest<OwnerReminderDispatchResult>('/api/owner/reminders/dispatch', {
+      method: 'POST',
+      body: {
+        targetDate: options.targetDate,
+        force: options.force ?? true,
+      },
+    });
   }
 
   async function saveServices(nextServices: Service[]) {
@@ -994,7 +1043,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return boxNames.some((boxName) => !bookings.some((booking) => {
         if (booking.date !== date || booking.box !== boxName) return false;
-        if (booking.status !== 'scheduled' && booking.status !== 'in_progress') return false;
+        if (!ACTIVE_BOOKING_STATUSES.includes(booking.status)) return false;
         const bookingStart = timeToMinutes(booking.time);
         if (bookingStart === null) return false;
         return timeRangesOverlap(slotStart, slotEnd, bookingStart, bookingStart + booking.duration);
@@ -1033,6 +1082,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       loginStaff,
       loginPrimaryOwnerViaTelegram,
       updateClientProfile,
+      updateClientCard,
       deleteClient,
       addBooking,
       updateBooking,
@@ -1051,6 +1101,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       downloadOwnerExport,
       sendOwnerExportToTelegram,
       sendOwnerSummaryReport,
+      dispatchOwnerReminders,
       saveServices,
       saveBoxes,
       saveSchedule,

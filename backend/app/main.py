@@ -55,6 +55,7 @@ from .schemas import (
     BoxPayload,
     ChangePasswordRequest,
     ClientAuthRequest,
+    ClientCardUpdateRequest,
     ClientProfilePayload,
     ClientSummaryPayload,
     EmployeeSettingPayload,
@@ -68,6 +69,8 @@ from .schemas import (
     OwnerDatabaseResetApproveRequest,
     OwnerDatabaseResetExecutePayload,
     OwnerDatabaseResetExecuteRequest,
+    OwnerReminderDispatchPayload,
+    OwnerReminderDispatchRequest,
     OwnerDatabaseResetPreviewPayload,
     OwnerDatabaseResetStartPayload,
     OwnerDatabaseResetStartRequest,
@@ -140,9 +143,14 @@ PRIMARY_OWNER_ID = "owner-primary"
 PRIMARY_OWNER_LOGIN = "creator_owner"
 SECONDARY_OWNER_ID = "owner-1"
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
+BOOKING_REMINDER_STATE_KEY = "booking_reminder_dispatch_state"
 OWNER_DATABASE_RESET_CONFIRMATION_PHRASE = "ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
 OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES = 10
 OWNER_DATABASE_RESET_DELAY_SECONDS = 10
+BOOKING_ACTIVE_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
+BOOKING_CLIENT_CANCELLABLE_STATUSES = {"new", "confirmed", "scheduled"}
+BOOKING_REMINDER_ELIGIBLE_STATUSES = {"new", "confirmed", "scheduled"}
+BOOKING_WORKER_MESSAGE_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -382,6 +390,13 @@ def _active_sessions_payload(db: Session, session_data: dict) -> list[AuthSessio
 
 def _apply_runtime_migrations() -> None:
     inspector = inspect(engine)
+    client_columns = {column["name"] for column in inspector.get_columns("clients")}
+    if "notes" not in client_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN notes TEXT DEFAULT ''")
+    if "debt_balance" not in client_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN debt_balance INTEGER DEFAULT 0")
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
     if "telegram_chat_id" not in columns:
         with engine.begin() as connection:
@@ -472,7 +487,7 @@ def _repair_text_data(db: Session) -> None:
     changed |= _repair_model_text_fields(
         db,
         Client,
-        ("name", "car", "plate"),
+        ("name", "car", "plate", "notes"),
     )
     changed |= _repair_model_text_fields(
         db,
@@ -564,7 +579,35 @@ def _client_summary_payload(client: Client) -> ClientSummaryPayload:
         phone=client.phone,
         car=client.car or "",
         plate=client.plate or "",
+        notes=client.notes or "",
+        debtBalance=client.debt_balance,
     )
+
+
+def _booking_status_label(status_value: str) -> str:
+    return {
+        "new": "Новая заявка",
+        "confirmed": "Подтверждена",
+        "scheduled": "Запланирована",
+        "in_progress": "В работе",
+        "completed": "Завершена",
+        "no_show": "Клиент не приехал",
+        "cancelled": "Отменена",
+        "admin_review": "На уточнении у администратора",
+    }.get(status_value, status_value)
+
+
+def _booking_status_short_label(status_value: str) -> str:
+    return {
+        "new": "Новая",
+        "confirmed": "Подтв.",
+        "scheduled": "Запл.",
+        "in_progress": "В работе",
+        "completed": "Завершена",
+        "no_show": "Не приехал",
+        "cancelled": "Отменена",
+        "admin_review": "Уточнение",
+    }.get(status_value, status_value)
 
 
 def _format_local_datetime(value: datetime) -> str:
@@ -659,7 +702,7 @@ def _box_is_available(
     query = select(Booking).where(
         Booking.date == date_value,
         Booking.box == box,
-        Booking.status.in_(("scheduled", "in_progress")),
+        Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
     )
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
@@ -719,7 +762,7 @@ def _ensure_booking_has_no_conflicts(
     worker_ids: set[str],
     status_value: str,
 ) -> None:
-    if status_value not in {"scheduled", "in_progress"}:
+    if status_value not in BOOKING_ACTIVE_STATUSES:
         return
 
     candidate_range = _booking_time_range(date_value, time_value, duration)
@@ -735,7 +778,7 @@ def _ensure_booking_has_no_conflicts(
         .options(joinedload(Booking.worker_links))
         .where(
             Booking.date == date_value,
-            Booking.status.in_(("scheduled", "in_progress")),
+            Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
         )
     )
     if booking_id is not None:
@@ -979,7 +1022,7 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
             _setting(
                 db,
                 "owner_notification_settings",
-                {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False},
+                {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True},
             )
         ),
         ownerIntegrations=OwnerIntegrationsPayload.model_validate(
@@ -1022,6 +1065,7 @@ def _empty_settings_payload() -> SettingsBundlePayload:
             lowStock=False,
             dailyReport=False,
             weeklyReport=False,
+            bookingReminders=False,
         ),
         ownerIntegrations=OwnerIntegrationsPayload(
             telegram=False,
@@ -1079,7 +1123,7 @@ def _session_payload(session_data: dict) -> SessionPayload:
 def _mark_overdue_bookings_for_admin_review(db: Session) -> None:
     now_local = datetime.now().replace(second=0, microsecond=0)
     changed = False
-    for booking in db.scalars(select(Booking).where(Booking.status.in_(("scheduled", "in_progress")))).all():
+    for booking in db.scalars(select(Booking).where(Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)))).all():
         booking_range = _booking_time_range(booking.date, booking.time, booking.duration)
         if booking_range is None:
             continue
@@ -1344,6 +1388,159 @@ def _owner_export_recipients(db: Session, actor_id: str) -> list[StaffUser]:
     if not any(item.id == primary_owner.id for item in recipients):
         recipients.append(primary_owner)
     return recipients
+
+
+def _booking_reminder_target_date(days_ahead: int = 1) -> str:
+    return (datetime.now() + timedelta(days=days_ahead)).strftime("%d.%m.%Y")
+
+
+def _worker_notification_settings_map(db: Session) -> dict[str, dict[str, Any]]:
+    return _setting(db, "worker_notification_settings", {})
+
+
+def _booking_reminder_state(db: Session) -> dict[str, Any]:
+    return _setting(db, BOOKING_REMINDER_STATE_KEY, {"deliveries": {}})
+
+
+def _cleanup_booking_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]:
+    threshold = _now() - timedelta(days=14)
+    cleaned: dict[str, str] = {}
+    for key, value in deliveries.items():
+        delivered_at = _parse_state_datetime(value)
+        if delivered_at is None or delivered_at >= threshold:
+            cleaned[key] = value
+    return cleaned
+
+
+def _booking_client_reminder_message(booking: Booking) -> str:
+    return (
+        "Напоминание о записи\n"
+        f"Услуга: {booking.service}\n"
+        f"Дата: {booking.date} {booking.time}\n"
+        f"Бокс: {booking.box}\n"
+        "Если планы изменились, пожалуйста, предупредите заранее."
+    )
+
+
+def _booking_worker_reminder_message(booking: Booking, worker_name: str) -> str:
+    return (
+        f"Напоминание мастеру {worker_name}\n"
+        f"Клиент: {booking.client_name}\n"
+        f"Услуга: {booking.service}\n"
+        f"Дата: {booking.date} {booking.time}\n"
+        f"Бокс: {booking.box}"
+    )
+
+
+def _dispatch_booking_reminders(
+    db: Session,
+    *,
+    target_date: str | None = None,
+    force: bool = False,
+) -> OwnerReminderDispatchPayload:
+    reminder_date = (target_date or "").strip() or _booking_reminder_target_date()
+    owner_settings = _setting(
+        db,
+        "owner_notification_settings",
+        {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True},
+    )
+    if not owner_settings.get("bookingReminders", True) and not force:
+        return OwnerReminderDispatchPayload(
+            message="Автоматические напоминания отключены в настройках владельца.",
+            targetDate=reminder_date,
+            clientReminders=0,
+            workerReminders=0,
+            telegramDelivered=0,
+        )
+
+    reminder_state = _booking_reminder_state(db)
+    deliveries = reminder_state.get("deliveries")
+    if not isinstance(deliveries, dict):
+        deliveries = {}
+    deliveries = _cleanup_booking_reminder_deliveries(deliveries)
+
+    worker_settings = _worker_notification_settings_map(db)
+    telegram_enabled = bool(owner_settings.get("telegramBot", True))
+    client_reminders = 0
+    worker_reminders = 0
+    telegram_delivered = 0
+
+    bookings = db.scalars(
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(
+            Booking.date == reminder_date,
+            Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
+        )
+        .order_by(Booking.time.asc(), Booking.created_at.asc())
+    ).unique().all()
+
+    worker_ids = {link.worker_id for booking in bookings for link in booking.worker_links}
+    workers_map = {
+        worker.id: worker
+        for worker in db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
+    } if worker_ids else {}
+
+    for booking in bookings:
+        client = db.get(Client, booking.client_id)
+        client_key = f"client:{booking.id}:{reminder_date}"
+        client_message = _booking_client_reminder_message(booking)
+        if client is not None and (force or client_key not in deliveries):
+            db.add(
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="client",
+                    recipient_id=client.id,
+                    message=client_message,
+                    read=False,
+                    created_at=_now(),
+                )
+            )
+            client_reminders += 1
+            deliveries[client_key] = _serialize_state_datetime(_now())
+            if telegram_enabled and client.telegram_id:
+                _send_telegram_safe(client.telegram_id, client_message)
+                telegram_delivered += 1
+
+        for link in booking.worker_links:
+            worker_preferences = worker_settings.get(link.worker_id, {})
+            if not worker_preferences.get("reminders", False):
+                continue
+            worker_key = f"worker:{link.worker_id}:{booking.id}:{reminder_date}"
+            if not force and worker_key in deliveries:
+                continue
+            worker = workers_map.get(link.worker_id)
+            worker_message = _booking_worker_reminder_message(booking, link.worker_name)
+            db.add(
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="worker",
+                    recipient_id=link.worker_id,
+                    message=worker_message,
+                    read=False,
+                    created_at=_now(),
+                )
+            )
+            worker_reminders += 1
+            deliveries[worker_key] = _serialize_state_datetime(_now())
+            if telegram_enabled and worker is not None and worker.telegram_chat_id:
+                _send_telegram_safe(worker.telegram_chat_id, worker_message)
+                telegram_delivered += 1
+
+    reminder_state["deliveries"] = deliveries
+    _upsert_setting(db, BOOKING_REMINDER_STATE_KEY, reminder_state)
+
+    return OwnerReminderDispatchPayload(
+        message=(
+            "Напоминания отправлены."
+            if client_reminders or worker_reminders
+            else f"Для даты {reminder_date} активных записей для напоминаний не найдено."
+        ),
+        targetDate=reminder_date,
+        clientReminders=client_reminders,
+        workerReminders=worker_reminders,
+        telegramDelivered=telegram_delivered,
+    )
 
 
 def _serialize_state_datetime(value: datetime | None) -> str | None:
@@ -1751,6 +1948,30 @@ def send_owner_summary_report_to_telegram(
     return _send_owner_summary_report(db, session_data["actorId"], report, export_file)
 
 
+@app.post("/api/owner/reminders/dispatch", response_model=OwnerReminderDispatchPayload)
+def dispatch_owner_booking_reminders(
+    payload: OwnerReminderDispatchRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerReminderDispatchPayload:
+    _ensure_staff_role(session_data, {"owner"})
+    response = _dispatch_booking_reminders(db, target_date=payload.targetDate, force=payload.force)
+    db.commit()
+    return response
+
+
+@app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
+def run_booking_reminders_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> OwnerReminderDispatchPayload:
+    if settings.cron_secret and authorization != f"Bearer {settings.cron_secret}":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+    response = _dispatch_booking_reminders(db)
+    db.commit()
+    return response
+
+
 @app.post("/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload)
 def start_owner_database_reset(
     payload: OwnerDatabaseResetStartRequest,
@@ -2110,6 +2331,28 @@ def update_client_profile(
     return _client_payload(client)  # type: ignore[return-value]
 
 
+@app.patch("/api/clients/{client_id}/card", response_model=ClientSummaryPayload)
+def update_client_card(
+    client_id: str,
+    payload: ClientCardUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ClientSummaryPayload:
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден")
+    updates = payload.model_dump(exclude_unset=True)
+    if "notes" in updates and updates["notes"] is not None:
+        client.notes = updates["notes"].strip()
+    if "debtBalance" in updates and updates["debtBalance"] is not None:
+        client.debt_balance = int(updates["debtBalance"])
+    client.updated_at = _now()
+    db.commit()
+    db.refresh(client)
+    return _client_summary_payload(client)
+
+
 @app.delete("/api/clients/{client_id}", response_model=GenericMessage)
 def delete_client(
     client_id: str,
@@ -2206,7 +2449,7 @@ def create_booking(
         booking_plate = client.plate or ""
 
     booking_workers = [] if session_data["role"] == "client" else _validated_booking_workers(db, payload.workers)
-    booking_status = "scheduled" if session_data["role"] == "client" else payload.status
+    booking_status = "new" if session_data["role"] == "client" else payload.status
 
     _ensure_booking_datetime_not_in_past(payload.date, payload.time)
     _ensure_booking_within_schedule(db, payload.date, payload.time, booking_duration)
@@ -2264,7 +2507,7 @@ def create_booking(
                 id=f"n-{uuid4()}",
                 recipient_role="client",
                 recipient_id=client.id,
-                message=f"Запись на {booking_service} подтверждена на {payload.date} в {payload.time}",
+                message=f"Заявка на {booking_service} создана на {payload.date} в {payload.time}. Статус: {_booking_status_label(booking_status)}",
                 read=False,
                 created_at=_now(),
             ),
@@ -2388,14 +2631,7 @@ def update_booking(
         if booking.date != previous_date or booking.time != previous_time:
             client_notification_parts.append(f"Новые дата и время: {booking.date} {booking.time}")
         if booking.status != previous_status:
-            status_labels = {
-                "scheduled": "Статус: запланировано",
-                "in_progress": "Статус: в работе",
-                "completed": "Статус: завершено",
-                "cancelled": "Статус: отменено",
-                "admin_review": "Статус: на уточнении у администратора",
-            }
-            client_notification_parts.append(status_labels.get(booking.status, f"Статус: {booking.status}"))
+            client_notification_parts.append(f"Статус: {_booking_status_label(booking.status)}")
         if booking.service != previous_service:
             client_notification_parts.append(f"Услуга: {booking.service}")
         if booking.box != previous_box:
@@ -2451,10 +2687,10 @@ def delete_booking(
     if session_data["role"] == "client":
         if booking.client_id != session_data["actorId"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        if booking.status != "scheduled":
+        if booking.status not in BOOKING_CLIENT_CANCELLABLE_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Клиент может отменить только запланированную запись",
+                detail="Клиент может отменить только новую, подтверждённую или запланированную запись",
             )
         db.add_all([
             Notification(
@@ -2496,7 +2732,7 @@ def create_notification(
             .where(
                 BookingWorker.worker_id == session_data["actorId"],
                 Booking.client_id == payload.recipientId,
-                Booking.status.in_(("scheduled", "in_progress", "admin_review")),
+                Booking.status.in_(tuple(BOOKING_WORKER_MESSAGE_STATUSES)),
             )
         )
         if assigned_booking is None:
@@ -3172,7 +3408,7 @@ def fire_worker(
         .options(joinedload(Booking.worker_links))
         .where(
             BookingWorker.worker_id == worker_id,
-            Booking.status.in_(("scheduled", "in_progress")),
+            Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
         )
         .order_by(Booking.date.asc(), Booking.time.asc())
     ).unique().all()
@@ -3185,7 +3421,7 @@ def fire_worker(
 
     scheduled_count = 0
     for booking in assigned_bookings:
-        if booking.status == "scheduled":
+        if booking.status in {"new", "confirmed", "scheduled"}:
             scheduled_count += 1
         for link in list(booking.worker_links):
             if link.worker_id == worker_id:

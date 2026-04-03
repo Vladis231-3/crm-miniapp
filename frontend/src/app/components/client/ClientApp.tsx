@@ -16,20 +16,30 @@ import {
 } from '../../utils/validation';
 
 const STATUS_LABELS: Record<string, string> = {
+  new: 'Новая заявка',
+  confirmed: 'Подтверждена',
   scheduled: 'Запланировано',
   in_progress: 'В работе',
   completed: 'Завершено',
+  no_show: 'Не приехал',
   cancelled: 'Отменено',
   admin_review: 'На уточнении у админа',
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  new: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
+  confirmed: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
   scheduled: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
   in_progress: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
   completed: 'bg-green-500/15 text-green-600 dark:text-green-400',
+  no_show: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
   cancelled: 'bg-red-500/15 text-red-600 dark:text-red-400',
   admin_review: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
 };
+
+const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress']);
+const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show', 'admin_review']);
+const CANCELLABLE_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled']);
 
 type Page = 'catalog' | 'detail' | 'slots' | 'confirm' | 'bookings' | 'profile';
 
@@ -80,6 +90,16 @@ export function ClientApp() {
   const activeServices = services.filter((service) => service.active);
   const categories = ['Все', ...Array.from(new Set(activeServices.map((service) => service.category)))];
   const clientBookings = bookings.filter((booking) => booking.clientId === session?.actorId);
+  const upcomingBookings = clientBookings.filter((booking) => UPCOMING_STATUSES.has(booking.status));
+  const pastBookings = clientBookings.filter((booking) => HISTORY_STATUSES.has(booking.status));
+  const completedBookings = clientBookings.filter((booking) => booking.status === 'completed');
+  const totalSpent = completedBookings.reduce((sum, booking) => sum + booking.price, 0);
+  const favoriteService = completedBookings.length > 0
+    ? Object.entries(completedBookings.reduce<Record<string, number>>((acc, booking) => {
+      acc[booking.service] = (acc[booking.service] || 0) + 1;
+      return acc;
+    }, {})).sort((left, right) => right[1] - left[1])[0]?.[0] || 'Пока нет'
+    : 'Пока нет';
   const myNotifications = notifications.filter((notification) => notification.recipientRole === 'client' && notification.recipientId === session?.actorId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
@@ -123,7 +143,7 @@ export function ClientApp() {
       time: selectedSlot,
       duration: selectedService.duration,
       price: selectedService.price,
-      status: 'scheduled',
+      status: 'new',
       workers: [],
       box: defaultBoxName,
       paymentType: 'cash',
@@ -227,9 +247,9 @@ export function ClientApp() {
         >
           <CalendarDays size={20} style={{ color: page === 'bookings' ? primary : undefined }} className={page !== 'bookings' ? sub : ''} />
           <span className="text-xs" style={{ color: page === 'bookings' ? primary : undefined }}>Мои записи</span>
-          {clientBookings.filter(b => b.status === 'scheduled').length > 0 && (
+          {upcomingBookings.length > 0 && (
             <span className="absolute top-2 right-8 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-              {clientBookings.filter(b => b.status === 'scheduled').length}
+              {upcomingBookings.length}
             </span>
           )}
         </button>
@@ -483,9 +503,21 @@ export function ClientApp() {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    {[
+                      { label: 'Визитов', value: completedBookings.length },
+                      { label: 'Потрачено', value: `${Math.round(totalSpent / 1000)}к ₽` },
+                      { label: 'Любимая', value: favoriteService.split(' ')[0] || 'Нет' },
+                    ].map((item) => (
+                      <div key={item.label} className={`${glass} rounded-2xl px-3 py-3`}>
+                        <div className={`text-[11px] ${sub}`}>{item.label}</div>
+                        <div className="font-semibold text-sm mt-1">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
                   {/* Upcoming */}
                   <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Предстоящие</div>
-                  {clientBookings.filter(b => b.status === 'scheduled' || b.status === 'in_progress').map(booking => (
+                  {upcomingBookings.map(booking => (
                     <BookingCard
                       key={booking.id}
                       booking={booking}
@@ -496,13 +528,13 @@ export function ClientApp() {
                       onCancel={() => setShowCancelConfirm(booking.id)}
                     />
                   ))}
-                  {clientBookings.filter(b => b.status === 'scheduled' || b.status === 'in_progress').length === 0 && (
+                  {upcomingBookings.length === 0 && (
                     <p className={`text-sm ${sub} text-center py-2`}>Нет предстоящих записей</p>
                   )}
 
                   {/* Past */}
                   <div className={`text-xs font-medium ${sub} uppercase tracking-wider mt-4 mb-2`}>Прошедшие</div>
-                  {clientBookings.filter(b => b.status === 'completed' || b.status === 'cancelled' || b.status === 'admin_review').map(booking => (
+                  {pastBookings.map(booking => (
                     <BookingCard
                       key={booking.id}
                       booking={booking}
@@ -528,6 +560,18 @@ export function ClientApp() {
               className="px-4 py-4"
             >
               <h2 className="text-lg font-semibold mb-4">Профиль</h2>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {[
+                  { label: 'Активные', value: upcomingBookings.length },
+                  { label: 'Завершено', value: completedBookings.length },
+                  { label: 'Средний чек', value: completedBookings.length ? `${Math.round(totalSpent / completedBookings.length).toLocaleString('ru')} ₽` : '0 ₽' },
+                ].map((item) => (
+                  <div key={item.label} className={`${glass} rounded-2xl px-3 py-3`}>
+                    <div className={`text-[11px] ${sub}`}>{item.label}</div>
+                    <div className="font-semibold text-sm mt-1">{item.value}</div>
+                  </div>
+                ))}
+              </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
@@ -732,7 +776,7 @@ function BookingCard({
         </div>
       </div>
       <div className={`text-xs ${sub} mb-3`}>{booking.box} · {booking.duration} мин</div>
-      {(booking.status === 'scheduled') && (
+      {CANCELLABLE_STATUSES.has(booking.status) && (
         <button
           onClick={onCancel}
           className={`w-full py-2 rounded-xl text-sm border flex items-center justify-center gap-2 ${isDark ? 'border-red-400/30 text-red-400' : 'border-red-500/30 text-red-500'}`}

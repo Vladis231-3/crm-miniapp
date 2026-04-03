@@ -23,15 +23,37 @@ import {
 } from '../../utils/validation';
 
 const STATUS_LABELS: Record<string, string> = {
-  scheduled: 'Запланировано', in_progress: 'В работе', completed: 'Завершено', cancelled: 'Отменено', admin_review: 'На уточнении',
+  new: 'Новая заявка',
+  confirmed: 'Подтверждена',
+  scheduled: 'Запланировано',
+  in_progress: 'В работе',
+  completed: 'Завершено',
+  no_show: 'Не приехал',
+  cancelled: 'Отменено',
+  admin_review: 'На уточнении',
 };
 const STATUS_COLORS: Record<BookingStatus, string> = {
-  scheduled: 'bg-blue-500', in_progress: 'bg-yellow-500', completed: 'bg-green-500', cancelled: 'bg-red-500', admin_review: 'bg-amber-500',
+  new: 'bg-indigo-500',
+  confirmed: 'bg-cyan-500',
+  scheduled: 'bg-blue-500',
+  in_progress: 'bg-yellow-500',
+  completed: 'bg-green-500',
+  no_show: 'bg-orange-500',
+  cancelled: 'bg-red-500',
+  admin_review: 'bg-amber-500',
 };
 const STATUS_BADGE: Record<BookingStatus, string> = {
-  scheduled: 'bg-blue-500/15 text-blue-600', in_progress: 'bg-yellow-500/15 text-yellow-600',
-  completed: 'bg-green-500/15 text-green-600', cancelled: 'bg-red-500/15 text-red-500', admin_review: 'bg-amber-500/15 text-amber-600',
+  new: 'bg-indigo-500/15 text-indigo-600',
+  confirmed: 'bg-cyan-500/15 text-cyan-600',
+  scheduled: 'bg-blue-500/15 text-blue-600',
+  in_progress: 'bg-yellow-500/15 text-yellow-600',
+  completed: 'bg-green-500/15 text-green-600',
+  no_show: 'bg-orange-500/15 text-orange-600',
+  cancelled: 'bg-red-500/15 text-red-500',
+  admin_review: 'bg-amber-500/15 text-amber-600',
 };
+
+const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing';
@@ -146,10 +168,13 @@ export function AdminApp() {
   })).filter(s => s.count > 0);
 
   const byStatus = [
+    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
     { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
     { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
     { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
     { name: 'На уточнении', value: bookings.filter(b => b.status === 'admin_review').length, color: '#F59E0B' },
+    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
     { name: 'Отменено', value: bookings.filter(b => b.status === 'cancelled').length, color: '#EF4444' },
   ].filter(s => s.value > 0);
 
@@ -328,7 +353,7 @@ export function AdminApp() {
         time: newBookingForm.time.trim(),
         duration: svc?.duration || newBookingForm.duration,
         price: svc?.price || newBookingForm.price,
-        status: 'scheduled',
+        status: 'confirmed',
         workers: createdWorkers,
         box: newBookingForm.box,
         paymentType: 'cash',
@@ -999,13 +1024,13 @@ export function AdminApp() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={() => setShowEditModal(true)} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} />Редактировать</button>
-                  {selectedBooking.status === 'scheduled' && (
+                  {READY_TO_START_STATUSES.includes(selectedBooking.status) && (
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} />Начать</button>
                   )}
                   {(selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
                     <button onClick={() => openCompleteModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><CheckCircle size={15} />Закрыть</button>
                   )}
-                  {(selectedBooking.status === 'scheduled' || selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
+                  {(READY_TO_START_STATUSES.includes(selectedBooking.status) || selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'cancelled'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-red-500/15 text-red-500"><XCircle size={15} />Отменить</button>
                   )}
                   {selectedBooking.status === 'completed' && (
@@ -1128,9 +1153,12 @@ export function AdminApp() {
                   <select className={selectCls} value={selectedBooking.status}
                     onChange={e => { updateBooking(selectedBooking.id, { status: e.target.value as BookingStatus }); setSelectedBooking(prev => prev ? { ...prev, status: e.target.value as BookingStatus } : null); }}>
                     <option value="scheduled">Запланировано</option>
+                    <option value="new">Новая заявка</option>
+                    <option value="confirmed">Подтверждена</option>
                     <option value="in_progress">В работе</option>
                     <option value="admin_review">На уточнении у админа</option>
                     <option value="completed">Завершено</option>
+                    <option value="no_show">Не приехал</option>
                     <option value="cancelled">Отменено</option>
                   </select>
                 </div>

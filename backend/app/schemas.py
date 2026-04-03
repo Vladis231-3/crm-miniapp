@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 Role = Literal["client", "admin", "worker", "owner"]
-BookingStatus = Literal["scheduled", "in_progress", "completed", "cancelled", "admin_review"]
+BookingStatus = Literal["new", "confirmed", "scheduled", "in_progress", "completed", "no_show", "cancelled", "admin_review"]
 PaymentType = Literal["cash", "card", "online"]
 
 NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё' -]{1,59}$")
@@ -122,6 +122,8 @@ class ClientSummaryPayload(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    notes: str = ""
+    debtBalance: int = 0
 
 
 class WorkerPayload(BaseModel):
@@ -288,6 +290,7 @@ class OwnerNotificationSettings(BaseModel):
     lowStock: bool
     dailyReport: bool
     weeklyReport: bool
+    bookingReminders: bool = True
 
 
 class OwnerIntegrationsPayload(BaseModel):
@@ -478,6 +481,11 @@ class BookingUpdateRequest(BaseModel):
         return normalize_plate(value)
 
 
+class ClientCardUpdateRequest(BaseModel):
+    notes: str | None = None
+    debtBalance: int | None = None
+
+
 class NotificationCreateRequest(BaseModel):
     recipientRole: Role
     recipientId: str | None = None
@@ -521,6 +529,19 @@ class PenaltyCreateRequest(BaseModel):
     workerId: str
     title: str
     reason: str
+
+
+class OwnerReminderDispatchRequest(BaseModel):
+    targetDate: str | None = None
+    force: bool = False
+
+
+class OwnerReminderDispatchPayload(BaseModel):
+    message: str
+    targetDate: str
+    clientReminders: int
+    workerReminders: int
+    telegramDelivered: int
 
 
 class ChangePasswordRequest(BaseModel):

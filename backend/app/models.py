@@ -22,6 +22,8 @@ class Client(Base):
     phone: Mapped[str] = mapped_column(String(64))
     car: Mapped[str] = mapped_column(String(120), default="")
     plate: Mapped[str] = mapped_column(String(32), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    debt_balance: Mapped[int] = mapped_column(Integer, default=0)
     registered: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)

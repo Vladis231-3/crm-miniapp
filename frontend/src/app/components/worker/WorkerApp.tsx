@@ -12,6 +12,52 @@ import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
 type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security';
 
+const READY_TO_START_STATUSES: Booking['status'][] = ['new', 'confirmed', 'scheduled'];
+
+function workerStatusLabel(status: Booking['status']) {
+  switch (status) {
+    case 'new':
+      return 'Новая';
+    case 'confirmed':
+      return 'Подтверждена';
+    case 'scheduled':
+      return 'Запланировано';
+    case 'in_progress':
+      return 'В работе';
+    case 'completed':
+      return 'Завершено';
+    case 'admin_review':
+      return 'На уточнении';
+    case 'no_show':
+      return 'Не приехал';
+    case 'cancelled':
+      return 'Отменено';
+    default:
+      return status;
+  }
+}
+
+function workerStatusBadge(status: Booking['status']) {
+  switch (status) {
+    case 'new':
+      return 'bg-indigo-500/15 text-indigo-600';
+    case 'confirmed':
+      return 'bg-cyan-500/15 text-cyan-600';
+    case 'scheduled':
+      return 'bg-blue-500/15 text-blue-600';
+    case 'in_progress':
+      return 'bg-yellow-500/15 text-yellow-600';
+    case 'completed':
+      return 'bg-green-500/15 text-green-600';
+    case 'admin_review':
+      return 'bg-amber-500/15 text-amber-600';
+    case 'no_show':
+      return 'bg-orange-500/15 text-orange-600';
+    default:
+      return 'bg-red-500/15 text-red-500';
+  }
+}
+
 export function WorkerApp() {
   const {
     isDark,
@@ -310,7 +356,7 @@ export function WorkerApp() {
                 </div>
               )}
               <div className="space-y-2">
-                {selectedTask.status === 'scheduled' && (
+                {READY_TO_START_STATUSES.includes(selectedTask.status) && (
                   <button onClick={() => setShowStartConfirm(selectedTask)} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: accent }}>
                     <Play size={18} />Начать задачу
                   </button>
@@ -340,12 +386,12 @@ export function WorkerApp() {
                           <div className={`text-sm ${sub}`}>{task.clientName}</div>
                           <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${task.status === 'scheduled' ? 'bg-blue-500/15 text-blue-600' : task.status === 'in_progress' ? 'bg-yellow-500/15 text-yellow-600' : task.status === 'completed' ? 'bg-green-500/15 text-green-600' : task.status === 'admin_review' ? 'bg-amber-500/15 text-amber-600' : 'bg-red-500/15 text-red-500'}`}>
-                          {task.status === 'scheduled' ? 'Запланировано' : task.status === 'in_progress' ? 'В работе' : task.status === 'completed' ? 'Завершено' : task.status === 'admin_review' ? 'На уточнении' : 'Отменено'}
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(task.status)}`}>
+                          {workerStatusLabel(task.status)}
                         </span>
                       </div>
                       <div className="flex gap-2 mt-3">
-                        {task.status === 'scheduled' && (
+                        {READY_TO_START_STATUSES.includes(task.status) && (
                           <button onClick={() => setShowStartConfirm(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: accent }}>
                             <Play size={14} />Начать
                           </button>
@@ -382,8 +428,8 @@ export function WorkerApp() {
                             <div className="text-sm font-medium">{task.time} — {task.service}</div>
                             <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}</div>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : 'bg-blue-500/15 text-blue-600'}`}>
-                            {task.status === 'completed' ? 'Выполнено' : 'Запланировано'}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
+                            {task.status === 'completed' ? 'Выполнено' : workerStatusLabel(task.status)}
                           </span>
                         </div>
                       </div>
@@ -646,8 +692,8 @@ export function WorkerApp() {
                         <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : task.status === 'in_progress' ? 'bg-yellow-500/15 text-yellow-600' : task.status === 'admin_review' ? 'bg-amber-500/15 text-amber-600' : 'bg-blue-500/15 text-blue-600'}`}>
-                          {task.status === 'completed' ? 'Выполнено' : task.status === 'in_progress' ? 'В работе' : task.status === 'admin_review' ? 'На уточнении' : 'Запланировано'}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
+                          {task.status === 'completed' ? 'Выполнено' : workerStatusLabel(task.status)}
                         </span>
                         {earned > 0 && <div className="text-xs font-semibold mt-1" style={{ color: accent }}>+{earned.toLocaleString('ru')} ₽</div>}
                       </div>

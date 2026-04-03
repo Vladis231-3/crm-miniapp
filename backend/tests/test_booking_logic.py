@@ -277,7 +277,7 @@ class BookingLogicTests(unittest.TestCase):
                 return next_date.strftime("%d.%m.%Y")
         raise AssertionError("Unable to find active schedule day")
 
-    def test_client_booking_uses_session_client_and_forces_scheduled_status(self) -> None:
+    def test_client_booking_uses_session_client_and_forces_new_status(self) -> None:
         token, actor_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
         response = self.client.post(
             "/api/bookings",
@@ -304,12 +304,140 @@ class BookingLogicTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["clientId"], actor_id)
         self.assertEqual(payload["clientName"], "Alice")
-        self.assertEqual(payload["status"], "scheduled")
+        self.assertEqual(payload["status"], "new")
         self.assertEqual(payload["workers"], [])
         self.assertEqual(payload["serviceId"], "s1")
         self.assertNotEqual(payload["service"], "Spoofed service")
         self.assertNotEqual(payload["duration"], 999)
-        self.assertNotEqual(payload["price"], 1)
+
+    def test_owner_can_update_client_card_notes_and_debt(self) -> None:
+        _client_token, client_id = self.login_client(name="Alice", phone="+7 (999) 222-33-44")
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        response = self.client.patch(
+            f"/api/clients/{client_id}/card",
+            headers=self.auth_headers(owner_token),
+            json={"notes": "VIP клиент", "debtBalance": 1500},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["notes"], "VIP клиент")
+        self.assertEqual(payload["debtBalance"], 1500)
+
+        from app.database import SessionLocal
+        from app.models import Client
+
+        with SessionLocal() as db:
+            client = db.get(Client, client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.notes, "VIP клиент")
+            self.assertEqual(client.debt_balance, 1500)
+
+    def test_owner_dispatches_booking_reminders_once_per_booking(self) -> None:
+        auth_response = self.client.post(
+            "/api/auth/client",
+            json=self.client_auth_payload(
+                name="Alice",
+                phone="+7 (999) 555-44-33",
+                telegram_id="555111222",
+            ),
+        )
+        self.assertEqual(auth_response.status_code, 200, auth_response.text)
+        client_id = auth_response.json()["bootstrap"]["session"]["actorId"]
+
+        self.disable_owner_two_factor()
+        self.set_staff_telegram("ivan", "200200200")
+        owner_token = self.login_staff("owner", "owner")
+        reminder_date = self.next_active_date()
+
+        from app.database import SessionLocal
+        from app.models import AppSetting, Notification
+
+        with SessionLocal() as db:
+            worker_settings = db.get(AppSetting, "worker_notification_settings")
+            self.assertIsNotNone(worker_settings)
+            assert worker_settings is not None
+            next_value = dict(worker_settings.value or {})
+            next_value["w1"] = {
+                "newTask": True,
+                "taskUpdate": True,
+                "payment": True,
+                "reminders": True,
+                "sms": False,
+            }
+            worker_settings.value = next_value
+            db.commit()
+
+        booking_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(owner_token),
+            json={
+                "clientId": client_id,
+                "clientName": "Alice",
+                "clientPhone": "+7 (999) 555-44-33",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": reminder_date,
+                "time": "11:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "confirmed",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(booking_response.status_code, 200, booking_response.text)
+
+        sent_messages: list[tuple[str, str]] = []
+
+        def fake_send_message(chat_id: str, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            dispatch_response = self.client.post(
+                "/api/owner/reminders/dispatch",
+                headers=self.auth_headers(owner_token),
+                json={"targetDate": reminder_date},
+            )
+            self.assertEqual(dispatch_response.status_code, 200, dispatch_response.text)
+            dispatch_payload = dispatch_response.json()
+            self.assertEqual(dispatch_payload["clientReminders"], 1)
+            self.assertEqual(dispatch_payload["workerReminders"], 1)
+            self.assertEqual(dispatch_payload["telegramDelivered"], 2)
+
+            second_response = self.client.post(
+                "/api/owner/reminders/dispatch",
+                headers=self.auth_headers(owner_token),
+                json={"targetDate": reminder_date},
+            )
+            self.assertEqual(second_response.status_code, 200, second_response.text)
+            second_payload = second_response.json()
+            self.assertEqual(second_payload["clientReminders"], 0)
+            self.assertEqual(second_payload["workerReminders"], 0)
+            self.assertEqual(second_payload["telegramDelivered"], 0)
+
+        with SessionLocal() as db:
+            client_notifications = db.scalars(
+                select(Notification).where(
+                    Notification.recipient_role == "client",
+                    Notification.recipient_id == client_id,
+                    Notification.message.like("%Напоминание о записи%"),
+                )
+            ).all()
+            worker_notifications = db.scalars(
+                select(Notification).where(
+                    Notification.recipient_role == "worker",
+                    Notification.recipient_id == "w1",
+                    Notification.message.like("%Напоминание мастеру%"),
+                )
+            ).all()
+            self.assertEqual(len(client_notifications), 1)
+            self.assertEqual(len(worker_notifications), 1)
 
     def test_client_booking_uses_other_active_box_when_first_is_busy(self) -> None:
         admin_token = self.login_staff("admin", "admin")

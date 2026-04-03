@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Search
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -27,6 +27,7 @@ export function OwnerApp() {
     isDark,
     toggleTheme,
     bookings,
+    clients,
     expenses,
     addExpense,
     stockItems,
@@ -52,6 +53,7 @@ export function OwnerApp() {
     saveOwnerNotificationSettings,
     saveOwnerIntegrations,
     saveOwnerSecurity,
+    updateClientCard,
     changePassword,
     requestOwnerDatabaseReset,
     approveOwnerDatabaseReset,
@@ -65,8 +67,10 @@ export function OwnerApp() {
     downloadOwnerExport,
     sendOwnerExportToTelegram,
     sendOwnerSummaryReport,
+    dispatchOwnerReminders,
     todayLabel,
     tomorrowLabel,
+    upcomingDates,
   } = useApp();
 
   const [page, setPage] = useState<OwnerPage>('dashboard');
@@ -132,6 +136,11 @@ export function OwnerApp() {
     email: '',
     telegramChatId: '',
   });
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayLabel);
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string }>>({});
+  const [savingClientId, setSavingClientId] = useState<string | null>(null);
+  const [sendingReminders, setSendingReminders] = useState(false);
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -164,6 +173,19 @@ export function OwnerApp() {
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
   useEffect(() => {
+    setClientCardDrafts(
+      Object.fromEntries(
+        clients.map((client) => [
+          client.id,
+          {
+            notes: client.notes || '',
+            debtBalance: String(client.debtBalance || 0),
+          },
+        ]),
+      ),
+    );
+  }, [clients]);
+  useEffect(() => {
     if (settingsSection !== 'security') {
       setSecurityError(null);
       setSecuritySaved(false);
@@ -190,6 +212,11 @@ export function OwnerApp() {
     const intervalId = window.setInterval(syncCountdown, 250);
     return () => window.clearInterval(intervalId);
   }, [resetFinalizeAfter]);
+  useEffect(() => {
+    if (!selectedCalendarDate) {
+      setSelectedCalendarDate(todayLabel);
+    }
+  }, [selectedCalendarDate, todayLabel]);
 
   const ownerNotifications = notifications.filter(n => n.recipientRole === 'owner');
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
@@ -199,6 +226,15 @@ export function OwnerApp() {
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const profit = totalRevenue - totalExpenses;
+  const averageCheck = completedBookings.length > 0 ? Math.round(totalRevenue / completedBookings.length) : 0;
+  const activeBookings = bookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
+  const pipelineCounts = {
+    new: bookings.filter((booking) => booking.status === 'new').length,
+    confirmed: bookings.filter((booking) => booking.status === 'confirmed').length,
+    scheduled: bookings.filter((booking) => booking.status === 'scheduled').length,
+    inProgress: bookings.filter((booking) => booking.status === 'in_progress').length,
+    noShow: bookings.filter((booking) => booking.status === 'no_show').length,
+  };
   const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
   const payrollRows = workers.map(worker => {
     const workerBookings = completedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
@@ -535,6 +571,41 @@ export function OwnerApp() {
     }
   };
 
+  const handleSaveClientCard = async (clientId: string) => {
+    const draft = clientCardDrafts[clientId];
+    if (!draft) return;
+    try {
+      setSavingClientId(clientId);
+      await updateClientCard(clientId, {
+        notes: draft.notes,
+        debtBalance: Number(draft.debtBalance || 0),
+      });
+      setBottomToast('Карточка клиента сохранена');
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить карточку клиента');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setSavingClientId(null);
+    }
+  };
+
+  const handleDispatchReminders = async () => {
+    try {
+      setSendingReminders(true);
+      const response = await dispatchOwnerReminders({ targetDate: tomorrowLabel, force: true });
+      setBottomToast(
+        `${response.message} Клиентам: ${response.clientReminders}, мастерам: ${response.workerReminders}, Telegram: ${response.telegramDelivered}.`,
+      );
+      setTimeout(() => setBottomToast(null), 5000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось отправить напоминания');
+      setTimeout(() => setBottomToast(null), 5000);
+    } finally {
+      setSendingReminders(false);
+    }
+  };
+
   const handleAddPenalty = async () => {
     if (!penaltyForm.workerId || !penaltyForm.title || !penaltyForm.reason) return;
     await addPenalty({
@@ -586,7 +657,7 @@ export function OwnerApp() {
       time: bookingForm.time,
       duration: svc.duration,
       price: svc.price,
-      status: 'scheduled',
+      status: 'confirmed',
       workers: [],
       box: bookingForm.box,
       paymentType: 'cash',
@@ -629,10 +700,108 @@ export function OwnerApp() {
   });
 
   const statusData = [
+    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
     { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
     { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
     { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
+  const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
+  const selectableCalendarDates = Array.from(new Set([todayLabel, tomorrowLabel, ...upcomingDates.slice(0, 5), ...bookings.map((booking) => booking.date)])).slice(0, 8);
+  const calendarBookings = bookings
+    .filter((booking) => booking.date === selectedCalendarDate)
+    .sort((left, right) => left.time.localeCompare(right.time));
+  const activeCalendarBoxes = boxes.filter((box) => box.active);
+  const activeCalendarWorkers = workers.filter((worker) => worker.active);
+  const calendarTimeSlots = Array.from(new Set(calendarBookings.map((booking) => booking.time))).sort((left, right) => left.localeCompare(right));
+  const calendarBoxGrid = calendarTimeSlots.map((time) => ({
+    time,
+    cells: activeCalendarBoxes.map((box) => ({
+      id: box.id,
+      name: box.name,
+      bookings: calendarBookings.filter((booking) => booking.time === time && booking.box === box.name),
+    })),
+  }));
+  const calendarWorkerGrid = calendarTimeSlots.map((time) => ({
+    time,
+    cells: activeCalendarWorkers.map((worker) => ({
+      id: worker.id,
+      name: worker.name,
+      bookings: calendarBookings.filter((booking) => booking.time === time && booking.workers.some((item) => item.workerId === worker.id)),
+    })),
+  }));
+  const boxLoadData = boxes
+    .filter((box) => box.active)
+    .map((box) => {
+      const boxBookings = completedBookings.filter((booking) => booking.box === box.name);
+      return {
+        name: box.name,
+        count: bookings.filter((booking) => booking.box === box.name).length,
+        revenue: boxBookings.reduce((sum, booking) => sum + booking.price, 0),
+      };
+    });
+  const workerEfficiencyData = workers
+    .filter((worker) => worker.active)
+    .map((worker) => {
+      const workerBookings = completedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
+      const workerRevenue = workerBookings.reduce((sum, booking) => sum + booking.price, 0);
+      return {
+        id: worker.id,
+        name: worker.name,
+        completed: workerBookings.length,
+        revenue: workerRevenue,
+        averageCheck: workerBookings.length > 0 ? Math.round(workerRevenue / workerBookings.length) : 0,
+      };
+    })
+    .sort((left, right) => right.revenue - left.revenue);
+  const clientInsights = clients.map((client) => {
+    const clientBookings = bookings.filter((booking) => booking.clientId === client.id);
+    const clientCompleted = clientBookings.filter((booking) => booking.status === 'completed');
+    const favoriteServiceEntry = Object.entries(
+      clientCompleted.reduce<Record<string, number>>((acc, booking) => {
+        acc[booking.service] = (acc[booking.service] || 0) + 1;
+        return acc;
+      }, {}),
+    ).sort((left, right) => right[1] - left[1])[0];
+    return {
+      ...client,
+      visits: clientCompleted.length,
+      totalSpent: clientCompleted.reduce((sum, booking) => sum + booking.price, 0),
+      activeCount: clientBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status)).length,
+      favoriteService: favoriteServiceEntry?.[0] || 'Нет данных',
+      lastVisit: clientCompleted[0]?.date || clientBookings[0]?.date || 'Пока нет',
+    };
+  }).sort((left, right) => right.totalSpent - left.totalSpent);
+  const filteredClientInsights = clientInsights.filter((client) => {
+    const query = clientSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [client.name, client.phone, client.car, client.plate, client.favoriteService].some((value) =>
+      value.toLowerCase().includes(query),
+    );
+  });
+
+  const ownerStatusLabel = (status: string) => ({
+    new: 'Новая',
+    confirmed: 'Подтв.',
+    scheduled: 'Запл.',
+    in_progress: 'В работе',
+    completed: 'Завершено',
+    no_show: 'Не приехал',
+    admin_review: 'Уточнение',
+    cancelled: 'Отменена',
+  }[status] || status);
+
+  const ownerStatusBadge = (status: string) => ({
+    new: 'bg-indigo-500/15 text-indigo-600',
+    confirmed: 'bg-cyan-500/15 text-cyan-600',
+    scheduled: 'bg-blue-500/15 text-blue-600',
+    in_progress: 'bg-yellow-500/15 text-yellow-600',
+    completed: 'bg-green-500/15 text-green-600',
+    no_show: 'bg-orange-500/15 text-orange-600',
+    admin_review: 'bg-amber-500/15 text-amber-600',
+    cancelled: 'bg-red-500/15 text-red-500',
+  }[status] || 'bg-slate-500/15 text-slate-600');
 
   const SwitchToggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-all shrink-0"
@@ -652,7 +821,7 @@ export function OwnerApp() {
   );
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-4">
+    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
       {/* Header */}
       <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
         <div>
@@ -700,6 +869,225 @@ export function OwnerApp() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {[
+                  { label: 'Средний чек', value: `${averageCheck.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Активных записей', value: activeBookings.length, color: accent },
+                  { label: 'Топ-услуга', value: topServiceName, color: '#A855F7' },
+                  { label: 'Не приехали', value: pipelineCounts.noShow, color: '#F97316' },
+                ].map((card) => (
+                  <div key={card.label} className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs ${sub}`}>{card.label}</div>
+                    <div className="font-bold mt-2" style={{ color: card.color }}>{card.value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className={`text-xs font-medium ${sub}`}>ВОРОНКА ЗАПИСЕЙ</div>
+                    <div className={`text-xs ${sub} mt-1`}>От новых заявок до выполненных визитов</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Новые', value: pipelineCounts.new, color: '#6366F1' },
+                    { label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
+                    { label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
+                    { label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
+                  ].map((item) => (
+                    <div key={item.label} className={`${glass} rounded-xl px-3 py-3`}>
+                      <div className={`text-[11px] ${sub}`}>{item.label}</div>
+                      <div className="text-lg font-semibold mt-1" style={{ color: item.color }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className={`text-xs font-medium ${sub}`}>КАЛЕНДАРЬ ЗАГРУЗКИ</div>
+                    <div className={`text-xs ${sub} mt-1`}>Сетка по боксам и мастерам на выбранный день</div>
+                  </div>
+                  <CalendarDays size={18} style={{ color: primary }} />
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 mb-3" style={{ scrollbarWidth: 'none' }}>
+                  {selectableCalendarDates.map((date) => (
+                    <button
+                      key={date}
+                      onClick={() => setSelectedCalendarDate(date)}
+                      className="shrink-0 px-3 py-2 rounded-xl text-sm"
+                      style={selectedCalendarDate === date ? { background: primary, color: '#fff' } : { background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                    >
+                      {date}
+                    </button>
+                  ))}
+                </div>
+                {calendarBookings.length === 0 ? (
+                  <div className={`text-sm ${sub}`}>На {selectedCalendarDate} записей пока нет.</div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Сетка по времени и боксам</div>
+                      <div className="overflow-x-auto rounded-xl">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className={sub}>
+                              <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Время</th>
+                              {activeCalendarBoxes.map((box) => (
+                                <th key={box.id} className="text-left py-2 px-2 font-medium min-w-[150px]">{box.name}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {calendarBoxGrid.map((row) => (
+                              <tr key={`box-grid-${row.time}`} className="align-top">
+                                <td className="py-2 pr-3 text-xs font-semibold sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>{row.time}</td>
+                                {row.cells.map((cell) => (
+                                  <td key={`${row.time}-${cell.id}`} className="px-2 py-2">
+                                    {cell.bookings.length === 0 ? (
+                                      <div className={`rounded-xl border border-dashed px-3 py-3 text-xs text-center ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                                        Свободно
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-2">
+                                        {cell.bookings.map((booking) => (
+                                          <div key={booking.id} className={`${glass} rounded-xl p-3`}>
+                                            <div className="font-medium text-sm truncate">{booking.clientName}</div>
+                                            <div className={`text-xs ${sub} truncate mt-1`}>{booking.service}</div>
+                                            <div className="mt-2 flex items-center justify-between gap-2">
+                                              <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                                {ownerStatusLabel(booking.status)}
+                                              </span>
+                                              <span className={`text-[11px] ${sub}`}>{booking.time}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Сетка по времени и мастерам</div>
+                      <div className="overflow-x-auto rounded-xl">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className={sub}>
+                              <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Время</th>
+                              {activeCalendarWorkers.map((worker) => (
+                                <th key={worker.id} className="text-left py-2 px-2 font-medium min-w-[150px]">{worker.name}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {calendarWorkerGrid.map((row) => (
+                              <tr key={`worker-grid-${row.time}`} className="align-top">
+                                <td className="py-2 pr-3 text-xs font-semibold sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>{row.time}</td>
+                                {row.cells.map((cell) => (
+                                  <td key={`${row.time}-${cell.id}`} className="px-2 py-2">
+                                    {cell.bookings.length === 0 ? (
+                                      <div className={`rounded-xl border border-dashed px-3 py-3 text-xs text-center ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                                        Свободно
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-2">
+                                        {cell.bookings.map((booking) => (
+                                          <div key={`${cell.id}-${booking.id}`} className={`${glass} rounded-xl p-3`}>
+                                            <div className="font-medium text-sm truncate">{booking.clientName}</div>
+                                            <div className={`text-xs ${sub} truncate mt-1`}>{booking.box} · {booking.service}</div>
+                                            <div className="mt-2 flex items-center justify-between gap-2">
+                                              <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                                {ownerStatusLabel(booking.status)}
+                                              </span>
+                                              <span className={`text-[11px] ${sub}`}>{booking.time}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>По боксам</div>
+                      <div className="space-y-2">
+                        {boxes.filter((box) => box.active).map((box) => {
+                          const boxItems = calendarBookings.filter((booking) => booking.box === box.name);
+                          return (
+                            <div key={box.id} className={`${glass} rounded-xl p-3`}>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-sm">{box.name}</span>
+                                <span className={`text-xs ${sub}`}>{boxItems.length} записей</span>
+                              </div>
+                              {boxItems.length === 0 ? (
+                                <div className={`text-xs ${sub}`}>Свободно</div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {boxItems.map((booking) => (
+                                    <div key={booking.id} className="flex items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                        <div className={`text-xs ${sub} truncate`}>{booking.service}</div>
+                                      </div>
+                                      <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                        {ownerStatusLabel(booking.status)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>По мастерам</div>
+                      <div className="space-y-2">
+                        {workers.filter((worker) => worker.active).map((worker) => {
+                          const workerItems = calendarBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
+                          return (
+                            <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-sm">{worker.name}</span>
+                                <span className={`text-xs ${sub}`}>{workerItems.length} задач</span>
+                              </div>
+                              {workerItems.length === 0 ? (
+                                <div className={`text-xs ${sub}`}>Свободно</div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {workerItems.map((booking) => (
+                                    <div key={`${worker.id}-${booking.id}`} className="flex items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                        <div className={`text-xs ${sub} truncate`}>{booking.box} · {booking.service}</div>
+                                      </div>
+                                      <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                        {ownerStatusLabel(booking.status)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               {/* Quick actions */}
               <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Быстрые действия</h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
@@ -707,6 +1095,7 @@ export function OwnerApp() {
                   { label: 'Создать запись', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
                   { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
                   { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                  { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
                   { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
                 ].map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
@@ -755,8 +1144,8 @@ export function OwnerApp() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-semibold">{b.price.toLocaleString('ru')} ₽</div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${b.status === 'completed' ? 'bg-green-500/15 text-green-600' : b.status === 'in_progress' ? 'bg-yellow-500/15 text-yellow-600' : b.status === 'cancelled' ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-600'}`}>
-                      {b.status === 'scheduled' ? 'Запл.' : b.status === 'in_progress' ? 'В работе' : b.status === 'completed' ? 'Завершено' : 'Отменено'}
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(b.status)}`}>
+                      {ownerStatusLabel(b.status)}
                     </span>
                   </div>
                 </div>
@@ -968,6 +1357,19 @@ export function OwnerApp() {
                   })}
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {[
+                  { label: 'Средний чек', value: `${averageCheck.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Топ-услуга', value: topServiceName, color: '#A855F7' },
+                  { label: 'Активных клиентов', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
+                  { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
+                ].map((item) => (
+                  <div key={item.label} className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs ${sub}`}>{item.label}</div>
+                    <div className="font-bold mt-2" style={{ color: item.color }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-3`}>ФИНАНСОВЫЙ ИТОГ</div>
                 {[{ label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent }, { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' }, { label: 'Прибыль', value: `${profit.toLocaleString('ru')} ₽`, color: primary }, { label: 'Маржа', value: `${totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0}%`, color: '#A855F7' }].map(r => (
@@ -989,6 +1391,118 @@ export function OwnerApp() {
                     <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className={`text-xs ${sub} mb-3`}>ЗАГРУЗКА ПО БОКСАМ</div>
+                <div className="space-y-3">
+                  {boxLoadData.map((box) => (
+                    <div key={box.name}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm font-medium">{box.name}</span>
+                        <span className={`text-xs ${sub}`}>{box.count} записей · {box.revenue.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="h-2 rounded-full" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                        <div className="h-2 rounded-full" style={{ width: `${Math.min(100, box.count * 18)}%`, background: primary }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className={`text-xs ${sub} mb-3`}>ЭФФЕКТИВНОСТЬ МАСТЕРОВ</div>
+                <div className="space-y-2">
+                  {workerEfficiencyData.map((worker) => (
+                    <div key={worker.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{worker.name}</div>
+                        <div className={`text-xs ${sub}`}>{worker.completed} завершённых · средний чек {worker.averageCheck.toLocaleString('ru')} ₽</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-semibold">{worker.revenue.toLocaleString('ru')} ₽</div>
+                        <div className={`text-xs ${sub}`}>выручка</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className={`text-xs ${sub} uppercase tracking-wider`}>Клиентские карточки</div>
+                    <div className={`text-xs ${sub} mt-1`}>История визитов, траты, любимые услуги, заметки и долги</div>
+                  </div>
+                  <Search size={16} className={sub} />
+                </div>
+                <input
+                  className={inputCls}
+                  placeholder="Поиск по имени, телефону, авто, услуге"
+                  value={clientSearch}
+                  onChange={(event) => setClientSearch(event.target.value)}
+                />
+                <div className="space-y-3 mt-3">
+                  {filteredClientInsights.slice(0, 12).map((client) => {
+                    const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0) };
+                    return (
+                      <div key={client.id} className={`${glass} rounded-2xl p-4`}>
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                          <div>
+                            <div className="font-semibold">{client.name}</div>
+                            <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>
+                            <div className={`text-xs ${sub}`}>{client.visits} визитов · последний {client.lastVisit}</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className={`${glass} rounded-xl px-3 py-2`}>
+                            <div className={`text-[11px] ${sub}`}>Любимая услуга</div>
+                            <div className="text-sm font-medium mt-1">{client.favoriteService}</div>
+                          </div>
+                          <div className={`${glass} rounded-xl px-3 py-2`}>
+                            <div className={`text-[11px] ${sub}`}>Активных записей</div>
+                            <div className="text-sm font-medium mt-1">{client.activeCount}</div>
+                          </div>
+                          <div className={`${glass} rounded-xl px-3 py-2`}>
+                            <div className={`text-[11px] ${sub}`}>Долг</div>
+                            <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} ₽</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <textarea
+                            className={`${inputCls} h-24 resize-none`}
+                            placeholder="Заметки по клиенту"
+                            value={draft.notes}
+                            onChange={(event) => setClientCardDrafts((current) => ({
+                              ...current,
+                              [client.id]: { ...draft, notes: event.target.value },
+                            }))}
+                          />
+                          <div className="space-y-2">
+                            <input
+                              className={inputCls}
+                              type="number"
+                              placeholder="Долг клиента"
+                              value={draft.debtBalance}
+                              onChange={(event) => setClientCardDrafts((current) => ({
+                                ...current,
+                                [client.id]: { ...draft, debtBalance: event.target.value },
+                              }))}
+                            />
+                            <button
+                              onClick={() => { void handleSaveClientCard(client.id); }}
+                              disabled={savingClientId === client.id}
+                              className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
+                              style={{ background: primary }}
+                            >
+                              {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить карточку'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <h3 className={`text-xs font-medium ${sub} mb-3`}>РАСХОДЫ</h3>
               {expenses.map(e => (
@@ -1318,6 +1832,13 @@ export function OwnerApp() {
                 <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
                   onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
               ))}
+              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Напоминания</div>
+              <SettingRow
+                label="Автонапоминания о записях"
+                desc="Ежедневный cron Vercel отправляет напоминания на завтрашние записи, а владелец может дублировать их вручную"
+                value={notifSettings.bookingReminders}
+                onChange={() => setNotifSettings((current) => ({ ...current, bookingReminders: !current.bookingReminders }))}
+              />
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>

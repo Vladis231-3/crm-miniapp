@@ -139,7 +139,7 @@ def seed_database(db: Session) -> None:
         AppSetting(key="admin_profile", value={"name": "Администратор", "email": "admin@atmosfera.ru", "phone": "+7 (900) 000-00-00"}),
         AppSetting(key="admin_notification_settings", value={"newBooking": True, "cancelled": True, "paymentDue": False, "workerAssigned": True, "reminders": True}),
         AppSetting(key="owner_company", value={"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "+7 (495) 000-00-00", "email": "info@atmosfera.ru"}),
-        AppSetting(key="owner_notification_settings", value={"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False}),
+        AppSetting(key="owner_notification_settings", value={"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True}),
         AppSetting(key="owner_integrations", value={"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False}),
         AppSetting(key="owner_security", value={"twoFactor": True}),
         AppSetting(key="worker_notification_settings", value=worker_notification_settings),

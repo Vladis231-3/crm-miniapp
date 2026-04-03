@@ -29,6 +29,7 @@ class Settings:
     telegram_delivery_mode: str
     sync_telegram_webhook: bool
     telegram_webhook_path: str
+    cron_secret: str | None
     run_embedded_bot: bool
     allow_insecure_client_auth: bool
     api_host: str
@@ -74,6 +75,7 @@ def get_settings() -> Settings:
         telegram_delivery_mode=_parse_telegram_delivery_mode(os.getenv("TELEGRAM_DELIVERY_MODE")),
         sync_telegram_webhook=_parse_bool(os.getenv("SYNC_TELEGRAM_WEBHOOK"), False),
         telegram_webhook_path=_normalize_webhook_path(os.getenv("TELEGRAM_WEBHOOK_PATH")),
+        cron_secret=os.getenv("CRON_SECRET") or None,
         run_embedded_bot=_parse_bool(os.getenv("RUN_EMBEDDED_BOT"), False),
         allow_insecure_client_auth=_parse_bool(os.getenv("ALLOW_INSECURE_CLIENT_AUTH"), False),
         api_host=os.getenv("API_HOST", "0.0.0.0"),
