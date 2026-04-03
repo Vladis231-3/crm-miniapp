@@ -34,7 +34,7 @@ class Client(Base):
 class StaffUser(Base):
     __tablename__ = "staff_users"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     login: Mapped[str] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str] = mapped_column(String(512))
     role: Mapped[str] = mapped_column(String(32))
@@ -113,7 +113,7 @@ class ScheduleEntry(Base):
 class Booking(Base):
     __tablename__ = "bookings"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     client_id: Mapped[str] = mapped_column(String(64), ForeignKey("clients.id"))
     client_name: Mapped[str] = mapped_column(String(120))
     client_phone: Mapped[str] = mapped_column(String(64))
@@ -142,8 +142,8 @@ class BookingWorker(Base):
     __tablename__ = "booking_workers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"))
-    worker_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"))
+    booking_id: Mapped[str] = mapped_column(String(64), ForeignKey("bookings.id"))
+    worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
     worker_name: Mapped[str] = mapped_column(String(120))
     percent: Mapped[int] = mapped_column(Integer)
 
@@ -154,7 +154,7 @@ class BookingWorker(Base):
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     recipient_role: Mapped[str] = mapped_column(String(32))
     recipient_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     message: Mapped[str] = mapped_column(Text)
@@ -165,7 +165,7 @@ class Notification(Base):
 class StockItem(Base):
     __tablename__ = "stock_items"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     qty: Mapped[int] = mapped_column(Integer)
     unit: Mapped[str] = mapped_column(String(16))
@@ -178,7 +178,7 @@ class StockItem(Base):
 class Expense(Base):
     __tablename__ = "expenses"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
     amount: Mapped[int] = mapped_column(Integer)
     category: Mapped[str] = mapped_column(String(120))
@@ -190,16 +190,16 @@ class Expense(Base):
 class Penalty(Base):
     __tablename__ = "penalties"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    worker_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"))
-    owner_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"))
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
+    owner_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
     title: Mapped[str] = mapped_column(String(160))
     reason: Mapped[str] = mapped_column(Text)
     amount: Mapped[int] = mapped_column(Integer, default=0)
     score: Mapped[int] = mapped_column(Integer, default=5)
     active_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    revoked_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     worker: Mapped[StaffUser] = relationship(
@@ -213,7 +213,7 @@ class TelegramLinkCode(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
-    staff_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"))
+    staff_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

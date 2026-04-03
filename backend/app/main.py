@@ -432,6 +432,8 @@ def _apply_runtime_migrations() -> None:
     if "clients" in inspector.get_table_names():
         ensure_postgres_varchar_length("clients", "id", 64)
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
+    if "staff_users" in inspector.get_table_names():
+        ensure_postgres_varchar_length("staff_users", "id", 64)
     if "telegram_chat_id" not in columns:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN telegram_chat_id VARCHAR(64) DEFAULT ''")
@@ -446,16 +448,32 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN two_factor_expires_at TIMESTAMP")
     if "telegram_link_codes" not in inspector.get_table_names():
         TelegramLinkCode.__table__.create(bind=engine)
+    else:
+        ensure_postgres_varchar_length("telegram_link_codes", "staff_id", 64)
     if "auth_sessions" not in inspector.get_table_names():
         AuthSession.__table__.create(bind=engine)
     else:
         ensure_postgres_varchar_length("auth_sessions", "actor_id", 64)
         ensure_postgres_text_column("auth_sessions", "user_agent")
     if "bookings" in inspector.get_table_names():
+        ensure_postgres_varchar_length("bookings", "id", 64)
         ensure_postgres_varchar_length("bookings", "client_id", 64)
+    if "booking_workers" in inspector.get_table_names():
+        ensure_postgres_varchar_length("booking_workers", "booking_id", 64)
+        ensure_postgres_varchar_length("booking_workers", "worker_id", 64)
     if "notifications" in inspector.get_table_names():
+        ensure_postgres_varchar_length("notifications", "id", 64)
         ensure_postgres_varchar_length("notifications", "recipient_id", 64)
+    if "stock_items" in inspector.get_table_names():
+        ensure_postgres_varchar_length("stock_items", "id", 64)
+    if "expenses" in inspector.get_table_names():
+        ensure_postgres_varchar_length("expenses", "id", 64)
     penalty_columns = {column["name"] for column in inspector.get_columns("penalties")}
+    if "penalties" in inspector.get_table_names():
+        ensure_postgres_varchar_length("penalties", "id", 64)
+        ensure_postgres_varchar_length("penalties", "worker_id", 64)
+        ensure_postgres_varchar_length("penalties", "owner_id", 64)
+        ensure_postgres_varchar_length("penalties", "revoked_by", 64)
     if "active_until" not in penalty_columns:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN active_until TIMESTAMP")
@@ -464,7 +482,7 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN revoked_at TIMESTAMP")
     if "revoked_by" not in penalty_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN revoked_by VARCHAR(36)")
+            connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN revoked_by VARCHAR(64)")
 
 
 def _repair_text_value(value: str) -> str:

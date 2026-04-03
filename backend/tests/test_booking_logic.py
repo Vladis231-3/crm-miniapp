@@ -196,14 +196,26 @@ class BookingLogicTests(unittest.TestCase):
                 ).all()
             )
 
-    def test_session_schema_supports_prefixed_client_ids_and_long_mobile_user_agents(self) -> None:
-        from app.models import AuthSession, Booking, Client, Notification
+    def test_session_schema_supports_prefixed_ids_and_long_mobile_user_agents(self) -> None:
+        from app.models import AuthSession, Booking, BookingWorker, Client, Expense, Notification, Penalty, StaffUser, StockItem, TelegramLinkCode
 
         self.assertEqual(getattr(Client.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(StaffUser.__table__.c.id.type, "length", None), 64)
         self.assertEqual(getattr(Booking.__table__.c.client_id.type, "length", None), 64)
+        self.assertEqual(getattr(Booking.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(BookingWorker.__table__.c.booking_id.type, "length", None), 64)
+        self.assertEqual(getattr(BookingWorker.__table__.c.worker_id.type, "length", None), 64)
         self.assertEqual(getattr(AuthSession.__table__.c.actor_id.type, "length", None), 64)
         self.assertIsNone(getattr(AuthSession.__table__.c.user_agent.type, "length", None))
+        self.assertEqual(getattr(Notification.__table__.c.id.type, "length", None), 64)
         self.assertEqual(getattr(Notification.__table__.c.recipient_id.type, "length", None), 64)
+        self.assertEqual(getattr(StockItem.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(Expense.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(Penalty.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(Penalty.__table__.c.worker_id.type, "length", None), 64)
+        self.assertEqual(getattr(Penalty.__table__.c.owner_id.type, "length", None), 64)
+        self.assertEqual(getattr(Penalty.__table__.c.revoked_by.type, "length", None), 64)
+        self.assertEqual(getattr(TelegramLinkCode.__table__.c.staff_id.type, "length", None), 64)
 
         response = self.client.post(
             "/api/auth/client",
