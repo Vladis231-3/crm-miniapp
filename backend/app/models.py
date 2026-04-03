@@ -16,7 +16,7 @@ def utc_now() -> datetime:
 class Client(Base):
     __tablename__ = "clients"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     telegram_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(64))
@@ -68,7 +68,7 @@ class AuthSession(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     actor_role: Mapped[str] = mapped_column(String(32), index=True)
-    actor_id: Mapped[str] = mapped_column(String(36), index=True)
+    actor_id: Mapped[str] = mapped_column(String(64), index=True)
     login: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str] = mapped_column(Text, default="")
     ip_address: Mapped[str] = mapped_column(String(120), default="")
@@ -156,7 +156,7 @@ class Notification(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     recipient_role: Mapped[str] = mapped_column(String(32))
-    recipient_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    recipient_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     message: Mapped[str] = mapped_column(Text)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

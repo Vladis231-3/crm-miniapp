@@ -196,6 +196,30 @@ class BookingLogicTests(unittest.TestCase):
                 ).all()
             )
 
+    def test_session_schema_supports_prefixed_client_ids_and_long_mobile_user_agents(self) -> None:
+        from app.models import AuthSession, Client, Notification
+
+        self.assertEqual(getattr(Client.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(AuthSession.__table__.c.actor_id.type, "length", None), 64)
+        self.assertIsNone(getattr(AuthSession.__table__.c.user_agent.type, "length", None))
+        self.assertEqual(getattr(Notification.__table__.c.recipient_id.type, "length", None), 64)
+
+        response = self.client.post(
+            "/api/auth/client",
+            headers={
+                "user-agent": (
+                    "Mozilla/5.0 (Linux; Android 13; K) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/146.0.7680.164 Mobile Safari/537.36 "
+                    "Telegram-Android/12.1.1 (Realme RMX3363; Android 13; SDK 33; HIGH)"
+                )
+            },
+            json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33"),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        actor_id = response.json()["actorId"]
+        self.assertTrue(actor_id.startswith("c-"))
+        self.assertGreaterEqual(self.count_client_sessions(actor_id), 1)
+
     def count_worker_notifications(self, worker_id: str) -> int:
         from app.database import SessionLocal
         from app.models import Notification

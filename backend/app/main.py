@@ -390,6 +390,37 @@ def _active_sessions_payload(db: Session, session_data: dict) -> list[AuthSessio
 
 
 def _apply_runtime_migrations() -> None:
+    def ensure_postgres_varchar_length(table_name: str, column_name: str, minimum_length: int) -> None:
+        if engine.dialect.name != "postgresql":
+            return
+        column = next(
+            (item for item in inspect(engine).get_columns(table_name) if item["name"] == column_name),
+            None,
+        )
+        if column is None:
+            return
+        current_length = getattr(column["type"], "length", None)
+        if current_length is not None and current_length >= minimum_length:
+            return
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE VARCHAR({minimum_length})"
+            )
+
+    def ensure_postgres_text_column(table_name: str, column_name: str) -> None:
+        if engine.dialect.name != "postgresql":
+            return
+        column = next(
+            (item for item in inspect(engine).get_columns(table_name) if item["name"] == column_name),
+            None,
+        )
+        if column is None:
+            return
+        if column["type"].__class__.__name__.lower() == "text":
+            return
+        with engine.begin() as connection:
+            connection.exec_driver_sql(f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE TEXT")
+
     inspector = inspect(engine)
     client_columns = {column["name"] for column in inspector.get_columns("clients")}
     if "notes" not in client_columns:
@@ -415,6 +446,11 @@ def _apply_runtime_migrations() -> None:
         TelegramLinkCode.__table__.create(bind=engine)
     if "auth_sessions" not in inspector.get_table_names():
         AuthSession.__table__.create(bind=engine)
+    else:
+        ensure_postgres_varchar_length("auth_sessions", "actor_id", 64)
+        ensure_postgres_text_column("auth_sessions", "user_agent")
+    if "notifications" in inspector.get_table_names():
+        ensure_postgres_varchar_length("notifications", "recipient_id", 64)
     penalty_columns = {column["name"] for column in inspector.get_columns("penalties")}
     if "active_until" not in penalty_columns:
         with engine.begin() as connection:
