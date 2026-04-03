@@ -54,7 +54,27 @@ def telegram_webhook_url() -> str:
     return f"{settings.webapp_url.rstrip('/')}{settings.telegram_webhook_path}"
 
 
-def _telegram_call(runtime: BotRuntime, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def _parse_retry_after(details: str) -> int | None:
+    try:
+        parsed = json.loads(details)
+    except json.JSONDecodeError:
+        return None
+    parameters = parsed.get("parameters")
+    if not isinstance(parameters, dict):
+        return None
+    retry_after = parameters.get("retry_after")
+    if isinstance(retry_after, int) and retry_after > 0:
+        return retry_after
+    return None
+
+
+def _telegram_call(
+    runtime: BotRuntime,
+    method: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    max_attempts: int = 3,
+) -> dict[str, Any]:
     body = json.dumps(payload or {}).encode("utf-8")
     req = request.Request(
         url=f"{runtime.api_base}/{method}",
@@ -62,15 +82,22 @@ def _telegram_call(runtime: BotRuntime, method: str, payload: dict[str, Any] | N
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with request.urlopen(req, timeout=60) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"Telegram API HTTP error in {method}: {details or exc}") from exc
-    if not result.get("ok"):
-        raise RuntimeError(f"Telegram API error in {method}: {result}")
-    return result["result"]
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            with request.urlopen(req, timeout=60) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="ignore")
+            retry_after = _parse_retry_after(details)
+            if exc.code == 429 and retry_after is not None and attempt < max_attempts:
+                time.sleep(retry_after)
+                continue
+            raise RuntimeError(f"Telegram API HTTP error in {method}: {details or exc}") from exc
+        if not result.get("ok"):
+            raise RuntimeError(f"Telegram API error in {method}: {result}")
+        return result["result"]
 
 
 def _telegram_multipart_call(
@@ -166,12 +193,25 @@ def disable_telegram_webhook(*, drop_pending_updates: bool = False) -> str | Non
 def sync_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None:
     runtime = _build_runtime()
     username = _configure_bot_metadata(runtime)
+    target_url = telegram_webhook_url()
+    target_secret = telegram_webhook_secret()
+    current = _telegram_call(runtime, "getWebhookInfo")
+    if (
+        current.get("url") == target_url
+        and current.get("has_custom_certificate") is False
+        and (current.get("pending_update_count") in {0, None} or not drop_pending_updates)
+        and (
+            current.get("secret_token") in {None, "", target_secret}
+            or str(current.get("last_error_message", "")).startswith("Wrong secret token")
+        )
+    ):
+        return username
     _telegram_call(
         runtime,
         "setWebhook",
         {
-            "url": telegram_webhook_url(),
-            "secret_token": telegram_webhook_secret(),
+            "url": target_url,
+            "secret_token": target_secret,
             "allowed_updates": ["message"],
             "drop_pending_updates": drop_pending_updates,
         },
