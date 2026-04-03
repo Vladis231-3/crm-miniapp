@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: crm-tg-miniapp
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /api/health
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 8000
+      - key: RUN_EMBEDDED_BOT
+        value: true
+      - key: ALLOW_INSECURE_CLIENT_AUTH
+        value: false
+      - key: APP_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: WEBAPP_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
