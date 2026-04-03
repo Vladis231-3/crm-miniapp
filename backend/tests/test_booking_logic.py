@@ -197,9 +197,10 @@ class BookingLogicTests(unittest.TestCase):
             )
 
     def test_session_schema_supports_prefixed_client_ids_and_long_mobile_user_agents(self) -> None:
-        from app.models import AuthSession, Client, Notification
+        from app.models import AuthSession, Booking, Client, Notification
 
         self.assertEqual(getattr(Client.__table__.c.id.type, "length", None), 64)
+        self.assertEqual(getattr(Booking.__table__.c.client_id.type, "length", None), 64)
         self.assertEqual(getattr(AuthSession.__table__.c.actor_id.type, "length", None), 64)
         self.assertIsNone(getattr(AuthSession.__table__.c.user_agent.type, "length", None))
         self.assertEqual(getattr(Notification.__table__.c.recipient_id.type, "length", None), 64)

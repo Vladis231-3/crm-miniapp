@@ -429,6 +429,8 @@ def _apply_runtime_migrations() -> None:
     if "debt_balance" not in client_columns:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN debt_balance INTEGER DEFAULT 0")
+    if "clients" in inspector.get_table_names():
+        ensure_postgres_varchar_length("clients", "id", 64)
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
     if "telegram_chat_id" not in columns:
         with engine.begin() as connection:
@@ -449,6 +451,8 @@ def _apply_runtime_migrations() -> None:
     else:
         ensure_postgres_varchar_length("auth_sessions", "actor_id", 64)
         ensure_postgres_text_column("auth_sessions", "user_agent")
+    if "bookings" in inspector.get_table_names():
+        ensure_postgres_varchar_length("bookings", "client_id", 64)
     if "notifications" in inspector.get_table_names():
         ensure_postgres_varchar_length("notifications", "recipient_id", 64)
     penalty_columns = {column["name"] for column in inspector.get_columns("penalties")}

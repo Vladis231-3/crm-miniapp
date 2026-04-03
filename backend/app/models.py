@@ -114,7 +114,7 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"))
+    client_id: Mapped[str] = mapped_column(String(64), ForeignKey("clients.id"))
     client_name: Mapped[str] = mapped_column(String(120))
     client_phone: Mapped[str] = mapped_column(String(64))
     service: Mapped[str] = mapped_column(String(120))
