@@ -400,6 +400,7 @@ interface AppContextType {
   requestOwnerDatabaseReset: (password: string) => Promise<OwnerDatabaseResetStart>;
   approveOwnerDatabaseReset: (requestId: string, creatorCode: string, confirmationPhrase: string) => Promise<OwnerDatabaseResetApproval>;
   executeOwnerDatabaseReset: (requestId: string) => Promise<OwnerDatabaseResetResult>;
+  refreshBootstrap: () => Promise<void>;
   refreshActiveSessions: () => Promise<void>;
   revokeSession: (sessionId: string) => Promise<void>;
 }
@@ -1120,6 +1121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       requestOwnerDatabaseReset,
       approveOwnerDatabaseReset,
       executeOwnerDatabaseReset,
+      refreshBootstrap,
       refreshActiveSessions,
       revokeSession,
     }}>

@@ -195,6 +195,7 @@ export function AdminApp() {
 
   const avgCheck = completedAll.length > 0 ? Math.round(totalRevenue / completedAll.length) : 0;
   const conversionRate = bookings.length > 0 ? Math.round((completedAll.length / bookings.length) * 100) : 0;
+  const scheduleSummary = schedule.filter((day) => day.active).map((day) => `${day.day} ${day.open}-${day.close}`).join(' · ') || 'График не задан';
   const revenueData = getLastNDates(7).map((date) => {
     const formatted = formatDate(date);
     return {
@@ -623,7 +624,7 @@ export function AdminApp() {
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(box => box.active).length} активных бокса`, color: primary },
-                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: 'Пн–Сб 09:00–22:00', color: '#F59E0B' },
+                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#A855F7' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },

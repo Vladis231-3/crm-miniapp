@@ -5,6 +5,7 @@ import {
   Calendar, Share2, Trash2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
 import { useApp, Booking, Service } from '../../context/AppContext';
+import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
   normalizePlateInput,
@@ -58,7 +59,9 @@ export function ClientApp() {
     updateClientProfile,
     logout,
     upcomingDates,
+    schedule,
     getTimeSlotsForDate,
+    refreshBootstrap,
     session,
   } = useApp();
   const [page, setPage] = useState<Page>('catalog');
@@ -80,6 +83,15 @@ export function ClientApp() {
       setSelectedDate(upcomingDates[0]);
     }
   }, [selectedDate, upcomingDates]);
+
+  useEffect(() => {
+    setSelectedSlot(null);
+  }, [selectedDate, selectedService?.id]);
+
+  useEffect(() => {
+    if (page !== 'slots' || session?.role !== 'client') return;
+    void refreshBootstrap().catch(() => undefined);
+  }, [page, selectedDate, session?.role]);
 
   useEffect(() => {
     setProfileForm(clientProfile);
@@ -111,6 +123,15 @@ export function ClientApp() {
   const availableSlots = selectedService
     ? getTimeSlotsForDate(selectedDate, { durationMinutes: selectedService.duration })
     : [];
+  const selectedDayDate = parseFlexibleDate(selectedDate);
+  const selectedDaySchedule = selectedDayDate
+    ? schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(selectedDayDate)) || null
+    : null;
+  const selectedDayWorkingHours = selectedDaySchedule
+    ? selectedDaySchedule.active
+      ? `${selectedDaySchedule.open}-${selectedDaySchedule.close}`
+      : 'Выходной'
+    : 'Не настроено';
 
   const glass = isDark
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
@@ -396,6 +417,10 @@ export function ClientApp() {
                 ))}
               </div>
               <h3 className={`text-sm font-medium ${sub} mb-3`}>Доступное время</h3>
+              <div className={`${glass} rounded-2xl p-3 mb-4`}>
+                <div className={`text-xs ${sub}`}>Часы работы на {selectedDate || formatDate(new Date())}</div>
+                <div className="font-medium mt-1">{selectedDayWorkingHours}</div>
+              </div>
               {availableSlots.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
                   На выбранную дату свободных слотов пока нет.
