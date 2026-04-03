@@ -561,6 +561,18 @@ def _setting(db: Session, key: str, default: dict) -> dict:
     return row.value
 
 
+def _merge_setting_dict(value: Any, default: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return dict(default)
+    merged = dict(default)
+    for key, item in value.items():
+        if key in default and isinstance(default[key], dict) and isinstance(item, dict):
+            merged[key] = _merge_setting_dict(item, default[key])
+        else:
+            merged[key] = item
+    return merged
+
+
 def _client_payload(client: Client | None) -> ClientProfilePayload | None:
     if client is None:
         return None
@@ -989,7 +1001,15 @@ def _schedule_payload(entry: ScheduleEntry) -> SchedulePayload:
 
 
 def _settings_payload(db: Session) -> SettingsBundlePayload:
-    admin_profile = _setting(db, "admin_profile", {"name": "Администратор", "email": "", "phone": "", "telegramChatId": ""})
+    admin_profile_default = {"name": "Администратор", "email": "", "phone": "", "telegramChatId": ""}
+    admin_notification_default = {"newBooking": True, "cancelled": True, "paymentDue": False, "workerAssigned": True, "reminders": True}
+    owner_company_default = {"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "", "email": ""}
+    owner_notification_default = {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True}
+    owner_integrations_default = {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False}
+    owner_security_default = {"twoFactor": False}
+    worker_notification_default = {"newTask": True, "taskUpdate": True, "payment": True, "reminders": True, "sms": False}
+
+    admin_profile = _merge_setting_dict(_setting(db, "admin_profile", admin_profile_default), admin_profile_default)
     admin_staff = db.scalar(select(StaffUser).where(StaffUser.role == "admin").order_by(StaffUser.created_at.asc()))
     owner_staff = _primary_owner(db)
     if admin_staff is not None:
@@ -1000,43 +1020,30 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
             "phone": admin_staff.phone,
             "telegramChatId": admin_staff.telegram_chat_id or "",
         }
-    owner_security = _setting(db, "owner_security", {"twoFactor": False})
+    owner_security = _merge_setting_dict(_setting(db, "owner_security", owner_security_default), owner_security_default)
     if owner_security.get("twoFactor") and not (owner_staff and owner_staff.telegram_chat_id.strip()):
         owner_security = {"twoFactor": False}
+    raw_worker_notifications = _setting(db, "worker_notification_settings", {})
+    if not isinstance(raw_worker_notifications, dict):
+        raw_worker_notifications = {}
     return SettingsBundlePayload(
         adminProfile=AdminProfilePayload.model_validate(admin_profile),
         adminNotificationSettings=AdminNotificationSettings.model_validate(
-            _setting(
-                db,
-                "admin_notification_settings",
-                {"newBooking": True, "cancelled": True, "paymentDue": False, "workerAssigned": True, "reminders": True},
-            )
+            _merge_setting_dict(_setting(db, "admin_notification_settings", admin_notification_default), admin_notification_default)
         ),
         ownerCompany=OwnerCompanyPayload.model_validate(
-            _setting(
-                db,
-                "owner_company",
-                {"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "", "email": ""},
-            )
+            _merge_setting_dict(_setting(db, "owner_company", owner_company_default), owner_company_default)
         ),
         ownerNotificationSettings=OwnerNotificationSettings.model_validate(
-            _setting(
-                db,
-                "owner_notification_settings",
-                {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True},
-            )
+            _merge_setting_dict(_setting(db, "owner_notification_settings", owner_notification_default), owner_notification_default)
         ),
         ownerIntegrations=OwnerIntegrationsPayload.model_validate(
-            _setting(
-                db,
-                "owner_integrations",
-                {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
-            )
+            _merge_setting_dict(_setting(db, "owner_integrations", owner_integrations_default), owner_integrations_default)
         ),
         ownerSecurity=OwnerSecurityPayload.model_validate(owner_security),
         workerNotificationSettings={
-            worker_id: WorkerNotificationSettings.model_validate(value)
-            for worker_id, value in _setting(db, "worker_notification_settings", {}).items()
+            worker_id: WorkerNotificationSettings.model_validate(_merge_setting_dict(value, worker_notification_default))
+            for worker_id, value in raw_worker_notifications.items()
         },
     )
 

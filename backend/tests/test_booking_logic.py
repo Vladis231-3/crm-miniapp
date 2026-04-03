@@ -439,6 +439,44 @@ class BookingLogicTests(unittest.TestCase):
             self.assertEqual(len(client_notifications), 1)
             self.assertEqual(len(worker_notifications), 1)
 
+    def test_client_login_tolerates_legacy_partial_settings(self) -> None:
+        from app.database import SessionLocal
+        from app.models import AppSetting
+
+        with SessionLocal() as db:
+            owner_notifications = db.get(AppSetting, "owner_notification_settings")
+            self.assertIsNotNone(owner_notifications)
+            assert owner_notifications is not None
+            owner_notifications.value = {
+                "telegramBot": True,
+                "emailReports": True,
+                "smsReminders": False,
+                "lowStock": True,
+                "dailyReport": True,
+                "weeklyReport": False,
+            }
+
+            worker_notifications = db.get(AppSetting, "worker_notification_settings")
+            self.assertIsNotNone(worker_notifications)
+            assert worker_notifications is not None
+            worker_notifications.value = {
+                "w1": {
+                    "newTask": True,
+                    "taskUpdate": True,
+                    "payment": True,
+                }
+            }
+            db.commit()
+
+        response = self.client.post(
+            "/api/auth/client",
+            json=self.client_auth_payload(name="Alice", phone="+7 (999) 222-33-44"),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["bootstrap"]["settings"]["ownerNotificationSettings"]["bookingReminders"], False)
+        self.assertEqual(payload["bootstrap"]["settings"]["workerNotificationSettings"], {})
+
     def test_client_booking_uses_other_active_box_when_first_is_busy(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         booking_date = self.next_active_date()
