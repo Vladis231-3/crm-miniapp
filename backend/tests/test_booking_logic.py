@@ -885,6 +885,35 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(payload["bootstrap"]["session"]["role"], "client")
         self.assertEqual(payload["bootstrap"]["clientProfile"]["name"], "Alice")
 
+    def test_generic_telegram_auth_tolerates_legacy_client_profile_data(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Client
+
+        first = self.client.post(
+            "/api/auth/client",
+            json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
+        )
+        self.assertEqual(first.status_code, 200, first.text)
+        client_id = first.json()["actorId"]
+
+        with SessionLocal() as db:
+            client = db.get(Client, client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            client.name = "1"
+            client.phone = "broken-phone"
+            client.car = "***"
+            client.plate = "###"
+            db.commit()
+
+        response = self.client.post("/api/auth/telegram", json={"initData": self.make_init_data("1001")})
+        self.assertEqual(response.status_code, 200, response.text)
+
+        payload = response.json()
+        self.assertEqual(payload["role"], "client")
+        self.assertEqual(payload["actorId"], client_id)
+        self.assertEqual(payload["bootstrap"]["clientProfile"]["phone"], "broken-phone")
+
     def test_generic_telegram_auth_prefers_linked_staff_window(self) -> None:
         self.set_staff_telegram("ivan", "7001")
         client = self.client.post(

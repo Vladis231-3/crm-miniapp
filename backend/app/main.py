@@ -56,6 +56,7 @@ from .schemas import (
     ChangePasswordRequest,
     ClientAuthRequest,
     ClientCardUpdateRequest,
+    ClientProfileInput,
     ClientProfilePayload,
     ClientSummaryPayload,
     EmployeeSettingPayload,
@@ -2303,7 +2304,7 @@ def logout(session_data: dict = Depends(_require_session), db: Session = Depends
 
 @app.patch("/api/clients/me", response_model=ClientProfilePayload)
 def update_client_profile(
-    payload: ClientProfilePayload,
+    payload: ClientProfileInput,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> ClientProfilePayload:

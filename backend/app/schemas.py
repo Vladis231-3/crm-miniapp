@@ -105,6 +105,14 @@ class ClientProfilePayload(BaseModel):
     plate: str = ""
     registered: bool = True
 
+
+class ClientProfileInput(BaseModel):
+    name: str
+    phone: str
+    car: str = ""
+    plate: str = ""
+    registered: bool = True
+
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
@@ -369,7 +377,7 @@ class BootstrapPayload(BaseModel):
 
 
 class ClientAuthRequest(BaseModel):
-    profile: ClientProfilePayload
+    profile: ClientProfileInput
     initData: str | None = None
 
 
