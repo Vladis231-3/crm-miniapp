@@ -58,6 +58,14 @@ const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing';
 
+function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
+  return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
+}
+
+function hasManualScheduling(booking: Booking, services: Array<{ id: string; category: string }>) {
+  return isDetailingService(booking.serviceId, services) && (!booking.time || booking.time === '00:00');
+}
+
 export function AdminApp() {
   const {
     isDark,
@@ -124,6 +132,9 @@ export function AdminApp() {
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
   const [newBookingErrors, setNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
+  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '' });
+  const [editBookingSaving, setEditBookingSaving] = useState(false);
+  const [editBookingError, setEditBookingError] = useState<string | null>(null);
 
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
@@ -138,6 +149,7 @@ export function AdminApp() {
 
   const adminNotifications = notifications.filter(n => n.recipientRole === 'admin');
   const unreadCount = adminNotifications.filter(n => !n.read).length;
+  const masterWorkers = workers.filter((worker) => worker.role === 'worker');
   const todayBookings = bookings.filter(b => b.date === todayLabel);
   const completedAll = bookings.filter(b => b.status === 'completed');
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
@@ -184,7 +196,7 @@ export function AdminApp() {
     { name: 'Онлайн', value: bookings.filter(b => b.paymentType === 'online').length, color: '#A855F7' },
   ].filter(p => p.value > 0);
 
-  const workerStats = workers.map(w => ({
+  const workerStats = masterWorkers.map(w => ({
     ...w,
     tasks: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).length,
     earned: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).reduce((s, b) => {
@@ -309,10 +321,65 @@ export function AdminApp() {
     resetNewBookingDraft();
   };
 
+  const openEditModal = (booking: Booking) => {
+    setEditBookingDraft({
+      status: booking.status,
+      date: booking.date || todayLabel,
+      time: booking.time || '10:00',
+      box: booking.box && booking.box !== 'По согласованию' ? booking.box : boxes[0]?.name || 'Бокс 1',
+      notes: booking.notes || '',
+    });
+    setEditBookingError(null);
+    setEditBookingSaving(false);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditedBooking = async () => {
+    if (!selectedBooking) return;
+    const detailingBooking = isDetailingService(selectedBooking.serviceId, services);
+    const requiresScheduledSlot = !detailingBooking || editBookingDraft.status !== 'admin_review';
+    if (requiresScheduledSlot) {
+      const validationErrors = validateBookingDate(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
+      if (validationErrors.date || validationErrors.time) {
+        setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
+        return;
+      }
+      if (!editBookingDraft.box.trim()) {
+        setEditBookingError('Укажите бокс для записи');
+        return;
+      }
+    }
+
+    try {
+      setEditBookingSaving(true);
+      setEditBookingError(null);
+      await updateBooking(selectedBooking.id, {
+        status: editBookingDraft.status,
+        date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
+        time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
+        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
+        notes: editBookingDraft.notes.trim() || undefined,
+      });
+      setSelectedBooking((current) => (current ? {
+        ...current,
+        status: editBookingDraft.status,
+        date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
+        time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
+        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
+        notes: editBookingDraft.notes.trim(),
+      } : null));
+      setShowEditModal(false);
+    } catch (error) {
+      setEditBookingError(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
+    } finally {
+      setEditBookingSaving(false);
+    }
+  };
+
   const handleAssignWorkers = async (notify: boolean) => {
     if (!selectedBooking) return;
     const updatedWorkers = assignedWorkers.map(aw => {
-      const w = workers.find(wk => wk.id === aw.id);
+      const w = masterWorkers.find(wk => wk.id === aw.id);
       return { workerId: aw.id, workerName: w?.name || '', percent: aw.percent };
     });
     await updateBooking(selectedBooking.id, { workers: updatedWorkers, notifyWorkers: notify });
@@ -334,7 +401,7 @@ export function AdminApp() {
     const normalizedPlate = normalizePlateInput(newBookingForm.plate);
     const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
     const createdWorkers = newBookingWorkers.map((item) => {
-      const worker = workers.find((candidate) => candidate.id === item.id);
+      const worker = masterWorkers.find((candidate) => candidate.id === item.id);
       return {
         workerId: item.id,
         workerName: worker?.name || '',
@@ -1004,7 +1071,11 @@ export function AdminApp() {
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} mb-2`}>УСЛУГА</div>
                   <div className="font-semibold">{selectedBooking.service}</div>
-                  <div className={`text-sm ${sub} mt-1`}>{selectedBooking.date} в {selectedBooking.time} · {selectedBooking.duration} мин · {selectedBooking.box}</div>
+                  <div className={`text-sm ${sub} mt-1`}>
+                    {hasManualScheduling(selectedBooking, services)
+                      ? 'Время и бокс будут назначены после согласования с клиентом'
+                      : `${selectedBooking.date} в ${selectedBooking.time} · ${selectedBooking.duration} мин · ${selectedBooking.box}`}
+                  </div>
                   <div className="font-semibold mt-2">{selectedBooking.price.toLocaleString('ru')} ₽</div>
                 </div>
                 <div className={`${glass} rounded-2xl p-4`}>
@@ -1024,7 +1095,7 @@ export function AdminApp() {
                   )) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setShowEditModal(true)} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} />Редактировать</button>
+                  <button onClick={() => openEditModal(selectedBooking)} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} />Редактировать</button>
                   {READY_TO_START_STATUSES.includes(selectedBooking.status) && (
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} />Начать</button>
                   )}
@@ -1054,7 +1125,7 @@ export function AdminApp() {
                 <button onClick={() => setShowAssignModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
-                {workers.map(worker => {
+                {masterWorkers.map(worker => {
                   const assigned = assignedWorkers.find(aw => aw.id === worker.id);
                   return (
                     <div key={worker.id} className={`${glass} rounded-xl p-3`}>
@@ -1151,8 +1222,14 @@ export function AdminApp() {
               <div className="space-y-3 mb-4">
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Статус</label>
-                  <select className={selectCls} value={selectedBooking.status}
-                    onChange={e => { updateBooking(selectedBooking.id, { status: e.target.value as BookingStatus }); setSelectedBooking(prev => prev ? { ...prev, status: e.target.value as BookingStatus } : null); }}>
+                  <select
+                    className={selectCls}
+                    value={editBookingDraft.status}
+                    onChange={e => {
+                      setEditBookingError(null);
+                      setEditBookingDraft((current) => ({ ...current, status: e.target.value as BookingStatus }));
+                    }}
+                  >
                     <option value="scheduled">Запланировано</option>
                     <option value="new">Новая заявка</option>
                     <option value="confirmed">Подтверждена</option>
@@ -1163,19 +1240,76 @@ export function AdminApp() {
                     <option value="cancelled">Отменено</option>
                   </select>
                 </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
-                  <select className={selectCls} value={selectedBooking.box}
-                    onChange={e => { updateBooking(selectedBooking.id, { box: e.target.value }); setSelectedBooking(prev => prev ? { ...prev, box: e.target.value } : null); }}>
-                    {boxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                  </select>
-                </div>
+                {(editBookingDraft.status !== 'admin_review' || !isDetailingService(selectedBooking.serviceId, services)) && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                        <input
+                          className={inputCls}
+                          placeholder="ДД.ММ.ГГГГ"
+                          value={editBookingDraft.date}
+                          onChange={e => {
+                            setEditBookingError(null);
+                            setEditBookingDraft((current) => ({ ...current, date: e.target.value }));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Время</label>
+                        <input
+                          className={inputCls}
+                          placeholder="ЧЧ:ММ"
+                          value={editBookingDraft.time}
+                          onChange={e => {
+                            setEditBookingError(null);
+                            setEditBookingDraft((current) => ({ ...current, time: e.target.value }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
+                      <select
+                        className={selectCls}
+                        value={editBookingDraft.box}
+                        onChange={e => {
+                          setEditBookingError(null);
+                          setEditBookingDraft((current) => ({ ...current, box: e.target.value }));
+                        }}
+                      >
+                        {boxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+                {editBookingDraft.status === 'admin_review' && isDetailingService(selectedBooking.serviceId, services) && (
+                  <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
+                    Это заявка на детейлинг без фиксированного времени. Оставьте статус "На уточнении", если нужно сначала созвониться с клиентом.
+                  </div>
+                )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
-                  <input className={inputCls} placeholder="Добавить примечание..." />
+                  <textarea
+                    className={`${inputCls} min-h-[96px] resize-none`}
+                    placeholder="Добавить примечание..."
+                    value={editBookingDraft.notes}
+                    onChange={e => {
+                      setEditBookingError(null);
+                      setEditBookingDraft((current) => ({ ...current, notes: e.target.value }));
+                    }}
+                  />
                 </div>
+                {editBookingError && <div className="text-xs text-red-500">{editBookingError}</div>}
               </div>
-              <button onClick={() => setShowEditModal(false)} className="w-full py-3 rounded-xl text-sm text-white font-medium" style={{ background: primary }}>Сохранить</button>
+              <button
+                onClick={() => { void handleSaveEditedBooking(); }}
+                disabled={editBookingSaving}
+                className="w-full py-3 rounded-xl text-sm text-white font-medium disabled:opacity-60"
+                style={{ background: primary }}
+              >
+                {editBookingSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -1271,7 +1405,7 @@ export function AdminApp() {
                     <span className={`text-xs ${sub}`}>Сумма: {totalNewBookingPercent}%</span>
                   </div>
                   <div className="space-y-2">
-                    {workers.filter(worker => worker.active).map(worker => {
+                    {masterWorkers.filter(worker => worker.active).map(worker => {
                       const assigned = newBookingWorkers.find(item => item.id === worker.id);
                       return (
                         <div key={worker.id} className={`${glass} rounded-xl p-3`}>

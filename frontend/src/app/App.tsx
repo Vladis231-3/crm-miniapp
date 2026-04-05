@@ -100,7 +100,7 @@ const handleStaffLogin = async () => {
       setStaffTwoFactorCode('');
       setNeedsTwoFactor(false);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РІРѕР№С‚Рё РєР°Рє СЃРѕР·РґР°С‚РµР»СЊ';
+      const message = nextError instanceof Error ? nextError.message : 'Не удалось войти как создатель';
       setStaffError(message);
     }
   };

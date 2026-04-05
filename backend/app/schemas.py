@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 Role = Literal["client", "admin", "worker", "owner"]
+StaffRole = Literal["admin", "worker", "owner"]
+EmployeeRole = Literal["admin", "worker"]
 BookingStatus = Literal["new", "confirmed", "scheduled", "in_progress", "completed", "no_show", "cancelled", "admin_review"]
 PaymentType = Literal["cash", "card", "online"]
 
@@ -136,6 +138,7 @@ class ClientSummaryPayload(BaseModel):
 
 class WorkerPayload(BaseModel):
     id: str
+    role: StaffRole
     name: str
     experience: str
     defaultPercent: int = Field(ge=0, le=40)
@@ -175,6 +178,19 @@ class BookingPayload(BaseModel):
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
+
+
+class BookingAvailabilitySlotPayload(BaseModel):
+    time: str
+    available: bool
+    freeBoxes: int = 0
+    occupiedBoxes: int = 0
+
+
+class BookingAvailabilityPayload(BaseModel):
+    date: str
+    duration: int
+    slots: list[BookingAvailabilitySlotPayload]
 
 
 class NotificationPayload(BaseModel):
@@ -230,6 +246,27 @@ class ServicePayload(BaseModel):
     duration: int
     desc: str = Field(default="")
     active: bool = True
+
+
+class DetailingRequestCreateRequest(BaseModel):
+    serviceId: str
+    notes: str | None = None
+    car: str | None = None
+    plate: str | None = None
+
+    @field_validator("car")
+    @classmethod
+    def validate_car(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_vehicle_name(value)
+
+    @field_validator("plate")
+    @classmethod
+    def validate_plate(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_plate(value)
 
 
 class BoxPayload(BaseModel):
@@ -323,6 +360,7 @@ class AuthSessionPayload(BaseModel):
 
 class EmployeeSettingPayload(BaseModel):
     id: str
+    role: EmployeeRole = "worker"
     name: str
     percent: int = Field(ge=0, le=40)
     salaryBase: int
@@ -331,6 +369,7 @@ class EmployeeSettingPayload(BaseModel):
 
 
 class WorkerCreateRequest(BaseModel):
+    role: EmployeeRole = "worker"
     name: str
     login: str
     password: str

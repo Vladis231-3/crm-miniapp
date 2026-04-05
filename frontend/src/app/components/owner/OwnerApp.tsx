@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, type OwnerDatabaseResetPreview } from '../../context/AppContext';
+import { useApp, type EmployeeSetting, type OwnerDatabaseResetPreview } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates } from '../../utils/date';
 
@@ -119,7 +119,17 @@ export function OwnerApp() {
   const [company, setCompany] = useState(settings.ownerCompany);
   const [boxes, setBoxes] = useState(liveBoxes);
   const [services, setServicesState] = useState(liveServices);
-  const [employeeSettings, setEmployeeSettings] = useState(workers.map(worker => ({ id: worker.id, name: worker.name, percent: worker.defaultPercent, salaryBase: worker.salaryBase, active: worker.active, telegramChatId: worker.telegramChatId })));
+  const [employeeSettings, setEmployeeSettings] = useState<EmployeeSetting[]>(
+    workers.map(worker => ({
+      id: worker.id,
+      role: worker.role === 'admin' ? 'admin' : 'worker',
+      name: worker.name,
+      percent: worker.defaultPercent,
+      salaryBase: worker.salaryBase,
+      active: worker.active,
+      telegramChatId: worker.telegramChatId,
+    })),
+  );
   const [notifSettings, setNotifSettings] = useState(settings.ownerNotificationSettings);
   const [integrations, setIntegrations] = useState(settings.ownerIntegrations);
   const [showPass, setShowPass] = useState(false);
@@ -127,6 +137,7 @@ export function OwnerApp() {
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
   const [penaltyForm, setPenaltyForm] = useState({ workerId: workers[0]?.id || '', title: '', reason: '' });
   const [newEmployee, setNewEmployee] = useState({
+    role: 'worker' as 'admin' | 'worker',
     name: '',
     login: '',
     password: '',
@@ -163,7 +174,17 @@ export function OwnerApp() {
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
   useEffect(() => {
-    setEmployeeSettings(workers.map(worker => ({ id: worker.id, name: worker.name, percent: worker.defaultPercent, salaryBase: worker.salaryBase, active: worker.active, telegramChatId: worker.telegramChatId })));
+    setEmployeeSettings(
+      workers.map(worker => ({
+        id: worker.id,
+        role: worker.role === 'admin' ? 'admin' : 'worker',
+        name: worker.name,
+        percent: worker.defaultPercent,
+        salaryBase: worker.salaryBase,
+        active: worker.active,
+        telegramChatId: worker.telegramChatId,
+      })),
+    );
     setPenaltyForm(current => ({
       ...current,
       workerId: workers.some((worker) => worker.id === current.workerId) ? current.workerId : workers[0]?.id || '',
@@ -324,6 +345,7 @@ export function OwnerApp() {
     const name = newEmployee.name.trim();
     const login = newEmployee.login.trim();
     const password = newEmployee.password.trim();
+    const employeeLabel = newEmployee.role === 'admin' ? 'Администратор' : 'Мастер';
 
     if (!name || !login || !password) {
       setBottomToast('Заполните имя, логин и пароль сотрудника');
@@ -332,6 +354,7 @@ export function OwnerApp() {
     }
 
     await hireWorker({
+      role: newEmployee.role,
       name,
       login,
       password,
@@ -343,6 +366,7 @@ export function OwnerApp() {
     });
 
     setNewEmployee({
+      role: 'worker',
       name: '',
       login: '',
       password: '',
@@ -634,9 +658,12 @@ export function OwnerApp() {
   };
 
   const handleFireWorker = async (workerId: string, workerName: string) => {
+    const employee = employeeSettings.find((item) => item.id === workerId);
+    const employeeTitle = employee?.role === 'admin' ? 'Администратор' : 'Мастер';
     const confirmed = window.confirm(`Уволить мастера "${workerName}"? Доступ будет отключён, а будущие записи снимутся с мастера.`);
     if (!confirmed) return;
     await fireWorker(workerId);
+    window.setTimeout(() => setBottomToast(`${employeeTitle} ${workerName} уволен`), 0);
     setBottomToast(`Мастер ${workerName} уволен`);
     setTimeout(() => setBottomToast(null), 3000);
   };
@@ -1729,6 +1756,17 @@ export function OwnerApp() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Роль</label>
+                    <select
+                      className={selectCls}
+                      value={newEmployee.role}
+                      onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value as 'admin' | 'worker' }))}
+                    >
+                      <option value="worker">Мастер</option>
+                      <option value="admin">Администратор</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className={`text-xs ${sub} block mb-1`}>Имя</label>
                     <input className={inputCls} value={newEmployee.name} onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))} placeholder="Иван Иванов" />
                   </div>
@@ -1771,7 +1809,10 @@ export function OwnerApp() {
                   <div className="flex items-center justify-between mb-3 gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ background: primary }}>{emp.name.charAt(0)}</div>
-                      <span className="font-medium truncate">{emp.name}</span>
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{emp.name}</div>
+                        <div className={`text-xs ${sub}`}>{emp.role === 'admin' ? 'Администратор' : 'Мастер'}</div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => setEmployeeSettings(p => p.map((e, j) => j === i ? { ...e, active: !e.active } : e))}

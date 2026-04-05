@@ -1518,6 +1518,96 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(settings["adminNotificationSettings"]["paymentDue"], True)
         self.assertEqual(settings["adminNotificationSettings"]["workerAssigned"], False)
 
+    def test_owner_can_create_admin_like_worker_and_update_telegram_ids(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        create_admin = self.client.post(
+            "/api/workers",
+            headers=self.auth_headers(owner_token),
+            json={
+                "role": "admin",
+                "name": "Shift Admin",
+                "login": "shiftadmin",
+                "password": "adminpass",
+                "percent": 0,
+                "salaryBase": 45000,
+                "phone": "+7 (999) 555-11-22",
+                "email": "shiftadmin@example.com",
+                "telegramChatId": "701001",
+            },
+        )
+        self.assertEqual(create_admin.status_code, 200, create_admin.text)
+        admin_payload = create_admin.json()
+        self.assertEqual(admin_payload["role"], "admin")
+        self.assertEqual(admin_payload["telegramChatId"], "701001")
+
+        create_worker = self.client.post(
+            "/api/workers",
+            headers=self.auth_headers(owner_token),
+            json={
+                "role": "worker",
+                "name": "Detail Master",
+                "login": "detailmaster",
+                "password": "workerpass",
+                "percent": 35,
+                "salaryBase": 15000,
+                "phone": "+7 (999) 555-22-33",
+                "email": "detailmaster@example.com",
+                "telegramChatId": "701002",
+            },
+        )
+        self.assertEqual(create_worker.status_code, 200, create_worker.text)
+        worker_payload = create_worker.json()
+        self.assertEqual(worker_payload["role"], "worker")
+        self.assertEqual(worker_payload["telegramChatId"], "701002")
+
+        update_settings = self.client.put(
+            "/api/workers/settings",
+            headers=self.auth_headers(owner_token),
+            json=[
+                {
+                    "id": admin_payload["id"],
+                    "role": "admin",
+                    "name": "Shift Admin",
+                    "percent": 0,
+                    "salaryBase": 50000,
+                    "active": True,
+                    "telegramChatId": "801001",
+                },
+                {
+                    "id": worker_payload["id"],
+                    "role": "worker",
+                    "name": "Detail Master",
+                    "percent": 30,
+                    "salaryBase": 18000,
+                    "active": True,
+                    "telegramChatId": "801002",
+                },
+            ],
+        )
+        self.assertEqual(update_settings.status_code, 200, update_settings.text)
+        saved_staff = {item["id"]: item for item in update_settings.json()}
+        self.assertEqual(saved_staff[admin_payload["id"]]["telegramChatId"], "801001")
+        self.assertEqual(saved_staff[admin_payload["id"]]["role"], "admin")
+        self.assertEqual(saved_staff[worker_payload["id"]]["telegramChatId"], "801002")
+        self.assertEqual(saved_staff[worker_payload["id"]]["role"], "worker")
+
+        admin_record = self.get_staff(login="shiftadmin")
+        worker_record = self.get_staff(login="detailmaster")
+        self.assertEqual(admin_record["role"], "admin")
+        self.assertEqual(admin_record["telegram_chat_id"], "801001")
+        self.assertEqual(worker_record["role"], "worker")
+        self.assertEqual(worker_record["telegram_chat_id"], "801002")
+
+        bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(owner_token))
+        self.assertEqual(bootstrap.status_code, 200, bootstrap.text)
+        owner_workers = {item["id"]: item for item in bootstrap.json()["workers"]}
+        self.assertEqual(owner_workers[admin_payload["id"]]["role"], "admin")
+        self.assertEqual(owner_workers[admin_payload["id"]]["telegramChatId"], "801001")
+        self.assertEqual(owner_workers[worker_payload["id"]]["role"], "worker")
+        self.assertEqual(owner_workers[worker_payload["id"]]["telegramChatId"], "801002")
+
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None

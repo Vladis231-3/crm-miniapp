@@ -4,7 +4,7 @@ import {
   Menu, ChevronRight, Clock, Star, ArrowLeft, Check,
   Calendar, Share2, Trash2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
-import { useApp, Booking, Service } from '../../context/AppContext';
+import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
@@ -44,6 +44,18 @@ const CANCELLABLE_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'sc
 
 type Page = 'catalog' | 'detail' | 'slots' | 'confirm' | 'bookings' | 'profile';
 
+function isBoxRentalService(service: Service | null | undefined) {
+  return service?.category === 'Аренда бокса';
+}
+
+function isDetailingService(service: Service | null | undefined) {
+  return service?.category === 'Детейлинг';
+}
+
+function isManualSchedulingBooking(booking: Booking) {
+  return booking.status === 'admin_review' && (!booking.time || booking.time === '00:00');
+}
+
 export function ClientApp() {
   const {
     isDark,
@@ -60,7 +72,7 @@ export function ClientApp() {
     logout,
     upcomingDates,
     schedule,
-    getTimeSlotsForDate,
+    getBookingAvailabilityForDate,
     refreshBootstrap,
     session,
   } = useApp();
@@ -73,6 +85,10 @@ export function ClientApp() {
   const [calendarAnim, setCalendarAnim] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
   const [showSlotModal, setShowSlotModal] = useState(false);
+  const [slotAvailability, setSlotAvailability] = useState<BookingSlotAvailability[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [boxRentalHours, setBoxRentalHours] = useState(1);
+  const [detailingNote, setDetailingNote] = useState('');
   const [profileForm, setProfileForm] = useState(clientProfile);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
@@ -86,7 +102,7 @@ export function ClientApp() {
 
   useEffect(() => {
     setSelectedSlot(null);
-  }, [selectedDate, selectedService?.id]);
+  }, [selectedDate, selectedService?.id, boxRentalHours]);
 
   useEffect(() => {
     if (page !== 'slots' || session?.role !== 'client') return;
@@ -94,10 +110,46 @@ export function ClientApp() {
   }, [page, selectedDate, session?.role]);
 
   useEffect(() => {
+    if (!selectedService || page !== 'slots' || isDetailingService(selectedService)) {
+      setSlotAvailability([]);
+      setSlotsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadAvailability = async () => {
+      try {
+        setSlotsLoading(true);
+        const durationMinutes = isBoxRentalService(selectedService)
+          ? boxRentalHours * 60
+          : selectedService.duration;
+        const nextSlots = await getBookingAvailabilityForDate(selectedDate, { durationMinutes });
+        if (!cancelled) {
+          setSlotAvailability(nextSlots);
+        }
+      } finally {
+        if (!cancelled) {
+          setSlotsLoading(false);
+        }
+      }
+    };
+
+    void loadAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [boxRentalHours, getBookingAvailabilityForDate, page, selectedDate, selectedService]);
+
+  useEffect(() => {
     setProfileForm(clientProfile);
     setProfileErrors({});
     setProfileError('');
   }, [clientProfile]);
+
+  useEffect(() => {
+    setBoxRentalHours(1);
+    setDetailingNote('');
+  }, [selectedService?.id]);
 
   const activeServices = services.filter((service) => service.active);
   const categories = ['Все', ...Array.from(new Set(activeServices.map((service) => service.category)))];
@@ -120,9 +172,18 @@ export function ClientApp() {
     : activeServices.filter((service) => service.category === activeCategory);
   const defaultBoxName = boxes.find((box) => box.active)?.name || boxes[0]?.name || 'Бокс 1';
 
-  const availableSlots = selectedService
-    ? getTimeSlotsForDate(selectedDate, { durationMinutes: selectedService.duration })
-    : [];
+  const selectedServiceIsBoxRental = isBoxRentalService(selectedService);
+  const selectedServiceIsDetailing = isDetailingService(selectedService);
+  const selectedDuration = selectedService
+    ? selectedServiceIsBoxRental
+      ? boxRentalHours * 60
+      : selectedService.duration
+    : 0;
+  const selectedPrice = selectedService
+    ? selectedServiceIsBoxRental
+      ? selectedService.price * boxRentalHours
+      : selectedService.price
+    : 0;
   const selectedDayDate = parseFlexibleDate(selectedDate);
   const selectedDaySchedule = selectedDayDate
     ? schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(selectedDayDate)) || null
@@ -143,6 +204,7 @@ export function ClientApp() {
   const primary = isDark ? '#4AA8FF' : '#0A84FF';
   const primaryBtn = isDark ? 'bg-[#4AA8FF] text-white' : 'bg-[#0A84FF] text-white';
   const secondaryBtn = isDark ? 'bg-white/10 text-[#E6EEF8] border border-white/20' : 'bg-white text-[#0B1226] border border-black/10';
+  const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
 
   const handleAddToCalendar = () => {
     setCalendarAnim(true);
@@ -153,23 +215,25 @@ export function ClientApp() {
   };
 
   const handleConfirmBooking = async () => {
-    if (!selectedService || !selectedSlot || !session) return;
+    if (!selectedService || !session) return;
+    if (!selectedServiceIsDetailing && !selectedSlot) return;
     const booking = await addBooking({
       clientId: session.actorId,
       clientName: clientProfile.name,
       clientPhone: clientProfile.phone,
       service: selectedService.name,
       serviceId: selectedService.id,
-      date: selectedDate,
-      time: selectedSlot,
-      duration: selectedService.duration,
-      price: selectedService.price,
+      date: selectedServiceIsDetailing ? '' : selectedDate,
+      time: selectedServiceIsDetailing ? '' : (selectedSlot || ''),
+      duration: selectedDuration,
+      price: selectedPrice,
       status: 'new',
       workers: [],
       box: defaultBoxName,
       paymentType: 'cash',
       car: clientProfile.car,
       plate: clientProfile.plate,
+      notes: detailingNote.trim() || undefined,
     });
     setConfirmedBookingId(booking.id);
     setPage('confirm');
@@ -371,23 +435,63 @@ export function ClientApp() {
                 <p className={`text-sm ${sub} mb-4`}>{selectedService.desc}</p>
                 <div className="flex gap-4">
                   <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
-                    <div className="font-semibold">{selectedService.price.toLocaleString('ru')} ₽</div>
+                    <div className="font-semibold">{selectedPrice.toLocaleString('ru')} ₽</div>
                     <div className={`text-xs ${sub}`}>Стоимость</div>
                   </div>
                   <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
-                    <div className="font-semibold">{selectedService.duration} мин</div>
+                    <div className="font-semibold">{selectedDuration} мин</div>
                     <div className={`text-xs ${sub}`}>Длительность</div>
                   </div>
                 </div>
               </div>
-              {selectedService.category === 'Аренда бокса' && (
-                <p className={`text-xs ${sub} text-center mb-4`}>Минимум 1 час для аренды бокса</p>
+              {selectedServiceIsBoxRental && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-sm font-medium mb-3 ${text}`}>Сколько часов нужен бокс</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => {
+                      const selected = boxRentalHours === hours;
+                      return (
+                        <button
+                          key={hours}
+                          onClick={() => setBoxRentalHours(hours)}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${selected ? 'text-white' : glass}`}
+                          style={selected ? { background: primary } : {}}
+                        >
+                          {hours} ч
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={`mt-3 text-xs ${sub}`}>
+                    Итог: {selectedDuration} мин, {selectedPrice.toLocaleString('ru')} ₽
+                  </div>
+                </div>
+              )}
+              {selectedServiceIsDetailing && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-sm font-medium mb-2 ${text}`}>Заявка без выбора времени</div>
+                  <p className={`text-sm ${sub} mb-3`}>
+                    Администратор свяжется с вами и сам предложит подходящее время после уточнения деталей.
+                  </p>
+                  <textarea
+                    value={detailingNote}
+                    onChange={(event) => setDetailingNote(event.target.value)}
+                    placeholder="Опишите задачу, состояние авто или удобный способ связи"
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
+                  />
+                </div>
               )}
               <button
-                onClick={() => setPage('slots')}
+                onClick={() => {
+                  if (selectedServiceIsDetailing) {
+                    void handleConfirmBooking();
+                    return;
+                  }
+                  setPage('slots');
+                }}
                 className={`w-full py-3.5 rounded-2xl font-semibold transition-all active:scale-98 ${primaryBtn}`}
               >
-                Выбрать время
+                {selectedServiceIsDetailing ? 'Оставить заявку админу' : 'Выбрать время'}
               </button>
             </motion.div>
           )}
@@ -421,24 +525,64 @@ export function ClientApp() {
                 <div className={`text-xs ${sub}`}>Часы работы на {selectedDate || formatDate(new Date())}</div>
                 <div className="font-medium mt-1">{selectedDayWorkingHours}</div>
               </div>
-              {availableSlots.length === 0 ? (
+              {slotsLoading ? (
                 <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
-                  На выбранную дату свободных слотов пока нет.
+                  Обновляем занятость по боксам...
+                </div>
+              ) : slotCards.length === 0 ? (
+                <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
+                  На выбранную дату подходящих слотов пока нет.
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                  {availableSlots.map(slot => {
-                    const selected = selectedSlot === slot;
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {slotCards.map((slot) => {
+                    const selected = selectedSlot === slot.time;
+                    const slotClass = selected
+                      ? 'text-white'
+                      : slot.available
+                        ? glass
+                        : isDark
+                          ? 'bg-red-500/10 border border-red-500/30 text-red-200'
+                          : 'bg-red-50 border border-red-200 text-red-700';
                     return (
                       <motion.button
-                        key={slot}
-                        onClick={() => { setSelectedSlot(slot); setShowSlotModal(true); }}
-                        whileTap={{ scale: 0.96 }}
-                        animate={{ scale: selected ? 1.04 : 1 }}
-                        className={`py-2.5 rounded-xl text-sm font-medium transition-all ${selected ? `text-white` : `${glass}`}`}
+                        key={slot.time}
+                        onClick={() => {
+                          if (!slot.available) return;
+                          setSelectedSlot(slot.time);
+                          setShowSlotModal(true);
+                        }}
+                        whileTap={slot.available ? { scale: 0.96 } : undefined}
+                        animate={{ scale: selected ? 1.03 : 1 }}
+                        className={`rounded-2xl p-3 text-left transition-all ${slotClass}`}
                         style={selected ? { background: primary } : {}}
+                        disabled={!slot.available}
                       >
-                        {slot}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-base font-semibold">{slot.time}</div>
+                            <div className={`mt-1 text-xs ${selected ? 'text-white/80' : sub}`}>
+                              {slot.available
+                                ? `Свободно боксов: ${slot.freeBoxes}`
+                                : `Занято боксов: ${slot.occupiedBoxes}`}
+                            </div>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
+                              selected
+                                ? 'bg-white/20 text-white'
+                                : slot.available
+                                  ? isDark
+                                    ? 'bg-emerald-500/15 text-emerald-300'
+                                    : 'bg-emerald-50 text-emerald-700'
+                                  : isDark
+                                    ? 'bg-red-500/15 text-red-200'
+                                    : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {slot.available ? 'Можно записаться' : 'Занято'}
+                          </span>
+                        </div>
                       </motion.button>
                     );
                   })}
@@ -466,16 +610,26 @@ export function ClientApp() {
               >
                 <Check size={36} style={{ color: primary }} />
               </motion.div>
-              <h2 className="text-xl font-semibold mb-2 text-center">Запись подтверждена!</h2>
-              <p className={`text-sm ${sub} mb-6 text-center`}>Напоминание придёт за 60 минут</p>
+              <h2 className="text-xl font-semibold mb-2 text-center">
+                {selectedServiceIsDetailing ? 'Заявка отправлена!' : 'Запись подтверждена!'}
+              </h2>
+              <p className={`text-sm ${sub} mb-6 text-center`}>
+                {selectedServiceIsDetailing
+                  ? 'Администратор свяжется с вами для согласования времени.'
+                  : 'Напоминание придёт за 60 минут'}
+              </p>
               <div className={`${glass} rounded-2xl p-4 w-full mb-6`}>
                 <div className="space-y-3">
                   {[
                     { label: 'Услуга', value: selectedService.name },
-                    { label: 'Дата', value: selectedDate },
-                    { label: 'Время', value: selectedSlot || '—' },
-                    { label: 'Стоимость', value: `${selectedService.price.toLocaleString('ru')} ₽` },
-                    { label: 'Длительность', value: `${selectedService.duration} мин` },
+                    ...(selectedServiceIsDetailing
+                      ? [{ label: 'Время', value: 'Согласует администратор' }]
+                      : [
+                          { label: 'Дата', value: selectedDate },
+                          { label: 'Время', value: selectedSlot || '—' },
+                        ]),
+                    { label: 'Стоимость', value: `${selectedPrice.toLocaleString('ru')} ₽` },
+                    { label: 'Длительность', value: `${selectedDuration} мин` },
                   ].map(item => (
                     <div key={item.label} className="flex justify-between">
                       <span className={`text-sm ${sub}`}>{item.label}</span>
@@ -689,7 +843,8 @@ export function ClientApp() {
                   { label: 'Услуга', value: selectedService.name },
                   { label: 'Дата', value: selectedDate },
                   { label: 'Время', value: selectedSlot },
-                  { label: 'Стоимость', value: `${selectedService.price.toLocaleString('ru')} ₽` },
+                  { label: 'Стоимость', value: `${selectedPrice.toLocaleString('ru')} ₽` },
+                  { label: 'Длительность', value: `${selectedDuration} мин` },
                 ].map(item => (
                   <div key={item.label} className="flex justify-between">
                     <span className={`text-sm ${sub}`}>{item.label}</span>
@@ -780,6 +935,7 @@ function BookingCard({
   isDark: boolean;
   onCancel: () => void;
 }) {
+  const manualScheduling = isManualSchedulingBooking(booking);
   return (
     <motion.div
       layout
@@ -791,7 +947,9 @@ function BookingCard({
       <div className="flex justify-between items-start mb-2">
         <div>
           <div className="font-semibold">{booking.service}</div>
-          <div className={`text-sm ${sub}`}>{booking.date} в {booking.time}</div>
+          <div className={`text-sm ${sub}`}>
+            {manualScheduling ? 'Время уточнит администратор' : `${booking.date} в ${booking.time}`}
+          </div>
         </div>
         <div className="text-right">
           <div className="font-semibold">{booking.price.toLocaleString('ru')} ₽</div>
@@ -800,7 +958,9 @@ function BookingCard({
           </span>
         </div>
       </div>
-      <div className={`text-xs ${sub} mb-3`}>{booking.box} · {booking.duration} мин</div>
+      <div className={`text-xs ${sub} mb-3`}>
+        {manualScheduling ? 'Запрос принят и ждёт согласования' : `${booking.box} · ${booking.duration} мин`}
+      </div>
       {CANCELLABLE_STATUSES.has(booking.status) && (
         <button
           onClick={onCancel}

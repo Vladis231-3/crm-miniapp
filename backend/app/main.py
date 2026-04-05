@@ -46,6 +46,8 @@ from .models import (
 from .schemas import (
     AdminNotificationSettings,
     AdminProfilePayload,
+    BookingAvailabilityPayload,
+    BookingAvailabilitySlotPayload,
     AuthResponse,
     BookingCreateRequest,
     BookingPayload,
@@ -56,6 +58,7 @@ from .schemas import (
     ChangePasswordRequest,
     ClientAuthRequest,
     ClientCardUpdateRequest,
+    DetailingRequestCreateRequest,
     ClientProfileInput,
     ClientProfilePayload,
     ClientSummaryPayload,
@@ -152,6 +155,8 @@ BOOKING_ACTIVE_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
 BOOKING_CLIENT_CANCELLABLE_STATUSES = {"new", "confirmed", "scheduled"}
 BOOKING_REMINDER_ELIGIBLE_STATUSES = {"new", "confirmed", "scheduled"}
 BOOKING_WORKER_MESSAGE_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
+DETAILING_REQUEST_TIME = "00:00"
+DETAILING_REQUEST_BOX = "По согласованию"
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -709,6 +714,24 @@ def _parse_time_to_minutes(time_value: str) -> int | None:
     return hours * 60 + minutes
 
 
+def _today_label() -> str:
+    return datetime.now().strftime("%d.%m.%Y")
+
+
+def _build_schedule_slots(open_minutes: int, close_minutes: int, step_minutes: int = 30) -> list[str]:
+    slots: list[str] = []
+    current = open_minutes
+    while current + step_minutes <= close_minutes:
+        hours, minutes = divmod(current, 60)
+        slots.append(f"{hours:02d}:{minutes:02d}")
+        current += step_minutes
+    return slots
+
+
+def _booking_requires_scheduled_slot(status_value: str) -> bool:
+    return status_value in BOOKING_ACTIVE_STATUSES
+
+
 def _booking_time_range(date_value: str, time_value: str, duration: int) -> tuple[datetime, datetime] | None:
     scheduled_at = _parse_booking_datetime(date_value, time_value)
     if scheduled_at is None or duration <= 0:
@@ -822,6 +845,70 @@ def _pick_available_box(
     return None
 
 
+def _booking_slot_availability(
+    db: Session,
+    *,
+    date_value: str,
+    duration: int,
+) -> BookingAvailabilityPayload:
+    parsed_date = _parse_booking_datetime(date_value, "00:00")
+    if parsed_date is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите дату в формате ДД.ММ.ГГГГ")
+
+    day_schedule = db.scalar(select(ScheduleEntry).where(ScheduleEntry.day_index == parsed_date.weekday()))
+    if day_schedule is None or not day_schedule.active:
+        return BookingAvailabilityPayload(date=date_value, duration=duration, slots=[])
+
+    open_minutes = _parse_time_to_minutes(day_schedule.open_time)
+    close_minutes = _parse_time_to_minutes(day_schedule.close_time)
+    if open_minutes is None or close_minutes is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Некорректно настроен график работы")
+
+    active_boxes = [
+        box.name
+        for box in db.scalars(select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())).all()
+        if box.name.strip()
+    ]
+    slots: list[BookingAvailabilitySlotPayload] = []
+    for slot in _build_schedule_slots(open_minutes, close_minutes):
+        slot_start = _parse_time_to_minutes(slot)
+        if slot_start is None:
+            continue
+        slot_end = slot_start + duration
+        if slot_start < open_minutes or slot_end > close_minutes:
+            slots.append(
+                BookingAvailabilitySlotPayload(
+                    time=slot,
+                    available=False,
+                    freeBoxes=0,
+                    occupiedBoxes=len(active_boxes),
+                )
+            )
+            continue
+
+        free_boxes = sum(
+            1
+            for box_name in active_boxes
+            if _box_is_available(
+                db,
+                booking_id=None,
+                date_value=date_value,
+                time_value=slot,
+                duration=duration,
+                box=box_name,
+            )
+        )
+        slots.append(
+            BookingAvailabilitySlotPayload(
+                time=slot,
+                available=free_boxes > 0 and not _parse_booking_datetime(date_value, slot) < datetime.now().replace(second=0, microsecond=0),
+                freeBoxes=free_boxes,
+                occupiedBoxes=max(0, len(active_boxes) - free_boxes),
+            )
+        )
+    return BookingAvailabilityPayload(date=date_value, duration=duration, slots=slots)
+
+
 def _ensure_booking_has_no_conflicts(
     db: Session,
     *,
@@ -927,6 +1014,7 @@ def _normalize_worker_rules(db: Session) -> None:
 def _worker_payload(worker: StaffUser) -> WorkerPayload:
     return WorkerPayload(
         id=worker.id,
+        role=worker.role,  # type: ignore[arg-type]
         name=worker.name,
         experience=worker.experience,
         defaultPercent=clamp_worker_percent(worker.default_percent),
@@ -1151,8 +1239,17 @@ def _scoped_settings_payload(db: Session, role: str, actor_id: str) -> SettingsB
 
     empty = _empty_settings_payload()
     if role == "admin":
+        admin_profile = full.adminProfile
+        admin_staff = db.get(StaffUser, actor_id)
+        if admin_staff is not None and admin_staff.role == "admin":
+            admin_profile = AdminProfilePayload(
+                name=admin_staff.name,
+                email=admin_staff.email,
+                phone=admin_staff.phone,
+                telegramChatId=admin_staff.telegram_chat_id or "",
+            )
         return SettingsBundlePayload(
-            adminProfile=full.adminProfile,
+            adminProfile=admin_profile,
             adminNotificationSettings=full.adminNotificationSettings,
             ownerCompany=empty.ownerCompany,
             ownerNotificationSettings=empty.ownerNotificationSettings,
@@ -1210,7 +1307,11 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     services = db.scalars(select(Service).order_by(Service.name)).all()
     boxes = db.scalars(select(Box).order_by(Box.name)).all()
     schedule = db.scalars(select(ScheduleEntry).order_by(ScheduleEntry.day_index)).all()
-    workers = db.scalars(select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name)).all()
+    workers = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role.in_(("admin", "worker")))
+        .order_by(StaffUser.role.asc(), StaffUser.name.asc())
+    ).all()
     all_penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(all_penalties)
     clients: list[ClientSummaryPayload] = []
@@ -1896,22 +1997,123 @@ def _admin_booking_notification_title(client_name: str, car: str | None, plate: 
     return f"{client_name} - {_booking_car_label(car, plate)}"
 
 
-def _admin_booking_notification_text(client_name: str, car: str | None, plate: str | None, date: str, time: str) -> str:
-    return f"{_admin_booking_notification_title(client_name, car, plate)} - {date} {time}"
+def _booking_datetime_label(date: str | None, time: str | None) -> str:
+    if not (date or "").strip():
+        return "Время согласует администратор"
+    if not (time or "").strip() or (time or "").strip() == DETAILING_REQUEST_TIME:
+        return f"{date} - время согласует администратор"
+    return f"{date} {time}"
+
+
+def _admin_booking_notification_text(client_name: str, car: str | None, plate: str | None, date: str | None, time: str | None) -> str:
+    return f"{_admin_booking_notification_title(client_name, car, plate)} - {_booking_datetime_label(date, time)}"
 
 
 def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
-    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin")).all()
+    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all()
     text = (
         "Новая запись\n"
         f"Клиент: {booking.client_name}\n"
         f"Авто: {_booking_car_label(booking.car, booking.plate)}\n"
         f"Услуга: {booking.service}\n"
-        f"Дата: {booking.date} {booking.time}\n"
+        f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
         f"Телефон: {booking.client_phone}"
     )
     for admin in admins:
         _send_telegram_safe(admin.telegram_chat_id, text)
+
+
+def _service_category_key(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def _is_box_rental_service(service: Service | None) -> bool:
+    return service is not None and _service_category_key(service.category) == "аренда бокса"
+
+
+def _is_detailing_service(service: Service | None) -> bool:
+    return service is not None and _service_category_key(service.category) == "детейлинг"
+
+
+def _box_by_name(db: Session, box_name: str) -> Box | None:
+    return db.scalar(select(Box).where(Box.name == box_name))
+
+
+def _box_hourly_price(db: Session, box_name: str, fallback_price: int) -> int:
+    box = _box_by_name(db, box_name)
+    if box is not None and box.price_per_hour > 0:
+        return box.price_per_hour
+    return max(0, fallback_price)
+
+
+def _payment_type_label(payment_type: str) -> str:
+    return {
+        "cash": "Наличные",
+        "card": "Карта",
+        "online": "Онлайн",
+    }.get(payment_type, payment_type)
+
+
+def _notify_owners(db: Session, text: str) -> None:
+    db.add(
+        Notification(
+            id=f"n-{uuid4()}",
+            recipient_role="owner",
+            recipient_id=None,
+            message=text,
+            read=False,
+            created_at=_now(),
+        )
+    )
+    owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))).all()
+    for owner in owners:
+        _send_telegram_safe(owner.telegram_chat_id, text)
+
+
+def _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -> str:
+    worker_line = f"\nМастер: {worker_name}" if worker_name else ""
+    return (
+        "Чек по записи\n"
+        f"Клиент: {booking.client_name}\n"
+        f"Услуга: {booking.service}\n"
+        f"Дата: {booking.date} {booking.time}\n"
+        f"Бокс: {booking.box}\n"
+        f"Сумма: {booking.price:,} ₽\n".replace(",", " ")
+        + f"Оплата: {_payment_type_label(booking.payment_type)}"
+        + worker_line
+    )
+
+
+def _notify_booking_completion_receipt(db: Session, booking: Booking, *, worker_name: str | None = None) -> None:
+    message = _booking_receipt_text(booking, worker_name=worker_name)
+    db.add(
+        Notification(
+            id=f"n-{uuid4()}",
+            recipient_role="admin",
+            recipient_id=None,
+            message=message,
+            read=False,
+            created_at=_now(),
+        )
+    )
+    if booking.client_id:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="client",
+                recipient_id=booking.client_id,
+                message=message,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        client = db.get(Client, booking.client_id)
+        if client is not None:
+            _send_telegram_safe(client.telegram_id, message)
+    _notify_owners(db, message)
+    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all()
+    for admin in admins:
+        _send_telegram_safe(admin.telegram_chat_id, message)
 
 
 def _notify_workers_about_assignment(db: Session, booking: Booking, worker_ids: set[str]) -> None:
@@ -1928,6 +2130,34 @@ def _notify_workers_about_assignment(db: Session, booking: Booking, worker_ids: 
             f"Дата: {booking.date} {booking.time}\n"
             f"Бокс: {booking.box}\n"
             f"Процент: {percent_label}"
+        )
+        if booking.notes:
+            text += f"\nПримечание администратора: {booking.notes}"
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="worker",
+                recipient_id=worker.id,
+                message=text,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        _send_telegram_safe(worker.telegram_chat_id, text)
+
+
+def _notify_workers_about_note(db: Session, booking: Booking, worker_ids: set[str]) -> None:
+    note = (booking.notes or "").strip()
+    if not worker_ids or not note:
+        return
+    workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
+    for worker in workers:
+        text = (
+            "Администратор обновил примечание к вашей записи\n"
+            f"Клиент: {booking.client_name}\n"
+            f"Услуга: {booking.service}\n"
+            f"Дата: {booking.date} {booking.time}\n"
+            f"Примечание: {note}"
         )
         db.add(
             Notification(
@@ -2451,6 +2681,18 @@ def delete_client(
     return GenericMessage(message="Клиент удалён")
 
 
+@app.get("/api/bookings/availability", response_model=BookingAvailabilityPayload)
+def get_booking_availability(
+    date: str,
+    duration: int = 30,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingAvailabilityPayload:
+    if session_data["role"] not in {"client", "admin", "owner"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return _booking_slot_availability(db, date_value=date, duration=max(1, duration))
+
+
 @app.post("/api/bookings", response_model=BookingPayload)
 def create_booking(
     payload: BookingCreateRequest,
@@ -2460,16 +2702,21 @@ def create_booking(
     if session_data["role"] not in {"client", "admin", "owner"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
+    service = db.get(Service, payload.serviceId) if payload.serviceId else None
     booking_service = payload.service
     booking_service_id = payload.serviceId
     booking_duration = payload.duration
     booking_price = payload.price
+    booking_date = payload.date.strip()
+    booking_time = payload.time.strip()
+    booking_box = payload.box.strip()
+    is_box_rental = _is_box_rental_service(service)
+    is_detailing = _is_detailing_service(service)
 
     if session_data["role"] == "client":
         client = db.get(Client, session_data["actorId"])
         if client is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-        service = db.get(Service, payload.serviceId)
         if service is None or not service.active:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена или недоступна")
         booking_client_name = client.name
@@ -2480,6 +2727,13 @@ def create_booking(
         booking_service_id = service.id
         booking_duration = service.duration
         booking_price = service.price
+        if is_box_rental:
+            requested_hours = max(1, (payload.duration + 59) // 60)
+            booking_duration = requested_hours * 60
+        if is_detailing:
+            booking_date = ""
+            booking_time = ""
+            booking_box = DETAILING_REQUEST_BOX
     else:
         normalized_client_phone = normalize_phone(payload.clientPhone)
         client = db.get(Client, payload.clientId) if payload.clientId else None
@@ -2513,30 +2767,40 @@ def create_booking(
         booking_client_phone = client.phone
         booking_car = client.car or ""
         booking_plate = client.plate or ""
+        if service is not None:
+            booking_service = service.name
+            booking_service_id = service.id
 
     booking_workers = [] if session_data["role"] == "client" else _validated_booking_workers(db, payload.workers)
     booking_status = "new" if session_data["role"] == "client" else payload.status
+    if session_data["role"] == "client" and is_detailing:
+        booking_status = "admin_review"
 
-    _ensure_booking_datetime_not_in_past(payload.date, payload.time)
-    _ensure_booking_within_schedule(db, payload.date, payload.time, booking_duration)
-    booking_box = payload.box
-    if session_data["role"] == "client":
+    requires_scheduled_slot = not (session_data["role"] == "client" and is_detailing)
+    if requires_scheduled_slot:
+        _ensure_booking_datetime_not_in_past(booking_date, booking_time)
+        _ensure_booking_within_schedule(db, booking_date, booking_time, booking_duration)
+    if session_data["role"] == "client" and requires_scheduled_slot:
         available_box = _pick_available_box(
             db,
             booking_id=None,
-            date_value=payload.date,
-            time_value=payload.time,
+            date_value=booking_date,
+            time_value=booking_time,
             duration=booking_duration,
-            preferred_box=payload.box.strip() or None,
+            preferred_box=booking_box or None,
         )
         if available_box is None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На это время нет свободных боксов")
         booking_box = available_box
+        if is_box_rental:
+            booking_price = _box_hourly_price(db, booking_box, service.price if service is not None else booking_price) * max(1, booking_duration // 60)
+    if _booking_requires_scheduled_slot(booking_status) and not booking_box.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи")
     _ensure_booking_has_no_conflicts(
         db,
         booking_id=None,
-        date_value=payload.date,
-        time_value=payload.time,
+        date_value=booking_date,
+        time_value=booking_time,
         duration=booking_duration,
         box=booking_box,
         worker_ids={worker.workerId for worker in booking_workers},
@@ -2550,8 +2814,8 @@ def create_booking(
         client_phone=booking_client_phone,
         service=booking_service,
         service_id=booking_service_id,
-        date=payload.date,
-        time=payload.time,
+        date=booking_date,
+        time=booking_time,
         duration=booking_duration,
         price=booking_price,
         status=booking_status,
@@ -2568,12 +2832,17 @@ def create_booking(
     if session_data["role"] in {"admin", "owner"} and payload.notifyWorkers:
         _notify_workers_about_assignment(db, booking, {link.worker_id for link in booking.worker_links})
     if session_data["role"] == "client":
+        client_message = (
+            f"Заявка на {booking_service} отправлена администратору. Администратор свяжется с вами для согласования времени."
+            if is_detailing
+            else f"Заявка на {booking_service} создана на {booking_date} в {booking_time}. Статус: {_booking_status_label(booking_status)}"
+        )
         db.add_all([
             Notification(
                 id=f"n-{uuid4()}",
                 recipient_role="client",
                 recipient_id=client.id,
-                message=f"Заявка на {booking_service} создана на {payload.date} в {payload.time}. Статус: {_booking_status_label(booking_status)}",
+                message=client_message,
                 read=False,
                 created_at=_now(),
             ),
@@ -2585,8 +2854,8 @@ def create_booking(
                     booking_client_name,
                     booking_car,
                     booking_plate,
-                    payload.date,
-                    payload.time,
+                    booking_date if not is_detailing else None,
+                    booking_time if not is_detailing else None,
                 ),
                 read=False,
                 created_at=_now(),
@@ -2652,10 +2921,10 @@ def update_booking(
             client.registered = True
             client.updated_at = _now()
 
-    next_date = updates.get("date", booking.date)
-    next_time = updates.get("time", booking.time)
+    next_date = (updates.get("date", booking.date) or "").strip()
+    next_time = (updates.get("time", booking.time) or "").strip()
     next_duration = updates.get("duration", booking.duration)
-    next_box = updates.get("box", booking.box)
+    next_box = (updates.get("box", booking.box) or "").strip()
     next_status = updates.get("status", booking.status)
     next_workers = _validated_booking_workers(db, payload.workers) if payload.workers is not None else [
         BookingWorkerPayload(
@@ -2665,9 +2934,15 @@ def update_booking(
         )
         for link in booking.worker_links
     ]
-    if any(field in updates for field in ("date", "time", "duration")):
+    should_validate_slot = _booking_requires_scheduled_slot(next_status) or any(field in updates for field in ("date", "time", "duration"))
+    has_candidate_slot = bool(next_date and next_time)
+    if should_validate_slot:
+        if not has_candidate_slot:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите дату и время записи")
         _ensure_booking_datetime_not_in_past(next_date, next_time)
-    _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
+        _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
+    if _booking_requires_scheduled_slot(next_status) and (not next_box or next_box == DETAILING_REQUEST_BOX):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи")
     _ensure_booking_has_no_conflicts(
         db,
         booking_id=booking.id,
@@ -2695,7 +2970,7 @@ def update_booking(
     client_notification_parts: list[str] = []
     if booking.client_id:
         if booking.date != previous_date or booking.time != previous_time:
-            client_notification_parts.append(f"Новые дата и время: {booking.date} {booking.time}")
+            client_notification_parts.append(f"Дата и время: {_booking_datetime_label(booking.date, booking.time)}")
         if booking.status != previous_status:
             client_notification_parts.append(f"Статус: {_booking_status_label(booking.status)}")
         if booking.service != previous_service:
@@ -3380,7 +3655,10 @@ def save_worker_settings(
     db: Session = Depends(get_db),
 ) -> list[WorkerPayload]:
     _ensure_staff_role(session_data, {"owner"})
-    workers = {worker.id: worker for worker in db.scalars(select(StaffUser).where(StaffUser.role == "worker")).all()}
+    workers = {
+        worker.id: worker
+        for worker in db.scalars(select(StaffUser).where(StaffUser.role.in_(("admin", "worker")))).all()
+    }
     for item in payload:
         worker = workers.get(item.id)
         if worker is None:
@@ -3400,7 +3678,11 @@ def save_worker_settings(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
         worker.updated_at = _now()
     db.commit()
-    refreshed = db.scalars(select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name)).all()
+    refreshed = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role.in_(("admin", "worker")))
+        .order_by(StaffUser.role.asc(), StaffUser.name.asc())
+    ).all()
     return [_worker_payload(worker) for worker in refreshed]
 
 
@@ -3433,7 +3715,7 @@ def create_worker(
         id=f"w-{uuid4()}",
         login=login,
         password_hash=hash_password(password),
-        role="worker",
+        role=payload.role,
         name=name,
         phone=payload.phone.strip(),
         email=payload.email.strip(),
@@ -3462,22 +3744,24 @@ def fire_worker(
 ) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
     worker = db.get(StaffUser, worker_id)
-    if worker is None or worker.role != "worker":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found")
+    if worker is None or worker.role not in {"admin", "worker"}:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
     if worker.is_primary_owner:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Primary owner cannot be dismissed")
 
     now = _now()
-    assigned_bookings = db.scalars(
-        select(Booking)
-        .join(Booking.worker_links)
-        .options(joinedload(Booking.worker_links))
-        .where(
-            BookingWorker.worker_id == worker_id,
-            Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
-        )
-        .order_by(Booking.date.asc(), Booking.time.asc())
-    ).unique().all()
+    assigned_bookings: list[Booking] = []
+    if worker.role == "worker":
+        assigned_bookings = db.scalars(
+            select(Booking)
+            .join(Booking.worker_links)
+            .options(joinedload(Booking.worker_links))
+            .where(
+                BookingWorker.worker_id == worker_id,
+                Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+            )
+            .order_by(Booking.date.asc(), Booking.time.asc())
+        ).unique().all()
     in_progress_bookings = [booking for booking in assigned_bookings if booking.status == "in_progress"]
     if in_progress_bookings:
         raise HTTPException(
@@ -3504,7 +3788,9 @@ def fire_worker(
 
     db.execute(sa_delete(TelegramLinkCode).where(TelegramLinkCode.staff_id == worker_id))
 
-    worker.role = "dismissed_worker"
+    employee_label = "Администратор" if worker.role == "admin" else "Мастер"
+    dismissed_role = f"dismissed_{worker.role}"
+    worker.role = dismissed_role
     worker.active = False
     worker.available = False
     worker.login = f"dismissed_{worker.id[-6:]}_{uuid4().hex[:8]}"
@@ -3519,7 +3805,7 @@ def fire_worker(
                 recipient_role="admin",
                 recipient_id=None,
                 message=(
-                    f"Мастер {worker.name} уволен. "
+                    f"{employee_label} {worker.name} уволен. "
                     f"С него снято {scheduled_count} запланированных записей, их нужно переназначить."
                 ),
                 read=False,
@@ -3532,7 +3818,7 @@ def fire_worker(
         worker.telegram_chat_id,
         "Доступ в CRM и Mini App отключён владельцем. Если это ошибка, свяжитесь с руководителем.",
     )
-    return GenericMessage(message=f"Мастер {worker.name} уволен")
+    return GenericMessage(message=f"{employee_label} {worker.name} уволен")
 
 
 @app.post("/api/auth/change-password", response_model=GenericMessage)

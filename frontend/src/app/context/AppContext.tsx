@@ -43,6 +43,7 @@ export interface RegisteredClient {
 
 export interface Worker {
   id: string;
+  role: 'admin' | 'worker' | 'owner';
   name: string;
   experience: string;
   defaultPercent: number;
@@ -76,6 +77,13 @@ export interface Booking {
   notes?: string;
   car?: string;
   plate?: string;
+}
+
+export interface BookingSlotAvailability {
+  time: string;
+  available: boolean;
+  freeBoxes: number;
+  occupiedBoxes: number;
 }
 
 export type BookingCreateInput = Omit<Booking, 'id' | 'createdAt'> & {
@@ -280,6 +288,7 @@ export interface OwnerSecurity {
 
 export interface EmployeeSetting {
   id: string;
+  role: 'admin' | 'worker';
   name: string;
   percent: number;
   salaryBase: number;
@@ -288,6 +297,7 @@ export interface EmployeeSetting {
 }
 
 export interface WorkerCreateInput {
+  role: 'admin' | 'worker';
   name: string;
   login: string;
   password: string;
@@ -358,6 +368,7 @@ interface AppContextType {
   todayLabel: string;
   tomorrowLabel: string;
   getTimeSlotsForDate: (date: string, options?: { durationMinutes?: number; boxName?: string }) => string[];
+  getBookingAvailabilityForDate: (date: string, options?: { durationMinutes?: number }) => Promise<BookingSlotAvailability[]>;
   loginClient: (profile: ClientProfile) => Promise<Role>;
   loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
   loginPrimaryOwnerViaTelegram: () => Promise<Role>;
@@ -949,7 +960,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
-    setWorkers((current) => [...current, created].sort((left, right) => left.name.localeCompare(right.name, 'ru')));
+    setWorkers((current) => [...current, created].sort((left, right) => {
+      if (left.role !== right.role) {
+        return left.role.localeCompare(right.role);
+      }
+      return left.name.localeCompare(right.name, 'ru');
+    }));
     return created;
   }
 
@@ -1052,6 +1068,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  async function getBookingAvailabilityForDate(date: string, options?: { durationMinutes?: number }) {
+    const durationMinutes = Math.max(1, options?.durationMinutes ?? 30);
+    try {
+      const response = await apiRequest<{ date: string; duration: number; slots: BookingSlotAvailability[] }>(
+        `/api/bookings/availability?date=${encodeURIComponent(date)}&duration=${durationMinutes}`,
+      );
+      return response.slots;
+    } catch {
+      return getTimeSlotsForDate(date, { durationMinutes }).map((time) => ({
+        time,
+        available: true,
+        freeBoxes: 1,
+        occupiedBoxes: 0,
+      }));
+    }
+  }
+
   return (
     <AppContext.Provider value={{
       loading,
@@ -1079,6 +1112,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       todayLabel,
       tomorrowLabel,
       getTimeSlotsForDate,
+      getBookingAvailabilityForDate,
       loginClient,
       loginStaff,
       loginPrimaryOwnerViaTelegram,
