@@ -60,6 +60,9 @@ const DEFAULT_SHIFT_SUPPLIES = [
   { id: 'preset-microfiber', name: 'Микрофибра', category: 'Расходники', unit: 'шт', qty: 0 },
   { id: 'preset-gloves', name: 'Перчатки', category: 'Расходники', unit: 'шт', qty: 0 },
 ];
+const SHIFT_PHOTO_MAX_DIMENSION = 1280;
+const SHIFT_PHOTO_TARGET_BYTES = 450 * 1024;
+const SHIFT_PHOTO_MIN_QUALITY = 0.45;
 const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   advance: 'Аванс',
   deduction: 'Списание',
@@ -78,6 +81,49 @@ function isDetailingService(serviceId: string, services: Array<{ id: string; cat
 
 function hasManualScheduling(booking: Booking, services: Array<{ id: string; category: string }>) {
   return isDetailingService(booking.serviceId, services) && (!booking.time || booking.time === '00:00');
+}
+
+function dataUrlApproxBytes(dataUrl: string) {
+  const [, encoded = ''] = dataUrl.split(',', 2);
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((encoded.length * 3) / 4) - padding);
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Не удалось обработать фото'));
+    image.src = src;
+  });
+}
+
+async function compressShiftPhoto(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImage(objectUrl);
+    const scale = Math.min(1, SHIFT_PHOTO_MAX_DIMENSION / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Не удалось подготовить фото');
+    }
+    context.drawImage(image, 0, 0, width, height);
+
+    let quality = 0.82;
+    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+    while (dataUrlApproxBytes(dataUrl) > SHIFT_PHOTO_TARGET_BYTES && quality > SHIFT_PHOTO_MIN_QUALITY) {
+      quality = Math.max(SHIFT_PHOTO_MIN_QUALITY, quality - 0.08);
+      dataUrl = canvas.toDataURL('image/jpeg', quality);
+    }
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export function AdminApp() {
@@ -357,14 +403,16 @@ export function AdminApp() {
   const handleShiftPhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Не удалось прочитать фото'));
-      reader.readAsDataURL(file);
-    });
-    setShiftDraft((current) => ({ ...current, floorPhotoUrl: dataUrl }));
-    setShiftPhotoName(file.name);
+    try {
+      setShiftError(null);
+      const dataUrl = await compressShiftPhoto(file);
+      setShiftDraft((current) => ({ ...current, floorPhotoUrl: dataUrl }));
+      setShiftPhotoName(file.name);
+    } catch (error) {
+      setShiftError(error instanceof Error ? error.message : 'Не удалось подготовить фото');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const handleSubmitShiftInspection = async () => {

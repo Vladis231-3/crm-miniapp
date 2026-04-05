@@ -1737,7 +1737,7 @@ class BookingLogicTests(unittest.TestCase):
                 "date": self.next_active_date(),
                 "time": "12:00",
                 "duration": 30,
-                "price": 2000,
+                "price": 5000,
                 "status": "completed",
                 "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 20}],
                 "box": "Бокс 1",
@@ -1778,14 +1778,14 @@ class BookingLogicTests(unittest.TestCase):
         owner_worker = {item["id"]: item for item in owner_bootstrap.json()["workers"]}["w1"]
         owner_summary = owner_worker["payrollSummary"]
         self.assertEqual(owner_summary["completedBookings"], 1)
-        self.assertEqual(owner_summary["completedRevenue"], 2000)
-        self.assertEqual(owner_summary["accruedFromBookings"], 400)
+        self.assertEqual(owner_summary["completedRevenue"], 5000)
+        self.assertEqual(owner_summary["accruedFromBookings"], 1000)
         self.assertEqual(owner_summary["baseSalary"], 1000)
         self.assertEqual(owner_summary["bonusTotal"], 500)
         self.assertEqual(owner_summary["advanceTotal"], 300)
-        self.assertEqual(owner_summary["totalAccrued"], 1900)
+        self.assertEqual(owner_summary["totalAccrued"], 2500)
         self.assertEqual(owner_summary["totalDeducted"], 300)
-        self.assertEqual(owner_summary["balance"], 1600)
+        self.assertEqual(owner_summary["balance"], 2200)
         self.assertEqual(owner_summary["bookingItems"][0]["service"], "Мойка базовая")
         self.assertEqual({item["kind"] for item in owner_summary["entries"]}, {"advance", "bonus"})
 
@@ -1793,8 +1793,8 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(admin_bootstrap.status_code, 200, admin_bootstrap.text)
         admin_worker = {item["id"]: item for item in admin_bootstrap.json()["workers"]}["w1"]
         admin_summary = admin_worker["payrollSummary"]
-        self.assertEqual(admin_summary["balance"], 1600)
-        self.assertEqual(admin_summary["bookingItems"][0]["earned"], 400)
+        self.assertEqual(admin_summary["balance"], 2200)
+        self.assertEqual(admin_summary["bookingItems"][0]["earned"], 1000)
 
     def test_payroll_entry_notifies_worker_and_updates_summary(self) -> None:
         from app.database import SessionLocal
@@ -2334,7 +2334,7 @@ class BookingLogicTests(unittest.TestCase):
 
         self.assertTrue(any("подтвердил открытие смены" in item.message for item in notifications))
 
-    def test_admin_shift_inspection_list_omits_large_photo_for_admin(self) -> None:
+    def test_admin_shift_inspection_list_uses_photo_endpoint(self) -> None:
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")
         admin_token = self.login_staff("admin", "admin")
@@ -2364,13 +2364,18 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(admin_list.status_code, 200, admin_list.text)
         admin_payload = admin_list.json()
         self.assertEqual(len(admin_payload), 1)
-        self.assertEqual(admin_payload[0]["floorPhotoUrl"], "")
+        self.assertTrue(admin_payload[0]["floorPhotoUrl"].endswith(f"/api/admin/shift-inspections/{create_response.json()['id']}/photo"))
 
         owner_list = self.client.get("/api/admin/shift-inspections", headers=self.auth_headers(owner_token))
         self.assertEqual(owner_list.status_code, 200, owner_list.text)
         owner_payload = owner_list.json()
         self.assertEqual(len(owner_payload), 1)
-        self.assertTrue(owner_payload[0]["floorPhotoUrl"].startswith("data:image/jpeg;base64,"))
+        self.assertTrue(owner_payload[0]["floorPhotoUrl"].endswith(f"/api/admin/shift-inspections/{create_response.json()['id']}/photo"))
+
+        photo_response = self.client.get(owner_payload[0]["floorPhotoUrl"], headers=self.auth_headers(owner_token))
+        self.assertEqual(photo_response.status_code, 200, photo_response.text)
+        self.assertEqual(photo_response.headers["content-type"], "image/jpeg")
+        self.assertGreater(len(photo_response.content), 0)
 
     def test_bot_can_reject_admin_shift_with_issue_note(self) -> None:
         from bot import BotRuntime, process_telegram_update

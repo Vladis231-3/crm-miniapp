@@ -1231,6 +1231,7 @@ def _autosize(sheet) -> None:
 @lru_cache(maxsize=1)
 def _pdf_font_name() -> str:
     candidates = [
+        str(Path(__file__).resolve().parent / "assets" / "fonts" / "NotoSans-Regular.ttf"),
         os.getenv("OWNER_EXPORT_FONT_PATH", ""),
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/calibri.ttf",

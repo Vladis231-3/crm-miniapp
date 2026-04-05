@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useRef } from 'react';
 import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
@@ -10,6 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
+import { apiBlobUrl } from '../../api';
 import { useApp, type AdminShiftInspection, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind, type ShiftChecklist } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates } from '../../utils/date';
@@ -163,6 +165,8 @@ export function OwnerApp() {
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
   const [shiftChecklists, setShiftChecklists] = useState<ShiftChecklist[]>([]);
   const [adminShiftInspections, setAdminShiftInspections] = useState<AdminShiftInspection[]>([]);
+  const [adminShiftPhotoUrls, setAdminShiftPhotoUrls] = useState<Record<string, string>>({});
+  const adminShiftPhotoUrlsRef = useRef<Record<string, string>>({});
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -270,6 +274,66 @@ export function OwnerApp() {
   const todayBookings = bookings.filter(b => b.date === todayLabel);
   const latestShiftChecklists = shiftChecklists.slice(0, 10);
   const latestAdminShiftInspections = adminShiftInspections.slice(0, 8);
+  const latestAdminShiftInspectionKey = latestAdminShiftInspections.map((inspection) => `${inspection.id}:${inspection.floorPhotoUrl}`).join('|');
+
+  useEffect(() => {
+    adminShiftPhotoUrlsRef.current = adminShiftPhotoUrls;
+  }, [adminShiftPhotoUrls]);
+
+  useEffect(() => {
+    if (page !== 'stock') {
+      setAdminShiftPhotoUrls((current) => {
+        Object.values(current).forEach((url) => URL.revokeObjectURL(url));
+        return {};
+      });
+      return;
+    }
+
+    let cancelled = false;
+    const activeIds = new Set(latestAdminShiftInspections.map((inspection) => inspection.id));
+    setAdminShiftPhotoUrls((current) => {
+      const next: Record<string, string> = {};
+      Object.entries(current).forEach(([id, url]) => {
+        if (activeIds.has(id)) {
+          next[id] = url;
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      });
+      return next;
+    });
+
+    const missing = latestAdminShiftInspections.filter((inspection) => inspection.floorPhotoUrl && !adminShiftPhotoUrls[inspection.id]);
+    void Promise.all(
+      missing.map(async (inspection) => ({
+        id: inspection.id,
+        url: await apiBlobUrl(inspection.floorPhotoUrl),
+      })),
+    ).then((loaded) => {
+      if (cancelled) {
+        loaded.forEach((item) => URL.revokeObjectURL(item.url));
+        return;
+      }
+      setAdminShiftPhotoUrls((current) => {
+        const next = { ...current };
+        loaded.forEach((item) => {
+          if (next[item.id]) {
+            URL.revokeObjectURL(item.url);
+            return;
+          }
+          next[item.id] = item.url;
+        });
+        return next;
+      });
+    }).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminShiftPhotoUrls, latestAdminShiftInspectionKey, page]);
+  useEffect(() => () => {
+    Object.values(adminShiftPhotoUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -1699,7 +1763,13 @@ export function OwnerApp() {
                             {inspection.status === 'pending' ? 'На подтверждении' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказано'}
                           </div>
                         </div>
-                        <img src={inspection.floorPhotoUrl} alt="Фото открытия смены" className="mb-3 h-44 w-full rounded-2xl object-cover" />
+                        {adminShiftPhotoUrls[inspection.id] ? (
+                          <img src={adminShiftPhotoUrls[inspection.id]} alt="Фото открытия смены" className="mb-3 h-44 w-full rounded-2xl object-cover" />
+                        ) : (
+                          <div className={`${glass} mb-3 flex h-44 w-full items-center justify-center rounded-2xl text-sm ${sub}`}>
+                            Загружаем фото открытия смены...
+                          </div>
+                        )}
                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                           <div className={`${glass} rounded-xl p-3`}>
                             <div className={`text-[11px] ${sub} mb-1`}>Мастера на смене</div>

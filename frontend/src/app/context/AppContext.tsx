@@ -572,8 +572,8 @@ function timeRangesOverlap(startA: number, endA: number, startB: number, endB: n
 
 const AppContext = createContext<AppContextType | null>(null);
 
-function normalizeBootstrap(bootstrap: BootstrapPayload) {
-  const normalizeWorker = (worker: Worker) => ({
+function normalizeWorker(worker: Worker) {
+  return {
     ...worker,
     payrollSummary: worker.payrollSummary ? {
       ...worker.payrollSummary,
@@ -583,7 +583,10 @@ function normalizeBootstrap(bootstrap: BootstrapPayload) {
         createdAt: new Date(entry.createdAt),
       })),
     } : undefined,
-  });
+  };
+}
+
+function normalizeBootstrap(bootstrap: BootstrapPayload) {
   return {
     ...bootstrap,
     bookings: bootstrap.bookings.map((booking) => ({ ...booking, createdAt: new Date(booking.createdAt) })),
@@ -1057,9 +1060,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function saveWorkerProfile(workerId: string, profile: WorkerProfile) {
     const saved = await apiRequest<Worker>(`/api/settings/workers/${workerId}/profile`, { method: 'PUT', body: profile });
-    setWorkers((current) => current.map((worker) => (worker.id === workerId ? saved : worker)));
+    const normalized = normalizeWorker(saved);
+    setWorkers((current) => current.map((worker) => (worker.id === workerId ? normalized : worker)));
     if (staffProfile?.id === workerId) {
-      setStaffProfile(saved);
+      setStaffProfile(normalized);
     }
   }
 
@@ -1093,13 +1097,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function saveWorkerSettings(nextSettings: EmployeeSetting[]) {
     const saved = await apiRequest<Worker[]>('/api/workers/settings', { method: 'PUT', body: nextSettings });
-    setWorkers(saved);
+    setWorkers(saved.map((worker) => normalizeWorker(worker)));
   }
 
   async function saveAdminWorkerPayroll(nextSettings: EmployeeSetting[]) {
     const saved = await apiRequest<Worker[]>('/api/admin/workers/payroll', { method: 'PUT', body: nextSettings });
+    const normalized = saved.map((worker) => normalizeWorker(worker));
     setWorkers((current) => current.map((worker) => {
-      const nextWorker = saved.find((item) => item.id === worker.id);
+      const nextWorker = normalized.find((item) => item.id === worker.id);
       return nextWorker ?? worker;
     }));
   }
@@ -1151,13 +1156,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
-    setWorkers((current) => [...current, created].sort((left, right) => {
+    const normalized = normalizeWorker(created);
+    setWorkers((current) => [...current, normalized].sort((left, right) => {
       if (left.role !== right.role) {
         return left.role.localeCompare(right.role);
       }
       return left.name.localeCompare(right.name, 'ru');
     }));
-    return created;
+    return normalized;
   }
 
   async function fireWorker(workerId: string) {

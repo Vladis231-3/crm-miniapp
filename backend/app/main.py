@@ -2083,14 +2083,15 @@ def _admin_shift_inspection_supplies(db: Session) -> list[dict[str, Any]]:
 
 
 def _admin_shift_inspection_payload(entry: dict[str, Any]) -> AdminShiftInspectionPayload:
+    inspection_id = str(entry.get("id") or "")
     return AdminShiftInspectionPayload(
-        id=str(entry.get("id") or ""),
+        id=inspection_id,
         adminId=str(entry.get("adminId") or ""),
         adminName=str(entry.get("adminName") or ""),
         status=str(entry.get("status") or "pending"),  # type: ignore[arg-type]
         createdAt=_parse_state_datetime(entry.get("createdAt")) or _now(),
         reviewedAt=_parse_state_datetime(entry.get("reviewedAt")),
-        floorPhotoUrl=str(entry.get("floorPhotoUrl") or ""),
+        floorPhotoUrl=f"/api/admin/shift-inspections/{inspection_id}/photo" if str(entry.get("floorPhotoUrl") or "").strip() else "",
         clothsReady=bool(entry.get("clothsReady")),
         suppliesChecked=bool(entry.get("suppliesChecked")),
         note=str(entry.get("note") or ""),
@@ -3976,15 +3977,27 @@ def list_admin_shift_inspections(
     _ensure_staff_role(session_data, {"owner", "admin"})
     entries = _admin_shift_inspections_state(db)
     if session_data["role"] == "admin":
-        entries = [
-            {
-                **entry,
-                "floorPhotoUrl": "",
-            }
-            for entry in entries
-            if entry.get("adminId") == session_data["actorId"]
-        ]
+        entries = [entry for entry in entries if entry.get("adminId") == session_data["actorId"]]
     return [_admin_shift_inspection_payload(entry) for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True)]
+
+
+@app.get("/api/admin/shift-inspections/{inspection_id}/photo")
+def get_admin_shift_inspection_photo(
+    inspection_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> Response:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    entry = next((item for item in _admin_shift_inspections_state(db) if item.get("id") == inspection_id), None)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Чек-лист смены не найден")
+    if session_data["role"] == "admin" and entry.get("adminId") != session_data["actorId"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к фото этой смены")
+    raw_photo = str(entry.get("floorPhotoUrl") or "").strip()
+    if not raw_photo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Фото открытия смены не найдено")
+    mime_type, content = _decode_data_url_image(raw_photo)
+    return Response(content=content, media_type=mime_type, headers={"Cache-Control": "private, max-age=300"})
 
 
 @app.post("/api/admin/shift-inspections", response_model=AdminShiftInspectionPayload)

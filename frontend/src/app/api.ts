@@ -133,3 +133,18 @@ export async function apiDownload(path: string, fallbackFileName: string): Promi
   window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
   return fileName;
 }
+
+export async function apiBlobUrl(path: string): Promise<string> {
+  const authToken = tokenStorage.get();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'GET',
+    headers: getAuthHeaders(authToken),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorDetail(response));
+  }
+
+  const blob = await response.blob();
+  return window.URL.createObjectURL(blob);
+}
