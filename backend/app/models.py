@@ -63,6 +63,10 @@ class StaffUser(Base):
         back_populates="worker",
         foreign_keys="Penalty.worker_id",
     )
+    payroll_entries: Mapped[list["PayrollEntry"]] = relationship(
+        back_populates="worker",
+        foreign_keys="PayrollEntry.worker_id",
+    )
 
 
 class AuthSession(Base):
@@ -206,6 +210,24 @@ class Penalty(Base):
 
     worker: Mapped[StaffUser] = relationship(
         back_populates="penalties",
+        foreign_keys=[worker_id],
+    )
+
+
+class PayrollEntry(Base):
+    __tablename__ = "payroll_entries"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
+    actor_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
+    actor_role: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(String(32))
+    amount: Mapped[int] = mapped_column(Integer)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    worker: Mapped[StaffUser] = relationship(
+        back_populates="payroll_entries",
         foreign_keys=[worker_id],
     )
 

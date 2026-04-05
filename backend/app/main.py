@@ -36,6 +36,7 @@ from .models import (
     Expense,
     Notification,
     Penalty,
+    PayrollEntry,
     AuthSession,
     ScheduleEntry,
     Service,
@@ -99,9 +100,13 @@ from .schemas import (
     normalize_vehicle_name,
     PenaltyCreateRequest,
     PenaltyPayload,
+    PayrollEntryCreateRequest,
+    PayrollEntryPayload,
     TelegramLinkCodePayload,
     TelegramOwnerAuthRequest,
     WorkerNotificationSettings,
+    WorkerPayrollBookingPayload,
+    WorkerPayrollSummaryPayload,
     WorkerPayload,
     WorkerCreateRequest,
     WorkerProfilePayload,
@@ -494,6 +499,13 @@ def _apply_runtime_migrations() -> None:
     if "revoked_by" not in penalty_columns:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN revoked_by VARCHAR(64)")
+    if "payroll_entries" not in inspector.get_table_names():
+        PayrollEntry.__table__.create(bind=engine)
+    else:
+        ensure_postgres_varchar_length("payroll_entries", "id", 64)
+        ensure_postgres_varchar_length("payroll_entries", "worker_id", 64)
+        ensure_postgres_varchar_length("payroll_entries", "actor_id", 64)
+        ensure_postgres_text_column("payroll_entries", "note")
 
 
 def _repair_text_value(value: str) -> str:
@@ -1038,6 +1050,120 @@ def _worker_payload(worker: StaffUser) -> WorkerPayload:
     )
 
 
+def _payroll_entry_payload(entry: PayrollEntry, actor_name: str) -> PayrollEntryPayload:
+    return PayrollEntryPayload(
+        id=entry.id,
+        workerId=entry.worker_id,
+        kind=entry.kind,  # type: ignore[arg-type]
+        amount=entry.amount,
+        note=entry.note or "",
+        createdAt=entry.created_at,
+        createdByRole=entry.actor_role,  # type: ignore[arg-type]
+        createdByName=actor_name,
+    )
+
+
+def _worker_payroll_summaries(
+    db: Session,
+    workers: list[StaffUser],
+    complaints_by_worker: dict[str, list[Penalty]],
+) -> dict[str, WorkerPayrollSummaryPayload]:
+    if not workers:
+        return {}
+
+    worker_ids = [worker.id for worker in workers]
+    completed_bookings = db.scalars(
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .join(Booking.worker_links)
+        .where(
+            Booking.status == "completed",
+            BookingWorker.worker_id.in_(worker_ids),
+        )
+        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    ).unique().all()
+    entries = db.scalars(
+        select(PayrollEntry)
+        .where(PayrollEntry.worker_id.in_(worker_ids))
+        .order_by(PayrollEntry.created_at.desc())
+    ).all()
+    actors = {
+        item.id: item.name
+        for item in db.scalars(select(StaffUser).where(StaffUser.id.in_({entry.actor_id for entry in entries}))).all()
+    } if entries else {}
+
+    booking_items_by_worker: dict[str, list[WorkerPayrollBookingPayload]] = {worker_id: [] for worker_id in worker_ids}
+    for booking in completed_bookings:
+        for link in booking.worker_links:
+            if link.worker_id not in booking_items_by_worker:
+                continue
+            percent = adjusted_booking_percent(
+                link.percent,
+                complaints_by_worker.get(link.worker_id, []),
+                date_value=booking.date,
+                time_value=booking.time,
+                fallback=booking.created_at,
+            )
+            booking_items_by_worker[link.worker_id].append(
+                WorkerPayrollBookingPayload(
+                    bookingId=booking.id,
+                    service=booking.service,
+                    date=booking.date,
+                    time=booking.time,
+                    price=booking.price,
+                    percent=percent,
+                    earned=round(booking.price * percent / 100),
+                )
+            )
+
+    entry_payloads_by_worker: dict[str, list[PayrollEntryPayload]] = {worker_id: [] for worker_id in worker_ids}
+    for entry in entries:
+        entry_payloads_by_worker.setdefault(entry.worker_id, []).append(
+            _payroll_entry_payload(entry, actors.get(entry.actor_id, "Сотрудник"))
+        )
+
+    result: dict[str, WorkerPayrollSummaryPayload] = {}
+    for worker in workers:
+        booking_items = booking_items_by_worker.get(worker.id, [])
+        payroll_entries = entry_payloads_by_worker.get(worker.id, [])
+        bonus_total = sum(item.amount for item in payroll_entries if item.kind == "bonus")
+        advance_total = sum(item.amount for item in payroll_entries if item.kind == "advance")
+        deduction_total = sum(item.amount for item in payroll_entries if item.kind == "deduction")
+        payout_total = sum(item.amount for item in payroll_entries if item.kind == "payout")
+        adjustment_total = sum(item.amount for item in payroll_entries if item.kind == "adjustment")
+        accrued_from_bookings = sum(item.earned for item in booking_items)
+        completed_revenue = sum(item.price for item in booking_items)
+        total_accrued = accrued_from_bookings + worker.salary_base + bonus_total + max(adjustment_total, 0)
+        total_deducted = advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
+        result[worker.id] = WorkerPayrollSummaryPayload(
+            completedBookings=len(booking_items),
+            completedRevenue=completed_revenue,
+            accruedFromBookings=accrued_from_bookings,
+            baseSalary=worker.salary_base,
+            bonusTotal=bonus_total,
+            adjustmentTotal=adjustment_total,
+            advanceTotal=advance_total,
+            deductionTotal=deduction_total,
+            payoutTotal=payout_total,
+            totalAccrued=total_accrued,
+            totalDeducted=total_deducted,
+            balance=total_accrued - total_deducted,
+            bookingItems=booking_items[:12],
+            entries=payroll_entries[:20],
+        )
+    return result
+
+
+def _worker_payload_with_payroll(
+    worker: StaffUser,
+    payroll_summaries: dict[str, WorkerPayrollSummaryPayload] | None = None,
+) -> WorkerPayload:
+    payload = _worker_payload(worker)
+    if payroll_summaries is not None:
+        payload.payrollSummary = payroll_summaries.get(worker.id, WorkerPayrollSummaryPayload(baseSalary=worker.salary_base))
+    return payload
+
+
 def _booking_payload(booking: Booking, complaints_by_worker: dict[str, list[Penalty]] | None = None) -> BookingPayload:
     return BookingPayload(
         id=booking.id,
@@ -1322,6 +1448,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     ).all()
     all_penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(all_penalties)
+    payroll_summaries = _worker_payroll_summaries(db, workers, complaints_by_worker) if role in {"admin", "owner"} else {}
     clients: list[ClientSummaryPayload] = []
 
     bookings_query = select(Booking).options(joinedload(Booking.worker_links)).order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
@@ -1379,14 +1506,14 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     return BootstrapPayload(
         session=_session_payload(session_data),
         clientProfile=_client_payload(client),
-        staffProfile=_worker_payload(staff_profile) if staff_profile else None,
+        staffProfile=_worker_payload_with_payroll(staff_profile, payroll_summaries) if staff_profile else None,
         clients=clients,
         bookings=bookings,
         notifications=notifications,
         stockItems=stock_items,
         expenses=expenses,
         penalties=penalties,
-        workers=[_worker_payload(worker) for worker in workers] if role in {"admin", "owner"} else [],
+        workers=[_worker_payload_with_payroll(worker, payroll_summaries) for worker in workers] if role in {"admin", "owner"} else [],
         services=[_service_payload(service) for service in services],
         boxes=[_box_payload(box) for box in boxes],
         schedule=[_schedule_payload(entry) for entry in schedule],
@@ -3699,7 +3826,8 @@ def save_worker_settings(
         .where(StaffUser.role.in_(("admin", "worker")))
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
     ).all()
-    return [_worker_payload(worker) for worker in refreshed]
+    payroll_summaries = _worker_payroll_summaries(db, refreshed, _complaints_by_worker(_load_penalties(db)))
+    return [_worker_payload_with_payroll(worker, payroll_summaries) for worker in refreshed]
 
 
 @app.put("/api/admin/workers/payroll", response_model=list[WorkerPayload])
@@ -3728,7 +3856,47 @@ def save_admin_worker_payroll(
         .where(StaffUser.role == "worker")
         .order_by(StaffUser.name.asc())
     ).all()
-    return [_worker_payload(worker) for worker in refreshed]
+    payroll_summaries = _worker_payroll_summaries(db, refreshed, _complaints_by_worker(_load_penalties(db)))
+    return [_worker_payload_with_payroll(worker, payroll_summaries) for worker in refreshed]
+
+
+@app.post("/api/payroll/entries", response_model=WorkerPayload)
+def create_payroll_entry(
+    payload: PayrollEntryCreateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> WorkerPayload:
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    worker = db.get(StaffUser, payload.workerId)
+    if worker is None or worker.role not in {"admin", "worker"}:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден")
+    if session_data["role"] == "admin" and worker.role != "worker":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Администратор может вести выплаты только по мастерам")
+
+    amount = int(payload.amount)
+    if payload.kind == "adjustment":
+        if amount == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите сумму корректировки")
+    else:
+        if amount <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сумма должна быть больше нуля")
+
+    entry = PayrollEntry(
+        id=f"pay-{uuid4()}",
+        worker_id=worker.id,
+        actor_id=session_data["actorId"],
+        actor_role=session_data["role"],
+        kind=payload.kind,
+        amount=amount,
+        note=payload.note.strip(),
+        created_at=_now(),
+    )
+    db.add(entry)
+    worker.updated_at = _now()
+    db.commit()
+    db.refresh(worker)
+    payroll_summaries = _worker_payroll_summaries(db, [worker], _complaints_by_worker(_load_penalties(db)))
+    return _worker_payload_with_payroll(worker, payroll_summaries)
 
 
 @app.post("/api/workers", response_model=WorkerPayload)
@@ -3778,7 +3946,8 @@ def create_worker(
     db.add(worker)
     db.commit()
     db.refresh(worker)
-    return _worker_payload(worker)
+    payroll_summaries = _worker_payroll_summaries(db, [worker], _complaints_by_worker(_load_penalties(db)))
+    return _worker_payload_with_payroll(worker, payroll_summaries)
 
 
 @app.delete("/api/workers/{worker_id}", response_model=GenericMessage)

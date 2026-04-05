@@ -58,6 +58,47 @@ export interface Worker {
   specialty: string;
   about: string;
   telegramChatId: string;
+  payrollSummary?: WorkerPayrollSummary;
+}
+
+export type PayrollEntryKind = 'bonus' | 'advance' | 'deduction' | 'payout' | 'adjustment';
+
+export interface PayrollEntry {
+  id: string;
+  workerId: string;
+  kind: PayrollEntryKind;
+  amount: number;
+  note: string;
+  createdAt: Date;
+  createdByRole: 'admin' | 'worker' | 'owner';
+  createdByName: string;
+}
+
+export interface WorkerPayrollBooking {
+  bookingId: string;
+  service: string;
+  date: string;
+  time: string;
+  price: number;
+  percent: number;
+  earned: number;
+}
+
+export interface WorkerPayrollSummary {
+  completedBookings: number;
+  completedRevenue: number;
+  accruedFromBookings: number;
+  baseSalary: number;
+  bonusTotal: number;
+  adjustmentTotal: number;
+  advanceTotal: number;
+  deductionTotal: number;
+  payoutTotal: number;
+  totalAccrued: number;
+  totalDeducted: number;
+  balance: number;
+  bookingItems: WorkerPayrollBooking[];
+  entries: PayrollEntry[];
 }
 
 export interface Booking {
@@ -310,6 +351,13 @@ export interface WorkerCreateInput {
   telegramChatId: string;
 }
 
+export interface PayrollEntryCreateInput {
+  workerId: string;
+  kind: PayrollEntryKind;
+  amount: number;
+  note: string;
+}
+
 export interface SettingsBundle {
   adminProfile: AdminProfile;
   adminNotificationSettings: AdminNotificationSettings;
@@ -408,6 +456,7 @@ interface AppContextType {
   saveOwnerSecurity: (settings: OwnerSecurity) => Promise<void>;
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
   saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
+  createPayrollEntry: (entry: PayrollEntryCreateInput) => Promise<void>;
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -460,6 +509,17 @@ function timeRangesOverlap(startA: number, endA: number, startB: number, endB: n
 const AppContext = createContext<AppContextType | null>(null);
 
 function normalizeBootstrap(bootstrap: BootstrapPayload) {
+  const normalizeWorker = (worker: Worker) => ({
+    ...worker,
+    payrollSummary: worker.payrollSummary ? {
+      ...worker.payrollSummary,
+      bookingItems: worker.payrollSummary.bookingItems || [],
+      entries: (worker.payrollSummary.entries || []).map((entry) => ({
+        ...entry,
+        createdAt: new Date(entry.createdAt),
+      })),
+    } : undefined,
+  });
   return {
     ...bootstrap,
     bookings: bootstrap.bookings.map((booking) => ({ ...booking, createdAt: new Date(booking.createdAt) })),
@@ -470,6 +530,8 @@ function normalizeBootstrap(bootstrap: BootstrapPayload) {
       activeUntil: new Date(penalty.activeUntil),
       revokedAt: penalty.revokedAt ? new Date(penalty.revokedAt) : null,
     })),
+    staffProfile: bootstrap.staffProfile ? normalizeWorker(bootstrap.staffProfile) : null,
+    workers: bootstrap.workers.map((worker) => normalizeWorker(worker)),
   };
 }
 
@@ -971,6 +1033,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }
 
+  async function createPayrollEntry(entry: PayrollEntryCreateInput) {
+    await apiRequest<Worker>('/api/payroll/entries', { method: 'POST', body: entry });
+    await refreshBootstrap();
+  }
+
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
     setWorkers((current) => [...current, created].sort((left, right) => {
@@ -1163,6 +1230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveOwnerSecurity,
       saveWorkerSettings,
       saveAdminWorkerPayroll,
+      createPayrollEntry,
       hireWorker,
       fireWorker,
       changePassword,

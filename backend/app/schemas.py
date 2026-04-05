@@ -12,6 +12,7 @@ StaffRole = Literal["admin", "worker", "owner"]
 EmployeeRole = Literal["admin", "worker"]
 BookingStatus = Literal["new", "confirmed", "scheduled", "in_progress", "completed", "no_show", "cancelled", "admin_review"]
 PaymentType = Literal["cash", "card", "online"]
+PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]
 
 NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё' -]{1,59}$")
 REPEATED_LETTERS_PATTERN = re.compile(r"([A-Za-zА-Яа-яЁё])\1{3,}")
@@ -153,6 +154,45 @@ class WorkerPayload(BaseModel):
     specialty: str = ""
     about: str = ""
     telegramChatId: str = ""
+    payrollSummary: WorkerPayrollSummaryPayload | None = None
+
+
+class PayrollEntryPayload(BaseModel):
+    id: str
+    workerId: str
+    kind: PayrollEntryKind
+    amount: int
+    note: str = ""
+    createdAt: datetime
+    createdByRole: StaffRole
+    createdByName: str
+
+
+class WorkerPayrollBookingPayload(BaseModel):
+    bookingId: str
+    service: str
+    date: str
+    time: str
+    price: int
+    percent: int
+    earned: int
+
+
+class WorkerPayrollSummaryPayload(BaseModel):
+    completedBookings: int = 0
+    completedRevenue: int = 0
+    accruedFromBookings: int = 0
+    baseSalary: int = 0
+    bonusTotal: int = 0
+    adjustmentTotal: int = 0
+    advanceTotal: int = 0
+    deductionTotal: int = 0
+    payoutTotal: int = 0
+    totalAccrued: int = 0
+    totalDeducted: int = 0
+    balance: int = 0
+    bookingItems: list[WorkerPayrollBookingPayload] = Field(default_factory=list)
+    entries: list[PayrollEntryPayload] = Field(default_factory=list)
 
 
 class BookingWorkerPayload(BaseModel):
@@ -380,6 +420,18 @@ class WorkerCreateRequest(BaseModel):
     phone: str = ""
     email: str = ""
     telegramChatId: str = ""
+
+
+class PayrollEntryCreateRequest(BaseModel):
+    workerId: str
+    kind: PayrollEntryKind
+    amount: int
+    note: str = ""
+
+    @field_validator("note")
+    @classmethod
+    def validate_note(cls, value: str) -> str:
+        return value.strip()
 
 
 class SettingsBundlePayload(BaseModel):

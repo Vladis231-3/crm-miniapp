@@ -1703,6 +1703,99 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(clients[client_id]["adminRating"], 4)
         self.assertEqual(clients[client_id]["adminNote"], "Нужен звонок перед подтверждением")
 
+    def test_owner_and_admin_can_see_detailed_worker_payroll_summary(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+        admin_token = self.login_staff("admin", "admin")
+
+        payroll_response = self.client.put(
+            "/api/admin/workers/payroll",
+            headers=self.auth_headers(admin_token),
+            json=[
+                {
+                    "id": "w1",
+                    "role": "worker",
+                    "name": "Иван",
+                    "percent": 20,
+                    "salaryBase": 1000,
+                    "active": True,
+                    "telegramChatId": "",
+                },
+            ],
+        )
+        self.assertEqual(payroll_response.status_code, 200, payroll_response.text)
+
+        booking_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Payroll Client",
+                "clientPhone": "+7 (999) 222-33-44",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": self.next_active_date(),
+                "time": "12:00",
+                "duration": 30,
+                "price": 2000,
+                "status": "completed",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 20}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+                "notifyWorkers": False,
+            },
+        )
+        self.assertEqual(booking_response.status_code, 200, booking_response.text)
+
+        advance_response = self.client.post(
+            "/api/payroll/entries",
+            headers=self.auth_headers(admin_token),
+            json={
+                "workerId": "w1",
+                "kind": "advance",
+                "amount": 300,
+                "note": "Аванс на материалы",
+            },
+        )
+        self.assertEqual(advance_response.status_code, 200, advance_response.text)
+
+        bonus_response = self.client.post(
+            "/api/payroll/entries",
+            headers=self.auth_headers(owner_token),
+            json={
+                "workerId": "w1",
+                "kind": "bonus",
+                "amount": 500,
+                "note": "Премия за допродажу",
+            },
+        )
+        self.assertEqual(bonus_response.status_code, 200, bonus_response.text)
+
+        owner_bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(owner_token))
+        self.assertEqual(owner_bootstrap.status_code, 200, owner_bootstrap.text)
+        owner_worker = {item["id"]: item for item in owner_bootstrap.json()["workers"]}["w1"]
+        owner_summary = owner_worker["payrollSummary"]
+        self.assertEqual(owner_summary["completedBookings"], 1)
+        self.assertEqual(owner_summary["completedRevenue"], 2000)
+        self.assertEqual(owner_summary["accruedFromBookings"], 400)
+        self.assertEqual(owner_summary["baseSalary"], 1000)
+        self.assertEqual(owner_summary["bonusTotal"], 500)
+        self.assertEqual(owner_summary["advanceTotal"], 300)
+        self.assertEqual(owner_summary["totalAccrued"], 1900)
+        self.assertEqual(owner_summary["totalDeducted"], 300)
+        self.assertEqual(owner_summary["balance"], 1600)
+        self.assertEqual(owner_summary["bookingItems"][0]["service"], "Мойка базовая")
+        self.assertEqual({item["kind"] for item in owner_summary["entries"]}, {"advance", "bonus"})
+
+        admin_bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(admin_token))
+        self.assertEqual(admin_bootstrap.status_code, 200, admin_bootstrap.text)
+        admin_worker = {item["id"]: item for item in admin_bootstrap.json()["workers"]}["w1"]
+        admin_summary = admin_worker["payrollSummary"]
+        self.assertEqual(admin_summary["balance"], 1600)
+        self.assertEqual(admin_summary["bookingItems"][0]["earned"], 400)
+
     def test_owner_can_create_booking_with_assigned_master(self) -> None:
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")

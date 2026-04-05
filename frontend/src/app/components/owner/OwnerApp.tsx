@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, type EmployeeSetting, type OwnerDatabaseResetPreview } from '../../context/AppContext';
+import { useApp, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates } from '../../utils/date';
 
@@ -50,6 +50,7 @@ export function OwnerApp() {
     saveBoxes,
     saveServices,
     saveWorkerSettings,
+    createPayrollEntry,
     saveOwnerNotificationSettings,
     saveOwnerIntegrations,
     saveOwnerSecurity,
@@ -115,6 +116,8 @@ export function OwnerApp() {
     box: liveBoxes[0]?.name || 'Бокс 1',
   });
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
+  const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
+  const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -191,6 +194,14 @@ export function OwnerApp() {
       ...current,
       workerId: workers.some((worker) => worker.id === current.workerId) ? current.workerId : workers[0]?.id || '',
     }));
+    setPayrollDrafts((current) =>
+      Object.fromEntries(
+        workers.map((worker) => [
+          worker.id,
+          current[worker.id] || { kind: 'advance', amount: '', note: '' },
+        ]),
+      ),
+    );
   }, [workers]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
@@ -260,23 +271,16 @@ export function OwnerApp() {
   };
   const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
   const payrollRows = workers.map(worker => {
-    const workerBookings = completedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
-    const earned = workerBookings.reduce((sum, booking) => {
-      const bookingWorker = booking.workers.find((item) => item.workerId === worker.id);
-      return sum + Math.round(booking.price * (bookingWorker?.percent || 0) / 100);
-    }, 0);
     const workerPenalties = penalties.filter((penalty) => penalty.workerId === worker.id && isComplaintActive(penalty));
     const complaintState = getComplaintPenaltyState(worker.defaultPercent, workerPenalties);
     return {
       worker,
-      workerBookings,
-      earned,
+      payrollSummary: worker.payrollSummary,
       complaintState,
-      payout: Math.max(0, earned + worker.salaryBase),
       recentPenalties: workerPenalties.slice(0, 3),
     };
   });
-  const payrollTotal = payrollRows.reduce((sum, row) => sum + row.payout, 0);
+  const payrollTotal = payrollRows.reduce((sum, row) => sum + (row.payrollSummary?.balance || 0), 0);
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const resetPreviewRows = resetPreview ? [
     { label: 'Сохранятся владельцы', value: resetPreview.ownersPreserved },
@@ -632,6 +636,38 @@ export function OwnerApp() {
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить зарплаты');
       setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  const handleCreatePayrollEntry = async (workerId: string, workerName: string) => {
+    const draft = payrollDrafts[workerId];
+    const amount = Number(draft?.amount || 0);
+    if (!draft) return;
+    if (!Number.isFinite(amount) || amount === 0) {
+      setBottomToast('Укажите сумму операции по зарплате');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+
+    try {
+      setPayrollEntryLoading(workerId);
+      await createPayrollEntry({
+        workerId,
+        kind: draft.kind,
+        amount: Math.round(amount),
+        note: draft.note.trim(),
+      });
+      setPayrollDrafts((current) => ({
+        ...current,
+        [workerId]: { kind: draft.kind, amount: '', note: '' },
+      }));
+      setBottomToast(`Операция по зарплате для ${workerName} сохранена`);
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить операцию по зарплате');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setPayrollEntryLoading(null);
     }
   };
 
@@ -1255,31 +1291,51 @@ export function OwnerApp() {
                   Выдать жалобу
                 </button>
               </div>
-              {payrollRows.map(({ worker, workerBookings, earned, complaintState, payout, recentPenalties }) => (
+              {payrollRows.map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
                 <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
                     <div className="flex-1">
                       <div className="font-semibold">{worker.name}</div>
-                      <div className={`text-xs ${sub}`}>{worker.experience} · база {worker.defaultPercent}%</div>
+                      <div className={`text-xs ${sub}`}>{worker.role === 'admin' ? 'Администратор' : 'Мастер'} · база {worker.defaultPercent}%</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold" style={{ color: accent }}>{payout.toLocaleString('ru')} ₽</div>
-                      <div className={`text-xs ${sub}`}>{workerBookings.length} записей · {complaintState.activeCount} активных жалоб</div>
+                      <div className="font-bold" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} заказов · {complaintState.activeCount} активных жалоб</div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{earned.toLocaleString('ru')} ₽</div>
-                      <div className={`text-[11px] ${sub}`}>Сделка</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Заработано с заказов</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
                       <div className="text-sm font-semibold text-red-500">{complaintState.effectivePercent}%</div>
                       <div className={`text-[11px] ${sub}`}>Текущий %</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{worker.salaryBase.toLocaleString('ru')} ₽</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.baseSalary || worker.salaryBase).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub}`}>Оклад</div>
+                    </div>
+                    <div className={`${glass} rounded-xl p-3 text-center`}>
+                      <div className="text-sm font-semibold">{(payrollSummary?.completedRevenue || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Выручка по заказам</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className={`${glass} rounded-xl p-3`}>
+                      <div className={`text-[11px] ${sub} mb-1`}>Начислено</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub} mt-1`}>
+                        Премии: {(payrollSummary?.bonusTotal || 0).toLocaleString('ru')} ₽ · Корректировки: {(payrollSummary?.adjustmentTotal || 0).toLocaleString('ru')} ₽
+                      </div>
+                    </div>
+                    <div className={`${glass} rounded-xl p-3`}>
+                      <div className={`text-[11px] ${sub} mb-1`}>Удержано / выдано</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.totalDeducted || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub} mt-1`}>
+                        Авансы: {(payrollSummary?.advanceTotal || 0).toLocaleString('ru')} ₽ · Выплаты: {(payrollSummary?.payoutTotal || 0).toLocaleString('ru')} ₽
+                      </div>
                     </div>
                   </div>
                   {(() => {
@@ -1313,6 +1369,66 @@ export function OwnerApp() {
                       </>
                     );
                   })()}
+                  <div className={`${glass} rounded-xl p-3 mb-3`}>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <div className="text-sm font-medium">Операция по зарплате</div>
+                        <div className={`text-[11px] ${sub}`}>Аванс, удержание, выплата, премия или ручная корректировка с примечанием</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <select
+                        className={selectCls}
+                        value={payrollDrafts[worker.id]?.kind || 'advance'}
+                        onChange={(event) => setPayrollDrafts((current) => ({
+                          ...current,
+                          [worker.id]: {
+                            ...(current[worker.id] || { amount: '', note: '' }),
+                            kind: event.target.value as PayrollEntryKind,
+                          },
+                        }))}
+                      >
+                        <option value="advance">Аванс</option>
+                        <option value="deduction">Удержание</option>
+                        <option value="bonus">Премия</option>
+                        <option value="payout">Выплата</option>
+                        <option value="adjustment">Корректировка +/-</option>
+                      </select>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        value={payrollDrafts[worker.id]?.amount || ''}
+                        onChange={(event) => setPayrollDrafts((current) => ({
+                          ...current,
+                          [worker.id]: {
+                            ...(current[worker.id] || { kind: 'advance', note: '' }),
+                            amount: event.target.value,
+                          },
+                        }))}
+                        placeholder={payrollDrafts[worker.id]?.kind === 'adjustment' ? 'Можно отрицательное число' : 'Сумма'}
+                      />
+                    </div>
+                    <textarea
+                      className={`${inputCls} h-20 resize-none mb-2`}
+                      placeholder="Примечание: за что выдан аванс, почему удержание, что входит в выплату"
+                      value={payrollDrafts[worker.id]?.note || ''}
+                      onChange={(event) => setPayrollDrafts((current) => ({
+                        ...current,
+                        [worker.id]: {
+                          ...(current[worker.id] || { kind: 'advance', amount: '' }),
+                          note: event.target.value,
+                        },
+                      }))}
+                    />
+                    <button
+                      onClick={() => { void handleCreatePayrollEntry(worker.id, worker.name); }}
+                      disabled={payrollEntryLoading === worker.id}
+                      className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+                      style={{ background: primary }}
+                    >
+                      {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Добавить операцию'}
+                    </button>
+                  </div>
                   {complaintState.reductionActive ? (
                     <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
                       Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
@@ -1358,17 +1474,52 @@ export function OwnerApp() {
                       ))}
                     </div>
                   )}
-                  {workerBookings.length > 0 && (
-                    <div className="space-y-1">
-                      {workerBookings.slice(0, 2).map(b => {
-                        const bw = b.workers.find(w => w.workerId === worker.id);
-                        return (
-                          <div key={b.id} className="flex justify-between text-xs" style={{ color: isDark ? '#9AA6B2' : '#6B7280' }}>
-                            <span>{b.service} · {b.date}</span>
-                            <span>+{Math.round(b.price * (bw?.percent || 0) / 100).toLocaleString('ru')} ₽</span>
+                  {(payrollSummary?.bookingItems?.length || 0) > 0 && (
+                    <div className="mb-3">
+                      <div className={`text-xs ${sub} mb-2`}>Последние выполненные заказы</div>
+                      <div className="space-y-2">
+                        {payrollSummary?.bookingItems.slice(0, 5).map((item) => (
+                          <div key={item.bookingId} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{item.service}</div>
+                              <div className={`text-[11px] ${sub}`}>{item.date} · {item.time} · {item.price.toLocaleString('ru')} ₽</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="text-sm font-semibold">+{item.earned.toLocaleString('ru')} ₽</div>
+                              <div className={`text-[11px] ${sub}`}>{item.percent}%</div>
+                            </div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(payrollSummary?.entries?.length || 0) > 0 && (
+                    <div>
+                      <div className={`text-xs ${sub} mb-2`}>История операций</div>
+                      <div className="space-y-2">
+                        {payrollSummary?.entries.slice(0, 6).map((entry) => (
+                          <div key={entry.id} className={`${glass} rounded-xl p-3`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium">
+                                {{
+                                  advance: 'Аванс',
+                                  deduction: 'Удержание',
+                                  bonus: 'Премия',
+                                  payout: 'Выплата',
+                                  adjustment: 'Корректировка',
+                                }[entry.kind]}
+                              </div>
+                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#E6EEF8' : '#0B1226') }}>
+                                {entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽
+                              </div>
+                            </div>
+                            <div className={`text-[11px] ${sub} mt-1`}>
+                              {entry.createdByName} · {entry.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            {entry.note && <div className={`text-xs ${sub} mt-1`}>{entry.note}</div>}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

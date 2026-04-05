@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type EmployeeSetting } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type EmployeeSetting, type PayrollEntryKind } from '../../context/AppContext';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
@@ -92,6 +92,7 @@ export function AdminApp() {
     saveAdminProfile,
     saveAdminNotificationSettings,
     saveAdminWorkerPayroll,
+    createPayrollEntry,
     createTelegramLinkCode,
     deleteClient,
     changePassword,
@@ -128,6 +129,8 @@ export function AdminApp() {
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
+  const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
   const [securitySaved, setSecuritySaved] = useState(false);
   const [securityError, setSecurityError] = useState<string | null>(null);
   const [telegramLinkCode, setTelegramLinkCode] = useState<{ code: string; expiresAt: Date; linked: boolean } | null>(null);
@@ -169,6 +172,13 @@ export function AdminApp() {
           active: worker.active,
           telegramChatId: worker.telegramChatId,
         })),
+    );
+    setPayrollDrafts((current) =>
+      Object.fromEntries(
+        workers
+          .filter((worker) => worker.role === 'worker')
+          .map((worker) => [worker.id, current[worker.id] || { kind: 'advance', amount: '', note: '' }]),
+      ),
     );
   }, [workers]);
   useEffect(() => {
@@ -528,6 +538,33 @@ export function AdminApp() {
 
   const handleGenerateTelegramCode = async () => {
     setTelegramLinkCode(await createTelegramLinkCode());
+  };
+
+  const handleCreatePayrollEntry = async (workerId: string, workerName: string) => {
+    const draft = payrollDrafts[workerId];
+    const amount = Number(draft?.amount || 0);
+    if (!draft) return;
+    if (!Number.isFinite(amount) || amount === 0) {
+      return;
+    }
+
+    try {
+      setPayrollEntryLoading(workerId);
+      await createPayrollEntry({
+        workerId,
+        kind: draft.kind,
+        amount: Math.round(amount),
+        note: draft.note.trim(),
+      });
+      setPayrollDrafts((current) => ({
+        ...current,
+        [workerId]: { kind: draft.kind, amount: '', note: '' },
+      }));
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+    } finally {
+      setPayrollEntryLoading(null);
+    }
   };
 
   const openCompleteModal = (booking: Booking) => {
@@ -1050,23 +1087,36 @@ export function AdminApp() {
             <motion.div key="settings-payroll" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-1">Контроль зарплат мастеров</h2>
-              <p className={`text-xs ${sub} mb-4`}>Администратор может менять процент, оклад и активность только у мастеров</p>
+              <p className={`text-xs ${sub} mb-4`}>Администратор может менять процент, оклад, активность и вести операции по зарплате мастеров с примечанием</p>
               {payrollSettings.map((worker, index) => {
-                const completedTasks = completedAll.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
-                const earned = completedTasks.reduce((sum, booking) => {
-                  const link = booking.workers.find((item) => item.workerId === worker.id);
-                  return sum + Math.round(booking.price * ((link?.percent ?? worker.percent) / 100));
-                }, 0);
+                const liveWorker = workers.find((item) => item.id === worker.id);
+                const payrollSummary = liveWorker?.payrollSummary;
                 return (
                   <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
                         <div className="font-medium">{worker.name}</div>
-                        <div className={`text-xs ${sub}`}>{completedTasks.length} завершённых записей</div>
+                        <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} завершённых записей</div>
                       </div>
                       <div className={`text-right text-xs ${sub}`}>
-                        <div className="font-semibold text-sm" style={{ color: accent }}>{(earned + worker.salaryBase).toLocaleString('ru')} ₽</div>
-                        <div>начислено</div>
+                        <div className="font-semibold text-sm" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽</div>
+                        <div>к выплате сейчас</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className={`${glass} rounded-xl p-3`}>
+                        <div className={`text-[11px] ${sub} mb-1`}>Начислено всего</div>
+                        <div className="text-sm font-semibold">{(payrollSummary?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                        <div className={`text-[11px] ${sub} mt-1`}>
+                          С заказов: {(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} ₽ · Оклад: {(payrollSummary?.baseSalary || worker.salaryBase).toLocaleString('ru')} ₽
+                        </div>
+                      </div>
+                      <div className={`${glass} rounded-xl p-3`}>
+                        <div className={`text-[11px] ${sub} mb-1`}>Списания и выплаты</div>
+                        <div className="text-sm font-semibold">{(payrollSummary?.totalDeducted || 0).toLocaleString('ru')} ₽</div>
+                        <div className={`text-[11px] ${sub} mt-1`}>
+                          Авансы: {(payrollSummary?.advanceTotal || 0).toLocaleString('ru')} ₽ · Удержания: {(payrollSummary?.deductionTotal || 0).toLocaleString('ru')} ₽
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -1092,6 +1142,100 @@ export function AdminApp() {
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${worker.active ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
+                    <div className={`${glass} rounded-xl p-3 mt-3`}>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <select
+                          className={selectCls}
+                          value={payrollDrafts[worker.id]?.kind || 'advance'}
+                          onChange={(event) => setPayrollDrafts((current) => ({
+                            ...current,
+                            [worker.id]: {
+                              ...(current[worker.id] || { amount: '', note: '' }),
+                              kind: event.target.value as PayrollEntryKind,
+                            },
+                          }))}
+                        >
+                          <option value="advance">Аванс</option>
+                          <option value="deduction">Удержание</option>
+                          <option value="bonus">Премия</option>
+                          <option value="payout">Выплата</option>
+                          <option value="adjustment">Корректировка +/-</option>
+                        </select>
+                        <input
+                          className={inputCls}
+                          type="number"
+                          value={payrollDrafts[worker.id]?.amount || ''}
+                          onChange={(event) => setPayrollDrafts((current) => ({
+                            ...current,
+                            [worker.id]: {
+                              ...(current[worker.id] || { kind: 'advance', note: '' }),
+                              amount: event.target.value,
+                            },
+                          }))}
+                          placeholder="Сумма"
+                        />
+                      </div>
+                      <textarea
+                        className={`${inputCls} h-20 resize-none mb-2`}
+                        value={payrollDrafts[worker.id]?.note || ''}
+                        onChange={(event) => setPayrollDrafts((current) => ({
+                          ...current,
+                          [worker.id]: {
+                            ...(current[worker.id] || { kind: 'advance', amount: '' }),
+                            note: event.target.value,
+                          },
+                        }))}
+                        placeholder="Примечание к авансу, удержанию или выплате"
+                      />
+                      <button
+                        onClick={() => { void handleCreatePayrollEntry(worker.id, worker.name); }}
+                        disabled={payrollEntryLoading === worker.id || !payrollDrafts[worker.id]?.amount}
+                        className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+                        style={{ background: primary }}
+                      >
+                        {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Добавить операцию'}
+                      </button>
+                    </div>
+                    {(payrollSummary?.bookingItems?.length || 0) > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {payrollSummary?.bookingItems.slice(0, 4).map((item) => (
+                          <div key={item.bookingId} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{item.service}</div>
+                              <div className={`text-[11px] ${sub}`}>{item.date} · {item.time}</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="text-sm font-semibold">+{item.earned.toLocaleString('ru')} ₽</div>
+                              <div className={`text-[11px] ${sub}`}>{item.percent}%</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(payrollSummary?.entries?.length || 0) > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {payrollSummary?.entries.slice(0, 4).map((entry) => (
+                          <div key={entry.id} className={`${glass} rounded-xl p-3`}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium">
+                                {{
+                                  advance: 'Аванс',
+                                  deduction: 'Удержание',
+                                  bonus: 'Премия',
+                                  payout: 'Выплата',
+                                  adjustment: 'Корректировка',
+                                }[entry.kind]}
+                              </div>
+                              <div className="text-sm font-semibold">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽</div>
+                            </div>
+                            <div className={`text-[11px] ${sub} mt-1`}>
+                              {entry.createdByName} · {entry.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            {entry.note && <div className={`text-xs ${sub} mt-1`}>{entry.note}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
