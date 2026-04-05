@@ -1507,14 +1507,28 @@ export function AdminApp() {
                   <button onClick={() => setShowMenu(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
                 </div>
               </div>
-              <div className="flex-1 p-4 space-y-1 overflow-y-auto">
+              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                <button
+                  onClick={() => { setPage('settings'); setSettingsSection('shift'); setShowMenu(false); }}
+                  className="w-full rounded-2xl px-4 py-4 text-left text-white"
+                  style={{ background: `linear-gradient(135deg, ${primary}, #0EA5E9)` }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
+                      <CheckCircle size={20} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold">Старт смены</div>
+                      <div className="text-xs text-white/80">Фото пола, расходники, мастера и отправка владельцу</div>
+                    </div>
+                  </div>
+                </button>
                 {[
                   { icon: Calendar, label: 'Календарь', action: () => { setPage('calendar'); setSettingsSection(null); setShowMenu(false); } },
                   { icon: Plus, label: 'Новая запись', action: () => { openNewBookingModal(); setShowMenu(false); } },
                   { icon: Users, label: 'Клиенты', action: () => { setPage('clients'); setShowMenu(false); } },
                   { icon: BarChart3, label: 'Статистика', action: () => { setPage('stats'); setShowMenu(false); } },
                   { icon: DollarSign, label: 'Зарплаты мастерам', action: () => { setPage('settings'); setSettingsSection('payroll'); setShowMenu(false); } },
-                  { icon: CheckCircle, label: 'Открытие смены', action: () => { setPage('settings'); setSettingsSection('shift'); setShowMenu(false); } },
                   { icon: Bell, label: 'Уведомления', action: () => { setShowNotifPanel(true); setShowMenu(false); } },
                   { icon: Box, label: 'Боксы', action: () => { setPage('settings'); setSettingsSection('boxes'); setShowMenu(false); } },
                   { icon: Clock, label: 'Расписание', action: () => { setPage('settings'); setSettingsSection('schedule'); setShowMenu(false); } },
