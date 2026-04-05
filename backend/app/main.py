@@ -176,6 +176,12 @@ BOOKING_REMINDER_ELIGIBLE_STATUSES = {"new", "confirmed", "scheduled"}
 BOOKING_WORKER_MESSAGE_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
 DETAILING_REQUEST_TIME = "00:00"
 DETAILING_REQUEST_BOX = "По согласованию"
+DEFAULT_ADMIN_SHIFT_SUPPLIES = [
+    {"id": "preset-foam", "name": "Активная пена", "category": "Химия", "unit": "шт", "qty": 0},
+    {"id": "preset-shampoo", "name": "Автошампунь", "category": "Химия", "unit": "шт", "qty": 0},
+    {"id": "preset-microfiber", "name": "Микрофибра", "category": "Расходники", "unit": "шт", "qty": 0},
+    {"id": "preset-gloves", "name": "Перчатки", "category": "Расходники", "unit": "шт", "qty": 0},
+]
 
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
@@ -2047,12 +2053,33 @@ def _decode_data_url_image(data_url: str) -> tuple[str, bytes]:
     return mime_type, content
 
 
-def _admin_shift_inspection_supplies(db: Session) -> list[StockItem]:
-    return db.scalars(
+def _admin_shift_inspection_supplies(db: Session) -> list[dict[str, Any]]:
+    items = db.scalars(
         select(StockItem)
         .where(StockItem.category.in_(("Химия", "Расходники")))
         .order_by(StockItem.category.asc(), StockItem.name.asc())
     ).all()
+    if items:
+        return [
+            {
+                "stockItemId": item.id,
+                "name": item.name,
+                "category": item.category,
+                "unit": item.unit,
+                "qty": item.qty,
+            }
+            for item in items
+        ]
+    return [
+        {
+            "stockItemId": item["id"],
+            "name": item["name"],
+            "category": item["category"],
+            "unit": item["unit"],
+            "qty": item["qty"],
+        }
+        for item in DEFAULT_ADMIN_SHIFT_SUPPLIES
+    ]
 
 
 def _admin_shift_inspection_payload(entry: dict[str, Any]) -> AdminShiftInspectionPayload:
@@ -3949,7 +3976,14 @@ def list_admin_shift_inspections(
     _ensure_staff_role(session_data, {"owner", "admin"})
     entries = _admin_shift_inspections_state(db)
     if session_data["role"] == "admin":
-        entries = [entry for entry in entries if entry.get("adminId") == session_data["actorId"]]
+        entries = [
+            {
+                **entry,
+                "floorPhotoUrl": "",
+            }
+            for entry in entries
+            if entry.get("adminId") == session_data["actorId"]
+        ]
     return [_admin_shift_inspection_payload(entry) for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True)]
 
 
@@ -3973,12 +4007,12 @@ def submit_admin_shift_inspection(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="На складе нет расходников для проверки")
     supplies_payload = [
         {
-            "stockItemId": item.id,
-            "name": item.name,
-            "category": item.category,
-            "unit": item.unit,
-            "qty": item.qty,
-            "checked": bool(supply_checks.get(item.id, False)),
+            "stockItemId": str(item.get("stockItemId") or ""),
+            "name": str(item.get("name") or ""),
+            "category": str(item.get("category") or ""),
+            "unit": str(item.get("unit") or ""),
+            "qty": int(item.get("qty") or 0),
+            "checked": bool(supply_checks.get(str(item.get("stockItemId") or ""), False)),
         }
         for item in supplies
     ]
@@ -4583,6 +4617,19 @@ def create_payroll_entry(
         if amount <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сумма должна быть больше нуля")
 
+    complaints_by_worker = _complaints_by_worker(_load_penalties(db))
+    payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
+    worker_summary = payroll_summaries.get(worker.id)
+    if (
+        session_data["role"] == "admin"
+        and payload.kind == "advance"
+        and (worker_summary is None or worker_summary.accruedFromBookings < 1000)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Администратор не может выдать аванс, пока мастер не заработал минимум 1000 ₽",
+        )
+
     entry = PayrollEntry(
         id=f"pay-{uuid4()}",
         worker_id=worker.id,
@@ -4606,7 +4653,7 @@ def create_payroll_entry(
     worker.updated_at = _now()
     db.commit()
     db.refresh(worker)
-    payroll_summaries = _worker_payroll_summaries(db, [worker], _complaints_by_worker(_load_penalties(db)))
+    payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
     return _worker_payload_with_payroll(worker, payroll_summaries)
 
 

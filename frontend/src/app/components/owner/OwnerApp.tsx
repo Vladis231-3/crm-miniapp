@@ -1333,6 +1333,22 @@ export function OwnerApp() {
                       <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} заказов · {complaintState.activeCount} активных жалоб</div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setPayrollDrafts((current) => ({
+                        ...current,
+                        [worker.id]: {
+                          ...(current[worker.id] || { amount: '', note: '' }),
+                          kind: 'payout',
+                        },
+                      }));
+                      document.getElementById(`owner-payroll-action-${worker.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                    className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
+                    style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}
+                  >
+                    Открыть зарплату мастера
+                  </button>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className={`${glass} rounded-xl p-3 text-center`}>
                       <div className="text-sm font-semibold">{(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
@@ -1398,11 +1414,11 @@ export function OwnerApp() {
                       </>
                     );
                   })()}
-                  <div className={`${glass} rounded-xl p-3 mb-3`}>
+                  <div id={`owner-payroll-action-${worker.id}`} className={`${glass} rounded-xl p-3 mb-3`}>
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div>
                         <div className="text-sm font-medium">Операция по зарплате</div>
-                        <div className={`text-[11px] ${sub}`}>Аванс, удержание, выплата, премия или ручная корректировка с примечанием</div>
+                        <div className={`text-[11px] ${sub}`}>Аванс, списание, выплата, премия или ручная корректировка с примечанием</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-2">
@@ -1418,7 +1434,7 @@ export function OwnerApp() {
                         }))}
                       >
                         <option value="advance">Аванс</option>
-                        <option value="deduction">Удержание</option>
+                        <option value="deduction">Списание</option>
                         <option value="bonus">Премия</option>
                         <option value="payout">Выплата</option>
                         <option value="adjustment">Корректировка +/-</option>
@@ -1439,7 +1455,7 @@ export function OwnerApp() {
                     </div>
                     <textarea
                       className={`${inputCls} h-20 resize-none mb-2`}
-                      placeholder="Примечание: за что выдан аванс, почему удержание, что входит в выплату"
+                      placeholder="Примечание: за что выдан аванс, почему списание, что входит в выплату"
                       value={payrollDrafts[worker.id]?.note || ''}
                       onChange={(event) => setPayrollDrafts((current) => ({
                         ...current,
@@ -1455,7 +1471,7 @@ export function OwnerApp() {
                       className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
                       style={{ background: primary }}
                     >
-                      {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Добавить операцию'}
+                      {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Провести операцию по зарплате'}
                     </button>
                   </div>
                   {complaintState.reductionActive ? (
@@ -1532,7 +1548,7 @@ export function OwnerApp() {
                               <div className="text-sm font-medium">
                                 {{
                                   advance: 'Аванс',
-                                  deduction: 'Удержание',
+                                  deduction: 'Списание',
                                   bonus: 'Премия',
                                   payout: 'Выплата',
                                   adjustment: 'Корректировка',

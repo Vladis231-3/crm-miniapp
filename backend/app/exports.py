@@ -1233,8 +1233,12 @@ def _pdf_font_name() -> str:
     candidates = [
         os.getenv("OWNER_EXPORT_FONT_PATH", ""),
         "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]
     for raw_path in candidates:
         if not raw_path:

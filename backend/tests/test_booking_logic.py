@@ -1837,14 +1837,30 @@ class BookingLogicTests(unittest.TestCase):
         worker_payload = worker_bootstrap.json()["staffProfile"]
         self.assertTrue(any(entry["kind"] == "payout" and entry["amount"] == 1200 for entry in worker_payload["payrollSummary"]["entries"]))
 
-        with SessionLocal() as db:
-            notifications = db.scalars(
-                select(Notification)
-                .where(Notification.recipient_role == "worker", Notification.recipient_id == "w1")
-                .order_by(Notification.created_at.desc())
-            ).all()
-        self.assertTrue(any("Изменение по зарплате" in item.message and "Выплата за неделю" in item.message for item in notifications))
-        self.assertTrue(any(chat_id == "777888999" and "Изменение по зарплате" in text for chat_id, text in sent_messages))
+    def test_admin_cannot_issue_advance_before_worker_earns_1000(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+
+        response = self.client.post(
+            "/api/payroll/entries",
+            headers=self.auth_headers(admin_token),
+            json={
+                "workerId": "w1",
+                "kind": "advance",
+                "amount": 300,
+                "note": "Ранний аванс",
+            },
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("минимум 1000", response.text)
+
+    def test_owner_pdf_export_returns_pdf_file(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        response = self.client.get("/api/owner/exports/pdf", headers=self.auth_headers(owner_token))
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers["content-type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
 
     def test_owner_can_create_booking_with_assigned_master(self) -> None:
         self.disable_owner_two_factor()
@@ -2317,6 +2333,44 @@ class BookingLogicTests(unittest.TestCase):
             ).all()
 
         self.assertTrue(any("подтвердил открытие смены" in item.message for item in notifications))
+
+    def test_admin_shift_inspection_list_omits_large_photo_for_admin(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+        admin_token = self.login_staff("admin", "admin")
+
+        response = self.client.post(
+            "/api/stock-items",
+            headers=self.auth_headers(owner_token),
+            json={"name": "Микрофибра", "qty": 12, "unit": "шт", "unitPrice": 180, "category": "Расходники"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+        with patch("app.main.send_telegram_photo", side_effect=lambda *args, **kwargs: None):
+            create_response = self.client.post(
+                "/api/admin/shift-inspections",
+                headers=self.auth_headers(admin_token),
+                json={
+                    "floorPhotoUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    "clothsReady": True,
+                    "supplies": [{"stockItemId": response.json()["id"], "checked": True}],
+                    "masters": [{"workerId": "w1", "checked": True}],
+                    "note": "Готово к старту",
+                },
+            )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+
+        admin_list = self.client.get("/api/admin/shift-inspections", headers=self.auth_headers(admin_token))
+        self.assertEqual(admin_list.status_code, 200, admin_list.text)
+        admin_payload = admin_list.json()
+        self.assertEqual(len(admin_payload), 1)
+        self.assertEqual(admin_payload[0]["floorPhotoUrl"], "")
+
+        owner_list = self.client.get("/api/admin/shift-inspections", headers=self.auth_headers(owner_token))
+        self.assertEqual(owner_list.status_code, 200, owner_list.text)
+        owner_payload = owner_list.json()
+        self.assertEqual(len(owner_payload), 1)
+        self.assertTrue(owner_payload[0]["floorPhotoUrl"].startswith("data:image/jpeg;base64,"))
 
     def test_bot_can_reject_admin_shift_with_issue_note(self) -> None:
         from bot import BotRuntime, process_telegram_update

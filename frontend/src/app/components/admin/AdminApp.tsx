@@ -54,6 +54,19 @@ const STATUS_BADGE: Record<BookingStatus, string> = {
 };
 
 const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
+const DEFAULT_SHIFT_SUPPLIES = [
+  { id: 'preset-foam', name: 'Активная пена', category: 'Химия', unit: 'шт', qty: 0 },
+  { id: 'preset-shampoo', name: 'Автошампунь', category: 'Химия', unit: 'шт', qty: 0 },
+  { id: 'preset-microfiber', name: 'Микрофибра', category: 'Расходники', unit: 'шт', qty: 0 },
+  { id: 'preset-gloves', name: 'Перчатки', category: 'Расходники', unit: 'шт', qty: 0 },
+];
+const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
+  advance: 'Аванс',
+  deduction: 'Списание',
+  bonus: 'Премия',
+  payout: 'Выплата',
+  adjustment: 'Корректировка',
+};
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift';
@@ -160,8 +173,13 @@ export function AdminApp() {
   const [shiftPhotoName, setShiftPhotoName] = useState('');
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
+  const [payrollError, setPayrollError] = useState<string | null>(null);
   const masterWorkers = workers.filter((worker) => worker.role === 'worker');
-  const shiftSupplies = stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники');
+  const shiftSupplies = (
+    stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники').length > 0
+      ? stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники')
+      : DEFAULT_SHIFT_SUPPLIES
+  );
 
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
@@ -218,6 +236,9 @@ export function AdminApp() {
       ),
     );
   }, [workers]);
+  useEffect(() => {
+    setPayrollError(null);
+  }, [settingsSection]);
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'security') {
       void refreshActiveSessions();
@@ -632,8 +653,15 @@ export function AdminApp() {
     if (!Number.isFinite(amount) || amount === 0) {
       return;
     }
+    const liveWorker = workers.find((item) => item.id === workerId);
+    const accruedFromBookings = liveWorker?.payrollSummary?.accruedFromBookings || 0;
+    if (draft.kind === 'advance' && accruedFromBookings < 1000) {
+      setPayrollError(`Админ не может выдать аванс ${workerName}, пока он не заработал минимум 1000 ₽`);
+      return;
+    }
 
     try {
+      setPayrollError(null);
       setPayrollEntryLoading(workerId);
       await createPayrollEntry({
         workerId,
@@ -647,6 +675,8 @@ export function AdminApp() {
       }));
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (error) {
+      setPayrollError(error instanceof Error ? error.message : 'Не удалось сохранить операцию по зарплате');
     } finally {
       setPayrollEntryLoading(null);
     }
@@ -978,6 +1008,11 @@ export function AdminApp() {
 
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="font-medium mb-3">Расходники и химия в наличии</div>
+                {stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники').length === 0 && (
+                  <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                    На складе пока нет заведённых позиций. Используем базовый чек-лист открытия смены, чтобы админ всё равно мог подтвердить наличие химии и расходников.
+                  </div>
+                )}
                 <div className="space-y-2">
                   {shiftSupplies.map((item) => (
                     <label key={item.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
@@ -1336,7 +1371,7 @@ export function AdminApp() {
                           }))}
                         >
                           <option value="advance">Аванс</option>
-                          <option value="deduction">Удержание</option>
+                          <option value="deduction">Списание</option>
                           <option value="bonus">Премия</option>
                           <option value="payout">Выплата</option>
                           <option value="adjustment">Корректировка +/-</option>
@@ -1365,15 +1400,20 @@ export function AdminApp() {
                             note: event.target.value,
                           },
                         }))}
-                        placeholder="Примечание к авансу, удержанию или выплате"
+                        placeholder="Примечание к авансу, списанию или выплате"
                       />
+                      {payrollError && (
+                        <div className="mb-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+                          {payrollError}
+                        </div>
+                      )}
                       <button
                         onClick={() => { void handleCreatePayrollEntry(worker.id, worker.name); }}
                         disabled={payrollEntryLoading === worker.id || !payrollDrafts[worker.id]?.amount}
                         className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
                         style={{ background: primary }}
                       >
-                        {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Добавить операцию'}
+                        {payrollEntryLoading === worker.id ? 'Сохраняю...' : `${PAYROLL_KIND_LABELS[payrollDrafts[worker.id]?.kind || 'advance']} мастеру`}
                       </button>
                     </div>
                     {(payrollSummary?.bookingItems?.length || 0) > 0 && (
@@ -1398,13 +1438,7 @@ export function AdminApp() {
                           <div key={entry.id} className={`${glass} rounded-xl p-3`}>
                             <div className="flex items-center justify-between gap-3">
                               <div className="text-sm font-medium">
-                                {{
-                                  advance: 'Аванс',
-                                  deduction: 'Удержание',
-                                  bonus: 'Премия',
-                                  payout: 'Выплата',
-                                  adjustment: 'Корректировка',
-                                }[entry.kind]}
+                                {PAYROLL_KIND_LABELS[entry.kind]}
                               </div>
                               <div className="text-sm font-semibold">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽</div>
                             </div>
@@ -1433,13 +1467,25 @@ export function AdminApp() {
           { id: 'calendar', icon: Calendar, label: 'Календарь' },
           { id: 'stats', icon: BarChart3, label: 'Статистика' },
           { id: 'clients', icon: Users, label: 'Клиенты' },
+          { id: 'payroll', icon: DollarSign, label: 'Зарплаты', action: () => { setPage('settings'); setSettingsSection('payroll'); } },
           { id: 'settings', icon: Settings, label: 'Настройки' },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => { setPage(tab.id as AdminPage); setSettingsSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-1">
-            <tab.icon size={20} style={{ color: page === tab.id ? primary : undefined }} className={page !== tab.id ? sub : ''} />
-            <span className="text-xs" style={{ color: page === tab.id ? primary : undefined }}>{tab.label}</span>
+        ].map(tab => {
+          const isActive = tab.id === 'payroll'
+            ? page === 'settings' && settingsSection === 'payroll'
+            : page === tab.id;
+          return (
+          <button key={tab.id} onClick={() => {
+            if (tab.action) {
+              tab.action();
+              return;
+            }
+            setPage(tab.id as AdminPage);
+            setSettingsSection(null);
+          }} className="flex-1 py-3 flex flex-col items-center gap-1">
+            <tab.icon size={20} style={{ color: isActive ? primary : undefined }} className={!isActive ? sub : ''} />
+            <span className="text-[11px]" style={{ color: isActive ? primary : undefined }}>{tab.label}</span>
           </button>
-        ))}
+        )})}
       </div>
 
       {/* HAMBURGER MENU */}
@@ -1467,6 +1513,8 @@ export function AdminApp() {
                   { icon: Plus, label: 'Новая запись', action: () => { openNewBookingModal(); setShowMenu(false); } },
                   { icon: Users, label: 'Клиенты', action: () => { setPage('clients'); setShowMenu(false); } },
                   { icon: BarChart3, label: 'Статистика', action: () => { setPage('stats'); setShowMenu(false); } },
+                  { icon: DollarSign, label: 'Зарплаты мастерам', action: () => { setPage('settings'); setSettingsSection('payroll'); setShowMenu(false); } },
+                  { icon: CheckCircle, label: 'Открытие смены', action: () => { setPage('settings'); setSettingsSection('shift'); setShowMenu(false); } },
                   { icon: Bell, label: 'Уведомления', action: () => { setShowNotifPanel(true); setShowMenu(false); } },
                   { icon: Box, label: 'Боксы', action: () => { setPage('settings'); setSettingsSection('boxes'); setShowMenu(false); } },
                   { icon: Clock, label: 'Расписание', action: () => { setPage('settings'); setSettingsSection('schedule'); setShowMenu(false); } },
