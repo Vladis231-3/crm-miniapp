@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind, type ShiftChecklist } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind, type ShiftChecklist } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates } from '../../utils/date';
 
@@ -70,6 +70,7 @@ export function OwnerApp() {
       sendOwnerSummaryReport,
       dispatchOwnerReminders,
       remindAdminAboutInactiveClients,
+      listAdminShiftInspections,
       listShiftChecklists,
       todayLabel,
       tomorrowLabel,
@@ -161,6 +162,7 @@ export function OwnerApp() {
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
   const [shiftChecklists, setShiftChecklists] = useState<ShiftChecklist[]>([]);
+  const [adminShiftInspections, setAdminShiftInspections] = useState<AdminShiftInspection[]>([]);
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -258,6 +260,7 @@ export function OwnerApp() {
   useEffect(() => {
     if (page === 'stock') {
       void listShiftChecklists().then(setShiftChecklists);
+      void listAdminShiftInspections().then(setAdminShiftInspections);
     }
   }, [page]);
 
@@ -266,6 +269,7 @@ export function OwnerApp() {
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const todayBookings = bookings.filter(b => b.date === todayLabel);
   const latestShiftChecklists = shiftChecklists.slice(0, 10);
+  const latestAdminShiftInspections = adminShiftInspections.slice(0, 8);
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -1649,6 +1653,61 @@ export function OwnerApp() {
                           ))}
                         </div>
                         {entry.note && <div className={`text-xs ${sub} mt-3`}>Примечание: {entry.note}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="font-semibold">Открытие смены админом</div>
+                    <div className={`text-xs ${sub} mt-1`}>Фото пола, отмеченные расходники, мастера на смене и решение владельца</div>
+                  </div>
+                  <div className={`text-xs ${sub}`}>{latestAdminShiftInspections.length} последних</div>
+                </div>
+                {latestAdminShiftInspections.length === 0 ? (
+                  <div className={`text-sm ${sub}`}>Админ ещё не отправлял открытия смены на подтверждение.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {latestAdminShiftInspections.map((inspection) => (
+                      <div key={inspection.id} className={`${glass} rounded-2xl p-4`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div>
+                            <div className="font-medium">{inspection.adminName}</div>
+                            <div className={`text-xs ${sub}`}>
+                              {inspection.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${inspection.status === 'pending' ? 'bg-amber-500/15 text-amber-600' : inspection.status === 'approved' ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
+                            {inspection.status === 'pending' ? 'На подтверждении' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказано'}
+                          </div>
+                        </div>
+                        <img src={inspection.floorPhotoUrl} alt="Фото открытия смены" className="mb-3 h-44 w-full rounded-2xl object-cover" />
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <div className={`${glass} rounded-xl p-3`}>
+                            <div className={`text-[11px] ${sub} mb-1`}>Мастера на смене</div>
+                            <div className="text-sm font-medium">
+                              {inspection.masters.filter((item) => item.checked).map((item) => item.workerName).join(', ') || 'Не выбраны'}
+                            </div>
+                          </div>
+                          <div className={`${glass} rounded-xl p-3`}>
+                            <div className={`text-[11px] ${sub} mb-1`}>Проверенные расходники</div>
+                            <div className="text-sm font-medium">
+                              {inspection.supplies.filter((item) => item.checked).map((item) => item.name).join(', ') || 'Не отмечены'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`text-xs ${sub} mt-3`}>
+                          Чистые тряпки: {inspection.clothsReady ? 'Да' : 'Нет'}
+                        </div>
+                        {inspection.note && <div className={`text-xs ${sub} mt-1`}>Комментарий админа: {inspection.note}</div>}
+                        {inspection.issueNote && <div className="text-xs text-red-500 mt-2">Причина отказа: {inspection.issueNote}</div>}
+                        {inspection.reviewedAt && (
+                          <div className={`text-[11px] ${sub} mt-2`}>
+                            Решение принято {inspection.reviewedAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
