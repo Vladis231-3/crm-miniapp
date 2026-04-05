@@ -18,9 +18,9 @@ type OwnerPage = 'dashboard' | 'payroll' | 'stock' | 'reports' | 'settings';
 type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'notifications' | 'integrations' | 'security';
 type OwnerExportKind = 'report' | 'pdf';
 
-const EXPENSE_CATEGORIES = ['Р Р°СЃС…РѕРґРЅС‹Рµ РјР°С‚РµСЂРёР°Р»С‹', 'РђСЂРµРЅРґР°', 'РљРѕРјРјСѓРЅР°Р»СЊРЅС‹Рµ', 'Р—Р°СЂРїР»Р°С‚С‹', 'РћР±РѕСЂСѓРґРѕРІР°РЅРёРµ', 'РџСЂРѕС‡РµРµ'];
-const STOCK_CATEGORIES = ['РҐРёРјРёСЏ', 'Р Р°СЃС…РѕРґРЅРёРєРё', 'РћР±РѕСЂСѓРґРѕРІР°РЅРёРµ'];
-const STOCK_UNITS = ['Р»', 'РєРі', 'С€С‚', 'С„Р»', 'Рј', 'СѓРї'];
+const EXPENSE_CATEGORIES = ['Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
+const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудование'];
+const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
 
 export function OwnerApp() {
   const {
@@ -105,14 +105,14 @@ export function OwnerApp() {
   const [resetInfo, setResetInfo] = useState<string | null>(null);
 
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' });
-  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'С€С‚', unitPrice: '', category: STOCK_CATEGORIES[0] });
+  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
   const [bookingForm, setBookingForm] = useState({
     clientName: '',
     clientPhone: '',
     service: 's1',
     date: tomorrowLabel,
     time: '10:00',
-    box: liveBoxes[0]?.name || 'Р‘РѕРєСЃ 1',
+    box: liveBoxes[0]?.name || 'Бокс 1',
   });
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
 
@@ -279,19 +279,19 @@ export function OwnerApp() {
   const payrollTotal = payrollRows.reduce((sum, row) => sum + row.payout, 0);
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const resetPreviewRows = resetPreview ? [
-    { label: 'РЎРѕС…СЂР°РЅСЏС‚СЃСЏ РІР»Р°РґРµР»СЊС†С‹', value: resetPreview.ownersPreserved },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ СЃРѕС‚СЂСѓРґРЅРёРєРё', value: resetPreview.employeesDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ РєР»РёРµРЅС‚С‹', value: resetPreview.clientsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ Р·Р°РїРёСЃРё', value: resetPreview.bookingsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ СѓРІРµРґРѕРјР»РµРЅРёСЏ', value: resetPreview.notificationsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ РїРѕР·РёС†РёРё СЃРєР»Р°РґР°', value: resetPreview.stockItemsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ СЂР°СЃС…РѕРґС‹', value: resetPreview.expensesDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ Р¶Р°Р»РѕР±С‹', value: resetPreview.penaltiesDeleted },
-    { label: 'Р—Р°РєСЂРѕСЋС‚СЃСЏ Р»РёС€РЅРёРµ СЃРµСЃСЃРёРё', value: resetPreview.sessionsClosed },
-    { label: 'РЎР±СЂРѕСЃСЏС‚СЃСЏ СѓСЃР»СѓРіРё', value: resetPreview.servicesReset },
-    { label: 'РЎР±СЂРѕСЃСЏС‚СЃСЏ Р±РѕРєСЃС‹', value: resetPreview.boxesReset },
-    { label: 'РЎР±СЂРѕСЃРёС‚СЃСЏ РіСЂР°С„РёРє', value: resetPreview.scheduleReset },
-    { label: 'РџРµСЂРµСЃРѕР·РґР°РґСѓС‚СЃСЏ РЅР°СЃС‚СЂРѕР№РєРё', value: resetPreview.settingsReset },
+    { label: 'Сохранятся владельцы', value: resetPreview.ownersPreserved },
+    { label: 'Удалятся сотрудники', value: resetPreview.employeesDeleted },
+    { label: 'Удалятся клиенты', value: resetPreview.clientsDeleted },
+    { label: 'Удалятся записи', value: resetPreview.bookingsDeleted },
+    { label: 'Удалятся уведомления', value: resetPreview.notificationsDeleted },
+    { label: 'Удалятся позиции склада', value: resetPreview.stockItemsDeleted },
+    { label: 'Удалятся расходы', value: resetPreview.expensesDeleted },
+    { label: 'Удалятся жалобы', value: resetPreview.penaltiesDeleted },
+    { label: 'Закроются лишние сессии', value: resetPreview.sessionsClosed },
+    { label: 'Сбросятся услуги', value: resetPreview.servicesReset },
+    { label: 'Сбросятся боксы', value: resetPreview.boxesReset },
+    { label: 'Сбросится график', value: resetPreview.scheduleReset },
+    { label: 'Пересоздадутся настройки', value: resetPreview.settingsReset },
   ] : [];
   const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
@@ -312,7 +312,7 @@ export function OwnerApp() {
       ...current,
       {
         id: createDraftId('box'),
-        name: `Р‘РѕРєСЃ ${current.length + 1}`,
+        name: `Бокс ${current.length + 1}`,
         pricePerHour: 0,
         active: true,
         description: '',
@@ -329,8 +329,8 @@ export function OwnerApp() {
       ...current,
       {
         id: createDraftId('service'),
-        name: 'РќРѕРІР°СЏ СѓСЃР»СѓРіР°',
-        category: 'РњРѕР№РєР°',
+        name: 'Новая услуга',
+        category: 'Мойка',
         price: 0,
         duration: 30,
         desc: '',
@@ -398,15 +398,15 @@ export function OwnerApp() {
 
       if (wantsPasswordChange) {
         if (!password.current || !password.new_ || !password.confirm) {
-          setSecurityError('Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ РґР»СЏ СЃРјРµРЅС‹ РїР°СЂРѕР»СЏ');
+          setSecurityError('Заполните все поля для смены пароля');
           return;
         }
         if (password.new_.length < 8) {
-          setSecurityError('РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РјРёРЅРёРјСѓРј 8 СЃРёРјРІРѕР»РѕРІ');
+          setSecurityError('Новый пароль должен содержать минимум 8 символов');
           return;
         }
         if (password.new_ !== password.confirm) {
-          setSecurityError('РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РїР°СЂРѕР»СЏ РЅРµ СЃРѕРІРїР°РґР°РµС‚');
+          setSecurityError('Подтверждение пароля не совпадает');
           return;
         }
       }
@@ -420,7 +420,7 @@ export function OwnerApp() {
         setSecuritySaved(true);
         setTimeout(() => setSecuritySaved(false), 2000);
       } catch (error) {
-        setSecurityError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё');
+        setSecurityError(error instanceof Error ? error.message : 'Не удалось сохранить настройки безопасности');
       }
       return;
     }
@@ -437,7 +437,7 @@ export function OwnerApp() {
 
   const handleStartOwnerReset = async () => {
     if (!resetPassword.trim()) {
-      setResetError('Р’РІРµРґРёС‚Рµ С‚РµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ РІР»Р°РґРµР»СЊС†Р°, С‡С‚РѕР±С‹ Р·Р°РїСЂРѕСЃРёС‚СЊ РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ.');
+      setResetError('Введите текущий пароль владельца, чтобы запросить код создателя.');
       return;
     }
 
@@ -458,7 +458,7 @@ export function OwnerApp() {
       setResetPassword('');
       setResetInfo(response.message);
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСЂРѕСЃРёС‚СЊ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ.');
+      setResetError(error instanceof Error ? error.message : 'Не удалось запросить код подтверждения.');
     } finally {
       setResetLoadingStep(null);
     }
@@ -466,15 +466,15 @@ export function OwnerApp() {
 
   const handleApproveOwnerReset = async () => {
     if (!resetRequestId) {
-      setResetError('РЎРЅР°С‡Р°Р»Р° Р·Р°РЅРѕРІРѕ Р·Р°РїСЂРѕСЃРёС‚Рµ РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ.');
+      setResetError('Сначала заново запросите код создателя.');
       return;
     }
     if (!resetCreatorCode.trim()) {
-      setResetError('Р’РІРµРґРёС‚Рµ РєРѕРґ, РєРѕС‚РѕСЂС‹Р№ РїСЂРёС€С‘Р» СЃРѕР·РґР°С‚РµР»СЋ РІ Telegram.');
+      setResetError('Введите код, который пришёл создателю в Telegram.');
       return;
     }
     if (!resetConfirmationPhrase.trim()) {
-      setResetError('Р’РІРµРґРёС‚Рµ РєРѕРЅС‚СЂРѕР»СЊРЅСѓСЋ С„СЂР°Р·Сѓ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ.');
+      setResetError('Введите контрольную фразу подтверждения.');
       return;
     }
 
@@ -491,7 +491,7 @@ export function OwnerApp() {
       setResetCreatorCode('');
       setResetInfo(response.message);
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґС‚РІРµСЂРґРёС‚СЊ РѕС‡РёСЃС‚РєСѓ.');
+      setResetError(error instanceof Error ? error.message : 'Не удалось подтвердить очистку.');
     } finally {
       setResetLoadingStep(null);
     }
@@ -499,7 +499,7 @@ export function OwnerApp() {
 
   const handleExecuteOwnerReset = async () => {
     if (!resetRequestId) {
-      setResetError('Р—Р°РїСЂРѕСЃ РЅР° РѕС‡РёСЃС‚РєСѓ РїРѕС‚РµСЂСЏРЅ. РќР°С‡РЅРёС‚Рµ Р·Р°РЅРѕРІРѕ.');
+      setResetError('Запрос на очистку потерян. Начните заново.');
       return;
     }
 
@@ -511,7 +511,7 @@ export function OwnerApp() {
       setBottomToast(response.message);
       setTimeout(() => setBottomToast(null), 5000);
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РѕС‡РёСЃС‚РєСѓ CRM.');
+      setResetError(error instanceof Error ? error.message : 'Не удалось выполнить очистку CRM.');
     } finally {
       setResetLoadingStep(null);
     }
@@ -527,7 +527,7 @@ export function OwnerApp() {
       setExpenseAdded(false);
       setShowAddExpense(false);
       setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' });
-      setBottomToast(`Р Р°СЃС…РѕРґ "${title}" РґРѕР±Р°РІР»РµРЅ РЅР° СЃСѓРјРјСѓ ${amount.toLocaleString('ru')} в‚Ѕ`);
+      setBottomToast(`Расход "${title}" добавлен на сумму ${amount.toLocaleString('ru')} ₽`);
       setTimeout(() => setBottomToast(null), 4000);
     }, 1800);
   };
@@ -548,40 +548,40 @@ export function OwnerApp() {
     setShowWriteOff(null);
     setWriteOffQty('1');
     if (item) {
-      setBottomToast(`РЎРїРёСЃР°РЅРѕ: ${item.name} вЂ” ${writeOffQty} ${item.unit}`);
+      setBottomToast(`Списано: ${item.name} — ${writeOffQty} ${item.unit}`);
       setTimeout(() => setBottomToast(null), 3000);
     }
   };
 
   const handleExport = async (kind: OwnerExportKind) => {
     const labels = {
-      report: { noun: 'Excel-С„Р°Р№Р»' },
+      report: { noun: 'Excel-файл' },
       pdf: { noun: 'PDF' },
     } as const;
 
     try {
       setExportingKind(kind);
       const fileName = await downloadOwnerExport(kind);
-      let subtitle = `Р¤Р°Р№Р» ${fileName} СЃРєР°С‡Р°РЅ`;
+      let subtitle = `Файл ${fileName} скачан`;
 
       try {
         const delivery = await sendOwnerExportToTelegram(kind);
-        subtitle = `${subtitle} Рё РѕС‚РїСЂР°РІР»РµРЅ РІ Telegram`;
+        subtitle = `${subtitle} и отправлен в Telegram`;
         setBottomToast(delivery.message);
         setTimeout(() => setBottomToast(null), 5000);
       } catch (deliveryError) {
-        const deliveryMessage = deliveryError instanceof Error ? deliveryError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ С„Р°Р№Р» РІ Telegram';
-        setBottomToast(`${labels[kind].noun} СЃРєР°С‡Р°РЅ, РЅРѕ РѕС‚РїСЂР°РІРєР° РІ Telegram РЅРµ СѓРґР°Р»Р°СЃСЊ: ${deliveryMessage}`);
+        const deliveryMessage = deliveryError instanceof Error ? deliveryError.message : 'Не удалось отправить файл в Telegram';
+        setBottomToast(`${labels[kind].noun} скачан, но отправка в Telegram не удалась: ${deliveryMessage}`);
         setTimeout(() => setBottomToast(null), 5000);
       }
 
       setExportSuccess({
-        title: `${labels[kind].noun} СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅ`,
+        title: `${labels[kind].noun} экспортирован`,
         subtitle,
       });
       setTimeout(() => setExportSuccess(null), 3200);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃС„РѕСЂРјРёСЂРѕРІР°С‚СЊ СЌРєСЃРїРѕСЂС‚';
+      const message = nextError instanceof Error ? nextError.message : 'Не удалось сформировать экспорт';
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
@@ -597,7 +597,7 @@ export function OwnerApp() {
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ СЃРІРѕРґРЅС‹Р№ РѕС‚С‡С‘С‚';
+      const message = nextError instanceof Error ? nextError.message : 'Не удалось отправить сводный отчёт';
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
@@ -614,10 +614,10 @@ export function OwnerApp() {
         notes: draft.notes,
         debtBalance: Number(draft.debtBalance || 0),
       });
-      setBottomToast('РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р° СЃРѕС…СЂР°РЅРµРЅР°');
+      setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°СЂС‚РѕС‡РєСѓ РєР»РёРµРЅС‚Р°');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить карточку клиента');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setSavingClientId(null);
@@ -627,10 +627,10 @@ export function OwnerApp() {
   const handleSavePayrollSettings = async () => {
     try {
       await saveWorkerSettings(employeeSettings);
-      setBottomToast('РќР°СЃС‚СЂРѕР№РєРё Р·Р°СЂРїР»Р°С‚ СЃРѕС…СЂР°РЅРµРЅС‹');
+      setBottomToast('Настройки зарплат сохранены');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ Р·Р°СЂРїР»Р°С‚С‹');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить зарплаты');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -640,11 +640,11 @@ export function OwnerApp() {
       setSendingReminders(true);
       const response = await dispatchOwnerReminders({ targetDate: tomorrowLabel, force: true });
       setBottomToast(
-        `${response.message} РљР»РёРµРЅС‚Р°Рј: ${response.clientReminders}, РјР°СЃС‚РµСЂР°Рј: ${response.workerReminders}, Telegram: ${response.telegramDelivered}.`,
+        `${response.message} Клиентам: ${response.clientReminders}, мастерам: ${response.workerReminders}, Telegram: ${response.telegramDelivered}.`,
       );
       setTimeout(() => setBottomToast(null), 5000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РЅР°РїРѕРјРёРЅР°РЅРёСЏ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось отправить напоминания');
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
       setSendingReminders(false);
@@ -658,23 +658,23 @@ export function OwnerApp() {
       title: penaltyForm.title,
       reason: penaltyForm.reason,
     });
-    const workerName = workers.find((worker) => worker.id === penaltyForm.workerId)?.name || 'РјР°СЃС‚РµСЂ';
+    const workerName = workers.find((worker) => worker.id === penaltyForm.workerId)?.name || 'мастер';
     setPenaltyForm({ workerId: penaltyForm.workerId, title: '', reason: '' });
-    setBottomToast(`Р–Р°Р»РѕР±Р° СЃРѕС…СЂР°РЅРµРЅР° РґР»СЏ ${workerName}`);
+    setBottomToast(`Жалоба сохранена для ${workerName}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
   const handleRevokePenalty = async (penaltyId: string, workerName: string) => {
     await revokePenalty(penaltyId);
-    setBottomToast(`Р–Р°Р»РѕР±Р° СЃРЅСЏС‚Р° РґРѕСЃСЂРѕС‡РЅРѕ РґР»СЏ ${workerName}`);
+    setBottomToast(`Жалоба снята досрочно для ${workerName}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
   const handleRevokeAllPenalties = async (workerId: string, workerName: string) => {
-    const confirmed = window.confirm(`РЎРЅСЏС‚СЊ РІСЃРµ Р°РєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹ Сѓ РјР°СЃС‚РµСЂР° "${workerName}"?`);
+    const confirmed = window.confirm(`Снять все активные жалобы у мастера "${workerName}"?`);
     if (!confirmed) return;
     await revokeAllPenalties(workerId);
-    setBottomToast(`Р’СЃРµ Р°РєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹ СЃРЅСЏС‚С‹ РґР»СЏ ${workerName}`);
+    setBottomToast(`Все активные жалобы сняты для ${workerName}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
@@ -725,7 +725,7 @@ export function OwnerApp() {
       paymentType: 'cash',
       notifyWorkers: selectedWorkers.length > 0,
     });
-    await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `РЎРѕР·РґР°РЅР° Р·Р°РїРёСЃСЊ РЅР° ${svc.name} вЂ” ${bookingForm.date} РІ ${bookingForm.time}`, read: false });
+    await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc.name} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
     setShowCreateBooking(false);
     setBookingWorkers([]);
     setBookingForm({
@@ -734,17 +734,17 @@ export function OwnerApp() {
       service: services[0]?.id || 's1',
       date: tomorrowLabel,
       time: '10:00',
-      box: boxes[0]?.name || 'Р‘РѕРєСЃ 1',
+      box: boxes[0]?.name || 'Бокс 1',
     });
-    setBottomToast('Р—Р°РїРёСЃСЊ СЃРѕР·РґР°РЅР° Рё РєР»РёРµРЅС‚ СѓРІРµРґРѕРјР»С‘РЅ');
+    setBottomToast('Запись создана и клиент уведомлён');
     setTimeout(() => setBottomToast(null), 3000);
   };
 
   const kpiCards = [
-    { label: 'Р’С‹СЂСѓС‡РєР° СЃРµРіРѕРґРЅСЏ', value: `${todayRevenue.toLocaleString('ru')} в‚Ѕ`, icon: TrendingUp, color: primary },
-    { label: 'Р Р°СЃС…РѕРґС‹ РІСЃРµРіРѕ', value: `${totalExpenses.toLocaleString('ru')} в‚Ѕ`, icon: DollarSign, color: '#FF6B6B' },
-    { label: 'РџСЂРёР±С‹Р»СЊ', value: `${profit.toLocaleString('ru')} в‚Ѕ`, icon: BarChart3, color: accent },
-    { label: 'Р—Р°РїРёСЃРµР№', value: bookings.length, icon: Users, color: '#A855F7' },
+    { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
+    { label: 'Расходы всего', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
+    { label: 'Прибыль', value: `${profit.toLocaleString('ru')} ₽`, icon: BarChart3, color: accent },
+    { label: 'Записей', value: bookings.length, icon: Users, color: '#A855F7' },
   ];
 
   const byService = services
@@ -764,14 +764,14 @@ export function OwnerApp() {
   });
 
   const statusData = [
-    { name: 'РќРѕРІС‹Рµ', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
-    { name: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅС‹', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
-    { name: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅРѕ', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
-    { name: 'Р’ СЂР°Р±РѕС‚Рµ', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
-    { name: 'Р—Р°РІРµСЂС€РµРЅРѕ', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
-    { name: 'РќРµ РїСЂРёРµС…Р°Р»', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
+    { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
+    { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
-  const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'РќРµС‚ РґР°РЅРЅС‹С…';
+  const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
   const selectableCalendarDates = Array.from(new Set([todayLabel, tomorrowLabel, ...upcomingDates.slice(0, 5), ...bookings.map((booking) => booking.date)])).slice(0, 8);
   const calendarBookings = bookings
     .filter((booking) => booking.date === selectedCalendarDate)
@@ -833,8 +833,8 @@ export function OwnerApp() {
       visits: clientCompleted.length,
       totalSpent: clientCompleted.reduce((sum, booking) => sum + booking.price, 0),
       activeCount: clientBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status)).length,
-      favoriteService: favoriteServiceEntry?.[0] || 'РќРµС‚ РґР°РЅРЅС‹С…',
-      lastVisit: clientCompleted[0]?.date || clientBookings[0]?.date || 'РџРѕРєР° РЅРµС‚',
+      favoriteService: favoriteServiceEntry?.[0] || 'Нет данных',
+      lastVisit: clientCompleted[0]?.date || clientBookings[0]?.date || 'Пока нет',
     };
   }).sort((left, right) => right.totalSpent - left.totalSpent);
   const filteredClientInsights = clientInsights.filter((client) => {
@@ -846,14 +846,14 @@ export function OwnerApp() {
   });
 
   const ownerStatusLabel = (status: string) => ({
-    new: 'РќРѕРІР°СЏ',
-    confirmed: 'РџРѕРґС‚РІ.',
-    scheduled: 'Р—Р°РїР».',
-    in_progress: 'Р’ СЂР°Р±РѕС‚Рµ',
-    completed: 'Р—Р°РІРµСЂС€РµРЅРѕ',
-    no_show: 'РќРµ РїСЂРёРµС…Р°Р»',
-    admin_review: 'РЈС‚РѕС‡РЅРµРЅРёРµ',
-    cancelled: 'РћС‚РјРµРЅРµРЅР°',
+    new: 'Новая',
+    confirmed: 'Подтв.',
+    scheduled: 'Запл.',
+    in_progress: 'В работе',
+    completed: 'Завершено',
+    no_show: 'Не приехал',
+    admin_review: 'Уточнение',
+    cancelled: 'Отменена',
   }[status] || status);
 
   const ownerStatusBadge = (status: string) => ({
@@ -889,7 +889,7 @@ export function OwnerApp() {
       {/* Header */}
       <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
         <div>
-          <div className="font-semibold text-sm">Р’Р»Р°РґРµР»РµС†</div>
+          <div className="font-semibold text-sm">Владелец</div>
           <div className={`text-xs ${sub}`}>ATMOSFERA</div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -905,7 +905,7 @@ export function OwnerApp() {
       <div className="flex-1 overflow-y-auto pb-20">
         <AnimatePresence mode="wait">
 
-          {/* в”Ђв”Ђ DASHBOARD в”Ђв”Ђ */}
+          {/* ── DASHBOARD ── */}
           {page === 'dashboard' && (
             <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="grid grid-cols-2 gap-3 mb-4">
@@ -921,24 +921,24 @@ export function OwnerApp() {
               </div>
               {/* Revenue chart */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} mb-3`}>Р’Р«Р РЈР§РљРђ VS Р РђРЎРҐРћР”Р« (РќР•Р”Р•Р›РЇ)</div>
+                <div className={`text-xs font-medium ${sub} mb-3`}>ВЫРУЧКА VS РАСХОДЫ (НЕДЕЛЯ)</div>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                     <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Р’С‹СЂСѓС‡РєР°" />
-                    <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Р Р°СЃС…РѕРґС‹" />
+                    <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Выручка" />
+                    <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Расходы" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'РЎСЂРµРґРЅРёР№ С‡РµРє', value: `${averageCheck.toLocaleString('ru')} в‚Ѕ`, color: primary },
-                  { label: 'РђРєС‚РёРІРЅС‹С… Р·Р°РїРёСЃРµР№', value: activeBookings.length, color: accent },
-                  { label: 'РўРѕРї-СѓСЃР»СѓРіР°', value: topServiceName, color: '#A855F7' },
-                  { label: 'РќРµ РїСЂРёРµС…Р°Р»Рё', value: pipelineCounts.noShow, color: '#F97316' },
+                  { label: 'Средний чек', value: `${averageCheck.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Активных записей', value: activeBookings.length, color: accent },
+                  { label: 'Топ-услуга', value: topServiceName, color: '#A855F7' },
+                  { label: 'Не приехали', value: pipelineCounts.noShow, color: '#F97316' },
                 ].map((card) => (
                   <div key={card.label} className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub}`}>{card.label}</div>
@@ -949,16 +949,16 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className={`text-xs font-medium ${sub}`}>Р’РћР РћРќРљРђ Р—РђРџРРЎР•Р™</div>
-                    <div className={`text-xs ${sub} mt-1`}>РћС‚ РЅРѕРІС‹С… Р·Р°СЏРІРѕРє РґРѕ РІС‹РїРѕР»РЅРµРЅРЅС‹С… РІРёР·РёС‚РѕРІ</div>
+                    <div className={`text-xs font-medium ${sub}`}>ВОРОНКА ЗАПИСЕЙ</div>
+                    <div className={`text-xs ${sub} mt-1`}>От новых заявок до выполненных визитов</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'РќРѕРІС‹Рµ', value: pipelineCounts.new, color: '#6366F1' },
-                    { label: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅС‹', value: pipelineCounts.confirmed, color: '#06B6D4' },
-                    { label: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅС‹', value: pipelineCounts.scheduled, color: '#3B82F6' },
-                    { label: 'Р’ СЂР°Р±РѕС‚Рµ', value: pipelineCounts.inProgress, color: '#EAB308' },
+                    { label: 'Новые', value: pipelineCounts.new, color: '#6366F1' },
+                    { label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
+                    { label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
+                    { label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
                     <div key={item.label} className={`${glass} rounded-xl px-3 py-3`}>
                       <div className={`text-[11px] ${sub}`}>{item.label}</div>
@@ -970,8 +970,8 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className={`text-xs font-medium ${sub}`}>РљРђР›Р•РќР”РђР Р¬ Р—РђР“Р РЈР—РљР</div>
-                    <div className={`text-xs ${sub} mt-1`}>РЎРµС‚РєР° РїРѕ Р±РѕРєСЃР°Рј Рё РјР°СЃС‚РµСЂР°Рј РЅР° РІС‹Р±СЂР°РЅРЅС‹Р№ РґРµРЅСЊ</div>
+                    <div className={`text-xs font-medium ${sub}`}>КАЛЕНДАРЬ ЗАГРУЗКИ</div>
+                    <div className={`text-xs ${sub} mt-1`}>Сетка по боксам и мастерам на выбранный день</div>
                   </div>
                   <CalendarDays size={18} style={{ color: primary }} />
                 </div>
@@ -988,16 +988,16 @@ export function OwnerApp() {
                   ))}
                 </div>
                 {calendarBookings.length === 0 ? (
-                  <div className={`text-sm ${sub}`}>РќР° {selectedCalendarDate} Р·Р°РїРёСЃРµР№ РїРѕРєР° РЅРµС‚.</div>
+                  <div className={`text-sm ${sub}`}>На {selectedCalendarDate} записей пока нет.</div>
                 ) : (
                   <div className="space-y-3">
                     <div>
-                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>РЎРµС‚РєР° РїРѕ РІСЂРµРјРµРЅРё Рё Р±РѕРєСЃР°Рј</div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Сетка по времени и боксам</div>
                       <div className="overflow-x-auto rounded-xl">
                         <table className="min-w-full text-sm">
                           <thead>
                             <tr className={sub}>
-                              <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Р’СЂРµРјСЏ</th>
+                              <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Время</th>
                               {activeCalendarBoxes.map((box) => (
                                 <th key={box.id} className="text-left py-2 px-2 font-medium min-w-[150px]">{box.name}</th>
                               ))}
@@ -1011,7 +1011,7 @@ export function OwnerApp() {
                                   <td key={`${row.time}-${cell.id}`} className="px-2 py-2">
                                     {cell.bookings.length === 0 ? (
                                       <div className={`rounded-xl border border-dashed px-3 py-3 text-xs text-center ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-                                        РЎРІРѕР±РѕРґРЅРѕ
+                                        Свободно
                                       </div>
                                     ) : (
                                       <div className="space-y-2">
@@ -1038,12 +1038,12 @@ export function OwnerApp() {
                       </div>
                     </div>
                     <div>
-                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>РЎРµС‚РєР° РїРѕ РІСЂРµРјРµРЅРё Рё РјР°СЃС‚РµСЂР°Рј</div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Сетка по времени и мастерам</div>
                       <div className="overflow-x-auto rounded-xl">
                         <table className="min-w-full text-sm">
                           <thead>
                             <tr className={sub}>
-                              <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Р’СЂРµРјСЏ</th>
+                              <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Время</th>
                               {activeCalendarWorkers.map((worker) => (
                                 <th key={worker.id} className="text-left py-2 px-2 font-medium min-w-[150px]">{worker.name}</th>
                               ))}
@@ -1057,14 +1057,14 @@ export function OwnerApp() {
                                   <td key={`${row.time}-${cell.id}`} className="px-2 py-2">
                                     {cell.bookings.length === 0 ? (
                                       <div className={`rounded-xl border border-dashed px-3 py-3 text-xs text-center ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-                                        РЎРІРѕР±РѕРґРЅРѕ
+                                        Свободно
                                       </div>
                                     ) : (
                                       <div className="space-y-2">
                                         {cell.bookings.map((booking) => (
                                           <div key={`${cell.id}-${booking.id}`} className={`${glass} rounded-xl p-3`}>
                                             <div className="font-medium text-sm truncate">{booking.clientName}</div>
-                                            <div className={`text-xs ${sub} truncate mt-1`}>{booking.box} В· {booking.service}</div>
+                                            <div className={`text-xs ${sub} truncate mt-1`}>{booking.box} · {booking.service}</div>
                                             <div className="mt-2 flex items-center justify-between gap-2">
                                               <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
                                                 {ownerStatusLabel(booking.status)}
@@ -1084,7 +1084,7 @@ export function OwnerApp() {
                       </div>
                     </div>
                     <div>
-                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>РџРѕ Р±РѕРєСЃР°Рј</div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>По боксам</div>
                       <div className="space-y-2">
                         {boxes.filter((box) => box.active).map((box) => {
                           const boxItems = calendarBookings.filter((booking) => booking.box === box.name);
@@ -1092,16 +1092,16 @@ export function OwnerApp() {
                             <div key={box.id} className={`${glass} rounded-xl p-3`}>
                               <div className="flex justify-between items-center mb-2">
                                 <span className="font-medium text-sm">{box.name}</span>
-                                <span className={`text-xs ${sub}`}>{boxItems.length} Р·Р°РїРёСЃРµР№</span>
+                                <span className={`text-xs ${sub}`}>{boxItems.length} записей</span>
                               </div>
                               {boxItems.length === 0 ? (
-                                <div className={`text-xs ${sub}`}>РЎРІРѕР±РѕРґРЅРѕ</div>
+                                <div className={`text-xs ${sub}`}>Свободно</div>
                               ) : (
                                 <div className="space-y-2">
                                   {boxItems.map((booking) => (
                                     <div key={booking.id} className="flex items-center justify-between gap-2">
                                       <div className="min-w-0">
-                                        <div className="text-sm font-medium truncate">{booking.time} В· {booking.clientName}</div>
+                                        <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
                                         <div className={`text-xs ${sub} truncate`}>{booking.service}</div>
                                       </div>
                                       <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
@@ -1117,7 +1117,7 @@ export function OwnerApp() {
                       </div>
                     </div>
                     <div>
-                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>РџРѕ РјР°СЃС‚РµСЂР°Рј</div>
+                      <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>По мастерам</div>
                       <div className="space-y-2">
                         {workers.filter((worker) => worker.active).map((worker) => {
                           const workerItems = calendarBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
@@ -1125,17 +1125,17 @@ export function OwnerApp() {
                             <div key={worker.id} className={`${glass} rounded-xl p-3`}>
                               <div className="flex justify-between items-center mb-2">
                                 <span className="font-medium text-sm">{worker.name}</span>
-                                <span className={`text-xs ${sub}`}>{workerItems.length} Р·Р°РґР°С‡</span>
+                                <span className={`text-xs ${sub}`}>{workerItems.length} задач</span>
                               </div>
                               {workerItems.length === 0 ? (
-                                <div className={`text-xs ${sub}`}>РЎРІРѕР±РѕРґРЅРѕ</div>
+                                <div className={`text-xs ${sub}`}>Свободно</div>
                               ) : (
                                 <div className="space-y-2">
                                   {workerItems.map((booking) => (
                                     <div key={`${worker.id}-${booking.id}`} className="flex items-center justify-between gap-2">
                                       <div className="min-w-0">
-                                        <div className="text-sm font-medium truncate">{booking.time} В· {booking.clientName}</div>
-                                        <div className={`text-xs ${sub} truncate`}>{booking.box} В· {booking.service}</div>
+                                        <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                        <div className={`text-xs ${sub} truncate`}>{booking.box} · {booking.service}</div>
                                       </div>
                                       <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
                                         {ownerStatusLabel(booking.status)}
@@ -1153,14 +1153,14 @@ export function OwnerApp() {
                 )}
               </div>
               {/* Quick actions */}
-              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Р‘С‹СЃС‚СЂС‹Рµ РґРµР№СЃС‚РІРёСЏ</h3>
+              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Быстрые действия</h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
-                  { label: 'Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
-                  { label: exportingKind === 'report' ? 'Р’С‹РіСЂСѓР·РєР°...' : 'Р­РєСЃРїРѕСЂС‚ Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
-                  { label: sendingReminders ? 'РћС‚РїСЂР°РІРєР°...' : 'РќР°РїРѕРјРЅРёС‚СЊ Рѕ Р·Р°РїРёСЃСЏС…', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
-                  { label: 'РќР°СЃС‚СЂРѕР№РєРё', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
+                  { label: 'Создать запись', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
+                  { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
+                  { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                  { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
+                  { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
                 ].map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} style={{ color: a.color }} /></div>
@@ -1171,7 +1171,7 @@ export function OwnerApp() {
               {/* Status pie + recent */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className={`${glass} rounded-2xl p-3`}>
-                  <div className={`text-xs ${sub} mb-2`}>РЎС‚Р°С‚СѓСЃС‹</div>
+                  <div className={`text-xs ${sub} mb-2`}>Статусы</div>
                   <PieChart width={80} height={80}>
                     <Pie data={statusData} cx={35} cy={35} innerRadius={22} outerRadius={36} dataKey="value" strokeWidth={0}>
                       {statusData.map((e, i) => <Cell key={i} fill={e.color} />)}
@@ -1187,27 +1187,27 @@ export function OwnerApp() {
                   </div>
                 </div>
                 <div className={`${glass} rounded-2xl p-3`}>
-                  <div className={`text-xs ${sub} mb-2`}>РЎРєР»Р°Рґ</div>
-                  <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} в‚Ѕ</div>
-                  <div className={`text-xs ${sub} mb-2`}>{stockItems.length} РїРѕР·РёС†РёР№</div>
+                  <div className={`text-xs ${sub} mb-2`}>Склад</div>
+                  <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} ₽</div>
+                  <div className={`text-xs ${sub} mb-2`}>{stockItems.length} позиций</div>
                   {stockItems.filter(s => s.qty <= 5).length > 0 && (
                     <div className="flex items-center gap-1 text-red-500 text-xs">
                       <AlertCircle size={11} />
-                      {stockItems.filter(s => s.qty <= 5).length} РЅР° РёСЃС…РѕРґРµ
+                      {stockItems.filter(s => s.qty <= 5).length} на исходе
                     </div>
                   )}
                 </div>
               </div>
               {/* Recent bookings */}
-              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РџРѕСЃР»РµРґРЅРёРµ Р·Р°РїРёСЃРё</h3>
+              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Последние записи</h3>
               {bookings.slice(0, 4).map(b => (
                 <div key={b.id} className={`${glass} rounded-xl p-3 flex justify-between items-center mb-2`}>
                   <div>
                     <div className="text-sm font-medium">{b.clientName}</div>
-                    <div className={`text-xs ${sub}`}>{b.service} В· {b.date}</div>
+                    <div className={`text-xs ${sub}`}>{b.service} · {b.date}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold">{b.price.toLocaleString('ru')} в‚Ѕ</div>
+                    <div className="text-sm font-semibold">{b.price.toLocaleString('ru')} ₽</div>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(b.status)}`}>
                       {ownerStatusLabel(b.status)}
                     </span>
@@ -1216,11 +1216,11 @@ export function OwnerApp() {
               ))}
               {stockItems.filter(s => s.qty <= 5).length > 0 && (
                 <div className="mt-3">
-                  <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>РџСЂРµРґСѓРїСЂРµР¶РґРµРЅРёСЏ СЃРєР»Р°РґР°</h3>
+                  <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Предупреждения склада</h3>
                   {stockItems.filter(s => s.qty <= 5).map(s => (
                     <div key={s.id} className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-2 flex items-center gap-2">
                       <AlertCircle size={15} className="text-red-500 shrink-0" />
-                      <span className="text-sm">РќРёР·РєРёР№ РѕСЃС‚Р°С‚РѕРє: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
+                      <span className="text-sm">Низкий остаток: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
                     </div>
                   ))}
                 </div>
@@ -1228,31 +1228,31 @@ export function OwnerApp() {
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ PAYROLL в”Ђв”Ђ */}
+          {/* ── PAYROLL ── */}
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">Р—Р°СЂРїР»Р°С‚С‹ СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ</h2>
+              <h2 className="font-semibold mb-4">Зарплаты сотрудников</h2>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-1`}>РћР±С‰РёР№ С„РѕРЅРґ РІС‹РїР»Р°С‚</div>
-                <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} в‚Ѕ</div>
+                <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
+                <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
               </div>
               <button onClick={() => { void handleSavePayrollSettings(); }} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-4" style={{ background: primary }}>
                 <Save size={16} />Сохранить настройки зарплат
               </button>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-2`}>Р–Р°Р»РѕР±С‹ РјР°СЃС‚РµСЂР°Рј</div>
+                <div className={`text-xs ${sub} mb-2`}>Жалобы мастерам</div>
                 <div className={`text-xs ${sub} mb-3`}>
-                  3 Р°РєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹ СЃРЅРёР¶Р°СЋС‚ РїСЂРѕС†РµРЅС‚ РјР°СЃС‚РµСЂР° РЅР° 10 Рї.Рї. РЅР° РЅРµРґРµР»СЋ. Р‘Р°Р·РѕРІС‹Р№ РїСЂРѕС†РµРЅС‚ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РІС‹С€Рµ 40%.
+                  3 активные жалобы снижают процент мастера на 10 п.п. на неделю. Базовый процент не может быть выше 40%.
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <select className={selectCls} value={penaltyForm.workerId} onChange={e => setPenaltyForm(p => ({ ...p, workerId: e.target.value }))}>
                     {workers.map(worker => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
                   </select>
-                  <input className={inputCls} placeholder="РќР°Р·РІР°РЅРёРµ Р¶Р°Р»РѕР±С‹" value={penaltyForm.title} onChange={e => setPenaltyForm(p => ({ ...p, title: e.target.value }))} />
+                  <input className={inputCls} placeholder="Название жалобы" value={penaltyForm.title} onChange={e => setPenaltyForm(p => ({ ...p, title: e.target.value }))} />
                 </div>
-                <textarea className={`${inputCls} h-20 resize-none mb-3`} placeholder="РџСЂРёС‡РёРЅР° РёР»Рё РєРѕРјРјРµРЅС‚Р°СЂРёР№" value={penaltyForm.reason} onChange={e => setPenaltyForm(p => ({ ...p, reason: e.target.value }))} />
+                <textarea className={`${inputCls} h-20 resize-none mb-3`} placeholder="Причина или комментарий" value={penaltyForm.reason} onChange={e => setPenaltyForm(p => ({ ...p, reason: e.target.value }))} />
                 <button onClick={handleAddPenalty} className="w-full py-3 rounded-2xl text-white font-semibold" style={{ background: '#EF4444' }}>
-                  Р’С‹РґР°С‚СЊ Р¶Р°Р»РѕР±Сѓ
+                  Выдать жалобу
                 </button>
               </div>
               {payrollRows.map(({ worker, workerBookings, earned, complaintState, payout, recentPenalties }) => (
@@ -1261,25 +1261,25 @@ export function OwnerApp() {
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
                     <div className="flex-1">
                       <div className="font-semibold">{worker.name}</div>
-                      <div className={`text-xs ${sub}`}>{worker.experience} В· Р±Р°Р·Р° {worker.defaultPercent}%</div>
+                      <div className={`text-xs ${sub}`}>{worker.experience} · база {worker.defaultPercent}%</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold" style={{ color: accent }}>{payout.toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-xs ${sub}`}>{workerBookings.length} Р·Р°РїРёСЃРµР№ В· {complaintState.activeCount} Р°РєС‚РёРІРЅС‹С… Р¶Р°Р»РѕР±</div>
+                      <div className="font-bold" style={{ color: accent }}>{payout.toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>{workerBookings.length} записей · {complaintState.activeCount} активных жалоб</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{earned.toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[11px] ${sub}`}>РЎРґРµР»РєР°</div>
+                      <div className="text-sm font-semibold">{earned.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Сделка</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
                       <div className="text-sm font-semibold text-red-500">{complaintState.effectivePercent}%</div>
-                      <div className={`text-[11px] ${sub}`}>РўРµРєСѓС‰РёР№ %</div>
+                      <div className={`text-[11px] ${sub}`}>Текущий %</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{worker.salaryBase.toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[11px] ${sub}`}>РћРєР»Р°Рґ</div>
+                      <div className="text-sm font-semibold">{worker.salaryBase.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Оклад</div>
                     </div>
                   </div>
                   {(() => {
@@ -1315,13 +1315,13 @@ export function OwnerApp() {
                   })()}
                   {complaintState.reductionActive ? (
                     <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
-                      РЎРЅРёР¶РµРЅРёРµ Р°РєС‚РёРІРЅРѕ: в€’10 Рї.Рї. РґРѕ {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'РєРѕРЅС†Р° РЅРµРґРµР»Рё'}.
+                      Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
                     </div>
                   ) : (
                     <div className={`text-xs ${sub} mb-3`}>
                       {complaintState.activeCount === 0
-                        ? 'РђРєС‚РёРІРЅС‹С… Р¶Р°Р»РѕР± РЅРµС‚.'
-                        : `Р”Рѕ СЃРЅРёР¶РµРЅРёСЏ РїСЂРѕС†РµРЅС‚Р° РѕСЃС‚Р°Р»РѕСЃСЊ ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} Р¶Р°Р»РѕР±С‹.`}
+                        ? 'Активных жалоб нет.'
+                        : `До снижения процента осталось ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} жалобы.`}
                     </div>
                   )}
                   {complaintState.activeCount > 0 && (
@@ -1329,7 +1329,7 @@ export function OwnerApp() {
                       onClick={() => { void handleRevokeAllPenalties(worker.id, worker.name); }}
                       className="mb-3 w-full py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-500/20 bg-red-500/10"
                     >
-                      РЎРЅСЏС‚СЊ РІСЃРµ Р¶Р°Р»РѕР±С‹
+                      Снять все жалобы
                     </button>
                   )}
                   {recentPenalties.length > 0 && (
@@ -1341,18 +1341,18 @@ export function OwnerApp() {
                             <div className={`text-xs ${sub}`}>{item.reason}</div>
                             <div className={`text-[11px] ${sub} mt-1`}>
                               {isComplaintActive(item)
-                                ? `РђРєС‚РёРІРЅР° РґРѕ ${formatComplaintDate(item.activeUntil)}`
+                                ? `Активна до ${formatComplaintDate(item.activeUntil)}`
                                 : item.revokedAt
-                                  ? `РЎРЅСЏС‚Р° ${formatComplaintDate(item.revokedAt)}`
-                                  : `РСЃС‚РµРєР»Р° ${formatComplaintDate(item.activeUntil)}`}
+                                  ? `Снята ${formatComplaintDate(item.revokedAt)}`
+                                  : `Истекла ${formatComplaintDate(item.activeUntil)}`}
                             </div>
                           </div>
                           {isComplaintActive(item) ? (
                             <button onClick={() => { void handleRevokePenalty(item.id, worker.name); }} className="text-xs text-red-500 shrink-0">
-                              РЎРЅСЏС‚СЊ
+                              Снять
                             </button>
                           ) : (
-                            <span className={`text-xs ${sub} shrink-0`}>{item.revokedAt ? 'РЎРЅСЏС‚Р°' : 'РСЃС‚РµРєР»Р°'}</span>
+                            <span className={`text-xs ${sub} shrink-0`}>{item.revokedAt ? 'Снята' : 'Истекла'}</span>
                           )}
                         </div>
                       ))}
@@ -1364,8 +1364,8 @@ export function OwnerApp() {
                         const bw = b.workers.find(w => w.workerId === worker.id);
                         return (
                           <div key={b.id} className="flex justify-between text-xs" style={{ color: isDark ? '#9AA6B2' : '#6B7280' }}>
-                            <span>{b.service} В· {b.date}</span>
-                            <span>+{Math.round(b.price * (bw?.percent || 0) / 100).toLocaleString('ru')} в‚Ѕ</span>
+                            <span>{b.service} · {b.date}</span>
+                            <span>+{Math.round(b.price * (bw?.percent || 0) / 100).toLocaleString('ru')} ₽</span>
                           </div>
                         );
                       })}
@@ -1376,22 +1376,22 @@ export function OwnerApp() {
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ STOCK в”Ђв”Ђ */}
+          {/* ── STOCK ── */}
           {page === 'stock' && (
             <motion.div key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="font-semibold">РЎРєР»Р°Рґ</h2>
+                <h2 className="font-semibold">Склад</h2>
                 <button onClick={() => setShowAddStock(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
-                  <Plus size={14} />Р”РѕР±Р°РІРёС‚СЊ С‚РѕРІР°СЂ
+                  <Plus size={14} />Добавить товар
                 </button>
               </div>
               <div className={`${glass} rounded-2xl p-3 mb-4 flex justify-between items-center`}>
                 <div>
-                  <div className={`text-xs ${sub}`}>РЎС‚РѕРёРјРѕСЃС‚СЊ СЃРєР»Р°РґР°</div>
-                  <div className="font-bold" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} в‚Ѕ</div>
+                  <div className={`text-xs ${sub}`}>Стоимость склада</div>
+                  <div className="font-bold" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} ₽</div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-xs ${sub}`}>РџРѕР·РёС†РёР№</div>
+                  <div className={`text-xs ${sub}`}>Позиций</div>
                   <div className="font-bold">{stockItems.length}</div>
                 </div>
               </div>
@@ -1400,14 +1400,14 @@ export function OwnerApp() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="font-medium text-sm">{item.name}</div>
-                      <div className={`text-xs ${sub}`}>{item.category} В· {item.unitPrice.toLocaleString('ru')} в‚Ѕ/{item.unit}</div>
+                      <div className={`text-xs ${sub}`}>{item.category} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
                     </div>
                     <div className="text-right">
                       <div className={`font-bold ${item.qty <= 5 ? 'text-red-500' : ''}`}>{item.qty} {item.unit}</div>
-                      <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} в‚Ѕ</div>
+                      <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} ₽</div>
                     </div>
                   </div>
-                  {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />РќРёР·РєРёР№ РѕСЃС‚Р°С‚РѕРє</div>}
+                  {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />Низкий остаток</div>}
                   {/* qty bar */}
                   <div className="h-1.5 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                     <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (item.qty / 30) * 100)}%`, background: item.qty <= 5 ? '#EF4444' : primary }} />
@@ -1415,30 +1415,30 @@ export function OwnerApp() {
                   <button onClick={() => { setShowWriteOff(item.id); setWriteOffQty('1'); }}
                     className="w-full py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
                     style={{ borderColor: `${primary}30`, color: primary }}>
-                    <Package size={12} />РЎРїРёСЃР°С‚СЊ
+                    <Package size={12} />Списать
                   </button>
                 </motion.div>
               ))}
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ REPORTS в”Ђв”Ђ */}
+          {/* ── REPORTS ── */}
           {page === 'reports' && (
             <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="font-semibold">РћС‚С‡С‘С‚С‹</h2>
+                <h2 className="font-semibold">Отчёты</h2>
                 <button onClick={() => { void handleExport('pdf'); }} disabled={exportingKind !== null} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white disabled:opacity-60" style={{ background: accent }}>
-                  <Download size={14} />{exportingKind === 'pdf' ? 'Р’С‹РіСЂСѓР·РєР°...' : 'Р­РєСЃРїРѕСЂС‚ PDF'}
+                  <Download size={14} />{exportingKind === 'pdf' ? 'Выгрузка...' : 'Экспорт PDF'}
                 </button>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#6B7280] mb-3">РЎРІРѕРґРЅС‹Рµ Telegram-РѕС‚С‡С‘С‚С‹</div>
+                <div className="text-xs text-[#6B7280] mb-3">Сводные Telegram-отчёты</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { period: 'daily', segment: 'wash', label: 'Р”РµРЅСЊ В· РјРѕР№РєР°' },
-                    { period: 'daily', segment: 'detailing', label: 'Р”РµРЅСЊ В· РґРµС‚РµР№Р»РёРЅРі' },
-                    { period: 'weekly', segment: 'wash', label: 'РќРµРґРµР»СЏ В· РјРѕР№РєР°' },
-                    { period: 'weekly', segment: 'detailing', label: 'РќРµРґРµР»СЏ В· РґРµС‚РµР№Р»РёРЅРі' },
+                    { period: 'daily', segment: 'wash', label: 'День · мойка' },
+                    { period: 'daily', segment: 'detailing', label: 'День · детейлинг' },
+                    { period: 'weekly', segment: 'wash', label: 'Неделя · мойка' },
+                    { period: 'weekly', segment: 'detailing', label: 'Неделя · детейлинг' },
                   ].map((item) => {
                     const key = `${item.period}-${item.segment}`;
                     return (
@@ -1449,7 +1449,7 @@ export function OwnerApp() {
                         className="rounded-xl px-3 py-3 text-sm font-medium text-left disabled:opacity-60"
                         style={{ background: sendingSummaryReport === key ? `${primary}35` : `${primary}15`, color: primary }}
                       >
-                        {sendingSummaryReport === key ? 'РћС‚РїСЂР°РІРєР°...' : item.label}
+                        {sendingSummaryReport === key ? 'Отправка...' : item.label}
                       </button>
                     );
                   })}
@@ -1457,10 +1457,10 @@ export function OwnerApp() {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'РЎСЂРµРґРЅРёР№ С‡РµРє', value: `${averageCheck.toLocaleString('ru')} в‚Ѕ`, color: primary },
-                  { label: 'РўРѕРї-СѓСЃР»СѓРіР°', value: topServiceName, color: '#A855F7' },
-                  { label: 'РђРєС‚РёРІРЅС‹С… РєР»РёРµРЅС‚РѕРІ', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
-                  { label: 'Р”РѕР»РіРё РєР»РёРµРЅС‚РѕРІ', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} в‚Ѕ`, color: '#EF4444' },
+                  { label: 'Средний чек', value: `${averageCheck.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Топ-услуга', value: topServiceName, color: '#A855F7' },
+                  { label: 'Активных клиентов', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
+                  { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
                 ].map((item) => (
                   <div key={item.label} className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub}`}>{item.label}</div>
@@ -1469,8 +1469,8 @@ export function OwnerApp() {
                 ))}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р¤РРќРђРќРЎРћР’Р«Р™ РРўРћР“</div>
-                {[{ label: 'Р’С‹СЂСѓС‡РєР°', value: `${totalRevenue.toLocaleString('ru')} в‚Ѕ`, color: accent }, { label: 'Р Р°СЃС…РѕРґС‹', value: `${totalExpenses.toLocaleString('ru')} в‚Ѕ`, color: '#FF6B6B' }, { label: 'РџСЂРёР±С‹Р»СЊ', value: `${profit.toLocaleString('ru')} в‚Ѕ`, color: primary }, { label: 'РњР°СЂР¶Р°', value: `${totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0}%`, color: '#A855F7' }].map(r => (
+                <div className={`text-xs ${sub} mb-3`}>ФИНАНСОВЫЙ ИТОГ</div>
+                {[{ label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent }, { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' }, { label: 'Прибыль', value: `${profit.toLocaleString('ru')} ₽`, color: primary }, { label: 'Маржа', value: `${totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0}%`, color: '#A855F7' }].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className="text-sm">{r.label}</span>
                     <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
@@ -1479,25 +1479,25 @@ export function OwnerApp() {
               </div>
               {/* Services chart */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р’Р«Р РЈР§РљРђ РџРћ РЈРЎР›РЈР“РђРњ</div>
+                <div className={`text-xs ${sub} mb-3`}>ВЫРУЧКА ПО УСЛУГАМ</div>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={byService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                     <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Р’С‹СЂСѓС‡РєР°" />
+                    <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р—РђР“Р РЈР—РљРђ РџРћ Р‘РћРљРЎРђРњ</div>
+                <div className={`text-xs ${sub} mb-3`}>ЗАГРУЗКА ПО БОКСАМ</div>
                 <div className="space-y-3">
                   {boxLoadData.map((box) => (
                     <div key={box.name}>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium">{box.name}</span>
-                        <span className={`text-xs ${sub}`}>{box.count} Р·Р°РїРёСЃРµР№ В· {box.revenue.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={`text-xs ${sub}`}>{box.count} записей · {box.revenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="h-2 rounded-full" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                         <div className="h-2 rounded-full" style={{ width: `${Math.min(100, box.count * 18)}%`, background: primary }} />
@@ -1507,17 +1507,17 @@ export function OwnerApp() {
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р­Р¤Р¤Р•РљРўРР’РќРћРЎРўР¬ РњРђРЎРўР•Р РћР’</div>
+                <div className={`text-xs ${sub} mb-3`}>ЭФФЕКТИВНОСТЬ МАСТЕРОВ</div>
                 <div className="space-y-2">
                   {workerEfficiencyData.map((worker) => (
                     <div key={worker.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{worker.name}</div>
-                        <div className={`text-xs ${sub}`}>{worker.completed} Р·Р°РІРµСЂС€С‘РЅРЅС‹С… В· СЃСЂРµРґРЅРёР№ С‡РµРє {worker.averageCheck.toLocaleString('ru')} в‚Ѕ</div>
+                        <div className={`text-xs ${sub}`}>{worker.completed} завершённых · средний чек {worker.averageCheck.toLocaleString('ru')} ₽</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-semibold">{worker.revenue.toLocaleString('ru')} в‚Ѕ</div>
-                        <div className={`text-xs ${sub}`}>РІС‹СЂСѓС‡РєР°</div>
+                        <div className="font-semibold">{worker.revenue.toLocaleString('ru')} ₽</div>
+                        <div className={`text-xs ${sub}`}>выручка</div>
                       </div>
                     </div>
                   ))}
@@ -1526,14 +1526,14 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className={`text-xs ${sub} uppercase tracking-wider`}>РљР»РёРµРЅС‚СЃРєРёРµ РєР°СЂС‚РѕС‡РєРё</div>
-                    <div className={`text-xs ${sub} mt-1`}>РСЃС‚РѕСЂРёСЏ РІРёР·РёС‚РѕРІ, С‚СЂР°С‚С‹, Р»СЋР±РёРјС‹Рµ СѓСЃР»СѓРіРё, Р·Р°РјРµС‚РєРё Рё РґРѕР»РіРё</div>
+                    <div className={`text-xs ${sub} uppercase tracking-wider`}>Клиентские карточки</div>
+                    <div className={`text-xs ${sub} mt-1`}>История визитов, траты, любимые услуги, заметки и долги</div>
                   </div>
                   <Search size={16} className={sub} />
                 </div>
                 <input
                   className={inputCls}
-                  placeholder="РџРѕРёСЃРє РїРѕ РёРјРµРЅРё, С‚РµР»РµС„РѕРЅСѓ, Р°РІС‚Рѕ, СѓСЃР»СѓРіРµ"
+                  placeholder="Поиск по имени, телефону, авто, услуге"
                   value={clientSearch}
                   onChange={(event) => setClientSearch(event.target.value)}
                 />
@@ -1545,31 +1545,31 @@ export function OwnerApp() {
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                           <div>
                             <div className="font-semibold">{client.name}</div>
-                            <div className={`text-xs ${sub}`}>{client.phone} В· {client.car || 'РђРІС‚Рѕ РЅРµ СѓРєР°Р·Р°РЅРѕ'} {client.plate ? `В· ${client.plate}` : ''}</div>
+                            <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
-                            <div className={`text-xs ${sub}`}>{client.visits} РІРёР·РёС‚РѕРІ В· РїРѕСЃР»РµРґРЅРёР№ {client.lastVisit}</div>
+                            <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>
+                            <div className={`text-xs ${sub}`}>{client.visits} визитов · последний {client.lastVisit}</div>
                           </div>
                         </div>
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           <div className={`${glass} rounded-xl px-3 py-2`}>
-                            <div className={`text-[11px] ${sub}`}>Р›СЋР±РёРјР°СЏ СѓСЃР»СѓРіР°</div>
+                            <div className={`text-[11px] ${sub}`}>Любимая услуга</div>
                             <div className="text-sm font-medium mt-1">{client.favoriteService}</div>
                           </div>
                           <div className={`${glass} rounded-xl px-3 py-2`}>
-                            <div className={`text-[11px] ${sub}`}>РђРєС‚РёРІРЅС‹С… Р·Р°РїРёСЃРµР№</div>
+                            <div className={`text-[11px] ${sub}`}>Активных записей</div>
                             <div className="text-sm font-medium mt-1">{client.activeCount}</div>
                           </div>
                           <div className={`${glass} rounded-xl px-3 py-2`}>
-                            <div className={`text-[11px] ${sub}`}>Р”РѕР»Рі</div>
-                            <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-[11px] ${sub}`}>Долг</div>
+                            <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} ₽</div>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                           <textarea
                             className={`${inputCls} h-24 resize-none`}
-                            placeholder="Р—Р°РјРµС‚РєРё РїРѕ РєР»РёРµРЅС‚Сѓ"
+                            placeholder="Заметки по клиенту"
                             value={draft.notes}
                             onChange={(event) => setClientCardDrafts((current) => ({
                               ...current,
@@ -1580,7 +1580,7 @@ export function OwnerApp() {
                             <input
                               className={inputCls}
                               type="number"
-                              placeholder="Р”РѕР»Рі РєР»РёРµРЅС‚Р°"
+                              placeholder="Долг клиента"
                               value={draft.debtBalance}
                               onChange={(event) => setClientCardDrafts((current) => ({
                                 ...current,
@@ -1593,7 +1593,7 @@ export function OwnerApp() {
                               className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
                               style={{ background: primary }}
                             >
-                              {savingClientId === client.id ? 'РЎРѕС…СЂР°РЅСЏРµРј...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ РєР°СЂС‚РѕС‡РєСѓ'}
+                              {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить карточку'}
                             </button>
                           </div>
                         </div>
@@ -1602,31 +1602,31 @@ export function OwnerApp() {
                   })}
                 </div>
               </div>
-              <h3 className={`text-xs font-medium ${sub} mb-3`}>Р РђРЎРҐРћР”Р«</h3>
+              <h3 className={`text-xs font-medium ${sub} mb-3`}>РАСХОДЫ</h3>
               {expenses.map(e => (
                 <div key={e.id} className={`${glass} rounded-xl p-3 mb-2 flex justify-between`}>
                   <div>
                     <div className="text-sm font-medium">{e.title}</div>
-                    <div className={`text-xs ${sub}`}>{e.category} В· {e.date}</div>
+                    <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
                   </div>
-                  <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>в€’{e.amount.toLocaleString('ru')} в‚Ѕ</div>
+                  <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                 </div>
               ))}
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS MAIN в”Ђв”Ђ */}
+          {/* ── SETTINGS MAIN ── */}
           {page === 'settings' && !settingsSection && (
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">РќР°СЃС‚СЂРѕР№РєРё</h2>
+              <h2 className="font-semibold mb-4">Настройки</h2>
               {[
-                { id: 'company', icon: Building2, label: 'РџСЂРѕС„РёР»СЊ РєРѕРјРїР°РЅРёРё', desc: 'ATMOSFERA В· РРџ РРІР°РЅРѕРІ', color: primary },
-                { id: 'boxes', icon: Box, label: 'РЈРїСЂР°РІР»РµРЅРёРµ Р±РѕРєСЃР°РјРё', desc: `${boxes.filter(b => b.active).length} Р°РєС‚РёРІРЅС‹С… Р±РѕРєСЃР°`, color: '#F59E0B' },
-                { id: 'services', icon: Sliders, label: 'РЈСЃР»СѓРіРё Рё С†РµРЅС‹', desc: `${services.filter(s => s.active).length} Р°РєС‚РёРІРЅС‹С… СѓСЃР»СѓРі`, color: '#A855F7' },
-                { id: 'employees', icon: Users, label: 'РЎРѕС‚СЂСѓРґРЅРёРєРё', desc: `${employeeSettings.filter(e => e.active).length} РјР°СЃС‚РµСЂР°`, color: accent },
-                { id: 'notifications', icon: Bell, label: 'РЈРІРµРґРѕРјР»РµРЅРёСЏ', desc: 'Telegram, Email', color: '#EC4899' },
-                { id: 'integrations', icon: Globe, label: 'РРЅС‚РµРіСЂР°С†РёРё', desc: `${Object.values(integrations).filter(Boolean).length} РїРѕРґРєР»СЋС‡РµРЅРѕ`, color: '#06B6D4' },
-                { id: 'security', icon: Shield, label: 'Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ', desc: '2FA РІРєР»СЋС‡РµРЅР°', color: '#EF4444' },
+                { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
+                { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
+                { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
+                { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
+                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
+                { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
+                { id: 'security', icon: Shield, label: 'Безопасность', desc: '2FA включена', color: '#EF4444' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => setSettingsSection(item.id as SettingsSection)}
@@ -1644,22 +1644,22 @@ export function OwnerApp() {
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: COMPANY в”Ђв”Ђ */}
+          {/* ── SETTINGS: COMPANY ── */}
           {page === 'settings' && settingsSection === 'company' && (
             <motion.div key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РџСЂРѕС„РёР»СЊ РєРѕРјРїР°РЅРёРё</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Профиль компании</h2>
               <div className="flex flex-col items-center mb-5">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mb-2" style={{ background: primary }}>A</div>
-                <button className="text-xs" style={{ color: primary }}>РР·РјРµРЅРёС‚СЊ Р»РѕРіРѕС‚РёРї</button>
+                <button className="text-xs" style={{ color: primary }}>Изменить логотип</button>
               </div>
               <div className="space-y-3">
                 {[
-                  { label: 'РќР°Р·РІР°РЅРёРµ', key: 'name', placeholder: 'ATMOSFERA' },
-                  { label: 'Р®СЂ. РЅР°Р·РІР°РЅРёРµ', key: 'legalName', placeholder: 'РРџ РРІР°РЅРѕРІ Р.Р.' },
-                  { label: 'РРќРќ', key: 'inn', placeholder: '771234567890' },
-                  { label: 'РђРґСЂРµСЃ', key: 'address', placeholder: 'РњРѕСЃРєРІР°, СѓР». Р“Р°СЂР°Р¶РЅР°СЏ, 15' },
-                  { label: 'РўРµР»РµС„РѕРЅ', key: 'phone', placeholder: '+7 (495) 000-00-00' },
+                  { label: 'Название', key: 'name', placeholder: 'ATMOSFERA' },
+                  { label: 'Юр. название', key: 'legalName', placeholder: 'ИП Иванов И.И.' },
+                  { label: 'ИНН', key: 'inn', placeholder: '771234567890' },
+                  { label: 'Адрес', key: 'address', placeholder: 'Москва, ул. Гаражная, 15' },
+                  { label: 'Телефон', key: 'phone', placeholder: '+7 (495) 000-00-00' },
                   { label: 'Email', key: 'email', placeholder: 'info@atmosfera.ru' },
                 ].map(f => (
                   <div key={f.key}>
@@ -1669,29 +1669,29 @@ export function OwnerApp() {
                 ))}
               </div>
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: BOXES в”Ђв”Ђ */}
+          {/* ── SETTINGS: BOXES ── */}
           {page === 'settings' && settingsSection === 'boxes' && (
             <motion.div key="s-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="font-semibold">РЈРїСЂР°РІР»РµРЅРёРµ Р±РѕРєСЃР°РјРё</h2>
+                <h2 className="font-semibold">Управление боксами</h2>
                 <button
                   onClick={handleAddBoxDraft}
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
                   <Plus size={15} />
-                  Р”РѕР±Р°РІРёС‚СЊ Р±РѕРєСЃ
+                  Добавить бокс
                 </button>
               </div>
               {boxes.length === 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>
-                  Р‘РѕРєСЃРѕРІ РїРѕРєР° РЅРµС‚. Р”РѕР±Р°РІСЊС‚Рµ РїРµСЂРІС‹Р№ Р±РѕРєСЃ Рё СЃРѕС…СЂР°РЅРёС‚Рµ РёР·РјРµРЅРµРЅРёСЏ.
+                  Боксов пока нет. Добавьте первый бокс и сохраните изменения.
                 </div>
               )}
               {boxes.map((box, i) => (
@@ -1701,7 +1701,7 @@ export function OwnerApp() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${primary}18` }}>
                         <Box size={14} style={{ color: primary }} />
                       </div>
-                      <span className="font-medium">{box.name || `Р‘РѕРєСЃ ${i + 1}`}</span>
+                      <span className="font-medium">{box.name || `Бокс ${i + 1}`}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleRemoveBoxDraft(box.id)} className={`p-2 rounded-xl ${glass} text-red-500`}>
@@ -1716,46 +1716,46 @@ export function OwnerApp() {
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ Р±РѕРєСЃР°</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Название бокса</label>
                       <input className={inputCls} value={box.name} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, name: e.target.value } : b))} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ/С‡Р°СЃ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽/час)</label>
                       <input className={inputCls} type="number" value={box.pricePerHour} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, pricePerHour: +e.target.value } : b))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РћРїРёСЃР°РЅРёРµ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                       <input className={inputCls} value={box.description} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, description: e.target.value } : b))} />
                     </div>
                   </div>
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: SERVICES в”Ђв”Ђ */}
+          {/* ── SETTINGS: SERVICES ── */}
           {page === 'settings' && settingsSection === 'services' && (
             <motion.div key="s-services" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="font-semibold">РЈСЃР»СѓРіРё Рё С†РµРЅС‹</h2>
+                <h2 className="font-semibold">Услуги и цены</h2>
                 <button
                   onClick={handleAddServiceDraft}
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
                   <Plus size={15} />
-                  Р”РѕР±Р°РІРёС‚СЊ СѓСЃР»СѓРіСѓ
+                  Добавить услугу
                 </button>
               </div>
               {services.length === 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>
-                  РЈСЃР»СѓРі РїРѕРєР° РЅРµС‚. Р”РѕР±Р°РІСЊС‚Рµ РїРµСЂРІСѓСЋ СѓСЃР»СѓРіСѓ Рё СЃРѕС…СЂР°РЅРёС‚Рµ РёР·РјРµРЅРµРЅРёСЏ.
+                  Услуг пока нет. Добавьте первую услугу и сохраните изменения.
                 </div>
               )}
               {services.map((service, i) => (
@@ -1765,7 +1765,7 @@ export function OwnerApp() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${primary}18` }}>
                         <Sliders size={14} style={{ color: primary }} />
                       </div>
-                      <span className="font-medium">{service.name || `РЈСЃР»СѓРіР° ${i + 1}`}</span>
+                      <span className="font-medium">{service.name || `Услуга ${i + 1}`}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleRemoveServiceDraft(service.id)} className={`p-2 rounded-xl ${glass} text-red-500`}>
@@ -1780,46 +1780,46 @@ export function OwnerApp() {
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ СѓСЃР»СѓРіРё</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Название услуги</label>
                       <input className={inputCls} value={service.name} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, name: e.target.value } : item))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Категория</label>
                       <input className={inputCls} value={service.category} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, category: e.target.value } : item))} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
                       <input className={inputCls} type="number" value={service.price} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, price: +e.target.value } : item))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ (РјРёРЅ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
                       <input className={inputCls} type="number" value={service.duration} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, duration: +e.target.value } : item))} />
                     </div>
                   </div>
                   <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>РћРїРёСЃР°РЅРёРµ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                     <input className={inputCls} value={service.desc} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, desc: e.target.value } : item))} />
                   </div>
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: EMPLOYEES в”Ђв”Ђ */}
+          {/* ── SETTINGS: EMPLOYEES ── */}
           {page === 'settings' && settingsSection === 'employees' && (
             <motion.div key="s-employees" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РЎРѕС‚СЂСѓРґРЅРёРєРё</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Сотрудники</h2>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className="font-medium">РќР°РЅСЏС‚СЊ СЃРѕС‚СЂСѓРґРЅРёРєР°</div>
-                    <div className={`text-xs ${sub}`}>РЎРѕР·РґР°Р№С‚Рµ Р»РѕРіРёРЅ Рё РїР°СЂРѕР»СЊ РґР»СЏ РЅРѕРІРѕРіРѕ РјР°СЃС‚РµСЂР°</div>
+                    <div className="font-medium">Нанять сотрудника</div>
+                    <div className={`text-xs ${sub}`}>Создайте логин и пароль для нового мастера</div>
                   </div>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${accent}18` }}>
                     <Plus size={18} style={{ color: accent }} />
@@ -1827,34 +1827,34 @@ export function OwnerApp() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р РѕР»СЊ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Роль</label>
                     <select
                       className={selectCls}
                       value={newEmployee.role}
                       onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value as 'admin' | 'worker' }))}
                     >
-                      <option value="worker">РњР°СЃС‚РµСЂ</option>
-                      <option value="admin">РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ</option>
+                      <option value="worker">Мастер</option>
+                      <option value="admin">Администратор</option>
                     </select>
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РРјСЏ</label>
-                    <input className={inputCls} value={newEmployee.name} onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))} placeholder="РРІР°РЅ РРІР°РЅРѕРІ" />
+                    <label className={`text-xs ${sub} block mb-1`}>Имя</label>
+                    <input className={inputCls} value={newEmployee.name} onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))} placeholder="Иван Иванов" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р›РѕРіРёРЅ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Логин</label>
                     <input className={inputCls} value={newEmployee.login} onChange={e => setNewEmployee(p => ({ ...p, login: e.target.value }))} placeholder="worker_ivan" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РџР°СЂРѕР»СЊ</label>
-                    <input className={inputCls} type="password" value={newEmployee.password} onChange={e => setNewEmployee(p => ({ ...p, password: e.target.value }))} placeholder="РњРёРЅРёРјСѓРј 1 СЃРёРјРІРѕР»" />
+                    <label className={`text-xs ${sub} block mb-1`}>Пароль</label>
+                    <input className={inputCls} type="password" value={newEmployee.password} onChange={e => setNewEmployee(p => ({ ...p, password: e.target.value }))} placeholder="Минимум 1 символ" />
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Telegram chat id</label>
-                    <input className={inputCls} value={newEmployee.telegramChatId} onChange={e => setNewEmployee(p => ({ ...p, telegramChatId: e.target.value }))} placeholder="РќР°РїСЂРёРјРµСЂ: 123456789" />
+                    <input className={inputCls} value={newEmployee.telegramChatId} onChange={e => setNewEmployee(p => ({ ...p, telegramChatId: e.target.value }))} placeholder="Например: 123456789" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РўРµР»РµС„РѕРЅ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
                     <input className={inputCls} value={newEmployee.phone} onChange={e => setNewEmployee(p => ({ ...p, phone: e.target.value }))} placeholder="+7 (___) ___-__-__" />
                   </div>
                   <div>
@@ -1862,17 +1862,17 @@ export function OwnerApp() {
                     <input className={inputCls} value={newEmployee.email} onChange={e => setNewEmployee(p => ({ ...p, email: e.target.value }))} placeholder="worker@atmosfera.ru" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>% РѕС‚ РІС‹СЂСѓС‡РєРё</label>
+                    <label className={`text-xs ${sub} block mb-1`}>% от выручки</label>
                     <input className={inputCls} type="number" min={0} max={40} value={newEmployee.percent} onChange={e => setNewEmployee(p => ({ ...p, percent: Math.min(40, Math.max(0, +e.target.value)) }))} />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РћРєР»Р°Рґ (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
                     <input className={inputCls} type="number" min={0} value={newEmployee.salaryBase} onChange={e => setNewEmployee(p => ({ ...p, salaryBase: Math.max(0, +e.target.value) }))} />
                   </div>
                 </div>
                 <button onClick={() => void handleHireWorker()} disabled={employeeActionLoading?.type === 'hire'} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-3 disabled:opacity-60" style={{ background: accent }}>
                   <Plus size={16} />
-                  РќР°РЅСЏС‚СЊ СЃРѕС‚СЂСѓРґРЅРёРєР°
+                  Нанять сотрудника
                 </button>
               </div>
               {employeeSettings.map((emp, i) => (
@@ -1882,7 +1882,7 @@ export function OwnerApp() {
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ background: primary }}>{emp.name.charAt(0)}</div>
                       <div className="min-w-0">
                         <div className="font-medium truncate">{emp.name}</div>
-                        <div className={`text-xs ${sub}`}>{emp.role === 'admin' ? 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ' : 'РњР°СЃС‚РµСЂ'}</div>
+                        <div className={`text-xs ${sub}`}>{emp.role === 'admin' ? 'Администратор' : 'Мастер'}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -1896,78 +1896,78 @@ export function OwnerApp() {
                         onClick={() => { void handleFireWorker(emp.id, emp.name); }}
                         className="px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 border border-red-500/20 bg-red-500/10 disabled:opacity-60"
                       >
-                        РЈРІРѕР»РёС‚СЊ
+                        Уволить
                       </button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>% РѕС‚ РІС‹СЂСѓС‡РєРё (РґРѕ 40)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>% от выручки (до 40)</label>
                       <input className={inputCls} type="number" min={0} max={40} value={emp.percent} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: Math.min(40, Math.max(0, +e.target.value)) } : em))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РћРєР»Р°Рґ (в‚Ѕ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
                       <input className={inputCls} type="number" value={emp.salaryBase} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, salaryBase: +e.target.value } : em))} />
                     </div>
                   </div>
                   <div className="mt-2">
                     <label className={`text-xs ${sub} block mb-1`}>Telegram chat id</label>
-                    <input className={inputCls} value={emp.telegramChatId} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, telegramChatId: e.target.value } : em))} placeholder="РќР°РїСЂРёРјРµСЂ: 123456789" />
+                    <input className={inputCls} value={emp.telegramChatId} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, telegramChatId: e.target.value } : em))} placeholder="Например: 123456789" />
                   </div>
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: NOTIFICATIONS в”Ђв”Ђ */}
+          {/* ── SETTINGS: NOTIFICATIONS ── */}
           {page === 'settings' && settingsSection === 'notifications' && (
             <motion.div key="s-notifs" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РЈРІРµРґРѕРјР»РµРЅРёСЏ</h2>
-              <div className={`text-xs font-medium ${sub} mb-2 uppercase tracking-wider`}>РљР°РЅР°Р»С‹</div>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Уведомления</h2>
+              <div className={`text-xs font-medium ${sub} mb-2 uppercase tracking-wider`}>Каналы</div>
               {[
                 { key: 'telegramBot', label: 'Telegram Bot', desc: '@atmosfera_bot' },
-                { key: 'emailReports', label: 'Email РѕС‚С‡С‘С‚С‹', desc: 'owner@atmosfera.ru' },
-                { key: 'smsReminders', label: 'SMS РЅР°РїРѕРјРёРЅР°РЅРёСЏ', desc: 'Р”Р»СЏ РєР»РёРµРЅС‚РѕРІ' },
+                { key: 'emailReports', label: 'Email отчёты', desc: 'owner@atmosfera.ru' },
+                { key: 'smsReminders', label: 'SMS напоминания', desc: 'Для клиентов' },
               ].map(item => (
                 <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
                   onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
               ))}
-              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>РћС‚С‡С‘С‚С‹</div>
+              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Отчёты</div>
               {[
-                { key: 'lowStock', label: 'РќРёР·РєРёР№ РѕСЃС‚Р°С‚РѕРє СЃРєР»Р°РґР°', desc: 'РџСЂРё СЃРЅРёР¶РµРЅРёРё РґРѕ 5 РµРґРёРЅРёС†' },
-                { key: 'dailyReport', label: 'Р•Р¶РµРґРЅРµРІРЅС‹Р№ РѕС‚С‡С‘С‚', desc: 'Р’ 21:00 РєР°Р¶РґС‹Р№ РґРµРЅСЊ' },
-                { key: 'weeklyReport', label: 'Р•Р¶РµРЅРµРґРµР»СЊРЅС‹Р№ РѕС‚С‡С‘С‚', desc: 'РџРѕ РїРѕРЅРµРґРµР»СЊРЅРёРєР°Рј РІ 9:00' },
+                { key: 'lowStock', label: 'Низкий остаток склада', desc: 'При снижении до 5 единиц' },
+                { key: 'dailyReport', label: 'Ежедневный отчёт', desc: 'В 21:00 каждый день' },
+                { key: 'weeklyReport', label: 'Еженедельный отчёт', desc: 'По понедельникам в 9:00' },
               ].map(item => (
                 <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
                   onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
               ))}
-              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>РќР°РїРѕРјРёРЅР°РЅРёСЏ</div>
+              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Напоминания</div>
               <SettingRow
-                label="РђРІС‚РѕРЅР°РїРѕРјРёРЅР°РЅРёСЏ Рѕ Р·Р°РїРёСЃСЏС…"
-                desc="Р•Р¶РµРґРЅРµРІРЅС‹Р№ cron Vercel РѕС‚РїСЂР°РІР»СЏРµС‚ РЅР°РїРѕРјРёРЅР°РЅРёСЏ РЅР° Р·Р°РІС‚СЂР°С€РЅРёРµ Р·Р°РїРёСЃРё, Р° РІР»Р°РґРµР»РµС† РјРѕР¶РµС‚ РґСѓР±Р»РёСЂРѕРІР°С‚СЊ РёС… РІСЂСѓС‡РЅСѓСЋ"
+                label="Автонапоминания о записях"
+                desc="Ежедневный cron Vercel отправляет напоминания на завтрашние записи, а владелец может дублировать их вручную"
                 value={notifSettings.bookingReminders}
                 onChange={() => setNotifSettings((current) => ({ ...current, bookingReminders: !current.bookingReminders }))}
               />
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: INTEGRATIONS в”Ђв”Ђ */}
+          {/* ── SETTINGS: INTEGRATIONS ── */}
           {page === 'settings' && settingsSection === 'integrations' && (
             <motion.div key="s-integrations" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РРЅС‚РµРіСЂР°С†РёРё</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Интеграции</h2>
               {[
-                { key: 'telegram', label: 'Telegram Bot', desc: 'РЈРІРµРґРѕРјР»РµРЅРёСЏ Рё СѓРїСЂР°РІР»РµРЅРёРµ С‡РµСЂРµР· Telegram', color: '#229ED9' },
-                { key: 'yookassa', label: 'Р®РљР°СЃСЃР°', desc: 'РџСЂРёС‘Рј РѕРЅР»Р°Р№РЅ-РїР»Р°С‚РµР¶РµР№', color: '#7B61FF' },
-                { key: 'amoCrm', label: 'amoCRM', desc: 'РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РєР»РёРµРЅС‚СЃРєРѕР№ Р±Р°Р·С‹', color: '#E6007E' },
-                { key: 'googleCalendar', label: 'Google РљР°Р»РµРЅРґР°СЂСЊ', desc: 'РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЂР°СЃРїРёСЃР°РЅРёСЏ', color: '#4285F4' },
+                { key: 'telegram', label: 'Telegram Bot', desc: 'Уведомления и управление через Telegram', color: '#229ED9' },
+                { key: 'yookassa', label: 'ЮКасса', desc: 'Приём онлайн-платежей', color: '#7B61FF' },
+                { key: 'amoCrm', label: 'amoCRM', desc: 'Синхронизация клиентской базы', color: '#E6007E' },
+                { key: 'googleCalendar', label: 'Google Календарь', desc: 'Синхронизация расписания', color: '#4285F4' },
               ].map(item => (
                 <div key={item.key} className={`${glass} rounded-2xl p-4 mb-2 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
@@ -1985,24 +1985,24 @@ export function OwnerApp() {
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
-          {/* в”Ђв”Ђ SETTINGS: SECURITY в”Ђв”Ђ */}
+          {/* ── SETTINGS: SECURITY ── */}
           {page === 'settings' && settingsSection === 'security' && (
             <motion.div key="s-security" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Безопасность</h2>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                <div className={`text-xs font-medium ${sub} mb-3`}>РЎРњР•РќРђ РџРђР РћР›РЇ</div>
+                <div className={`text-xs font-medium ${sub} mb-3`}>СМЕНА ПАРОЛЯ</div>
                 <div className="space-y-3">
-                  {[{ key: 'current', label: 'РўРµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ' }, { key: 'new_', label: 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ' }, { key: 'confirm', label: 'РџРѕРІС‚РѕСЂРёС‚Рµ РїР°СЂРѕР»СЊ' }].map(f => (
+                  {[{ key: 'current', label: 'Текущий пароль' }, { key: 'new_', label: 'Новый пароль' }, { key: 'confirm', label: 'Повторите пароль' }].map(f => (
                     <div key={f.key}>
                       <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
                       <div className="relative">
-                        <input className={inputCls} type={showPass ? 'text' : 'password'} placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"
+                        <input className={inputCls} type={showPass ? 'text' : 'password'} placeholder="••••••••"
                           value={password[f.key as keyof typeof password]}
                           onChange={e => {
                             setSecurityError(null);
@@ -2017,13 +2017,13 @@ export function OwnerApp() {
                   ))}
                 </div>
                 {securityError && <div className="mt-3 text-xs text-red-500">{securityError}</div>}
-                {securitySaved && <div className="mt-3 text-xs text-green-600">РќР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё СЃРѕС…СЂР°РЅРµРЅС‹</div>}
+                {securitySaved && <div className="mt-3 text-xs text-green-600">Настройки безопасности сохранены</div>}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium">Р”РІСѓС…С„Р°РєС‚РѕСЂРЅР°СЏ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёСЏ</div>
-                    <div className={`text-xs ${sub}`}>РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїСЂРёС…РѕРґРёС‚ РІ Telegram РІР»Р°РґРµР»СЊС†Р°</div>
+                    <div className="text-sm font-medium">Двухфакторная аутентификация</div>
+                    <div className={`text-xs ${sub}`}>Код подтверждения приходит в Telegram владельца</div>
                   </div>
                   <button
                     onClick={() => {
@@ -2038,8 +2038,8 @@ export function OwnerApp() {
                 </div>
                 <div className={`text-xs ${sub} mt-3`}>
                   {staffProfile?.telegramChatId
-                    ? `Telegram РїРѕРґРєР»СЋС‡С‘РЅ: ${staffProfile.telegramChatId}`
-                    : 'РЎРЅР°С‡Р°Р»Р° РїСЂРёРІСЏР¶РёС‚Рµ Telegram РІР»Р°РґРµР»СЊС†Р°, РёРЅР°С‡Рµ 2FA РЅРµ РІРєР»СЋС‡РёС‚СЃСЏ.'}
+                    ? `Telegram подключён: ${staffProfile.telegramChatId}`
+                    : 'Сначала привяжите Telegram владельца, иначе 2FA не включится.'}
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-3 border ${isDark ? 'border-red-400/20' : 'border-red-200'}`}>
@@ -2048,16 +2048,16 @@ export function OwnerApp() {
                     <AlertCircle size={18} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold">РћРїР°СЃРЅР°СЏ Р·РѕРЅР°: РїРѕР»РЅР°СЏ РѕС‡РёСЃС‚РєР° CRM</div>
+                    <div className="text-sm font-semibold">Опасная зона: полная очистка CRM</div>
                     <div className={`text-xs ${sub} mt-1`}>
-                      Р­С‚Р° РѕРїРµСЂР°С†РёСЏ СѓРґР°Р»РёС‚ РїРѕС‡С‚Рё РІСЃРµ СЂР°Р±РѕС‡РёРµ РґР°РЅРЅС‹Рµ CRM Рё РїРµСЂРµСЃРѕР·РґР°СЃС‚ СЃРёСЃС‚РµРјСѓ РґРѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ. РЎРѕС…СЂР°РЅСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ РІР»Р°РґРµР»СЊС†С‹ Рё С‚РµРєСѓС‰Р°СЏ СЃРµСЃСЃРёСЏ РёРЅРёС†РёР°С‚РѕСЂР°.
+                      Эта операция удалит почти все рабочие данные CRM и пересоздаст систему до стартового состояния. Сохранятся только владельцы и текущая сессия инициатора.
                     </div>
                   </div>
                 </div>
 
                 <div className={`mt-4 rounded-2xl border p-3 text-xs ${isDark ? 'border-red-400/20 bg-red-500/10 text-red-100' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                  <div className="font-semibold">Р‘СѓРґСѓС‚ СѓРґР°Р»РµРЅС‹ РєР»РёРµРЅС‚С‹, Р·Р°РїРёСЃРё, СЃРѕС‚СЂСѓРґРЅРёРєРё, СЃРєР»Р°Рґ, СЂР°СЃС…РѕРґС‹, Р¶Р°Р»РѕР±С‹, СѓРІРµРґРѕРјР»РµРЅРёСЏ, Р»РёС€РЅРёРµ СЃРµСЃСЃРёРё Рё РІСЂРµРјРµРЅРЅС‹Рµ РєРѕРґС‹.</div>
-                  <div className="mt-2">РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РёРґС‘С‚ РІ С‚СЂРё С€Р°РіР°: РїР°СЂРѕР»СЊ РІР»Р°РґРµР»СЊС†Р°, РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ РёР· Telegram Рё С‚РѕС‡РЅС‹Р№ РІРІРѕРґ РєРѕРЅС‚СЂРѕР»СЊРЅРѕР№ С„СЂР°Р·С‹.</div>
+                  <div className="font-semibold">Будут удалены клиенты, записи, сотрудники, склад, расходы, жалобы, уведомления, лишние сессии и временные коды.</div>
+                  <div className="mt-2">Подтверждение идёт в три шага: пароль владельца, код создателя из Telegram и точный ввод контрольной фразы.</div>
                 </div>
 
                 {resetPreviewRows.length > 0 && (
@@ -2083,11 +2083,11 @@ export function OwnerApp() {
 
                 <div className="mt-4 space-y-3">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РЁР°Рі 1. Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ РІР»Р°РґРµР»СЊС†Р°</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Шаг 1. Введите пароль владельца</label>
                     <input
                       className={inputCls}
                       type="password"
-                      placeholder="РўРµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ"
+                      placeholder="Текущий пароль"
                       value={resetPassword}
                       onChange={(e) => {
                         setResetError(null);
@@ -2105,7 +2105,7 @@ export function OwnerApp() {
                       className="flex-1 py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
                       style={{ background: '#EF4444' }}
                     >
-                      {resetLoadingStep === 'start' ? 'Р—Р°РїСЂР°С€РёРІР°РµРј РєРѕРґ...' : resetStage === 'idle' ? 'Р—Р°РїСЂРѕСЃРёС‚СЊ РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ' : 'Р—Р°РїСЂРѕСЃРёС‚СЊ РЅРѕРІС‹Р№ РєРѕРґ'}
+                      {resetLoadingStep === 'start' ? 'Запрашиваем код...' : resetStage === 'idle' ? 'Запросить код создателя' : 'Запросить новый код'}
                     </button>
                     {resetStage !== 'idle' && (
                       <button
@@ -2114,7 +2114,7 @@ export function OwnerApp() {
                         disabled={Boolean(resetLoadingStep)}
                         className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E6EEF8]' : 'border-black/10 text-[#0B1226]'} disabled:opacity-60`}
                       >
-                        РЎР±СЂРѕСЃРёС‚СЊ СЃС†РµРЅР°СЂРёР№
+                        Сбросить сценарий
                       </button>
                     )}
                   </div>
@@ -2123,20 +2123,20 @@ export function OwnerApp() {
                 {resetStage !== 'idle' && (
                   <div className="mt-4 space-y-3">
                     <div className={`text-xs ${sub}`}>
-                      РЁР°Рі 2. РџСЂРѕРІРµСЂСЊС‚Рµ Telegram СЃРѕР·РґР°С‚РµР»СЏ Рё РІРІРµРґРёС‚Рµ РєРѕРґ
-                      {resetCodeExpiresAt ? ` РґРѕ ${resetCodeExpiresAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}.
+                      Шаг 2. Проверьте Telegram создателя и введите код
+                      {resetCodeExpiresAt ? ` до ${resetCodeExpiresAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}.
                     </div>
                     <div className={`${glass} rounded-xl px-3 py-3`}>
-                      <div className={`text-[11px] ${sub}`}>РљРѕРЅС‚СЂРѕР»СЊРЅР°СЏ С„СЂР°Р·Р°</div>
-                      <div className="text-sm font-semibold mt-1 break-words">{resetRequiredPhrase || 'Р¤СЂР°Р·Р° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ Р·Р°РїСЂРѕСЃР° РєРѕРґР°'}</div>
+                      <div className={`text-[11px] ${sub}`}>Контрольная фраза</div>
+                      <div className="text-sm font-semibold mt-1 break-words">{resetRequiredPhrase || 'Фраза появится после запроса кода'}</div>
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РљРѕРґ СЃРѕР·РґР°С‚РµР»СЏ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Код создателя</label>
                       <input
                         className={inputCls}
                         type="text"
                         inputMode="numeric"
-                        placeholder="6 С†РёС„СЂ РёР· Telegram"
+                        placeholder="6 цифр из Telegram"
                         value={resetCreatorCode}
                         onChange={(e) => {
                           setResetError(null);
@@ -2146,11 +2146,11 @@ export function OwnerApp() {
                       />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р’РІРµРґРёС‚Рµ С„СЂР°Р·Сѓ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Введите фразу подтверждения</label>
                       <input
                         className={inputCls}
                         type="text"
-                        placeholder="РџРћР”РўР’Р•Р Р–Р”РђР® РџРћР›РќРЈР® РћР§РРЎРўРљРЈ"
+                        placeholder="ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
                         value={resetConfirmationPhrase}
                         onChange={(e) => {
                           setResetError(null);
@@ -2166,21 +2166,21 @@ export function OwnerApp() {
                       className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
                       style={{ background: '#B91C1C' }}
                     >
-                      {resetLoadingStep === 'approve' ? 'РџСЂРѕРІРµСЂСЏРµРј РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ...' : resetStage === 'armed' ? 'Р¤РёРЅР°Р»СЊРЅС‹Р№ С€Р°Рі СѓР¶Рµ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ' : 'РџРѕРґС‚РІРµСЂРґРёС‚СЊ Рё СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РѕС‡РёСЃС‚РєСѓ'}
+                      {resetLoadingStep === 'approve' ? 'Проверяем подтверждения...' : resetStage === 'armed' ? 'Финальный шаг уже разблокирован' : 'Подтвердить и разблокировать очистку'}
                     </button>
                   </div>
                 )}
 
                 {resetStage === 'armed' && (
                   <div className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-red-400/20 bg-red-500/10' : 'border-red-200 bg-red-50'}`}>
-                    <div className="text-sm font-semibold text-red-500">Р¤РёРЅР°Р»СЊРЅРѕРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ</div>
+                    <div className="text-sm font-semibold text-red-500">Финальное подтверждение</div>
                     <div className={`text-xs mt-2 ${isDark ? 'text-red-100' : 'text-red-700'}`}>
-                      Р‘СѓРґСѓС‚ СѓРґР°Р»РµРЅС‹ СЃРѕС‚СЂСѓРґРЅРёРєРё, РєР»РёРµРЅС‚С‹, РІСЃРµ Р·Р°РїРёСЃРё, СЃРєР»Р°Рґ, СЂР°СЃС…РѕРґС‹, Р¶Р°Р»РѕР±С‹, СѓРІРµРґРѕРјР»РµРЅРёСЏ, РІСЂРµРјРµРЅРЅС‹Рµ РєРѕРґС‹ Рё РїРѕС‡С‚Рё РІСЃРµ РЅР°СЃС‚СЂРѕР№РєРё CRM. Р”РµР№СЃС‚РІРёРµ РЅРµРѕР±СЂР°С‚РёРјРѕ.
+                      Будут удалены сотрудники, клиенты, все записи, склад, расходы, жалобы, уведомления, временные коды и почти все настройки CRM. Действие необратимо.
                     </div>
                     <div className={`text-xs mt-3 ${sub}`}>
                       {resetCountdown > 0
-                        ? `РљРЅРѕРїРєР° Р°РєС‚РёРІРёСЂСѓРµС‚СЃСЏ С‡РµСЂРµР· ${resetCountdown} СЃРµРє. Р—Р° СЌС‚Рѕ РІСЂРµРјСЏ РµС‰С‘ СЂР°Р· РїСЂРѕРІРµСЂСЊС‚Рµ, С‡С‚Рѕ РёРјРµРЅРЅРѕ Р±СѓРґРµС‚ СѓРґР°Р»РµРЅРѕ.`
-                        : 'РўР°Р№РјРµСЂ Р·Р°РІРµСЂС€С‘РЅ. Р•СЃР»Рё РІСЃС‘ РІРµСЂРЅРѕ, РјРѕР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ РїРѕР»РЅСѓСЋ РѕС‡РёСЃС‚РєСѓ CRM.'}
+                        ? `Кнопка активируется через ${resetCountdown} сек. За это время ещё раз проверьте, что именно будет удалено.`
+                        : 'Таймер завершён. Если всё верно, можно запускать полную очистку CRM.'}
                     </div>
                     <button
                       type="button"
@@ -2190,10 +2190,10 @@ export function OwnerApp() {
                       style={{ background: '#991B1B' }}
                     >
                       {resetLoadingStep === 'execute'
-                        ? 'РЈРґР°Р»СЏРµРј РґР°РЅРЅС‹Рµ...'
+                        ? 'Удаляем данные...'
                         : resetCountdown > 0
-                          ? `РљРЅРѕРїРєР° Р°РєС‚РёРІРёСЂСѓРµС‚СЃСЏ С‡РµСЂРµР· ${resetCountdown} СЃРµРє`
-                          : 'РџРѕРґС‚РІРµСЂР¶РґР°СЋ РїРѕР»РЅСѓСЋ РѕС‡РёСЃС‚РєСѓ CRM'}
+                          ? `Кнопка активируется через ${resetCountdown} сек`
+                          : 'Подтверждаю полную очистку CRM'}
                     </button>
                   </div>
                 )}
@@ -2202,21 +2202,21 @@ export function OwnerApp() {
                 {resetInfo && <div className="mt-4 text-xs text-green-600">{resetInfo}</div>}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-2`}>РђРљРўРР’РќР«Р• РЎР•РЎРЎРР</div>
+                <div className={`text-xs ${sub} mb-2`}>АКТИВНЫЕ СЕССИИ</div>
                 {activeSessions.length === 0 ? (
-                  <div className={`text-xs ${sub}`}>РќРµС‚ Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёР№</div>
+                  <div className={`text-xs ${sub}`}>Нет активных сессий</div>
                 ) : activeSessions.map(item => (
                   <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0 gap-3" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">
-                        {item.device}{item.current ? ' В· РўРµРєСѓС‰Р°СЏ' : ''}
+                        {item.device}{item.current ? ' · Текущая' : ''}
                       </div>
                       <div className={`text-xs ${sub}`}>
-                        {item.ipAddress} В· {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {item.ipAddress} · {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <button onClick={() => void revokeSession(item.id)} className="text-xs text-red-500 shrink-0">
-                      Р—Р°РІРµСЂС€РёС‚СЊ
+                      Завершить
                     </button>
                   </div>
                 ))}
@@ -2227,7 +2227,7 @@ export function OwnerApp() {
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: '#EF4444' }}
               >
-                <Shield size={16} />{securitySaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : password.current || password.new_ || password.confirm ? 'РР·РјРµРЅРёС‚СЊ РїР°СЂРѕР»СЊ' : 'РЎРѕС…СЂР°РЅРёС‚СЊ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ'}
+                <Shield size={16} />{securitySaved ? 'Сохранено!' : password.current || password.new_ || password.confirm ? 'Изменить пароль' : 'Сохранить безопасность'}
               </button>
             </motion.div>
           )}
@@ -2237,11 +2237,11 @@ export function OwnerApp() {
       {/* Bottom Nav */}
       <div className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
         {[
-          { id: 'dashboard', icon: Home, label: 'Р“Р»Р°РІРЅР°СЏ' },
-          { id: 'payroll', icon: Users, label: 'Р—Р°СЂРїР»Р°С‚С‹' },
-          { id: 'stock', icon: Box, label: 'РЎРєР»Р°Рґ' },
-          { id: 'reports', icon: FileText, label: 'РћС‚С‡С‘С‚С‹' },
-          { id: 'settings', icon: Settings, label: 'РќР°СЃС‚СЂРѕР№РєРё' },
+          { id: 'dashboard', icon: Home, label: 'Главная' },
+          { id: 'payroll', icon: Users, label: 'Зарплаты' },
+          { id: 'stock', icon: Box, label: 'Склад' },
+          { id: 'reports', icon: FileText, label: 'Отчёты' },
+          { id: 'settings', icon: Settings, label: 'Настройки' },
         ].map(t => (
           <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-0.5">
             <t.icon size={18} style={{ color: page === t.id ? primary : undefined }} className={page !== t.id ? sub : ''} />
@@ -2250,7 +2250,7 @@ export function OwnerApp() {
         ))}
       </div>
 
-      {/* в”Ђв”Ђ NOTIFICATIONS в”Ђв”Ђ */}
+      {/* ── NOTIFICATIONS ── */}
       <AnimatePresence>
         {showNotifications && (
           <>
@@ -2259,12 +2259,12 @@ export function OwnerApp() {
               className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                <h3 className="font-semibold mt-2">РЈРІРµРґРѕРјР»РµРЅРёСЏ</h3>
+                <h3 className="font-semibold mt-2">Уведомления</h3>
                 <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="p-4 space-y-2">
                 {ownerNotifications.length === 0 ? (
-                  <p className={`text-sm ${sub} text-center py-8`}>РќРµС‚ СѓРІРµРґРѕРјР»РµРЅРёР№</p>
+                  <p className={`text-sm ${sub} text-center py-8`}>Нет уведомлений</p>
                 ) : ownerNotifications.map(n => (
                   <div key={n.id} onClick={() => markNotificationRead(n.id)} className={`${glass} rounded-xl p-3 cursor-pointer border-l-2`} style={{ borderLeftColor: n.read ? 'transparent' : primary }}>
                     <p className="text-sm">{n.message}</p>
@@ -2277,7 +2277,7 @@ export function OwnerApp() {
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ ADD EXPENSE в”Ђв”Ђ */}
+      {/* ── ADD EXPENSE ── */}
       <AnimatePresence>
         {showAddExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
@@ -2294,28 +2294,28 @@ export function OwnerApp() {
                         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${accent}20` }}>
                         <Check size={28} style={{ color: accent }} />
                       </motion.div>
-                      <div className="font-semibold">Р Р°СЃС…РѕРґ РґРѕР±Р°РІР»РµРЅ!</div>
+                      <div className="font-semibold">Расход добавлен!</div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ</h3>
+                <h3 className="font-semibold">Добавить расход</h3>
                 <button onClick={() => setShowAddExpense(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
-                <div><label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ</label><input className={inputCls} placeholder="Р—Р°РєСѓРїРєР° С…РёРјРёРё..." value={expenseForm.title} onChange={e => setExpenseForm(p => ({ ...p, title: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° (в‚Ѕ)</label><input className={inputCls} type="number" placeholder="0" value={expenseForm.amount} onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label><input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ..." value={expenseForm.note} onChange={e => setExpenseForm(p => ({ ...p, note: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Закупка химии..." value={expenseForm.title} onChange={e => setExpenseForm(p => ({ ...p, title: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="number" placeholder="0" value={expenseForm.amount} onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={expenseForm.note} onChange={e => setExpenseForm(p => ({ ...p, note: e.target.value }))} /></div>
               </div>
-              <button onClick={handleAddExpense} disabled={!expenseForm.title || !expenseForm.amount} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: '#FF6B6B' }}>Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ</button>
+              <button onClick={handleAddExpense} disabled={!expenseForm.title || !expenseForm.amount} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: '#FF6B6B' }}>Добавить расход</button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ ADD STOCK в”Ђв”Ђ */}
+      {/* ── ADD STOCK ── */}
       <AnimatePresence>
         {showAddStock && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
@@ -2323,42 +2323,42 @@ export function OwnerApp() {
               className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р”РѕР±Р°РІРёС‚СЊ С‚РѕРІР°СЂ</h3>
+                <h3 className="font-semibold">Добавить товар</h3>
                 <button onClick={() => setShowAddStock(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
-                <div><label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ</label><input className={inputCls} placeholder="РђРІС‚РѕС€Р°РјРїСѓРЅСЊ..." value={stockForm.name} onChange={e => setStockForm(p => ({ ...p, name: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Автошампунь..." value={stockForm.name} onChange={e => setStockForm(p => ({ ...p, name: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className={`text-xs ${sub} block mb-1`}>РљРѕР»РёС‡РµСЃС‚РІРѕ</label><input className={inputCls} type="number" value={stockForm.qty} onChange={e => setStockForm(p => ({ ...p, qty: e.target.value }))} /></div>
-                  <div><label className={`text-xs ${sub} block mb-1`}>Р•РґРёРЅРёС†Р°</label><select className={selectCls} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))}>{STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="number" value={stockForm.qty} onChange={e => setStockForm(p => ({ ...p, qty: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Единица</label><select className={selectCls} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))}>{STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° Р·Р° РµРґ. (в‚Ѕ)</label><input className={inputCls} type="number" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ</label><select className={selectCls} value={stockForm.category} onChange={e => setStockForm(p => ({ ...p, category: e.target.value }))}>{STOCK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Цена за ед. (₽)</label><input className={inputCls} type="number" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={stockForm.category} onChange={e => setStockForm(p => ({ ...p, category: e.target.value }))}>{STOCK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
               </div>
-              <button onClick={handleAddStock} disabled={!stockForm.name || !stockForm.qty} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: primary }}>Р”РѕР±Р°РІРёС‚СЊ РЅР° СЃРєР»Р°Рґ</button>
+              <button onClick={handleAddStock} disabled={!stockForm.name || !stockForm.qty} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: primary }}>Добавить на склад</button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ WRITE OFF в”Ђв”Ђ */}
+      {/* ── WRITE OFF ── */}
       <AnimatePresence>
         {showWriteOff && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
-              <h3 className="font-semibold mb-1">РЎРїРёСЃР°С‚СЊ С‚РѕРІР°СЂ</h3>
+              <h3 className="font-semibold mb-1">Списать товар</h3>
               <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
-              <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>РљРѕР»РёС‡РµСЃС‚РІРѕ</label><input className={inputCls} type="number" min={1} value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
+              <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="number" min={1} value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
               <div className="flex gap-2">
-                <button onClick={() => setShowWriteOff(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
-                <button onClick={handleWriteOff} className="flex-1 py-2.5 rounded-xl text-sm text-white" style={{ background: '#FF6B6B' }}>РЎРїРёСЃР°С‚СЊ</button>
+                <button onClick={() => setShowWriteOff(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                <button onClick={handleWriteOff} className="flex-1 py-2.5 rounded-xl text-sm text-white" style={{ background: '#FF6B6B' }}>Списать</button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ CREATE BOOKING в”Ђв”Ђ */}
+      {/* ── CREATE BOOKING ── */}
       <AnimatePresence>
         {showCreateBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
@@ -2366,21 +2366,21 @@ export function OwnerApp() {
               className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ</h3>
+                <h3 className="font-semibold">Создать запись</h3>
                 <button onClick={() => setShowCreateBooking(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
-                <div><label className={`text-xs ${sub} block mb-1`}>РљР»РёРµРЅС‚</label><input className={inputCls} placeholder="РРІР°РЅ РРІР°РЅРѕРІ" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РЈСЃР»СѓРіР°</label><select className={selectCls} value={bookingForm.service} onChange={e => setBookingForm(p => ({ ...p, service: e.target.value }))}>
+                <div><label className={`text-xs ${sub} block mb-1`}>Клиент</label><input className={inputCls} placeholder="Иван Иванов" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Услуга</label><select className={selectCls} value={bookingForm.service} onChange={e => setBookingForm(p => ({ ...p, service: e.target.value }))}>
                   {services.map(service => (
-                    <option key={service.id} value={service.id}>{service.name} вЂ” {service.price.toLocaleString('ru')} в‚Ѕ</option>
+                    <option key={service.id} value={service.id}>{service.name} — {service.price.toLocaleString('ru')} ₽</option>
                   ))}
                 </select></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label><input className={inputCls} value={bookingForm.date} onChange={e => setBookingForm(p => ({ ...p, date: e.target.value }))} /></div>
-                  <div><label className={`text-xs ${sub} block mb-1`}>Р’СЂРµРјСЏ</label><input className={inputCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Дата</label><input className={inputCls} value={bookingForm.date} onChange={e => setBookingForm(p => ({ ...p, date: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Время</label><input className={inputCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))} /></div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Р‘РѕРєСЃ</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{boxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Бокс</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{boxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
@@ -2425,13 +2425,13 @@ export function OwnerApp() {
                   </div>
                 </div>
               </div>
-              <button onClick={handleCreateBooking} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>РЎРѕР·РґР°С‚СЊ Рё СѓРІРµРґРѕРјРёС‚СЊ РєР»РёРµРЅС‚Р°</button>
+              <button onClick={handleCreateBooking} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>Создать и уведомить клиента</button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ EXPORT TOAST в”Ђв”Ђ */}
+      {/* ── EXPORT TOAST ── */}
       <AnimatePresence>
         {exportSuccess && (
           <motion.div initial={{ opacity: 0, y: -60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -60 }}
@@ -2446,7 +2446,7 @@ export function OwnerApp() {
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ BOTTOM TOAST в”Ђв”Ђ */}
+      {/* ── BOTTOM TOAST ── */}
       <AnimatePresence>
         {bottomToast && (
           <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
@@ -2459,24 +2459,19 @@ export function OwnerApp() {
         )}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ SETTINGS SAVED TOAST в”Ђв”Ђ */}
+      {/* ── SETTINGS SAVED TOAST ── */}
       <AnimatePresence>
         {settingsSaved && (
           <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -50 }}
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${primary}40` }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}><Check size={14} style={{ color: primary }} /></div>
-            <span className="text-sm font-medium">РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹</span>
+            <span className="text-sm font-medium">Настройки сохранены</span>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
-
-
-
-
-
 
 
