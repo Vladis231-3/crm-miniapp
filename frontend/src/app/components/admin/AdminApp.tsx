@@ -160,6 +160,8 @@ export function AdminApp() {
   const [shiftPhotoName, setShiftPhotoName] = useState('');
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
+  const masterWorkers = workers.filter((worker) => worker.role === 'worker');
+  const shiftSupplies = stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники');
 
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
@@ -237,7 +239,6 @@ export function AdminApp() {
 
   const adminNotifications = notifications.filter(n => n.recipientRole === 'admin');
   const unreadCount = adminNotifications.filter(n => !n.read).length;
-  const masterWorkers = workers.filter((worker) => worker.role === 'worker');
   const todayBookings = bookings.filter(b => b.date === todayLabel);
   const completedAll = bookings.filter(b => b.status === 'completed');
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
@@ -295,7 +296,6 @@ export function AdminApp() {
 
   const avgCheck = completedAll.length > 0 ? Math.round(totalRevenue / completedAll.length) : 0;
   const conversionRate = bookings.length > 0 ? Math.round((completedAll.length / bookings.length) * 100) : 0;
-  const shiftSupplies = stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники');
   const scheduleSummary = schedule.filter((day) => day.active).map((day) => `${day.day} ${day.open}-${day.close}`).join(' · ') || 'График не задан';
   const revenueData = getLastNDates(7).map((date) => {
     const formatted = formatDate(date);
