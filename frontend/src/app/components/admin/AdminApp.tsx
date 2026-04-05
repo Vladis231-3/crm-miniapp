@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type EmployeeSetting } from '../../context/AppContext';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
@@ -56,7 +56,7 @@ const STATUS_BADGE: Record<BookingStatus, string> = {
 const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
-type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing';
+type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll';
 type EditModalMode = 'edit' | 'reschedule';
 
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
@@ -73,6 +73,7 @@ export function AdminApp() {
     toggleTheme,
     bookings,
     clients: registeredClients,
+    updateClientCard,
     updateBooking,
     addBooking,
     addNotification,
@@ -90,6 +91,7 @@ export function AdminApp() {
     saveSchedule,
     saveAdminProfile,
     saveAdminNotificationSettings,
+    saveAdminWorkerPayroll,
     createTelegramLinkCode,
     deleteClient,
     changePassword,
@@ -137,12 +139,38 @@ export function AdminApp() {
   const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '' });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
+  const [savingClientId, setSavingClientId] = useState<string | null>(null);
+  const [payrollSettings, setPayrollSettings] = useState<EmployeeSetting[]>([]);
 
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
   useEffect(() => setProfile(settings.adminProfile), [settings.adminProfile]);
+  useEffect(() => {
+    setClientCardDrafts(
+      Object.fromEntries(registeredClients.map((client) => [
+        client.id,
+        { adminRating: client.adminRating || 0, adminNote: client.adminNote || '' },
+      ])),
+    );
+  }, [registeredClients]);
+  useEffect(() => {
+    setPayrollSettings(
+      workers
+        .filter((worker) => worker.role === 'worker')
+        .map((worker) => ({
+          id: worker.id,
+          role: 'worker',
+          name: worker.name,
+          percent: worker.defaultPercent,
+          salaryBase: worker.salaryBase,
+          active: worker.active,
+          telegramChatId: worker.telegramChatId,
+        })),
+    );
+  }, [workers]);
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'security') {
       void refreshActiveSessions();
@@ -230,6 +258,20 @@ export function AdminApp() {
     const confirmed = window.confirm(`Удалить клиента "${clientName}"? Профиль и доступ в Mini App будут удалены, история записей останется.`);
     if (!confirmed) return;
     await deleteClient(clientId);
+  };
+
+  const handleSaveClientCard = async (clientId: string) => {
+    const draft = clientCardDrafts[clientId];
+    if (!draft) return;
+    try {
+      setSavingClientId(clientId);
+      await updateClientCard(clientId, {
+        adminRating: draft.adminRating,
+        adminNote: draft.adminNote,
+      });
+    } finally {
+      setSavingClientId(null);
+    }
   };
 
   const validateClientName = (value: string): string | null => {
@@ -479,6 +521,7 @@ export function AdminApp() {
     if (settingsSection === 'pricing') await saveServices(services);
     if (settingsSection === 'notifications') await saveAdminNotificationSettings(notifSettings);
     if (settingsSection === 'profile') await saveAdminProfile(profile);
+    if (settingsSection === 'payroll') await saveAdminWorkerPayroll(payrollSettings);
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
@@ -682,6 +725,49 @@ export function AdminApp() {
                         </div>
                       ))}
                     </div>
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Рейтинг клиента для админа</label>
+                        <select
+                          className={selectCls}
+                          value={clientCardDrafts[client.id]?.adminRating ?? 0}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [client.id]: {
+                              adminRating: Number(event.target.value),
+                              adminNote: current[client.id]?.adminNote ?? client.adminNote ?? '',
+                            },
+                          }))}
+                        >
+                          {[0, 1, 2, 3, 4, 5].map((value) => (
+                            <option key={value} value={value}>{value === 0 ? 'Без оценки' : `${value}/5`}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Внутреннее примечание</label>
+                        <textarea
+                          className={`${inputCls} min-h-[88px] resize-none`}
+                          placeholder="Видно только администратору"
+                          value={clientCardDrafts[client.id]?.adminNote ?? ''}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [client.id]: {
+                              adminRating: current[client.id]?.adminRating ?? client.adminRating ?? 0,
+                              adminNote: event.target.value,
+                            },
+                          }))}
+                        />
+                      </div>
+                      <button
+                        onClick={() => { void handleSaveClientCard(client.id); }}
+                        disabled={savingClientId === client.id}
+                        className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+                        style={{ background: primary }}
+                      >
+                        {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить рейтинг и заметку'}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -696,6 +782,7 @@ export function AdminApp() {
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(box => box.active).length} активных бокса`, color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
+                { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#A855F7' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#EF4444' },
@@ -955,6 +1042,61 @@ export function AdminApp() {
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: '#EF4444' }}>
                 <Shield size={16} />{securitySaved ? 'Пароль изменён!' : 'Изменить пароль'}
+              </button>
+            </motion.div>
+          )}
+
+          {page === 'settings' && settingsSection === 'payroll' && (
+            <motion.div key="settings-payroll" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-1">Контроль зарплат мастеров</h2>
+              <p className={`text-xs ${sub} mb-4`}>Администратор может менять процент, оклад и активность только у мастеров</p>
+              {payrollSettings.map((worker, index) => {
+                const completedTasks = completedAll.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
+                const earned = completedTasks.reduce((sum, booking) => {
+                  const link = booking.workers.find((item) => item.workerId === worker.id);
+                  return sum + Math.round(booking.price * ((link?.percent ?? worker.percent) / 100));
+                }, 0);
+                return (
+                  <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <div className="font-medium">{worker.name}</div>
+                        <div className={`text-xs ${sub}`}>{completedTasks.length} завершённых записей</div>
+                      </div>
+                      <div className={`text-right text-xs ${sub}`}>
+                        <div className="font-semibold text-sm" style={{ color: accent }}>{(earned + worker.salaryBase).toLocaleString('ru')} ₽</div>
+                        <div>начислено</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Процент мастера</label>
+                        <input className={inputCls} type="number" min={0} max={40} value={worker.percent} onChange={(event) => setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, percent: Math.max(0, Math.min(40, Number(event.target.value) || 0)) } : item))} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Оклад</label>
+                        <input className={inputCls} type="number" min={0} value={worker.salaryBase} onChange={(event) => setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, salaryBase: Math.max(0, Number(event.target.value) || 0) } : item))} />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">Активен в расписании</div>
+                        <div className={`text-xs ${sub}`}>Отключенный мастер не будет доступен для назначения</div>
+                      </div>
+                      <button
+                        onClick={() => setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, active: !item.active } : item))}
+                        className="w-11 h-6 rounded-full relative transition-all"
+                        style={{ background: worker.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${worker.active ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить зарплаты'}
               </button>
             </motion.div>
           )}

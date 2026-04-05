@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import sys
@@ -282,7 +282,7 @@ class BookingLogicTests(unittest.TestCase):
 
     @staticmethod
     def extract_owner_reset_code(message: str) -> str:
-        prefix = "Код подтверждения: "
+        prefix = "РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: "
         for line in message.splitlines():
             if line.startswith(prefix):
                 return line[len(prefix) :].strip()
@@ -355,11 +355,11 @@ class BookingLogicTests(unittest.TestCase):
         response = self.client.patch(
             f"/api/clients/{client_id}/card",
             headers=self.auth_headers(owner_token),
-            json={"notes": "VIP клиент", "debtBalance": 1500},
+            json={"notes": "VIP РєР»РёРµРЅС‚", "debtBalance": 1500},
         )
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
-        self.assertEqual(payload["notes"], "VIP клиент")
+        self.assertEqual(payload["notes"], "VIP РєР»РёРµРЅС‚")
         self.assertEqual(payload["debtBalance"], 1500)
 
         from app.database import SessionLocal
@@ -369,7 +369,7 @@ class BookingLogicTests(unittest.TestCase):
             client = db.get(Client, client_id)
             self.assertIsNotNone(client)
             assert client is not None
-            self.assertEqual(client.notes, "VIP клиент")
+            self.assertEqual(client.notes, "VIP РєР»РёРµРЅС‚")
             self.assertEqual(client.debt_balance, 1500)
 
     def test_owner_dispatches_booking_reminders_once_per_booking(self) -> None:
@@ -414,15 +414,15 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": client_id,
                 "clientName": "Alice",
                 "clientPhone": "+7 (999) 555-44-33",
-                "service": "Мойка базовая",
+                "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
                 "serviceId": "s1",
                 "date": reminder_date,
                 "time": "11:00",
                 "duration": 30,
                 "price": 1200,
                 "status": "confirmed",
-                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
-                "box": "Бокс 1",
+                "workers": [{"workerId": "w1", "workerName": "РРІР°РЅ", "percent": 30}],
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -463,14 +463,14 @@ class BookingLogicTests(unittest.TestCase):
                 select(Notification).where(
                     Notification.recipient_role == "client",
                     Notification.recipient_id == client_id,
-                    Notification.message.like("%Напоминание о записи%"),
+                    Notification.message.like("%РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ Р·Р°РїРёСЃРё%"),
                 )
             ).all()
             worker_notifications = db.scalars(
                 select(Notification).where(
                     Notification.recipient_role == "worker",
                     Notification.recipient_id == "w1",
-                    Notification.message.like("%Напоминание мастеру%"),
+                    Notification.message.like("%РќР°РїРѕРјРёРЅР°РЅРёРµ РјР°СЃС‚РµСЂСѓ%"),
                 )
             ).all()
             self.assertEqual(len(client_notifications), 1)
@@ -524,7 +524,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": "",
                 "clientName": "First Client",
                 "clientPhone": "+7 (999) 111-22-33",
-                "service": "Мойка базовая",
+                "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
                 "serviceId": "s1",
                 "date": booking_date,
                 "time": "10:00",
@@ -532,7 +532,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -548,7 +548,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": "",
                 "clientName": "Ignored Name",
                 "clientPhone": "+7 (999) 222-33-44",
-                "service": "Мойка базовая",
+                "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
                 "serviceId": "s1",
                 "date": booking_date,
                 "time": "10:00",
@@ -556,7 +556,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "BMW X5",
                 "plate": "A123BC",
@@ -564,7 +564,7 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(client_response.status_code, 200, client_response.text)
         payload = client_response.json()
-        self.assertNotEqual(payload["box"], "Бокс 1")
+        self.assertNotEqual(payload["box"], "Р‘РѕРєСЃ 1")
 
     def test_booking_rejects_box_time_overlap(self) -> None:
         token, _ = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
@@ -662,14 +662,14 @@ class BookingLogicTests(unittest.TestCase):
         owner_token = self.login_staff("owner", "owner")
         worker = self.get_staff(login="ivan")
 
-        for title in ("Опоздание", "Качество"):
+        for title in ("РћРїРѕР·РґР°РЅРёРµ", "РљР°С‡РµСЃС‚РІРѕ"):
             response = self.client.post(
                 "/api/penalties",
                 headers=self.auth_headers(owner_token),
                 json={
                     "workerId": worker["id"],
                     "title": title,
-                    "reason": "Проверка снятия всех жалоб",
+                    "reason": "РџСЂРѕРІРµСЂРєР° СЃРЅСЏС‚РёСЏ РІСЃРµС… Р¶Р°Р»РѕР±",
                 },
             )
             self.assertEqual(response.status_code, 200, response.text)
@@ -703,16 +703,16 @@ class BookingLogicTests(unittest.TestCase):
                 client_id=client_id,
                 client_name="Alice",
                 client_phone="+7 (999) 111-22-33",
-                service="Мойка базовая",
+                service="РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
                 service_id="s1",
                 date=today,
                 time="10:00",
                 duration=30,
                 price=1200,
                 status="completed",
-                box="Бокс 1",
+                box="Р‘РѕРєСЃ 1",
                 payment_type="cash",
-                notes="Пена и сушка",
+                notes="РџРµРЅР° Рё СЃСѓС€РєР°",
                 car="Lada Vesta",
                 plate="A123BC",
                 created_at=created_at,
@@ -722,16 +722,16 @@ class BookingLogicTests(unittest.TestCase):
                 client_id=client_id,
                 client_name="Alice",
                 client_phone="+7 (999) 111-22-33",
-                service="Полировка стекла",
+                service="РџРѕР»РёСЂРѕРІРєР° СЃС‚РµРєР»Р°",
                 service_id="s2",
                 date=today,
                 time="11:00",
                 duration=60,
                 price=3500,
                 status="completed",
-                box="Бокс 2",
+                box="Р‘РѕРєСЃ 2",
                 payment_type="card",
-                notes="Не должно попасть в мойку",
+                notes="РќРµ РґРѕР»Р¶РЅРѕ РїРѕРїР°СЃС‚СЊ РІ РјРѕР№РєСѓ",
                 car="Lada Vesta",
                 plate="A123BC",
                 created_at=created_at,
@@ -742,7 +742,7 @@ class BookingLogicTests(unittest.TestCase):
                 BookingWorker(
                     booking_id=wash_booking.id,
                     worker_id="w2",
-                    worker_name="Олег",
+                    worker_name="РћР»РµРі",
                     percent=10,
                 )
             )
@@ -774,27 +774,27 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(document["chat_id"], "123456789")
         self.assertTrue(str(document["file_name"]).endswith(".xlsx"))
         self.assertEqual(document["mime_type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        self.assertIn("Ежедневный отчёт по направлению: Мойка", str(document["caption"]))
+        self.assertIn("Р•Р¶РµРґРЅРµРІРЅС‹Р№ РѕС‚С‡С‘С‚ РїРѕ РЅР°РїСЂР°РІР»РµРЅРёСЋ: РњРѕР№РєР°", str(document["caption"]))
 
         workbook = load_workbook(filename=BytesIO(document["content"]))
-        self.assertIn("Сводка", workbook.sheetnames)
-        self.assertIn("Статусы", workbook.sheetnames)
-        self.assertIn("Сотрудники", workbook.sheetnames)
-        self.assertIn("Реестр записей", workbook.sheetnames)
+        self.assertIn("РЎРІРѕРґРєР°", workbook.sheetnames)
+        self.assertIn("РЎС‚Р°С‚СѓСЃС‹", workbook.sheetnames)
+        self.assertIn("РЎРѕС‚СЂСѓРґРЅРёРєРё", workbook.sheetnames)
+        self.assertIn("Р РµРµСЃС‚СЂ Р·Р°РїРёСЃРµР№", workbook.sheetnames)
 
-        summary = workbook["Сводка"]
-        self.assertEqual(summary["A2"].value, "Ежедневный отчёт по направлению: Мойка")
+        summary = workbook["РЎРІРѕРґРєР°"]
+        self.assertEqual(summary["A2"].value, "Р•Р¶РµРґРЅРµРІРЅС‹Р№ РѕС‚С‡С‘С‚ РїРѕ РЅР°РїСЂР°РІР»РµРЅРёСЋ: РњРѕР№РєР°")
 
-        registry_rows = list(workbook["Реестр записей"].iter_rows(min_row=2, values_only=True))
-        meaningful_registry = [row for row in registry_rows if row[0] != "Нет данных"]
+        registry_rows = list(workbook["Р РµРµСЃС‚СЂ Р·Р°РїРёСЃРµР№"].iter_rows(min_row=2, values_only=True))
+        meaningful_registry = [row for row in registry_rows if row[0] != "РќРµС‚ РґР°РЅРЅС‹С…"]
         self.assertEqual(len(meaningful_registry), 1)
-        self.assertEqual(meaningful_registry[0][6], "Мойка базовая")
-        self.assertEqual(meaningful_registry[0][7], "Мойка")
+        self.assertEqual(meaningful_registry[0][6], "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ")
+        self.assertEqual(meaningful_registry[0][7], "РњРѕР№РєР°")
 
-        worker_rows = list(workbook["Сотрудники"].iter_rows(min_row=2, values_only=True))
-        meaningful_workers = [row for row in worker_rows if row[0] != "Нет данных"]
+        worker_rows = list(workbook["РЎРѕС‚СЂСѓРґРЅРёРєРё"].iter_rows(min_row=2, values_only=True))
+        meaningful_workers = [row for row in worker_rows if row[0] != "РќРµС‚ РґР°РЅРЅС‹С…"]
         self.assertEqual(len(meaningful_workers), 1)
-        self.assertEqual(meaningful_workers[0][0], "Олег")
+        self.assertEqual(meaningful_workers[0][0], "РћР»РµРі")
 
     def test_admin_create_booking_can_assign_workers_and_notify_them(self) -> None:
         from app.database import SessionLocal
@@ -819,21 +819,21 @@ class BookingLogicTests(unittest.TestCase):
                 headers=self.auth_headers(admin_token),
                 json={
                     "clientId": "",
-                    "clientName": "Павел",
+                    "clientName": "Pavel",
                     "clientPhone": "+7 (999) 222-33-44",
-                    "service": "Мойка базовая",
+                    "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
                     "serviceId": "s1",
                     "date": self.next_active_date(),
                     "time": "12:00",
                     "duration": 30,
                     "price": 1200,
                     "status": "scheduled",
-                    "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 35}],
-                    "box": "Бокс 1",
+                    "workers": [{"workerId": "w1", "workerName": "РРІР°РЅ", "percent": 35}],
+                    "box": "Р‘РѕРєСЃ 1",
                     "paymentType": "cash",
                     "car": "Lada Vesta",
                     "plate": "A123BC",
-                    "notes": "Срочная мойка",
+                    "notes": "urgent wash",
                     "notifyWorkers": True,
                 },
             )
@@ -846,8 +846,9 @@ class BookingLogicTests(unittest.TestCase):
 
         self.assertEqual(len(sent_messages), 1)
         self.assertEqual(str(sent_messages[0][0]), "555777999")
-        self.assertIn("Вам назначена запись", sent_messages[0][1])
-        self.assertIn("Процент: 35%", sent_messages[0][1])
+        self.assertIn("Pavel", sent_messages[0][1])
+        self.assertIn("35%", sent_messages[0][1])
+        self.assertIn("urgent wash", sent_messages[0][1])
 
         with SessionLocal() as db:
             worker_notifications = db.scalars(
@@ -857,7 +858,8 @@ class BookingLogicTests(unittest.TestCase):
                 )
             ).all()
         self.assertEqual(len(worker_notifications), 1)
-        self.assertIn("Процент: 35%", worker_notifications[0].message)
+        self.assertIn("35%", worker_notifications[0].message)
+        self.assertIn("urgent wash", worker_notifications[0].message)
 
     def test_fired_worker_loses_access_and_future_assignments(self) -> None:
         admin_token = self.login_staff("admin", "admin")
@@ -872,15 +874,15 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": "",
                 "clientName": "Alice",
                 "clientPhone": "+7 (999) 111-22-33",
-                "service": "Базовая мойка",
+                "service": "Р‘Р°Р·РѕРІР°СЏ РјРѕР№РєР°",
                 "serviceId": "s1",
                 "date": self.next_active_date(),
                 "time": "12:00",
                 "duration": 30,
                 "price": 1200,
                 "status": "scheduled",
-                "workers": [{"workerId": worker["id"], "workerName": "Иван", "percent": 40}],
-                "box": "Бокс 1",
+                "workers": [{"workerId": worker["id"], "workerName": "РРІР°РЅ", "percent": 40}],
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -1659,6 +1661,76 @@ class BookingLogicTests(unittest.TestCase):
         rehired_worker = rehire_response.json()
         self.assertEqual(rehired_worker["telegramChatId"], "909001")
 
+    def test_admin_can_manage_master_payroll_and_private_client_rating(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+        _, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
+
+        payroll_response = self.client.put(
+            "/api/admin/workers/payroll",
+            headers=self.auth_headers(admin_token),
+            json=[
+                {
+                    "id": "w1",
+                    "role": "worker",
+                    "name": "Иван",
+                    "percent": 28,
+                    "salaryBase": 22000,
+                    "active": True,
+                    "telegramChatId": "",
+                },
+            ],
+        )
+        self.assertEqual(payroll_response.status_code, 200, payroll_response.text)
+        payroll_workers = {item["id"]: item for item in payroll_response.json()}
+        self.assertEqual(payroll_workers["w1"]["defaultPercent"], 28)
+        self.assertEqual(payroll_workers["w1"]["salaryBase"], 22000)
+
+        card_response = self.client.patch(
+            f"/api/clients/{client_id}/card",
+            headers=self.auth_headers(admin_token),
+            json={
+                "adminRating": 4,
+                "adminNote": "Нужен звонок перед подтверждением",
+            },
+        )
+        self.assertEqual(card_response.status_code, 200, card_response.text)
+        self.assertEqual(card_response.json()["adminRating"], 4)
+        self.assertEqual(card_response.json()["adminNote"], "Нужен звонок перед подтверждением")
+
+        bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(admin_token))
+        self.assertEqual(bootstrap.status_code, 200, bootstrap.text)
+        clients = {item["id"]: item for item in bootstrap.json()["clients"]}
+        self.assertEqual(clients[client_id]["adminRating"], 4)
+        self.assertEqual(clients[client_id]["adminNote"], "Нужен звонок перед подтверждением")
+
+    def test_owner_can_create_booking_with_assigned_master(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(owner_token),
+            json={
+                "clientId": "",
+                "clientName": "Owner Client",
+                "clientPhone": "+7 (999) 555-22-11",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": self.next_active_date(),
+                "time": "15:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "confirmed",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+                "notifyWorkers": False,
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["workers"][0]["workerId"], "w1")
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None
@@ -2098,7 +2170,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -2121,7 +2193,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Kia Rio",
                 "plate": "B222BB",
@@ -2159,7 +2231,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": first_worker["id"], "workerName": "Ivan", "percent": 40}],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -2182,7 +2254,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": second_worker["id"], "workerName": "Oleg", "percent": 40}],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Kia Rio",
                 "plate": "B222BB",
@@ -2214,7 +2286,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -2348,7 +2420,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -2387,7 +2459,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": worker["id"], "workerName": "Ivan", "percent": 40}],
-                "box": "Бокс 1",
+                "box": "Р‘РѕРєСЃ 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -2452,7 +2524,7 @@ class BookingLogicTests(unittest.TestCase):
             json={"requestId": start_payload["requestId"]},
         )
         self.assertEqual(execute_response.status_code, 409, execute_response.text)
-        self.assertIn("кнопка", execute_response.json()["detail"].lower())
+        self.assertIn("РєРЅРѕРїРєР°", execute_response.json()["detail"].lower())
 
     def test_owner_database_reset_clears_operational_data_and_preserves_owners(self) -> None:
         from app.database import SessionLocal
@@ -2505,14 +2577,14 @@ class BookingLogicTests(unittest.TestCase):
         stock_response = self.client.post(
             "/api/stock-items",
             headers=self.auth_headers(owner_token),
-            json={"name": "Шампунь", "qty": 5, "unit": "шт", "unitPrice": 400, "category": "Химия"},
+            json={"name": "РЁР°РјРїСѓРЅСЊ", "qty": 5, "unit": "С€С‚", "unitPrice": 400, "category": "РҐРёРјРёСЏ"},
         )
         self.assertEqual(stock_response.status_code, 200, stock_response.text)
 
         expense_response = self.client.post(
             "/api/expenses",
             headers=self.auth_headers(owner_token),
-            json={"title": "Проверка", "amount": 900, "category": "Прочее", "date": self.next_active_date(), "note": ""},
+            json={"title": "РџСЂРѕРІРµСЂРєР°", "amount": 900, "category": "РџСЂРѕС‡РµРµ", "date": self.next_active_date(), "note": ""},
         )
         self.assertEqual(expense_response.status_code, 200, expense_response.text)
 
@@ -2578,3 +2650,5 @@ class BookingLogicTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

@@ -434,6 +434,12 @@ def _apply_runtime_migrations() -> None:
     if "debt_balance" not in client_columns:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN debt_balance INTEGER DEFAULT 0")
+    if "admin_rating" not in client_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN admin_rating INTEGER DEFAULT 0")
+    if "admin_note" not in client_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN admin_note TEXT DEFAULT ''")
     if "clients" in inspector.get_table_names():
         ensure_postgres_varchar_length("clients", "id", 64)
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
@@ -657,6 +663,8 @@ def _client_summary_payload(client: Client) -> ClientSummaryPayload:
         plate=client.plate or "",
         notes=client.notes or "",
         debtBalance=client.debt_balance,
+        adminRating=max(0, min(5, client.admin_rating or 0)),
+        adminNote=client.admin_note or "",
     )
 
 
@@ -2643,6 +2651,10 @@ def update_client_card(
         client.notes = updates["notes"].strip()
     if "debtBalance" in updates and updates["debtBalance"] is not None:
         client.debt_balance = int(updates["debtBalance"])
+    if "adminRating" in updates and updates["adminRating"] is not None:
+        client.admin_rating = max(0, min(5, int(updates["adminRating"])))
+    if "adminNote" in updates and updates["adminNote"] is not None:
+        client.admin_note = updates["adminNote"].strip()
     client.updated_at = _now()
     db.commit()
     db.refresh(client)
@@ -2885,6 +2897,7 @@ def update_booking(
     previous_status = booking.status
     previous_service = booking.service
     previous_box = booking.box
+    previous_note = (booking.notes or "").strip()
     worker = db.get(StaffUser, session_data["actorId"]) if session_data["role"] == "worker" else None
     if session_data["role"] == "worker":
         assigned_worker_ids = {link.worker_id for link in booking.worker_links}
@@ -3011,6 +3024,9 @@ def update_booking(
         current_worker_ids = {link.worker_id for link in booking.worker_links}
         if payload.notifyWorkers:
             _notify_workers_about_assignment(db, booking, current_worker_ids - previous_worker_ids)
+    if session_data["role"] in {"admin", "owner"} and (booking.notes or "").strip() != previous_note:
+        _notify_workers_about_note(db, booking, {link.worker_id for link in booking.worker_links})
+        db.commit()
     return _booking_payload_for_response(db, booking)
 
 
@@ -3682,6 +3698,35 @@ def save_worker_settings(
         select(StaffUser)
         .where(StaffUser.role.in_(("admin", "worker")))
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
+    ).all()
+    return [_worker_payload(worker) for worker in refreshed]
+
+
+@app.put("/api/admin/workers/payroll", response_model=list[WorkerPayload])
+def save_admin_worker_payroll(
+    payload: list[EmployeeSettingPayload],
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[WorkerPayload]:
+    _ensure_staff_role(session_data, {"admin"})
+    workers = {
+        worker.id: worker
+        for worker in db.scalars(select(StaffUser).where(StaffUser.role == "worker")).all()
+    }
+    for item in payload:
+        worker = workers.get(item.id)
+        if worker is None:
+            continue
+        worker.default_percent = clamp_worker_percent(item.percent)
+        worker.salary_base = max(0, item.salaryBase)
+        worker.active = item.active
+        worker.available = item.active
+        worker.updated_at = _now()
+    db.commit()
+    refreshed = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role == "worker")
+        .order_by(StaffUser.name.asc())
     ).all()
     return [_worker_payload(worker) for worker in refreshed]
 

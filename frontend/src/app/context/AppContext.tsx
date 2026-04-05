@@ -39,6 +39,8 @@ export interface RegisteredClient {
   plate: string;
   notes: string;
   debtBalance: number;
+  adminRating: number;
+  adminNote: string;
 }
 
 export interface Worker {
@@ -373,7 +375,7 @@ interface AppContextType {
   loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
   loginPrimaryOwnerViaTelegram: () => Promise<Role>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
-  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance'>>) => Promise<void>;
+  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
@@ -405,6 +407,7 @@ interface AppContextType {
   saveOwnerIntegrations: (settings: OwnerIntegrations) => Promise<void>;
   saveOwnerSecurity: (settings: OwnerSecurity) => Promise<void>;
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
+  saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -716,7 +719,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClientProfile(saved);
   }
 
-  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance'>>) {
+  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) {
     const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
     setClients((current) => current.map((client) => (client.id === clientId ? saved : client)));
   }
@@ -754,6 +757,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           plate: created.plate || '',
           notes: '',
           debtBalance: current.find((client) => client.id === created.clientId)?.debtBalance || 0,
+          adminRating: current.find((client) => client.id === created.clientId)?.adminRating || 0,
+          adminNote: current.find((client) => client.id === created.clientId)?.adminNote || '',
         };
         if (current.some((client) => client.id === created.clientId)) {
           return current.map((client) => (client.id === created.clientId ? { ...client, ...nextClient } : client));
@@ -958,6 +963,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWorkers(saved);
   }
 
+  async function saveAdminWorkerPayroll(nextSettings: EmployeeSetting[]) {
+    const saved = await apiRequest<Worker[]>('/api/admin/workers/payroll', { method: 'PUT', body: nextSettings });
+    setWorkers((current) => current.map((worker) => {
+      const nextWorker = saved.find((item) => item.id === worker.id);
+      return nextWorker ?? worker;
+    }));
+  }
+
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
     setWorkers((current) => [...current, created].sort((left, right) => {
@@ -1149,6 +1162,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveOwnerIntegrations,
       saveOwnerSecurity,
       saveWorkerSettings,
+      saveAdminWorkerPayroll,
       hireWorker,
       fireWorker,
       changePassword,

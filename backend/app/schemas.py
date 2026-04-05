@@ -134,6 +134,8 @@ class ClientSummaryPayload(BaseModel):
     plate: str = ""
     notes: str = ""
     debtBalance: int = 0
+    adminRating: int = Field(default=0, ge=0, le=5)
+    adminNote: str = ""
 
 
 class WorkerPayload(BaseModel):
@@ -531,6 +533,8 @@ class BookingUpdateRequest(BaseModel):
 class ClientCardUpdateRequest(BaseModel):
     notes: str | None = None
     debtBalance: int | None = None
+    adminRating: int | None = Field(default=None, ge=0, le=5)
+    adminNote: str | None = None
 
 
 class NotificationCreateRequest(BaseModel):
