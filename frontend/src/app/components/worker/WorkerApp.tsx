@@ -157,13 +157,14 @@ export function WorkerApp() {
       return { ...b, earned: Math.round(b.price * (w?.percent || 0) / 100) };
     });
   const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
+  const payrollSummary = staffProfile?.payrollSummary;
   const myPenalties = penalties.filter((penalty) => penalty.workerId === workerId && isComplaintActive(penalty));
   const complaintState = getComplaintPenaltyState(staffProfile?.defaultPercent || 0, myPenalties);
-  const payoutAfterPenalties = Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
+  const payoutAfterPenalties = payrollSummary?.balance ?? Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
 
   const allMyTasks = bookings.filter(b => b.workers.some(w => w.workerId === workerId));
-  const completedCount = allMyTasks.filter(b => b.status === 'completed').length;
-  const avgCheck = completedCount > 0 ? Math.round(totalEarned / completedCount) : 0;
+  const completedCount = payrollSummary?.completedBookings ?? allMyTasks.filter(b => b.status === 'completed').length;
+  const avgCheck = completedCount > 0 ? Math.round((payrollSummary?.accruedFromBookings ?? totalEarned) / completedCount) : 0;
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -501,6 +502,46 @@ export function WorkerApp() {
                   </div>
                 )}
               </div>
+              {payrollSummary && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className={`text-xs ${sub}`}>Зарплата и выплаты</div>
+                      <div className="font-bold text-xl" style={{ color: accent }}>{(payrollSummary.balance || 0).toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-xs ${sub}`}>К выплате</div>
+                      <div className="font-semibold">{(payrollSummary.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                      <div className={`text-xs ${sub}`}>Начислено</div>
+                      <div className="font-semibold mt-1">{(payrollSummary.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                      <div className={`text-xs ${sub}`}>Удержано и выдано</div>
+                      <div className="font-semibold mt-1">{(payrollSummary.totalDeducted || 0).toLocaleString('ru')} ₽</div>
+                    </div>
+                  </div>
+                  {(payrollSummary.entries?.length || 0) > 0 && (
+                    <div className="space-y-2">
+                      {payrollSummary.entries.slice(0, 4).map((entry) => (
+                        <div key={entry.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                          <div>
+                            <div className="text-sm font-medium">{entry.kind}</div>
+                            <div className={`text-xs ${sub}`}>{entry.note || entry.createdByName}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">{entry.amount.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[11px] ${sub}`}>{entry.createdAt.toLocaleDateString('ru-RU')}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 {myEarnings.map(b => (
                   <div key={b.id} className={`${glass} rounded-xl p-3`}>

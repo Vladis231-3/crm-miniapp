@@ -1796,6 +1796,56 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(admin_summary["balance"], 1600)
         self.assertEqual(admin_summary["bookingItems"][0]["earned"], 400)
 
+    def test_payroll_entry_notifies_worker_and_updates_summary(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Notification, StaffUser
+
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        with SessionLocal() as db:
+            worker = db.get(StaffUser, "w1")
+            assert worker is not None
+            worker.telegram_chat_id = "777888999"
+            db.commit()
+
+        sent_messages: list[tuple[str | int, str]] = []
+
+        def fake_send_message(chat_id: str | int, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            response = self.client.post(
+                "/api/payroll/entries",
+                headers=self.auth_headers(owner_token),
+                json={
+                    "workerId": "w1",
+                    "kind": "payout",
+                    "amount": 1200,
+                    "note": "Выплата за неделю",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["id"], "w1")
+        self.assertTrue(any(entry["kind"] == "payout" and entry["amount"] == 1200 for entry in payload["payrollSummary"]["entries"]))
+
+        worker_token = self.login_staff("ivan", "master")
+        worker_bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(worker_token))
+        self.assertEqual(worker_bootstrap.status_code, 200, worker_bootstrap.text)
+        worker_payload = worker_bootstrap.json()["staffProfile"]
+        self.assertTrue(any(entry["kind"] == "payout" and entry["amount"] == 1200 for entry in worker_payload["payrollSummary"]["entries"]))
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification)
+                .where(Notification.recipient_role == "worker", Notification.recipient_id == "w1")
+                .order_by(Notification.created_at.desc())
+            ).all()
+        self.assertTrue(any("Изменение по зарплате" in item.message and "Выплата за неделю" in item.message for item in notifications))
+        self.assertTrue(any(chat_id == "777888999" and "Изменение по зарплате" in text for chat_id, text in sent_messages))
+
     def test_owner_can_create_booking_with_assigned_master(self) -> None:
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")

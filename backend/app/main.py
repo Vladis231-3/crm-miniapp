@@ -1502,7 +1502,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     ).all()
     all_penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(all_penalties)
-    payroll_summaries = _worker_payroll_summaries(db, workers, complaints_by_worker) if role in {"admin", "owner"} else {}
+    payroll_summaries = _worker_payroll_summaries(db, workers, complaints_by_worker) if role in {"admin", "owner", "worker"} else {}
     clients: list[ClientSummaryPayload] = []
 
     bookings_query = select(Booking).options(joinedload(Booking.worker_links)).order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
@@ -2409,6 +2409,49 @@ def _notify_workers_about_reschedule(
             )
         )
         _send_telegram_safe(worker.telegram_chat_id, text)
+
+
+def _payroll_entry_label(kind: str) -> str:
+    return {
+        "bonus": "премия",
+        "advance": "аванс",
+        "deduction": "удержание",
+        "payout": "выплата",
+        "adjustment": "корректировка",
+    }.get(kind, "операция")
+
+
+def _notify_worker_about_payroll_entry(
+    db: Session,
+    worker: StaffUser,
+    *,
+    actor_role: str,
+    actor_id: str,
+    kind: str,
+    amount: int,
+    note: str,
+) -> None:
+    actor = db.get(StaffUser, actor_id) if actor_role in {"owner", "admin", "worker"} else None
+    actor_name = actor.name if actor is not None else "CRM"
+    action_label = _payroll_entry_label(kind)
+    note_suffix = f"\nПримечание: {note}" if note else ""
+    message = (
+        f"Изменение по зарплате\n"
+        f"Операция: {action_label}\n"
+        f"Сумма: {amount} ₽\n"
+        f"Кто внёс: {actor_name}{note_suffix}"
+    )
+    db.add(
+        Notification(
+            id=f"n-{uuid4()}",
+            recipient_role="worker",
+            recipient_id=worker.id,
+            message=message,
+            read=False,
+            created_at=_now(),
+        )
+    )
+    _send_telegram_safe(worker.telegram_chat_id, message)
 
 
 @app.get("/api/health", response_model=GenericMessage)
@@ -4074,6 +4117,15 @@ def create_payroll_entry(
         created_at=_now(),
     )
     db.add(entry)
+    _notify_worker_about_payroll_entry(
+        db,
+        worker,
+        actor_role=session_data["role"],
+        actor_id=session_data["actorId"],
+        kind=payload.kind,
+        amount=amount,
+        note=payload.note.strip(),
+    )
     worker.updated_at = _now()
     db.commit()
     db.refresh(worker)
