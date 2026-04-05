@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from urllib import error, request
 from uuid import uuid4
@@ -12,10 +13,12 @@ from uuid import uuid4
 try:
     from backend.app.config import get_settings
     from backend.app.database import session_scope
+    from backend.app.models import AppSetting, Notification, StaffUser
     from backend.app.telegram_linking import confirm_link_code
 except ImportError:
     from app.config import get_settings
     from app.database import session_scope
+    from app.models import AppSetting, Notification, StaffUser
     from app.telegram_linking import confirm_link_code
 
 
@@ -24,6 +27,10 @@ class BotRuntime:
     token: str
     webapp_url: str
     api_base: str
+
+
+ADMIN_SHIFT_INSPECTIONS_KEY = "admin_shift_inspections"
+ADMIN_SHIFT_OWNER_BOT_STATE_KEY = "admin_shift_owner_bot_state"
 
 
 def _build_runtime() -> BotRuntime:
@@ -212,7 +219,7 @@ def sync_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None:
         {
             "url": target_url,
             "secret_token": target_secret,
-            "allowed_updates": ["message"],
+            "allowed_updates": ["message", "callback_query"],
             "drop_pending_updates": drop_pending_updates,
         },
     )
@@ -273,7 +280,129 @@ def send_telegram_document(
     )
 
 
+def send_telegram_photo(
+    chat_id: str | int,
+    *,
+    file_name: str,
+    content: bytes,
+    caption: str | None = None,
+    mime_type: str = "image/jpeg",
+    reply_markup: dict[str, Any] | None = None,
+) -> None:
+    runtime = _build_runtime()
+    fields: dict[str, Any] = {"chat_id": int(chat_id)}
+    if caption:
+        fields["caption"] = caption
+    if reply_markup is not None:
+        fields["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
+    _telegram_multipart_call(
+        runtime,
+        "sendPhoto",
+        fields=fields,
+        files={"photo": (file_name, mime_type, content)},
+    )
+
+
+def _setting_dict(db, key: str, default: dict[str, Any]) -> dict[str, Any]:
+    row = db.get(AppSetting, key)
+    if row is None or not isinstance(row.value, dict):
+        return dict(default)
+    return dict(row.value)
+
+
+def _setting_list(db, key: str) -> list[dict[str, Any]]:
+    row = db.get(AppSetting, key)
+    if row is None or not isinstance(row.value, list):
+        return []
+    return list(row.value)
+
+
+def _upsert_setting(db, key: str, value: Any) -> None:
+    row = db.get(AppSetting, key)
+    if row is None:
+        row = AppSetting(key=key, value=value)
+        db.add(row)
+    else:
+        row.value = value
+
+
+def _serialize_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _owner_by_chat_id(db, chat_id: int) -> StaffUser | None:
+    return db.query(StaffUser).filter(StaffUser.role == "owner", StaffUser.telegram_chat_id == str(chat_id)).first()
+
+
+def _apply_shift_review_from_bot(chat_id: int, inspection_id: str, action: str, issue_note: str = "") -> str:
+    with session_scope() as db:
+        owner = _owner_by_chat_id(db, chat_id)
+        if owner is None:
+            return "Только владелец с привязанным Telegram может подтверждать смену."
+        entries = _setting_list(db, ADMIN_SHIFT_INSPECTIONS_KEY)
+        entry = next((item for item in entries if item.get("id") == inspection_id), None)
+        if entry is None:
+            return "Чек-лист смены не найден."
+        if str(entry.get("status") or "") != "pending":
+            return "По этому чек-листу уже принято решение."
+        if action == "rejected" and not issue_note.strip():
+            return "Опишите проблему текстом после нажатия кнопки отказа."
+
+        entry["status"] = action
+        entry["issueNote"] = issue_note.strip()
+        entry["reviewedAt"] = _serialize_now()
+        entry["ownerDecisionBy"] = owner.id
+        _upsert_setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, entries[-200:])
+
+        admin = db.get(StaffUser, str(entry.get("adminId") or ""))
+        verb = "подтвердил" if action == "approved" else "отклонил"
+        extra = f"\nПроблема: {issue_note.strip()}" if issue_note.strip() else ""
+        message = f"Владелец {verb} открытие смены администратора {entry.get('adminName')}.{extra}"
+        if admin is not None:
+            db.add(
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="admin",
+                    recipient_id=admin.id,
+                    message=message,
+                    read=False,
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+            if admin.telegram_chat_id:
+                send_telegram_message(admin.telegram_chat_id, message)
+        return "Смена подтверждена." if action == "approved" else "Отказ по смене отправлен администратору."
+
+
+def _remember_pending_issue(chat_id: int, inspection_id: str) -> None:
+    with session_scope() as db:
+        state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}})
+        pending = state.get("pendingIssueByChat")
+        if not isinstance(pending, dict):
+            pending = {}
+        pending[str(chat_id)] = inspection_id
+        state["pendingIssueByChat"] = pending
+        _upsert_setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, state)
+
+
+def _pop_pending_issue(chat_id: int) -> str | None:
+    with session_scope() as db:
+        state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}})
+        pending = state.get("pendingIssueByChat")
+        if not isinstance(pending, dict):
+            pending = {}
+        inspection_id = pending.pop(str(chat_id), None)
+        state["pendingIssueByChat"] = pending
+        _upsert_setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, state)
+        return inspection_id if isinstance(inspection_id, str) else None
+
+
 def _extract_chat_id(update: dict[str, Any]) -> int | None:
+    callback = update.get("callback_query") or {}
+    callback_message = callback.get("message") or {}
+    callback_chat = callback_message.get("chat") or {}
+    if isinstance(callback_chat.get("id"), int):
+        return callback_chat["id"]
     message = update.get("message") or {}
     chat = message.get("chat") or {}
     if isinstance(chat.get("id"), int):
@@ -285,6 +414,19 @@ def _extract_text(update: dict[str, Any]) -> str:
     message = update.get("message") or {}
     text = message.get("text")
     return text.strip() if isinstance(text, str) else ""
+
+
+def _extract_callback(update: dict[str, Any]) -> tuple[str, str] | None:
+    callback = update.get("callback_query") or {}
+    callback_id = callback.get("id")
+    data = callback.get("data")
+    if isinstance(callback_id, str) and isinstance(data, str):
+        return callback_id, data
+    return None
+
+
+def _answer_callback_query(runtime: BotRuntime, callback_id: str, text: str) -> None:
+    _telegram_call(runtime, "answerCallbackQuery", {"callback_query_id": callback_id, "text": text})
 
 
 def _handle_link_command(chat_id: int, text: str) -> str:
@@ -333,6 +475,24 @@ def _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> Non
     chat_id = _extract_chat_id(update)
     if chat_id is None:
         return
+
+    callback = _extract_callback(update)
+    if callback is not None:
+        callback_id, data = callback
+        if data.startswith("shiftapprove:"):
+            _answer_callback_query(runtime, callback_id, _apply_shift_review_from_bot(chat_id, data.split(":", 1)[1], "approved"))
+            return
+        if data.startswith("shiftreject:"):
+            _remember_pending_issue(chat_id, data.split(":", 1)[1])
+            _answer_callback_query(runtime, callback_id, "Опишите проблему следующим сообщением")
+            _send_text_message(runtime, chat_id, "Напишите сообщением, в чём проблема по открытию смены.")
+            return
+
+    pending_issue = _pop_pending_issue(chat_id) if text and not text.startswith("/") else None
+    if pending_issue is not None:
+        _send_text_message(runtime, chat_id, _apply_shift_review_from_bot(chat_id, pending_issue, "rejected", text))
+        return
+
     if text.startswith("/start"):
         _send_start_message(runtime, chat_id)
     elif text.startswith("/chatid"):
@@ -363,7 +523,7 @@ def run_polling() -> None:
                 {
                     "offset": offset,
                     "timeout": 30,
-                    "allowed_updates": ["message"],
+                    "allowed_updates": ["message", "callback_query"],
                 },
             )
             for update in updates:

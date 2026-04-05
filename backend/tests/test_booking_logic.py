@@ -2262,6 +2262,129 @@ class BookingLogicTests(unittest.TestCase):
         self.assertTrue(any("заполнил чек-лист начала смены" in item.message for item in notifications))
         self.assertTrue(any("заполнил чек-лист закрытия смены" in item.message for item in notifications))
 
+    def test_admin_shift_inspection_sends_owner_photo_and_can_be_approved(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Notification
+
+        self.disable_owner_two_factor()
+        self.set_primary_owner_telegram("123123123")
+        owner_token = self.login_staff("owner", "owner")
+        admin_token = self.login_staff("admin", "admin")
+
+        created_items = []
+        for payload in (
+            {"name": "Активная пена", "qty": 20, "unit": "л", "unitPrice": 450, "category": "Химия"},
+            {"name": "Микрофибра", "qty": 12, "unit": "шт", "unitPrice": 180, "category": "Расходники"},
+        ):
+            response = self.client.post("/api/stock-items", headers=self.auth_headers(owner_token), json=payload)
+            self.assertEqual(response.status_code, 200, response.text)
+            created_items.append(response.json())
+
+        sent_photos: list[dict[str, object]] = []
+
+        def fake_send_photo(chat_id: str | int, **kwargs) -> None:
+            sent_photos.append({"chat_id": chat_id, **kwargs})
+
+        with patch("app.main.send_telegram_photo", side_effect=fake_send_photo):
+            create_response = self.client.post(
+                "/api/admin/shift-inspections",
+                headers=self.auth_headers(admin_token),
+                json={
+                    "floorPhotoUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    "clothsReady": True,
+                    "supplies": [{"stockItemId": item["id"], "checked": True} for item in created_items],
+                    "masters": [{"workerId": "w1", "checked": True}],
+                    "note": "Полы чистые, смена готова",
+                },
+            )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        payload = create_response.json()
+        self.assertEqual(payload["status"], "pending")
+        self.assertTrue(any(photo["chat_id"] == "123123123" for photo in sent_photos))
+        self.assertTrue(any("reply_markup" in photo for photo in sent_photos))
+
+        review_response = self.client.post(
+            f"/api/admin/shift-inspections/{payload['id']}/review",
+            headers=self.auth_headers(owner_token),
+            json={"action": "approved", "issueNote": ""},
+        )
+        self.assertEqual(review_response.status_code, 200, review_response.text)
+        self.assertEqual(review_response.json()["status"], "approved")
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification).where(Notification.recipient_role == "admin").order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any("подтвердил открытие смены" in item.message for item in notifications))
+
+    def test_bot_can_reject_admin_shift_with_issue_note(self) -> None:
+        from bot import BotRuntime, process_telegram_update
+        from app.database import SessionLocal
+        from app.models import Notification
+
+        self.disable_owner_two_factor()
+        self.set_primary_owner_telegram("123123123")
+        self.set_staff_telegram("admin", "456456456")
+        owner_token = self.login_staff("owner", "owner")
+        admin_token = self.login_staff("admin", "admin")
+
+        response = self.client.post(
+            "/api/stock-items",
+            headers=self.auth_headers(owner_token),
+            json={"name": "Микрофибра", "qty": 12, "unit": "шт", "unitPrice": 180, "category": "Расходники"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+        with patch("app.main.send_telegram_photo", side_effect=lambda *args, **kwargs: None):
+            create_response = self.client.post(
+                "/api/admin/shift-inspections",
+                headers=self.auth_headers(admin_token),
+                json={
+                    "floorPhotoUrl": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2w==",
+                    "clothsReady": True,
+                    "supplies": [{"stockItemId": response.json()["id"], "checked": True}],
+                    "masters": [{"workerId": "w1", "checked": True}],
+                    "note": "Готово к старту",
+                },
+            )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        inspection_id = create_response.json()["id"]
+
+        telegram_calls: list[tuple[str, dict[str, object]]] = []
+
+        def fake_telegram_call(_runtime, method: str, payload: dict[str, object] | None = None, **_kwargs):
+            telegram_calls.append((method, payload or {}))
+            return {}
+
+        with patch("bot._build_runtime", return_value=BotRuntime(token="t", webapp_url="https://app.example", api_base="https://api.example")):
+            with patch("bot._telegram_call", side_effect=fake_telegram_call):
+                process_telegram_update(
+                    {
+                        "callback_query": {
+                            "id": "cb1",
+                            "data": f"shiftreject:{inspection_id}",
+                            "message": {"chat": {"id": 123123123}},
+                        }
+                    }
+                )
+                process_telegram_update(
+                    {
+                        "message": {
+                            "chat": {"id": 123123123},
+                            "text": "Полы грязные у ворот",
+                        }
+                    }
+                )
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification).where(Notification.recipient_role == "admin").order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any(method == "answerCallbackQuery" for method, _payload in telegram_calls))
+        self.assertTrue(any("Полы грязные у ворот" in item.message for item in notifications))
+
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None

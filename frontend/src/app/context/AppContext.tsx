@@ -176,6 +176,38 @@ export interface ShiftChecklist {
   items: ShiftChecklistItem[];
 }
 
+export interface AdminShiftInspectionSupply {
+  stockItemId: string;
+  name: string;
+  category: string;
+  unit: string;
+  qty: number;
+  checked: boolean;
+}
+
+export interface AdminShiftInspectionMaster {
+  workerId: string;
+  workerName: string;
+  checked: boolean;
+}
+
+export interface AdminShiftInspection {
+  id: string;
+  adminId: string;
+  adminName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: Date;
+  reviewedAt?: Date | null;
+  floorPhotoUrl: string;
+  clothsReady: boolean;
+  suppliesChecked: boolean;
+  note: string;
+  issueNote: string;
+  ownerDecisionBy?: string | null;
+  supplies: AdminShiftInspectionSupply[];
+  masters: AdminShiftInspectionMaster[];
+}
+
 export interface Expense {
   id: string;
   title: string;
@@ -481,6 +513,14 @@ interface AppContextType {
   createPayrollEntry: (entry: PayrollEntryCreateInput) => Promise<void>;
   listShiftChecklists: () => Promise<ShiftChecklist[]>;
   submitShiftChecklist: (payload: { phase: 'start' | 'end'; note?: string; items: Array<{ stockItemId: string; actualQty: number }> }) => Promise<ShiftChecklist>;
+  listAdminShiftInspections: () => Promise<AdminShiftInspection[]>;
+  submitAdminShiftInspection: (payload: {
+    floorPhotoUrl: string;
+    clothsReady: boolean;
+    supplies: Array<{ stockItemId: string; checked: boolean }>;
+    masters: Array<{ workerId: string; checked: boolean }>;
+    note?: string;
+  }) => Promise<AdminShiftInspection>;
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -1082,6 +1122,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { ...entry, createdAt: new Date(entry.createdAt) };
   }
 
+  async function listAdminShiftInspections() {
+    const entries = await apiRequest<Array<Omit<AdminShiftInspection, 'createdAt' | 'reviewedAt'> & { createdAt: string; reviewedAt?: string | null }>>('/api/admin/shift-inspections');
+    return entries.map((entry) => ({
+      ...entry,
+      createdAt: new Date(entry.createdAt),
+      reviewedAt: entry.reviewedAt ? new Date(entry.reviewedAt) : null,
+    }));
+  }
+
+  async function submitAdminShiftInspection(payload: {
+    floorPhotoUrl: string;
+    clothsReady: boolean;
+    supplies: Array<{ stockItemId: string; checked: boolean }>;
+    masters: Array<{ workerId: string; checked: boolean }>;
+    note?: string;
+  }) {
+    const entry = await apiRequest<Omit<AdminShiftInspection, 'createdAt' | 'reviewedAt'> & { createdAt: string; reviewedAt?: string | null }>('/api/admin/shift-inspections', {
+      method: 'POST',
+      body: payload,
+    });
+    return {
+      ...entry,
+      createdAt: new Date(entry.createdAt),
+      reviewedAt: entry.reviewedAt ? new Date(entry.reviewedAt) : null,
+    };
+  }
+
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
     setWorkers((current) => [...current, created].sort((left, right) => {
@@ -1278,6 +1345,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createPayrollEntry,
       listShiftChecklists,
       submitShiftChecklist,
+      listAdminShiftInspections,
+      submitAdminShiftInspection,
       hireWorker,
       fireWorker,
       changePassword,

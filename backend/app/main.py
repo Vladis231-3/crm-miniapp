@@ -2,6 +2,7 @@
 
 import logging
 import secrets
+import base64
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Thread
@@ -46,6 +47,9 @@ from .models import (
 )
 from .schemas import (
     AdminNotificationSettings,
+    AdminShiftInspectionPayload,
+    AdminShiftInspectionReviewRequest,
+    AdminShiftInspectionSubmitRequest,
     AdminProfilePayload,
     BookingAvailabilityPayload,
     BookingAvailabilitySlotPayload,
@@ -133,6 +137,7 @@ try:
         run_polling,
         send_telegram_document,
         send_telegram_message,
+        send_telegram_photo,
         sync_telegram_webhook,
         telegram_webhook_secret,
     )
@@ -142,6 +147,7 @@ except ImportError:
         run_polling,
         send_telegram_document,
         send_telegram_message,
+        send_telegram_photo,
         sync_telegram_webhook,
         telegram_webhook_secret,
     )
@@ -159,6 +165,8 @@ OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
 BOOKING_REMINDER_STATE_KEY = "booking_reminder_dispatch_state"
 RETURN_REMINDER_STATE_KEY = "return_visit_reminder_state"
 SHIFT_CHECKLISTS_KEY = "worker_shift_checklists"
+ADMIN_SHIFT_INSPECTIONS_KEY = "admin_shift_inspections"
+ADMIN_SHIFT_OWNER_BOT_STATE_KEY = "admin_shift_owner_bot_state"
 OWNER_DATABASE_RESET_CONFIRMATION_PHRASE = "ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
 OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES = 10
 OWNER_DATABASE_RESET_DELAY_SECONDS = 10
@@ -1772,6 +1780,16 @@ def _shift_checklists_state(db: Session) -> list[dict[str, Any]]:
     return value if isinstance(value, list) else []
 
 
+def _admin_shift_inspections_state(db: Session) -> list[dict[str, Any]]:
+    value = _setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, [])
+    return value if isinstance(value, list) else []
+
+
+def _admin_shift_owner_bot_state(db: Session) -> dict[str, Any]:
+    value = _setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}})
+    return value if isinstance(value, dict) else {"pendingIssueByChat": {}}
+
+
 def _cleanup_booking_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]:
     threshold = _now() - timedelta(days=14)
     cleaned: dict[str, str] = {}
@@ -2008,6 +2026,175 @@ def _latest_shift_checklist_entry(entries: list[dict[str, Any]], worker_id: str,
         if entry.get("workerId") == worker_id and entry.get("phase") == phase:
             return entry
     return None
+
+
+def _clean_data_url_prefix(data_url: str) -> str:
+    return data_url.split(",", 1)[1] if "," in data_url else data_url
+
+
+def _decode_data_url_image(data_url: str) -> tuple[str, bytes]:
+    raw = data_url.strip()
+    if not raw.startswith("data:image/"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нужно загрузить фото")
+    header, _, encoded = raw.partition(",")
+    if not encoded:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Фото повреждено")
+    mime_type = header[5:].split(";", 1)[0] or "image/jpeg"
+    try:
+        content = base64.b64decode(encoded)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Не удалось прочитать фото") from exc
+    return mime_type, content
+
+
+def _admin_shift_inspection_supplies(db: Session) -> list[StockItem]:
+    return db.scalars(
+        select(StockItem)
+        .where(StockItem.category.in_(("Химия", "Расходники")))
+        .order_by(StockItem.category.asc(), StockItem.name.asc())
+    ).all()
+
+
+def _admin_shift_inspection_payload(entry: dict[str, Any]) -> AdminShiftInspectionPayload:
+    return AdminShiftInspectionPayload(
+        id=str(entry.get("id") or ""),
+        adminId=str(entry.get("adminId") or ""),
+        adminName=str(entry.get("adminName") or ""),
+        status=str(entry.get("status") or "pending"),  # type: ignore[arg-type]
+        createdAt=_parse_state_datetime(entry.get("createdAt")) or _now(),
+        reviewedAt=_parse_state_datetime(entry.get("reviewedAt")),
+        floorPhotoUrl=str(entry.get("floorPhotoUrl") or ""),
+        clothsReady=bool(entry.get("clothsReady")),
+        suppliesChecked=bool(entry.get("suppliesChecked")),
+        note=str(entry.get("note") or ""),
+        issueNote=str(entry.get("issueNote") or ""),
+        ownerDecisionBy=str(entry.get("ownerDecisionBy") or "") or None,
+        supplies=[
+            {
+                "stockItemId": str(item.get("stockItemId") or ""),
+                "name": str(item.get("name") or ""),
+                "category": str(item.get("category") or ""),
+                "unit": str(item.get("unit") or ""),
+                "qty": int(item.get("qty") or 0),
+                "checked": bool(item.get("checked")),
+            }
+            for item in entry.get("supplies", [])
+            if isinstance(item, dict)
+        ],
+        masters=[
+            {
+                "workerId": str(item.get("workerId") or ""),
+                "workerName": str(item.get("workerName") or ""),
+                "checked": bool(item.get("checked")),
+            }
+            for item in entry.get("masters", [])
+            if isinstance(item, dict)
+        ],
+    )
+
+
+def _admin_shift_caption(entry: dict[str, Any]) -> str:
+    checked_supplies = [item.get("name") for item in entry.get("supplies", []) if isinstance(item, dict) and item.get("checked")]
+    checked_masters = [item.get("workerName") for item in entry.get("masters", []) if isinstance(item, dict) and item.get("checked")]
+    created_at = _parse_state_datetime(entry.get("createdAt")) or _now()
+    lines = [
+        "Открытие смены администратором",
+        f"Админ: {entry.get('adminName') or 'Неизвестно'}",
+        f"Дата: {_format_local_datetime(created_at)}",
+        f"Чистые тряпки: {'Да' if entry.get('clothsReady') else 'Нет'}",
+        f"Расходники отмечены: {'Да' if entry.get('suppliesChecked') else 'Нет'}",
+        f"Мастера на смене: {', '.join(checked_masters) if checked_masters else 'Не выбраны'}",
+        f"Проверено по складу: {', '.join(checked_supplies) if checked_supplies else 'Ничего не отмечено'}",
+    ]
+    if entry.get("note"):
+        lines.append(f"Комментарий: {entry.get('note')}")
+    return "\n".join(lines)
+
+
+def _admin_shift_owner_inline_keyboard(inspection_id: str) -> dict[str, Any]:
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "Подтвердить", "callback_data": f"shiftapprove:{inspection_id}"},
+                {"text": "Отказать", "callback_data": f"shiftreject:{inspection_id}"},
+            ]
+        ]
+    }
+
+
+def _notify_owner_about_admin_shift(db: Session, entry: dict[str, Any]) -> None:
+    caption = _admin_shift_caption(entry)
+    mime_type, photo_bytes = _decode_data_url_image(str(entry.get("floorPhotoUrl") or ""))
+    owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))).all()
+    for owner in owners:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="owner",
+                recipient_id=owner.id,
+                message=f"{caption}\nОжидает подтверждения владельца.",
+                read=False,
+                created_at=_now(),
+            )
+        )
+        if owner.telegram_chat_id:
+            try:
+                send_telegram_photo(
+                    owner.telegram_chat_id,
+                    file_name=f"shift-{entry['id']}.jpg",
+                    content=photo_bytes,
+                    mime_type=mime_type,
+                    caption=caption,
+                    reply_markup=_admin_shift_owner_inline_keyboard(str(entry["id"])),
+                )
+            except Exception:
+                logger.exception("Failed to send admin shift inspection photo to owner %s", owner.id)
+
+
+def _apply_admin_shift_review(
+    db: Session,
+    inspection_id: str,
+    *,
+    action: str,
+    issue_note: str,
+    owner_actor_id: str,
+) -> AdminShiftInspectionPayload:
+    entries = _admin_shift_inspections_state(db)
+    entry = next((item for item in entries if item.get("id") == inspection_id), None)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Чек-лист смены не найден")
+    if str(entry.get("status") or "") != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Решение по смене уже принято")
+    if action == "rejected" and not issue_note.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Опишите проблему при отказе")
+
+    entry["status"] = action
+    entry["issueNote"] = issue_note.strip()
+    entry["reviewedAt"] = _serialize_state_datetime(_now())
+    entry["ownerDecisionBy"] = owner_actor_id
+    _upsert_setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, entries[-200:])
+
+    admin_id = str(entry.get("adminId") or "")
+    admin = db.get(StaffUser, admin_id) if admin_id else None
+    owner = db.get(StaffUser, owner_actor_id)
+    owner_name = owner.name if owner is not None else "Владелец"
+    result_line = "подтвердил открытие смены" if action == "approved" else "отклонил открытие смены"
+    extra = f"\nПроблема: {issue_note.strip()}" if issue_note.strip() else ""
+    message = f"{owner_name} {result_line} администратора {entry.get('adminName')}.{extra}"
+    if admin is not None:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="admin",
+                recipient_id=admin.id,
+                message=message,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        _send_telegram_safe(admin.telegram_chat_id, message)
+    db.commit()
+    return _admin_shift_inspection_payload(entry)
 
 
 def _serialize_state_datetime(value: datetime | None) -> str | None:
@@ -3752,6 +3939,108 @@ def submit_shift_checklist(
     )
     db.commit()
     return _shift_checklist_payload(entry)
+
+
+@app.get("/api/admin/shift-inspections", response_model=list[AdminShiftInspectionPayload])
+def list_admin_shift_inspections(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[AdminShiftInspectionPayload]:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    entries = _admin_shift_inspections_state(db)
+    if session_data["role"] == "admin":
+        entries = [entry for entry in entries if entry.get("adminId") == session_data["actorId"]]
+    return [_admin_shift_inspection_payload(entry) for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True)]
+
+
+@app.post("/api/admin/shift-inspections", response_model=AdminShiftInspectionPayload)
+def submit_admin_shift_inspection(
+    payload: AdminShiftInspectionSubmitRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> AdminShiftInspectionPayload:
+    _ensure_staff_role(session_data, {"admin"})
+    admin = db.get(StaffUser, session_data["actorId"])
+    if admin is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Администратор не найден")
+    _decode_data_url_image(payload.floorPhotoUrl)
+    if not payload.clothsReady:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Подтвердите наличие чистых тряпок")
+
+    supply_checks = {item.stockItemId: item.checked for item in payload.supplies}
+    supplies = _admin_shift_inspection_supplies(db)
+    if not supplies:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="На складе нет расходников для проверки")
+    supplies_payload = [
+        {
+            "stockItemId": item.id,
+            "name": item.name,
+            "category": item.category,
+            "unit": item.unit,
+            "qty": item.qty,
+            "checked": bool(supply_checks.get(item.id, False)),
+        }
+        for item in supplies
+    ]
+    if not any(item["checked"] for item in supplies_payload):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте проверенные расходники")
+
+    worker_checks = {item.workerId: item.checked for item in payload.masters}
+    masters = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role == "worker", StaffUser.active.is_(True))
+        .order_by(StaffUser.name.asc())
+    ).all()
+    masters_payload = [
+        {
+            "workerId": worker.id,
+            "workerName": worker.name,
+            "checked": bool(worker_checks.get(worker.id, False)),
+        }
+        for worker in masters
+    ]
+    if not any(item["checked"] for item in masters_payload):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте мастеров на смене")
+
+    entries = _admin_shift_inspections_state(db)
+    entry = {
+        "id": f"admin-shift-{uuid4()}",
+        "adminId": admin.id,
+        "adminName": admin.name,
+        "status": "pending",
+        "createdAt": _serialize_state_datetime(_now()),
+        "reviewedAt": None,
+        "floorPhotoUrl": payload.floorPhotoUrl.strip(),
+        "clothsReady": payload.clothsReady,
+        "suppliesChecked": True,
+        "note": payload.note.strip(),
+        "issueNote": "",
+        "ownerDecisionBy": None,
+        "supplies": supplies_payload,
+        "masters": masters_payload,
+    }
+    entries.append(entry)
+    _upsert_setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, entries[-200:])
+    _notify_owner_about_admin_shift(db, entry)
+    db.commit()
+    return _admin_shift_inspection_payload(entry)
+
+
+@app.post("/api/admin/shift-inspections/{inspection_id}/review", response_model=AdminShiftInspectionPayload)
+def review_admin_shift_inspection(
+    inspection_id: str,
+    payload: AdminShiftInspectionReviewRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> AdminShiftInspectionPayload:
+    _ensure_staff_role(session_data, {"owner"})
+    return _apply_admin_shift_review(
+        db,
+        inspection_id,
+        action=payload.action,
+        issue_note=payload.issueNote,
+        owner_actor_id=session_data["actorId"],
+    )
 
 
 @app.post("/api/expenses", response_model=ExpensePayload)

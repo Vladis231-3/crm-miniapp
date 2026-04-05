@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type EmployeeSetting, type PayrollEntryKind } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind } from '../../context/AppContext';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
@@ -56,7 +56,7 @@ const STATUS_BADGE: Record<BookingStatus, string> = {
 const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
-type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll';
+type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift';
 type EditModalMode = 'edit' | 'reschedule';
 
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
@@ -82,6 +82,7 @@ export function AdminApp() {
     markNotificationRead,
     activeSessions,
     workers,
+    stockItems,
     services: liveServices,
     boxes: liveBoxes,
     schedule: liveSchedule,
@@ -93,6 +94,8 @@ export function AdminApp() {
     saveAdminNotificationSettings,
     saveAdminWorkerPayroll,
     createPayrollEntry,
+    listAdminShiftInspections,
+    submitAdminShiftInspection,
     createTelegramLinkCode,
     deleteClient,
     changePassword,
@@ -146,6 +149,17 @@ export function AdminApp() {
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [payrollSettings, setPayrollSettings] = useState<EmployeeSetting[]>([]);
+  const [shiftInspections, setShiftInspections] = useState<AdminShiftInspection[]>([]);
+  const [shiftDraft, setShiftDraft] = useState({
+    clothsReady: false,
+    note: '',
+    floorPhotoUrl: '',
+  });
+  const [shiftSupplyChecks, setShiftSupplyChecks] = useState<Record<string, boolean>>({});
+  const [shiftMasterChecks, setShiftMasterChecks] = useState<Record<string, boolean>>({});
+  const [shiftPhotoName, setShiftPhotoName] = useState('');
+  const [shiftSubmitting, setShiftSubmitting] = useState(false);
+  const [shiftError, setShiftError] = useState<string | null>(null);
 
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
@@ -207,6 +221,19 @@ export function AdminApp() {
       void refreshActiveSessions();
     }
   }, [page, settingsSection]);
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'shift') {
+      void listAdminShiftInspections().then(setShiftInspections);
+      setShiftSupplyChecks(
+        Object.fromEntries(
+          stockItems
+            .filter((item) => item.category === 'Химия' || item.category === 'Расходники')
+            .map((item) => [item.id, false]),
+        ),
+      );
+      setShiftMasterChecks(Object.fromEntries(masterWorkers.map((worker) => [worker.id, false])));
+    }
+  }, [page, settingsSection, stockItems.length, masterWorkers.length]);
 
   const adminNotifications = notifications.filter(n => n.recipientRole === 'admin');
   const unreadCount = adminNotifications.filter(n => !n.read).length;
@@ -268,6 +295,7 @@ export function AdminApp() {
 
   const avgCheck = completedAll.length > 0 ? Math.round(totalRevenue / completedAll.length) : 0;
   const conversionRate = bookings.length > 0 ? Math.round((completedAll.length / bookings.length) * 100) : 0;
+  const shiftSupplies = stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники');
   const scheduleSummary = schedule.filter((day) => day.active).map((day) => `${day.day} ${day.open}-${day.close}`).join(' · ') || 'График не задан';
   const revenueData = getLastNDates(7).map((date) => {
     const formatted = formatDate(date);
@@ -302,6 +330,42 @@ export function AdminApp() {
       });
     } finally {
       setSavingClientId(null);
+    }
+  };
+
+  const handleShiftPhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Не удалось прочитать фото'));
+      reader.readAsDataURL(file);
+    });
+    setShiftDraft((current) => ({ ...current, floorPhotoUrl: dataUrl }));
+    setShiftPhotoName(file.name);
+  };
+
+  const handleSubmitShiftInspection = async () => {
+    setShiftError(null);
+    setShiftSubmitting(true);
+    try {
+      const saved = await submitAdminShiftInspection({
+        floorPhotoUrl: shiftDraft.floorPhotoUrl,
+        clothsReady: shiftDraft.clothsReady,
+        note: shiftDraft.note,
+        supplies: shiftSupplies.map((item) => ({ stockItemId: item.id, checked: !!shiftSupplyChecks[item.id] })),
+        masters: masterWorkers.map((worker) => ({ workerId: worker.id, checked: !!shiftMasterChecks[worker.id] })),
+      });
+      setShiftInspections((current) => [saved, ...current]);
+      setShiftDraft({ clothsReady: false, note: '', floorPhotoUrl: '' });
+      setShiftSupplyChecks(Object.fromEntries(shiftSupplies.map((item) => [item.id, false])));
+      setShiftMasterChecks(Object.fromEntries(masterWorkers.map((worker) => [worker.id, false])));
+      setShiftPhotoName('');
+    } catch (error) {
+      setShiftError(error instanceof Error ? error.message : 'Не удалось отправить чек-лист смены');
+    } finally {
+      setShiftSubmitting(false);
     }
   };
 
@@ -844,6 +908,7 @@ export function AdminApp() {
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
                 { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
+                { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#0EA5E9' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#A855F7' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#EF4444' },
@@ -890,6 +955,97 @@ export function AdminApp() {
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить цены'}
               </button>
+            </motion.div>
+          )}
+
+          {page === 'settings' && settingsSection === 'shift' && (
+            <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-1">Открытие смены</h2>
+              <p className={`text-xs ${sub} mb-4`}>Перед стартом смены нужно отметить расходники, чистые тряпки, мастеров на смене и приложить фото пола</p>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-medium mb-3">Фото пола</div>
+                <label className={`block rounded-2xl border border-dashed px-4 py-5 text-center ${isDark ? 'border-white/15' : 'border-black/10'}`}>
+                  <input type="file" accept="image/*" className="hidden" onChange={(event) => { void handleShiftPhotoChange(event); }} />
+                  <div className="text-sm font-medium">{shiftPhotoName || 'Загрузить фото пола'}</div>
+                  <div className={`text-xs ${sub} mt-1`}>Фото уйдёт владельцу в Telegram на подтверждение</div>
+                </label>
+                {shiftDraft.floorPhotoUrl && (
+                  <img src={shiftDraft.floorPhotoUrl} alt="Фото пола" className="mt-3 h-40 w-full rounded-2xl object-cover" />
+                )}
+              </div>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-medium mb-3">Расходники и химия в наличии</div>
+                <div className="space-y-2">
+                  {shiftSupplies.map((item) => (
+                    <label key={item.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                      <div>
+                        <div className="text-sm font-medium">{item.name}</div>
+                        <div className={`text-xs ${sub}`}>{item.category} · {item.qty} {item.unit}</div>
+                      </div>
+                      <input type="checkbox" checked={!!shiftSupplyChecks[item.id]} onChange={(event) => setShiftSupplyChecks((current) => ({ ...current, [item.id]: event.target.checked }))} className="h-4 w-4" />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-medium mb-3">Мастера на смене</div>
+                <div className="space-y-2">
+                  {masterWorkers.map((worker) => (
+                    <label key={worker.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                      <div>
+                        <div className="text-sm font-medium">{worker.name}</div>
+                        <div className={`text-xs ${sub}`}>{worker.specialty || 'Мастер смены'}</div>
+                      </div>
+                      <input type="checkbox" checked={!!shiftMasterChecks[worker.id]} onChange={(event) => setShiftMasterChecks((current) => ({ ...current, [worker.id]: event.target.checked }))} className="h-4 w-4" />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <label className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-sm font-medium">Чистые тряпки подготовлены</div>
+                    <div className={`text-xs ${sub}`}>Без этой отметки открыть смену нельзя</div>
+                  </div>
+                  <input type="checkbox" checked={shiftDraft.clothsReady} onChange={(event) => setShiftDraft((current) => ({ ...current, clothsReady: event.target.checked }))} className="h-4 w-4" />
+                </label>
+                <textarea
+                  className={`${inputCls} min-h-[88px] resize-none`}
+                  placeholder="Комментарий для владельца"
+                  value={shiftDraft.note}
+                  onChange={(event) => setShiftDraft((current) => ({ ...current, note: event.target.value }))}
+                />
+                {shiftError && <div className="mt-3 text-xs text-red-500">{shiftError}</div>}
+                <button onClick={() => { void handleSubmitShiftInspection(); }} disabled={shiftSubmitting} className="mt-3 w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: primary }}>
+                  {shiftSubmitting ? 'Отправляем владельцу...' : 'Начать смену и отправить владельцу'}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {shiftInspections.map((inspection) => (
+                  <div key={inspection.id} className={`${glass} rounded-2xl p-4`}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <div className="font-medium">
+                          {inspection.status === 'pending' ? 'Ожидает подтверждения владельца' : inspection.status === 'approved' ? 'Смена подтверждена' : 'Смена отклонена'}
+                        </div>
+                        <div className={`text-xs ${sub}`}>{inspection.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                      <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${inspection.status === 'pending' ? 'bg-amber-500/15 text-amber-600' : inspection.status === 'approved' ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
+                        {inspection.status === 'pending' ? 'На проверке' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказ'}
+                      </div>
+                    </div>
+                    <div className={`text-xs ${sub}`}>Мастера: {inspection.masters.filter((item) => item.checked).map((item) => item.workerName).join(', ') || 'Не выбраны'}</div>
+                    <div className={`text-xs ${sub} mt-1`}>Расходники: {inspection.supplies.filter((item) => item.checked).map((item) => item.name).join(', ') || 'Не отмечены'}</div>
+                    {inspection.issueNote && <div className="mt-2 text-xs text-red-500">Проблема: {inspection.issueNote}</div>}
+                  </div>
+                ))}
+              </div>
             </motion.div>
           )}
 

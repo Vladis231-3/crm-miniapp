@@ -301,6 +301,61 @@ class ShiftChecklistSubmitRequest(BaseModel):
     items: list[ShiftChecklistSubmitItem] = Field(default_factory=list)
 
 
+class AdminShiftInspectionSupplyPayload(BaseModel):
+    stockItemId: str
+    name: str
+    category: str
+    unit: str
+    qty: int = Field(ge=0)
+    checked: bool = False
+
+
+class AdminShiftInspectionMasterPayload(BaseModel):
+    workerId: str
+    workerName: str
+    checked: bool = False
+
+
+class AdminShiftInspectionPayload(BaseModel):
+    id: str
+    adminId: str
+    adminName: str
+    status: Literal["pending", "approved", "rejected"]
+    createdAt: datetime
+    reviewedAt: datetime | None = None
+    floorPhotoUrl: str
+    clothsReady: bool = False
+    suppliesChecked: bool = False
+    note: str = ""
+    issueNote: str = ""
+    ownerDecisionBy: str | None = None
+    supplies: list[AdminShiftInspectionSupplyPayload] = Field(default_factory=list)
+    masters: list[AdminShiftInspectionMasterPayload] = Field(default_factory=list)
+
+
+class AdminShiftInspectionSubmitSupply(BaseModel):
+    stockItemId: str
+    checked: bool = False
+
+
+class AdminShiftInspectionSubmitMaster(BaseModel):
+    workerId: str
+    checked: bool = False
+
+
+class AdminShiftInspectionSubmitRequest(BaseModel):
+    floorPhotoUrl: str = Field(min_length=10)
+    clothsReady: bool
+    supplies: list[AdminShiftInspectionSubmitSupply] = Field(default_factory=list)
+    masters: list[AdminShiftInspectionSubmitMaster] = Field(default_factory=list)
+    note: str = ""
+
+
+class AdminShiftInspectionReviewRequest(BaseModel):
+    action: Literal["approved", "rejected"]
+    issueNote: str = ""
+
+
 class ExpensePayload(BaseModel):
     id: str
     title: str
