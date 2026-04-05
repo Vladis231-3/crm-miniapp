@@ -963,7 +963,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function saveServices(nextServices: Service[]) {
-    setServices(await apiRequest<Service[]>('/api/settings/services', { method: 'PUT', body: nextServices }));
+    await apiRequest<Service[]>('/api/settings/services', { method: 'PUT', body: nextServices });
+    await refreshBootstrap();
   }
 
   async function saveBoxes(nextBoxes: Box[]) {

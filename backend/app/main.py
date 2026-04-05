@@ -2307,6 +2307,42 @@ def _notify_workers_about_note(db: Session, booking: Booking, worker_ids: set[st
         _send_telegram_safe(worker.telegram_chat_id, text)
 
 
+def _notify_workers_about_reschedule(
+    db: Session,
+    booking: Booking,
+    worker_ids: set[str],
+    previous_date: str,
+    previous_time: str,
+    previous_box: str,
+) -> None:
+    if not worker_ids:
+        return
+    workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
+    old_slot = f"{_booking_datetime_label(previous_date, previous_time)} · {previous_box}"
+    new_slot = f"{_booking_datetime_label(booking.date, booking.time)} · {booking.box}"
+    for worker in workers:
+        text = (
+            "Администратор перенёс вашу запись\n"
+            f"Клиент: {booking.client_name}\n"
+            f"Услуга: {booking.service}\n"
+            f"Было: {old_slot}\n"
+            f"Стало: {new_slot}"
+        )
+        if booking.notes:
+            text += f"\nПримечание администратора: {booking.notes}"
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="worker",
+                recipient_id=worker.id,
+                message=text,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        _send_telegram_safe(worker.telegram_chat_id, text)
+
+
 @app.get("/api/health", response_model=GenericMessage)
 def health() -> GenericMessage:
     return GenericMessage(message="ok")
@@ -3147,12 +3183,26 @@ def update_booking(
 
     db.commit()
     db.refresh(booking)
+    current_worker_ids = {link.worker_id for link in booking.worker_links}
     if payload.workers is not None and session_data["role"] in {"admin", "owner"}:
-        current_worker_ids = {link.worker_id for link in booking.worker_links}
         if payload.notifyWorkers:
             _notify_workers_about_assignment(db, booking, current_worker_ids - previous_worker_ids)
+    rescheduled = booking.date != previous_date or booking.time != previous_time or booking.box != previous_box
+    wrote_worker_notifications = False
+    if session_data["role"] in {"admin", "owner"} and rescheduled:
+        _notify_workers_about_reschedule(
+            db,
+            booking,
+            current_worker_ids,
+            previous_date,
+            previous_time,
+            previous_box,
+        )
+        wrote_worker_notifications = True
     if session_data["role"] in {"admin", "owner"} and (booking.notes or "").strip() != previous_note:
-        _notify_workers_about_note(db, booking, {link.worker_id for link in booking.worker_links})
+        _notify_workers_about_note(db, booking, current_worker_ids)
+        wrote_worker_notifications = True
+    if wrote_worker_notifications:
         db.commit()
     return _booking_payload_for_response(db, booking)
 

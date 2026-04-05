@@ -149,6 +149,26 @@ export function AdminApp() {
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
+  useEffect(() => {
+    if (!newBookingForm.serviceId) return;
+    const selectedService = liveServices.find((service) => service.id === newBookingForm.serviceId);
+    if (!selectedService) return;
+    setNewBookingForm((current) => {
+      if (
+        current.service === selectedService.name
+        && current.price === selectedService.price
+        && current.duration === selectedService.duration
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        service: selectedService.name,
+        price: selectedService.price,
+        duration: selectedService.duration,
+      };
+    });
+  }, [liveServices, newBookingForm.serviceId]);
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
   useEffect(() => setProfile(settings.adminProfile), [settings.adminProfile]);
   useEffect(() => {

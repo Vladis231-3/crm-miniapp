@@ -1824,6 +1824,73 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["workers"][0]["workerId"], "w1")
+
+    def test_admin_reschedule_notifies_assigned_worker(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Notification, StaffUser
+
+        admin_token = self.login_staff("admin", "admin")
+        with SessionLocal() as db:
+            worker = db.scalar(select(StaffUser).where(StaffUser.id == "w1"))
+            self.assertIsNotNone(worker)
+            assert worker is not None
+            worker.telegram_chat_id = "777888999"
+            db.commit()
+
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Reschedule Client",
+                "clientPhone": "+7 (999) 444-55-66",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": self.next_active_date(),
+                "time": "11:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "confirmed",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Kia Rio",
+                "plate": "A111AA",
+                "notifyWorkers": False,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+
+        sent_messages: list[tuple[str | int, str]] = []
+
+        def fake_send_message(chat_id: str | int, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            next_day = (datetime.strptime(self.next_active_date(), "%d.%m.%Y") + timedelta(days=1)).strftime("%d.%m.%Y")
+            update_response = self.client.patch(
+                f"/api/bookings/{booking_id}",
+                headers=self.auth_headers(admin_token),
+                json={
+                    "date": next_day,
+                    "time": "14:30",
+                    "box": "Бокс 2",
+                    "notes": "Перенос по звонку клиента",
+                },
+            )
+        self.assertEqual(update_response.status_code, 200, update_response.text)
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification)
+                .where(Notification.recipient_role == "worker", Notification.recipient_id == "w1")
+                .order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any("перенёс вашу запись" in item.message for item in notifications))
+        self.assertTrue(any("Было:" in item.message and "Стало:" in item.message for item in notifications))
+        self.assertTrue(any(chat_id == "777888999" and "перенёс вашу запись" in text for chat_id, text in sent_messages))
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None
