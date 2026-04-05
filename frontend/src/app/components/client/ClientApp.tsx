@@ -205,6 +205,8 @@ export function ClientApp() {
   const primaryBtn = isDark ? 'bg-[#4AA8FF] text-white' : 'bg-[#0A84FF] text-white';
   const secondaryBtn = isDark ? 'bg-white/10 text-[#E6EEF8] border border-white/20' : 'bg-white text-[#0B1226] border border-black/10';
   const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
+  const availableSlotCards = slotCards.filter((slot) => slot.available).length;
+  const occupiedSlotCards = slotCards.filter((slot) => !slot.available).length;
 
   const handleAddToCalendar = () => {
     setCalendarAnim(true);
@@ -520,6 +522,54 @@ export function ClientApp() {
                   </button>
                 ))}
               </div>
+              {selectedServiceIsBoxRental && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className={`text-sm font-medium ${text}`}>Длительность аренды</div>
+                      <div className={`text-xs ${sub} mt-1`}>
+                        Выберите, на сколько часов нужен бокс. Занятость ниже пересчитывается сразу.
+                      </div>
+                    </div>
+                    <div
+                      className="shrink-0 rounded-2xl px-3 py-2 text-right"
+                      style={{ background: `${primary}15`, color: primary }}
+                    >
+                      <div className="text-base font-semibold">{boxRentalHours} ч</div>
+                      <div className="text-[11px]">{selectedPrice.toLocaleString('ru')} ₽</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => {
+                      const selected = boxRentalHours === hours;
+                      return (
+                        <button
+                          key={hours}
+                          onClick={() => setBoxRentalHours(hours)}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${selected ? 'text-white' : glass}`}
+                          style={selected ? { background: primary } : {}}
+                        >
+                          {hours} ч
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl px-3 py-2`}>
+                      <div className={`text-[11px] ${sub}`}>Длительность</div>
+                      <div className="text-sm font-semibold mt-1">{selectedDuration} мин</div>
+                    </div>
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl px-3 py-2`}>
+                      <div className={`text-[11px] ${sub}`}>Свободно</div>
+                      <div className="text-sm font-semibold mt-1">{availableSlotCards}</div>
+                    </div>
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl px-3 py-2`}>
+                      <div className={`text-[11px] ${sub}`}>Занято</div>
+                      <div className="text-sm font-semibold mt-1">{occupiedSlotCards}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <h3 className={`text-sm font-medium ${sub} mb-3`}>Доступное время</h3>
               <div className={`${glass} rounded-2xl p-3 mb-4`}>
                 <div className={`text-xs ${sub}`}>Часы работы на {selectedDate || formatDate(new Date())}</div>
@@ -542,8 +592,8 @@ export function ClientApp() {
                       : slot.available
                         ? glass
                         : isDark
-                          ? 'bg-red-500/10 border border-red-500/30 text-red-200'
-                          : 'bg-red-50 border border-red-200 text-red-700';
+                          ? 'bg-red-500/15 border border-red-400/50 text-red-100 shadow-[0_0_0_1px_rgba(248,113,113,0.25)]'
+                          : 'bg-red-50 border-2 border-red-300 text-red-800 shadow-[0_8px_24px_rgba(239,68,68,0.12)]';
                     return (
                       <motion.button
                         key={slot.time}
@@ -554,10 +604,13 @@ export function ClientApp() {
                         }}
                         whileTap={slot.available ? { scale: 0.96 } : undefined}
                         animate={{ scale: selected ? 1.03 : 1 }}
-                        className={`rounded-2xl p-3 text-left transition-all ${slotClass}`}
+                        className={`rounded-2xl p-3 text-left transition-all ${slotClass} ${slot.available ? '' : 'relative overflow-hidden cursor-not-allowed'}`}
                         style={selected ? { background: primary } : {}}
                         disabled={!slot.available}
                       >
+                        {!slot.available && (
+                          <div className={`absolute inset-x-0 top-0 h-1 ${isDark ? 'bg-red-400/80' : 'bg-red-500'}`} />
+                        )}
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="text-base font-semibold">{slot.time}</div>
@@ -566,6 +619,11 @@ export function ClientApp() {
                                 ? `Свободно боксов: ${slot.freeBoxes}`
                                 : `Занято боксов: ${slot.occupiedBoxes}`}
                             </div>
+                            {!slot.available && (
+                              <div className={`mt-2 text-[11px] font-medium ${isDark ? 'text-red-100' : 'text-red-700'}`}>
+                                Это окно уже занято на выбранные {boxRentalHours} ч
+                              </div>
+                            )}
                           </div>
                           <span
                             className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
@@ -576,8 +634,8 @@ export function ClientApp() {
                                     ? 'bg-emerald-500/15 text-emerald-300'
                                     : 'bg-emerald-50 text-emerald-700'
                                   : isDark
-                                    ? 'bg-red-500/15 text-red-200'
-                                    : 'bg-red-100 text-red-700'
+                                    ? 'bg-red-500/25 text-red-100 border border-red-400/40'
+                                    : 'bg-red-100 text-red-800 border border-red-200'
                             }`}
                           >
                             {slot.available ? 'Можно записаться' : 'Занято'}

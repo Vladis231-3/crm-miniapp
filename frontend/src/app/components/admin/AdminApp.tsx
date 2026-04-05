@@ -57,6 +57,7 @@ const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing';
+type EditModalMode = 'edit' | 'reschedule';
 
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
   return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
@@ -107,6 +108,7 @@ export function AdminApp() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [editModalMode, setEditModalMode] = useState<EditModalMode>('edit');
   const [saveSuccess, setSaveSuccess] = useState<'notify' | 'silent' | null>(null);
   const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
@@ -321,7 +323,7 @@ export function AdminApp() {
     resetNewBookingDraft();
   };
 
-  const openEditModal = (booking: Booking) => {
+  const openEditModal = (booking: Booking, mode: EditModalMode = 'edit') => {
     setEditBookingDraft({
       status: booking.status,
       date: booking.date || todayLabel,
@@ -331,6 +333,7 @@ export function AdminApp() {
     });
     setEditBookingError(null);
     setEditBookingSaving(false);
+    setEditModalMode(mode);
     setShowEditModal(true);
   };
 
@@ -1095,7 +1098,10 @@ export function AdminApp() {
                   )) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => openEditModal(selectedBooking)} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} />Редактировать</button>
+                  <button onClick={() => openEditModal(selectedBooking, 'edit')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} />Редактировать</button>
+                  {!['completed', 'cancelled', 'no_show'].includes(selectedBooking.status) && (
+                    <button onClick={() => openEditModal(selectedBooking, 'reschedule')} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-blue-500/15 text-blue-600"><Clock size={15} />Перенести</button>
+                  )}
                   {READY_TO_START_STATUSES.includes(selectedBooking.status) && (
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} />Начать</button>
                   )}
@@ -1216,10 +1222,15 @@ export function AdminApp() {
               className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Редактировать запись</h3>
+                <h3 className="font-semibold">{editModalMode === 'reschedule' ? 'Перенести запись' : 'Редактировать запись'}</h3>
                 <button onClick={() => setShowEditModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
+                {editModalMode === 'reschedule' && (
+                  <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
+                    Перенос меняет дату, время и бокс клиента без отмены записи.
+                  </div>
+                )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Статус</label>
                   <select
@@ -1308,7 +1319,7 @@ export function AdminApp() {
                 className="w-full py-3 rounded-xl text-sm text-white font-medium disabled:opacity-60"
                 style={{ background: primary }}
               >
-                {editBookingSaving ? 'Сохраняем...' : 'Сохранить'}
+                {editBookingSaving ? 'Сохраняем...' : editModalMode === 'reschedule' ? 'Перенести запись' : 'Сохранить'}
               </button>
             </motion.div>
           </motion.div>
