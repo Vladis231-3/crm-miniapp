@@ -638,7 +638,7 @@ export function ClientApp() {
                                     : 'bg-red-100 text-red-800 border border-red-200'
                             }`}
                           >
-                            {slot.available ? 'Можно записаться' : 'Занято'}
+                            {slot.available ? 'Свободно' : 'Занято'}
                           </span>
                         </div>
                       </motion.button>

@@ -1608,6 +1608,57 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(owner_workers[worker_payload["id"]]["role"], "worker")
         self.assertEqual(owner_workers[worker_payload["id"]]["telegramChatId"], "801002")
 
+    def test_owner_can_rehire_employee_with_same_telegram_after_dismissal(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        create_worker = self.client.post(
+            "/api/workers",
+            headers=self.auth_headers(owner_token),
+            json={
+                "role": "worker",
+                "name": "Repeat Master",
+                "login": "repeatmaster",
+                "password": "workerpass",
+                "percent": 35,
+                "salaryBase": 15000,
+                "phone": "+7 (999) 555-77-88",
+                "email": "repeatmaster@example.com",
+                "telegramChatId": "909001",
+            },
+        )
+        self.assertEqual(create_worker.status_code, 200, create_worker.text)
+        first_worker = create_worker.json()
+
+        dismiss_response = self.client.delete(
+            f"/api/workers/{first_worker['id']}",
+            headers=self.auth_headers(owner_token),
+        )
+        self.assertEqual(dismiss_response.status_code, 200, dismiss_response.text)
+
+        dismissed_record = self.get_staff(staff_id=first_worker["id"])
+        self.assertEqual(dismissed_record["role"], "dismissed_worker")
+        self.assertEqual(dismissed_record["telegram_chat_id"], "")
+
+        rehire_response = self.client.post(
+            "/api/workers",
+            headers=self.auth_headers(owner_token),
+            json={
+                "role": "worker",
+                "name": "Repeat Master 2",
+                "login": "repeatmaster2",
+                "password": "workerpass2",
+                "percent": 30,
+                "salaryBase": 18000,
+                "phone": "+7 (999) 555-88-99",
+                "email": "repeatmaster2@example.com",
+                "telegramChatId": "909001",
+            },
+        )
+        self.assertEqual(rehire_response.status_code, 200, rehire_response.text)
+        rehired_worker = rehire_response.json()
+        self.assertEqual(rehired_worker["telegramChatId"], "909001")
+
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None

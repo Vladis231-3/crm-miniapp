@@ -3793,6 +3793,7 @@ def fire_worker(
     worker.role = dismissed_role
     worker.active = False
     worker.available = False
+    worker.telegram_chat_id = ""
     worker.login = f"dismissed_{worker.id[-6:]}_{uuid4().hex[:8]}"
     worker.two_factor_code_hash = None
     worker.two_factor_expires_at = None

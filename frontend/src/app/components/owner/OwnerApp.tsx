@@ -147,6 +147,7 @@ export function OwnerApp() {
     email: '',
     telegramChatId: '',
   });
+  const [employeeActionLoading, setEmployeeActionLoading] = useState<null | { type: 'hire' | 'fire'; workerId?: string }>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayLabel);
   const [clientSearch, setClientSearch] = useState('');
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string }>>({});
@@ -345,39 +346,47 @@ export function OwnerApp() {
     const name = newEmployee.name.trim();
     const login = newEmployee.login.trim();
     const password = newEmployee.password.trim();
-    const employeeLabel = newEmployee.role === 'admin' ? 'Администратор' : 'Мастер';
+    const employeeLabel = newEmployee.role === 'admin' ? '\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440' : '\u041c\u0430\u0441\u0442\u0435\u0440';
 
     if (!name || !login || !password) {
-      setBottomToast('Заполните имя, логин и пароль сотрудника');
+      setBottomToast('\u0417\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0438\u043c\u044f, \u043b\u043e\u0433\u0438\u043d \u0438 \u043f\u0430\u0440\u043e\u043b\u044c \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
 
-    await hireWorker({
-      role: newEmployee.role,
-      name,
-      login,
-      password,
-      percent: newEmployee.percent,
-      salaryBase: newEmployee.salaryBase,
-      phone: newEmployee.phone.trim(),
-      email: newEmployee.email.trim(),
-      telegramChatId: newEmployee.telegramChatId.trim(),
-    });
+    try {
+      setEmployeeActionLoading({ type: 'hire' });
+      await hireWorker({
+        role: newEmployee.role,
+        name,
+        login,
+        password,
+        percent: newEmployee.percent,
+        salaryBase: newEmployee.salaryBase,
+        phone: newEmployee.phone.trim(),
+        email: newEmployee.email.trim(),
+        telegramChatId: newEmployee.telegramChatId.trim(),
+      });
 
-    setNewEmployee({
-      role: 'worker',
-      name: '',
-      login: '',
-      password: '',
-      percent: 40,
-      salaryBase: 0,
-      phone: '',
-      email: '',
-      telegramChatId: '',
-    });
-    setBottomToast(`Сотрудник ${name} добавлен. Логин: ${login}`);
-    setTimeout(() => setBottomToast(null), 4000);
+      setNewEmployee({
+        role: 'worker',
+        name: '',
+        login: '',
+        password: '',
+        percent: 40,
+        salaryBase: 0,
+        phone: '',
+        email: '',
+        telegramChatId: '',
+      });
+      setBottomToast(`${employeeLabel} ${name} \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d. \u041b\u043e\u0433\u0438\u043d: ${login}`);
+      setTimeout(() => setBottomToast(null), 4000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : `\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c ${employeeLabel.toLowerCase()}`);
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setEmployeeActionLoading(null);
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -526,8 +535,8 @@ export function OwnerApp() {
     if (!stockForm.name || !stockForm.qty) return;
     addStockItem({ name: stockForm.name, qty: Number(stockForm.qty), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice), category: stockForm.category });
     setShowAddStock(false);
-    setStockForm({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
-    setBottomToast(`Товар "${stockForm.name}" добавлен на склад`);
+    setStockForm({ name: '', qty: '', unit: '\u0448\u0442', unitPrice: '', category: STOCK_CATEGORIES[0] });
+    setBottomToast(`\u0422\u043e\u0432\u0430\u0440 "${stockForm.name}" \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u043d\u0430 \u0441\u043a\u043b\u0430\u0434`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
@@ -659,13 +668,21 @@ export function OwnerApp() {
 
   const handleFireWorker = async (workerId: string, workerName: string) => {
     const employee = employeeSettings.find((item) => item.id === workerId);
-    const employeeTitle = employee?.role === 'admin' ? 'Администратор' : 'Мастер';
-    const confirmed = window.confirm(`Уволить мастера "${workerName}"? Доступ будет отключён, а будущие записи снимутся с мастера.`);
+    const employeeTitle = employee?.role === 'admin' ? '\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440' : '\u041c\u0430\u0441\u0442\u0435\u0440';
+    const confirmed = window.confirm(`\u0423\u0432\u043e\u043b\u0438\u0442\u044c \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430 "${workerName}"? \u0414\u043e\u0441\u0442\u0443\u043f \u0431\u0443\u0434\u0435\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0451\u043d, \u0430 \u0431\u0443\u0434\u0443\u0449\u0438\u0435 \u0437\u0430\u043f\u0438\u0441\u0438 \u0441\u043d\u0438\u043c\u0443\u0442\u0441\u044f \u0441 \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430.`);
     if (!confirmed) return;
-    await fireWorker(workerId);
-    window.setTimeout(() => setBottomToast(`${employeeTitle} ${workerName} уволен`), 0);
-    setBottomToast(`Мастер ${workerName} уволен`);
-    setTimeout(() => setBottomToast(null), 3000);
+
+    try {
+      setEmployeeActionLoading({ type: 'fire', workerId });
+      await fireWorker(workerId);
+      setBottomToast(`${employeeTitle} ${workerName} \u0443\u0432\u043e\u043b\u0435\u043d`);
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : `\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0443\u0432\u043e\u043b\u0438\u0442\u044c ${employeeTitle.toLowerCase()}`);
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setEmployeeActionLoading(null);
+    }
   };
 
   const handleCreateBooking = async () => {
@@ -767,7 +784,7 @@ export function OwnerApp() {
         count: bookings.filter((booking) => booking.box === box.name).length,
         revenue: boxBookings.reduce((sum, booking) => sum + booking.price, 0),
       };
-    });
+      });
   const workerEfficiencyData = workers
     .filter((worker) => worker.active)
     .map((worker) => {
@@ -1799,7 +1816,7 @@ export function OwnerApp() {
                     <input className={inputCls} type="number" min={0} value={newEmployee.salaryBase} onChange={e => setNewEmployee(p => ({ ...p, salaryBase: Math.max(0, +e.target.value) }))} />
                   </div>
                 </div>
-                <button onClick={() => void handleHireWorker()} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-3" style={{ background: accent }}>
+                <button onClick={() => void handleHireWorker()} disabled={employeeActionLoading?.type === 'hire'} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-3 disabled:opacity-60" style={{ background: accent }}>
                   <Plus size={16} />
                   Нанять сотрудника
                 </button>
@@ -1821,8 +1838,9 @@ export function OwnerApp() {
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${emp.active ? 'left-6' : 'left-1'}`} />
                       </button>
                       <button
+                        disabled={employeeActionLoading?.type === 'fire' && employeeActionLoading.workerId === emp.id}
                         onClick={() => { void handleFireWorker(emp.id, emp.name); }}
-                        className="px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 border border-red-500/20 bg-red-500/10"
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 border border-red-500/20 bg-red-500/10 disabled:opacity-60"
                       >
                         Уволить
                       </button>
