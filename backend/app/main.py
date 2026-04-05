@@ -2251,6 +2251,20 @@ def _notify_booking_completion_receipt(db: Session, booking: Booking, *, worker_
         _send_telegram_safe(admin.telegram_chat_id, message)
 
 
+def _notify_owner_about_worker_booking_event(db: Session, booking: Booking, *, worker_name: str, event_label: str) -> None:
+    _notify_owners(
+        db,
+        (
+            f"Мастер {event_label} работу по записи\n"
+            f"Мастер: {worker_name}\n"
+            f"Клиент: {booking.client_name}\n"
+            f"Услуга: {booking.service}\n"
+            f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
+            f"Бокс: {booking.box}"
+        ),
+    )
+
+
 def _notify_workers_about_assignment(db: Session, booking: Booking, worker_ids: set[str]) -> None:
     if not worker_ids:
         return
@@ -3202,6 +3216,14 @@ def update_booking(
     if session_data["role"] in {"admin", "owner"} and (booking.notes or "").strip() != previous_note:
         _notify_workers_about_note(db, booking, current_worker_ids)
         wrote_worker_notifications = True
+    if session_data["role"] == "worker" and worker is not None and booking.status != previous_status:
+        if booking.status == "in_progress":
+            _notify_owner_about_worker_booking_event(db, booking, worker_name=worker.name, event_label="начал")
+            wrote_worker_notifications = True
+        if booking.status == "completed":
+            _notify_owner_about_worker_booking_event(db, booking, worker_name=worker.name, event_label="завершил")
+            _notify_booking_completion_receipt(db, booking, worker_name=worker.name)
+            wrote_worker_notifications = True
     if wrote_worker_notifications:
         db.commit()
     return _booking_payload_for_response(db, booking)

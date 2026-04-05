@@ -1891,6 +1891,92 @@ class BookingLogicTests(unittest.TestCase):
         self.assertTrue(any("перенёс вашу запись" in item.message for item in notifications))
         self.assertTrue(any("Было:" in item.message and "Стало:" in item.message for item in notifications))
         self.assertTrue(any(chat_id == "777888999" and "перенёс вашу запись" in text for chat_id, text in sent_messages))
+
+    def test_worker_start_and_completion_notify_owner_and_send_receipt(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Client, Notification
+
+        self.disable_owner_two_factor()
+        self.set_primary_owner_telegram("123123123")
+        self.set_staff_telegram("admin", "456456456")
+        admin_token = self.login_staff("admin", "admin")
+        worker_token = self.login_staff("ivan", "master")
+        _client_token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
+
+        with SessionLocal() as db:
+            client = db.get(Client, client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            client.telegram_id = "999888777"
+            db.commit()
+
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": client_id,
+                "clientName": "Alice",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": self.next_active_date(),
+                "time": "12:00",
+                "duration": 30,
+                "price": 1500,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "card",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+                "notifyWorkers": False,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+
+        sent_messages: list[tuple[str | int, str]] = []
+
+        def fake_send_message(chat_id: str | int, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            start_response = self.client.patch(
+                f"/api/bookings/{booking_id}",
+                headers=self.auth_headers(worker_token),
+                json={"status": "in_progress"},
+            )
+            self.assertEqual(start_response.status_code, 200, start_response.text)
+
+            complete_response = self.client.patch(
+                f"/api/bookings/{booking_id}",
+                headers=self.auth_headers(worker_token),
+                json={"status": "completed", "price": 1800, "notes": "Сделали полную уборку салона"},
+            )
+            self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        with SessionLocal() as db:
+            owner_notifications = db.scalars(
+                select(Notification).where(Notification.recipient_role == "owner").order_by(Notification.created_at.desc())
+            ).all()
+            admin_notifications = db.scalars(
+                select(Notification).where(Notification.recipient_role == "admin").order_by(Notification.created_at.desc())
+            ).all()
+            client_notifications = db.scalars(
+                select(Notification)
+                .where(Notification.recipient_role == "client", Notification.recipient_id == client_id)
+                .order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any("Мастер начал работу по записи" in item.message for item in owner_notifications))
+        self.assertTrue(any("Мастер завершил работу по записи" in item.message for item in owner_notifications))
+        self.assertTrue(any("Чек по записи" in item.message for item in owner_notifications))
+        self.assertTrue(any("Чек по записи" in item.message for item in admin_notifications))
+        self.assertTrue(any("Чек по записи" in item.message for item in client_notifications))
+        self.assertTrue(any(chat_id == "123123123" and "Мастер начал работу по записи" in text for chat_id, text in sent_messages))
+        self.assertTrue(any(chat_id == "123123123" and "Чек по записи" in text for chat_id, text in sent_messages))
+        self.assertTrue(any(chat_id == "456456456" and "Чек по записи" in text for chat_id, text in sent_messages))
+        self.assertTrue(any(chat_id == "999888777" and "Чек по записи" in text for chat_id, text in sent_messages))
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None
