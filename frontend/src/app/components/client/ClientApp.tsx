@@ -88,6 +88,7 @@ export function ClientApp() {
   const [slotAvailability, setSlotAvailability] = useState<BookingSlotAvailability[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [boxRentalHours, setBoxRentalHours] = useState(1);
+  const [selectedBookingVehicleIndex, setSelectedBookingVehicleIndex] = useState(0);
   const [detailingNote, setDetailingNote] = useState('');
   const [profileForm, setProfileForm] = useState(clientProfile);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -147,6 +148,7 @@ export function ClientApp() {
     });
     setProfileErrors({});
     setProfileError('');
+    setSelectedBookingVehicleIndex(0);
   }, [clientProfile]);
 
   useEffect(() => {
@@ -201,6 +203,10 @@ export function ClientApp() {
     ? profileForm.vehicles
     : [{ car: profileForm.car || '', plate: profileForm.plate || '' }];
   const primaryProfileVehicle = profileVehicles[0] || { car: '', plate: '' };
+  const bookingVehicles = clientProfile.vehicles?.length
+    ? clientProfile.vehicles.filter((vehicle) => vehicle.car || vehicle.plate)
+    : (clientProfile.car || clientProfile.plate ? [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }] : []);
+  const selectedBookingVehicle = bookingVehicles[selectedBookingVehicleIndex] || bookingVehicles[0] || { car: clientProfile.car || '', plate: clientProfile.plate || '' };
 
   const glass = isDark
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
@@ -227,7 +233,7 @@ export function ClientApp() {
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
     if (!selectedServiceIsDetailing && !selectedSlot) return;
-    const primaryVehicle = clientProfile.vehicles?.[0] || { car: clientProfile.car, plate: clientProfile.plate };
+    const primaryVehicle = selectedBookingVehicle;
     const booking = await addBooking({
       clientId: session.actorId,
       clientName: clientProfile.name,
@@ -460,131 +466,24 @@ export function ClientApp() {
                     <div className="font-semibold">{selectedDuration} мин</div>
                     <div className={`text-xs ${sub}`}>Длительность</div>
                   </div>
-                  <div className={`${glass} rounded-2xl p-3`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs font-medium">Дополнительные автомобили</div>
-                      <button
-                        className="text-xs"
-                        style={{ color: primary }}
-                        onClick={() => setProfileForm((current) => ({ ...current, vehicles: [...(current.vehicles || [{ car: current.car || '', plate: current.plate || '' }]), { car: '', plate: '' }] }))}
-                      >
-                        Добавить
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {(profileForm.vehicles || []).slice(1).map((vehicle, index) => (
-                        <div key={`extra-${index}`} className="grid grid-cols-2 gap-2">
-                          <input
-                            className={inputCls}
-                            placeholder="Авто"
-                            value={vehicle.car}
-                            onChange={(e) => setProfileForm((current) => ({
-                              ...current,
-                              vehicles: (current.vehicles || []).map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, car: e.target.value } : item),
-                            }))}
-                          />
-                          <div className="flex gap-2">
-                            <input
-                              className={inputCls}
-                              placeholder="Номер"
-                              maxLength={6}
-                              value={vehicle.plate}
-                              onChange={(e) => setProfileForm((current) => ({
-                                ...current,
-                                vehicles: (current.vehicles || []).map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, plate: normalizePlateInput(e.target.value) } : item),
-                              }))}
-                            />
-                            <button
-                              className={`px-3 rounded-xl ${glass} text-red-500`}
-                              onClick={() => setProfileForm((current) => ({
-                                ...current,
-                                vehicles: (current.vehicles || []).filter((_, vehicleIndex) => vehicleIndex !== index + 1),
-                              }))}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {(profileForm.vehicles || []).length <= 1 && <div className={`text-xs ${sub}`}>Дополнительных автомобилей пока нет</div>}
-                    </div>
-                  </div>
-                  <div className={`${glass} rounded-2xl p-3`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="text-sm font-semibold">Еще автомобили</div>
-                        <div className={`text-xs ${sub}`}>Добавьте вторую или третью машину</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="text-xs font-medium"
-                        style={{ color: primary }}
-                        onClick={() => setProfileForm((current) => ({
-                          ...current,
-                          vehicles: [...(current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }]), { car: '', plate: '' }],
-                        }))}
-                      >
-                        + Добавить авто
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {(profileForm.vehicles?.length ? profileForm.vehicles : [{ car: profileForm.car || '', plate: profileForm.plate || '' }]).slice(1).map((vehicle, index) => (
-                        <div key={`extra-profile-vehicle-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                          <input
-                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                            placeholder="Автомобиль"
-                            value={vehicle.car}
-                            onChange={(e) => {
-                              const nextCar = e.target.value;
-                              setProfileForm((current) => {
-                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
-                                return {
-                                  ...current,
-                                  vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, car: nextCar } : item),
-                                };
-                              });
-                              setProfileError('');
-                            }}
-                          />
-                          <input
-                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                            placeholder="Госномер"
-                            maxLength={6}
-                            value={vehicle.plate}
-                            onChange={(e) => {
-                              const nextPlate = normalizePlateInput(e.target.value);
-                              setProfileForm((current) => {
-                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
-                                return {
-                                  ...current,
-                                  vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, plate: nextPlate } : item),
-                                };
-                              });
-                              setProfileError('');
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className={`px-3 rounded-xl ${glass} text-red-500 text-xs`}
-                            onClick={() => setProfileForm((current) => {
-                              const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
-                              return {
-                                ...current,
-                                vehicles: baseVehicles.filter((_, vehicleIndex) => vehicleIndex !== index + 1),
-                              };
-                            })}
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      ))}
-                      {((profileForm.vehicles?.length ? profileForm.vehicles : [{ car: profileForm.car || '', plate: profileForm.plate || '' }]).length <= 1) && (
-                        <div className={`text-xs ${sub}`}>Дополнительных автомобилей пока нет</div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
+              {bookingVehicles.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-sm font-medium mb-2 ${text}`}>Автомобиль для записи</div>
+                  <select
+                    value={selectedBookingVehicleIndex}
+                    onChange={(event) => setSelectedBookingVehicleIndex(Number(event.target.value))}
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
+                  >
+                    {bookingVehicles.map((vehicle, index) => (
+                      <option key={`booking-vehicle-${index}`} value={index}>
+                        {vehicle.car || 'Автомобиль'}{vehicle.plate ? ` ? ${vehicle.plate}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {selectedServiceIsBoxRental && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
                   <div className={`text-sm font-medium mb-3 ${text}`}>Сколько часов нужен бокс</div>
