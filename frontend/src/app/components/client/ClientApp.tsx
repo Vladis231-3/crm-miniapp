@@ -478,7 +478,7 @@ export function ClientApp() {
                   >
                     {bookingVehicles.map((vehicle, index) => (
                       <option key={`booking-vehicle-${index}`} value={index}>
-                        {vehicle.car || 'Автомобиль'}{vehicle.plate ? ` ? ${vehicle.plate}` : ''}
+                        {vehicle.car || '\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}{vehicle.plate ? ` - ${vehicle.plate}` : ''}
                       </option>
                     ))}
                   </select>
@@ -877,22 +877,110 @@ export function ClientApp() {
                     {profileErrors.phone && <div className="mt-1 text-xs text-red-500">{profileErrors.phone}</div>}
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Автомобиль</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={profileForm.car} onChange={(e) => {
-                      setProfileForm((current) => ({ ...current, car: e.target.value }));
+                    <label className={`text-xs ${sub} block mb-1`}>{'\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}</label>
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
+                      const nextCar = e.target.value;
+                      setProfileForm((current) => {
+                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                        return {
+                          ...current,
+                          car: nextCar,
+                          vehicles: baseVehicles.map((item, index) => index === 0 ? { ...item, car: nextCar } : item),
+                        };
+                      });
                       setProfileErrors((current) => ({ ...current, car: '' }));
                       setProfileError('');
                     }} />
                     {profileErrors.car && <div className="mt-1 text-xs text-red-500">{profileErrors.car}</div>}
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Госномер</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="У999УУ" maxLength={6} value={profileForm.plate} onChange={(e) => {
-                      setProfileForm((current) => ({ ...current, plate: normalizePlateInput(e.target.value) }));
+                    <label className={`text-xs ${sub} block mb-1`}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}</label>
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder={'\u0423' + '999' + '\u0423\u0423'} maxLength={6} value={primaryProfileVehicle.plate} onChange={(e) => {
+                      const nextPlate = normalizePlateInput(e.target.value);
+                      setProfileForm((current) => {
+                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                        return {
+                          ...current,
+                          plate: nextPlate,
+                          vehicles: baseVehicles.map((item, index) => index === 0 ? { ...item, plate: nextPlate } : item),
+                        };
+                      });
                       setProfileErrors((current) => ({ ...current, plate: '' }));
                       setProfileError('');
                     }} />
                     {profileErrors.plate && <div className="mt-1 text-xs text-red-500">{profileErrors.plate}</div>}
+                  </div>
+                  <div className={`${glass} rounded-2xl p-3`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="text-sm font-semibold">{'\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0430\u0432\u0442\u043e'}</div>
+                        <div className={`text-xs ${sub}`}>{'\u041c\u0430\u0440\u043a\u0430 \u0438 \u0433\u043e\u0441\u043d\u043e\u043c\u0435\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u0442\u0441\u044f \u0432 \u043f\u0440\u043e\u0444\u0438\u043b\u044c'}</div>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs font-medium"
+                        style={{ color: primary }}
+                        onClick={() => setProfileForm((current) => ({
+                          ...current,
+                          vehicles: [...(current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }]), { car: '', plate: '' }],
+                        }))}
+                      >
+                        + {'\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0430\u0432\u0442\u043e'}
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {profileVehicles.slice(1).map((vehicle, index) => (
+                        <div key={`profile-vehicle-${index + 1}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                          <input
+                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                            placeholder={'\u041c\u0430\u0440\u043a\u0430'}
+                            value={vehicle.car}
+                            onChange={(e) => {
+                              const nextCar = e.target.value;
+                              setProfileForm((current) => {
+                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                                return {
+                                  ...current,
+                                  vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, car: nextCar } : item),
+                                };
+                              });
+                              setProfileError('');
+                            }}
+                          />
+                          <input
+                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                            placeholder={'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}
+                            maxLength={6}
+                            value={vehicle.plate}
+                            onChange={(e) => {
+                              const nextPlate = normalizePlateInput(e.target.value);
+                              setProfileForm((current) => {
+                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                                return {
+                                  ...current,
+                                  vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, plate: nextPlate } : item),
+                                };
+                              });
+                              setProfileError('');
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className={`px-3 rounded-xl ${glass} text-red-500 text-xs`}
+                            onClick={() => setProfileForm((current) => {
+                              const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                              return {
+                                ...current,
+                                vehicles: baseVehicles.filter((_, vehicleIndex) => vehicleIndex !== index + 1),
+                              };
+                            })}
+                          >
+                            {'\u0423\u0434\u0430\u043b\u0438\u0442\u044c'}
+                          </button>
+                        </div>
+                      ))}
+                      {profileVehicles.length <= 1 && <div className={`text-xs ${sub}`}>{'\u0414\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0445 \u0430\u0432\u0442\u043e \u043f\u043e\u043a\u0430 \u043d\u0435\u0442'}</div>}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1069,3 +1157,4 @@ function BookingCard({
     </motion.div>
   );
 }
+
