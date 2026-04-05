@@ -2120,6 +2120,148 @@ class BookingLogicTests(unittest.TestCase):
         self.assertTrue(any("Alice" in item.message for item in notifications))
         self.assertTrue(any(chat_id == "456456456" and "Alice" in text for chat_id, text in sent_messages))
 
+    def test_owner_dispatches_return_visit_reminders_to_clients(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Booking, Notification
+
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+        auth_response = self.client.post(
+            "/api/auth/client",
+            json=self.client_auth_payload(
+                name="Alice",
+                phone="+7 (999) 111-22-33",
+                telegram_id="999888777",
+            ),
+        )
+        self.assertEqual(auth_response.status_code, 200, auth_response.text)
+        client_id = auth_response.json()["bootstrap"]["session"]["actorId"]
+
+        old_date = (datetime.now() - timedelta(days=20)).strftime("%d.%m.%Y")
+        with SessionLocal() as db:
+            booking = Booking(
+                id=f"b-{uuid4()}",
+                client_id=client_id,
+                client_name="Alice",
+                client_phone="+7 (999) 111-22-33",
+                service="Мойка базовая",
+                service_id="s1",
+                date=old_date,
+                time="12:00",
+                duration=30,
+                price=1200,
+                status="completed",
+                box="Бокс 1",
+                payment_type="cash",
+                notes="",
+                car="Lada Vesta",
+                plate="А123ВС",
+                created_at=datetime.now(timezone.utc) - timedelta(days=20),
+            )
+            db.add(booking)
+            db.commit()
+
+        sent_messages: list[tuple[str | int, str]] = []
+
+        def fake_send_message(chat_id: str | int, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            response = self.client.post(
+                "/api/owner/reminders/dispatch",
+                headers=self.auth_headers(owner_token),
+                json={"targetDate": self.next_active_date(), "force": True},
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["clientReminders"], 1)
+
+            repeated = self.client.post(
+                "/api/owner/reminders/dispatch",
+                headers=self.auth_headers(owner_token),
+                json={"targetDate": self.next_active_date(), "force": True},
+            )
+            self.assertEqual(repeated.status_code, 200, repeated.text)
+            self.assertEqual(repeated.json()["clientReminders"], 0)
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification)
+                .where(Notification.recipient_role == "client", Notification.recipient_id == client_id)
+                .order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any("давно не была чистой" in item.message for item in notifications))
+        self.assertTrue(any(chat_id == "999888777" and "Пора вернуться на мойку" in text for chat_id, text in sent_messages))
+
+    def test_worker_can_submit_shift_checklists_and_owner_can_review_them(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Notification
+
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+        worker_token = self.login_staff("ivan", "master")
+
+        for payload in (
+            {"name": "Активная пена", "qty": 20, "unit": "л", "unitPrice": 450, "category": "Химия"},
+            {"name": "Шампунь", "qty": 12, "unit": "л", "unitPrice": 380, "category": "Химия"},
+            {"name": "Перчатки", "qty": 30, "unit": "шт", "unitPrice": 25, "category": "Расходники"},
+        ):
+            response = self.client.post(
+                "/api/stock-items",
+                headers=self.auth_headers(owner_token),
+                json=payload,
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        start_response = self.client.post(
+            "/api/shift-checklists",
+            headers=self.auth_headers(worker_token),
+            json={
+                "phase": "start",
+                "note": "Принял склад без замечаний",
+                "items": [],
+            },
+        )
+        self.assertEqual(start_response.status_code, 200, start_response.text)
+        start_payload = start_response.json()
+        self.assertEqual(start_payload["phase"], "start")
+        self.assertEqual(len(start_payload["items"]), 2)
+
+        item_updates = [
+            {"stockItemId": item["stockItemId"], "actualQty": max(0, item["actualQty"] - 2)}
+            for item in start_payload["items"]
+        ]
+        end_response = self.client.post(
+            "/api/shift-checklists",
+            headers=self.auth_headers(worker_token),
+            json={
+                "phase": "end",
+                "note": "Расход по двум машинам",
+                "items": item_updates,
+            },
+        )
+        self.assertEqual(end_response.status_code, 200, end_response.text)
+        end_payload = end_response.json()
+        self.assertEqual(end_payload["phase"], "end")
+        self.assertTrue(all(item["startQty"] is not None for item in end_payload["items"]))
+
+        worker_list = self.client.get("/api/shift-checklists", headers=self.auth_headers(worker_token))
+        self.assertEqual(worker_list.status_code, 200, worker_list.text)
+        self.assertEqual(len(worker_list.json()), 2)
+        self.assertTrue(all(entry["workerId"] == "w1" for entry in worker_list.json()))
+
+        owner_list = self.client.get("/api/shift-checklists", headers=self.auth_headers(owner_token))
+        self.assertEqual(owner_list.status_code, 200, owner_list.text)
+        self.assertEqual(len(owner_list.json()), 2)
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification).where(Notification.recipient_role == "owner").order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any("заполнил чек-лист начала смены" in item.message for item in notifications))
+        self.assertTrue(any("заполнил чек-лист закрытия смены" in item.message for item in notifications))
+
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None

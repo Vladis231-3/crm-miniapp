@@ -89,6 +89,9 @@ from .schemas import (
     SchedulePayload,
     ServicePayload,
     SessionPayload,
+    ShiftChecklistPayload,
+    ShiftChecklistItemPayload,
+    ShiftChecklistSubmitRequest,
     SettingsBundlePayload,
     StaffLoginRequest,
     StockItemCreateRequest,
@@ -154,6 +157,8 @@ PRIMARY_OWNER_LOGIN = "creator_owner"
 SECONDARY_OWNER_ID = "owner-1"
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
 BOOKING_REMINDER_STATE_KEY = "booking_reminder_dispatch_state"
+RETURN_REMINDER_STATE_KEY = "return_visit_reminder_state"
+SHIFT_CHECKLISTS_KEY = "worker_shift_checklists"
 OWNER_DATABASE_RESET_CONFIRMATION_PHRASE = "ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
 OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES = 10
 OWNER_DATABASE_RESET_DELAY_SECONDS = 10
@@ -1758,8 +1763,27 @@ def _booking_reminder_state(db: Session) -> dict[str, Any]:
     return _setting(db, BOOKING_REMINDER_STATE_KEY, {"deliveries": {}})
 
 
+def _return_reminder_state(db: Session) -> dict[str, Any]:
+    return _setting(db, RETURN_REMINDER_STATE_KEY, {"deliveries": {}})
+
+
+def _shift_checklists_state(db: Session) -> list[dict[str, Any]]:
+    value = _setting(db, SHIFT_CHECKLISTS_KEY, [])
+    return value if isinstance(value, list) else []
+
+
 def _cleanup_booking_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]:
     threshold = _now() - timedelta(days=14)
+    cleaned: dict[str, str] = {}
+    for key, value in deliveries.items():
+        delivered_at = _parse_state_datetime(value)
+        if delivered_at is None or delivered_at >= threshold:
+            cleaned[key] = value
+    return cleaned
+
+
+def _cleanup_return_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]:
+    threshold = _now() - timedelta(days=30)
     cleaned: dict[str, str] = {}
     for key, value in deliveries.items():
         delivered_at = _parse_state_datetime(value)
@@ -1897,6 +1921,93 @@ def _dispatch_booking_reminders(
         workerReminders=worker_reminders,
         telegramDelivered=telegram_delivered,
     )
+
+
+def _dispatch_return_visit_reminders(db: Session) -> int:
+    reminder_state = _return_reminder_state(db)
+    deliveries = reminder_state.get("deliveries")
+    if not isinstance(deliveries, dict):
+        deliveries = {}
+    deliveries = _cleanup_return_reminder_deliveries(deliveries)
+
+    sent_count = 0
+    completed_bookings = db.scalars(
+        select(Booking)
+        .where(Booking.status == "completed", Booking.client_id.is_not(None))
+        .order_by(Booking.created_at.desc())
+    ).all()
+    latest_by_client: dict[str, Booking] = {}
+    for booking in completed_bookings:
+        if booking.client_id and booking.client_id not in latest_by_client:
+            latest_by_client[booking.client_id] = booking
+
+    for client_id, booking in latest_by_client.items():
+        client = db.get(Client, client_id)
+        if client is None:
+            continue
+        last_visit = _parse_booking_datetime(booking.date, booking.time) or _as_utc(booking.created_at).replace(tzinfo=None)
+        if last_visit > datetime.now() - timedelta(days=14):
+            continue
+        reminder_key = f"return:{client_id}:{booking.id}"
+        if reminder_key in deliveries:
+            continue
+        car_label = booking.car or client.car or "ваша машина"
+        message = (
+            f"{car_label} давно не была чистой\n"
+            "Пора вернуться на мойку и освежить автомобиль.\n"
+            "Мы будем рады записать вас на удобное время."
+        )
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="client",
+                recipient_id=client.id,
+                message=message,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        _send_telegram_safe(client.telegram_id, message)
+        deliveries[reminder_key] = _serialize_state_datetime(_now())
+        sent_count += 1
+
+    reminder_state["deliveries"] = deliveries
+    _upsert_setting(db, RETURN_REMINDER_STATE_KEY, reminder_state)
+    return sent_count
+
+
+def _shift_checklist_payload(entry: dict[str, Any]) -> ShiftChecklistPayload:
+    return ShiftChecklistPayload(
+        id=str(entry.get("id") or ""),
+        workerId=str(entry.get("workerId") or ""),
+        workerName=str(entry.get("workerName") or ""),
+        phase=str(entry.get("phase") or "start"),  # type: ignore[arg-type]
+        note=str(entry.get("note") or ""),
+        createdAt=_parse_state_datetime(entry.get("createdAt")) or _now(),
+        items=[
+            ShiftChecklistItemPayload(
+                stockItemId=str(item.get("stockItemId") or ""),
+                name=str(item.get("name") or ""),
+                unit=str(item.get("unit") or ""),
+                startQty=int(item.get("startQty")) if item.get("startQty") is not None else None,
+                endQty=int(item.get("endQty")) if item.get("endQty") is not None else None,
+                actualQty=int(item.get("actualQty") or 0),
+            )
+            for item in entry.get("items", [])
+            if isinstance(item, dict)
+        ],
+    )
+
+
+def _chemistry_stock_items(db: Session) -> list[StockItem]:
+    return db.scalars(select(StockItem).where(StockItem.category == "Химия").order_by(StockItem.name.asc())).all()
+
+
+def _latest_shift_checklist_entry(entries: list[dict[str, Any]], worker_id: str, phase: str) -> dict[str, Any] | None:
+    for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True):
+        if entry.get("workerId") == worker_id and entry.get("phase") == phase:
+            return entry
+    return None
 
 
 def _serialize_state_datetime(value: datetime | None) -> str | None:
@@ -2534,6 +2645,10 @@ def dispatch_owner_booking_reminders(
 ) -> OwnerReminderDispatchPayload:
     _ensure_staff_role(session_data, {"owner"})
     response = _dispatch_booking_reminders(db, target_date=payload.targetDate, force=payload.force)
+    return_visit_count = _dispatch_return_visit_reminders(db)
+    response.clientReminders += return_visit_count
+    if return_visit_count:
+        response.message = f"{response.message} Клиентов на возврат: {return_visit_count}."
     db.commit()
     return response
 
@@ -2587,6 +2702,10 @@ def run_booking_reminders_cron(
     if settings.cron_secret and authorization != f"Bearer {settings.cron_secret}":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
     response = _dispatch_booking_reminders(db)
+    return_visit_count = _dispatch_return_visit_reminders(db)
+    response.clientReminders += return_visit_count
+    if return_visit_count:
+        response.message = f"{response.message} Клиентов на возврат: {return_visit_count}."
     db.commit()
     return response
 
@@ -3564,6 +3683,75 @@ def write_off_stock(
     db.commit()
     db.refresh(item)
     return _stock_payload(item)
+
+
+@app.get("/api/shift-checklists", response_model=list[ShiftChecklistPayload])
+def list_shift_checklists(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[ShiftChecklistPayload]:
+    _ensure_staff_role(session_data, {"owner", "admin", "worker"})
+    entries = _shift_checklists_state(db)
+    if session_data["role"] == "worker":
+        entries = [entry for entry in entries if entry.get("workerId") == session_data["actorId"]]
+    return [_shift_checklist_payload(entry) for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True)]
+
+
+@app.post("/api/shift-checklists", response_model=ShiftChecklistPayload)
+def submit_shift_checklist(
+    payload: ShiftChecklistSubmitRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ShiftChecklistPayload:
+    _ensure_staff_role(session_data, {"worker"})
+    worker = db.get(StaffUser, session_data["actorId"])
+    if worker is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден")
+    stock_items = _chemistry_stock_items(db)
+    previous_entries = _shift_checklists_state(db)
+    previous_start = _latest_shift_checklist_entry(previous_entries, worker.id, "start")
+    previous_start_map = {
+        str(item.get("stockItemId")): int(item.get("actualQty") or 0)
+        for item in (previous_start or {}).get("items", [])
+        if isinstance(item, dict)
+    }
+    submitted_map = {item.stockItemId: item.actualQty for item in payload.items}
+    checklist_items: list[dict[str, Any]] = []
+    for stock_item in stock_items:
+        actual_qty = int(submitted_map.get(stock_item.id, stock_item.qty))
+        checklist_items.append(
+            {
+                "stockItemId": stock_item.id,
+                "name": stock_item.name,
+                "unit": stock_item.unit,
+                "actualQty": actual_qty,
+                "startQty": previous_start_map.get(stock_item.id) if payload.phase == "end" else stock_item.qty,
+                "endQty": actual_qty if payload.phase == "end" else None,
+            }
+        )
+    entry = {
+        "id": f"shift-{uuid4()}",
+        "workerId": worker.id,
+        "workerName": worker.name,
+        "phase": payload.phase,
+        "note": payload.note.strip(),
+        "createdAt": _serialize_state_datetime(_now()),
+        "items": checklist_items,
+    }
+    previous_entries.append(entry)
+    _upsert_setting(db, SHIFT_CHECKLISTS_KEY, previous_entries[-200:])
+    db.add(
+        Notification(
+            id=f"n-{uuid4()}",
+            recipient_role="owner",
+            recipient_id=None,
+            message=f"Мастер {worker.name} заполнил чек-лист {('начала' if payload.phase == 'start' else 'закрытия')} смены.",
+            read=False,
+            created_at=_now(),
+        )
+    )
+    db.commit()
+    return _shift_checklist_payload(entry)
 
 
 @app.post("/api/expenses", response_model=ExpensePayload)

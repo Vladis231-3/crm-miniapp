@@ -271,6 +271,36 @@ class StockItemPayload(BaseModel):
     category: str
 
 
+class ShiftChecklistItemPayload(BaseModel):
+    stockItemId: str
+    name: str
+    unit: str
+    startQty: int | None = None
+    endQty: int | None = None
+    actualQty: int = Field(ge=0)
+
+
+class ShiftChecklistPayload(BaseModel):
+    id: str
+    workerId: str
+    workerName: str
+    phase: Literal["start", "end"]
+    note: str = ""
+    createdAt: datetime
+    items: list[ShiftChecklistItemPayload] = Field(default_factory=list)
+
+
+class ShiftChecklistSubmitItem(BaseModel):
+    stockItemId: str
+    actualQty: int = Field(ge=0)
+
+
+class ShiftChecklistSubmitRequest(BaseModel):
+    phase: Literal["start", "end"]
+    note: str = ""
+    items: list[ShiftChecklistSubmitItem] = Field(default_factory=list)
+
+
 class ExpensePayload(BaseModel):
     id: str
     title: str

@@ -10,7 +10,7 @@ import { getWorkerNotificationSettings, useApp, Booking } from '../../context/Ap
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
-type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security';
+type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift';
 
 const READY_TO_START_STATUSES: Booking['status'][] = ['new', 'confirmed', 'scheduled'];
 
@@ -76,6 +76,9 @@ export function WorkerApp() {
     saveWorkerProfile,
     saveWorkerNotificationSettings,
     createTelegramLinkCode,
+    stockItems,
+    listShiftChecklists,
+    submitShiftChecklist,
     changePassword,
     refreshActiveSessions,
     revokeSession,
@@ -104,6 +107,10 @@ export function WorkerApp() {
   const [passError, setPassError] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [telegramLinkCode, setTelegramLinkCode] = useState<{ code: string; expiresAt: Date; linked: boolean } | null>(null);
+  const [shiftChecklists, setShiftChecklists] = useState<any[]>([]);
+  const [shiftChecklistDraft, setShiftChecklistDraft] = useState<Record<string, string>>({});
+  const [shiftChecklistNote, setShiftChecklistNote] = useState('');
+  const [submittingShiftPhase, setSubmittingShiftPhase] = useState<'start' | 'end' | null>(null);
 
   // Profile state
   const [profile, setProfile] = useState({
@@ -142,6 +149,12 @@ export function WorkerApp() {
     }
   }, [tab, profileSection]);
 
+  useEffect(() => {
+    if (tab === 'profile' && profileSection === 'shift') {
+      void listShiftChecklists().then(setShiftChecklists);
+    }
+  }, [tab, profileSection]);
+
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
@@ -165,6 +178,7 @@ export function WorkerApp() {
   const allMyTasks = bookings.filter(b => b.workers.some(w => w.workerId === workerId));
   const completedCount = payrollSummary?.completedBookings ?? allMyTasks.filter(b => b.status === 'completed').length;
   const avgCheck = completedCount > 0 ? Math.round((payrollSummary?.accruedFromBookings ?? totalEarned) / completedCount) : 0;
+  const chemistryItems = stockItems.filter((item) => item.category === 'Химия');
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -240,6 +254,24 @@ export function WorkerApp() {
     setTimeout(() => setProfileSaved(false), 2000);
   };
 
+  const handleSubmitShiftChecklist = async (phase: 'start' | 'end') => {
+    setSubmittingShiftPhase(phase);
+    try {
+      const saved = await submitShiftChecklist({
+        phase,
+        note: shiftChecklistNote,
+        items: chemistryItems.map((item) => ({
+          stockItemId: item.id,
+          actualQty: Math.max(0, Number(shiftChecklistDraft[item.id] || item.qty) || 0),
+        })),
+      });
+      setShiftChecklists((current) => [saved, ...current]);
+      setShiftChecklistNote('');
+    } finally {
+      setSubmittingShiftPhase(null);
+    }
+  };
+
   const handleSavePass = async () => {
     setPassError(null);
     setPassSaved(false);
@@ -282,6 +314,7 @@ export function WorkerApp() {
     : tab === 'schedule' ? 'Расписание'
     : tab === 'earnings' ? 'Заработок'
     : profileSection === 'personal' ? 'Личные данные'
+    : profileSection === 'shift' ? 'Чек-лист смены'
     : profileSection === 'notifications' ? 'Уведомления'
     : profileSection === 'history' ? 'История задач'
     : profileSection === 'security' ? 'Безопасность'
@@ -613,6 +646,7 @@ export function WorkerApp() {
               <div className="space-y-2">
                 {[
                   { id: 'personal', icon: Edit3, label: 'Личные данные', desc: profile.phone, color: primary },
+                  { id: 'shift', icon: Check, label: 'Чек-лист смены', desc: 'Химия на начало и конец', color: '#34C759' },
                   { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Управление оповещениями', color: '#A855F7' },
                   { id: 'history', icon: History, label: 'История задач', desc: `${allMyTasks.length} всего`, color: '#F59E0B' },
                   { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Пароль и сессии', color: '#EF4444' },
@@ -684,6 +718,62 @@ export function WorkerApp() {
               <button onClick={handleSaveProfile} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
                 <Save size={16} />{profileSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
+            </motion.div>
+
+          ) : tab === 'profile' && profileSection === 'shift' ? (
+            <motion.div key="profile-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-semibold mb-2">Химия на смену</div>
+                <div className={`text-xs ${sub} mb-3`}>Заполните остатки по химии при начале и закрытии смены</div>
+                <div className="space-y-2 mb-3">
+                  {chemistryItems.map((item) => (
+                    <div key={item.id} className="grid grid-cols-[1fr_auto] gap-2 items-center">
+                      <div>
+                        <div className="text-sm font-medium">{item.name}</div>
+                        <div className={`text-xs ${sub}`}>Сейчас на складе: {item.qty} {item.unit}</div>
+                      </div>
+                      <input
+                        className={`${inputCls} w-24`}
+                        type="number"
+                        min={0}
+                        value={shiftChecklistDraft[item.id] ?? item.qty}
+                        onChange={(event) => setShiftChecklistDraft((current) => ({ ...current, [item.id]: event.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <textarea
+                  className={`${inputCls} h-20 resize-none mb-3`}
+                  placeholder="Примечание по смене"
+                  value={shiftChecklistNote}
+                  onChange={(event) => setShiftChecklistNote(event.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => { void handleSubmitShiftChecklist('start'); }} disabled={submittingShiftPhase !== null} className="py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: primary }}>
+                    {submittingShiftPhase === 'start' ? 'Сохраняю...' : 'Принять смену'}
+                  </button>
+                  <button onClick={() => { void handleSubmitShiftChecklist('end'); }} disabled={submittingShiftPhase !== null} className="py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: accent }}>
+                    {submittingShiftPhase === 'end' ? 'Сохраняю...' : 'Закрыть смену'}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {shiftChecklists.map((entry) => (
+                  <div key={entry.id} className={`${glass} rounded-2xl p-4`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium">{entry.phase === 'start' ? 'Принятие смены' : 'Закрытие смены'}</div>
+                      <div className={`text-xs ${sub}`}>{entry.createdAt.toLocaleString('ru-RU')}</div>
+                    </div>
+                    {entry.items.slice(0, 4).map((item: any) => (
+                      <div key={item.stockItemId} className="flex justify-between text-sm py-1">
+                        <span>{item.name}</span>
+                        <span>{item.actualQty} {item.unit}</span>
+                      </div>
+                    ))}
+                    {entry.note && <div className={`text-xs ${sub} mt-2`}>{entry.note}</div>}
+                  </div>
+                ))}
+              </div>
             </motion.div>
 
           ) : tab === 'profile' && profileSection === 'notifications' ? (

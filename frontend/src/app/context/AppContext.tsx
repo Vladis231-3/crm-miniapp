@@ -157,6 +157,25 @@ export interface StockItem {
   category: string;
 }
 
+export interface ShiftChecklistItem {
+  stockItemId: string;
+  name: string;
+  unit: string;
+  startQty?: number | null;
+  endQty?: number | null;
+  actualQty: number;
+}
+
+export interface ShiftChecklist {
+  id: string;
+  workerId: string;
+  workerName: string;
+  phase: 'start' | 'end';
+  note: string;
+  createdAt: Date;
+  items: ShiftChecklistItem[];
+}
+
 export interface Expense {
   id: string;
   title: string;
@@ -460,6 +479,8 @@ interface AppContextType {
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
   saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
   createPayrollEntry: (entry: PayrollEntryCreateInput) => Promise<void>;
+  listShiftChecklists: () => Promise<ShiftChecklist[]>;
+  submitShiftChecklist: (payload: { phase: 'start' | 'end'; note?: string; items: Array<{ stockItemId: string; actualQty: number }> }) => Promise<ShiftChecklist>;
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -1048,6 +1069,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshBootstrap();
   }
 
+  async function listShiftChecklists() {
+    const entries = await apiRequest<Array<Omit<ShiftChecklist, 'createdAt'> & { createdAt: string }>>('/api/shift-checklists');
+    return entries.map((entry) => ({ ...entry, createdAt: new Date(entry.createdAt) }));
+  }
+
+  async function submitShiftChecklist(payload: { phase: 'start' | 'end'; note?: string; items: Array<{ stockItemId: string; actualQty: number }> }) {
+    const entry = await apiRequest<Omit<ShiftChecklist, 'createdAt'> & { createdAt: string }>('/api/shift-checklists', {
+      method: 'POST',
+      body: payload,
+    });
+    return { ...entry, createdAt: new Date(entry.createdAt) };
+  }
+
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
     setWorkers((current) => [...current, created].sort((left, right) => {
@@ -1242,6 +1276,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveWorkerSettings,
       saveAdminWorkerPayroll,
       createPayrollEntry,
+      listShiftChecklists,
+      submitShiftChecklist,
       hireWorker,
       fireWorker,
       changePassword,

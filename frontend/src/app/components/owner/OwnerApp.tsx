@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind } from '../../context/AppContext';
+import { useApp, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind, type ShiftChecklist } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates } from '../../utils/date';
 
@@ -70,6 +70,7 @@ export function OwnerApp() {
       sendOwnerSummaryReport,
       dispatchOwnerReminders,
       remindAdminAboutInactiveClients,
+      listShiftChecklists,
       todayLabel,
       tomorrowLabel,
       upcomingDates,
@@ -159,6 +160,7 @@ export function OwnerApp() {
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
+  const [shiftChecklists, setShiftChecklists] = useState<ShiftChecklist[]>([]);
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -253,11 +255,17 @@ export function OwnerApp() {
       setSelectedCalendarDate(todayLabel);
     }
   }, [selectedCalendarDate, todayLabel]);
+  useEffect(() => {
+    if (page === 'stock') {
+      void listShiftChecklists().then(setShiftChecklists);
+    }
+  }, [page]);
 
   const ownerNotifications = notifications.filter(n => n.recipientRole === 'owner');
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const todayBookings = bookings.filter(b => b.date === todayLabel);
+  const latestShiftChecklists = shiftChecklists.slice(0, 10);
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -1587,6 +1595,65 @@ export function OwnerApp() {
                   </button>
                 </motion.div>
               ))}
+              <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="font-semibold">Чек-листы смен мастеров</div>
+                    <div className={`text-xs ${sub} mt-1`}>Принятие и закрытие смены с остатками химии по каждому мастеру</div>
+                  </div>
+                  <div className={`text-xs ${sub}`}>{latestShiftChecklists.length} последних</div>
+                </div>
+                {latestShiftChecklists.length === 0 ? (
+                  <div className={`text-sm ${sub}`}>Пока нет заполненных чек-листов по химии.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {latestShiftChecklists.map((entry) => (
+                      <div key={entry.id} className={`${glass} rounded-2xl p-4`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div>
+                            <div className="font-medium">{entry.workerName}</div>
+                            <div className={`text-xs ${sub}`}>
+                              {entry.phase === 'start' ? 'Принятие смены' : 'Закрытие смены'} · {entry.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <div
+                            className="px-2.5 py-1 rounded-full text-xs font-medium"
+                            style={{
+                              background: entry.phase === 'start' ? `${primary}18` : `${accent}18`,
+                              color: entry.phase === 'start' ? primary : accent,
+                            }}
+                          >
+                            {entry.phase === 'start' ? 'Смена принята' : 'Смена закрыта'}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {entry.items.map((item) => (
+                            <div key={`${entry.id}-${item.stockItemId}`} className={`${glass} rounded-xl px-3 py-2.5 flex items-center justify-between gap-3`}>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium">{item.name}</div>
+                                <div className={`text-[11px] ${sub}`}>
+                                  {entry.phase === 'end'
+                                    ? `Было: ${item.startQty ?? '-'} ${item.unit} · Осталось: ${item.actualQty} ${item.unit}`
+                                    : `По факту: ${item.actualQty} ${item.unit}`}
+                                </div>
+                              </div>
+                              {entry.phase === 'end' && (
+                                <div className="text-right shrink-0">
+                                  <div className="text-sm font-semibold">
+                                    -{Math.max(0, (item.startQty ?? item.actualQty) - item.actualQty)} {item.unit}
+                                  </div>
+                                  <div className={`text-[11px] ${sub}`}>расход</div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {entry.note && <div className={`text-xs ${sub} mt-3`}>Примечание: {entry.note}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
 
