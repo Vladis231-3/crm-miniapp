@@ -135,6 +135,7 @@ export function AdminApp() {
   const [securityError, setSecurityError] = useState<string | null>(null);
   const [telegramLinkCode, setTelegramLinkCode] = useState<{ code: string; expiresAt: Date; linked: boolean } | null>(null);
   const [completeAmount, setCompleteAmount] = useState('');
+  const [completePaymentType, setCompletePaymentType] = useState<'cash' | 'card' | 'online'>('cash');
   const [completeNote, setCompleteNote] = useState('');
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
@@ -590,6 +591,7 @@ export function AdminApp() {
   const openCompleteModal = (booking: Booking) => {
     setSelectedBooking(booking);
     setCompleteAmount(String(booking.price));
+    setCompletePaymentType(booking.paymentType || 'cash');
     setCompleteNote(booking.notes || '');
     setCompleteError(null);
     setShowCompleteModal(true);
@@ -605,17 +607,19 @@ export function AdminApp() {
     const nextNote = completeNote.trim();
     const nextPrice = Math.round(normalizedAmount);
     try {
-      await updateBooking(selectedBooking.id, {
-        status: 'completed',
-        price: nextPrice,
-        notes: nextNote || selectedBooking.notes || '',
-      });
-      setSelectedBooking(prev => prev ? {
-        ...prev,
-        status: 'completed',
-        price: nextPrice,
-        notes: nextNote || prev.notes,
-      } : null);
+        await updateBooking(selectedBooking.id, {
+          status: 'completed',
+          price: nextPrice,
+          paymentType: completePaymentType,
+          notes: nextNote || selectedBooking.notes || '',
+        });
+        setSelectedBooking(prev => prev ? {
+          ...prev,
+          status: 'completed',
+          price: nextPrice,
+          paymentType: completePaymentType,
+          notes: nextNote || prev.notes,
+        } : null);
       setShowCompleteModal(false);
     } catch (error) {
       setCompleteError(error instanceof Error ? error.message : 'Не удалось завершить запись');
@@ -1499,20 +1503,35 @@ export function AdminApp() {
                     }}
                   />
                 </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Комментарий</label>
-                  <input
-                    className={inputCls}
-                    placeholder="Комментарий по завершению"
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Комментарий</label>
+                    <input
+                      className={inputCls}
+                      placeholder="Комментарий по завершению"
                     value={completeNote}
                     onChange={e => {
                       setCompleteError(null);
                       setCompleteNote(e.target.value);
-                    }}
-                  />
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
+                    <select
+                      className={selectCls}
+                      value={completePaymentType}
+                      onChange={e => {
+                        setCompleteError(null);
+                        setCompletePaymentType(e.target.value as 'cash' | 'card' | 'online');
+                      }}
+                    >
+                      <option value="cash">Наличные</option>
+                      <option value="card">Карта</option>
+                      <option value="online">Онлайн</option>
+                    </select>
+                  </div>
+                  {completeError && <div className="text-xs text-red-500">{completeError}</div>}
                 </div>
-                {completeError && <div className="text-xs text-red-500">{completeError}</div>}
-              </div>
               <button onClick={() => { void handleCompleteBooking(); }} className="w-full py-3 rounded-xl text-sm text-white font-medium mb-2" style={{ background: primary }}>Подтвердить завершение</button>
               <button onClick={() => setShowCompleteModal(false)} className={`w-full py-2 text-sm ${sub}`}>Отмена</button>
             </motion.div>

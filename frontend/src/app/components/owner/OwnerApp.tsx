@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Search
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Search, Phone
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -66,12 +66,13 @@ export function OwnerApp() {
     refreshActiveSessions,
     revokeSession,
     downloadOwnerExport,
-    sendOwnerExportToTelegram,
-    sendOwnerSummaryReport,
-    dispatchOwnerReminders,
-    todayLabel,
-    tomorrowLabel,
-    upcomingDates,
+      sendOwnerExportToTelegram,
+      sendOwnerSummaryReport,
+      dispatchOwnerReminders,
+      remindAdminAboutInactiveClients,
+      todayLabel,
+      tomorrowLabel,
+      upcomingDates,
   } = useApp();
 
   const [page, setPage] = useState<OwnerPage>('dashboard');
@@ -157,6 +158,7 @@ export function OwnerApp() {
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
+  const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -687,6 +689,20 @@ export function OwnerApp() {
     }
   };
 
+  const handleInactiveClientsReminder = async () => {
+    try {
+      setSendingInactiveReminder(true);
+      const message = await remindAdminAboutInactiveClients();
+      setBottomToast(message);
+      setTimeout(() => setBottomToast(null), 5000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось отправить задачу админу');
+      setTimeout(() => setBottomToast(null), 5000);
+    } finally {
+      setSendingInactiveReminder(false);
+    }
+  };
+
   const handleAddPenalty = async () => {
     if (!penaltyForm.workerId || !penaltyForm.title || !penaltyForm.reason) return;
     await addPenalty({
@@ -1191,13 +1207,14 @@ export function OwnerApp() {
               {/* Quick actions */}
               <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Быстрые действия</h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
-                {[
-                  { label: 'Создать запись', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
-                  { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
-                  { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
-                  { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
-                  { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
-                ].map(a => (
+                  {[
+                    { label: 'Создать запись', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
+                    { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
+                    { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                    { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
+                    { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
+                    { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
+                  ].map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} style={{ color: a.color }} /></div>
                     <span className="text-xs font-medium">{a.label}</span>

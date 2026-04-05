@@ -101,11 +101,27 @@ def normalize_plate(value: str) -> str:
     return normalized
 
 
+class ClientVehiclePayload(BaseModel):
+    car: str = ""
+    plate: str = ""
+
+    @field_validator("car")
+    @classmethod
+    def validate_car(cls, value: str) -> str:
+        return normalize_vehicle_name(value)
+
+    @field_validator("plate")
+    @classmethod
+    def validate_plate(cls, value: str) -> str:
+        return normalize_plate(value)
+
+
 class ClientProfilePayload(BaseModel):
     name: str
     phone: str
     car: str = ""
     plate: str = ""
+    vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     registered: bool = True
 
 
@@ -114,6 +130,7 @@ class ClientProfileInput(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     registered: bool = True
 
     @field_validator("name")
@@ -133,6 +150,7 @@ class ClientSummaryPayload(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     notes: str = ""
     debtBalance: int = 0
     adminRating: int = Field(default=0, ge=0, le=5)

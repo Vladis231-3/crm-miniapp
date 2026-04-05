@@ -63,6 +63,7 @@ from .schemas import (
     ClientProfileInput,
     ClientProfilePayload,
     ClientSummaryPayload,
+    ClientVehiclePayload,
     EmployeeSettingPayload,
     ExpenseCreateRequest,
     ExpensePayload,
@@ -654,25 +655,78 @@ def _merge_setting_dict(value: Any, default: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
+def _normalize_client_vehicles(
+    vehicles: list[ClientVehiclePayload] | list[dict[str, str]] | None,
+    *,
+    fallback_car: str = "",
+    fallback_plate: str = "",
+) -> list[ClientVehiclePayload]:
+    normalized: list[ClientVehiclePayload] = []
+    for item in vehicles or []:
+        if isinstance(item, dict):
+            car = item.get("car", "")
+            plate = item.get("plate", "")
+        else:
+            car = item.car
+            plate = item.plate
+        car = normalize_vehicle_name(car) if car.strip() else ""
+        plate = normalize_plate(plate) if plate.strip() else ""
+        if not car and not plate:
+            continue
+        normalized.append(ClientVehiclePayload(car=car, plate=plate))
+    if not normalized and (fallback_car.strip() or fallback_plate.strip()):
+        normalized.append(ClientVehiclePayload(car=fallback_car, plate=fallback_plate))
+    deduped: list[ClientVehiclePayload] = []
+    seen: set[tuple[str, str]] = set()
+    for item in normalized:
+        key = (item.car, item.plate)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped[:5]
+
+
+def _client_vehicles_map(db: Session) -> dict[str, Any]:
+    return _setting(db, "client_vehicles", {})
+
+
+def _client_vehicles_payload(db: Session, client: Client) -> list[ClientVehiclePayload]:
+    raw = _client_vehicles_map(db).get(client.id, [])
+    return _normalize_client_vehicles(raw, fallback_car=client.car or "", fallback_plate=client.plate or "")
+
+
+def _save_client_vehicles(db: Session, client_id: str, vehicles: list[ClientVehiclePayload]) -> None:
+    current = _client_vehicles_map(db)
+    current[client_id] = [item.model_dump() for item in vehicles]
+    _upsert_setting(db, "client_vehicles", current)
+
+
 def _client_payload(client: Client | None) -> ClientProfilePayload | None:
     if client is None:
         return None
+    with Session(engine) as vehicles_db:
+        vehicles = _client_vehicles_payload(vehicles_db, client)
     return ClientProfilePayload(
         name=client.name,
         phone=client.phone,
         car=client.car or "",
         plate=client.plate or "",
+        vehicles=vehicles,
         registered=client.registered,
     )
 
 
 def _client_summary_payload(client: Client) -> ClientSummaryPayload:
+    with Session(engine) as vehicles_db:
+        vehicles = _client_vehicles_payload(vehicles_db, client)
     return ClientSummaryPayload(
         id=client.id,
         name=client.name,
         phone=client.phone,
         car=client.car or "",
         plate=client.plate or "",
+        vehicles=vehicles,
         notes=client.notes or "",
         debtBalance=client.debt_balance,
         adminRating=max(0, min(5, client.admin_rating or 0)),
@@ -2441,6 +2495,47 @@ def dispatch_owner_booking_reminders(
     return response
 
 
+@app.post("/api/owner/inactive-clients/remind-admin", response_model=GenericMessage)
+def remind_admin_about_inactive_clients(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    _ensure_staff_role(session_data, {"owner"})
+    cutoff = datetime.now() - timedelta(days=14)
+    inactive: list[str] = []
+    clients = db.scalars(select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())).all()
+    for client in clients:
+        bookings = db.scalars(
+            select(Booking)
+            .where(Booking.client_id == client.id, Booking.status == "completed")
+            .order_by(Booking.created_at.desc())
+        ).all()
+        if not bookings:
+            continue
+        last_booking = bookings[0]
+        last_visit = _parse_booking_datetime(last_booking.date, last_booking.time) or _as_utc(last_booking.created_at).replace(tzinfo=None)
+        if last_visit <= cutoff:
+            inactive.append(f"• {client.name} ({client.phone}) - последний визит {last_booking.date}")
+    if not inactive:
+        return GenericMessage(message="Клиентов без визита более двух недель не найдено")
+    text = "Нужно обзвонить клиентов, которые не были более двух недель\n" + "\n".join(inactive[:12])
+    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all()
+    for admin in admins:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="admin",
+                recipient_id=admin.id,
+                message=text,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        _send_telegram_safe(admin.telegram_chat_id, text)
+    db.commit()
+    return GenericMessage(message=f"Админу отправлено напоминание по {len(inactive)} клиентам")
+
+
 @app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
 def run_booking_reminders_cron(
     authorization: str | None = Header(default=None),
@@ -2606,6 +2701,12 @@ def authenticate_client(payload: ClientAuthRequest, request: Request, db: Sessio
         normalized_plate = normalize_plate(payload.profile.plate)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    vehicles = _normalize_client_vehicles(
+        payload.profile.vehicles,
+        fallback_car=normalized_car,
+        fallback_plate=normalized_plate,
+    )
+    primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car=normalized_car, plate=normalized_plate)
 
     client = None
     if telegram_id:
@@ -2619,18 +2720,20 @@ def authenticate_client(payload: ClientAuthRequest, request: Request, db: Sessio
         client = phone_client
     if client is None:
         client_payload = payload.profile.model_dump()
-        client_payload["car"] = normalized_car
-        client_payload["plate"] = normalized_plate
+        client_payload.pop("vehicles", None)
+        client_payload["car"] = primary_vehicle.car
+        client_payload["plate"] = primary_vehicle.plate
         client = Client(id=f"c-{uuid4()}", telegram_id=telegram_id, **client_payload)
         db.add(client)
     else:
         client.telegram_id = telegram_id or client.telegram_id
         client.name = payload.profile.name
         client.phone = payload.profile.phone
-        client.car = normalized_car
-        client.plate = normalized_plate
+        client.car = primary_vehicle.car
+        client.plate = primary_vehicle.plate
         client.registered = payload.profile.registered
         client.updated_at = _now()
+    _save_client_vehicles(db, client.id, vehicles)
 
     return _issue_auth_response(db, request, _client_session_data(client))
 
@@ -2798,15 +2901,18 @@ def update_client_profile(
         normalized_plate = normalize_plate(payload.plate)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    vehicles = _normalize_client_vehicles(payload.vehicles, fallback_car=normalized_car, fallback_plate=normalized_plate)
+    primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
     phone_client = _client_by_phone(db, payload.phone)
     if phone_client is not None and phone_client.id != client.id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
     client.name = payload.name
     client.phone = payload.phone
-    client.car = normalized_car
-    client.plate = normalized_plate
+    client.car = primary_vehicle.car
+    client.plate = primary_vehicle.plate
     client.registered = payload.registered
     client.updated_at = _now()
+    _save_client_vehicles(db, client.id, vehicles)
     db.commit()
     db.refresh(client)
     return _client_payload(client)  # type: ignore[return-value]
@@ -2865,6 +2971,10 @@ def delete_client(
     ).unique().all()
     for booking in client_bookings:
         db.delete(booking)
+    vehicles_map = _client_vehicles_map(db)
+    if client_id in vehicles_map:
+        vehicles_map.pop(client_id, None)
+        _upsert_setting(db, "client_vehicles", vehicles_map)
     db.delete(client)
     db.commit()
     return GenericMessage(message="Клиент удалён")

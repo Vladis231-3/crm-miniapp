@@ -141,7 +141,10 @@ export function ClientApp() {
   }, [boxRentalHours, getBookingAvailabilityForDate, page, selectedDate, selectedService]);
 
   useEffect(() => {
-    setProfileForm(clientProfile);
+    setProfileForm({
+      ...clientProfile,
+      vehicles: clientProfile.vehicles?.length ? clientProfile.vehicles : [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }],
+    });
     setProfileErrors({});
     setProfileError('');
   }, [clientProfile]);
@@ -194,6 +197,11 @@ export function ClientApp() {
       : 'Выходной'
     : 'Не настроено';
 
+  const profileVehicles = profileForm.vehicles?.length
+    ? profileForm.vehicles
+    : [{ car: profileForm.car || '', plate: profileForm.plate || '' }];
+  const primaryProfileVehicle = profileVehicles[0] || { car: '', plate: '' };
+
   const glass = isDark
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
@@ -219,6 +227,7 @@ export function ClientApp() {
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
     if (!selectedServiceIsDetailing && !selectedSlot) return;
+    const primaryVehicle = clientProfile.vehicles?.[0] || { car: clientProfile.car, plate: clientProfile.plate };
     const booking = await addBooking({
       clientId: session.actorId,
       clientName: clientProfile.name,
@@ -233,8 +242,8 @@ export function ClientApp() {
       workers: [],
       box: defaultBoxName,
       paymentType: 'cash',
-      car: clientProfile.car,
-      plate: clientProfile.plate,
+      car: primaryVehicle.car,
+      plate: primaryVehicle.plate,
       notes: detailingNote.trim() || undefined,
     });
     setConfirmedBookingId(booking.id);
@@ -245,8 +254,9 @@ export function ClientApp() {
     const nextErrors: Record<string, string> = {};
     const nameError = validatePersonName(profileForm.name);
     const phoneError = validatePhoneValue(profileForm.phone);
-    const carError = validateVehicleName(profileForm.car);
-    const plateError = validatePlateValue(profileForm.plate);
+    const primaryVehicle = profileForm.vehicles?.[0] || { car: profileForm.car, plate: profileForm.plate };
+    const carError = validateVehicleName(primaryVehicle.car);
+    const plateError = validatePlateValue(primaryVehicle.plate);
     if (nameError) nextErrors.name = nameError;
     if (phoneError) nextErrors.phone = phoneError;
     if (carError) nextErrors.car = carError;
@@ -258,8 +268,14 @@ export function ClientApp() {
       ...profileForm,
       name: normalizePersonName(profileForm.name),
       phone: profileForm.phone.trim(),
-      car: normalizeVehicleInput(profileForm.car),
-      plate: normalizePlateInput(profileForm.plate),
+      car: normalizeVehicleInput(primaryVehicle.car),
+      plate: normalizePlateInput(primaryVehicle.plate),
+      vehicles: (profileForm.vehicles || [])
+        .map((vehicle) => ({
+          car: normalizeVehicleInput(vehicle.car),
+          plate: normalizePlateInput(vehicle.plate),
+        }))
+        .filter((vehicle) => vehicle.car || vehicle.plate),
     };
     try {
       setProfileError('');
@@ -443,6 +459,55 @@ export function ClientApp() {
                   <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
                     <div className="font-semibold">{selectedDuration} мин</div>
                     <div className={`text-xs ${sub}`}>Длительность</div>
+                  </div>
+                  <div className={`${glass} rounded-2xl p-3`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium">Дополнительные автомобили</div>
+                      <button
+                        className="text-xs"
+                        style={{ color: primary }}
+                        onClick={() => setProfileForm((current) => ({ ...current, vehicles: [...(current.vehicles || [{ car: current.car || '', plate: current.plate || '' }]), { car: '', plate: '' }] }))}
+                      >
+                        Добавить
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {(profileForm.vehicles || []).slice(1).map((vehicle, index) => (
+                        <div key={`extra-${index}`} className="grid grid-cols-2 gap-2">
+                          <input
+                            className={inputCls}
+                            placeholder="Авто"
+                            value={vehicle.car}
+                            onChange={(e) => setProfileForm((current) => ({
+                              ...current,
+                              vehicles: (current.vehicles || []).map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, car: e.target.value } : item),
+                            }))}
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              className={inputCls}
+                              placeholder="Номер"
+                              maxLength={6}
+                              value={vehicle.plate}
+                              onChange={(e) => setProfileForm((current) => ({
+                                ...current,
+                                vehicles: (current.vehicles || []).map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, plate: normalizePlateInput(e.target.value) } : item),
+                              }))}
+                            />
+                            <button
+                              className={`px-3 rounded-xl ${glass} text-red-500`}
+                              onClick={() => setProfileForm((current) => ({
+                                ...current,
+                                vehicles: (current.vehicles || []).filter((_, vehicleIndex) => vehicleIndex !== index + 1),
+                              }))}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {(profileForm.vehicles || []).length <= 1 && <div className={`text-xs ${sub}`}>Дополнительных автомобилей пока нет</div>}
+                    </div>
                   </div>
                 </div>
               </div>

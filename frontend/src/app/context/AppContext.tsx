@@ -28,6 +28,7 @@ export interface ClientProfile {
   phone: string;
   car: string;
   plate: string;
+  vehicles?: Array<{ car: string; plate: string }>;
   registered: boolean;
 }
 
@@ -37,6 +38,7 @@ export interface RegisteredClient {
   phone: string;
   car: string;
   plate: string;
+  vehicles?: Array<{ car: string; plate: string }>;
   notes: string;
   debtBalance: number;
   adminRating: number;
@@ -442,7 +444,8 @@ interface AppContextType {
   downloadOwnerExport: (kind: OwnerExportKind) => Promise<string>;
   sendOwnerExportToTelegram: (kind: OwnerExportKind) => Promise<OwnerExportDelivery>;
   sendOwnerSummaryReport: (period: OwnerReportPeriod, segment: OwnerReportSegment) => Promise<string>;
-  dispatchOwnerReminders: (options?: { targetDate?: string; force?: boolean }) => Promise<OwnerReminderDispatchResult>;
+    dispatchOwnerReminders: (options?: { targetDate?: string; force?: boolean }) => Promise<OwnerReminderDispatchResult>;
+    remindAdminAboutInactiveClients: () => Promise<string>;
   saveServices: (services: Service[]) => Promise<void>;
   saveBoxes: (boxes: Box[]) => Promise<void>;
   saveSchedule: (schedule: ScheduleDay[]) => Promise<void>;
@@ -468,7 +471,7 @@ interface AppContextType {
   revokeSession: (sessionId: string) => Promise<void>;
 }
 
-const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', registered: false };
+const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false };
 const EMPTY_WORKER_NOTIFICATIONS: WorkerNotificationSettings = { newTask: true, taskUpdate: true, payment: true, reminders: false, sms: false };
 const EMPTY_SETTINGS: SettingsBundle = {
   adminProfile: { name: 'Администратор', email: '', phone: '', telegramChatId: '' },
@@ -775,11 +778,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function updateClientProfile(profile: Partial<ClientProfile>) {
-    const payload = { ...clientProfile, ...profile };
-    const saved = await apiRequest<ClientProfile>('/api/clients/me', { method: 'PATCH', body: payload });
-    setClientProfile(saved);
-  }
+    async function updateClientProfile(profile: Partial<ClientProfile>) {
+      const payload = { ...clientProfile, ...profile };
+      const saved = await apiRequest<ClientProfile>('/api/clients/me', { method: 'PATCH', body: payload });
+      setClientProfile(saved);
+    }
+
+    async function remindAdminAboutInactiveClients() {
+      const response = await apiRequest<{ message: string }>('/api/owner/inactive-clients/remind-admin', { method: 'POST' });
+      return response.message;
+    }
 
   async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) {
     const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
@@ -811,16 +819,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBookings((current) => [created, ...current]);
     if (created.clientId) {
       setClients((current) => {
-        const nextClient = {
-          id: created.clientId,
-          name: created.clientName,
-          phone: created.clientPhone,
-          car: created.car || '',
-          plate: created.plate || '',
-          notes: '',
-          debtBalance: current.find((client) => client.id === created.clientId)?.debtBalance || 0,
-          adminRating: current.find((client) => client.id === created.clientId)?.adminRating || 0,
-          adminNote: current.find((client) => client.id === created.clientId)?.adminNote || '',
+          const nextClient = {
+            id: created.clientId,
+            name: created.clientName,
+            phone: created.clientPhone,
+            car: created.car || '',
+            plate: created.plate || '',
+            vehicles: current.find((client) => client.id === created.clientId)?.vehicles || [],
+            notes: '',
+            debtBalance: current.find((client) => client.id === created.clientId)?.debtBalance || 0,
+            adminRating: current.find((client) => client.id === created.clientId)?.adminRating || 0,
+            adminNote: current.find((client) => client.id === created.clientId)?.adminNote || '',
         };
         if (current.some((client) => client.id === created.clientId)) {
           return current.map((client) => (client.id === created.clientId ? { ...client, ...nextClient } : client));
@@ -1217,8 +1226,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       downloadOwnerExport,
       sendOwnerExportToTelegram,
       sendOwnerSummaryReport,
-      dispatchOwnerReminders,
-      saveServices,
+        dispatchOwnerReminders,
+        remindAdminAboutInactiveClients,
+        saveServices,
       saveBoxes,
       saveSchedule,
       saveAdminProfile,

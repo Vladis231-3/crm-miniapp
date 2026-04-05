@@ -8,7 +8,7 @@ import hmac
 import hashlib
 import time
 from io import BytesIO
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -1977,6 +1977,99 @@ class BookingLogicTests(unittest.TestCase):
         self.assertTrue(any(chat_id == "123123123" and "Чек по записи" in text for chat_id, text in sent_messages))
         self.assertTrue(any(chat_id == "456456456" and "Чек по записи" in text for chat_id, text in sent_messages))
         self.assertTrue(any(chat_id == "999888777" and "Чек по записи" in text for chat_id, text in sent_messages))
+
+    def test_client_can_store_multiple_vehicles(self) -> None:
+        token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
+
+        response = self.client.patch(
+            "/api/clients/me",
+            headers=self.auth_headers(token),
+            json={
+                "name": "Alice",
+                "phone": "+7 (999) 111-22-33",
+                "car": "Lada Vesta",
+                "plate": "А123ВС",
+                "vehicles": [
+                    {"car": "Lada Vesta", "plate": "А123ВС"},
+                    {"car": "Kia Rio", "plate": "К456ОР"},
+                ],
+                "registered": True,
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(len(payload["vehicles"]), 2)
+        self.assertEqual(payload["vehicles"][1]["car"], "Kia Rio")
+
+        bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(token))
+        self.assertEqual(bootstrap.status_code, 200, bootstrap.text)
+        self.assertEqual(len(bootstrap.json()["clientProfile"]["vehicles"]), 2)
+
+        from app.database import SessionLocal
+        from app.models import Client
+
+        with SessionLocal() as db:
+            client = db.get(Client, client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.car, "Lada Vesta")
+            self.assertEqual(client.plate, "А123ВС")
+
+    def test_owner_can_notify_admin_about_inactive_clients(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Booking, Notification
+
+        self.disable_owner_two_factor()
+        self.set_staff_telegram("admin", "456456456")
+        owner_token = self.login_staff("owner", "owner")
+        _client_token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
+
+        old_date = (datetime.now() - timedelta(days=20)).strftime("%d.%m.%Y")
+        with SessionLocal() as db:
+            booking = Booking(
+                id=f"b-{uuid4()}",
+                client_id=client_id,
+                client_name="Alice",
+                client_phone="+7 (999) 111-22-33",
+                service="Мойка базовая",
+                service_id="s1",
+                date=old_date,
+                time="12:00",
+                duration=30,
+                price=1200,
+                status="completed",
+                box="Бокс 1",
+                payment_type="cash",
+                notes="",
+                car="Lada Vesta",
+                plate="А123ВС",
+                created_at=datetime.now(timezone.utc) - timedelta(days=20),
+            )
+            db.add(booking)
+            db.commit()
+
+        sent_messages: list[tuple[str | int, str]] = []
+
+        def fake_send_message(chat_id: str | int, text: str) -> None:
+            sent_messages.append((chat_id, text))
+
+        with patch("app.main.send_telegram_message", side_effect=fake_send_message):
+            response = self.client.post(
+                "/api/owner/inactive-clients/remind-admin",
+                headers=self.auth_headers(owner_token),
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("Админу отправлено напоминание", response.json()["message"])
+
+        with SessionLocal() as db:
+            notifications = db.scalars(
+                select(Notification).where(Notification.recipient_role == "admin").order_by(Notification.created_at.desc())
+            ).all()
+
+        self.assertTrue(any("не были более двух недель" in item.message for item in notifications))
+        self.assertTrue(any("Alice" in item.message for item in notifications))
+        self.assertTrue(any(chat_id == "456456456" and "Alice" in text for chat_id, text in sent_messages))
+
     def test_admin_mark_read_all_affects_only_admin_notifications(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         owner_token = self.login_staff("owner", "owner") if False else None
