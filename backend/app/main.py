@@ -1639,11 +1639,11 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
                 or_(Notification.recipient_id.is_(None), Notification.recipient_id == actor_id),
             )
 
-        if role == "owner":
+        if role in {"owner", "accountant"}:
             clients = [_client_summary_payload(item) for item in db.scalars(select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())).all()]
             stock_items = [_stock_payload(item) for item in db.scalars(stock_query).all()]
             expenses = [_expense_payload(item) for item in db.scalars(expense_query).all()]
-            penalties = [_penalty_payload(item) for item in all_penalties]
+            penalties = [_penalty_payload(item) for item in all_penalties] if role == "owner" else []
         else:
             stock_items = []
             expenses = []
@@ -3032,7 +3032,7 @@ def download_owner_export(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     export_file = _owner_export_file(db, session_data["actorId"], kind)
     return _download_response(export_file)
 
@@ -3043,7 +3043,7 @@ def send_owner_export_to_telegram(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> OwnerExportDeliveryPayload:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     export_file = _owner_export_file(db, session_data["actorId"], kind)
     return _send_export_to_telegram(db, session_data["actorId"], export_file)
 
@@ -3055,7 +3055,7 @@ def send_owner_summary_report_to_telegram(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> GenericMessage:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     report = _owner_summary_report(db, session_data["actorId"], period, segment)
     export_file = _owner_summary_export_file(db, session_data["actorId"], period, segment)
     return _send_owner_summary_report(db, session_data["actorId"], report, export_file)
@@ -4106,7 +4106,7 @@ def create_stock_item(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> StockItemPayload:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     item = StockItem(
         id=f"st-{uuid4()}",
         name=payload.name,
@@ -4128,7 +4128,7 @@ def update_stock_item(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> StockItemPayload:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     item = db.get(StockItem, item_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
@@ -4150,7 +4150,7 @@ def write_off_stock(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> StockItemPayload:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     item = db.get(StockItem, item_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
@@ -4352,7 +4352,7 @@ def create_expense(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> ExpensePayload:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     expense = Expense(
         id=f"e-{uuid4()}",
         title=payload.title,
@@ -4808,7 +4808,7 @@ def save_worker_settings(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[WorkerPayload]:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "accountant"})
     workers = {
         worker.id: worker
         for worker in db.scalars(select(StaffUser).where(StaffUser.role.in_(("admin", "worker", "accountant")))).all()

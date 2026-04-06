@@ -51,6 +51,7 @@ function ownerLocationLabel(serviceId: string, services: Array<{ id: string; res
 
 export function OwnerApp() {
   const {
+    session,
     isDark,
     toggleTheme,
     bookings,
@@ -103,6 +104,9 @@ export function OwnerApp() {
       tomorrowLabel,
       upcomingDates,
   } = useApp();
+  const isAccountant = session?.role === 'accountant';
+  const financeRoleTitle = isAccountant ? 'Бухгалтер' : 'Владелец';
+  const financeNotificationRole = isAccountant ? 'accountant' : 'owner';
 
   const [page, setPage] = useState<OwnerPage>('dashboard');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>(null);
@@ -298,11 +302,21 @@ export function OwnerApp() {
   useEffect(() => {
     if (page === 'stock') {
       void listShiftChecklists().then(setShiftChecklists);
-      void listAdminShiftInspections().then(setAdminShiftInspections);
+      if (isAccountant) {
+        setAdminShiftInspections([]);
+      } else {
+        void listAdminShiftInspections().then(setAdminShiftInspections);
+      }
     }
-  }, [page]);
+  }, [isAccountant, page]);
+  useEffect(() => {
+    if (isAccountant && page === 'settings') {
+      setPage('payroll');
+      setSettingsSection(null);
+    }
+  }, [isAccountant, page]);
 
-  const ownerNotifications = notifications.filter(n => n.recipientRole === 'owner');
+  const ownerNotifications = notifications.filter((notification) => notification.recipientRole === financeNotificationRole);
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const todayBookings = bookings.filter(b => b.date === todayLabel);
@@ -1056,11 +1070,11 @@ export function OwnerApp() {
       {/* Header */}
       <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
         <div>
-          <div className="font-semibold text-sm">Владелец</div>
+          <div className="font-semibold text-sm">{financeRoleTitle}</div>
           <div className={`text-xs ${sub}`}>ATMOSFERA</div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead('owner'); }} className={`p-2 rounded-xl ${glass} relative`}>
+          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead(financeNotificationRole); }} className={`p-2 rounded-xl ${glass} relative`}>
             <Bell size={18} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
@@ -1322,14 +1336,19 @@ export function OwnerApp() {
               {/* Quick actions */}
               <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Быстрые действия</h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
-                  {[
-                    { label: 'Создать запись', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
-                    { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
-                    { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
-                    { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
-                    { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
-                    { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
-                  ].map(a => (
+                  {(isAccountant
+                    ? [
+                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
+                        { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                      ]
+                    : [
+                        { label: 'Создать запись', icon: Plus, color: primary, action: () => setShowCreateBooking(true), disabled: false },
+                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
+                        { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                        { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
+                        { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
+                        { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
+                      ]).map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} style={{ color: a.color }} /></div>
                     <span className="text-xs font-medium">{a.label}</span>
@@ -1400,14 +1419,14 @@ export function OwnerApp() {
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Зарплаты сотрудников</h2>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+              {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
-              </div>
+              </div>}
               <button onClick={() => { void handleSavePayrollSettings(); }} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-4" style={{ background: primary }}>
                 <Save size={16} />Сохранить настройки зарплат
               </button>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+              {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-2`}>Жалобы мастерам</div>
                 <div className={`text-xs ${sub} mb-3`}>
                   3 активные жалобы снижают процент мастера на 10 п.п. на неделю. Базовый процент не может быть выше 40%.
@@ -1422,7 +1441,7 @@ export function OwnerApp() {
                 <button onClick={handleAddPenalty} className="w-full py-3 rounded-2xl text-white font-semibold" style={{ background: '#EF4444' }}>
                   Выдать жалобу
                 </button>
-              </div>
+              </div>}
               {payrollRows.map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
                 <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center gap-3 mb-3">
@@ -1501,7 +1520,7 @@ export function OwnerApp() {
                             <input className={inputCls} type="number" min={0} value={payrollDraft.salaryBase} onChange={e => setEmployeeSettings((current) => current.map((item) => item.id === worker.id ? { ...item, salaryBase: Math.max(0, Number(e.target.value) || 0) } : item))} />
                           </div>
                         </div>
-                        <div className="flex items-center justify-between rounded-xl px-3 py-3 mb-3 border border-white/10">
+                        {!isAccountant && <div className="flex items-center justify-between rounded-xl px-3 py-3 mb-3 border border-white/10">
                           <div>
                             <div className="text-sm font-medium">Активность мастера</div>
                             <div className={`text-[11px] ${sub}`}>Можно временно снять мастера с новых записей</div>
@@ -1513,7 +1532,7 @@ export function OwnerApp() {
                           >
                             <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${payrollDraft.active ? 'left-6' : 'left-1'}`} />
                           </button>
-                        </div>
+                        </div>}
                       </>
                     );
                   })()}
@@ -1577,7 +1596,7 @@ export function OwnerApp() {
                       {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Провести операцию по зарплате'}
                     </button>
                   </div>
-                  {complaintState.reductionActive ? (
+                  {!isAccountant && (complaintState.reductionActive ? (
                     <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
                       Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
                     </div>
@@ -1587,8 +1606,8 @@ export function OwnerApp() {
                         ? 'Активных жалоб нет.'
                         : `До снижения процента осталось ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} жалобы.`}
                     </div>
-                  )}
-                  {complaintState.activeCount > 0 && (
+                  ))}
+                  {!isAccountant && complaintState.activeCount > 0 && (
                     <button
                       onClick={() => { void handleRevokeAllPenalties(worker.id, worker.name); }}
                       className="mb-3 w-full py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-500/20 bg-red-500/10"
@@ -1596,7 +1615,7 @@ export function OwnerApp() {
                       Снять все жалобы
                     </button>
                   )}
-                  {recentPenalties.length > 0 && (
+                  {!isAccountant && recentPenalties.length > 0 && (
                     <div className="space-y-2 mb-3">
                       {recentPenalties.map(item => (
                         <div key={item.id} className={`${glass} rounded-xl p-3 flex items-start justify-between gap-3`}>
@@ -1718,7 +1737,7 @@ export function OwnerApp() {
                   </button>
                 </motion.div>
               ))}
-              <div className={`${glass} rounded-2xl p-4 mt-4`}>
+              {!isAccountant && <div className={`${glass} rounded-2xl p-4 mt-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
                     <div className="font-semibold">Чек-листы смен мастеров</div>
@@ -1776,8 +1795,8 @@ export function OwnerApp() {
                     ))}
                   </div>
                 )}
-              </div>
-              <div className={`${glass} rounded-2xl p-4 mt-4`}>
+              </div>}
+              {!isAccountant && <div className={`${glass} rounded-2xl p-4 mt-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
                     <div className="font-semibold">Открытие смены админом</div>
@@ -1837,7 +1856,7 @@ export function OwnerApp() {
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
             </motion.div>
           )}
 
@@ -2035,7 +2054,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS MAIN ── */}
-          {page === 'settings' && !settingsSection && (
+          {!isAccountant && page === 'settings' && !settingsSection && (
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
@@ -2064,7 +2083,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: COMPANY ── */}
-          {page === 'settings' && settingsSection === 'company' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'company' && (
             <motion.div key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Профиль компании</h2>
@@ -2094,7 +2113,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: BOXES ── */}
-          {page === 'settings' && settingsSection === 'boxes' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'boxes' && (
             <motion.div key="s-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
@@ -2158,7 +2177,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: SERVICES ── */}
-          {page === 'settings' && settingsSection === 'services' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'services' && (
             <motion.div key="s-services" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
@@ -2230,7 +2249,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: EMPLOYEES ── */}
-          {page === 'settings' && settingsSection === 'employees' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'employees' && (
             <motion.div key="s-employees" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Сотрудники</h2>
@@ -2343,7 +2362,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: NOTIFICATIONS ── */}
-          {page === 'settings' && settingsSection === 'notifications' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'notifications' && (
             <motion.div key="s-notifs" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Уведомления</h2>
@@ -2379,7 +2398,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: INTEGRATIONS ── */}
-          {page === 'settings' && settingsSection === 'integrations' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'integrations' && (
             <motion.div key="s-integrations" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Интеграции</h2>
@@ -2411,7 +2430,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: SECURITY ── */}
-          {page === 'settings' && settingsSection === 'security' && (
+          {!isAccountant && page === 'settings' && settingsSection === 'security' && (
             <motion.div key="s-security" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Безопасность</h2>
@@ -2656,13 +2675,20 @@ export function OwnerApp() {
 
       {/* Bottom Nav */}
       <div className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
-        {[
-          { id: 'dashboard', icon: Home, label: 'Главная' },
-          { id: 'payroll', icon: Users, label: 'Зарплаты' },
-          { id: 'stock', icon: Box, label: 'Склад' },
-          { id: 'reports', icon: FileText, label: 'Отчёты' },
-          { id: 'settings', icon: Settings, label: 'Настройки' },
-        ].map(t => (
+        {(isAccountant
+          ? [
+              { id: 'dashboard', icon: Home, label: 'Главная' },
+              { id: 'payroll', icon: Users, label: 'Зарплаты' },
+              { id: 'stock', icon: Box, label: 'Склад' },
+              { id: 'reports', icon: FileText, label: 'Отчёты' },
+            ]
+          : [
+              { id: 'dashboard', icon: Home, label: 'Главная' },
+              { id: 'payroll', icon: Users, label: 'Зарплаты' },
+              { id: 'stock', icon: Box, label: 'Склад' },
+              { id: 'reports', icon: FileText, label: 'Отчёты' },
+              { id: 'settings', icon: Settings, label: 'Настройки' },
+            ]).map(t => (
           <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-0.5">
             <t.icon size={18} style={{ color: page === t.id ? primary : undefined }} className={page !== t.id ? sub : ''} />
             <span className="text-[10px]" style={{ color: page === t.id ? primary : undefined }}>{t.label}</span>
