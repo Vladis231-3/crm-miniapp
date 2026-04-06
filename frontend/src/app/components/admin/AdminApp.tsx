@@ -174,6 +174,7 @@ async function compressShiftPhoto(file: File) {
 
 export function AdminApp() {
   const {
+    session,
     isDark,
     toggleTheme,
     bookings,
@@ -382,8 +383,14 @@ export function AdminApp() {
     }
   }, [page, settingsSection]);
 
-  const adminNotifications = notifications.filter(n => n.recipientRole === 'admin');
-  const unreadCount = adminNotifications.filter(n => !n.read).length;
+  const staffRoleTitle = session?.role === 'accountant' ? 'Бухгалтер' : 'Администратор';
+  const staffNotificationsRole = session?.role === 'accountant' ? 'accountant' : 'admin';
+  const adminNotifications = notifications.filter((notification) =>
+    staffNotificationsRole === 'accountant'
+      ? notification.recipientRole === 'accountant' || notification.recipientRole === 'admin'
+      : notification.recipientRole === 'admin',
+  );
+  const unreadCount = adminNotifications.filter((notification) => !notification.read).length;
   const todayBookings = bookings.filter(b => b.date === todayLabel);
   const completedAll = bookings.filter(b => b.status === 'completed');
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
@@ -872,11 +879,11 @@ export function AdminApp() {
       <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
         <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} /></button>
         <div className="text-center">
-          <div className="font-semibold text-sm">Администратор</div>
+          <div className="font-semibold text-sm">{staffRoleTitle}</div>
           <div className={`text-xs ${sub}`}>{todayLabel}</div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={() => { setShowNotifPanel(true); markAllNotificationsRead('admin'); }} className={`p-2 rounded-xl ${glass} relative`}>
+          <button onClick={() => { setShowNotifPanel(true); markAllNotificationsRead(staffNotificationsRole); }} className={`p-2 rounded-xl ${glass} relative`}>
             <Bell size={18} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
@@ -1810,7 +1817,7 @@ export function AdminApp() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: primary }}>А</div>
                     <div>
-                      <div className="font-semibold">Администратор</div>
+                      <div className="font-semibold">{staffRoleTitle}</div>
                       <div className={`text-xs ${sub}`}>admin@atmosfera.ru</div>
                     </div>
                   </div>

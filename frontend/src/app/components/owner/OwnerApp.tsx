@@ -25,6 +25,12 @@ const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудо�
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
 const DETAILING_BOX = { id: 'detailing-room', name: 'Детейлинг', resourceGroup: 'detailing', pricePerHour: 0, active: true, description: 'Отдельное помещение для детейлинга' };
 
+function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
+  if (role === 'admin') return 'Администратор';
+  if (role === 'accountant') return 'Бухгалтер';
+  return 'Мастер';
+}
+
 function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
   return services.find((service) => service.id === serviceId)?.resourceGroup || 'wash';
 }
@@ -151,7 +157,7 @@ export function OwnerApp() {
   const [employeeSettings, setEmployeeSettings] = useState<EmployeeSetting[]>(
     workers.map(worker => ({
       id: worker.id,
-      role: worker.role === 'admin' ? 'admin' : 'worker',
+      role: worker.role === 'admin' || worker.role === 'accountant' ? worker.role : 'worker',
       name: worker.name,
       percent: worker.defaultPercent,
       salaryBase: worker.salaryBase,
@@ -166,7 +172,7 @@ export function OwnerApp() {
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
   const [penaltyForm, setPenaltyForm] = useState({ workerId: workers[0]?.id || '', title: '', reason: '' });
   const [newEmployee, setNewEmployee] = useState({
-    role: 'worker' as 'admin' | 'worker',
+    role: 'worker' as 'admin' | 'worker' | 'accountant',
     name: '',
     login: '',
     password: '',
@@ -220,7 +226,7 @@ export function OwnerApp() {
     setEmployeeSettings(
       workers.map(worker => ({
         id: worker.id,
-        role: worker.role === 'admin' ? 'admin' : 'worker',
+        role: worker.role === 'admin' || worker.role === 'accountant' ? worker.role : 'worker',
         name: worker.name,
         percent: worker.defaultPercent,
         salaryBase: worker.salaryBase,
@@ -460,7 +466,7 @@ export function OwnerApp() {
     const name = newEmployee.name.trim();
     const login = newEmployee.login.trim();
     const password = newEmployee.password.trim();
-    const employeeLabel = newEmployee.role === 'admin' ? '\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440' : '\u041c\u0430\u0441\u0442\u0435\u0440';
+    const employeeLabel = employeeRoleLabel(newEmployee.role);
 
     if (!name || !login || !password) {
       setBottomToast('\u0417\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0438\u043c\u044f, \u043b\u043e\u0433\u0438\u043d \u0438 \u043f\u0430\u0440\u043e\u043b\u044c \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430');
@@ -839,7 +845,7 @@ export function OwnerApp() {
 
   const handleFireWorker = async (workerId: string, workerName: string) => {
     const employee = employeeSettings.find((item) => item.id === workerId);
-    const employeeTitle = employee?.role === 'admin' ? '\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440' : '\u041c\u0430\u0441\u0442\u0435\u0440';
+    const employeeTitle = employee ? employeeRoleLabel(employee.role) : 'Сотрудник';
     const confirmed = window.confirm(`\u0423\u0432\u043e\u043b\u0438\u0442\u044c \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430 "${workerName}"? \u0414\u043e\u0441\u0442\u0443\u043f \u0431\u0443\u0434\u0435\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0451\u043d, \u0430 \u0431\u0443\u0434\u0443\u0449\u0438\u0435 \u0437\u0430\u043f\u0438\u0441\u0438 \u0441\u043d\u0438\u043c\u0443\u0442\u0441\u044f \u0441 \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430.`);
     if (!confirmed) return;
 
@@ -1423,7 +1429,7 @@ export function OwnerApp() {
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
                     <div className="flex-1">
                       <div className="font-semibold">{worker.name}</div>
-                      <div className={`text-xs ${sub}`}>{worker.role === 'admin' ? 'Администратор' : 'Мастер'} · база {worker.defaultPercent}%</div>
+                      <div className={`text-xs ${sub}`}>{employeeRoleLabel(worker.role === 'owner' ? 'admin' : worker.role)} · база {worker.defaultPercent}%</div>
                     </div>
                     <div className="text-right">
                       <div className="font-bold" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽</div>
@@ -2244,10 +2250,11 @@ export function OwnerApp() {
                     <select
                       className={selectCls}
                       value={newEmployee.role}
-                      onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value as 'admin' | 'worker' }))}
+                      onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value as 'admin' | 'worker' | 'accountant' }))}
                     >
                       <option value="worker">Мастер</option>
                       <option value="admin">Администратор</option>
+                      <option value="accountant">Бухгалтер</option>
                     </select>
                   </div>
                   <div>
@@ -2295,7 +2302,7 @@ export function OwnerApp() {
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ background: primary }}>{emp.name.charAt(0)}</div>
                       <div className="min-w-0">
                         <div className="font-medium truncate">{emp.name}</div>
-                        <div className={`text-xs ${sub}`}>{emp.role === 'admin' ? 'Администратор' : 'Мастер'}</div>
+                        <div className={`text-xs ${sub}`}>{employeeRoleLabel(emp.role)}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

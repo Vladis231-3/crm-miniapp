@@ -7,9 +7,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-Role = Literal["client", "admin", "worker", "owner"]
-StaffRole = Literal["admin", "worker", "owner"]
-EmployeeRole = Literal["admin", "worker"]
+Role = Literal["client", "admin", "worker", "owner", "accountant"]
+StaffRole = Literal["admin", "worker", "owner", "accountant"]
+EmployeeRole = Literal["admin", "worker", "accountant"]
 BookingStatus = Literal["new", "confirmed", "scheduled", "in_progress", "completed", "no_show", "cancelled", "admin_review"]
 PaymentType = Literal["cash", "card", "online"]
 PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]

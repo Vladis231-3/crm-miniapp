@@ -1528,10 +1528,10 @@ def _scoped_settings_payload(db: Session, role: str, actor_id: str) -> SettingsB
         return full
 
     empty = _empty_settings_payload()
-    if role == "admin":
+    if role in {"admin", "accountant"}:
         admin_profile = full.adminProfile
         admin_staff = db.get(StaffUser, actor_id)
-        if admin_staff is not None and admin_staff.role == "admin":
+        if admin_staff is not None and admin_staff.role in {"admin", "accountant"}:
             admin_profile = AdminProfilePayload(
                 name=admin_staff.name,
                 email=admin_staff.email,
@@ -1599,12 +1599,12 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     schedule = db.scalars(select(ScheduleEntry).order_by(ScheduleEntry.day_index)).all()
     workers = db.scalars(
         select(StaffUser)
-        .where(StaffUser.role.in_(("admin", "worker")))
+        .where(StaffUser.role.in_(("admin", "worker", "accountant")))
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
     ).all()
     all_penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(all_penalties)
-    payroll_summaries = _worker_payroll_summaries(db, workers, complaints_by_worker) if role in {"admin", "owner", "worker"} else {}
+    payroll_summaries = _worker_payroll_summaries(db, workers, complaints_by_worker) if role in {"admin", "owner", "worker", "accountant"} else {}
     clients: list[ClientSummaryPayload] = []
 
     bookings_query = select(Booking).options(joinedload(Booking.worker_links)).order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
@@ -1627,9 +1627,9 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
         if role == "worker":
             bookings_query = bookings_query.join(Booking.worker_links).where(BookingWorker.worker_id == actor_id)
             notifications_query = notifications_query.where(Notification.recipient_role == "worker", Notification.recipient_id == actor_id)
-        elif role == "admin":
+        elif role in {"admin", "accountant"}:
             notifications_query = notifications_query.where(
-                Notification.recipient_role == "admin",
+                Notification.recipient_role.in_(("admin", "accountant")),
                 or_(Notification.recipient_id.is_(None), Notification.recipient_id == actor_id),
             )
             clients = [_client_summary_payload(item) for item in db.scalars(select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())).all()]
@@ -1669,7 +1669,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
         stockItems=stock_items,
         expenses=expenses,
         penalties=penalties,
-        workers=[_worker_payload_with_payroll(worker, payroll_summaries) for worker in workers] if role in {"admin", "owner"} else [],
+        workers=[_worker_payload_with_payroll(worker, payroll_summaries) for worker in workers] if role in {"admin", "owner", "accountant"} else [],
         services=[_service_payload(service) for service in services],
         boxes=[_box_payload(box) for box in boxes],
         schedule=[_schedule_payload(entry) for entry in schedule],
@@ -2357,7 +2357,7 @@ def _owner_database_reset_preview(
     sessions_closed = len([item_id for item_id in active_session_ids if not current_session_id or item_id != current_session_id])
     return OwnerDatabaseResetPreviewPayload(
         ownersPreserved=len(db.scalars(select(StaffUser.id).where(StaffUser.role == "owner")).all()),
-        employeesDeleted=len(db.scalars(select(StaffUser.id).where(StaffUser.role.in_(("admin", "worker")))).all()),
+        employeesDeleted=len(db.scalars(select(StaffUser.id).where(StaffUser.role.in_(("admin", "worker", "accountant")))).all()),
         clientsDeleted=len(db.scalars(select(Client.id)).all()),
         bookingsDeleted=len(db.scalars(select(Booking.id)).all()),
         notificationsDeleted=len(db.scalars(select(Notification.id)).all()),
@@ -2407,7 +2407,7 @@ def _perform_owner_database_reset(db: Session, *, current_session_id: str | None
     db.execute(sa_delete(Box))
     db.execute(sa_delete(ScheduleEntry))
     db.execute(sa_delete(AppSetting))
-    db.execute(sa_delete(StaffUser).where(StaffUser.role.in_(("admin", "worker"))))
+    db.execute(sa_delete(StaffUser).where(StaffUser.role.in_(("admin", "worker", "accountant"))))
 
     for owner in db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all():
         owner.two_factor_code_hash = None
@@ -2966,7 +2966,7 @@ def _notify_worker_about_payroll_entry(
     amount: int,
     note: str,
 ) -> None:
-    actor = db.get(StaffUser, actor_id) if actor_role in {"owner", "admin", "worker"} else None
+    actor = db.get(StaffUser, actor_id) if actor_role in {"owner", "admin", "worker", "accountant"} else None
     actor_name = actor.name if actor is not None else "CRM"
     action_label = _payroll_entry_label(kind)
     note_suffix = f"\nПримечание: {note}" if note else ""
@@ -3354,7 +3354,7 @@ def authenticate_via_telegram(
         .where(
             StaffUser.telegram_chat_id == telegram_id,
             StaffUser.active.is_(True),
-            StaffUser.role.in_(("owner", "admin", "worker")),
+            StaffUser.role.in_(("owner", "admin", "worker", "accountant")),
         )
         .order_by(StaffUser.is_primary_owner.desc(), StaffUser.created_at.asc(), StaffUser.id.asc())
     ).all()
@@ -3408,7 +3408,7 @@ def authenticate_staff(payload: StaffLoginRequest, request: Request, db: Session
     staff = db.scalar(select(StaffUser).where(StaffUser.login == payload.login.strip().lower()))
     if staff is None or not verify_password(payload.password, staff.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
-    if staff.role not in {"admin", "worker", "owner"} or not staff.active:
+    if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён")
     owner_security = _setting(db, "owner_security", {"twoFactor": False})
     primary_owner = _primary_owner(db)
@@ -3600,7 +3600,7 @@ def get_booking_availability(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> BookingAvailabilityPayload:
-    if session_data["role"] not in {"client", "admin", "owner"}:
+    if session_data["role"] not in {"client", "admin", "owner", "accountant"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     return _booking_slot_availability(
         db,
@@ -3788,7 +3788,7 @@ def update_booking(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> BookingPayload:
-    _ensure_staff_role(session_data, {"admin", "worker", "owner"})
+    _ensure_staff_role(session_data, {"admin", "worker", "owner", "accountant"})
     booking = db.scalar(select(Booking).options(joinedload(Booking.worker_links)).where(Booking.id == booking_id))
     if booking is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
@@ -4018,7 +4018,7 @@ def create_notification(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> NotificationPayload:
-    if session_data["role"] not in {"admin", "worker", "owner"}:
+    if session_data["role"] not in {"admin", "worker", "owner", "accountant"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if session_data["role"] == "worker":
         if payload.recipientRole != "client" or not payload.recipientId:
@@ -4057,11 +4057,14 @@ def mark_notification_read(
     notification = db.get(Notification, notification_id)
     if notification is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
-    if notification.recipient_role != session_data["role"]:
+    allowed_recipient_roles = {session_data["role"]}
+    if session_data["role"] == "accountant":
+        allowed_recipient_roles.add("admin")
+    if notification.recipient_role not in allowed_recipient_roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if session_data["role"] in {"client", "worker"} and notification.recipient_id != session_data["actorId"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    if session_data["role"] == "admin" and notification.recipient_id not in {None, session_data["actorId"]}:
+    if session_data["role"] in {"admin", "accountant"} and notification.recipient_id not in {None, session_data["actorId"]}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if session_data["role"] == "owner" and notification.recipient_id not in {None, session_data["actorId"]}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
@@ -4081,11 +4084,14 @@ def mark_all_notifications_read(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     notifications = db.scalars(select(Notification)).all()
     for notification in notifications:
-        if notification.recipient_role != payload.role:
+        allowed_recipient_roles = {payload.role}
+        if payload.role == "accountant":
+            allowed_recipient_roles.add("admin")
+        if notification.recipient_role not in allowed_recipient_roles:
             continue
         if payload.role in {"client", "worker"} and notification.recipient_id != session_data["actorId"]:
             continue
-        if payload.role == "admin" and notification.recipient_id not in {None, session_data["actorId"]}:
+        if payload.role in {"admin", "accountant"} and notification.recipient_id not in {None, session_data["actorId"]}:
             continue
         if payload.role == "owner" and notification.recipient_id not in {None, session_data["actorId"]}:
             continue
@@ -4159,7 +4165,7 @@ def list_shift_checklists(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[ShiftChecklistPayload]:
-    _ensure_staff_role(session_data, {"owner", "admin", "worker"})
+    _ensure_staff_role(session_data, {"owner", "admin", "worker", "accountant"})
     entries = _shift_checklists_state(db)
     if session_data["role"] == "worker":
         entries = [entry for entry in entries if entry.get("workerId") == session_data["actorId"]]
@@ -4549,7 +4555,7 @@ def generate_telegram_link_code(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> TelegramLinkCodePayload:
-    _ensure_staff_role(session_data, {"admin", "worker", "owner"})
+    _ensure_staff_role(session_data, {"admin", "worker", "owner", "accountant"})
     item = create_link_code(db, session_data["actorId"])
     staff = db.get(StaffUser, session_data["actorId"])
     db.commit()
@@ -4809,7 +4815,7 @@ def save_worker_settings(
     _ensure_staff_role(session_data, {"owner"})
     workers = {
         worker.id: worker
-        for worker in db.scalars(select(StaffUser).where(StaffUser.role.in_(("admin", "worker")))).all()
+        for worker in db.scalars(select(StaffUser).where(StaffUser.role.in_(("admin", "worker", "accountant")))).all()
     }
     for item in payload:
         worker = workers.get(item.id)
@@ -4832,7 +4838,7 @@ def save_worker_settings(
     db.commit()
     refreshed = db.scalars(
         select(StaffUser)
-        .where(StaffUser.role.in_(("admin", "worker")))
+        .where(StaffUser.role.in_(("admin", "worker", "accountant")))
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
     ).all()
     payroll_summaries = _worker_payroll_summaries(db, refreshed, _complaints_by_worker(_load_penalties(db)))
@@ -4845,7 +4851,7 @@ def save_admin_worker_payroll(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[WorkerPayload]:
-    _ensure_staff_role(session_data, {"admin"})
+    _ensure_staff_role(session_data, {"admin", "accountant"})
     workers = {
         worker.id: worker
         for worker in db.scalars(select(StaffUser).where(StaffUser.role == "worker")).all()
@@ -4875,11 +4881,11 @@ def create_payroll_entry(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> WorkerPayload:
-    _ensure_staff_role(session_data, {"admin", "owner"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
     worker = db.get(StaffUser, payload.workerId)
-    if worker is None or worker.role not in {"admin", "worker"}:
+    if worker is None or worker.role not in {"admin", "worker", "accountant"}:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден")
-    if session_data["role"] == "admin" and worker.role != "worker":
+    if session_data["role"] in {"admin", "accountant"} and worker.role != "worker":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Администратор может вести выплаты только по мастерам")
 
     amount = int(payload.amount)
@@ -4894,7 +4900,7 @@ def create_payroll_entry(
     payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
     worker_summary = payroll_summaries.get(worker.id)
     if (
-        session_data["role"] == "admin"
+        session_data["role"] in {"admin", "accountant"}
         and payload.kind == "advance"
         and (worker_summary is None or worker_summary.accruedFromBookings < 1000)
     ):
@@ -4989,7 +4995,7 @@ def fire_worker(
 ) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
     worker = db.get(StaffUser, worker_id)
-    if worker is None or worker.role not in {"admin", "worker"}:
+    if worker is None or worker.role not in {"admin", "worker", "accountant"}:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
     if worker.is_primary_owner:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Primary owner cannot be dismissed")
@@ -5024,7 +5030,7 @@ def fire_worker(
 
     for auth_session in db.scalars(
         select(AuthSession).where(
-            AuthSession.actor_role == "worker",
+            AuthSession.actor_role == worker.role,
             AuthSession.actor_id == worker_id,
             AuthSession.revoked_at.is_(None),
         )
@@ -5033,7 +5039,7 @@ def fire_worker(
 
     db.execute(sa_delete(TelegramLinkCode).where(TelegramLinkCode.staff_id == worker_id))
 
-    employee_label = "Администратор" if worker.role == "admin" else "Мастер"
+    employee_label = "Администратор" if worker.role == "admin" else "Бухгалтер" if worker.role == "accountant" else "Мастер"
     dismissed_role = f"dismissed_{worker.role}"
     worker.role = dismissed_role
     worker.active = False

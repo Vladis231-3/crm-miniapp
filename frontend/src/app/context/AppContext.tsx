@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { apiDownload, apiRequest, getTelegramInitData, getTelegramWebApp, tokenStorage } from '../api';
 import { getScheduleDayIndex, getUpcomingDates, isPastTimeSlot, parseFlexibleDate } from '../utils/date';
 
-export type Role = 'client' | 'admin' | 'worker' | 'owner';
+export type Role = 'client' | 'admin' | 'worker' | 'owner' | 'accountant';
 export type BookingStatus = 'new' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'no_show' | 'cancelled' | 'admin_review';
 export type PaymentType = 'cash' | 'card' | 'online';
 
@@ -48,7 +48,7 @@ export interface RegisteredClient {
 
 export interface Worker {
   id: string;
-  role: 'admin' | 'worker' | 'owner';
+  role: 'admin' | 'worker' | 'owner' | 'accountant';
   name: string;
   experience: string;
   defaultPercent: number;
@@ -73,7 +73,7 @@ export interface PayrollEntry {
   amount: number;
   note: string;
   createdAt: Date;
-  createdByRole: 'admin' | 'worker' | 'owner';
+  createdByRole: 'admin' | 'worker' | 'owner' | 'accountant';
   createdByName: string;
 }
 
@@ -388,7 +388,7 @@ export interface OwnerSecurity {
 
 export interface EmployeeSetting {
   id: string;
-  role: 'admin' | 'worker';
+  role: 'admin' | 'worker' | 'accountant';
   name: string;
   percent: number;
   salaryBase: number;
@@ -397,7 +397,7 @@ export interface EmployeeSetting {
 }
 
 export interface WorkerCreateInput {
-  role: 'admin' | 'worker';
+  role: 'admin' | 'worker' | 'accountant';
   name: string;
   login: string;
   password: string;
@@ -1002,7 +1002,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function markAllNotificationsRead(role: Role) {
     await apiRequest('/api/notifications/read-all', { method: 'POST', body: { role } });
     setNotifications((current) => current.map((notification) => {
-      if (notification.recipientRole !== role) return notification;
+      if (role === 'accountant') {
+        if (notification.recipientRole !== 'accountant' && notification.recipientRole !== 'admin') return notification;
+      } else if (notification.recipientRole !== role) {
+        return notification;
+      }
       if (role === 'client' && notification.recipientId !== session?.actorId) return notification;
       if (role === 'worker' && notification.recipientId !== session?.actorId) return notification;
       return { ...notification, read: true };

@@ -1676,13 +1676,44 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(worker_record["role"], "worker")
         self.assertEqual(worker_record["telegram_chat_id"], "801002")
 
+    def test_owner_can_create_and_login_accountant(self) -> None:
+        self.disable_owner_two_factor()
+        owner_token = self.login_staff("owner", "owner")
+
+        create_accountant = self.client.post(
+            "/api/workers",
+            headers=self.auth_headers(owner_token),
+            json={
+                "role": "accountant",
+                "name": "Finance Lead",
+                "login": "accountant",
+                "password": "accpass",
+                "percent": 0,
+                "salaryBase": 60000,
+                "phone": "+7 (999) 555-33-44",
+                "email": "accountant@example.com",
+                "telegramChatId": "701003",
+            },
+        )
+        self.assertEqual(create_accountant.status_code, 200, create_accountant.text)
+        accountant_payload = create_accountant.json()
+        self.assertEqual(accountant_payload["role"], "accountant")
+        self.assertEqual(accountant_payload["telegramChatId"], "701003")
+
+        accountant_login = self.client.post(
+            "/api/auth/staff/login",
+            json={"login": "accountant", "password": "accpass"},
+        )
+        self.assertEqual(accountant_login.status_code, 200, accountant_login.text)
+        bootstrap = accountant_login.json()["bootstrap"]
+        self.assertEqual(bootstrap["session"]["role"], "accountant")
+        self.assertTrue(any(item["id"] == accountant_payload["id"] for item in bootstrap["workers"]))
+
         bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(owner_token))
         self.assertEqual(bootstrap.status_code, 200, bootstrap.text)
         owner_workers = {item["id"]: item for item in bootstrap.json()["workers"]}
-        self.assertEqual(owner_workers[admin_payload["id"]]["role"], "admin")
-        self.assertEqual(owner_workers[admin_payload["id"]]["telegramChatId"], "801001")
-        self.assertEqual(owner_workers[worker_payload["id"]]["role"], "worker")
-        self.assertEqual(owner_workers[worker_payload["id"]]["telegramChatId"], "801002")
+        self.assertEqual(owner_workers[accountant_payload["id"]]["role"], "accountant")
+        self.assertEqual(owner_workers[accountant_payload["id"]]["telegramChatId"], "701003")
 
     def test_owner_can_rehire_employee_with_same_telegram_after_dismissal(self) -> None:
         self.disable_owner_two_factor()

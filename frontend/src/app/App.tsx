@@ -495,7 +495,7 @@ function AppContent() {
             <ClientApp />
           </motion.div>
         )}
-        {session.role === 'admin' && (
+        {(session.role === 'admin' || session.role === 'accountant') && (
           <motion.div key="admin" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
             <AdminApp />
           </motion.div>
