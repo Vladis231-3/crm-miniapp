@@ -60,6 +60,23 @@ const DEFAULT_SHIFT_SUPPLIES = [
   { id: 'preset-microfiber', name: 'Микрофибра', category: 'Расходники', unit: 'шт', qty: 0 },
   { id: 'preset-gloves', name: 'Перчатки', category: 'Расходники', unit: 'шт', qty: 0 },
 ];
+const SHIFT_PHOTO_CATEGORIES = [
+  { id: 'floor', label: 'Полы' },
+  { id: 'cloths', label: 'Тряпки' },
+  { id: 'chemistry', label: 'Химия' },
+  { id: 'sinks', label: 'Раковины и зона воды' },
+  { id: 'buckets', label: 'Ведра и ёмкости' },
+  { id: 'tools', label: 'Инструменты' },
+  { id: 'machines', label: 'Аппараты и техника' },
+  { id: 'vacuum', label: 'Пылесосы' },
+  { id: 'boxes', label: 'Боксы' },
+  { id: 'detailRoom', label: 'Детейлинг зона' },
+  { id: 'warehouse', label: 'Склад' },
+  { id: 'consumables', label: 'Расходники' },
+  { id: 'uniform', label: 'Форма и экипировка' },
+  { id: 'waiting', label: 'Зона ожидания' },
+  { id: 'other', label: 'Прочее' },
+] as const;
 const SHIFT_PHOTO_MAX_DIMENSION = 1280;
 const SHIFT_PHOTO_TARGET_BYTES = 450 * 1024;
 const SHIFT_PHOTO_MIN_QUALITY = 0.45;
@@ -74,6 +91,7 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift';
 type EditModalMode = 'edit' | 'reschedule';
+type ShiftPhotoCategoryId = typeof SHIFT_PHOTO_CATEGORIES[number]['id'];
 const DETAILING_BOX = { id: 'detailing-room', name: 'Детейлинг', resourceGroup: 'detailing', pricePerHour: 0, active: true, description: 'Отдельное помещение для детейлинга' };
 
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
@@ -239,13 +257,9 @@ export function AdminApp() {
   const [payrollSettings, setPayrollSettings] = useState<EmployeeSetting[]>([]);
   const [shiftInspections, setShiftInspections] = useState<AdminShiftInspection[]>([]);
   const [shiftDraft, setShiftDraft] = useState({
-    clothsReady: false,
     note: '',
-    floorPhotoUrl: '',
   });
-  const [shiftSupplyChecks, setShiftSupplyChecks] = useState<Record<string, boolean>>({});
-  const [shiftMasterChecks, setShiftMasterChecks] = useState<Record<string, boolean>>({});
-  const [shiftPhotoName, setShiftPhotoName] = useState('');
+  const [shiftPhotos, setShiftPhotos] = useState<Record<string, { dataUrl: string; fileName: string }>>({});
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState<string | null>(null);
@@ -276,6 +290,13 @@ export function AdminApp() {
       ? stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники')
       : DEFAULT_SHIFT_SUPPLIES
   );
+  const uploadedShiftPhotos = SHIFT_PHOTO_CATEGORIES
+    .map((category) => ({
+      ...category,
+      dataUrl: shiftPhotos[category.id]?.dataUrl || '',
+      fileName: shiftPhotos[category.id]?.fileName || '',
+    }))
+    .filter((item) => item.dataUrl);
 
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setScheduleState(liveSchedule), [liveSchedule]);
@@ -358,16 +379,8 @@ export function AdminApp() {
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'shift') {
       void listAdminShiftInspections().then(setShiftInspections);
-      setShiftSupplyChecks(
-        Object.fromEntries(
-          stockItems
-            .filter((item) => item.category === 'Химия' || item.category === 'Расходники')
-            .map((item) => [item.id, false]),
-        ),
-      );
-      setShiftMasterChecks(Object.fromEntries(masterWorkers.map((worker) => [worker.id, false])));
     }
-  }, [page, settingsSection, stockItems.length, masterWorkers.length]);
+  }, [page, settingsSection]);
 
   const adminNotifications = notifications.filter(n => n.recipientRole === 'admin');
   const unreadCount = adminNotifications.filter(n => !n.read).length;
@@ -466,14 +479,16 @@ export function AdminApp() {
     }
   };
 
-  const handleShiftPhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleShiftPhotoChange = async (categoryId: ShiftPhotoCategoryId, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
       setShiftError(null);
       const dataUrl = await compressShiftPhoto(file);
-      setShiftDraft((current) => ({ ...current, floorPhotoUrl: dataUrl }));
-      setShiftPhotoName(file.name);
+      setShiftPhotos((current) => ({
+        ...current,
+        [categoryId]: { dataUrl, fileName: file.name },
+      }));
     } catch (error) {
       setShiftError(error instanceof Error ? error.message : 'Не удалось подготовить фото');
     } finally {
@@ -485,18 +500,25 @@ export function AdminApp() {
     setShiftError(null);
     setShiftSubmitting(true);
     try {
+      const primaryPhoto = uploadedShiftPhotos[0]?.dataUrl || '';
+      if (!primaryPhoto) {
+        throw new Error('Загрузите хотя бы одно фото для открытия смены');
+      }
+      const uploadedCategoriesLabel = uploadedShiftPhotos.map((item) => item.label).join(', ');
+      const composedNote = [
+        shiftDraft.note.trim(),
+        uploadedCategoriesLabel ? `Фото по категориям: ${uploadedCategoriesLabel}` : '',
+      ].filter(Boolean).join('\n');
       const saved = await submitAdminShiftInspection({
-        floorPhotoUrl: shiftDraft.floorPhotoUrl,
-        clothsReady: shiftDraft.clothsReady,
-        note: shiftDraft.note,
-        supplies: shiftSupplies.map((item) => ({ stockItemId: item.id, checked: !!shiftSupplyChecks[item.id] })),
-        masters: masterWorkers.map((worker) => ({ workerId: worker.id, checked: !!shiftMasterChecks[worker.id] })),
+        floorPhotoUrl: primaryPhoto,
+        clothsReady: true,
+        note: composedNote,
+        supplies: shiftSupplies.map((item) => ({ stockItemId: item.id, checked: true })),
+        masters: masterWorkers.map((worker) => ({ workerId: worker.id, checked: true })),
       });
       setShiftInspections((current) => [saved, ...current]);
-      setShiftDraft({ clothsReady: false, note: '', floorPhotoUrl: '' });
-      setShiftSupplyChecks(Object.fromEntries(shiftSupplies.map((item) => [item.id, false])));
-      setShiftMasterChecks(Object.fromEntries(masterWorkers.map((worker) => [worker.id, false])));
-      setShiftPhotoName('');
+      setShiftDraft({ note: '' });
+      setShiftPhotos({});
     } catch (error) {
       setShiftError(error instanceof Error ? error.message : 'Не удалось отправить чек-лист смены');
     } finally {
@@ -1297,63 +1319,46 @@ export function AdminApp() {
             <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-1">Открытие смены</h2>
-              <p className={`text-xs ${sub} mb-4`}>Перед стартом смены нужно отметить расходники, чистые тряпки, мастеров на смене и приложить фото пола</p>
+              <p className={`text-xs ${sub} mb-4`}>Перед стартом смены загрузи фото по всем нужным категориям. Чекбоксы убраны, теперь подтверждение идёт через фотофиксацию.</p>
 
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">Фото пола</div>
-                <label className={`block rounded-2xl border border-dashed px-4 py-5 text-center ${isDark ? 'border-white/15' : 'border-black/10'}`}>
-                  <input type="file" accept="image/*" className="hidden" onChange={(event) => { void handleShiftPhotoChange(event); }} />
-                  <div className="text-sm font-medium">{shiftPhotoName || 'Загрузить фото пола'}</div>
-                  <div className={`text-xs ${sub} mt-1`}>Фото уйдёт владельцу в Telegram на подтверждение</div>
-                </label>
-                {shiftDraft.floorPhotoUrl && (
-                  <img src={shiftDraft.floorPhotoUrl} alt="Фото пола" className="mt-3 h-40 w-full rounded-2xl object-cover" />
-                )}
-              </div>
-
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">Расходники и химия в наличии</div>
-                {stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники').length === 0 && (
-                  <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                    На складе пока нет заведённых позиций. Используем базовый чек-лист открытия смены, чтобы админ всё равно мог подтвердить наличие химии и расходников.
-                  </div>
-                )}
-                <div className="space-y-2">
-                  {shiftSupplies.map((item) => (
-                    <label key={item.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                      <div>
-                        <div className="text-sm font-medium">{item.name}</div>
-                        <div className={`text-xs ${sub}`}>{item.category} · {item.qty} {item.unit}</div>
+                <div className="font-medium mb-3">Фото-чеклист открытия смены</div>
+                <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                  Загрузи до 15 фото. Первое загруженное фото уйдёт владельцу как основное, а список категорий сохранится в комментарии смены.
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  {SHIFT_PHOTO_CATEGORIES.map((category) => {
+                    const photo = shiftPhotos[category.id];
+                    return (
+                      <div key={category.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div>
+                            <div className="text-sm font-medium">{category.label}</div>
+                            <div className={`text-xs ${sub}`}>{photo?.fileName || 'Фото ещё не загружено'}</div>
+                          </div>
+                          {photo && <div className={`text-[11px] ${sub}`}>Загружено</div>}
+                        </div>
+                        <label className={`block rounded-2xl border border-dashed px-4 py-4 text-center ${isDark ? 'border-white/15' : 'border-black/10'}`}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => { void handleShiftPhotoChange(category.id, event); }}
+                          />
+                          <div className="text-sm font-medium">{photo ? 'Заменить фото' : `Загрузить фото: ${category.label}`}</div>
+                          <div className={`text-xs ${sub} mt-1`}>Фото категории {category.label.toLowerCase()}</div>
+                        </label>
+                        {photo?.dataUrl && (
+                          <img src={photo.dataUrl} alt={category.label} className="mt-3 h-40 w-full rounded-2xl object-cover" />
+                        )}
                       </div>
-                      <input type="checkbox" checked={!!shiftSupplyChecks[item.id]} onChange={(event) => setShiftSupplyChecks((current) => ({ ...current, [item.id]: event.target.checked }))} className="h-4 w-4" />
-                    </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">Мастера на смене</div>
-                <div className="space-y-2">
-                  {masterWorkers.map((worker) => (
-                    <label key={worker.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                      <div>
-                        <div className="text-sm font-medium">{worker.name}</div>
-                        <div className={`text-xs ${sub}`}>{worker.specialty || 'Мастер смены'}</div>
-                      </div>
-                      <input type="checkbox" checked={!!shiftMasterChecks[worker.id]} onChange={(event) => setShiftMasterChecks((current) => ({ ...current, [worker.id]: event.target.checked }))} className="h-4 w-4" />
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <label className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-sm font-medium">Чистые тряпки подготовлены</div>
-                    <div className={`text-xs ${sub}`}>Без этой отметки открыть смену нельзя</div>
-                  </div>
-                  <input type="checkbox" checked={shiftDraft.clothsReady} onChange={(event) => setShiftDraft((current) => ({ ...current, clothsReady: event.target.checked }))} className="h-4 w-4" />
-                </label>
+                <div className="font-medium mb-3">Комментарий к открытию смены</div>
                 <textarea
                   className={`${inputCls} min-h-[88px] resize-none`}
                   placeholder="Комментарий для владельца"
