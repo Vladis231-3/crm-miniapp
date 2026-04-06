@@ -259,6 +259,7 @@ export function AdminApp() {
   const [shiftInspections, setShiftInspections] = useState<AdminShiftInspection[]>([]);
   const [shiftDraft, setShiftDraft] = useState({
     note: '',
+    masterIds: [] as string[],
   });
   const [shiftPhotos, setShiftPhotos] = useState<Record<string, { dataUrl: string; fileName: string }>>({});
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
@@ -511,6 +512,9 @@ export function AdminApp() {
       if (!primaryPhoto) {
         throw new Error('Загрузите хотя бы одно фото для открытия смены');
       }
+      if (shiftDraft.masterIds.length === 0) {
+        throw new Error('Отметьте мастеров, которые вышли в смену');
+      }
       const uploadedCategoriesLabel = uploadedShiftPhotos.map((item) => item.label).join(', ');
       const composedNote = [
         shiftDraft.note.trim(),
@@ -520,11 +524,11 @@ export function AdminApp() {
         floorPhotoUrl: primaryPhoto,
         clothsReady: true,
         note: composedNote,
-        supplies: shiftSupplies.map((item) => ({ stockItemId: item.id, checked: true })),
-        masters: masterWorkers.map((worker) => ({ workerId: worker.id, checked: true })),
+        supplies: shiftSupplies.map((item) => ({ stockItemId: item.id, checked: false })),
+        masters: masterWorkers.map((worker) => ({ workerId: worker.id, checked: shiftDraft.masterIds.includes(worker.id) })),
       });
       setShiftInspections((current) => [saved, ...current]);
-      setShiftDraft({ note: '' });
+      setShiftDraft({ note: '', masterIds: [] });
       setShiftPhotos({});
     } catch (error) {
       setShiftError(error instanceof Error ? error.message : 'Не удалось отправить чек-лист смены');
@@ -1361,6 +1365,45 @@ export function AdminApp() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-medium mb-3">Мастера на смене</div>
+                <div className="space-y-2">
+                  {masterWorkers.filter((worker) => worker.active).map((worker) => {
+                    const checked = shiftDraft.masterIds.includes(worker.id);
+                    return (
+                      <button
+                        key={worker.id}
+                        type="button"
+                        onClick={() => setShiftDraft((current) => ({
+                          ...current,
+                          masterIds: checked
+                            ? current.masterIds.filter((id) => id !== worker.id)
+                            : [...current.masterIds, worker.id],
+                        }))}
+                        className={`${glass} w-full rounded-2xl p-3 text-left transition-all ${checked ? 'ring-2' : ''}`}
+                        style={checked ? { ringColor: primary, outline: `2px solid ${primary}`, outlineOffset: '-2px' } : undefined}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium">{worker.name}</div>
+                            <div className={`text-xs ${sub}`}>{worker.specialty || worker.experience || 'Мастер'}</div>
+                          </div>
+                          <div
+                            className="h-6 min-w-6 rounded-full px-2 flex items-center justify-center text-[11px] font-semibold text-white"
+                            style={{ background: checked ? primary : '#9CA3AF' }}
+                          >
+                            {checked ? 'Есть' : 'Нет'}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className={`mt-3 text-xs ${sub}`}>
+                  Отметь только тех мастеров, которые реально вышли в смену. Проверку расходников подтверждает владелец после фото.
                 </div>
               </div>
 

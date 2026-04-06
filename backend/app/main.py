@@ -4276,8 +4276,6 @@ def submit_admin_shift_inspection(
 
     supply_checks = {item.stockItemId: item.checked for item in payload.supplies}
     supplies = _admin_shift_inspection_supplies(db)
-    if not supplies:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="На складе нет расходников для проверки")
     supplies_payload = [
         {
             "stockItemId": str(item.get("stockItemId") or ""),
@@ -4289,8 +4287,6 @@ def submit_admin_shift_inspection(
         }
         for item in supplies
     ]
-    if not any(item["checked"] for item in supplies_payload):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте проверенные расходники")
 
     worker_checks = {item.workerId: item.checked for item in payload.masters}
     masters = db.scalars(
@@ -4319,7 +4315,7 @@ def submit_admin_shift_inspection(
         "reviewedAt": None,
         "floorPhotoUrl": payload.floorPhotoUrl.strip(),
         "clothsReady": payload.clothsReady,
-        "suppliesChecked": True,
+        "suppliesChecked": any(item["checked"] for item in supplies_payload),
         "note": payload.note.strip(),
         "issueNote": "",
         "ownerDecisionBy": None,
