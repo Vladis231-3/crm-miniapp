@@ -429,6 +429,11 @@ def _active_sessions_payload(db: Session, session_data: dict) -> list[AuthSessio
 
 
 def _apply_runtime_migrations() -> None:
+    def boolean_default_sql(value: bool) -> str:
+        if engine.dialect.name == "postgresql":
+            return "TRUE" if value else "FALSE"
+        return "1" if value else "0"
+
     def ensure_postgres_varchar_length(table_name: str, column_name: str, minimum_length: int) -> None:
         if engine.dialect.name != "postgresql":
             return
@@ -484,7 +489,9 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN telegram_chat_id VARCHAR(64) DEFAULT ''")
     if "is_primary_owner" not in columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN is_primary_owner BOOLEAN DEFAULT 0")
+            connection.exec_driver_sql(
+                f"ALTER TABLE staff_users ADD COLUMN is_primary_owner BOOLEAN DEFAULT {boolean_default_sql(False)}"
+            )
     if "two_factor_code_hash" not in columns:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN two_factor_code_hash VARCHAR(128)")
@@ -514,7 +521,9 @@ def _apply_runtime_migrations() -> None:
     booking_columns = {column["name"] for column in inspector.get_columns("bookings")} if "bookings" in inspector.get_table_names() else set()
     if "payment_settled" not in booking_columns and "bookings" in inspector.get_table_names():
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT 1")
+            connection.exec_driver_sql(
+                f"ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT {boolean_default_sql(True)}"
+            )
     if "booking_workers" in inspector.get_table_names():
         ensure_postgres_varchar_length("booking_workers", "booking_id", 64)
         ensure_postgres_varchar_length("booking_workers", "worker_id", 64)
