@@ -102,6 +102,15 @@ function bookingLocationLabel(serviceId: string, services: Array<{ id: string; r
   return serviceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
 }
 
+function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
+  if (!paymentSettled) return 'Не оплачено';
+  return {
+    cash: 'Наличные',
+    card: 'Карта',
+    online: 'Онлайн',
+  }[paymentType];
+}
+
 function dataUrlApproxBytes(dataUrl: string) {
   const [, encoded = ''] = dataUrl.split(',', 2);
   const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
@@ -226,6 +235,7 @@ export function AdminApp() {
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [payrollSettings, setPayrollSettings] = useState<EmployeeSetting[]>([]);
   const [shiftInspections, setShiftInspections] = useState<AdminShiftInspection[]>([]);
   const [shiftDraft, setShiftDraft] = useState({
@@ -240,6 +250,27 @@ export function AdminApp() {
   const [shiftError, setShiftError] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState<string | null>(null);
   const masterWorkers = workers.filter((worker) => worker.role === 'worker');
+  const selectedClient = registeredClients.find((client) => client.id === selectedClientId) ?? null;
+  const selectedClientBookings = selectedClient
+    ? bookings
+      .filter((booking) => booking.clientId === selectedClient.id)
+      .sort((left, right) => {
+        const leftDate = parseFlexibleDate(left.date)?.getTime() ?? 0;
+        const rightDate = parseFlexibleDate(right.date)?.getTime() ?? 0;
+        if (rightDate !== leftDate) return rightDate - leftDate;
+        return right.time.localeCompare(left.time);
+      })
+    : [];
+  const selectedClientVehicles = selectedClient
+    ? (selectedClient.vehicles?.length ? selectedClient.vehicles : [{ car: selectedClient.car, plate: selectedClient.plate }])
+      .filter((vehicle) => vehicle.car || vehicle.plate)
+    : [];
+  const selectedClientSpent = selectedClientBookings
+    .filter((booking) => booking.status === 'completed')
+    .reduce((sum, booking) => sum + booking.price, 0);
+  const selectedClientCompletedCount = selectedClientBookings.filter((booking) => booking.status === 'completed').length;
+  const selectedClientUpcoming = selectedClientBookings.find((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
+  const selectedClientLastVisit = selectedClientBookings.find((booking) => booking.status === 'completed');
   const shiftSupplies = (
     stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники').length > 0
       ? stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники')
@@ -289,6 +320,11 @@ export function AdminApp() {
       ])),
     );
   }, [registeredClients]);
+  useEffect(() => {
+    if (selectedClientId && !registeredClients.some((client) => client.id === selectedClientId)) {
+      setSelectedClientId(null);
+    }
+  }, [registeredClients, selectedClientId]);
   useEffect(() => {
     setPayrollSettings(
       workers
@@ -921,18 +957,52 @@ export function AdminApp() {
           {/* CLIENTS */}
           {page === 'clients' && (
             <motion.div key="clients" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">Клиенты</h2>
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <div>
+                  <h2 className="font-semibold">Клиенты</h2>
+                  <p className={`text-xs ${sub} mt-1`}>
+                    {selectedClient ? 'История услуг, оплаты, авто и внутренняя заметка по клиенту' : 'Открой клиента, чтобы посмотреть всю историю посещений'}
+                  </p>
+                </div>
+                {selectedClient && (
+                  <button
+                    onClick={() => setSelectedClientId(null)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                  >
+                    <ArrowLeft size={14} />
+                    Назад к списку
+                  </button>
+                )}
+              </div>
               {registeredClients.length === 0 && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <Users size={36} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Пока нет зарегистрированных клиентов</p>
                 </div>
               )}
-              {registeredClients.map(client => {
+              {!selectedClient && registeredClients.map(client => {
                 const clientBookings = bookings.filter(b => b.clientId === client.id);
                 const spent = clientBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
+                const lastBooking = [...clientBookings].sort((left, right) => {
+                  const leftDate = parseFlexibleDate(left.date)?.getTime() ?? 0;
+                  const rightDate = parseFlexibleDate(right.date)?.getTime() ?? 0;
+                  if (rightDate !== leftDate) return rightDate - leftDate;
+                  return right.time.localeCompare(left.time);
+                })[0];
                 return (
-                  <div key={client.id} className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div
+                    key={client.id}
+                    className={`${glass} rounded-2xl p-4 mb-3 cursor-pointer transition-transform hover:-translate-y-0.5`}
+                    onClick={() => setSelectedClientId(client.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedClientId(client.id);
+                      }
+                    }}
+                  >
                     <div className="flex items-start gap-3 mb-3">
                       <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: primary }}>{client.name.charAt(0)}</div>
                       <div className="flex-1">
@@ -941,14 +1011,23 @@ export function AdminApp() {
                         <a href={`tel:${client.phone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }}>
                           <Phone size={10} />{client.phone}
                         </a>
+                        <div className={`text-[11px] ${sub} mt-1`}>
+                          {lastBooking ? `Последний визит: ${lastBooking.date} ${lastBooking.time}` : 'Истории посещений пока нет'}
+                        </div>
                       </div>
-                      <button
-                        onClick={() => void handleDeleteClient(client.id, client.name)}
-                        className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
-                        aria-label={`Удалить клиента ${client.name}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDeleteClient(client.id, client.name);
+                          }}
+                          className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                          aria-label={`Удалить клиента ${client.name}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <ChevronRight size={16} className={sub} />
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {[
@@ -963,17 +1042,82 @@ export function AdminApp() {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-3 space-y-2">
+                    <div className={`mt-3 text-xs ${sub} flex items-center justify-between gap-3`}>
+                      <span>Открой карточку, чтобы увидеть все услуги и детали клиента</span>
+                      <span>Рейтинг: {client.adminRating ? `${client.adminRating}/5` : 'без оценки'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {selectedClient && (
+                <div className="space-y-3">
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ background: primary }}>
+                        {selectedClient.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-lg">{selectedClient.name}</div>
+                        <div className={`text-sm ${sub} mt-1`}>
+                          Основное авто: {selectedClient.car || 'не указано'}{selectedClient.plate ? `, ${selectedClient.plate}` : ''}
+                        </div>
+                        <a href={`tel:${selectedClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
+                          <Phone size={12} />{selectedClient.phone}
+                        </a>
+                      </div>
+                      <button
+                        onClick={() => void handleDeleteClient(selectedClient.id, selectedClient.name)}
+                        className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                        aria-label={`Удалить клиента ${selectedClient.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {[
+                        { label: 'Всего записей', value: selectedClientBookings.length },
+                        { label: 'Завершённых', value: selectedClientCompletedCount },
+                        { label: 'Потрачено', value: `${selectedClientSpent.toLocaleString('ru')} ₽` },
+                        { label: 'Долг', value: `${selectedClient.debtBalance.toLocaleString('ru')} ₽` },
+                      ].map((item) => (
+                        <div key={item.label} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                          <div className="font-semibold">{item.value}</div>
+                          <div className={`text-xs ${sub}`}>{item.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                        <div className={`text-xs ${sub} mb-1`}>Ближайшая запись</div>
+                        <div className="text-sm">
+                          {selectedClientUpcoming
+                            ? `${selectedClientUpcoming.date} ${selectedClientUpcoming.time} • ${selectedClientUpcoming.service}`
+                            : 'Нет активных записей'}
+                        </div>
+                      </div>
+                      <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                        <div className={`text-xs ${sub} mb-1`}>Последний завершённый визит</div>
+                        <div className="text-sm">
+                          {selectedClientLastVisit
+                            ? `${selectedClientLastVisit.date} ${selectedClientLastVisit.time} • ${selectedClientLastVisit.service}`
+                            : 'Пока нет завершённых услуг'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Рейтинг клиента для админа</label>
                         <select
                           className={selectCls}
-                          value={clientCardDrafts[client.id]?.adminRating ?? 0}
+                          value={clientCardDrafts[selectedClient.id]?.adminRating ?? 0}
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
-                            [client.id]: {
+                            [selectedClient.id]: {
                               adminRating: Number(event.target.value),
-                              adminNote: current[client.id]?.adminNote ?? client.adminNote ?? '',
+                              adminNote: current[selectedClient.id]?.adminNote ?? selectedClient.adminNote ?? '',
                             },
                           }))}
                         >
@@ -985,30 +1129,108 @@ export function AdminApp() {
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Внутреннее примечание</label>
                         <textarea
-                          className={`${inputCls} min-h-[88px] resize-none`}
+                          className={`${inputCls} min-h-[100px] resize-none`}
                           placeholder="Видно только администратору"
-                          value={clientCardDrafts[client.id]?.adminNote ?? ''}
+                          value={clientCardDrafts[selectedClient.id]?.adminNote ?? ''}
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
-                            [client.id]: {
-                              adminRating: current[client.id]?.adminRating ?? client.adminRating ?? 0,
+                            [selectedClient.id]: {
+                              adminRating: current[selectedClient.id]?.adminRating ?? selectedClient.adminRating ?? 0,
                               adminNote: event.target.value,
                             },
                           }))}
                         />
                       </div>
                       <button
-                        onClick={() => { void handleSaveClientCard(client.id); }}
-                        disabled={savingClientId === client.id}
+                        onClick={() => { void handleSaveClientCard(selectedClient.id); }}
+                        disabled={savingClientId === selectedClient.id}
                         className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
                         style={{ background: primary }}
                       >
-                        {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить рейтинг и заметку'}
+                        {savingClientId === selectedClient.id ? 'Сохраняем...' : 'Сохранить карточку клиента'}
                       </button>
                     </div>
                   </div>
-                );
-              })}
+
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="font-semibold mb-3">Автомобили клиента</div>
+                    {selectedClientVehicles.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>Автомобили ещё не добавлены</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedClientVehicles.map((vehicle, index) => (
+                          <div key={`${vehicle.car}-${vehicle.plate}-${index}`} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm">{vehicle.car || 'Авто без названия'}</div>
+                              <div className={`text-xs ${sub}`}>{vehicle.plate || 'Номер не указан'}</div>
+                            </div>
+                            <div className={`text-[11px] ${sub}`}>{index === 0 ? 'Основное' : `Авто ${index + 1}`}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="font-semibold mb-3">История услуг</div>
+                    {selectedClientBookings.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>У клиента пока нет записей</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {selectedClientBookings.map((booking) => (
+                          <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="min-w-0">
+                                <div className="font-medium text-sm">{booking.service}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>
+                                  {booking.date} • {booking.time} • {booking.box || 'Без бокса'}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-[11px] ${STATUS_BADGE[booking.status]}`}>
+                                {STATUS_LABELS[booking.status]}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Стоимость</div>
+                                <div>{booking.price.toLocaleString('ru')} ₽</div>
+                              </div>
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Оплата</div>
+                                <div>{paymentLabel(booking.paymentType, booking.paymentSettled)}</div>
+                              </div>
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Авто</div>
+                                <div>{booking.car || 'Не указано'}</div>
+                              </div>
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Номер</div>
+                                <div>{booking.plate || 'Не указан'}</div>
+                              </div>
+                            </div>
+
+                            <div className="mt-2 space-y-1 text-xs">
+                              <div className={sub}>
+                                Длительность: {booking.duration} мин
+                              </div>
+                              <div className={sub}>
+                                Мастера: {booking.workers.length ? booking.workers.map((worker) => worker.workerName).join(', ') : 'Не назначены'}
+                              </div>
+                              <div className={sub}>
+                                Комментарий: {booking.notes?.trim() ? booking.notes : 'Нет комментария'}
+                              </div>
+                              <div className={sub}>
+                                Создано: {booking.createdAt.toLocaleString('ru-RU')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
