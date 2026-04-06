@@ -87,17 +87,43 @@ def normalize_vehicle_name(value: str) -> str:
 
 def normalize_plate(value: str) -> str:
     cleaned = re.sub(r"\s+", "", value).upper()
+    latin_map = {
+        "A": "A",
+        "B": "B",
+        "C": "C",
+        "E": "E",
+        "H": "H",
+        "K": "K",
+        "M": "M",
+        "O": "O",
+        "P": "P",
+        "T": "T",
+        "X": "X",
+        "Y": "Y",
+        "А": "A",
+        "В": "B",
+        "С": "C",
+        "Е": "E",
+        "Н": "H",
+        "К": "K",
+        "М": "M",
+        "О": "O",
+        "Р": "P",
+        "Т": "T",
+        "Х": "X",
+        "У": "Y",
+    }
     normalized_chars: list[str] = []
     for char in cleaned:
-        if char in PLATE_LATIN_TO_CYRILLIC:
-            normalized_chars.append(PLATE_LATIN_TO_CYRILLIC[char])
-        elif char.isdigit() or char in "АВЕКМНОРСТУХ":
+        if char in latin_map:
+            normalized_chars.append(latin_map[char])
+        elif char.isdigit() or ("A" <= char <= "Z"):
             normalized_chars.append(char)
-    normalized = "".join(normalized_chars)[:6]
+    normalized = "".join(normalized_chars)[:9]
     if not normalized:
-        raise ValueError("Введите госномер")
-    if not PLATE_PATTERN.fullmatch(normalized):
-        raise ValueError("Введите номер в формате У999УУ")
+        raise ValueError("Enter vehicle plate")
+    if not re.fullmatch(r"^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}(?:\d{2,3})?$", normalized):
+        raise ValueError("Enter plate as A123BC77 or A123BC777")
     return normalized
 
 
@@ -123,6 +149,7 @@ class ClientProfilePayload(BaseModel):
     plate: str = ""
     vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     registered: bool = True
+    phoneVerified: bool = False
 
 
 class ClientProfileInput(BaseModel):
@@ -577,6 +604,21 @@ class BootstrapPayload(BaseModel):
 class ClientAuthRequest(BaseModel):
     profile: ClientProfileInput
     initData: str | None = None
+
+
+class ClientPhoneVerificationRequest(BaseModel):
+    phone: str
+    initData: str | None = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        return normalize_phone(value)
+
+
+class ClientPhoneVerificationPayload(BaseModel):
+    phone: str
+    verified: bool
 
 
 class StaffLoginRequest(BaseModel):

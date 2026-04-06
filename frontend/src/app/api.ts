@@ -17,6 +17,8 @@ declare global {
         colorScheme?: 'light' | 'dark';
         ready?: () => void;
         expand?: () => void;
+        requestContact?: (callback?: (shared: boolean) => void) => void;
+        showAlert?: (message: string, callback?: () => void) => void;
       };
     };
   }

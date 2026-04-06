@@ -2,21 +2,33 @@ const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё' -]{1,59}$/;
 const REPEATED_LETTERS_PATTERN = /([A-Za-zА-Яа-яЁё])\1{3,}/i;
 const VEHICLE_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$/;
 const REPEATED_VEHICLE_PATTERN = /([A-Za-zА-Яа-яЁё0-9])\1{3,}/i;
-const PLATE_LATIN_TO_CYRILLIC: Record<string, string> = {
-  A: 'А',
-  B: 'В',
-  C: 'С',
-  E: 'Е',
-  H: 'Н',
-  K: 'К',
-  M: 'М',
-  O: 'О',
-  P: 'Р',
-  T: 'Т',
-  X: 'Х',
-  Y: 'У',
+const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
+  A: 'A',
+  B: 'B',
+  C: 'C',
+  E: 'E',
+  H: 'H',
+  K: 'K',
+  M: 'M',
+  O: 'O',
+  P: 'P',
+  T: 'T',
+  X: 'X',
+  Y: 'Y',
+  А: 'A',
+  В: 'B',
+  С: 'C',
+  Е: 'E',
+  Н: 'H',
+  К: 'K',
+  М: 'M',
+  О: 'O',
+  Р: 'P',
+  Т: 'T',
+  Х: 'X',
+  У: 'Y',
 };
-const PLATE_PATTERN = /^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}$/;
+const PLATE_PATTERN = /^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2,3}$/;
 
 export function normalizePersonName(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -62,18 +74,18 @@ export function normalizePlateInput(value: string): string {
   const cleaned = value.toUpperCase().replace(/\s+/g, '');
   let normalized = '';
   for (const char of cleaned) {
-    if (PLATE_LATIN_TO_CYRILLIC[char]) {
-      normalized += PLATE_LATIN_TO_CYRILLIC[char];
-    } else if ((char >= 'А' && char <= 'Я') || /\d/.test(char)) {
+    if (PLATE_LAYOUT_TO_LATIN[char]) {
+      normalized += PLATE_LAYOUT_TO_LATIN[char];
+    } else if (/[A-Z0-9]/.test(char)) {
       normalized += char;
     }
   }
-  return normalized.slice(0, 6);
+  return normalized.slice(0, 9);
 }
 
 export function validatePlateValue(value: string): string | null {
   const normalized = normalizePlateInput(value);
   if (!normalized) return 'Введите госномер';
-  if (!PLATE_PATTERN.test(normalized)) return 'Введите номер в формате У999УУ';
+  if (!PLATE_PATTERN.test(normalized)) return 'Введите номер в формате A123BC77 или A123BC777';
   return null;
 }

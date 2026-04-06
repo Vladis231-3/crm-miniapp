@@ -14,11 +14,13 @@ try:
     from backend.app.config import get_settings
     from backend.app.database import session_scope
     from backend.app.models import AppSetting, Notification, StaffUser
+    from backend.app.schemas import normalize_phone_digits
     from backend.app.telegram_linking import confirm_link_code
 except ImportError:
     from app.config import get_settings
     from app.database import session_scope
     from app.models import AppSetting, Notification, StaffUser
+    from app.schemas import normalize_phone_digits
     from app.telegram_linking import confirm_link_code
 
 
@@ -31,6 +33,7 @@ class BotRuntime:
 
 ADMIN_SHIFT_INSPECTIONS_KEY = "admin_shift_inspections"
 ADMIN_SHIFT_OWNER_BOT_STATE_KEY = "admin_shift_owner_bot_state"
+CLIENT_PHONE_VERIFICATIONS_KEY = "client_phone_verifications"
 
 
 def _build_runtime() -> BotRuntime:
@@ -397,6 +400,31 @@ def _pop_pending_issue(chat_id: int) -> str | None:
         return inspection_id if isinstance(inspection_id, str) else None
 
 
+def _extract_contact_phone(update: dict[str, Any], chat_id: int) -> str | None:
+    message = update.get("message") or {}
+    contact = message.get("contact") or {}
+    phone_number = contact.get("phone_number")
+    contact_user_id = contact.get("user_id")
+    if not isinstance(phone_number, str) or not phone_number.strip():
+        return None
+    if contact_user_id is not None and str(contact_user_id) != str(chat_id):
+        return None
+    try:
+        return normalize_phone_digits(phone_number)
+    except ValueError:
+        return None
+
+
+def _store_client_phone_verification(chat_id: int, phone_digits: str) -> None:
+    with session_scope() as db:
+        current = _setting_dict(db, CLIENT_PHONE_VERIFICATIONS_KEY, {})
+        current[str(chat_id)] = {
+            "phoneDigits": phone_digits,
+            "updatedAt": _serialize_now(),
+        }
+        _upsert_setting(db, CLIENT_PHONE_VERIFICATIONS_KEY, current)
+
+
 def _extract_chat_id(update: dict[str, Any]) -> int | None:
     callback = update.get("callback_query") or {}
     callback_message = callback.get("message") or {}
@@ -474,6 +502,11 @@ def _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> Non
     text = _extract_text(update)
     chat_id = _extract_chat_id(update)
     if chat_id is None:
+        return
+    contact_phone = _extract_contact_phone(update, chat_id)
+    if contact_phone is not None:
+        _store_client_phone_verification(chat_id, contact_phone)
+        _send_text_message(runtime, chat_id, f"Номер подтверждён: +{contact_phone[0]} ({contact_phone[1:4]}) {contact_phone[4:7]}-{contact_phone[7:9]}-{contact_phone[9:11]}")
         return
 
     callback = _extract_callback(update)

@@ -23,6 +23,25 @@ type OwnerExportKind = 'report' | 'pdf';
 const EXPENSE_CATEGORIES = ['Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
 const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудование'];
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
+const DETAILING_BOX = { id: 'detailing-room', name: 'Детейлинг', resourceGroup: 'detailing', pricePerHour: 0, active: true, description: 'Отдельное помещение для детейлинга' };
+
+function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
+  return services.find((service) => service.id === serviceId)?.resourceGroup || 'wash';
+}
+
+function ownerBookingBoxes(
+  serviceId: string,
+  services: Array<{ id: string; resourceGroup?: string }>,
+  boxes: Array<{ id: string; name: string; resourceGroup: string; active: boolean; pricePerHour: number; description: string }>,
+) {
+  return ownerServiceResourceGroup(serviceId, services) === 'detailing'
+    ? [DETAILING_BOX]
+    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+}
+
+function ownerLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
+  return ownerServiceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
+}
 
 export function OwnerApp() {
   const {
@@ -115,7 +134,7 @@ export function OwnerApp() {
   const [bookingForm, setBookingForm] = useState({
     clientName: '',
     clientPhone: '',
-    service: 's1',
+    service: liveServices[0]?.id || '',
     date: tomorrowLabel,
     time: '10:00',
     box: liveBoxes[0]?.name || 'Бокс 1',
@@ -188,6 +207,14 @@ export function OwnerApp() {
   useEffect(() => setCompany(settings.ownerCompany), [settings.ownerCompany]);
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
+  useEffect(() => {
+    if (!bookingForm.service) return;
+    const nextBoxes = ownerBookingBoxes(bookingForm.service, liveServices, liveBoxes);
+    setBookingForm((current) => ({
+      ...current,
+      box: nextBoxes.find((box) => box.name === current.box)?.name || nextBoxes[0]?.name || current.box,
+    }));
+  }, [bookingForm.service, liveBoxes, liveServices]);
   useEffect(() => {
     setEmployeeSettings(
       workers.map(worker => ({
@@ -334,6 +361,8 @@ export function OwnerApp() {
   useEffect(() => () => {
     Object.values(adminShiftPhotoUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
   }, []);
+  const bookingFormBoxes = ownerBookingBoxes(bookingForm.service, services, boxes);
+  const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -862,7 +891,7 @@ export function OwnerApp() {
       service: services[0]?.id || 's1',
       date: tomorrowLabel,
       time: '10:00',
-      box: boxes[0]?.name || 'Бокс 1',
+      box: ownerBookingBoxes(services[0]?.id || '', services, boxes)[0]?.name || 'Бокс 1',
     });
     setBottomToast('Запись создана и клиент уведомлён');
     setTimeout(() => setBottomToast(null), 3000);
@@ -2760,7 +2789,7 @@ export function OwnerApp() {
                   <div><label className={`text-xs ${sub} block mb-1`}>Дата</label><input className={inputCls} value={bookingForm.date} onChange={e => setBookingForm(p => ({ ...p, date: e.target.value }))} /></div>
                   <div><label className={`text-xs ${sub} block mb-1`}>Время</label><input className={inputCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))} /></div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Бокс</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{boxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>

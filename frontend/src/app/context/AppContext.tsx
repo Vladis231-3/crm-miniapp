@@ -30,6 +30,7 @@ export interface ClientProfile {
   plate: string;
   vehicles?: Array<{ car: string; plate: string }>;
   registered: boolean;
+  phoneVerified?: boolean;
 }
 
 export interface RegisteredClient {
@@ -475,6 +476,7 @@ interface AppContextType {
   getTimeSlotsForDate: (date: string, options?: { durationMinutes?: number; boxName?: string; resourceGroup?: string }) => string[];
   getBookingAvailabilityForDate: (date: string, options?: { durationMinutes?: number; serviceId?: string; resourceGroup?: string }) => Promise<BookingSlotAvailability[]>;
   loginClient: (profile: ClientProfile) => Promise<Role>;
+  verifyClientPhone: (phone: string) => Promise<boolean>;
   loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
   loginPrimaryOwnerViaTelegram: () => Promise<Role>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
@@ -534,7 +536,7 @@ interface AppContextType {
   revokeSession: (sessionId: string) => Promise<void>;
 }
 
-const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false };
+const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false, phoneVerified: false };
 const EMPTY_WORKER_NOTIFICATIONS: WorkerNotificationSettings = { newTask: true, taskUpdate: true, payment: true, reminders: false, sms: false };
 const EMPTY_SETTINGS: SettingsBundle = {
   adminProfile: { name: 'Администратор', email: '', phone: '', telegramChatId: '' },
@@ -850,10 +852,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setClientProfile(saved);
     }
 
-    async function remindAdminAboutInactiveClients() {
+  async function remindAdminAboutInactiveClients() {
       const response = await apiRequest<{ message: string }>('/api/owner/inactive-clients/remind-admin', { method: 'POST' });
       return response.message;
     }
+
+  async function verifyClientPhone(phone: string) {
+    const initData = getTelegramInitData();
+    const webApp = getTelegramWebApp();
+    if (!initData || !webApp?.requestContact) {
+      throw new Error('Откройте Mini App из Telegram и подтвердите номер через системное окно');
+    }
+
+    const contactShared = await new Promise<boolean>((resolve) => {
+      try {
+        webApp.requestContact?.((shared) => resolve(Boolean(shared)));
+      } catch {
+        resolve(false);
+      }
+    });
+    if (!contactShared) {
+      throw new Error('Подтверждение номера отменено. Разрешите Telegram передать ваш номер');
+    }
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const response = await apiRequest<{ phone: string; verified: boolean }>('/api/auth/client/phone-verification', {
+        method: 'POST',
+        useStoredToken: false,
+        body: { phone, initData },
+      });
+      if (response.verified) {
+        return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+    }
+
+    throw new Error('Telegram ещё не передал подтверждённый номер. Повторите попытку через пару секунд');
+  }
 
   async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) {
     const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
@@ -1325,6 +1360,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getTimeSlotsForDate,
       getBookingAvailabilityForDate,
       loginClient,
+      verifyClientPhone,
       loginStaff,
       loginPrimaryOwnerViaTelegram,
       updateClientProfile,

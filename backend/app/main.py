@@ -62,6 +62,8 @@ from .schemas import (
     BoxPayload,
     ChangePasswordRequest,
     ClientAuthRequest,
+    ClientPhoneVerificationPayload,
+    ClientPhoneVerificationRequest,
     ClientCardUpdateRequest,
     DetailingRequestCreateRequest,
     ClientProfileInput,
@@ -179,6 +181,9 @@ DETAILING_REQUEST_BOX = "По согласованию"
 DEFAULT_RESOURCE_GROUP = "wash"
 DETAILING_RESOURCE_GROUP = "detailing"
 WASH_RESOURCE_GROUP = "wash"
+DETAILING_BOX_NAME = "Детейлинг"
+WASH_BOX_NAMES = ("Мойка самообслуживания", "Мойка от мастера")
+CLIENT_PHONE_VERIFICATIONS_KEY = "client_phone_verifications"
 DEFAULT_ADMIN_SHIFT_SUPPLIES = [
     {"id": "preset-foam", "name": "Активная пена", "category": "Химия", "unit": "шт", "qty": 0},
     {"id": "preset-shampoo", "name": "Автошампунь", "category": "Химия", "unit": "шт", "qty": 0},
@@ -733,11 +738,47 @@ def _save_client_vehicles(db: Session, client_id: str, vehicles: list[ClientVehi
     _upsert_setting(db, "client_vehicles", current)
 
 
+def _client_phone_verifications_map(db: Session) -> dict[str, Any]:
+    value = _setting(db, CLIENT_PHONE_VERIFICATIONS_KEY, {})
+    return value if isinstance(value, dict) else {}
+
+
+def _client_verified_phone_digits(db: Session, telegram_id: str | None) -> str | None:
+    if not telegram_id:
+        return None
+    entry = _client_phone_verifications_map(db).get(str(telegram_id))
+    if not isinstance(entry, dict):
+        return None
+    phone_digits = entry.get("phoneDigits")
+    return phone_digits if isinstance(phone_digits, str) and phone_digits else None
+
+
+def _client_phone_is_verified(db: Session, telegram_id: str | None, phone: str) -> bool:
+    if not telegram_id:
+        return bool(settings.allow_insecure_client_auth)
+    try:
+        normalized_digits = normalize_phone_digits(phone)
+    except ValueError:
+        return False
+    verified_digits = _client_verified_phone_digits(db, telegram_id)
+    return verified_digits == normalized_digits
+
+
+def _require_client_phone_verification(db: Session, telegram_id: str | None, phone: str) -> None:
+    if _client_phone_is_verified(db, telegram_id, phone):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Подтвердите номер телефона через Telegram, чтобы продолжить",
+    )
+
+
 def _client_payload(client: Client | None) -> ClientProfilePayload | None:
     if client is None:
         return None
     with Session(engine) as vehicles_db:
         vehicles = _client_vehicles_payload(vehicles_db, client)
+        phone_verified = _client_phone_is_verified(vehicles_db, client.telegram_id, client.phone)
     return ClientProfilePayload(
         name=client.name,
         phone=client.phone,
@@ -745,6 +786,7 @@ def _client_payload(client: Client | None) -> ClientProfilePayload | None:
         plate=client.plate or "",
         vehicles=vehicles,
         registered=client.registered,
+        phoneVerified=phone_verified,
     )
 
 
@@ -1353,6 +1395,16 @@ def _box_payload(box: Box) -> BoxPayload:
     )
 
 
+def _visible_boxes(db: Session) -> list[Box]:
+    wash_boxes = [
+        box
+        for box in db.scalars(select(Box).order_by(Box.name.asc())).all()
+        if _resource_group_key(box.resource_group or _default_box_resource_group(box)) == WASH_RESOURCE_GROUP
+    ]
+    order_map = {name: index for index, name in enumerate(WASH_BOX_NAMES)}
+    return sorted(wash_boxes, key=lambda box: (order_map.get(box.name.strip(), len(order_map)), box.name.lower(), box.id))
+
+
 def _schedule_payload(entry: ScheduleEntry) -> SchedulePayload:
     return SchedulePayload(
         dayIndex=entry.day_index,
@@ -1522,7 +1574,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     _mark_overdue_bookings_for_admin_review(db)
 
     services = db.scalars(select(Service).order_by(Service.name)).all()
-    boxes = db.scalars(select(Box).order_by(Box.name)).all()
+    boxes = _visible_boxes(db)
     schedule = db.scalars(select(ScheduleEntry).order_by(ScheduleEntry.day_index)).all()
     workers = db.scalars(
         select(StaffUser)
@@ -2619,7 +2671,7 @@ def _normalize_service_and_box_resources(db: Session) -> None:
             if target_box is None:
                 target_box = Box(
                     id=f"box-{len(boxes) + 1}",
-                    name="Детейлинг",
+                    name=DETAILING_BOX_NAME,
                     resource_group=DETAILING_RESOURCE_GROUP,
                     price_per_hour=700,
                     active=True,
@@ -2629,11 +2681,43 @@ def _normalize_service_and_box_resources(db: Session) -> None:
                 boxes.append(target_box)
             else:
                 if target_box.name.strip().lower() in {"бокс 3", "box 3"}:
-                    target_box.name = "Детейлинг"
+                    target_box.name = DETAILING_BOX_NAME
                 target_box.resource_group = DETAILING_RESOURCE_GROUP
                 if not target_box.description.strip():
                     target_box.description = "Отдельное помещение для детейлинга"
             changed = True
+        else:
+            target_box = detailing_boxes[0]
+            if target_box.name != DETAILING_BOX_NAME:
+                target_box.name = DETAILING_BOX_NAME
+                changed = True
+            if not target_box.description.strip():
+                target_box.description = "Отдельное помещение для детейлинга"
+                changed = True
+
+        wash_boxes = [box for box in boxes if _resource_group_key(box.resource_group) != DETAILING_RESOURCE_GROUP]
+        while len(wash_boxes) < len(WASH_BOX_NAMES):
+            next_index = len(wash_boxes)
+            next_box = Box(
+                id=f"box-wash-{next_index + 1}",
+                name=WASH_BOX_NAMES[next_index],
+                resource_group=WASH_RESOURCE_GROUP,
+                price_per_hour=500,
+                active=True,
+                description="Моечный бокс",
+            )
+            db.add(next_box)
+            boxes.append(next_box)
+            wash_boxes.append(next_box)
+            changed = True
+
+        for index, box in enumerate(wash_boxes):
+            if index < len(WASH_BOX_NAMES) and box.name != WASH_BOX_NAMES[index]:
+                box.name = WASH_BOX_NAMES[index]
+                changed = True
+            if index >= len(WASH_BOX_NAMES) and box.active:
+                box.active = False
+                changed = True
 
         for index, box in enumerate(boxes):
             expected_group = DETAILING_RESOURCE_GROUP if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP else WASH_RESOURCE_GROUP
@@ -2641,7 +2725,7 @@ def _normalize_service_and_box_resources(db: Session) -> None:
                 box.resource_group = expected_group
                 changed = True
             if expected_group == WASH_RESOURCE_GROUP and not box.name.strip():
-                box.name = f"Бокс {index + 1}"
+                box.name = WASH_BOX_NAMES[index] if index < len(WASH_BOX_NAMES) else f"Бокс {index + 1}"
                 changed = True
 
     if changed:
@@ -3189,6 +3273,7 @@ def authenticate_client(payload: ClientAuthRequest, request: Request, db: Sessio
         if telegram_id and phone_client.telegram_id and phone_client.telegram_id != telegram_id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
         client = phone_client
+    _require_client_phone_verification(db, telegram_id, payload.profile.phone)
     if client is None:
         client_payload = payload.profile.model_dump()
         client_payload.pop("vehicles", None)
@@ -3207,6 +3292,22 @@ def authenticate_client(payload: ClientAuthRequest, request: Request, db: Sessio
     _save_client_vehicles(db, client.id, vehicles)
 
     return _issue_auth_response(db, request, _client_session_data(client))
+
+
+@app.post("/api/auth/client/phone-verification", response_model=ClientPhoneVerificationPayload)
+def get_client_phone_verification(
+    payload: ClientPhoneVerificationRequest,
+    db: Session = Depends(get_db),
+) -> ClientPhoneVerificationPayload:
+    telegram_id = None
+    if payload.initData:
+        telegram_id, _telegram_user = _telegram_user_from_init_data(payload.initData)
+    elif not settings.allow_insecure_client_auth:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram initData is required")
+    return ClientPhoneVerificationPayload(
+        phone=payload.phone,
+        verified=_client_phone_is_verified(db, telegram_id, payload.phone),
+    )
 
 
 @app.post("/api/auth/telegram", response_model=AuthResponse)
@@ -3377,6 +3478,7 @@ def update_client_profile(
     phone_client = _client_by_phone(db, payload.phone)
     if phone_client is not None and phone_client.id != client.id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
+    _require_client_phone_verification(db, client.telegram_id, payload.phone)
     client.name = payload.name
     client.phone = payload.phone
     client.car = primary_vehicle.car
@@ -4458,7 +4560,11 @@ def save_boxes(
     db: Session = Depends(get_db),
 ) -> list[BoxPayload]:
     _ensure_staff_role(session_data, {"admin", "owner"})
-    existing = {box.id: box for box in db.scalars(select(Box)).all()}
+    existing = {
+        box.id: box
+        for box in db.scalars(select(Box)).all()
+        if _resource_group_key(box.resource_group or _default_box_resource_group(box)) == WASH_RESOURCE_GROUP
+    }
     submitted_ids = {item.id for item in payload}
     for item in payload:
         box = existing.get(item.id)
@@ -4466,7 +4572,7 @@ def save_boxes(
             box = Box(id=item.id)
             db.add(box)
         box.name = item.name
-        box.resource_group = _resource_group_key(item.resourceGroup)
+        box.resource_group = WASH_RESOURCE_GROUP
         box.price_per_hour = item.pricePerHour
         box.active = item.active
         box.description = item.description
@@ -4474,7 +4580,7 @@ def save_boxes(
         if box_id not in submitted_ids:
             db.delete(box)
     db.commit()
-    boxes = db.scalars(select(Box).order_by(Box.name)).all()
+    boxes = _visible_boxes(db)
     return [_box_payload(box) for box in boxes]
 
 

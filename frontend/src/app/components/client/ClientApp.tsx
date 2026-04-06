@@ -41,6 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress']);
 const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show', 'admin_review']);
 const CANCELLABLE_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled']);
+const DETAILING_BOX_NAME = 'Детейлинг';
 
 type Page = 'catalog' | 'detail' | 'slots' | 'confirm' | 'bookings' | 'profile';
 
@@ -54,6 +55,12 @@ function isDetailingService(service: Service | null | undefined) {
 
 function serviceResourceGroup(service: Service | null | undefined) {
   return service?.resourceGroup || 'wash';
+}
+
+function bookingBoxesForService(service: Service | null | undefined, boxes: Array<{ name: string; resourceGroup: string; active: boolean }>) {
+  return serviceResourceGroup(service) === 'detailing'
+    ? [{ name: DETAILING_BOX_NAME, resourceGroup: 'detailing', active: true }]
+    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
 }
 
 function isManualSchedulingBooking(booking: Booking) {
@@ -73,6 +80,7 @@ export function ClientApp() {
     boxes,
     addBooking,
     updateClientProfile,
+    verifyClientPhone,
     logout,
     upcomingDates,
     schedule,
@@ -183,8 +191,8 @@ export function ClientApp() {
   const filteredServices = activeCategory === 'Все'
     ? activeServices
     : activeServices.filter((service) => service.category === activeCategory);
-  const compatibleBoxes = boxes.filter((box) => box.active && box.resourceGroup === serviceResourceGroup(selectedService));
-  const defaultBoxName = compatibleBoxes[0]?.name || boxes.find((box) => box.active)?.name || boxes[0]?.name || 'Бокс 1';
+  const compatibleBoxes = bookingBoxesForService(selectedService, boxes);
+  const defaultBoxName = compatibleBoxes[0]?.name || DETAILING_BOX_NAME;
 
   const selectedServiceIsBoxRental = isBoxRentalService(selectedService);
   const selectedServiceIsDetailing = isDetailingService(selectedService);
@@ -215,6 +223,7 @@ export function ClientApp() {
   const bookingVehicles = clientProfile.vehicles?.length
     ? clientProfile.vehicles.filter((vehicle) => vehicle.car || vehicle.plate)
     : (clientProfile.car || clientProfile.plate ? [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }] : []);
+  const visibleProfileVehicles = profileVehicles.filter((vehicle) => vehicle.car || vehicle.plate);
   const selectedBookingVehicle = bookingVehicles[selectedBookingVehicleIndex] || bookingVehicles[0] || { car: clientProfile.car || '', plate: clientProfile.plate || '' };
 
   const glass = isDark
@@ -230,6 +239,8 @@ export function ClientApp() {
   const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
   const availableSlotCards = slotCards.filter((slot) => slot.available).length;
   const occupiedSlotCards = slotCards.filter((slot) => !slot.available).length;
+  const slotAvailabilityLoadingLabel = selectedServiceIsDetailing ? 'Обновляем свободные окна для детейлинга...' : 'Обновляем занятость по боксам...';
+  const slotAvailabilityEmptyLabel = selectedServiceIsDetailing ? 'На выбранную дату свободных окон для детейлинга пока нет.' : 'На выбранную дату подходящих слотов пока нет.';
 
   const handleAddToCalendar = () => {
     setCalendarAnim(true);
@@ -276,6 +287,7 @@ export function ClientApp() {
     if (phoneError) nextErrors.phone = phoneError;
     if (carError) nextErrors.car = carError;
     if (plateError) nextErrors.plate = plateError;
+    if (!profileForm.phoneVerified) nextErrors.phone = 'Подтвердите номер телефона через Telegram';
     setProfileErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -285,6 +297,7 @@ export function ClientApp() {
       phone: profileForm.phone.trim(),
       car: normalizeVehicleInput(primaryVehicle.car),
       plate: normalizePlateInput(primaryVehicle.plate),
+      phoneVerified: true,
       vehicles: (profileForm.vehicles || [])
         .map((vehicle) => ({
           car: normalizeVehicleInput(vehicle.car),
@@ -300,6 +313,22 @@ export function ClientApp() {
       setTimeout(() => setProfileSaved(false), 2000);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Не удалось сохранить профиль');
+    }
+  };
+
+  const handleVerifyProfilePhone = async () => {
+    const phoneError = validatePhoneValue(profileForm.phone);
+    if (phoneError) {
+      setProfileErrors((current) => ({ ...current, phone: phoneError }));
+      return;
+    }
+    try {
+      setProfileError('');
+      await verifyClientPhone(profileForm.phone.trim());
+      setProfileForm((current) => ({ ...current, phoneVerified: true }));
+      setProfileErrors((current) => ({ ...current, phone: '' }));
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Не удалось подтвердить номер телефона');
     }
   };
 
@@ -620,11 +649,11 @@ export function ClientApp() {
               </div>
               {slotsLoading ? (
                 <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
-                  Обновляем занятость по боксам...
+                  {slotAvailabilityLoadingLabel}
                 </div>
               ) : slotCards.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
-                  На выбранную дату подходящих слотов пока нет.
+                  {slotAvailabilityEmptyLabel}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 mb-6">
@@ -658,9 +687,13 @@ export function ClientApp() {
                           <div>
                             <div className="text-base font-semibold">{slot.time}</div>
                             <div className={`mt-1 text-xs ${selected ? 'text-white/80' : sub}`}>
-                              {slot.available
-                                ? `Свободно боксов: ${slot.freeBoxes}`
-                                : `Занято боксов: ${slot.occupiedBoxes}`}
+                              {selectedServiceIsDetailing
+                                ? slot.available
+                                  ? 'Свободное окно детейлинга'
+                                  : 'Окно детейлинга занято'
+                                : slot.available
+                                  ? `Свободно боксов: ${slot.freeBoxes}`
+                                  : `Занято боксов: ${slot.occupiedBoxes}`}
                             </div>
                             {!slot.available && (
                               <div className={`mt-2 text-[11px] font-medium ${isDark ? 'text-red-100' : 'text-red-700'}`}>
@@ -856,6 +889,28 @@ export function ClientApp() {
                     <div className={`text-xs ${sub}`}>{profileForm.phone || 'Укажите телефон'}</div>
                   </div>
                 </div>
+                <div className={`${isDark ? 'bg-white/4' : 'bg-black/3'} rounded-2xl p-3 mb-4`}>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <div className="text-sm font-semibold">Все автомобили</div>
+                      <div className={`text-xs ${sub}`}>Здесь отображаются все машины из профиля</div>
+                    </div>
+                    <div className={`text-xs px-2.5 py-1 rounded-full ${glass}`}>{visibleProfileVehicles.length || 0}</div>
+                  </div>
+                  <div className="space-y-2">
+                    {visibleProfileVehicles.length > 0 ? visibleProfileVehicles.map((vehicle, index) => (
+                      <div key={`vehicle-card-${index}`} className={`${glass} rounded-xl px-3 py-3 flex items-center justify-between gap-3`}>
+                        <div>
+                          <div className="text-sm font-medium">{vehicle.car || 'Автомобиль'}</div>
+                          <div className={`text-xs ${sub} mt-1`}>{vehicle.plate || 'Госномер не указан'}</div>
+                        </div>
+                        <div className={`text-[11px] ${sub}`}>#{index + 1}</div>
+                      </div>
+                    )) : (
+                      <div className={`text-xs ${sub}`}>После добавления второго авто они будут собраны здесь отдельным списком.</div>
+                    )}
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Имя</label>
@@ -869,10 +924,18 @@ export function ClientApp() {
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
                     <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
-                      setProfileForm((current) => ({ ...current, phone: e.target.value }));
+                      setProfileForm((current) => ({ ...current, phone: e.target.value, phoneVerified: false }));
                       setProfileErrors((current) => ({ ...current, phone: '' }));
                       setProfileError('');
                     }} />
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className={`text-xs ${profileForm.phoneVerified ? 'text-emerald-500' : sub}`}>
+                        {profileForm.phoneVerified ? 'Номер подтверждён через Telegram' : 'Подтвердите номер через Telegram перед сохранением'}
+                      </div>
+                      <button type="button" onClick={() => { void handleVerifyProfilePhone(); }} className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium" style={{ background: `${primary}16`, color: primary }}>
+                        {profileForm.phoneVerified ? 'Обновить' : 'Подтвердить'}
+                      </button>
+                    </div>
                     {profileErrors.phone && <div className="mt-1 text-xs text-red-500">{profileErrors.phone}</div>}
                   </div>
                   <div>
@@ -894,7 +957,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder={'\u0423' + '999' + '\u0423\u0423'} maxLength={6} value={primaryProfileVehicle.plate} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="A123BC777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
                       const nextPlate = normalizePlateInput(e.target.value);
                       setProfileForm((current) => {
                         const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
@@ -949,7 +1012,7 @@ export function ClientApp() {
                           <input
                             className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                             placeholder={'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}
-                            maxLength={6}
+                            maxLength={9}
                             value={vehicle.plate}
                             onChange={(e) => {
                               const nextPlate = normalizePlateInput(e.target.value);

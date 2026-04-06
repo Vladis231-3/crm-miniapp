@@ -74,6 +74,7 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift';
 type EditModalMode = 'edit' | 'reschedule';
+const DETAILING_BOX = { id: 'detailing-room', name: 'Детейлинг', resourceGroup: 'detailing', pricePerHour: 0, active: true, description: 'Отдельное помещение для детейлинга' };
 
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
   return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
@@ -85,6 +86,20 @@ function serviceResourceGroup(serviceId: string, services: Array<{ id: string; r
 
 function hasManualScheduling(booking: Booking, services: Array<{ id: string; category: string }>) {
   return isDetailingService(booking.serviceId, services) && (!booking.time || booking.time === '00:00');
+}
+
+function bookingBoxesForService(
+  serviceId: string,
+  services: Array<{ id: string; resourceGroup?: string }>,
+  boxes: Array<{ id: string; name: string; resourceGroup: string; pricePerHour: number; active: boolean; description: string }>,
+) {
+  return serviceResourceGroup(serviceId, services) === 'detailing'
+    ? [DETAILING_BOX]
+    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+}
+
+function bookingLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
+  return serviceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
 }
 
 function dataUrlApproxBytes(dataUrl: string) {
@@ -238,7 +253,7 @@ export function AdminApp() {
     if (!newBookingForm.serviceId) return;
     const selectedService = liveServices.find((service) => service.id === newBookingForm.serviceId);
     if (!selectedService) return;
-    const nextBoxes = liveBoxes.filter((box) => box.active && box.resourceGroup === (selectedService.resourceGroup || 'wash'));
+    const nextBoxes = bookingBoxesForService(selectedService.id, liveServices, liveBoxes);
     setNewBookingForm((current) => {
       if (
         current.service === selectedService.name
@@ -257,10 +272,13 @@ export function AdminApp() {
       };
     });
   }, [liveServices, newBookingForm.serviceId]);
-  const bookingFormBoxes = boxes.filter((box) => box.active && box.resourceGroup === serviceResourceGroup(newBookingForm.serviceId, services));
+  const settingsBoxes = boxes.filter((box) => box.resourceGroup === 'wash');
+  const bookingFormBoxes = bookingBoxesForService(newBookingForm.serviceId, services, boxes);
   const editBookingBoxes = selectedBooking
-    ? boxes.filter((box) => box.active && box.resourceGroup === serviceResourceGroup(selectedBooking.serviceId, services))
-    : boxes.filter((box) => box.active);
+    ? bookingBoxesForService(selectedBooking.serviceId, services, boxes)
+    : settingsBoxes.filter((box) => box.active);
+  const newBookingLocationLabel = bookingLocationLabel(newBookingForm.serviceId, services);
+  const editBookingLocationLabel = selectedBooking ? bookingLocationLabel(selectedBooking.serviceId, services) : 'Бокс мойки';
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
   useEffect(() => setProfile(settings.adminProfile), [settings.adminProfile]);
   useEffect(() => {
@@ -494,9 +512,7 @@ export function AdminApp() {
   const validateNewBookingForm = () => {
     const nextErrors: { clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string } = {};
     const selectedService = services.find((service) => service.id === newBookingForm.serviceId);
-    const compatibleBoxNames = boxes
-      .filter((box) => box.active && box.resourceGroup === serviceResourceGroup(newBookingForm.serviceId, services))
-      .map((box) => box.name);
+    const compatibleBoxNames = bookingBoxesForService(newBookingForm.serviceId, services, boxes).map((box) => box.name);
     const nameError = validateClientName(newBookingForm.clientName);
     if (nameError) nextErrors.clientName = nameError;
     const phoneError = validateClientPhone(newBookingForm.clientPhone);
@@ -697,7 +713,7 @@ export function AdminApp() {
       return;
     }
 
-    if (settingsSection === 'boxes') await saveBoxes(boxes);
+    if (settingsSection === 'boxes') await saveBoxes(settingsBoxes);
     if (settingsSection === 'schedule') await saveSchedule(schedule);
     if (settingsSection === 'pricing') await saveServices(services);
     if (settingsSection === 'notifications') await saveAdminNotificationSettings(notifSettings);
@@ -999,7 +1015,7 @@ export function AdminApp() {
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
-                { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(box => box.active).length} активных бокса`, color: primary },
+                { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${settingsBoxes.filter(box => box.active).length} активных бокса`, color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
                 { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
@@ -1154,11 +1170,11 @@ export function AdminApp() {
             <motion.div key="settings-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Управление боксами</h2>
-              {boxes.map((box, i) => (
+              {settingsBoxes.map((box) => (
                 <div key={box.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="font-medium">{box.name}</div>
-                    <button onClick={() => setBoxes(prev => prev.map((b, j) => j === i ? { ...b, active: !b.active } : b))}
+                    <button onClick={() => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, active: !b.active } : b))}
                       className="w-11 h-6 rounded-full relative transition-all" style={{ background: box.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${box.active ? 'left-6' : 'left-1'}`} />
                     </button>
@@ -1166,7 +1182,7 @@ export function AdminApp() {
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Цена (₽/час)</label>
                     <input className={inputCls} type="number" value={box.pricePerHour}
-                      onChange={e => setBoxes(prev => prev.map((b, j) => j === i ? { ...b, pricePerHour: +e.target.value } : b))} />
+                      onChange={e => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, pricePerHour: +e.target.value } : b))} />
                   </div>
                 </div>
               ))}
@@ -1888,7 +1904,7 @@ export function AdminApp() {
                       </div>
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
+                      <label className={`text-xs ${sub} block mb-1`}>{editBookingLocationLabel}</label>
                       <select
                         className={selectCls}
                         value={editBookingDraft.box}
@@ -1965,12 +1981,12 @@ export function AdminApp() {
                   { label: 'Клиент', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
                   { label: 'Телефон', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Номер', key: 'plate', placeholder: 'У999УУ', type: 'text' },
+                  { label: 'Номер', key: 'plate', placeholder: 'A123BC777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
                     <input className={`${inputCls} ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
-                      maxLength={f.key === 'plate' ? 6 : undefined}
+                      maxLength={f.key === 'plate' ? 9 : undefined}
                       value={(newBookingForm as any)[f.key]} onChange={e => {
                         const nextValue = f.key === 'plate' ? normalizePlateInput(e.target.value) : e.target.value;
                         setNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
@@ -2013,7 +2029,7 @@ export function AdminApp() {
                   </div>
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
+                  <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
                   <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
                     {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                   </select>

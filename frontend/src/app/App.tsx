@@ -20,7 +20,7 @@ import {
 } from './utils/validation';
 
 function WelcomeScreen() {
-  const { isDark, toggleTheme, loginClient, loginStaff, loginPrimaryOwnerViaTelegram, authLoading } = useApp();
+  const { isDark, toggleTheme, loginClient, verifyClientPhone, loginStaff, loginPrimaryOwnerViaTelegram, authLoading } = useApp();
 
   const [step, setStep] = useState<'greeting' | 'form'>('greeting');
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -32,6 +32,8 @@ function WelcomeScreen() {
   const [staffError, setStaffError] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [clientError, setClientError] = useState('');
+  const [phoneVerificationState, setPhoneVerificationState] = useState<'idle' | 'pending' | 'verified'>('idle');
+  const [phoneVerificationMessage, setPhoneVerificationMessage] = useState('');
 
   const [form, setForm] = useState({ name: '', phone: '', car: '', plate: '' });
   const canUseTelegramOwnerLogin = typeof window !== 'undefined' && Boolean(window.Telegram?.WebApp?.initData);
@@ -61,6 +63,10 @@ function WelcomeScreen() {
 
   const handleClientSubmit = async () => {
     if (!validate()) return;
+    if (phoneVerificationState !== 'verified') {
+      setClientError('Подтвердите номер телефона через Telegram перед регистрацией');
+      return;
+    }
     try {
       setClientError('');
       await loginClient({
@@ -73,6 +79,25 @@ function WelcomeScreen() {
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Не удалось зарегистрировать клиента';
       setClientError(message);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    const phoneError = validatePhoneValue(form.phone);
+    if (phoneError) {
+      setFormErrors((current) => ({ ...current, phone: phoneError }));
+      return;
+    }
+    try {
+      setClientError('');
+      setPhoneVerificationMessage('');
+      setPhoneVerificationState('pending');
+      await verifyClientPhone(form.phone.trim());
+      setPhoneVerificationState('verified');
+      setPhoneVerificationMessage('Номер подтверждён через Telegram');
+    } catch (nextError) {
+      setPhoneVerificationState('idle');
+      setPhoneVerificationMessage(nextError instanceof Error ? nextError.message : 'Не удалось подтвердить номер');
     }
   };
 
@@ -214,10 +239,32 @@ const handleStaffLogin = async () => {
                       placeholder="+7 (___) ___-__-__"
                       type="tel"
                       value={form.phone}
-                      onChange={e => { setForm(p => ({ ...p, phone: e.target.value })); setFormErrors(p => ({ ...p, phone: '' })); setClientError(''); }}
+                      onChange={e => {
+                        setForm(p => ({ ...p, phone: e.target.value }));
+                        setFormErrors(p => ({ ...p, phone: '' }));
+                        setClientError('');
+                        setPhoneVerificationState('idle');
+                        setPhoneVerificationMessage('');
+                      }}
                     />
                   </div>
                   {formErrors.phone && <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.phone}</p>}
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className={`text-xs ${phoneVerificationState === 'verified' ? 'text-emerald-500' : sub}`}>
+                      {phoneVerificationState === 'verified'
+                        ? 'Номер подтверждён'
+                        : phoneVerificationMessage || 'Подтвердите номер через Telegram, чтобы завершить регистрацию'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { void handleVerifyPhone(); }}
+                      disabled={phoneVerificationState === 'pending'}
+                      className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium disabled:opacity-60"
+                      style={{ background: `${primary}16`, color: primary }}
+                    >
+                      {phoneVerificationState === 'pending' ? 'Проверяем...' : phoneVerificationState === 'verified' ? 'Подтверждено' : 'Подтвердить'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Car */}
@@ -240,8 +287,8 @@ const handleStaffLogin = async () => {
                     <Hash size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input
                       className={`${inputCls} pl-11 uppercase ${formErrors.plate ? 'border-red-400' : ''}`}
-                      placeholder="Гос. номер (У999УУ)"
-                      maxLength={6}
+                      placeholder="Гос. номер (A123BC777)"
+                      maxLength={9}
                       value={form.plate}
                       onChange={e => { setForm(p => ({ ...p, plate: normalizePlateInput(e.target.value) })); setFormErrors(p => ({ ...p, plate: '' })); setClientError(''); }}
                     />
