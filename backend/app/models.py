@@ -91,6 +91,7 @@ class Service(Base):
     category: Mapped[str] = mapped_column(String(120))
     price: Mapped[int] = mapped_column(Integer)
     duration: Mapped[int] = mapped_column(Integer)
+    resource_group: Mapped[str] = mapped_column(String(64), default="wash")
     description: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -100,6 +101,7 @@ class Box(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
+    resource_group: Mapped[str] = mapped_column(String(64), default="wash")
     price_per_hour: Mapped[int] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str] = mapped_column(Text, default="")

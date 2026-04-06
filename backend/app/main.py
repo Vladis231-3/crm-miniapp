@@ -176,6 +176,9 @@ BOOKING_REMINDER_ELIGIBLE_STATUSES = {"new", "confirmed", "scheduled"}
 BOOKING_WORKER_MESSAGE_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
 DETAILING_REQUEST_TIME = "00:00"
 DETAILING_REQUEST_BOX = "По согласованию"
+DEFAULT_RESOURCE_GROUP = "wash"
+DETAILING_RESOURCE_GROUP = "detailing"
+WASH_RESOURCE_GROUP = "wash"
 DEFAULT_ADMIN_SHIFT_SUPPLIES = [
     {"id": "preset-foam", "name": "Активная пена", "category": "Химия", "unit": "шт", "qty": 0},
     {"id": "preset-shampoo", "name": "Автошампунь", "category": "Химия", "unit": "шт", "qty": 0},
@@ -234,6 +237,7 @@ def on_startup() -> None:
         _ensure_owner_accounts(db)
         _repair_text_data(db)
         _normalize_worker_rules(db)
+        _normalize_service_and_box_resources(db)
         db.commit()
     finally:
         db.close()
@@ -494,6 +498,14 @@ def _apply_runtime_migrations() -> None:
     if "bookings" in inspector.get_table_names():
         ensure_postgres_varchar_length("bookings", "id", 64)
         ensure_postgres_varchar_length("bookings", "client_id", 64)
+    service_columns = {column["name"] for column in inspector.get_columns("services")} if "services" in inspector.get_table_names() else set()
+    if "resource_group" not in service_columns and "services" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE services ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'")
+    box_columns = {column["name"] for column in inspector.get_columns("boxes")} if "boxes" in inspector.get_table_names() else set()
+    if "resource_group" not in box_columns and "boxes" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE boxes ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'")
     if "booking_workers" in inspector.get_table_names():
         ensure_postgres_varchar_length("booking_workers", "booking_id", 64)
         ensure_postgres_varchar_length("booking_workers", "worker_id", 64)
@@ -911,13 +923,10 @@ def _pick_available_box(
     date_value: str,
     time_value: str,
     duration: int,
+    resource_group: str | None = None,
     preferred_box: str | None = None,
 ) -> str | None:
-    active_box_names = [
-        box.name
-        for box in db.scalars(select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())).all()
-        if box.name.strip()
-    ]
+    active_box_names = _compatible_box_names(db, resource_group)
     candidate_boxes: list[str] = []
     if preferred_box and preferred_box in active_box_names:
         candidate_boxes.append(preferred_box)
@@ -943,6 +952,8 @@ def _booking_slot_availability(
     *,
     date_value: str,
     duration: int,
+    service_id: str | None = None,
+    resource_group: str | None = None,
 ) -> BookingAvailabilityPayload:
     parsed_date = _parse_booking_datetime(date_value, "00:00")
     if parsed_date is None:
@@ -957,11 +968,8 @@ def _booking_slot_availability(
     if open_minutes is None or close_minutes is None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Некорректно настроен график работы")
 
-    active_boxes = [
-        box.name
-        for box in db.scalars(select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())).all()
-        if box.name.strip()
-    ]
+    service = db.get(Service, service_id) if service_id else None
+    active_boxes = _compatible_box_names(db, resource_group or _service_resource_group(service))
     slots: list[BookingAvailabilitySlotPayload] = []
     for slot in _build_schedule_slots(open_minutes, close_minutes):
         slot_start = _parse_time_to_minutes(slot)
@@ -1328,6 +1336,7 @@ def _service_payload(service: Service) -> ServicePayload:
         category=service.category,
         price=service.price,
         duration=service.duration,
+        resourceGroup=(service.resource_group or DEFAULT_RESOURCE_GROUP).strip() or DEFAULT_RESOURCE_GROUP,
         desc=service.description,
         active=service.active,
     )
@@ -1337,6 +1346,7 @@ def _box_payload(box: Box) -> BoxPayload:
     return BoxPayload(
         id=box.id,
         name=box.name,
+        resourceGroup=(box.resource_group or DEFAULT_RESOURCE_GROUP).strip() or DEFAULT_RESOURCE_GROUP,
         pricePerHour=box.price_per_hour,
         active=box.active,
         description=box.description,
@@ -2542,6 +2552,43 @@ def _service_category_key(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
+def _resource_group_key(value: str | None) -> str:
+    return (value or "").strip().lower() or DEFAULT_RESOURCE_GROUP
+
+
+def _default_service_resource_group(service: Service | None) -> str:
+    if service is None:
+        return DEFAULT_RESOURCE_GROUP
+    if _is_detailing_service(service):
+        return DETAILING_RESOURCE_GROUP
+    return WASH_RESOURCE_GROUP
+
+
+def _default_box_resource_group(box: Box | None) -> str:
+    if box is None:
+        return DEFAULT_RESOURCE_GROUP
+    name_key = (box.name or "").strip().lower()
+    description_key = (box.description or "").strip().lower()
+    if "детейл" in name_key or "детейл" in description_key:
+        return DETAILING_RESOURCE_GROUP
+    return WASH_RESOURCE_GROUP
+
+
+def _service_resource_group(service: Service | None) -> str:
+    if service is None:
+        return DEFAULT_RESOURCE_GROUP
+    return _resource_group_key(service.resource_group or _default_service_resource_group(service))
+
+
+def _compatible_box_names(db: Session, resource_group: str | None) -> list[str]:
+    target_group = _resource_group_key(resource_group)
+    return [
+        box.name
+        for box in db.scalars(select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())).all()
+        if box.name.strip() and _resource_group_key(box.resource_group or _default_box_resource_group(box)) == target_group
+    ]
+
+
 def _is_box_rental_service(service: Service | None) -> bool:
     return service is not None and _service_category_key(service.category) == "аренда бокса"
 
@@ -2552,6 +2599,53 @@ def _is_detailing_service(service: Service | None) -> bool:
 
 def _box_by_name(db: Session, box_name: str) -> Box | None:
     return db.scalar(select(Box).where(Box.name == box_name))
+
+
+def _normalize_service_and_box_resources(db: Session) -> None:
+    changed = False
+
+    services = db.scalars(select(Service)).all()
+    for service in services:
+        expected_group = _default_service_resource_group(service)
+        if _resource_group_key(service.resource_group) != expected_group:
+            service.resource_group = expected_group
+            changed = True
+
+    boxes = db.scalars(select(Box).order_by(Box.name.asc())).all()
+    if boxes:
+        detailing_boxes = [box for box in boxes if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP]
+        if not detailing_boxes:
+            target_box = boxes[2] if len(boxes) >= 3 else None
+            if target_box is None:
+                target_box = Box(
+                    id=f"box-{len(boxes) + 1}",
+                    name="Детейлинг",
+                    resource_group=DETAILING_RESOURCE_GROUP,
+                    price_per_hour=700,
+                    active=True,
+                    description="Отдельное помещение для детейлинга",
+                )
+                db.add(target_box)
+                boxes.append(target_box)
+            else:
+                if target_box.name.strip().lower() in {"бокс 3", "box 3"}:
+                    target_box.name = "Детейлинг"
+                target_box.resource_group = DETAILING_RESOURCE_GROUP
+                if not target_box.description.strip():
+                    target_box.description = "Отдельное помещение для детейлинга"
+            changed = True
+
+        for index, box in enumerate(boxes):
+            expected_group = DETAILING_RESOURCE_GROUP if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP else WASH_RESOURCE_GROUP
+            if _resource_group_key(box.resource_group) != expected_group:
+                box.resource_group = expected_group
+                changed = True
+            if expected_group == WASH_RESOURCE_GROUP and not box.name.strip():
+                box.name = f"Бокс {index + 1}"
+                changed = True
+
+    if changed:
+        db.flush()
 
 
 def _box_hourly_price(db: Session, box_name: str, fallback_price: int) -> int:
@@ -3361,12 +3455,20 @@ def delete_client(
 def get_booking_availability(
     date: str,
     duration: int = 30,
+    serviceId: str | None = None,
+    resourceGroup: str | None = None,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> BookingAvailabilityPayload:
     if session_data["role"] not in {"client", "admin", "owner"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    return _booking_slot_availability(db, date_value=date, duration=max(1, duration))
+    return _booking_slot_availability(
+        db,
+        date_value=date,
+        duration=max(1, duration),
+        service_id=serviceId,
+        resource_group=resourceGroup,
+    )
 
 
 @app.post("/api/bookings", response_model=BookingPayload)
@@ -3387,7 +3489,7 @@ def create_booking(
     booking_time = payload.time.strip()
     booking_box = payload.box.strip()
     is_box_rental = _is_box_rental_service(service)
-    is_detailing = _is_detailing_service(service)
+    service_resource_group = _service_resource_group(service)
 
     if session_data["role"] == "client":
         client = db.get(Client, session_data["actorId"])
@@ -3406,10 +3508,6 @@ def create_booking(
         if is_box_rental:
             requested_hours = max(1, (payload.duration + 59) // 60)
             booking_duration = requested_hours * 60
-        if is_detailing:
-            booking_date = ""
-            booking_time = ""
-            booking_box = DETAILING_REQUEST_BOX
     else:
         normalized_client_phone = normalize_phone(payload.clientPhone)
         client = db.get(Client, payload.clientId) if payload.clientId else None
@@ -3449,10 +3547,8 @@ def create_booking(
 
     booking_workers = [] if session_data["role"] == "client" else _validated_booking_workers(db, payload.workers)
     booking_status = "new" if session_data["role"] == "client" else payload.status
-    if session_data["role"] == "client" and is_detailing:
-        booking_status = "admin_review"
 
-    requires_scheduled_slot = not (session_data["role"] == "client" and is_detailing)
+    requires_scheduled_slot = True
     if requires_scheduled_slot:
         _ensure_booking_datetime_not_in_past(booking_date, booking_time)
         _ensure_booking_within_schedule(db, booking_date, booking_time, booking_duration)
@@ -3463,13 +3559,18 @@ def create_booking(
             date_value=booking_date,
             time_value=booking_time,
             duration=booking_duration,
+            resource_group=service_resource_group,
             preferred_box=booking_box or None,
         )
         if available_box is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На это время нет свободных боксов")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На это время нет свободных мест в нужном помещении")
         booking_box = available_box
         if is_box_rental:
             booking_price = _box_hourly_price(db, booking_box, service.price if service is not None else booking_price) * max(1, booking_duration // 60)
+    elif booking_box:
+        compatible_boxes = _compatible_box_names(db, service_resource_group)
+        if compatible_boxes and booking_box not in compatible_boxes:
+            booking_box = compatible_boxes[0]
     if _booking_requires_scheduled_slot(booking_status) and not booking_box.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи")
     _ensure_booking_has_no_conflicts(
@@ -3508,11 +3609,7 @@ def create_booking(
     if session_data["role"] in {"admin", "owner"} and payload.notifyWorkers:
         _notify_workers_about_assignment(db, booking, {link.worker_id for link in booking.worker_links})
     if session_data["role"] == "client":
-        client_message = (
-            f"Заявка на {booking_service} отправлена администратору. Администратор свяжется с вами для согласования времени."
-            if is_detailing
-            else f"Заявка на {booking_service} создана на {booking_date} в {booking_time}. Статус: {_booking_status_label(booking_status)}"
-        )
+        client_message = f"Заявка на {booking_service} создана на {booking_date} в {booking_time}. Статус: {_booking_status_label(booking_status)}"
         db.add_all([
             Notification(
                 id=f"n-{uuid4()}",
@@ -3530,8 +3627,8 @@ def create_booking(
                     booking_client_name,
                     booking_car,
                     booking_plate,
-                    booking_date if not is_detailing else None,
-                    booking_time if not is_detailing else None,
+                    booking_date,
+                    booking_time,
                 ),
                 read=False,
                 created_at=_now(),
@@ -3580,6 +3677,8 @@ def update_booking(
         updates["service"] = service.name
         updates.setdefault("duration", service.duration)
         updates.setdefault("price", service.price)
+    else:
+        service = db.get(Service, booking.service_id) if booking.service_id else None
 
     if booking.client_id and any(field in updates for field in ("clientName", "clientPhone", "car", "plate")):
         client = db.get(Client, booking.client_id)
@@ -3603,6 +3702,7 @@ def update_booking(
     next_duration = updates.get("duration", booking.duration)
     next_box = (updates.get("box", booking.box) or "").strip()
     next_status = updates.get("status", booking.status)
+    service_resource_group = _service_resource_group(service)
     next_workers = _validated_booking_workers(db, payload.workers) if payload.workers is not None else [
         BookingWorkerPayload(
             workerId=link.worker_id,
@@ -3620,6 +3720,11 @@ def update_booking(
         _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
     if _booking_requires_scheduled_slot(next_status) and (not next_box or next_box == DETAILING_REQUEST_BOX):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи")
+    if next_box:
+        compatible_boxes = _compatible_box_names(db, service_resource_group)
+        if compatible_boxes and next_box not in compatible_boxes:
+            next_box = compatible_boxes[0]
+            updates["box"] = next_box
     _ensure_booking_has_no_conflicts(
         db,
         booking_id=booking.id,
@@ -4335,6 +4440,7 @@ def save_services(
         service.category = item.category
         service.price = item.price
         service.duration = item.duration
+        service.resource_group = _resource_group_key(item.resourceGroup)
         service.description = item.desc
         service.active = item.active
     for service_id, service in existing.items():
@@ -4360,6 +4466,7 @@ def save_boxes(
             box = Box(id=item.id)
             db.add(box)
         box.name = item.name
+        box.resource_group = _resource_group_key(item.resourceGroup)
         box.price_per_hour = item.pricePerHour
         box.active = item.active
         box.description = item.description

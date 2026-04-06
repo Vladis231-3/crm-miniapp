@@ -52,6 +52,10 @@ function isDetailingService(service: Service | null | undefined) {
   return service?.category === 'Детейлинг';
 }
 
+function serviceResourceGroup(service: Service | null | undefined) {
+  return service?.resourceGroup || 'wash';
+}
+
 function isManualSchedulingBooking(booking: Booking) {
   return booking.status === 'admin_review' && (!booking.time || booking.time === '00:00');
 }
@@ -111,7 +115,7 @@ export function ClientApp() {
   }, [page, selectedDate, session?.role]);
 
   useEffect(() => {
-    if (!selectedService || page !== 'slots' || isDetailingService(selectedService)) {
+    if (!selectedService || page !== 'slots') {
       setSlotAvailability([]);
       setSlotsLoading(false);
       return;
@@ -124,7 +128,11 @@ export function ClientApp() {
         const durationMinutes = isBoxRentalService(selectedService)
           ? boxRentalHours * 60
           : selectedService.duration;
-        const nextSlots = await getBookingAvailabilityForDate(selectedDate, { durationMinutes });
+        const nextSlots = await getBookingAvailabilityForDate(selectedDate, {
+          durationMinutes,
+          serviceId: selectedService.id,
+          resourceGroup: serviceResourceGroup(selectedService),
+        });
         if (!cancelled) {
           setSlotAvailability(nextSlots);
         }
@@ -175,7 +183,8 @@ export function ClientApp() {
   const filteredServices = activeCategory === 'Все'
     ? activeServices
     : activeServices.filter((service) => service.category === activeCategory);
-  const defaultBoxName = boxes.find((box) => box.active)?.name || boxes[0]?.name || 'Бокс 1';
+  const compatibleBoxes = boxes.filter((box) => box.active && box.resourceGroup === serviceResourceGroup(selectedService));
+  const defaultBoxName = compatibleBoxes[0]?.name || boxes.find((box) => box.active)?.name || boxes[0]?.name || 'Бокс 1';
 
   const selectedServiceIsBoxRental = isBoxRentalService(selectedService);
   const selectedServiceIsDetailing = isDetailingService(selectedService);
@@ -232,7 +241,7 @@ export function ClientApp() {
 
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
-    if (!selectedServiceIsDetailing && !selectedSlot) return;
+    if (!selectedSlot) return;
     const primaryVehicle = selectedBookingVehicle;
     const booking = await addBooking({
       clientId: session.actorId,
@@ -240,8 +249,8 @@ export function ClientApp() {
       clientPhone: clientProfile.phone,
       service: selectedService.name,
       serviceId: selectedService.id,
-      date: selectedServiceIsDetailing ? '' : selectedDate,
-      time: selectedServiceIsDetailing ? '' : (selectedSlot || ''),
+      date: selectedDate,
+      time: selectedSlot || '',
       duration: selectedDuration,
       price: selectedPrice,
       status: 'new',
@@ -509,9 +518,9 @@ export function ClientApp() {
               )}
               {selectedServiceIsDetailing && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-sm font-medium mb-2 ${text}`}>Заявка без выбора времени</div>
+                  <div className={`text-sm font-medium mb-2 ${text}`}>Комментарий к детейлингу</div>
                   <p className={`text-sm ${sub} mb-3`}>
-                    Администратор свяжется с вами и сам предложит подходящее время после уточнения деталей.
+                    Можно сразу описать состояние авто, пожелания или важные детали по работе.
                   </p>
                   <textarea
                     value={detailingNote}
@@ -523,15 +532,11 @@ export function ClientApp() {
               )}
               <button
                 onClick={() => {
-                  if (selectedServiceIsDetailing) {
-                    void handleConfirmBooking();
-                    return;
-                  }
                   setPage('slots');
                 }}
                 className={`w-full py-3.5 rounded-2xl font-semibold transition-all active:scale-98 ${primaryBtn}`}
               >
-                {selectedServiceIsDetailing ? 'Оставить заявку админу' : 'Выбрать время'}
+                Выбрать время
               </button>
             </motion.div>
           )}
@@ -707,23 +712,17 @@ export function ClientApp() {
                 <Check size={36} style={{ color: primary }} />
               </motion.div>
               <h2 className="text-xl font-semibold mb-2 text-center">
-                {selectedServiceIsDetailing ? 'Заявка отправлена!' : 'Запись подтверждена!'}
+                Запись подтверждена!
               </h2>
               <p className={`text-sm ${sub} mb-6 text-center`}>
-                {selectedServiceIsDetailing
-                  ? 'Администратор свяжется с вами для согласования времени.'
-                  : 'Напоминание придёт за 60 минут'}
+                Напоминание придёт за 60 минут
               </p>
               <div className={`${glass} rounded-2xl p-4 w-full mb-6`}>
                 <div className="space-y-3">
                   {[
                     { label: 'Услуга', value: selectedService.name },
-                    ...(selectedServiceIsDetailing
-                      ? [{ label: 'Время', value: 'Согласует администратор' }]
-                      : [
-                          { label: 'Дата', value: selectedDate },
-                          { label: 'Время', value: selectedSlot || '—' },
-                        ]),
+                    { label: 'Дата', value: selectedDate },
+                    { label: 'Время', value: selectedSlot || '—' },
                     { label: 'Стоимость', value: `${selectedPrice.toLocaleString('ru')} ₽` },
                     { label: 'Длительность', value: `${selectedDuration} мин` },
                   ].map(item => (

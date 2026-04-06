@@ -566,6 +566,70 @@ class BookingLogicTests(unittest.TestCase):
         payload = client_response.json()
         self.assertNotEqual(payload["box"], "Р‘РѕРєСЃ 1")
 
+    def test_detailing_booking_uses_detailing_room_and_keeps_slots_separate(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+        booking_date = self.next_active_date()
+
+        wash_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Wash Client",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "11:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(wash_response.status_code, 200, wash_response.text)
+
+        client_token, _ = self.login_client(name="Alice", phone="+7 (999) 222-33-44", car="BMW X5", plate="A123BC")
+        availability_response = self.client.get(
+            f"/api/bookings/availability?date={booking_date}&duration=60&serviceId=s2",
+            headers=self.auth_headers(client_token),
+        )
+        self.assertEqual(availability_response.status_code, 200, availability_response.text)
+        availability_payload = availability_response.json()
+        slot = next(item for item in availability_payload["slots"] if item["time"] == "11:00")
+        self.assertEqual(slot["freeBoxes"], 1)
+        self.assertTrue(slot["available"])
+
+        detailing_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(client_token),
+            json={
+                "clientId": "",
+                "clientName": "Ignored Name",
+                "clientPhone": "+7 (999) 222-33-44",
+                "service": "Полировка стекла",
+                "serviceId": "s2",
+                "date": booking_date,
+                "time": "11:00",
+                "duration": 60,
+                "price": 3500,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "BMW X5",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(detailing_response.status_code, 200, detailing_response.text)
+        detailing_payload = detailing_response.json()
+        self.assertEqual(detailing_payload["box"], "Детейлинг")
+        self.assertEqual(detailing_payload["status"], "new")
+
     def test_booking_rejects_box_time_overlap(self) -> None:
         token, _ = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
         common = {

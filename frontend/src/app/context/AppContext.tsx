@@ -290,6 +290,7 @@ export interface Service {
   category: string;
   price: number;
   duration: number;
+  resourceGroup: string;
   desc: string;
   active: boolean;
 }
@@ -297,6 +298,7 @@ export interface Service {
 export interface Box {
   id: string;
   name: string;
+  resourceGroup: string;
   pricePerHour: number;
   active: boolean;
   description: string;
@@ -470,8 +472,8 @@ interface AppContextType {
   upcomingDates: string[];
   todayLabel: string;
   tomorrowLabel: string;
-  getTimeSlotsForDate: (date: string, options?: { durationMinutes?: number; boxName?: string }) => string[];
-  getBookingAvailabilityForDate: (date: string, options?: { durationMinutes?: number }) => Promise<BookingSlotAvailability[]>;
+  getTimeSlotsForDate: (date: string, options?: { durationMinutes?: number; boxName?: string; resourceGroup?: string }) => string[];
+  getBookingAvailabilityForDate: (date: string, options?: { durationMinutes?: number; serviceId?: string; resourceGroup?: string }) => Promise<BookingSlotAvailability[]>;
   loginClient: (profile: ClientProfile) => Promise<Role>;
   loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
   loginPrimaryOwnerViaTelegram: () => Promise<Role>;
@@ -1232,7 +1234,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshActiveSessions();
   }
 
-  function getTimeSlotsForDate(date: string, options?: { durationMinutes?: number; boxName?: string }) {
+  function getTimeSlotsForDate(date: string, options?: { durationMinutes?: number; boxName?: string; resourceGroup?: string }) {
     const parsedDate = parseFlexibleDate(date);
     if (!parsedDate) return [];
     const day = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
@@ -1246,7 +1248,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const scheduleSlots = buildTimeSlots(openMinutes, closeMinutes);
     const candidateBoxes = options?.boxName
       ? [options.boxName]
-      : boxes.filter((box) => box.active).map((box) => box.name);
+      : boxes
+        .filter((box) => box.active && (!options?.resourceGroup || box.resourceGroup === options.resourceGroup))
+        .map((box) => box.name);
     const boxNames = candidateBoxes.length > 0 ? candidateBoxes : ['Бокс 1'];
     return scheduleSlots.filter((slot) => {
       const slotStart = timeToMinutes(slot);
@@ -1265,15 +1269,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  async function getBookingAvailabilityForDate(date: string, options?: { durationMinutes?: number }) {
+  async function getBookingAvailabilityForDate(date: string, options?: { durationMinutes?: number; serviceId?: string; resourceGroup?: string }) {
     const durationMinutes = Math.max(1, options?.durationMinutes ?? 30);
     try {
+      const params = new URLSearchParams({
+        date,
+        duration: String(durationMinutes),
+      });
+      if (options?.serviceId) {
+        params.set('serviceId', options.serviceId);
+      }
+      if (options?.resourceGroup) {
+        params.set('resourceGroup', options.resourceGroup);
+      }
       const response = await apiRequest<{ date: string; duration: number; slots: BookingSlotAvailability[] }>(
-        `/api/bookings/availability?date=${encodeURIComponent(date)}&duration=${durationMinutes}`,
+        `/api/bookings/availability?${params.toString()}`,
       );
       return response.slots;
     } catch {
-      return getTimeSlotsForDate(date, { durationMinutes }).map((time) => ({
+      return getTimeSlotsForDate(date, { durationMinutes, resourceGroup: options?.resourceGroup }).map((time) => ({
         time,
         available: true,
         freeBoxes: 1,

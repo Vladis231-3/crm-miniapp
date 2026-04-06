@@ -389,6 +389,7 @@ class ServicePayload(BaseModel):
     category: str
     price: int
     duration: int
+    resourceGroup: str = "wash"
     desc: str = Field(default="")
     active: bool = True
 
@@ -417,6 +418,7 @@ class DetailingRequestCreateRequest(BaseModel):
 class BoxPayload(BaseModel):
     id: str
     name: str
+    resourceGroup: str = "wash"
     pricePerHour: int
     active: bool
     description: str = ""

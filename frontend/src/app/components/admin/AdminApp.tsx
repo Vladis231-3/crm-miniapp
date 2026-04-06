@@ -79,6 +79,10 @@ function isDetailingService(serviceId: string, services: Array<{ id: string; cat
   return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
 }
 
+function serviceResourceGroup(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
+  return services.find((service) => service.id === serviceId)?.resourceGroup || 'wash';
+}
+
 function hasManualScheduling(booking: Booking, services: Array<{ id: string; category: string }>) {
   return isDetailingService(booking.serviceId, services) && (!booking.time || booking.time === '00:00');
 }
@@ -234,11 +238,13 @@ export function AdminApp() {
     if (!newBookingForm.serviceId) return;
     const selectedService = liveServices.find((service) => service.id === newBookingForm.serviceId);
     if (!selectedService) return;
+    const nextBoxes = liveBoxes.filter((box) => box.active && box.resourceGroup === (selectedService.resourceGroup || 'wash'));
     setNewBookingForm((current) => {
       if (
         current.service === selectedService.name
         && current.price === selectedService.price
         && current.duration === selectedService.duration
+        && (!nextBoxes.length || current.box === nextBoxes[0].name || nextBoxes.some((box) => box.name === current.box))
       ) {
         return current;
       }
@@ -247,9 +253,14 @@ export function AdminApp() {
         service: selectedService.name,
         price: selectedService.price,
         duration: selectedService.duration,
+        box: nextBoxes.find((box) => box.name === current.box)?.name || nextBoxes[0]?.name || current.box,
       };
     });
   }, [liveServices, newBookingForm.serviceId]);
+  const bookingFormBoxes = boxes.filter((box) => box.active && box.resourceGroup === serviceResourceGroup(newBookingForm.serviceId, services));
+  const editBookingBoxes = selectedBooking
+    ? boxes.filter((box) => box.active && box.resourceGroup === serviceResourceGroup(selectedBooking.serviceId, services))
+    : boxes.filter((box) => box.active);
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
   useEffect(() => setProfile(settings.adminProfile), [settings.adminProfile]);
   useEffect(() => {
@@ -483,6 +494,9 @@ export function AdminApp() {
   const validateNewBookingForm = () => {
     const nextErrors: { clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string } = {};
     const selectedService = services.find((service) => service.id === newBookingForm.serviceId);
+    const compatibleBoxNames = boxes
+      .filter((box) => box.active && box.resourceGroup === serviceResourceGroup(newBookingForm.serviceId, services))
+      .map((box) => box.name);
     const nameError = validateClientName(newBookingForm.clientName);
     if (nameError) nextErrors.clientName = nameError;
     const phoneError = validateClientPhone(newBookingForm.clientPhone);
@@ -493,6 +507,9 @@ export function AdminApp() {
     if (plateError) nextErrors.plate = plateError;
     Object.assign(nextErrors, validateBookingDate(newBookingForm.date, newBookingForm.time, selectedService?.duration || newBookingForm.duration || 30));
     if (!newBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
+    if (newBookingForm.serviceId && compatibleBoxNames.length > 0 && !compatibleBoxNames.includes(newBookingForm.box)) {
+      nextErrors.general = 'Для этой услуги нужно выбрать подходящее помещение';
+    }
     if (totalNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -1880,7 +1897,7 @@ export function AdminApp() {
                           setEditBookingDraft((current) => ({ ...current, box: e.target.value }));
                         }}
                       >
-                        {boxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        {editBookingBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                       </select>
                     </div>
                   </>
@@ -1998,7 +2015,7 @@ export function AdminApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
                   <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                    {boxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
