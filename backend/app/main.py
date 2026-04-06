@@ -3391,9 +3391,16 @@ def authenticate_staff(payload: StaffLoginRequest, request: Request, db: Session
     if staff.role not in {"admin", "worker", "owner"} or not staff.active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён")
     owner_security = _setting(db, "owner_security", {"twoFactor": False})
-    two_factor_enabled = staff.role == "owner" and not staff.is_primary_owner and owner_security.get("twoFactor", False)
+    primary_owner = _primary_owner(db)
+    primary_owner_ready_for_two_factor = bool(primary_owner and primary_owner.telegram_chat_id.strip())
+    two_factor_enabled = (
+        staff.role == "owner"
+        and not staff.is_primary_owner
+        and owner_security.get("twoFactor", False)
+        and primary_owner_ready_for_two_factor
+    )
     if two_factor_enabled:
-        recipient_owner = _owner_two_factor_recipient(db)
+        recipient_owner = primary_owner if primary_owner is not None else _owner_two_factor_recipient(db)
         two_factor_code = (payload.twoFactorCode or "").strip()
         if not two_factor_code:
             generated_code = f"{secrets.randbelow(1_000_000):06d}"

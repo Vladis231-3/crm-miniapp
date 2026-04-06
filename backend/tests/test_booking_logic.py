@@ -258,6 +258,16 @@ class BookingLogicTests(unittest.TestCase):
             setting.value = {"twoFactor": False}
             db.commit()
 
+    def test_secondary_owner_can_login_without_primary_owner_telegram_when_2fa_cannot_run(self) -> None:
+        response = self.client.post(
+            "/api/auth/staff/login",
+            json={"login": "owner", "password": "owner"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["role"], "owner")
+        self.assertEqual(payload["bootstrap"]["session"]["role"], "owner")
+
     def set_primary_owner_telegram(self, chat_id: str = "974738256") -> None:
         from app.database import SessionLocal
         from app.models import StaffUser
