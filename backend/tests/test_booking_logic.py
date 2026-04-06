@@ -3493,6 +3493,65 @@ class BookingLogicTests(unittest.TestCase):
         admin_relogin = self.client.post("/api/auth/staff/login", json={"login": "admin", "password": "admin"})
         self.assertEqual(admin_relogin.status_code, 401, admin_relogin.text)
 
+    def test_normalize_service_and_box_resources_handles_legacy_null_box_fields(self) -> None:
+        from app.main import DETAILING_BOX_NAME, WASH_BOX_NAMES, _normalize_service_and_box_resources
+        from app.models import Box, Service
+
+        class FakeScalarResult:
+            def __init__(self, items: list[object]) -> None:
+                self._items = items
+
+            def all(self) -> list[object]:
+                return self._items
+
+        class FakeSession:
+            def __init__(self, services: list[Service], boxes: list[Box]) -> None:
+                self.services = services
+                self.boxes = boxes
+                self.flushed = False
+
+            def scalars(self, statement):
+                entity = statement.column_descriptions[0]["entity"]
+                if entity is Service:
+                    return FakeScalarResult(self.services)
+                if entity is Box:
+                    return FakeScalarResult(self.boxes)
+                raise AssertionError(f"Unexpected entity: {entity}")
+
+            def add(self, _item: object) -> None:
+                return None
+
+            def flush(self) -> None:
+                self.flushed = True
+
+        legacy_boxes = [
+            Box(
+                id="legacy-wash",
+                name=None,
+                resource_group="wash",
+                price_per_hour=500,
+                active=True,
+                description=None,
+            ),
+            Box(
+                id="legacy-detail",
+                name=None,
+                resource_group="detailing",
+                price_per_hour=700,
+                active=True,
+                description=None,
+            ),
+        ]
+        fake_db = FakeSession([], legacy_boxes)
+
+        _normalize_service_and_box_resources(fake_db)
+
+        self.assertTrue(fake_db.flushed)
+        self.assertEqual(legacy_boxes[0].name, WASH_BOX_NAMES[0])
+        self.assertEqual(legacy_boxes[1].name, DETAILING_BOX_NAME)
+        self.assertEqual(legacy_boxes[1].description, "Отдельное помещение для детейлинга")
+        self.assertGreaterEqual(len(fake_db.boxes), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

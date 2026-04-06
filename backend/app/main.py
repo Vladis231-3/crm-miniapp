@@ -1416,7 +1416,14 @@ def _visible_boxes(db: Session) -> list[Box]:
         if _resource_group_key(box.resource_group or _default_box_resource_group(box)) == WASH_RESOURCE_GROUP
     ]
     order_map = {name: index for index, name in enumerate(WASH_BOX_NAMES)}
-    return sorted(wash_boxes, key=lambda box: (order_map.get(box.name.strip(), len(order_map)), box.name.lower(), box.id))
+    return sorted(
+        wash_boxes,
+        key=lambda box: (
+            order_map.get(_normalized_text(box.name), len(order_map)),
+            _normalized_text(box.name).lower(),
+            box.id,
+        ),
+    )
 
 
 def _schedule_payload(entry: ScheduleEntry) -> SchedulePayload:
@@ -2622,6 +2629,10 @@ def _resource_group_key(value: str | None) -> str:
     return (value or "").strip().lower() or DEFAULT_RESOURCE_GROUP
 
 
+def _normalized_text(value: str | None) -> str:
+    return (value or "").strip()
+
+
 def _default_service_resource_group(service: Service | None) -> str:
     if service is None:
         return DEFAULT_RESOURCE_GROUP
@@ -2651,7 +2662,7 @@ def _compatible_box_names(db: Session, resource_group: str | None) -> list[str]:
     return [
         box.name
         for box in db.scalars(select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())).all()
-        if box.name.strip() and _resource_group_key(box.resource_group or _default_box_resource_group(box)) == target_group
+        if _normalized_text(box.name) and _resource_group_key(box.resource_group or _default_box_resource_group(box)) == target_group
     ]
 
 
@@ -2694,10 +2705,10 @@ def _normalize_service_and_box_resources(db: Session) -> None:
                 db.add(target_box)
                 boxes.append(target_box)
             else:
-                if target_box.name.strip().lower() in {"бокс 3", "box 3"}:
+                if _normalized_text(target_box.name).lower() in {"бокс 3", "box 3"}:
                     target_box.name = DETAILING_BOX_NAME
                 target_box.resource_group = DETAILING_RESOURCE_GROUP
-                if not target_box.description.strip():
+                if not _normalized_text(target_box.description):
                     target_box.description = "Отдельное помещение для детейлинга"
             changed = True
         else:
@@ -2705,7 +2716,7 @@ def _normalize_service_and_box_resources(db: Session) -> None:
             if target_box.name != DETAILING_BOX_NAME:
                 target_box.name = DETAILING_BOX_NAME
                 changed = True
-            if not target_box.description.strip():
+            if not _normalized_text(target_box.description):
                 target_box.description = "Отдельное помещение для детейлинга"
                 changed = True
 
@@ -2738,7 +2749,7 @@ def _normalize_service_and_box_resources(db: Session) -> None:
             if _resource_group_key(box.resource_group) != expected_group:
                 box.resource_group = expected_group
                 changed = True
-            if expected_group == WASH_RESOURCE_GROUP and not box.name.strip():
+            if expected_group == WASH_RESOURCE_GROUP and not _normalized_text(box.name):
                 box.name = WASH_BOX_NAMES[index] if index < len(WASH_BOX_NAMES) else f"Бокс {index + 1}"
                 changed = True
 
