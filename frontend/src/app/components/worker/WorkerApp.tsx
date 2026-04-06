@@ -6,7 +6,7 @@ import {
   Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp
 } from 'lucide-react';
-import { getWorkerNotificationSettings, useApp, Booking } from '../../context/AppContext';
+import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
@@ -95,6 +95,8 @@ export function WorkerApp() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [finishNote, setFinishNote] = useState('');
   const [finishAmount, setFinishAmount] = useState('');
+  const [finishPaymentType, setFinishPaymentType] = useState<PaymentType>('cash');
+  const [finishPaymentSettled, setFinishPaymentSettled] = useState(true);
   const [sendCheck, setSendCheck] = useState(true);
   const [finishSuccess, setFinishSuccess] = useState(false);
   const [filterMine, setFilterMine] = useState(true);
@@ -205,11 +207,25 @@ export function WorkerApp() {
     setShowStartConfirm(null);
   };
 
+  const openFinishModal = (task: Booking) => {
+    setSelectedTask(task);
+    setFinishAmount(String(task.price));
+    setFinishNote(task.notes || '');
+    setFinishPaymentType(task.paymentType || 'cash');
+    setFinishPaymentSettled(task.paymentSettled);
+    setFinishError(null);
+    setShowFinishModal(true);
+  };
+
   const handleFinish = async () => {
     if (!selectedTask) return;
     const normalizedAmount = Number(finishAmount);
     if (!Number.isFinite(normalizedAmount) || normalizedAmount < 0) {
       setFinishError('Укажите корректную итоговую сумму');
+      return;
+    }
+    if (finishPaymentSettled && !finishPaymentType) {
+      setFinishError('Укажите способ оплаты');
       return;
     }
     const nextNote = finishNote.trim();
@@ -218,12 +234,16 @@ export function WorkerApp() {
       await updateBooking(selectedTask.id, {
         status: 'completed',
         price: nextPrice,
+        paymentSettled: finishPaymentSettled,
+        paymentType: finishPaymentSettled ? finishPaymentType : selectedTask.paymentType,
         notes: nextNote || selectedTask.notes || '',
       });
       setSelectedTask(prev => prev ? {
         ...prev,
         status: 'completed',
         price: nextPrice,
+        paymentSettled: finishPaymentSettled,
+        paymentType: finishPaymentSettled ? finishPaymentType : prev.paymentType,
         notes: nextNote || prev.notes,
       } : null);
     } catch (error) {
@@ -244,6 +264,8 @@ export function WorkerApp() {
       setShowDetail(false);
       setFinishAmount('');
       setFinishNote('');
+      setFinishPaymentType('cash');
+      setFinishPaymentSettled(true);
       setFinishError(null);
     }, 2000);
   };
@@ -396,7 +418,7 @@ export function WorkerApp() {
                   </button>
                 )}
                 {selectedTask.status === 'in_progress' && (
-                  <button onClick={() => { setFinishAmount(String(selectedTask.price)); setFinishNote(selectedTask.notes || ''); setFinishError(null); setShowFinishModal(true); }} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: primary }}>
+                  <button onClick={() => openFinishModal(selectedTask)} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: primary }}>
                     <Check size={18} />Завершить
                   </button>
                 )}
@@ -431,7 +453,7 @@ export function WorkerApp() {
                           </button>
                         )}
                         {task.status === 'in_progress' && (
-                          <button onClick={() => { setSelectedTask(task); setFinishAmount(String(task.price)); setFinishNote(task.notes || ''); setFinishError(null); setShowFinishModal(true); }} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: primary }}>
+                          <button onClick={() => openFinishModal(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: primary }}>
                             <Check size={14} />Завершить
                           </button>
                         )}
@@ -955,6 +977,45 @@ export function WorkerApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Фактическая сумма (₽)</label>
                   <input className={inputCls} type="number" min="0" value={finishAmount} onChange={e => { setFinishError(null); setFinishAmount(e.target.value); }} />
                 </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-2`}>Клиент оплатил?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setFinishError(null); setFinishPaymentSettled(true); }}
+                      className={`rounded-xl border px-3 py-2 text-sm font-medium ${finishPaymentSettled ? 'text-white' : ''}`}
+                      style={{
+                        background: finishPaymentSettled ? primary : 'transparent',
+                        borderColor: finishPaymentSettled ? primary : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'),
+                      }}
+                    >
+                      Да, оплатил
+                    </button>
+                    <button
+                      onClick={() => { setFinishError(null); setFinishPaymentSettled(false); }}
+                      className={`rounded-xl border px-3 py-2 text-sm font-medium ${!finishPaymentSettled ? 'text-white' : ''}`}
+                      style={{
+                        background: !finishPaymentSettled ? '#EF4444' : 'transparent',
+                        borderColor: !finishPaymentSettled ? '#EF4444' : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'),
+                      }}
+                    >
+                      Нет, не оплатил
+                    </button>
+                  </div>
+                </div>
+                {finishPaymentSettled && (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
+                    <select
+                      className={inputCls}
+                      value={finishPaymentType}
+                      onChange={e => { setFinishError(null); setFinishPaymentType(e.target.value as PaymentType); }}
+                    >
+                      <option value="cash">Наличные</option>
+                      <option value="card">Карта</option>
+                      <option value="online">Онлайн</option>
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Комментарий</label>
                   <input className={inputCls} placeholder="Добавьте комментарий..." value={finishNote} onChange={e => { setFinishError(null); setFinishNote(e.target.value); }} />

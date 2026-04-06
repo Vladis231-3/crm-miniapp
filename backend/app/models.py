@@ -134,6 +134,7 @@ class Booking(Base):
     status: Mapped[str] = mapped_column(String(32))
     box: Mapped[str] = mapped_column(String(120))
     payment_type: Mapped[str] = mapped_column(String(32))
+    payment_settled: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     car: Mapped[str | None] = mapped_column(String(120), nullable=True)
     plate: Mapped[str | None] = mapped_column(String(32), nullable=True)

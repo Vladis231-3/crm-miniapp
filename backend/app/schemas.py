@@ -261,6 +261,7 @@ class BookingPayload(BaseModel):
     workers: list[BookingWorkerPayload]
     box: str
     paymentType: PaymentType
+    paymentSettled: bool = True
     createdAt: datetime
     notes: str | None = None
     car: str | None = None
@@ -652,6 +653,7 @@ class BookingCreateRequest(BaseModel):
     workers: list[BookingWorkerPayload] = Field(default_factory=list)
     box: str
     paymentType: PaymentType
+    paymentSettled: bool = True
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
@@ -695,6 +697,7 @@ class BookingUpdateRequest(BaseModel):
     workers: list[BookingWorkerPayload] | None = None
     box: str | None = None
     paymentType: PaymentType | None = None
+    paymentSettled: bool | None = None
     notes: str | None = None
     car: str | None = None
     plate: str | None = None

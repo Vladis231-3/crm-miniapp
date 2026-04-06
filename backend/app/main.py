@@ -511,6 +511,10 @@ def _apply_runtime_migrations() -> None:
     if "resource_group" not in box_columns and "boxes" in inspector.get_table_names():
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE boxes ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'")
+    booking_columns = {column["name"] for column in inspector.get_columns("bookings")} if "bookings" in inspector.get_table_names() else set()
+    if "payment_settled" not in booking_columns and "bookings" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql("ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT 1")
     if "booking_workers" in inspector.get_table_names():
         ensure_postgres_varchar_length("booking_workers", "booking_id", 64)
         ensure_postgres_varchar_length("booking_workers", "worker_id", 64)
@@ -1316,6 +1320,7 @@ def _booking_payload(booking: Booking, complaints_by_worker: dict[str, list[Pena
         ],
         box=booking.box,
         paymentType=booking.payment_type,
+        paymentSettled=booking.payment_settled,
         createdAt=booking.created_at,
         notes=booking.notes,
         car=booking.car,
@@ -2747,6 +2752,12 @@ def _payment_type_label(payment_type: str) -> str:
     }.get(payment_type, payment_type)
 
 
+def _booking_payment_label(booking: Booking) -> str:
+    if not booking.payment_settled:
+        return "Не оплачено"
+    return _payment_type_label(booking.payment_type)
+
+
 def _notify_owners(db: Session, text: str) -> None:
     db.add(
         Notification(
@@ -2772,7 +2783,7 @@ def _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -
         f"Дата: {booking.date} {booking.time}\n"
         f"Бокс: {booking.box}\n"
         f"Сумма: {booking.price:,} ₽\n".replace(",", " ")
-        + f"Оплата: {_payment_type_label(booking.payment_type)}"
+        + f"Оплата: {_booking_payment_label(booking)}"
         + worker_line
     )
 
@@ -3700,6 +3711,7 @@ def create_booking(
         status=booking_status,
         box=booking_box,
         payment_type=payload.paymentType,
+        payment_settled=payload.paymentSettled,
         notes=payload.notes,
         car=booking_car,
         plate=booking_plate,
@@ -3766,7 +3778,7 @@ def update_booking(
         assigned_worker_ids = {link.worker_id for link in booking.worker_links}
         if session_data["actorId"] not in assigned_worker_ids:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        forbidden_fields = set(updates) - {"status", "price", "notes"}
+        forbidden_fields = set(updates) - {"status", "price", "notes", "paymentType", "paymentSettled"}
         if payload.workers is not None:
             forbidden_fields.add("workers")
         if forbidden_fields:
@@ -3804,6 +3816,7 @@ def update_booking(
     next_duration = updates.get("duration", booking.duration)
     next_box = (updates.get("box", booking.box) or "").strip()
     next_status = updates.get("status", booking.status)
+    next_payment_settled = updates.get("paymentSettled", booking.payment_settled)
     service_resource_group = _service_resource_group(service)
     next_workers = _validated_booking_workers(db, payload.workers) if payload.workers is not None else [
         BookingWorkerPayload(
@@ -3837,6 +3850,11 @@ def update_booking(
         worker_ids={worker.workerId for worker in next_workers},
         status_value=next_status,
     )
+    if session_data["role"] == "worker" and previous_status != "completed" and next_status == "completed":
+        if payload.paymentSettled is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите, оплатил ли клиент заказ")
+        if next_payment_settled and payload.paymentType is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите способ оплаты")
 
     for field, value in updates.items():
         target_field = {
@@ -3844,6 +3862,7 @@ def update_booking(
             "clientPhone": "client_phone",
             "serviceId": "service_id",
             "paymentType": "payment_type",
+            "paymentSettled": "payment_settled",
         }.get(field, field)
         setattr(booking, target_field, value)
 
@@ -3882,7 +3901,8 @@ def update_booking(
                 recipient_id=None,
                 message=(
                     f"{worker_name} завершил работу. Клиент: {booking.client_name}. "
-                    f"Услуга: {booking.service}. Сумма: {booking.price:,} ₽".replace(",", " ")
+                    f"Услуга: {booking.service}. Сумма: {booking.price:,} ₽. "
+                    f"Оплата: {_booking_payment_label(booking)}".replace(",", " ")
                 ),
                 read=False,
                 created_at=_now(),

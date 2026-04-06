@@ -138,6 +138,7 @@ export function OwnerApp() {
     date: tomorrowLabel,
     time: '10:00',
     box: liveBoxes[0]?.name || 'Бокс 1',
+    paymentSettled: true,
   });
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
@@ -330,7 +331,8 @@ export function OwnerApp() {
       return next;
     });
 
-    const missing = latestAdminShiftInspections.filter((inspection) => inspection.floorPhotoUrl && !adminShiftPhotoUrls[inspection.id]);
+    const currentPhotoUrls = adminShiftPhotoUrlsRef.current;
+    const missing = latestAdminShiftInspections.filter((inspection) => inspection.floorPhotoUrl && !currentPhotoUrls[inspection.id]);
     void Promise.all(
       missing.map(async (inspection) => ({
         id: inspection.id,
@@ -357,7 +359,7 @@ export function OwnerApp() {
     return () => {
       cancelled = true;
     };
-  }, [adminShiftPhotoUrls, latestAdminShiftInspectionKey, page]);
+  }, [latestAdminShiftInspectionKey, page]);
   useEffect(() => () => {
     Object.values(adminShiftPhotoUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
   }, []);
@@ -880,6 +882,7 @@ export function OwnerApp() {
       workers: selectedWorkers,
       box: bookingForm.box,
       paymentType: 'cash',
+      paymentSettled: true,
       notifyWorkers: selectedWorkers.length > 0,
     });
     await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc.name} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
@@ -892,6 +895,7 @@ export function OwnerApp() {
       date: tomorrowLabel,
       time: '10:00',
       box: ownerBookingBoxes(services[0]?.id || '', services, boxes)[0]?.name || 'Бокс 1',
+      paymentSettled: true,
     });
     setBottomToast('Запись создана и клиент уведомлён');
     setTimeout(() => setBottomToast(null), 3000);

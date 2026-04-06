@@ -376,9 +376,10 @@ export function AdminApp() {
   ].filter(s => s.value > 0);
 
   const byPayment = [
-    { name: 'Наличные', value: bookings.filter(b => b.paymentType === 'cash').length, color: accent },
-    { name: 'Карта', value: bookings.filter(b => b.paymentType === 'card').length, color: primary },
-    { name: 'Онлайн', value: bookings.filter(b => b.paymentType === 'online').length, color: '#A855F7' },
+    { name: 'Наличные', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'cash').length, color: accent },
+    { name: 'Карта', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'card').length, color: primary },
+    { name: 'Онлайн', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'online').length, color: '#A855F7' },
+    { name: 'Не оплачено', value: bookings.filter(b => !b.paymentSettled).length, color: '#EF4444' },
   ].filter(p => p.value > 0);
 
   const workerStats = masterWorkers.map(w => ({
@@ -667,6 +668,7 @@ export function AdminApp() {
         workers: createdWorkers,
         box: newBookingForm.box,
         paymentType: 'cash',
+        paymentSettled: true,
         car: normalizedCar,
         plate: normalizedPlate,
         notes: newBookingForm.notes,

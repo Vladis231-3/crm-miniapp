@@ -2081,7 +2081,13 @@ class BookingLogicTests(unittest.TestCase):
             complete_response = self.client.patch(
                 f"/api/bookings/{booking_id}",
                 headers=self.auth_headers(worker_token),
-                json={"status": "completed", "price": 1800, "notes": "Сделали полную уборку салона"},
+                json={
+                    "status": "completed",
+                    "price": 1800,
+                    "paymentSettled": True,
+                    "paymentType": "card",
+                    "notes": "Сделали полную уборку салона",
+                },
             )
             self.assertEqual(complete_response.status_code, 200, complete_response.text)
 
@@ -2667,7 +2673,7 @@ class BookingLogicTests(unittest.TestCase):
         finish_response = self.client.patch(
             f"/api/bookings/{booking_id}",
             headers=self.auth_headers(worker_token),
-            json={"status": "completed", "price": 2500},
+            json={"status": "completed", "price": 2500, "paymentSettled": False},
         )
         self.assertEqual(finish_response.status_code, 200, finish_response.text)
 
@@ -2717,6 +2723,59 @@ class BookingLogicTests(unittest.TestCase):
             json={"workers": []},
         )
         self.assertEqual(change_workers.status_code, 403, change_workers.text)
+
+    def test_worker_must_specify_payment_state_when_completing_booking(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+        worker_token = self.login_staff("ivan", "master")
+        worker = self.get_staff(login="ivan")
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Alice",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Комплексная мойка",
+                "serviceId": "s1",
+                "date": self.next_active_date(),
+                "time": "19:00",
+                "duration": 30,
+                "price": 1800,
+                "status": "scheduled",
+                "workers": [{"workerId": worker["id"], "workerName": "Иван", "percent": 40}],
+                "box": "Мойка самообслуживания",
+                "paymentType": "cash",
+                "paymentSettled": True,
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+
+        missing_status_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(worker_token),
+            json={"status": "completed", "price": 1800},
+        )
+        self.assertEqual(missing_status_response.status_code, 400, missing_status_response.text)
+        self.assertIn("оплатил ли клиент", missing_status_response.text.lower())
+
+        missing_method_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(worker_token),
+            json={"status": "completed", "price": 1800, "paymentSettled": True},
+        )
+        self.assertEqual(missing_method_response.status_code, 400, missing_method_response.text)
+        self.assertIn("способ оплаты", missing_method_response.text.lower())
+
+        unpaid_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(worker_token),
+            json={"status": "completed", "price": 1800, "paymentSettled": False},
+        )
+        self.assertEqual(unpaid_response.status_code, 200, unpaid_response.text)
+        self.assertEqual(unpaid_response.json()["paymentSettled"], False)
 
     def test_worker_can_save_only_own_profile(self) -> None:
         worker_token = self.login_staff("ivan", "master")

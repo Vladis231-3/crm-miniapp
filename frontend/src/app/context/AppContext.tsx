@@ -119,6 +119,7 @@ export interface Booking {
   workers: { workerId: string; workerName: string; percent: number }[];
   box: string;
   paymentType: PaymentType;
+  paymentSettled: boolean;
   createdAt: Date;
   notes?: string;
   car?: string;
