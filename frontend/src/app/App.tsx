@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sun, Moon, Shield, Eye, EyeOff, X, Car, Phone, User, Hash,
-  ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn
+  ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn, DollarSign
 } from 'lucide-react';
 import { AppProvider, Role, useApp } from './context/AppContext';
 import { ClientApp } from './components/client/ClientApp';
@@ -353,9 +353,10 @@ const handleStaffLogin = async () => {
                 </div>
 
                 {/* Roles hint */}
-                <div className="grid grid-cols-3 gap-2 mb-5">
+                <div className="grid grid-cols-4 gap-2 mb-5">
                   {[
                     { icon: Shield, label: 'Админ', login: 'admin', color: '#A855F7' },
+                    { icon: DollarSign, label: 'Бух', login: 'accountant', color: '#14B8A6' },
                     { icon: Wrench, label: 'Мастер', login: 'ivan', color: '#34C759' },
                     { icon: BarChart3, label: 'Владелец', login: 'owner', color: '#FF9500' },
                   ].map(r => (
