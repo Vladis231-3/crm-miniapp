@@ -2399,6 +2399,7 @@ def _perform_owner_database_reset(db: Session, *, current_session_id: str | None
     db.execute(sa_delete(Notification))
     db.execute(sa_delete(BookingWorker))
     db.execute(sa_delete(Booking))
+    db.execute(sa_delete(PayrollEntry))
     db.execute(sa_delete(Penalty))
     db.execute(sa_delete(Expense))
     db.execute(sa_delete(StockItem))

@@ -292,10 +292,11 @@ class BookingLogicTests(unittest.TestCase):
 
     @staticmethod
     def extract_owner_reset_code(message: str) -> str:
-        prefix = "РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: "
+        prefixes = ["Код подтверждения: ", "РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: "]
         for line in message.splitlines():
-            if line.startswith(prefix):
-                return line[len(prefix) :].strip()
+            for prefix in prefixes:
+                if line.startswith(prefix):
+                    return line[len(prefix) :].strip()
         raise AssertionError(f"Owner reset code not found in message: {message}")
 
     def force_owner_reset_ready(self) -> None:
@@ -3401,7 +3402,8 @@ class BookingLogicTests(unittest.TestCase):
             json={"requestId": start_payload["requestId"]},
         )
         self.assertEqual(execute_response.status_code, 409, execute_response.text)
-        self.assertIn("РєРЅРѕРїРєР°", execute_response.json()["detail"].lower())
+        detail = execute_response.json()["detail"].lower()
+        self.assertTrue("кнопка" in detail or "рєрѕрїрєр°" in detail, detail)
 
     def test_owner_database_reset_clears_operational_data_and_preserves_owners(self) -> None:
         from app.database import SessionLocal
@@ -3412,6 +3414,7 @@ class BookingLogicTests(unittest.TestCase):
             Client,
             Expense,
             Notification,
+            PayrollEntry,
             Service,
             StaffUser,
             StockItem,
@@ -3464,6 +3467,12 @@ class BookingLogicTests(unittest.TestCase):
             json={"title": "РџСЂРѕРІРµСЂРєР°", "amount": 900, "category": "РџСЂРѕС‡РµРµ", "date": self.next_active_date(), "note": ""},
         )
         self.assertEqual(expense_response.status_code, 200, expense_response.text)
+        payroll_response = self.client.post(
+            "/api/payroll/entries",
+            headers=self.auth_headers(owner_token),
+            json={"workerId": "w1", "kind": "bonus", "amount": 500, "note": "РџСЂРµРјРёСЏ"},
+        )
+        self.assertEqual(payroll_response.status_code, 200, payroll_response.text)
 
         sent_messages: list[tuple[str, str]] = []
 
@@ -3513,6 +3522,7 @@ class BookingLogicTests(unittest.TestCase):
             self.assertEqual(len(db.scalars(select(Booking)).all()), 0)
             self.assertEqual(len(db.scalars(select(StockItem)).all()), 0)
             self.assertEqual(len(db.scalars(select(Expense)).all()), 0)
+            self.assertEqual(len(db.scalars(select(PayrollEntry)).all()), 0)
             self.assertEqual(len(db.scalars(select(Notification)).all()), 0)
             self.assertGreater(len(db.scalars(select(Service)).all()), 0)
             self.assertGreater(len(db.scalars(select(Box)).all()), 0)
