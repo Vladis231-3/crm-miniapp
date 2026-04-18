@@ -4,6 +4,7 @@ import {
   Sun, Moon, Shield, Eye, EyeOff, X, Car, Phone, User, Hash,
   ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn, DollarSign
 } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppProvider, Role, useApp } from './context/AppContext';
 import { ClientApp } from './components/client/ClientApp';
 import { AdminApp } from './components/admin/AdminApp';
@@ -520,6 +521,7 @@ export default function App() {
   return (
     <AppProvider>
       <AppContent />
+      <SpeedInsights />
     </AppProvider>
   );
 }
