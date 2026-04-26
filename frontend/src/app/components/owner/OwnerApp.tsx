@@ -23,6 +23,11 @@ type OwnerExportKind = 'report' | 'pdf';
 const EXPENSE_CATEGORIES = ['Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
 const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудование'];
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
+const SERVICE_TYPE_OPTIONS = [
+  { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
+  { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
+  { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
+] as const;
 const DETAILING_BOX = { id: 'detailing-room', name: 'Детейлинг', resourceGroup: 'detailing', pricePerHour: 0, active: true, description: 'Отдельное помещение для детейлинга' };
 
 function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
@@ -47,6 +52,10 @@ function ownerBookingBoxes(
 
 function ownerLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
   return ownerServiceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
+}
+
+function serviceResourceGroupForCategory(category: string) {
+  return SERVICE_TYPE_OPTIONS.find((option) => option.value === category)?.resourceGroup || 'wash';
 }
 
 export function OwnerApp() {
@@ -464,6 +473,7 @@ export function OwnerApp() {
         id: createDraftId('service'),
         name: 'Новая услуга',
         category: 'Мойка',
+        resourceGroup: 'wash',
         price: 0,
         duration: 30,
         desc: '',
@@ -2222,8 +2232,22 @@ export function OwnerApp() {
                       <input className={inputCls} value={service.name} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, name: e.target.value } : item))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Категория</label>
-                      <input className={inputCls} value={service.category} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, category: e.target.value } : item))} />
+                      <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
+                      <select
+                        className={selectCls}
+                        value={service.category}
+                        onChange={e => setServicesState(p => p.map((item, j) => j === i
+                          ? {
+                            ...item,
+                            category: e.target.value,
+                            resourceGroup: serviceResourceGroupForCategory(e.target.value),
+                          }
+                          : item))}
+                      >
+                        {SERVICE_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-2">

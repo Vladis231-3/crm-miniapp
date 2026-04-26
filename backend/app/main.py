@@ -3806,7 +3806,7 @@ def update_booking(
         assigned_worker_ids = {link.worker_id for link in booking.worker_links}
         if session_data["actorId"] not in assigned_worker_ids:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        forbidden_fields = set(updates) - {"status", "price", "notes", "paymentType", "paymentSettled"}
+        forbidden_fields = set(updates) - {"status", "notes", "paymentType", "paymentSettled"}
         if payload.workers is not None:
             forbidden_fields.add("workers")
         if forbidden_fields:

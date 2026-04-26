@@ -672,15 +672,15 @@ class BookingCreateRequest(BaseModel):
     @field_validator("car")
     @classmethod
     def validate_car(cls, value: str | None) -> str:
-        if value is None:
-            raise ValueError("Введите автомобиль")
+        if value is None or not value.strip():
+            return ""
         return normalize_vehicle_name(value)
 
     @field_validator("plate")
     @classmethod
     def validate_plate(cls, value: str | None) -> str:
-        if value is None:
-            raise ValueError("Введите госномер")
+        if value is None or not value.strip():
+            return ""
         return normalize_plate(value)
 
 
@@ -722,6 +722,8 @@ class BookingUpdateRequest(BaseModel):
     def validate_car(cls, value: str | None) -> str | None:
         if value is None:
             return None
+        if not value.strip():
+            return ""
         return normalize_vehicle_name(value)
 
     @field_validator("plate")
@@ -729,8 +731,9 @@ class BookingUpdateRequest(BaseModel):
     def validate_plate(cls, value: str | None) -> str | None:
         if value is None:
             return None
+        if not value.strip():
+            return ""
         return normalize_plate(value)
-
 
 class ClientCardUpdateRequest(BaseModel):
     notes: str | None = None

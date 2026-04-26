@@ -589,8 +589,10 @@ export function AdminApp() {
     if (phoneError) nextErrors.clientPhone = phoneError;
     const carError = validateVehicleName(newBookingForm.car);
     if (carError) nextErrors.car = carError;
-    const plateError = validatePlateValue(newBookingForm.plate);
-    if (plateError) nextErrors.plate = plateError;
+    if (normalizePlateInput(newBookingForm.plate)) {
+      const plateError = validatePlateValue(newBookingForm.plate);
+      if (plateError) nextErrors.plate = plateError;
+    }
     Object.assign(nextErrors, validateBookingDate(newBookingForm.date, newBookingForm.time, selectedService?.duration || newBookingForm.duration || 30));
     if (!newBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (newBookingForm.serviceId && compatibleBoxNames.length > 0 && !compatibleBoxNames.includes(newBookingForm.box)) {
@@ -624,6 +626,29 @@ export function AdminApp() {
 
   const openNewBookingModal = () => {
     resetNewBookingDraft();
+    setShowNewBooking(true);
+  };
+
+  const openAdditionalServiceModal = (booking: Booking) => {
+    setSaveSuccess(null);
+    setNewBookingSaving(false);
+    setNewBookingErrors({});
+    setNewBookingWorkers(booking.workers.map((worker) => ({ id: worker.workerId, percent: worker.percent })));
+    setNewBookingForm({
+      clientName: booking.clientName,
+      clientPhone: booking.clientPhone,
+      service: '',
+      serviceId: '',
+      date: booking.date || todayLabel,
+      time: booking.time || '10:00',
+      box: booking.box && booking.box !== 'По согласованию' ? booking.box : boxes[0]?.name || 'Бокс 1',
+      price: 0,
+      duration: 30,
+      car: booking.car || '',
+      plate: booking.plate || '',
+      notes: '',
+    });
+    setShowSlideOver(false);
     setShowNewBooking(true);
   };
 
@@ -1994,6 +2019,9 @@ export function AdminApp() {
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} />Начать</button>
                   )}
                   {(selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
+                    <button onClick={() => openAdditionalServiceModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-violet-500/15 text-violet-600"><Plus size={15} />Доп. услуга</button>
+                  )}
+                  {(selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
                     <button onClick={() => openCompleteModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><CheckCircle size={15} />Закрыть</button>
                   )}
                   {(READY_TO_START_STATUSES.includes(selectedBooking.status) || selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
@@ -2260,7 +2288,7 @@ export function AdminApp() {
                   { label: 'Клиент', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
                   { label: 'Телефон', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Номер', key: 'plate', placeholder: 'A123BC777', type: 'text' },
+                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'A123BC777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
@@ -2307,12 +2335,19 @@ export function AdminApp() {
                     {newBookingErrors.time && <div className="mt-1 text-xs text-red-500">{newBookingErrors.time}</div>}
                   </div>
                 </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                  <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                    {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                  </select>
-                </div>
+                {serviceResourceGroup(newBookingForm.serviceId, services) === 'detailing' ? (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
+                    <div className={`${inputCls} ${sub}`}>Для детейлинга помещение подставляется автоматически</div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
+                    <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
+                      {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>

@@ -106,10 +106,26 @@ export function ClientApp() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
   const [profileError, setProfileError] = useState('');
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
   useEffect(() => {
     if (!selectedDate && upcomingDates[0]) {
       setSelectedDate(upcomingDates[0]);
+    }
+  }, [selectedDate, upcomingDates]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    const parsedSelectedDate = parseFlexibleDate(selectedDate);
+    if (parsedSelectedDate && parsedSelectedDate >= todayStart) return;
+    const nextAvailableDate = upcomingDates.find((dateValue) => {
+      const parsedDate = parseFlexibleDate(dateValue);
+      return parsedDate !== null && parsedDate >= todayStart;
+    });
+    if (nextAvailableDate && nextAvailableDate !== selectedDate) {
+      setSelectedDate(nextAvailableDate);
+      setSelectedSlot(null);
     }
   }, [selectedDate, upcomingDates]);
 
@@ -124,6 +140,12 @@ export function ClientApp() {
 
   useEffect(() => {
     if (!selectedService || page !== 'slots') {
+      setSlotAvailability([]);
+      setSlotsLoading(false);
+      return;
+    }
+    const parsedSelectedDate = parseFlexibleDate(selectedDate);
+    if (parsedSelectedDate && parsedSelectedDate < todayStart) {
       setSlotAvailability([]);
       setSlotsLoading(false);
       return;
@@ -253,6 +275,15 @@ export function ClientApp() {
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
     if (!selectedSlot) return;
+    if (!selectedDayDate || selectedDayDate < todayStart) {
+      const nextAvailableDate = upcomingDates.find((dateValue) => {
+        const parsedDate = parseFlexibleDate(dateValue);
+        return parsedDate !== null && parsedDate >= todayStart;
+      });
+      setSelectedDate(nextAvailableDate || formatDate(todayStart));
+      setSelectedSlot(null);
+      return;
+    }
     const primaryVehicle = selectedBookingVehicle;
     const booking = await addBooking({
       clientId: session.actorId,

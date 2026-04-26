@@ -94,7 +94,6 @@ export function WorkerApp() {
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [finishNote, setFinishNote] = useState('');
-  const [finishAmount, setFinishAmount] = useState('');
   const [finishPaymentType, setFinishPaymentType] = useState<PaymentType>('cash');
   const [finishPaymentSettled, setFinishPaymentSettled] = useState(true);
   const [sendCheck, setSendCheck] = useState(true);
@@ -209,7 +208,6 @@ export function WorkerApp() {
 
   const openFinishModal = (task: Booking) => {
     setSelectedTask(task);
-    setFinishAmount(String(task.price));
     setFinishNote(task.notes || '');
     setFinishPaymentType(task.paymentType || 'cash');
     setFinishPaymentSettled(task.paymentSettled);
@@ -219,21 +217,14 @@ export function WorkerApp() {
 
   const handleFinish = async () => {
     if (!selectedTask) return;
-    const normalizedAmount = Number(finishAmount);
-    if (!Number.isFinite(normalizedAmount) || normalizedAmount < 0) {
-      setFinishError('Укажите корректную итоговую сумму');
-      return;
-    }
     if (finishPaymentSettled && !finishPaymentType) {
       setFinishError('Укажите способ оплаты');
       return;
     }
     const nextNote = finishNote.trim();
-    const nextPrice = Math.round(normalizedAmount);
     try {
       await updateBooking(selectedTask.id, {
         status: 'completed',
-        price: nextPrice,
         paymentSettled: finishPaymentSettled,
         paymentType: finishPaymentSettled ? finishPaymentType : selectedTask.paymentType,
         notes: nextNote || selectedTask.notes || '',
@@ -241,7 +232,6 @@ export function WorkerApp() {
       setSelectedTask(prev => prev ? {
         ...prev,
         status: 'completed',
-        price: nextPrice,
         paymentSettled: finishPaymentSettled,
         paymentType: finishPaymentSettled ? finishPaymentType : prev.paymentType,
         notes: nextNote || prev.notes,
@@ -262,7 +252,6 @@ export function WorkerApp() {
       setFinishSuccess(false);
       setShowFinishModal(false);
       setShowDetail(false);
-      setFinishAmount('');
       setFinishNote('');
       setFinishPaymentType('cash');
       setFinishPaymentSettled(true);
@@ -974,8 +963,11 @@ export function WorkerApp() {
               <h3 className="font-semibold mb-4">Завершить задачу</h3>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Фактическая сумма (₽)</label>
-                  <input className={inputCls} type="number" min="0" value={finishAmount} onChange={e => { setFinishError(null); setFinishAmount(e.target.value); }} />
+                  <label className={`text-xs ${sub} block mb-1`}>Сумма услуги</label>
+                  <div className={`${inputCls} flex items-center justify-between`}>
+                    <span>{selectedTask?.price.toLocaleString('ru')} ₽</span>
+                    <span className={`text-xs ${sub}`}>Фиксировано</span>
+                  </div>
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-2`}>Клиент оплатил?</label>
