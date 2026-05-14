@@ -1,10 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, Component } from 'react';
+
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, fontFamily: 'monospace', background: '#1a1a2e', color: '#ff6b6b', minHeight: '100vh' }}>
+          <h2 style={{ color: '#ff6b6b', marginBottom: 12 }}>Ошибка приложения</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: '#e6eef8' }}>{this.state.error.message}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#9aa6b2', marginTop: 8 }}>{this.state.error.stack}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', background: '#0a84ff', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+            Перезагрузить
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sun, Moon, Shield, Eye, EyeOff, X, Car, Phone, User, Hash,
-  ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn, DollarSign
+  ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn, DollarSign,
 } from 'lucide-react';
-import { AppProvider, Role, useApp } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 import { ClientApp } from './components/client/ClientApp';
 import { AdminApp } from './components/admin/AdminApp';
 import { WorkerApp } from './components/worker/WorkerApp';
@@ -20,7 +45,15 @@ import {
 } from './utils/validation';
 
 function WelcomeScreen() {
-  const { isDark, toggleTheme, loginClient, verifyClientPhone, loginStaff, loginPrimaryOwnerViaTelegram, authLoading } = useApp();
+  const {
+    isDark,
+    toggleTheme,
+    loginClient,
+    verifyClientPhone,
+    loginStaff,
+    loginPrimaryOwnerViaTelegram,
+    authLoading,
+  } = useApp();
 
   const [step, setStep] = useState<'greeting' | 'form'>('greeting');
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -46,6 +79,7 @@ function WelcomeScreen() {
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-lg';
   const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white/90 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 transition-all`;
+
   const validate = () => {
     const errors: Record<string, string> = {};
     const nameError = validatePersonName(form.name);
@@ -94,14 +128,14 @@ function WelcomeScreen() {
       setPhoneVerificationState('pending');
       await verifyClientPhone(form.phone.trim());
       setPhoneVerificationState('verified');
-      setPhoneVerificationMessage('Номер подтверждён через Telegram');
+      setPhoneVerificationMessage('Номер подтвержден через Telegram');
     } catch (nextError) {
       setPhoneVerificationState('idle');
       setPhoneVerificationMessage(nextError instanceof Error ? nextError.message : 'Не удалось подтвердить номер');
     }
   };
 
-const handleStaffLogin = async () => {
+  const handleStaffLogin = async () => {
     setStaffError('');
     try {
       await loginStaff(staffLogin.toLowerCase().trim(), staffPassword, staffTwoFactorCode.trim() || undefined);
@@ -132,13 +166,6 @@ const handleStaffLogin = async () => {
 
   return (
     <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col relative overflow-hidden`}>
-      {/* Ambient blobs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-80 h-80 rounded-full opacity-20 blur-3xl" style={{ background: primary }} />
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full opacity-15 blur-3xl" style={{ background: '#A855F7' }} />
-      </div>
-
-      {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-5 pt-5">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-lg" style={{ background: primary }}>A</div>
@@ -146,7 +173,6 @@ const handleStaffLogin = async () => {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
-          {/* Staff entrance — small discrete button */}
           <button
             onClick={() => setShowStaffModal(true)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs ${glass} ${sub} transition-all hover:opacity-80`}
@@ -157,17 +183,17 @@ const handleStaffLogin = async () => {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center px-5 py-8 relative z-10">
         <AnimatePresence mode="wait">
-
-          {/* ── GREETING STEP ── */}
           {step === 'greeting' && (
             <motion.div key="greeting" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full max-w-sm text-center">
-              {/* Logo */}
-              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
                 className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl text-white text-4xl font-bold"
-                style={{ background: `linear-gradient(135deg, ${primary}, #A855F7)` }}>
+                style={{ background: `linear-gradient(135deg, ${primary}, #A855F7)` }}
+              >
                 A
               </motion.div>
 
@@ -175,25 +201,28 @@ const handleStaffLogin = async () => {
                 Добро пожаловать!
               </motion.h1>
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className={`text-sm ${sub} mb-8 leading-relaxed`}>
-                Запишитесь на услуги автосервиса<br />быстро и удобно
+                Управляйте записями и услугами автокомплекса
+                <br />
+                быстро и без лишних звонков
               </motion.p>
 
-              {/* Feature chips */}
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="grid grid-cols-3 gap-2 mb-8">
                 {[
                   { icon: '🔧', label: 'Ремонт' },
                   { icon: '✨', label: 'Детейлинг' },
                   { icon: '🚗', label: 'Мойка' },
-                ].map(f => (
-                  <div key={f.label} className={`${glass} rounded-2xl p-3 flex flex-col items-center gap-1`}>
-                    <span className="text-xl">{f.icon}</span>
-                    <span className={`text-xs ${sub}`}>{f.label}</span>
+                ].map((feature) => (
+                  <div key={feature.label} className={`${glass} rounded-2xl p-3 flex flex-col items-center gap-1`}>
+                    <span className="text-xl">{feature.icon}</span>
+                    <span className={`text-xs ${sub}`}>{feature.label}</span>
                   </div>
                 ))}
               </motion.div>
 
               <motion.button
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setStep('form')}
                 className="w-full py-4 rounded-2xl font-semibold text-white text-base shadow-lg flex items-center justify-center gap-2"
@@ -205,7 +234,6 @@ const handleStaffLogin = async () => {
             </motion.div>
           )}
 
-          {/* ── FORM STEP ── */}
           {step === 'form' && (
             <motion.div key="form" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} className="w-full max-w-sm">
               <button onClick={() => setStep('greeting')} className={`flex items-center gap-1 text-sm ${sub} mb-5`}>
@@ -216,7 +244,6 @@ const handleStaffLogin = async () => {
               <p className={`text-sm ${sub} mb-6`}>Заполните один раз — они сохранятся в вашем профиле</p>
 
               <div className="space-y-3">
-                {/* Name */}
                 <div>
                   <div className="relative">
                     <User size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
@@ -224,13 +251,16 @@ const handleStaffLogin = async () => {
                       className={`${inputCls} pl-11 ${formErrors.name ? 'border-red-400 ring-red-400/20' : ''}`}
                       placeholder="Ваше имя"
                       value={form.name}
-                      onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setFormErrors(p => ({ ...p, name: '' })); setClientError(''); }}
+                      onChange={(e) => {
+                        setForm((current) => ({ ...current, name: e.target.value }));
+                        setFormErrors((current) => ({ ...current, name: '' }));
+                        setClientError('');
+                      }}
                     />
                   </div>
                   {formErrors.name && <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.name}</p>}
                 </div>
 
-                {/* Phone */}
                 <div>
                   <div className="relative">
                     <Phone size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
@@ -239,9 +269,9 @@ const handleStaffLogin = async () => {
                       placeholder="+7 (___) ___-__-__"
                       type="tel"
                       value={form.phone}
-                      onChange={e => {
-                        setForm(p => ({ ...p, phone: e.target.value }));
-                        setFormErrors(p => ({ ...p, phone: '' }));
+                      onChange={(e) => {
+                        setForm((current) => ({ ...current, phone: e.target.value }));
+                        setFormErrors((current) => ({ ...current, phone: '' }));
                         setClientError('');
                         setPhoneVerificationState('idle');
                         setPhoneVerificationMessage('');
@@ -252,7 +282,7 @@ const handleStaffLogin = async () => {
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <div className={`text-xs ${phoneVerificationState === 'verified' ? 'text-emerald-500' : sub}`}>
                       {phoneVerificationState === 'verified'
-                        ? 'Номер подтверждён'
+                        ? 'Номер подтвержден'
                         : phoneVerificationMessage || 'Подтвердите номер через Telegram, чтобы завершить регистрацию'}
                     </div>
                     <button
@@ -267,7 +297,6 @@ const handleStaffLogin = async () => {
                   </div>
                 </div>
 
-                {/* Car */}
                 <div>
                   <div className="relative">
                     <Car size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
@@ -275,13 +304,16 @@ const handleStaffLogin = async () => {
                       className={`${inputCls} pl-11 ${formErrors.car ? 'border-red-400' : ''}`}
                       placeholder="Марка и модель (Lada Vesta)"
                       value={form.car}
-                      onChange={e => { setForm(p => ({ ...p, car: e.target.value })); setFormErrors(p => ({ ...p, car: '' })); setClientError(''); }}
+                      onChange={(e) => {
+                        setForm((current) => ({ ...current, car: e.target.value }));
+                        setFormErrors((current) => ({ ...current, car: '' }));
+                        setClientError('');
+                      }}
                     />
                   </div>
                   {formErrors.car && <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.car}</p>}
                 </div>
 
-                {/* Plate */}
                 <div>
                   <div className="relative">
                     <Hash size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
@@ -290,7 +322,11 @@ const handleStaffLogin = async () => {
                       placeholder="Гос. номер (A123BC777)"
                       maxLength={9}
                       value={form.plate}
-                      onChange={e => { setForm(p => ({ ...p, plate: normalizePlateInput(e.target.value) })); setFormErrors(p => ({ ...p, plate: '' })); setClientError(''); }}
+                      onChange={(e) => {
+                        setForm((current) => ({ ...current, plate: normalizePlateInput(e.target.value) }));
+                        setFormErrors((current) => ({ ...current, plate: '' }));
+                        setClientError('');
+                      }}
                     />
                   </div>
                   {formErrors.plate && <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.plate}</p>}
@@ -299,11 +335,11 @@ const handleStaffLogin = async () => {
 
               {clientError && (
                 <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-xs mt-4 mb-1">
-                  <AlertCircle size={13} />{clientError}
+                  <AlertCircle size={13} />
+                  {clientError}
                 </motion.div>
               )}
 
-              {/* Privacy note */}
               <p className={`text-xs ${sub} text-center mt-4 mb-5 leading-relaxed`}>
                 Данные используются только для записи на услуги и не передаются третьим лицам
               </p>
@@ -323,7 +359,6 @@ const handleStaffLogin = async () => {
         </AnimatePresence>
       </div>
 
-      {/* ── STAFF LOGIN MODAL ── */}
       <AnimatePresence>
         {showStaffModal && (
           <>
@@ -333,10 +368,9 @@ const handleStaffLogin = async () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className={`fixed inset-0 z-50 flex items-center justify-center px-5`}
+              className="fixed inset-0 z-50 flex items-center justify-center px-5"
             >
               <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
-                {/* Header */}
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${primary}18` }}>
@@ -347,38 +381,53 @@ const handleStaffLogin = async () => {
                       <div className={`text-xs ${sub}`}>Только для сотрудников</div>
                     </div>
                   </div>
-                  <button onClick={() => { setShowStaffModal(false); setStaffError(''); setStaffLogin(''); setStaffPassword(''); setStaffTwoFactorCode(''); setNeedsTwoFactor(false); }} className={`p-1.5 rounded-xl ${glass}`}>
+                  <button
+                    onClick={() => {
+                      setShowStaffModal(false);
+                      setStaffError('');
+                      setStaffLogin('');
+                      setStaffPassword('');
+                      setStaffTwoFactorCode('');
+                      setNeedsTwoFactor(false);
+                    }}
+                    className={`p-1.5 rounded-xl ${glass}`}
+                  >
                     <X size={16} />
                   </button>
                 </div>
 
-                {/* Roles hint */}
                 <div className="grid grid-cols-4 gap-2 mb-5">
                   {[
                     { icon: Shield, label: 'Админ', login: 'admin', color: '#A855F7' },
                     { icon: DollarSign, label: 'Бух', login: 'accountant', color: '#14B8A6' },
                     { icon: Wrench, label: 'Мастер', login: 'ivan', color: '#34C759' },
                     { icon: BarChart3, label: 'Владелец', login: 'owner', color: '#FF9500' },
-                  ].map(r => (
+                  ].map((role) => (
                     <button
-                      key={r.login}
-                      onClick={() => { setStaffLogin(r.login); setStaffPassword(''); setStaffTwoFactorCode(''); setNeedsTwoFactor(false); setStaffError(''); }}
-                      className={`p-2.5 rounded-2xl flex flex-col items-center gap-1 transition-all ${staffLogin === r.login ? 'ring-2' : ''}`}
+                      key={role.login}
+                      onClick={() => {
+                        setStaffLogin(role.login);
+                        setStaffPassword('');
+                        setStaffTwoFactorCode('');
+                        setNeedsTwoFactor(false);
+                        setStaffError('');
+                      }}
+                      className={`p-2.5 rounded-2xl flex flex-col items-center gap-1 transition-all ${staffLogin === role.login ? 'ring-2' : ''}`}
                       style={{
-                        background: `${r.color}15`,
-                        ringColor: r.color,
-                        ...(staffLogin === r.login ? { outline: `2px solid ${r.color}`, outlineOffset: '-2px' } : {})
+                        background: `${role.color}15`,
+                        ringColor: role.color,
+                        ...(staffLogin === role.login ? { outline: `2px solid ${role.color}`, outlineOffset: '-2px' } : {}),
                       }}
                     >
-                      <r.icon size={16} style={{ color: r.color }} />
-                      <span className="text-xs font-medium">{r.label}</span>
+                      <role.icon size={16} style={{ color: role.color }} />
+                      <span className="text-xs font-medium">{role.label}</span>
                     </button>
                   ))}
                 </div>
 
                 {canUseTelegramOwnerLogin && (
                   <button
-                    onClick={() => void handlePrimaryOwnerLogin()}
+                    onClick={() => { void handlePrimaryOwnerLogin(); }}
                     disabled={authLoading}
                     className="w-full mb-5 py-3 rounded-2xl font-semibold text-sm text-white disabled:opacity-60 flex items-center justify-center gap-2"
                     style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
@@ -395,8 +444,13 @@ const handleStaffLogin = async () => {
                       className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       placeholder="admin / ivan / oleg / owner"
                       value={staffLogin}
-                      onChange={e => { setStaffLogin(e.target.value); setStaffError(''); setStaffTwoFactorCode(''); setNeedsTwoFactor(false); }}
-                      onKeyDown={e => e.key === 'Enter' && handleStaffLogin()}
+                      onChange={(e) => {
+                        setStaffLogin(e.target.value);
+                        setStaffError('');
+                        setStaffTwoFactorCode('');
+                        setNeedsTwoFactor(false);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
                     />
                   </div>
                   <div>
@@ -407,8 +461,11 @@ const handleStaffLogin = async () => {
                         placeholder="Пароль"
                         type={showPass ? 'text' : 'password'}
                         value={staffPassword}
-                        onChange={e => { setStaffPassword(e.target.value); setStaffError(''); }}
-                        onKeyDown={e => e.key === 'Enter' && handleStaffLogin()}
+                        onChange={(e) => {
+                          setStaffPassword(e.target.value);
+                          setStaffError('');
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
                       />
                       <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
                         {showPass ? <EyeOff size={14} className={sub} /> : <Eye size={14} className={sub} />}
@@ -424,8 +481,11 @@ const handleStaffLogin = async () => {
                         inputMode="numeric"
                         maxLength={6}
                         value={staffTwoFactorCode}
-                        onChange={e => { setStaffTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setStaffError(''); }}
-                        onKeyDown={e => e.key === 'Enter' && handleStaffLogin()}
+                        onChange={(e) => {
+                          setStaffTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                          setStaffError('');
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
                       />
                     </div>
                   )}
@@ -433,11 +493,11 @@ const handleStaffLogin = async () => {
 
                 {staffError && (
                   <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-xs mb-3">
-                    <AlertCircle size={13} />{staffError}
+                    <AlertCircle size={13} />
+                    {staffError}
                   </motion.div>
                 )}
 
-                {/* Credentials hint */}
                 <div className={`${isDark ? 'bg-white/3' : 'bg-gray-50'} rounded-xl p-3 mb-4`}>
                   <div className={`text-xs ${sub} mb-1 font-medium`}>Тестовые данные:</div>
                   <div className={`text-xs ${sub} space-y-0.5`}>
@@ -478,7 +538,6 @@ function AppContent() {
 
   return (
     <div className={`${isDark ? 'dark' : ''} relative`}>
-      {/* Logout pill — for non-clients it shows role info */}
       <div className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none">
         <motion.button
           initial={{ y: -40 }}
@@ -498,7 +557,9 @@ function AppContent() {
         )}
         {session.role === 'admin' && (
           <motion.div key="admin" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
-            <AdminApp />
+            <ErrorBoundary>
+              <AdminApp />
+            </ErrorBoundary>
           </motion.div>
         )}
         {session.role === 'worker' && (

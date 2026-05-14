@@ -2,31 +2,37 @@ const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё' -]{1,59}$/;
 const REPEATED_LETTERS_PATTERN = /([A-Za-zА-Яа-яЁё])\1{3,}/i;
 const VEHICLE_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$/;
 const REPEATED_VEHICLE_PATTERN = /([A-Za-zА-Яа-яЁё0-9])\1{3,}/i;
+// Разрешённые латинские буквы для российских госномеров (по ГОСТ Р 50577-2018).
+const PLATE_ALLOWED_LETTERS = new Set(["A", "B", "E", "K", "M", "H", "O", "P", "C", "T", "Y", "X"]);
+
 const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
-  A: 'A',
-  B: 'B',
-  C: 'C',
-  E: 'E',
-  H: 'H',
-  K: 'K',
-  M: 'M',
-  O: 'O',
-  P: 'P',
-  T: 'T',
-  X: 'X',
-  Y: 'Y',
-  А: 'A',
-  В: 'B',
-  С: 'C',
-  Е: 'E',
-  Н: 'H',
-  К: 'K',
-  М: 'M',
-  О: 'O',
-  Р: 'P',
-  Т: 'T',
-  Х: 'X',
-  У: 'Y',
+  // Латиница (нижний и верхний регистр)
+  A: 'A', a: 'A',
+  B: 'B', b: 'B',
+  C: 'C', c: 'C',
+  E: 'E', e: 'E',
+  H: 'H', h: 'H',
+  K: 'K', k: 'K',
+  M: 'M', m: 'M',
+  O: 'O', o: 'O',
+  P: 'P', p: 'P',
+  T: 'T', t: 'T',
+  X: 'X', x: 'X',
+  Y: 'Y', y: 'Y',
+  // Кириллица — конвертируем в визуально похожую латиницу
+  А: 'A', а: 'A',
+  В: 'B', в: 'B',
+  С: 'C', с: 'C',
+  Е: 'E', е: 'E',
+  Ё: 'E', ё: 'E',
+  Н: 'H', н: 'H',
+  К: 'K', к: 'K',
+  М: 'M', м: 'M',
+  О: 'O', о: 'O',
+  Р: 'P', р: 'P',
+  Т: 'T', т: 'T',
+  Х: 'X', х: 'X',
+  У: 'Y', у: 'Y',
 };
 const PLATE_PATTERN = /^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2,3}$/;
 
@@ -70,17 +76,53 @@ export function validateVehicleName(value: string): string | null {
   return null;
 }
 
+/**
+ * Возвращает тип символа, ожидаемого на данной позиции российского госномера.
+ * - "letter" — позиции 0, 4, 5
+ * - "digit"  — позиции 1, 2, 3, 6, 7, 8
+ */
+function plateExpectedAtPosition(index: number): 'letter' | 'digit' {
+  if (index === 0 || index === 4 || index === 5) return 'letter';
+  return 'digit';
+}
+
+/**
+ * Нормализует ввод госномера, фильтруя посимвольно по позициям.
+ * - Любые русские буквы, визуально похожие на латиницу, конвертируются (А→A, В→B, ...)
+ * - Любые буквы вне разрешённого набора отбрасываются
+ * - Если на позиции ожидается цифра — буквы отбрасываются (даже разрешённые)
+ * - Если на позиции ожидается буква — цифры отбрасываются
+ * - Любая раскладка (RU/EN, lower/upper) приводится к латинскому upper
+ */
 export function normalizePlateInput(value: string): string {
-  const cleaned = value.toUpperCase().replace(/\s+/g, '');
-  let normalized = '';
-  for (const char of cleaned) {
-    if (PLATE_LAYOUT_TO_LATIN[char]) {
-      normalized += PLATE_LAYOUT_TO_LATIN[char];
-    } else if (/[A-Z0-9]/.test(char)) {
-      normalized += char;
+  let result = '';
+  for (const ch of value) {
+    if (result.length >= 9) break;
+    if (/\s/.test(ch)) continue;
+
+    const expected = plateExpectedAtPosition(result.length);
+
+    // Пробуем сконвертировать раскладку
+    const mapped = PLATE_LAYOUT_TO_LATIN[ch];
+    if (mapped !== undefined) {
+      // Это буква (латинская или кириллическая визуально-похожая)
+      if (expected !== 'letter') continue; // на этой позиции ждём цифру
+      if (!PLATE_ALLOWED_LETTERS.has(mapped)) continue; // не из списка разрешённых
+      result += mapped;
+      continue;
     }
+
+    // Цифра?
+    if (/[0-9]/.test(ch)) {
+      if (expected !== 'digit') continue; // на этой позиции ждём букву
+      result += ch;
+      continue;
+    }
+
+    // Любые прочие символы (включая буквы вне разрешённого набора)
+    // молча отбрасываем — это и есть «защита от любой раскладки».
   }
-  return normalized.slice(0, 9);
+  return result;
 }
 
 export function validatePlateValue(value: string): string | null {

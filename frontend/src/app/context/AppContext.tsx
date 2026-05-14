@@ -46,6 +46,14 @@ export interface RegisteredClient {
   adminNote: string;
 }
 
+export interface ClientCreateInput {
+  name: string;
+  phone: string;
+  car?: string;
+  plate?: string;
+  notes?: string;
+}
+
 export interface Worker {
   id: string;
   role: 'admin' | 'worker' | 'owner' | 'accountant';
@@ -53,6 +61,7 @@ export interface Worker {
   experience: string;
   defaultPercent: number;
   salaryBase: number;
+  salaryPerShift: number;
   available: boolean;
   active: boolean;
   phone: string;
@@ -61,6 +70,7 @@ export interface Worker {
   specialty: string;
   about: string;
   telegramChatId: string;
+  extraRoles?: string[];
   payrollSummary?: WorkerPayrollSummary;
 }
 
@@ -217,6 +227,16 @@ export interface Expense {
   category: string;
   date: string;
   note?: string;
+}
+
+export interface Income {
+  id: string;
+  amount: number;
+  source: string;
+  note?: string | null;
+  createdById: string;
+  date: string;
+  createdAt: string;
 }
 
 export interface Penalty {
@@ -392,6 +412,7 @@ export interface EmployeeSetting {
   name: string;
   percent: number;
   salaryBase: number;
+  salaryPerShift: number;
   active: boolean;
   telegramChatId: string;
 }
@@ -465,6 +486,7 @@ interface AppContextType {
   notifications: Notification[];
   stockItems: StockItem[];
   expenses: Expense[];
+  incomes: Income[];
   penalties: Penalty[];
   workers: Worker[];
   services: Service[];
@@ -480,7 +502,9 @@ interface AppContextType {
   verifyClientPhone: (phone: string) => Promise<boolean>;
   loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
   loginPrimaryOwnerViaTelegram: () => Promise<Role>;
+  switchRole: (targetRole: Role) => Promise<void>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
+  addClient: (client: ClientCreateInput) => Promise<RegisteredClient>;
   updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
@@ -492,7 +516,9 @@ interface AppContextType {
   addStockItem: (item: Omit<StockItem, 'id'>) => Promise<void>;
   updateStockItem: (id: string, updates: Partial<StockItem>) => Promise<void>;
   writeOffStock: (id: string, qty: number) => Promise<void>;
+  deleteStockItem: (id: string) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  addIncome: (income: { amount: number; source: string; note?: string; date: string }) => Promise<void>;
   addPenalty: (penalty: Omit<Penalty, 'id' | 'createdAt' | 'activeUntil' | 'revokedAt' | 'workerName' | 'ownerId'>) => Promise<void>;
   revokePenalty: (penaltyId: string) => Promise<void>;
   revokeAllPenalties: (workerId: string) => Promise<void>;
@@ -621,6 +647,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -847,6 +874,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function switchRole(targetRole: Role) {
+    try {
+      setAuthLoading(true);
+      setError(null);
+      const response = await apiRequest<AuthResponse>('/api/auth/switch-role', {
+        method: 'POST',
+        body: { targetRole },
+      });
+      tokenStorage.set(response.token);
+      applyBootstrap(response.bootstrap);
+      await refreshActiveSessions();
+      window.location.reload();
+    } catch (nextError) {
+      handleError(nextError);
+      throw nextError;
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
     async function updateClientProfile(profile: Partial<ClientProfile>) {
       const payload = { ...clientProfile, ...profile };
       const saved = await apiRequest<ClientProfile>('/api/clients/me', { method: 'PATCH', body: payload });
@@ -891,6 +938,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     throw new Error('Telegram ещё не передал подтверждённый номер. Повторите попытку через пару секунд');
   }
 
+  async function addClient(client: ClientCreateInput) {
+    const created = await apiRequest<RegisteredClient>('/api/clients', { method: 'POST', body: client });
+    setClients((current) => [created, ...current]);
+    return created;
+  }
+
   async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) {
     const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
     setClients((current) => current.map((client) => (client.id === clientId ? saved : client)));
@@ -921,17 +974,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBookings((current) => [created, ...current]);
     if (created.clientId) {
       setClients((current) => {
-          const nextClient = {
-            id: created.clientId,
-            name: created.clientName,
-            phone: created.clientPhone,
-            car: created.car || '',
-            plate: created.plate || '',
-            vehicles: current.find((client) => client.id === created.clientId)?.vehicles || [],
-            notes: '',
-            debtBalance: current.find((client) => client.id === created.clientId)?.debtBalance || 0,
-            adminRating: current.find((client) => client.id === created.clientId)?.adminRating || 0,
-            adminNote: current.find((client) => client.id === created.clientId)?.adminNote || '',
+        const existingClient = current.find((client) => client.id === created.clientId);
+        const nextClient = {
+          id: created.clientId,
+          name: created.clientName,
+          phone: created.clientPhone,
+          car: created.car || '',
+          plate: created.plate || '',
+          vehicles: existingClient?.vehicles || [],
+          notes: existingClient?.notes || '',
+          debtBalance: existingClient?.debtBalance || 0,
+          adminRating: existingClient?.adminRating || 0,
+          adminNote: existingClient?.adminNote || '',
         };
         if (current.some((client) => client.id === created.clientId)) {
           return current.map((client) => (client.id === created.clientId ? { ...client, ...nextClient } : client));
@@ -1028,9 +1082,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStockItems((current) => current.map((item) => (item.id === id ? updated : item)));
   }
 
+  async function deleteStockItem(id: string) {
+    await apiRequest<{ message: string }>(`/api/stock-items/${id}`, { method: 'DELETE' });
+    setStockItems((current) => current.filter((item) => item.id !== id));
+  }
+
   async function addExpense(expense: Omit<Expense, 'id'>) {
     const created = await apiRequest<Expense>('/api/expenses', { method: 'POST', body: expense });
     setExpenses((current) => [created, ...current]);
+  }
+
+  async function addIncome(income: { amount: number; source: string; note?: string; date: string }) {
+    const created = await apiRequest<Income>('/api/owner/incomes', { method: 'POST', body: income });
+    setIncomes((current) => [created, ...current]);
   }
 
   async function addPenalty(penalty: Omit<Penalty, 'id' | 'createdAt' | 'activeUntil' | 'revokedAt' | 'workerName' | 'ownerId'>) {
@@ -1329,8 +1393,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return getTimeSlotsForDate(date, { durationMinutes, resourceGroup: options?.resourceGroup }).map((time) => ({
         time,
-        available: true,
-        freeBoxes: 1,
+        available: false,
+        freeBoxes: 0,
         occupiedBoxes: 0,
       }));
     }
@@ -1353,8 +1417,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       notifications,
       stockItems,
       expenses,
-      penalties,
-      workers,
+      incomes,
+      penalties,      workers,
       services,
       boxes,
       schedule,
@@ -1368,7 +1432,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       verifyClientPhone,
       loginStaff,
       loginPrimaryOwnerViaTelegram,
+      switchRole,
       updateClientProfile,
+      addClient,
       updateClientCard,
       deleteClient,
       addBooking,
@@ -1380,7 +1446,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addStockItem,
       updateStockItem,
       writeOffStock,
+      deleteStockItem,
       addExpense,
+      addIncome,
       addPenalty,
       revokePenalty,
       revokeAllPenalties,

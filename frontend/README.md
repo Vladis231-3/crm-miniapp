@@ -1,7 +1,7 @@
 
-  # User Interface Enhancements
+  # CRM Mini App Frontend
 
-  This is a code bundle for User Interface Enhancements. The original project is available at https://www.figma.com/design/5mYiXihguNieXkQman2oF6/User-Interface-Enhancements.
+  Frontend part of the Telegram CRM Mini App for the Atmosfera project.
 
   ## Running the code
 

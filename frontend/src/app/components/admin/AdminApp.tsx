@@ -1,4 +1,6 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useVisualViewport } from '../../utils/useVisualViewport';
+import { AttendanceTable } from '../shared/AttendanceTable';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
@@ -10,7 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role } from '../../context/AppContext';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
@@ -54,6 +56,13 @@ const STATUS_BADGE: Record<BookingStatus, string> = {
 };
 
 const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
+const STAFF_SCHEDULED_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled', 'in_progress'];
+const NEW_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string }> = [
+  { value: 'admin_review', label: 'На уточнении' },
+  { value: 'confirmed', label: 'Подтверждена' },
+  { value: 'scheduled', label: 'Запланирована' },
+  { value: 'completed', label: 'Прошлая завершённая' },
+];
 const DEFAULT_SHIFT_SUPPLIES = [
   { id: 'preset-foam', name: 'Активная пена', category: 'Химия', unit: 'шт', qty: 0 },
   { id: 'preset-shampoo', name: 'Автошампунь', category: 'Химия', unit: 'шт', qty: 0 },
@@ -89,11 +98,10 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
 };
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
-type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift';
+type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance';
 type EditModalMode = 'edit' | 'reschedule';
+type ClientSearchMode = 'phone' | 'plate';
 type ShiftPhotoCategoryId = typeof SHIFT_PHOTO_CATEGORIES[number]['id'];
-const DETAILING_BOX = { id: 'detailing-room', name: 'Детейлинг', resourceGroup: 'detailing', pricePerHour: 0, active: true, description: 'Отдельное помещение для детейлинга' };
-
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
   return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
 }
@@ -112,7 +120,7 @@ function bookingBoxesForService(
   boxes: Array<{ id: string; name: string; resourceGroup: string; pricePerHour: number; active: boolean; description: string }>,
 ) {
   return serviceResourceGroup(serviceId, services) === 'detailing'
-    ? [DETAILING_BOX]
+    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
     : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
 }
 
@@ -128,6 +136,37 @@ function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: b
     online: 'Онлайн',
   }[paymentType];
 }
+
+function normalizePhoneSearchValue(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function bookingStatusRequiresScheduledSlot(status: BookingStatus) {
+  return STAFF_SCHEDULED_STATUSES.includes(status);
+}
+
+function numberInputValue(value: number) {
+  return value === 0 ? '' : String(value);
+}
+
+function numberFromInput(value: string) {
+  return value === '' ? 0 : Number(value);
+}
+
+function toISODate(value: string) {
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) return '';
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const d = String(parsed.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0');
+  const m = String((i % 2) * 30).padStart(2, '0');
+  return `${h}:${m}`;
+});
 
 function dataUrlApproxBytes(dataUrl: string) {
   const [, encoded = ''] = dataUrl.split(',', 2);
@@ -179,6 +218,7 @@ export function AdminApp() {
     toggleTheme,
     bookings,
     clients: registeredClients,
+    addClient,
     updateClientCard,
     updateBooking,
     addBooking,
@@ -207,8 +247,11 @@ export function AdminApp() {
     changePassword,
     refreshActiveSessions,
     revokeSession,
+    staffProfile,
+    switchRole,
     todayLabel,
     tomorrowLabel,
+    upcomingDates,
   } = useApp();
   const [page, setPage] = useState<AdminPage>('calendar');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>(null);
@@ -225,9 +268,13 @@ export function AdminApp() {
   const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [newBookingForm, setNewBookingForm] = useState({
-    clientName: '', clientPhone: '', service: '', serviceId: '', date: tomorrowLabel,
-    time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', price: 0, duration: 30, car: '', plate: '', notes: '',
+    clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
+    time: '', box: '', price: 0, duration: 30, car: '', plate: '', notes: '', status: 'admin_review' as BookingStatus,
   });
+  const [showCreateClient, setShowCreateClient] = useState(false);
+  const [createClientSaving, setCreateClientSaving] = useState(false);
+  const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
+  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '' });
 
   // Settings state
   const [boxes, setBoxes] = useState(liveBoxes);
@@ -255,6 +302,8 @@ export function AdminApp() {
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [clientSearchMode, setClientSearchMode] = useState<ClientSearchMode>('phone');
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
   const [payrollSettings, setPayrollSettings] = useState<EmployeeSetting[]>([]);
   const [shiftInspections, setShiftInspections] = useState<AdminShiftInspection[]>([]);
   const [shiftDraft, setShiftDraft] = useState({
@@ -265,8 +314,30 @@ export function AdminApp() {
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+  const selectableBookingDates = Array.from(new Set([
+    todayLabel,
+    tomorrowLabel,
+    ...upcomingDates.slice(0, 7),
+    ...bookings.map((booking) => booking.date).filter(Boolean),
+  ])).slice(0, 10);
   const masterWorkers = workers.filter((worker) => worker.role === 'worker');
   const selectedClient = registeredClients.find((client) => client.id === selectedClientId) ?? null;
+  const normalizedClientSearchQuery = clientSearchMode === 'phone'
+    ? normalizePhoneSearchValue(clientSearchQuery)
+    : normalizePlateInput(clientSearchQuery);
+  const filteredClients = registeredClients.filter((client) => {
+    if (!normalizedClientSearchQuery) return true;
+    if (clientSearchMode === 'phone') {
+      return normalizePhoneSearchValue(client.phone).includes(normalizedClientSearchQuery);
+    }
+    const plates = [
+      client.plate,
+      ...(client.vehicles || []).map((vehicle) => vehicle.plate),
+    ]
+      .map((plate) => normalizePlateInput(plate || ''))
+      .filter(Boolean);
+    return plates.some((plate) => plate.includes(normalizedClientSearchQuery));
+  });
   const selectedClientBookings = selectedClient
     ? bookings
       .filter((booking) => booking.clientId === selectedClient.id)
@@ -384,6 +455,20 @@ export function AdminApp() {
     }
   }, [page, settingsSection]);
 
+  const modalMaxHeight = useVisualViewport();
+
+  // Auto-scroll active field into view when virtual keyboard resizes the viewport
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => {
+      const el = document.activeElement as HTMLElement | null;
+      el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    };
+    vv.addEventListener('resize', handler);
+    return () => vv.removeEventListener('resize', handler);
+  }, []);
+
   const staffRoleTitle = session?.role === 'accountant' ? 'Бухгалтер' : 'Администратор';
   const staffNotificationsRole = session?.role === 'accountant' ? 'accountant' : 'admin';
   const adminNotifications = notifications.filter((notification) =>
@@ -471,6 +556,48 @@ export function AdminApp() {
     const confirmed = window.confirm(`Удалить клиента "${clientName}"? Профиль и доступ в Mini App будут удалены, история записей останется.`);
     if (!confirmed) return;
     await deleteClient(clientId);
+  };
+
+  const handleCreateClient = async () => {
+    const nextErrors: { name?: string; phone?: string; car?: string; plate?: string; general?: string } = {};
+    const nameError = validateClientName(createClientForm.name);
+    if (nameError) nextErrors.name = nameError;
+    // Телефон необязателен — валидируем только если введён
+    if (createClientForm.phone.trim()) {
+      const phoneError = validateClientPhone(createClientForm.phone);
+      if (phoneError) nextErrors.phone = phoneError;
+    }
+    if (normalizeVehicleInput(createClientForm.car)) {
+      const carError = validateVehicleName(createClientForm.car);
+      if (carError) nextErrors.car = carError;
+    }
+    if (normalizePlateInput(createClientForm.plate)) {
+      const plateError = validatePlateValue(createClientForm.plate);
+      if (plateError) nextErrors.plate = plateError;
+    }
+    setCreateClientErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    try {
+      setCreateClientSaving(true);
+      const created = await addClient({
+        name: normalizePersonName(createClientForm.name),
+        phone: createClientForm.phone.trim(),
+        car: normalizeVehicleInput(createClientForm.car),
+        plate: normalizePlateInput(createClientForm.plate),
+        notes: createClientForm.notes.trim(),
+      });
+      setCreateClientForm({ name: '', phone: '', car: '', plate: '', notes: '' });
+      setCreateClientErrors({});
+      setShowCreateClient(false);
+      setSelectedClientId(created.id);
+    } catch (error) {
+      setCreateClientErrors({
+        general: error instanceof Error ? error.message : 'Не удалось создать клиента',
+      });
+    } finally {
+      setCreateClientSaving(false);
+    }
   };
 
   const handleSaveClientCard = async (clientId: string) => {
@@ -579,25 +706,75 @@ export function AdminApp() {
     return nextErrors;
   };
 
+  const validateBookingDateTimeFormat = (dateValue: string, timeValue: string): { date?: string; time?: string; parsedDate?: Date } => {
+    const nextErrors: { date?: string; time?: string; parsedDate?: Date } = {};
+    const parsedDate = parseFlexibleDate(dateValue.trim());
+    if (!parsedDate) {
+      nextErrors.date = 'Укажите дату в формате ДД.ММ.ГГГГ';
+      return nextErrors;
+    }
+    if (timeToMinutes(timeValue.trim()) === null) {
+      nextErrors.time = 'Укажите время в формате ЧЧ:ММ';
+      return nextErrors;
+    }
+    nextErrors.parsedDate = parsedDate;
+    return nextErrors;
+  };
+
   const validateNewBookingForm = () => {
     const nextErrors: { clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string } = {};
     const selectedService = services.find((service) => service.id === newBookingForm.serviceId);
-    const compatibleBoxNames = bookingBoxesForService(newBookingForm.serviceId, services, boxes).map((box) => box.name);
-    const nameError = validateClientName(newBookingForm.clientName);
-    if (nameError) nextErrors.clientName = nameError;
-    const phoneError = validateClientPhone(newBookingForm.clientPhone);
-    if (phoneError) nextErrors.clientPhone = phoneError;
-    const carError = validateVehicleName(newBookingForm.car);
-    if (carError) nextErrors.car = carError;
+    if (normalizePersonName(newBookingForm.clientName)) {
+      const nameError = validateClientName(newBookingForm.clientName);
+      if (nameError) nextErrors.clientName = nameError;
+    }
+    if (newBookingForm.clientPhone.trim()) {
+      const phoneError = validateClientPhone(newBookingForm.clientPhone);
+      if (phoneError) nextErrors.clientPhone = phoneError;
+    }
+    if (normalizeVehicleInput(newBookingForm.car)) {
+      const carError = validateVehicleName(newBookingForm.car);
+      if (carError) nextErrors.car = carError;
+    }
     if (normalizePlateInput(newBookingForm.plate)) {
       const plateError = validatePlateValue(newBookingForm.plate);
       if (plateError) nextErrors.plate = plateError;
     }
-    Object.assign(nextErrors, validateBookingDate(newBookingForm.date, newBookingForm.time, selectedService?.duration || newBookingForm.duration || 30));
-    if (!newBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
-    if (newBookingForm.serviceId && compatibleBoxNames.length > 0 && !compatibleBoxNames.includes(newBookingForm.box)) {
-      nextErrors.general = 'Для этой услуги нужно выбрать подходящее помещение';
+    const hasDate = Boolean(newBookingForm.date.trim());
+    const hasTime = Boolean(newBookingForm.time.trim());
+    const requiresScheduledSlot = bookingStatusRequiresScheduledSlot(newBookingForm.status);
+    if (requiresScheduledSlot || newBookingForm.status === 'completed') {
+      if (!hasDate) {
+        nextErrors.date = 'Укажите дату записи';
+      }
+      if (!hasTime) {
+        nextErrors.time = 'Укажите время записи';
+      }
+      if (hasDate && hasTime) {
+        if (newBookingForm.status === 'completed') {
+          const validation = validateBookingDateTimeFormat(newBookingForm.date, newBookingForm.time);
+          if (validation.date) nextErrors.date = validation.date;
+          if (validation.time) nextErrors.time = validation.time;
+          if (!validation.date && !validation.time && !isPastTimeSlot(formatDate(validation.parsedDate as Date), newBookingForm.time.trim())) {
+            nextErrors.time = 'Для прошлой записи укажите прошедшие дату и время';
+          }
+        } else {
+          Object.assign(nextErrors, validateBookingDate(newBookingForm.date, newBookingForm.time, selectedService?.duration || newBookingForm.duration || 30));
+        }
+      }
+    } else if (hasDate || hasTime) {
+      if (!hasDate) {
+        nextErrors.date = 'Укажите дату или очистите дату и время';
+      } else if (!hasTime) {
+        nextErrors.time = 'Укажите время или очистите дату и время';
+      } else {
+        const validation = validateBookingDateTimeFormat(newBookingForm.date, newBookingForm.time);
+        if (validation.date) nextErrors.date = validation.date;
+        if (validation.time) nextErrors.time = validation.time;
+      }
     }
+    if (!newBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
+    if (requiresScheduledSlot && !newBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
     if (totalNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -609,18 +786,20 @@ export function AdminApp() {
     setNewBookingErrors({});
     setNewBookingWorkers([]);
     setNewBookingForm({
+      clientId: '',
       clientName: '',
       clientPhone: '',
       service: '',
       serviceId: '',
-      date: tomorrowLabel,
-      time: '10:00',
-      box: boxes[0]?.name || 'Бокс 1',
+      date: '',
+      time: '',
+      box: '',
       price: 0,
       duration: 30,
       car: '',
       plate: '',
       notes: '',
+      status: 'admin_review',
     });
   };
 
@@ -635,6 +814,7 @@ export function AdminApp() {
     setNewBookingErrors({});
     setNewBookingWorkers(booking.workers.map((worker) => ({ id: worker.workerId, percent: worker.percent })));
     setNewBookingForm({
+      clientId: booking.clientId,
       clientName: booking.clientName,
       clientPhone: booking.clientPhone,
       service: '',
@@ -647,8 +827,27 @@ export function AdminApp() {
       car: booking.car || '',
       plate: booking.plate || '',
       notes: '',
+      status: 'admin_review',
     });
     setShowSlideOver(false);
+    setShowNewBooking(true);
+  };
+
+  const openNewBookingForClient = (client: RegisteredClient, status: BookingStatus = 'completed') => {
+    resetNewBookingDraft();
+    const historyDate = new Date();
+    historyDate.setDate(historyDate.getDate() - 1);
+    setNewBookingForm((current) => ({
+      ...current,
+      clientId: client.id,
+      clientName: client.name,
+      clientPhone: client.phone,
+      car: client.car || '',
+      plate: client.plate || '',
+      status,
+      date: status === 'completed' ? formatDate(historyDate) : current.date,
+      time: status === 'completed' ? '10:00' : current.time,
+    }));
     setShowNewBooking(true);
   };
 
@@ -726,16 +925,25 @@ export function AdminApp() {
 
   const handleSaveNewBooking = async (notify: boolean) => {
     setNewBookingErrors({});
+    // Если нет телефона — принудительно admin_review (запись на уточнении)
+    const effectiveStatus = !newBookingForm.clientPhone.trim() && newBookingForm.status !== 'completed'
+      ? 'admin_review'
+      : newBookingForm.status;
+    if (effectiveStatus !== newBookingForm.status) {
+      setNewBookingForm(p => ({ ...p, status: 'admin_review' }));
+    }
     if (!validateNewBookingForm()) return;
     const svc = services.find(s => s.id === newBookingForm.serviceId);
-    const parsedDate = parseFlexibleDate(newBookingForm.date.trim());
-    if (!parsedDate) {
-      setNewBookingErrors({ date: 'Укажите дату в формате ДД.ММ.ГГГГ' });
-      return;
-    }
     const normalizedClientName = normalizePersonName(newBookingForm.clientName);
     const normalizedCar = normalizeVehicleInput(newBookingForm.car);
     const normalizedPlate = normalizePlateInput(newBookingForm.plate);
+    const hasDateTime = Boolean(newBookingForm.date.trim() && newBookingForm.time.trim());
+    const parsedDate = hasDateTime ? parseFlexibleDate(newBookingForm.date.trim()) : null;
+    if (hasDateTime && !parsedDate) {
+      setNewBookingErrors({ date: 'Укажите дату в формате ДД.ММ.ГГГГ' });
+      return;
+    }
+    const clientLabel = normalizedClientName || 'Клиент без имени';
     const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
     const createdWorkers = newBookingWorkers.map((item) => {
       const worker = masterWorkers.find((candidate) => candidate.id === item.id);
@@ -745,22 +953,22 @@ export function AdminApp() {
         percent: item.percent,
       };
     });
-    const normalizedDate = formatDate(parsedDate);
+    const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
     try {
       setNewBookingSaving(true);
       await addBooking({
-        clientId: '',
+        clientId: newBookingForm.clientId,
         clientName: normalizedClientName,
         clientPhone: newBookingForm.clientPhone.trim(),
         service: svc?.name || newBookingForm.service,
-        serviceId: newBookingForm.serviceId || 's1',
+        serviceId: newBookingForm.serviceId,
         date: normalizedDate,
         time: newBookingForm.time.trim(),
-        duration: svc?.duration || newBookingForm.duration,
-        price: svc?.price || newBookingForm.price,
-        status: 'confirmed',
+        duration: newBookingForm.duration || svc?.duration || 30,
+        price: newBookingForm.price || svc?.price || 0,
+        status: !newBookingForm.clientPhone.trim() ? 'admin_review' : newBookingForm.status,
         workers: createdWorkers,
-        box: newBookingForm.box,
+        box: newBookingForm.box.trim() || 'По согласованию',
         paymentType: 'cash',
         paymentSettled: true,
         car: normalizedCar,
@@ -768,7 +976,10 @@ export function AdminApp() {
         notes: newBookingForm.notes,
         notifyWorkers: notify,
       });
-      await addNotification({ recipientRole: 'admin', message: `${normalizedClientName} • ${carLabel} • ${normalizedDate} ${newBookingForm.time.trim()}`, read: false });
+      const requestScheduleLabel = hasDateTime
+        ? `${normalizedDate} ${newBookingForm.time.trim()}`
+        : 'без даты и времени';
+      await addNotification({ recipientRole: 'admin', message: `${clientLabel} • ${carLabel} • ${requestScheduleLabel}`, read: false });
       setSaveSuccess(notify ? 'notify' : 'silent');
       setTimeout(() => {
         closeNewBookingModal();
@@ -912,6 +1123,18 @@ export function AdminApp() {
           <div className={`text-xs ${sub}`}>{todayLabel}</div>
         </div>
         <div className="flex items-center gap-1.5">
+          {staffProfile?.extraRoles && staffProfile.extraRoles.length > 0 && (
+            <div className="relative">
+              <button onClick={() => {
+                const nextRole = staffProfile.extraRoles?.find(r => r !== session?.role) || staffProfile.role;
+                if (nextRole && nextRole !== session?.role) {
+                  void switchRole(nextRole as Role);
+                }
+              }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
+                {session?.role === 'admin' ? 'Админ → Владелец' : session?.role === 'owner' ? 'Владелец → Админ' : 'Сменить роль'}
+              </button>
+            </div>
+          )}
           <button onClick={() => { setShowNotifPanel(true); markAllNotificationsRead(staffNotificationsRole); }} className={`p-2 rounded-xl ${glass} relative`}>
             <Bell size={18} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
@@ -1022,23 +1245,65 @@ export function AdminApp() {
                     {selectedClient ? 'История услуг, оплаты, авто и внутренняя заметка по клиенту' : 'Открой клиента, чтобы посмотреть всю историю посещений'}
                   </p>
                 </div>
-                {selectedClient && (
-                  <button
-                    onClick={() => setSelectedClientId(null)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
-                  >
-                    <ArrowLeft size={14} />
-                    Назад к списку
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {!selectedClient && (
+                    <button
+                      onClick={() => setShowCreateClient(true)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white"
+                      style={{ background: primary }}
+                    >
+                      <Plus size={14} />
+                      Новый
+                    </button>
+                  )}
+                  {selectedClient && (
+                    <button
+                      onClick={() => setSelectedClientId(null)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                    >
+                      <ArrowLeft size={14} />
+                      Назад
+                    </button>
+                  )}
+                </div>
               </div>
+              {!selectedClient && registeredClients.length > 0 && (
+                <div className={`${glass} rounded-2xl p-3 mb-4`}>
+                  <div className="flex gap-2 mb-3">
+                    {([
+                      { id: 'phone', label: 'По телефону' },
+                      { id: 'plate', label: 'По госномеру' },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          setClientSearchMode(option.id);
+                          setClientSearchQuery('');
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 text-sm ${clientSearchMode === option.id ? 'text-white' : sub}`}
+                        style={clientSearchMode === option.id ? { background: primary } : undefined}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    className={inputCls}
+                    type={clientSearchMode === 'phone' ? 'tel' : 'text'}
+                    placeholder={clientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'A123BC777'}
+                    value={clientSearchQuery}
+                    onChange={(event) => setClientSearchQuery(event.target.value)}
+                  />
+                </div>
+              )}
               {registeredClients.length === 0 && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <Users size={36} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Пока нет зарегистрированных клиентов</p>
                 </div>
               )}
-              {!selectedClient && registeredClients.map(client => {
+              {!selectedClient && filteredClients.map(client => {
                 const clientBookings = bookings.filter(b => b.clientId === client.id);
                 const spent = clientBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
                 const lastBooking = [...clientBookings].sort((left, right) => {
@@ -1047,6 +1312,8 @@ export function AdminApp() {
                   if (rightDate !== leftDate) return rightDate - leftDate;
                   return right.time.localeCompare(left.time);
                 })[0];
+                const clientDisplayName = client.name.trim() || 'Клиент без имени';
+                const clientPhone = client.phone.trim();
                 return (
                   <div
                     key={client.id}
@@ -1062,13 +1329,17 @@ export function AdminApp() {
                     }}
                   >
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: primary }}>{client.name.charAt(0)}</div>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: primary }}>{clientDisplayName.charAt(0).toUpperCase() || '?'}</div>
                       <div className="flex-1">
-                        <div className="font-semibold">{client.name}</div>
+                        <div className="font-semibold">{clientDisplayName}</div>
                         <div className={`text-xs ${sub}`}>{client.car || 'Автомобиль не указан'}</div>
-                        <a href={`tel:${client.phone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }}>
-                          <Phone size={10} />{client.phone}
-                        </a>
+                        {clientPhone ? (
+                          <a href={`tel:${clientPhone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }}>
+                            <Phone size={10} />{clientPhone}
+                          </a>
+                        ) : (
+                          <div className={`text-xs ${sub} mt-0.5`}>Телефон не указан</div>
+                        )}
                         <div className={`text-[11px] ${sub} mt-1`}>
                           {lastBooking ? `Последний визит: ${lastBooking.date} ${lastBooking.time}` : 'Истории посещений пока нет'}
                         </div>
@@ -1107,21 +1378,31 @@ export function AdminApp() {
                   </div>
                 );
               })}
+              {!selectedClient && registeredClients.length > 0 && filteredClients.length === 0 && (
+                <div className={`${glass} rounded-2xl p-6 text-center`}>
+                  <div className="font-medium mb-1">Ничего не найдено</div>
+                  <div className={`text-sm ${sub}`}>Попробуйте другой телефон или госномер</div>
+                </div>
+              )}
               {selectedClient && (
                 <div className="space-y-3">
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="flex items-start gap-3 mb-4">
                       <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ background: primary }}>
-                        {selectedClient.name.charAt(0)}
+                        {(selectedClient.name.trim() || 'К').charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-lg">{selectedClient.name}</div>
+                        <div className="font-semibold text-lg">{selectedClient.name.trim() || 'Клиент без имени'}</div>
                         <div className={`text-sm ${sub} mt-1`}>
                           Основное авто: {selectedClient.car || 'не указано'}{selectedClient.plate ? `, ${selectedClient.plate}` : ''}
                         </div>
-                        <a href={`tel:${selectedClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
-                          <Phone size={12} />{selectedClient.phone}
-                        </a>
+                        {selectedClient.phone.trim() ? (
+                          <a href={`tel:${selectedClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
+                            <Phone size={12} />{selectedClient.phone}
+                          </a>
+                        ) : (
+                          <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
+                        )}
                       </div>
                       <button
                         onClick={() => void handleDeleteClient(selectedClient.id, selectedClient.name)}
@@ -1131,6 +1412,15 @@ export function AdminApp() {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => openNewBookingForClient(selectedClient)}
+                      className="w-full mb-4 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+                      style={{ background: primary }}
+                    >
+                      <Plus size={16} />
+                      Добавить прошлую запись
+                    </button>
 
                     <div className="grid grid-cols-2 gap-2 mb-4">
                       {[
@@ -1302,6 +1592,7 @@ export function AdminApp() {
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
                 { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
                 { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#0EA5E9' },
+                { id: 'attendance', icon: TrendingUp, label: 'Посещаемость', desc: 'Выходы мастеров на смену', color: '#8B5CF6' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#A855F7' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#EF4444' },
@@ -1330,17 +1621,28 @@ export function AdminApp() {
               <p className={`text-xs ${sub} mb-4`}>Изменения отображаются у клиентов после сохранения</p>
               {services.map((svc, i) => (
                 <div key={svc.id} className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className="font-medium text-sm mb-3">{svc.name}</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
-                      <input className={inputCls} type="number" value={svc.price}
-                        onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, price: +e.target.value } : s))} />
+                      <label className={`text-xs ${sub} block mb-1`}>Название</label>
+                      <input className={inputCls} value={svc.name} onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
-                      <input className={inputCls} type="number" value={svc.duration}
-                        onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, duration: +e.target.value } : s))} />
+                      <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
+                      <select className={selectCls} value={svc.category} onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, category: e.target.value, resourceGroup: adminServiceResourceGroupForCategory(e.target.value) } : s))}>
+                        {SERVICE_TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                        <input className={inputCls} type="number" value={numberInputValue(svc.price)}
+                          onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, price: numberFromInput(e.target.value) } : s))} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                        <input className={inputCls} type="number" value={numberInputValue(svc.duration)}
+                          onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, duration: numberFromInput(e.target.value) } : s))} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1466,6 +1768,21 @@ export function AdminApp() {
                   </div>
                 ))}
               </div>
+
+              <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                <div className="font-medium mb-4">Посещаемость мастеров</div>
+                <AttendanceTable mode="admin" primary={primary} />
+              </div>
+            </motion.div>
+          )}
+
+          {/* SETTINGS: ATTENDANCE */}
+          {page === 'settings' && settingsSection === 'attendance' && (
+            <motion.div key="settings-attendance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Посещаемость мастеров</h2>
+              <p className={`text-xs ${sub} mb-4`}>Количество выходов каждого мастера на смену за выбранный период.</p>
+              <AttendanceTable mode="admin" primary={primary} />
             </motion.div>
           )}
 
@@ -1485,8 +1802,8 @@ export function AdminApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Цена (₽/час)</label>
-                    <input className={inputCls} type="number" value={box.pricePerHour}
-                      onChange={e => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, pricePerHour: +e.target.value } : b))} />
+                    <input className={inputCls} type="number" value={numberInputValue(box.pricePerHour)}
+                      onChange={e => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, pricePerHour: numberFromInput(e.target.value) } : b))} />
                   </div>
                 </div>
               ))}
@@ -2102,11 +2419,12 @@ export function AdminApp() {
                     className={inputCls}
                     type="number"
                     min="0"
-                    value={completeAmount}
+                    value={completeAmount === '0' ? '' : completeAmount}
                     onChange={e => {
                       setCompleteError(null);
                       setCompleteAmount(e.target.value);
                     }}
+
                   />
                 </div>
                   <div>
@@ -2257,17 +2575,99 @@ export function AdminApp() {
         )}
       </AnimatePresence>
 
+      {/* CREATE CLIENT MODAL */}
+      <AnimatePresence>
+        {showCreateClient && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0 z-10" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <h3 className="font-semibold">Новый клиент</h3>
+                <button
+                  onClick={() => {
+                    setShowCreateClient(false);
+                    setCreateClientErrors({});
+                  }}
+                  className={`p-2 rounded-xl ${glass}`}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                {[
+                  { label: 'Имя', key: 'name', placeholder: 'Иван Иванов', type: 'text' },
+                  { label: 'Телефон (необязательно)', key: 'phone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
+                  { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
+                  { label: 'Госномер', key: 'plate', placeholder: 'A123BC777', type: 'text' },
+                ].map((field) => (
+                  <div key={field.key}>
+                    <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
+                    <input
+                      className={`${inputCls} ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
+                      type={field.type}
+                      placeholder={field.placeholder}
+                      maxLength={field.key === 'plate' ? 9 : undefined}
+                      value={(createClientForm as any)[field.key]}
+                      onChange={(event) => {
+                        const nextValue = field.key === 'plate' ? normalizePlateInput(event.target.value) : event.target.value;
+                        setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
+                        setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
+                      }}
+                    />
+                    {(field.key === 'name' && createClientErrors.name) && <div className="mt-1 text-xs text-red-500">{createClientErrors.name}</div>}
+                    {(field.key === 'phone' && createClientErrors.phone) && <div className="mt-1 text-xs text-red-500">{createClientErrors.phone}</div>}
+                    {(field.key === 'car' && createClientErrors.car) && <div className="mt-1 text-xs text-red-500">{createClientErrors.car}</div>}
+                    {(field.key === 'plate' && createClientErrors.plate) && <div className="mt-1 text-xs text-red-500">{createClientErrors.plate}</div>}
+                  </div>
+                ))}
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Заметка</label>
+                  <input
+                    className={inputCls}
+                    placeholder="Например: пришёл из Instagram"
+                    value={createClientForm.notes}
+                    onChange={(event) => setCreateClientForm((current) => ({ ...current, notes: event.target.value }))}
+                  />
+                </div>
+                <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
+                  Клиент сможет войти в Mini App по этому телефону и увидит записи, созданные для этой карточки.
+                </div>
+                {createClientErrors.general && (
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />{createClientErrors.general}</div>
+                )}
+              </div>
+              <div className="p-4">
+                <button
+                  onClick={() => { void handleCreateClient(); }}
+                  disabled={createClientSaving}
+                  className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50"
+                  style={{ background: primary }}
+                >
+                  {createClientSaving ? 'Сохранение...' : 'Создать клиента'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* NEW BOOKING MODAL */}
       <AnimatePresence>
         {showNewBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[90vh] overflow-y-auto relative`}>
-              <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
+              {/* Sticky header — always visible while scrolling */}
+              <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center shrink-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Новая запись</h3>
                 <button onClick={closeNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
+              {/* Scrollable content container */}
+              <div
+                className="overflow-y-auto"
+                style={{ maxHeight: window.innerWidth < 768 ? `${modalMaxHeight}px` : undefined }}
+              >
               <AnimatePresence>
                 {saveSuccess && (
                   <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -2277,17 +2677,17 @@ export function AdminApp() {
                         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}20` }}>
                         <Check size={28} style={{ color: primary }} />
                       </motion.div>
-                      <div className="font-semibold">Запись создана!</div>
-                      <div className={`text-sm ${sub} mt-1`}>{saveSuccess === 'notify' ? 'Назначенные мастера уведомлены' : 'Без уведомления мастеров'}</div>
+                      <div className="font-semibold">Запись сохранена!</div>
+                      <div className={`text-sm ${sub} mt-1`}>{saveSuccess === 'notify' ? 'Мастера уведомлены' : STATUS_LABELS[newBookingForm.status]}</div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
               <div className="p-4 space-y-3">
                 {[
-                  { label: 'Клиент', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
-                  { label: 'Телефон', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
-                  { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
+                  { label: 'Клиент (необязательно)', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
+                  { label: 'Телефон (необязательно)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
+                  { label: 'Автомобиль (необязательно)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
                   { label: 'Номер (необязательно)', key: 'plate', placeholder: 'A123BC777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
@@ -2311,7 +2711,16 @@ export function AdminApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <select className={selectCls} value={newBookingForm.serviceId} onChange={e => {
                     const svc = services.find(s => s.id === e.target.value);
-                    setNewBookingForm(p => ({ ...p, serviceId: e.target.value, service: svc?.name || '', price: svc?.price || 0, duration: svc?.duration || 30 }));
+                    const nextBoxes = bookingBoxesForService(e.target.value, services, boxes);
+                    setNewBookingForm(p => ({
+                      ...p,
+                      serviceId: e.target.value,
+                      service: svc?.name || '',
+                      price: svc?.price || 0,
+                      duration: svc?.duration || 30,
+                      box: nextBoxes[0]?.name || '',
+                    }));
+                    setNewBookingErrors((current) => ({ ...current, general: undefined }));
                   }}>
                     <option value="">Выберите услугу</option>
                     {services.map(s => <option key={s.id} value={s.id}>{s.name} — {s.price.toLocaleString('ru')} ₽</option>)}
@@ -2319,33 +2728,77 @@ export function AdminApp() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Дата</label>
-                    <input className={inputCls} placeholder="ДД.ММ.ГГГГ" value={newBookingForm.date} onChange={e => {
-                      setNewBookingForm(p => ({ ...p, date: e.target.value }));
-                      setNewBookingErrors((current) => ({ ...current, date: undefined, general: undefined }));
-                    }} />
-                    {newBookingErrors.date && <div className="mt-1 text-xs text-red-500">{newBookingErrors.date}</div>}
+                    <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(newBookingForm.price)} onChange={e => setNewBookingForm(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Время</label>
-                    <input className={inputCls} placeholder="ЧЧ:ММ" value={newBookingForm.time} onChange={e => {
-                      setNewBookingForm(p => ({ ...p, time: e.target.value }));
-                      setNewBookingErrors((current) => ({ ...current, time: undefined, general: undefined }));
-                    }} />
-                    {newBookingErrors.time && <div className="mt-1 text-xs text-red-500">{newBookingErrors.time}</div>}
+                    <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(newBookingForm.duration)} onChange={e => setNewBookingForm(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                   </div>
                 </div>
-                {serviceResourceGroup(newBookingForm.serviceId, services) === 'detailing' ? (
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Для детейлинга помещение подставляется автоматически</div>
-                  </div>
+                <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
+                  Для базы клиентов можно выбрать статус "Прошлая завершённая": такая запись сохраняется в истории и будет видна клиенту после первого входа по этому телефону.
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Статус записи</label>
+                  <select
+                    className={selectCls}
+                    value={newBookingForm.status}
+                    onChange={(event) => {
+                      const nextStatus = event.target.value as BookingStatus;
+                      setNewBookingForm((current) => ({
+                        ...current,
+                        status: nextStatus,
+                        date: nextStatus === 'admin_review' ? current.date : (current.date || todayLabel),
+                        time: nextStatus === 'admin_review' ? current.time : (current.time || '10:00'),
+                        box: bookingStatusRequiresScheduledSlot(nextStatus) ? (current.box || bookingFormBoxes[0]?.name || '') : current.box,
+                      }));
+                      setNewBookingErrors((current) => ({ ...current, date: undefined, time: undefined, general: undefined }));
+                    }}
+                  >
+                    {NEW_BOOKING_STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата (можно выбрать прошлую)</label>
+                  <input className={inputCls} type="date" value={toISODate(newBookingForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setNewBookingForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                    setNewBookingErrors((current) => ({ ...current, date: undefined, general: undefined }));
+                  }} />
+                  {newBookingErrors.date && <div className="mt-1 text-xs text-red-500">{newBookingErrors.date}</div>}
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Время (выпадающий список)</label>
+                  <select className={selectCls} value={newBookingForm.time} onChange={e => {
+                    setNewBookingForm(p => ({ ...p, time: e.target.value }));
+                    setNewBookingErrors((current) => ({ ...current, time: undefined, general: undefined }));
+                  }}>
+                    <option value="">--:--</option>
+                    {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+                  </select>
+                  {newBookingErrors.time && <div className="mt-1 text-xs text-red-500">{newBookingErrors.time}</div>}
+                </div>
+                {(newBookingForm.date.trim() && newBookingForm.time.trim()) ? (
+                  serviceResourceGroup(newBookingForm.serviceId, services) === 'detailing' ? (
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
+                      <div className={`${inputCls} ${sub}`}>Для детейлинга помещение подставляется автоматически</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
+                      <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
+                        {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                      </select>
+                    </div>
+                  )
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                    <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                      {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                    </select>
+                    <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
                   </div>
                 )}
                 <div>
@@ -2406,13 +2859,14 @@ export function AdminApp() {
                 </div>
               </div>
               <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: primary }}>
+                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
                   {newBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50`}>
+                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>
+              </div>{/* end overflow-y-auto */}
             </motion.div>
           </motion.div>
         )}

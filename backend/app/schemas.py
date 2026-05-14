@@ -10,7 +10,16 @@ from pydantic import BaseModel, Field, field_validator
 Role = Literal["client", "admin", "worker", "owner", "accountant"]
 StaffRole = Literal["admin", "worker", "owner", "accountant"]
 EmployeeRole = Literal["admin", "worker", "accountant"]
-BookingStatus = Literal["new", "confirmed", "scheduled", "in_progress", "completed", "no_show", "cancelled", "admin_review"]
+BookingStatus = Literal[
+    "new",
+    "confirmed",
+    "scheduled",
+    "in_progress",
+    "completed",
+    "no_show",
+    "cancelled",
+    "admin_review",
+]
 PaymentType = Literal["cash", "card", "online"]
 PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]
 
@@ -122,7 +131,9 @@ def normalize_plate(value: str) -> str:
     normalized = "".join(normalized_chars)[:9]
     if not normalized:
         raise ValueError("Enter vehicle plate")
-    if not re.fullmatch(r"^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}(?:\d{2,3})?$", normalized):
+    if not re.fullmatch(
+        r"^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}(?:\d{2,3})?$", normalized
+    ):
         raise ValueError("Enter plate as A123BC77 or A123BC777")
     return normalized
 
@@ -184,6 +195,40 @@ class ClientSummaryPayload(BaseModel):
     adminNote: str = ""
 
 
+class ClientCreateRequest(BaseModel):
+    name: str
+    phone: str
+    car: str = ""
+    plate: str = ""
+    notes: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return normalize_person_name(value)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        if not value.strip():
+            return ""
+        return normalize_phone(value)
+
+    @field_validator("car")
+    @classmethod
+    def validate_car(cls, value: str) -> str:
+        if not value.strip():
+            return ""
+        return normalize_vehicle_name(value)
+
+    @field_validator("plate")
+    @classmethod
+    def validate_plate(cls, value: str) -> str:
+        if not value.strip():
+            return ""
+        return normalize_plate(value)
+
+
 class WorkerPayload(BaseModel):
     id: str
     role: StaffRole
@@ -191,6 +236,7 @@ class WorkerPayload(BaseModel):
     experience: str
     defaultPercent: int = Field(ge=0, le=40)
     salaryBase: int = 0
+    salaryPerShift: int = 0
     available: bool
     active: bool = True
     phone: str = ""
@@ -228,6 +274,8 @@ class WorkerPayrollSummaryPayload(BaseModel):
     completedRevenue: int = 0
     accruedFromBookings: int = 0
     baseSalary: int = 0
+    shiftPayTotal: int = 0
+    shiftCount: int = 0
     bonusTotal: int = 0
     adjustmentTotal: int = 0
     advanceTotal: int = 0
@@ -539,6 +587,7 @@ class EmployeeSettingPayload(BaseModel):
     name: str
     percent: int = Field(ge=0, le=40)
     salaryBase: int
+    salaryPerShift: int = 0
     active: bool
     telegramChatId: str = ""
 
@@ -632,6 +681,10 @@ class TelegramOwnerAuthRequest(BaseModel):
     initData: str
 
 
+class SwitchRoleRequest(BaseModel):
+    targetRole: StaffRole
+
+
 class AuthResponse(BaseModel):
     token: str
     role: Role
@@ -662,11 +715,15 @@ class BookingCreateRequest(BaseModel):
     @field_validator("clientName")
     @classmethod
     def validate_client_name(cls, value: str) -> str:
+        if not value.strip():
+            return ""
         return normalize_person_name(value)
 
     @field_validator("clientPhone")
     @classmethod
     def validate_client_phone(cls, value: str) -> str:
+        if not value.strip():
+            return ""
         return normalize_phone(value)
 
     @field_validator("car")
@@ -735,6 +792,7 @@ class BookingUpdateRequest(BaseModel):
             return ""
         return normalize_plate(value)
 
+
 class ClientCardUpdateRequest(BaseModel):
     notes: str | None = None
     debtBalance: int | None = None
@@ -771,6 +829,31 @@ class StockItemUpdateRequest(BaseModel):
 
 class StockWriteOffRequest(BaseModel):
     qty: int = Field(gt=0)
+
+
+class IncomeCreateRequest(BaseModel):
+    amount: int = Field(ge=1, le=10_000_000)
+    source: str = Field(min_length=1, max_length=255)
+    note: str | None = None
+    date: str  # DD.MM.YYYY
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("source не может быть пустым или состоять только из пробелов")
+        return stripped
+
+
+class IncomePayload(BaseModel):
+    id: str
+    amount: int
+    source: str
+    note: str | None
+    createdById: str
+    date: str
+    createdAt: datetime
 
 
 class ExpenseCreateRequest(BaseModel):
@@ -861,11 +944,30 @@ class GenericMessage(BaseModel):
     message: str
 
 
+class TelegramDeliveryResult(BaseModel):
+    owner_id: str
+    success: bool
+    error: str | None = None
+
+
+class TelegramBroadcastPayload(BaseModel):
+    results: list[TelegramDeliveryResult]
+    delivered: int
+    failed: int
+
+
 class OwnerExportDeliveryPayload(BaseModel):
     message: str
     fileName: str
     telegramSent: bool
     telegramChatId: str | None = None
+
+
+class ShiftAttendancePayload(BaseModel):
+    workerId: str
+    workerName: str
+    shiftCount: int
+    shiftDates: list[str]  # DD.MM.YYYY, отсортированный по убыванию
 
 
 JsonDict = dict[str, Any]

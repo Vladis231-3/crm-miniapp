@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import secrets
 import base64
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from threading import Thread
 from typing import Any
@@ -11,10 +11,12 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import delete as sa_delete, inspect, or_, select
+from sqlalchemy import delete as sa_delete, inspect, or_, select, func
 from sqlalchemy.orm import Session, joinedload
+import time as time_module
 
 from .complaints import (
     COMPLAINT_DURATION_DAYS,
@@ -27,7 +29,13 @@ from .complaints import (
 )
 from .config import get_settings
 from .database import Base, engine, get_db
-from .exports import GeneratedExport, OwnerSummaryReport, build_owner_export, build_owner_summary_export, build_owner_summary_report
+from .exports import (
+    GeneratedExport,
+    OwnerSummaryReport,
+    build_owner_export,
+    build_owner_summary_export,
+    build_owner_summary_report,
+)
 from .models import (
     AppSetting,
     Booking,
@@ -35,6 +43,7 @@ from .models import (
     Box,
     Client,
     Expense,
+    Income,
     Notification,
     Penalty,
     PayrollEntry,
@@ -62,6 +71,7 @@ from .schemas import (
     BoxPayload,
     ChangePasswordRequest,
     ClientAuthRequest,
+    ClientCreateRequest,
     ClientPhoneVerificationPayload,
     ClientPhoneVerificationRequest,
     ClientCardUpdateRequest,
@@ -74,6 +84,8 @@ from .schemas import (
     ExpenseCreateRequest,
     ExpensePayload,
     GenericMessage,
+    IncomeCreateRequest,
+    IncomePayload,
     NotificationCreateRequest,
     NotificationPayload,
     OwnerCompanyPayload,
@@ -101,6 +113,7 @@ from .schemas import (
     SettingsBundlePayload,
     StaffLoginRequest,
     StockItemCreateRequest,
+    SwitchRoleRequest,
     StockItemPayload,
     StockItemUpdateRequest,
     StockWriteOffRequest,
@@ -112,8 +125,11 @@ from .schemas import (
     PenaltyPayload,
     PayrollEntryCreateRequest,
     PayrollEntryPayload,
+    TelegramDeliveryResult,
+    TelegramBroadcastPayload,
     TelegramLinkCodePayload,
     TelegramOwnerAuthRequest,
+    ShiftAttendancePayload,
     WorkerNotificationSettings,
     WorkerPayrollBookingPayload,
     WorkerPayrollSummaryPayload,
@@ -163,6 +179,8 @@ bot_thread: Thread | None = None
 PRIMARY_OWNER_ID = "owner-primary"
 PRIMARY_OWNER_LOGIN = "creator_owner"
 SECONDARY_OWNER_ID = "owner-1"
+STAFF_LOGIN_MAX_ATTEMPTS = 5
+STAFF_LOGIN_LOCKOUT_MINUTES = 15
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
 BOOKING_REMINDER_STATE_KEY = "booking_reminder_dispatch_state"
 RETURN_REMINDER_STATE_KEY = "return_visit_reminder_state"
@@ -175,20 +193,51 @@ OWNER_DATABASE_RESET_DELAY_SECONDS = 10
 BOOKING_ACTIVE_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
 BOOKING_CLIENT_CANCELLABLE_STATUSES = {"new", "confirmed", "scheduled"}
 BOOKING_REMINDER_ELIGIBLE_STATUSES = {"new", "confirmed", "scheduled"}
-BOOKING_WORKER_MESSAGE_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
+BOOKING_WORKER_MESSAGE_STATUSES = {
+    "new",
+    "confirmed",
+    "scheduled",
+    "in_progress",
+    "admin_review",
+}
 DETAILING_REQUEST_TIME = "00:00"
 DETAILING_REQUEST_BOX = "По согласованию"
 DEFAULT_RESOURCE_GROUP = "wash"
 DETAILING_RESOURCE_GROUP = "detailing"
 WASH_RESOURCE_GROUP = "wash"
-DETAILING_BOX_NAME = "Детейлинг"
+DETAILING_BOX_NAMES = ("Детейлинг 1", "Детейлинг 2", "Детейлинг 3")
+DETAILING_BOX_NAME = DETAILING_BOX_NAMES[0]
 WASH_BOX_NAMES = ("Мойка самообслуживания", "Мойка от мастера")
 CLIENT_PHONE_VERIFICATIONS_KEY = "client_phone_verifications"
 DEFAULT_ADMIN_SHIFT_SUPPLIES = [
-    {"id": "preset-foam", "name": "Активная пена", "category": "Химия", "unit": "шт", "qty": 0},
-    {"id": "preset-shampoo", "name": "Автошампунь", "category": "Химия", "unit": "шт", "qty": 0},
-    {"id": "preset-microfiber", "name": "Микрофибра", "category": "Расходники", "unit": "шт", "qty": 0},
-    {"id": "preset-gloves", "name": "Перчатки", "category": "Расходники", "unit": "шт", "qty": 0},
+    {
+        "id": "preset-foam",
+        "name": "Активная пена",
+        "category": "Химия",
+        "unit": "шт",
+        "qty": 0,
+    },
+    {
+        "id": "preset-shampoo",
+        "name": "Автошампунь",
+        "category": "Химия",
+        "unit": "шт",
+        "qty": 0,
+    },
+    {
+        "id": "preset-microfiber",
+        "name": "Микрофибра",
+        "category": "Расходники",
+        "unit": "шт",
+        "qty": 0,
+    },
+    {
+        "id": "preset-gloves",
+        "name": "Перчатки",
+        "category": "Расходники",
+        "unit": "шт",
+        "qty": 0,
+    },
 ]
 
 app = FastAPI(title=settings.app_name)
@@ -199,6 +248,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting for login attempts (simple in-memory store)
+_login_attempts: dict[str, list[float]] = {}
+_LOGIN_RATE_LIMIT_WINDOW = 60  # seconds
+_LOGIN_MAX_ATTEMPTS = 10  # max attempts per window
+
+def _check_rate_limit(ip: str) -> None:
+    now = time_module.time()
+    window_start = now - _LOGIN_RATE_LIMIT_WINDOW
+    
+    # Clean old attempts
+    if ip in _login_attempts:
+        _login_attempts[ip] = [t for t in _login_attempts[ip] if t > window_start]
+    
+    if ip not in _login_attempts:
+        _login_attempts[ip] = []
+    
+    if len(_login_attempts[ip]) >= _LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много запросов. Попробуйте позже.",
+        )
+    
+    _login_attempts[ip].append(now)
 
 if frontend_assets.exists():
     app.mount("/assets", StaticFiles(directory=frontend_assets), name="frontend-assets")
@@ -238,7 +311,7 @@ def on_startup() -> None:
     _apply_runtime_migrations()
     db = next(get_db())
     try:
-        seed_database(db)
+        seed_database(db, include_demo_staff=settings.allow_demo_seed_data)
         _ensure_owner_accounts(db)
         _repair_text_data(db)
         _normalize_worker_rules(db)
@@ -255,7 +328,11 @@ def on_startup() -> None:
     ):
         try:
             username = sync_telegram_webhook(drop_pending_updates=False)
-            logger.info("Telegram webhook synced for @%s -> %s", username, settings.telegram_webhook_path)
+            logger.info(
+                "Telegram webhook synced for @%s -> %s",
+                username,
+                settings.telegram_webhook_path,
+            )
         except Exception:
             logger.exception("Failed to sync Telegram webhook")
 
@@ -290,8 +367,16 @@ def _request_ip(request: Request) -> str:
 
 
 def _client_by_phone(db: Session, phone: str) -> Client | None:
-    target_phone = normalize_phone_digits(phone)
-    for client in db.scalars(select(Client)).all():
+    if not phone.strip():
+        return None
+    try:
+        target_phone = normalize_phone_digits(phone)
+    except ValueError:
+        return None
+    exact = db.scalar(select(Client).where(Client.phone == phone))
+    if exact is not None:
+        return exact
+    for client in db.scalars(select(Client).where(Client.phone != "")).all():
         try:
             if normalize_phone_digits(client.phone) == target_phone:
                 return client
@@ -301,7 +386,11 @@ def _client_by_phone(db: Session, phone: str) -> Client | None:
 
 
 def _owner_query():
-    return select(StaffUser).where(StaffUser.role == "owner").order_by(StaffUser.created_at.asc(), StaffUser.id.asc())
+    return (
+        select(StaffUser)
+        .where(StaffUser.role == "owner")
+        .order_by(StaffUser.created_at.asc(), StaffUser.id.asc())
+    )
 
 
 def _primary_owner(db: Session) -> StaffUser | None:
@@ -345,7 +434,9 @@ def _ensure_owner_accounts(db: Session) -> None:
         if owner.id != primary_owner.id:
             owner.is_primary_owner = False
 
-    if not any(owner.id != primary_owner.id for owner in owners):
+    if settings.allow_demo_seed_data and not any(
+        owner.id != primary_owner.id for owner in owners
+    ):
         db.add(
             StaffUser(
                 id=SECONDARY_OWNER_ID,
@@ -370,6 +461,53 @@ def _ensure_owner_accounts(db: Session) -> None:
         db.flush()
 
 
+def _staff_lock_expires_at(staff: StaffUser) -> datetime | None:
+    if staff.login_locked_until is None:
+        return None
+    return _as_utc(staff.login_locked_until)
+
+
+def _require_staff_not_locked(staff: StaffUser) -> None:
+    locked_until = _staff_lock_expires_at(staff)
+    if locked_until is not None and locked_until > _now():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много неудачных попыток входа. Попробуйте позже.",
+        )
+
+
+def _clear_staff_login_lock(staff: StaffUser) -> None:
+    staff.failed_login_attempts = 0
+    staff.login_locked_until = None
+
+
+def _record_staff_login_failure(db: Session, staff: StaffUser) -> None:
+    locked_until = _staff_lock_expires_at(staff)
+    if locked_until is not None and locked_until > _now():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много неудачных попыток входа. Попробуйте позже.",
+        )
+
+    next_attempt = (staff.failed_login_attempts or 0) + 1
+    staff.failed_login_attempts = next_attempt
+    if next_attempt >= STAFF_LOGIN_MAX_ATTEMPTS:
+        staff.login_locked_until = _now() + timedelta(
+            minutes=STAFF_LOGIN_LOCKOUT_MINUTES
+        )
+        staff.failed_login_attempts = 0
+    staff.updated_at = _now()
+    db.commit()
+    if staff.login_locked_until is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много неудачных попыток входа. Попробуйте позже.",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
+    )
+
+
 def _device_label(user_agent: str) -> str:
     if "Telegram-Android" in user_agent:
         return "Telegram Android"
@@ -388,7 +526,9 @@ def _device_label(user_agent: str) -> str:
     return "Неизвестное устройство"
 
 
-def _create_auth_session(db: Session, session_data: dict, request: Request) -> AuthSession:
+def _create_auth_session(
+    db: Session, session_data: dict, request: Request
+) -> AuthSession:
     auth_session = AuthSession(
         id=str(uuid4()),
         actor_role=session_data["role"],
@@ -404,7 +544,9 @@ def _create_auth_session(db: Session, session_data: dict, request: Request) -> A
     return auth_session
 
 
-def _active_sessions_payload(db: Session, session_data: dict) -> list[AuthSessionPayload]:
+def _active_sessions_payload(
+    db: Session, session_data: dict
+) -> list[AuthSessionPayload]:
     sessions = db.scalars(
         select(AuthSession)
         .where(
@@ -434,11 +576,17 @@ def _apply_runtime_migrations() -> None:
             return "TRUE" if value else "FALSE"
         return "1" if value else "0"
 
-    def ensure_postgres_varchar_length(table_name: str, column_name: str, minimum_length: int) -> None:
+    def ensure_postgres_varchar_length(
+        table_name: str, column_name: str, minimum_length: int
+    ) -> None:
         if engine.dialect.name != "postgresql":
             return
         column = next(
-            (item for item in inspect(engine).get_columns(table_name) if item["name"] == column_name),
+            (
+                item
+                for item in inspect(engine).get_columns(table_name)
+                if item["name"] == column_name
+            ),
             None,
         )
         if column is None:
@@ -455,7 +603,11 @@ def _apply_runtime_migrations() -> None:
         if engine.dialect.name != "postgresql":
             return
         column = next(
-            (item for item in inspect(engine).get_columns(table_name) if item["name"] == column_name),
+            (
+                item
+                for item in inspect(engine).get_columns(table_name)
+                if item["name"] == column_name
+            ),
             None,
         )
         if column is None:
@@ -463,22 +615,32 @@ def _apply_runtime_migrations() -> None:
         if column["type"].__class__.__name__.lower() == "text":
             return
         with engine.begin() as connection:
-            connection.exec_driver_sql(f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE TEXT")
+            connection.exec_driver_sql(
+                f"ALTER TABLE {table_name} ALTER COLUMN {column_name} TYPE TEXT"
+            )
 
     inspector = inspect(engine)
     client_columns = {column["name"] for column in inspector.get_columns("clients")}
     if "notes" not in client_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN notes TEXT DEFAULT ''")
+            connection.exec_driver_sql(
+                "ALTER TABLE clients ADD COLUMN notes TEXT DEFAULT ''"
+            )
     if "debt_balance" not in client_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN debt_balance INTEGER DEFAULT 0")
+            connection.exec_driver_sql(
+                "ALTER TABLE clients ADD COLUMN debt_balance INTEGER DEFAULT 0"
+            )
     if "admin_rating" not in client_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN admin_rating INTEGER DEFAULT 0")
+            connection.exec_driver_sql(
+                "ALTER TABLE clients ADD COLUMN admin_rating INTEGER DEFAULT 0"
+            )
     if "admin_note" not in client_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE clients ADD COLUMN admin_note TEXT DEFAULT ''")
+            connection.exec_driver_sql(
+                "ALTER TABLE clients ADD COLUMN admin_note TEXT DEFAULT ''"
+            )
     if "clients" in inspector.get_table_names():
         ensure_postgres_varchar_length("clients", "id", 64)
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
@@ -486,7 +648,9 @@ def _apply_runtime_migrations() -> None:
         ensure_postgres_varchar_length("staff_users", "id", 64)
     if "telegram_chat_id" not in columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN telegram_chat_id VARCHAR(64) DEFAULT ''")
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN telegram_chat_id VARCHAR(64) DEFAULT ''"
+            )
     if "is_primary_owner" not in columns:
         with engine.begin() as connection:
             connection.exec_driver_sql(
@@ -494,10 +658,29 @@ def _apply_runtime_migrations() -> None:
             )
     if "two_factor_code_hash" not in columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN two_factor_code_hash VARCHAR(128)")
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN two_factor_code_hash VARCHAR(128)"
+            )
     if "two_factor_expires_at" not in columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN two_factor_expires_at TIMESTAMP")
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN two_factor_expires_at TIMESTAMP"
+            )
+    if "failed_login_attempts" not in columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0"
+            )
+    if "login_locked_until" not in columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN login_locked_until TIMESTAMP"
+            )
+    if "extra_roles" not in columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN extra_roles TEXT DEFAULT '[]'"
+            )
     if "telegram_link_codes" not in inspector.get_table_names():
         TelegramLinkCode.__table__.create(bind=engine)
     else:
@@ -510,16 +693,38 @@ def _apply_runtime_migrations() -> None:
     if "bookings" in inspector.get_table_names():
         ensure_postgres_varchar_length("bookings", "id", 64)
         ensure_postgres_varchar_length("bookings", "client_id", 64)
-    service_columns = {column["name"] for column in inspector.get_columns("services")} if "services" in inspector.get_table_names() else set()
-    if "resource_group" not in service_columns and "services" in inspector.get_table_names():
+    service_columns = (
+        {column["name"] for column in inspector.get_columns("services")}
+        if "services" in inspector.get_table_names()
+        else set()
+    )
+    if (
+        "resource_group" not in service_columns
+        and "services" in inspector.get_table_names()
+    ):
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE services ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'")
-    box_columns = {column["name"] for column in inspector.get_columns("boxes")} if "boxes" in inspector.get_table_names() else set()
+            connection.exec_driver_sql(
+                "ALTER TABLE services ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'"
+            )
+    box_columns = (
+        {column["name"] for column in inspector.get_columns("boxes")}
+        if "boxes" in inspector.get_table_names()
+        else set()
+    )
     if "resource_group" not in box_columns and "boxes" in inspector.get_table_names():
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE boxes ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'")
-    booking_columns = {column["name"] for column in inspector.get_columns("bookings")} if "bookings" in inspector.get_table_names() else set()
-    if "payment_settled" not in booking_columns and "bookings" in inspector.get_table_names():
+            connection.exec_driver_sql(
+                "ALTER TABLE boxes ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'"
+            )
+    booking_columns = (
+        {column["name"] for column in inspector.get_columns("bookings")}
+        if "bookings" in inspector.get_table_names()
+        else set()
+    )
+    if (
+        "payment_settled" not in booking_columns
+        and "bookings" in inspector.get_table_names()
+    ):
         with engine.begin() as connection:
             connection.exec_driver_sql(
                 f"ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT {boolean_default_sql(True)}"
@@ -542,13 +747,19 @@ def _apply_runtime_migrations() -> None:
         ensure_postgres_varchar_length("penalties", "revoked_by", 64)
     if "active_until" not in penalty_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN active_until TIMESTAMP")
+            connection.exec_driver_sql(
+                "ALTER TABLE penalties ADD COLUMN active_until TIMESTAMP"
+            )
     if "revoked_at" not in penalty_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN revoked_at TIMESTAMP")
+            connection.exec_driver_sql(
+                "ALTER TABLE penalties ADD COLUMN revoked_at TIMESTAMP"
+            )
     if "revoked_by" not in penalty_columns:
         with engine.begin() as connection:
-            connection.exec_driver_sql("ALTER TABLE penalties ADD COLUMN revoked_by VARCHAR(64)")
+            connection.exec_driver_sql(
+                "ALTER TABLE penalties ADD COLUMN revoked_by VARCHAR(64)"
+            )
     if "payroll_entries" not in inspector.get_table_names():
         PayrollEntry.__table__.create(bind=engine)
     else:
@@ -556,6 +767,15 @@ def _apply_runtime_migrations() -> None:
         ensure_postgres_varchar_length("payroll_entries", "worker_id", 64)
         ensure_postgres_varchar_length("payroll_entries", "actor_id", 64)
         ensure_postgres_text_column("payroll_entries", "note")
+    if "incomes" not in inspector.get_table_names():
+        Income.__table__.create(bind=engine)
+    # salary_per_shift column migration
+    staff_columns = {col["name"] for col in inspector.get_columns("staff_users")}
+    if "salary_per_shift" not in staff_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE staff_users ADD COLUMN salary_per_shift INTEGER DEFAULT 0"
+            )
 
 
 def _repair_text_value(value: str) -> str:
@@ -742,10 +962,14 @@ def _client_vehicles_map(db: Session) -> dict[str, Any]:
 
 def _client_vehicles_payload(db: Session, client: Client) -> list[ClientVehiclePayload]:
     raw = _client_vehicles_map(db).get(client.id, [])
-    return _normalize_client_vehicles(raw, fallback_car=client.car or "", fallback_plate=client.plate or "")
+    return _normalize_client_vehicles(
+        raw, fallback_car=client.car or "", fallback_plate=client.plate or ""
+    )
 
 
-def _save_client_vehicles(db: Session, client_id: str, vehicles: list[ClientVehiclePayload]) -> None:
+def _save_client_vehicles(
+    db: Session, client_id: str, vehicles: list[ClientVehiclePayload]
+) -> None:
     current = _client_vehicles_map(db)
     current[client_id] = [item.model_dump() for item in vehicles]
     _upsert_setting(db, "client_vehicles", current)
@@ -777,7 +1001,9 @@ def _client_phone_is_verified(db: Session, telegram_id: str | None, phone: str) 
     return verified_digits == normalized_digits
 
 
-def _require_client_phone_verification(db: Session, telegram_id: str | None, phone: str) -> None:
+def _require_client_phone_verification(
+    db: Session, telegram_id: str | None, phone: str
+) -> None:
     if _client_phone_is_verified(db, telegram_id, phone):
         return
     raise HTTPException(
@@ -791,7 +1017,9 @@ def _client_payload(client: Client | None) -> ClientProfilePayload | None:
         return None
     with Session(engine) as vehicles_db:
         vehicles = _client_vehicles_payload(vehicles_db, client)
-        phone_verified = _client_phone_is_verified(vehicles_db, client.telegram_id, client.phone)
+        phone_verified = _client_phone_is_verified(
+            vehicles_db, client.telegram_id, client.phone
+        )
     return ClientProfilePayload(
         name=client.name,
         phone=client.phone,
@@ -803,9 +1031,14 @@ def _client_payload(client: Client | None) -> ClientProfilePayload | None:
     )
 
 
-def _client_summary_payload(client: Client) -> ClientSummaryPayload:
-    with Session(engine) as vehicles_db:
-        vehicles = _client_vehicles_payload(vehicles_db, client)
+def _client_summary_payload(
+    client: Client, db: Session | None = None
+) -> ClientSummaryPayload:
+    if db is not None:
+        vehicles = _client_vehicles_payload(db, client)
+    else:
+        with Session(engine) as vehicles_db:
+            vehicles = _client_vehicles_payload(vehicles_db, client)
     return ClientSummaryPayload(
         id=client.id,
         name=client.name,
@@ -878,10 +1111,12 @@ def _today_label() -> str:
     return datetime.now().strftime("%d.%m.%Y")
 
 
-def _build_schedule_slots(open_minutes: int, close_minutes: int, step_minutes: int = 30) -> list[str]:
+def _build_schedule_slots(
+    open_minutes: int, close_minutes: int, step_minutes: int = 30
+) -> list[str]:
     slots: list[str] = []
     current = open_minutes
-    while current + step_minutes <= close_minutes:
+    while current + step_minutes < close_minutes:
         hours, minutes = divmod(current, 60)
         slots.append(f"{hours:02d}:{minutes:02d}")
         current += step_minutes
@@ -892,27 +1127,44 @@ def _booking_requires_scheduled_slot(status_value: str) -> bool:
     return status_value in BOOKING_ACTIVE_STATUSES
 
 
-def _booking_time_range(date_value: str, time_value: str, duration: int) -> tuple[datetime, datetime] | None:
+def _booking_time_range(
+    date_value: str, time_value: str, duration: int
+) -> tuple[datetime, datetime] | None:
     scheduled_at = _parse_booking_datetime(date_value, time_value)
     if scheduled_at is None or duration <= 0:
         return None
     return scheduled_at, scheduled_at + timedelta(minutes=duration)
 
 
-def _time_ranges_overlap(start_at: datetime, end_at: datetime, other_start_at: datetime, other_end_at: datetime) -> bool:
+def _time_ranges_overlap(
+    start_at: datetime,
+    end_at: datetime,
+    other_start_at: datetime,
+    other_end_at: datetime,
+) -> bool:
     return start_at < other_end_at and end_at > other_start_at
 
 
-def _ensure_booking_datetime_not_in_past(date_value: str, time_value: str) -> None:
+def _ensure_booking_datetime_not_in_past(date_value: str, time_value: str, role: str) -> None:
+    if role in {"admin", "owner"}:
+        return
     scheduled_at = _parse_booking_datetime(date_value, time_value)
     if scheduled_at is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите корректные дату и время записи")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите корректные дату и время записи",
+        )
     current_local = datetime.now().replace(second=0, microsecond=0)
     if scheduled_at < current_local:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя записаться на прошедшее время")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя записаться на прошедшее время",
+        )
 
 
-def _ensure_booking_within_schedule(db: Session, date_value: str, time_value: str, duration: int) -> None:
+def _ensure_booking_within_schedule(
+    db: Session, date_value: str, time_value: str, duration: int
+) -> None:
     time_range = _booking_time_range(date_value, time_value, duration)
     if time_range is None:
         raise HTTPException(
@@ -921,18 +1173,26 @@ def _ensure_booking_within_schedule(db: Session, date_value: str, time_value: st
         )
 
     scheduled_at, _ = time_range
-    day_schedule = db.scalar(select(ScheduleEntry).where(ScheduleEntry.day_index == scheduled_at.weekday()))
+    day_schedule = db.scalar(
+        select(ScheduleEntry).where(ScheduleEntry.day_index == scheduled_at.weekday())
+    )
     if day_schedule is None or not day_schedule.active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="В этот день запись недоступна")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="В этот день запись недоступна",
+        )
 
     open_minutes = _parse_time_to_minutes(day_schedule.open_time)
     close_minutes = _parse_time_to_minutes(day_schedule.close_time)
     start_minutes = _parse_time_to_minutes(time_value)
     if open_minutes is None or close_minutes is None or start_minutes is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Некорректно настроен график работы")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Некорректно настроен график работы",
+        )
 
     end_minutes = start_minutes + duration
-    if start_minutes < open_minutes or end_minutes > close_minutes:
+    if start_minutes < open_minutes or end_minutes >= close_minutes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Запись доступна только в часы работы: {day_schedule.open_time}-{day_schedule.close_time}",
@@ -961,8 +1221,10 @@ def _box_is_available(
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
 
-    for existing in db.scalars(query).all():
-        existing_range = _booking_time_range(existing.date, existing.time, existing.duration)
+    for existing in db.scalars(query.with_for_update(skip_locked=True)).all():
+        existing_range = _booking_time_range(
+            existing.date, existing.time, existing.duration
+        )
         if existing_range is None:
             continue
         existing_start_at, existing_end_at = existing_range
@@ -1012,26 +1274,36 @@ def _booking_slot_availability(
 ) -> BookingAvailabilityPayload:
     parsed_date = _parse_booking_datetime(date_value, "00:00")
     if parsed_date is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите дату в формате ДД.ММ.ГГГГ")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите дату в формате ДД.ММ.ГГГГ",
+        )
 
-    day_schedule = db.scalar(select(ScheduleEntry).where(ScheduleEntry.day_index == parsed_date.weekday()))
+    day_schedule = db.scalar(
+        select(ScheduleEntry).where(ScheduleEntry.day_index == parsed_date.weekday())
+    )
     if day_schedule is None or not day_schedule.active:
         return BookingAvailabilityPayload(date=date_value, duration=duration, slots=[])
 
     open_minutes = _parse_time_to_minutes(day_schedule.open_time)
     close_minutes = _parse_time_to_minutes(day_schedule.close_time)
     if open_minutes is None or close_minutes is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Некорректно настроен график работы")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Некорректно настроен график работы",
+        )
 
     service = db.get(Service, service_id) if service_id else None
-    active_boxes = _compatible_box_names(db, resource_group or _service_resource_group(service))
+    active_boxes = _compatible_box_names(
+        db, resource_group or _service_resource_group(service)
+    )
     slots: list[BookingAvailabilitySlotPayload] = []
     for slot in _build_schedule_slots(open_minutes, close_minutes):
         slot_start = _parse_time_to_minutes(slot)
         if slot_start is None:
             continue
         slot_end = slot_start + duration
-        if slot_start < open_minutes or slot_end > close_minutes:
+        if slot_start < open_minutes or slot_end >= close_minutes:
             slots.append(
                 BookingAvailabilitySlotPayload(
                     time=slot,
@@ -1054,10 +1326,13 @@ def _booking_slot_availability(
                 box=box_name,
             )
         )
+        slot_dt = _parse_booking_datetime(date_value, slot)
+        now_local = datetime.now().replace(second=0, microsecond=0)
+        is_past = slot_dt is not None and slot_dt < now_local
         slots.append(
             BookingAvailabilitySlotPayload(
                 time=slot,
-                available=free_boxes > 0 and not _parse_booking_datetime(date_value, slot) < datetime.now().replace(second=0, microsecond=0),
+                available=free_boxes > 0 and not is_past,
                 freeBoxes=free_boxes,
                 occupiedBoxes=max(0, len(active_boxes) - free_boxes),
             )
@@ -1098,12 +1373,16 @@ def _ensure_booking_has_no_conflicts(
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
 
-    for existing in db.scalars(query).unique().all():
-        existing_range = _booking_time_range(existing.date, existing.time, existing.duration)
+    for existing in db.scalars(query.with_for_update(skip_locked=True)).unique().all():
+        existing_range = _booking_time_range(
+            existing.date, existing.time, existing.duration
+        )
         if existing_range is None:
             continue
         existing_start_at, existing_end_at = existing_range
-        if not _time_ranges_overlap(start_at, end_at, existing_start_at, existing_end_at):
+        if not _time_ranges_overlap(
+            start_at, end_at, existing_start_at, existing_end_at
+        ):
             continue
 
         if box and existing.box == box:
@@ -1112,22 +1391,29 @@ def _ensure_booking_has_no_conflicts(
                 detail=f"Бокс {box} уже занят на это время",
             )
 
-        overlapping_worker_names = sorted(
-            {
-                link.worker_name
-                for link in existing.worker_links
-                if link.worker_id in worker_ids
-            }
-        )
-        if overlapping_worker_names:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Мастер уже занят: " + ", ".join(overlapping_worker_names),
-            )
+        # Worker overlap check removed: masters can work on multiple cars simultaneously
+        # overlapping_worker_names = sorted(
+        #     {
+        #         link.worker_name
+        #         for link in existing.worker_links
+        #         if link.worker_id in worker_ids
+        #     }
+        # )
+        # if overlapping_worker_names:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_409_CONFLICT,
+        #         detail="Мастер уже занят: " + ", ".join(overlapping_worker_names),
+        #     )
 
 
-def _load_penalties(db: Session, *, worker_ids: set[str] | None = None) -> list[Penalty]:
-    query = select(Penalty).options(joinedload(Penalty.worker)).order_by(Penalty.created_at.desc())
+def _load_penalties(
+    db: Session, *, worker_ids: set[str] | None = None
+) -> list[Penalty]:
+    query = (
+        select(Penalty)
+        .options(joinedload(Penalty.worker))
+        .order_by(Penalty.created_at.desc())
+    )
     if worker_ids:
         query = query.where(Penalty.worker_id.in_(worker_ids))
     return db.scalars(query).all()
@@ -1175,6 +1461,7 @@ def _worker_payload(worker: StaffUser) -> WorkerPayload:
         experience=worker.experience,
         defaultPercent=clamp_worker_percent(worker.default_percent),
         salaryBase=worker.salary_base,
+        salaryPerShift=getattr(worker, "salary_per_shift", 0) or 0,
         available=worker.available,
         active=worker.active,
         phone=worker.phone,
@@ -1208,27 +1495,43 @@ def _worker_payroll_summaries(
         return {}
 
     worker_ids = [worker.id for worker in workers]
-    completed_bookings = db.scalars(
-        select(Booking)
-        .options(joinedload(Booking.worker_links))
-        .join(Booking.worker_links)
-        .where(
-            Booking.status == "completed",
-            BookingWorker.worker_id.in_(worker_ids),
+    completed_bookings = (
+        db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .join(Booking.worker_links)
+            .where(
+                Booking.status == "completed",
+                BookingWorker.worker_id.in_(worker_ids),
+            )
+            .order_by(
+                Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
+            )
         )
-        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
-    ).unique().all()
+        .unique()
+        .all()
+    )
     entries = db.scalars(
         select(PayrollEntry)
         .where(PayrollEntry.worker_id.in_(worker_ids))
         .order_by(PayrollEntry.created_at.desc())
     ).all()
-    actors = {
-        item.id: item.name
-        for item in db.scalars(select(StaffUser).where(StaffUser.id.in_({entry.actor_id for entry in entries}))).all()
-    } if entries else {}
+    actors = (
+        {
+            item.id: item.name
+            for item in db.scalars(
+                select(StaffUser).where(
+                    StaffUser.id.in_({entry.actor_id for entry in entries})
+                )
+            ).all()
+        }
+        if entries
+        else {}
+    )
 
-    booking_items_by_worker: dict[str, list[WorkerPayrollBookingPayload]] = {worker_id: [] for worker_id in worker_ids}
+    booking_items_by_worker: dict[str, list[WorkerPayrollBookingPayload]] = {
+        worker_id: [] for worker_id in worker_ids
+    }
     for booking in completed_bookings:
         for link in booking.worker_links:
             if link.worker_id not in booking_items_by_worker:
@@ -1252,7 +1555,9 @@ def _worker_payroll_summaries(
                 )
             )
 
-    entry_payloads_by_worker: dict[str, list[PayrollEntryPayload]] = {worker_id: [] for worker_id in worker_ids}
+    entry_payloads_by_worker: dict[str, list[PayrollEntryPayload]] = {
+        worker_id: [] for worker_id in worker_ids
+    }
     for entry in entries:
         entry_payloads_by_worker.setdefault(entry.worker_id, []).append(
             _payroll_entry_payload(entry, actors.get(entry.actor_id, "Сотрудник"))
@@ -1262,20 +1567,51 @@ def _worker_payroll_summaries(
     for worker in workers:
         booking_items = booking_items_by_worker.get(worker.id, [])
         payroll_entries = entry_payloads_by_worker.get(worker.id, [])
-        bonus_total = sum(item.amount for item in payroll_entries if item.kind == "bonus")
-        advance_total = sum(item.amount for item in payroll_entries if item.kind == "advance")
-        deduction_total = sum(item.amount for item in payroll_entries if item.kind == "deduction")
-        payout_total = sum(item.amount for item in payroll_entries if item.kind == "payout")
-        adjustment_total = sum(item.amount for item in payroll_entries if item.kind == "adjustment")
+        bonus_total = sum(
+            item.amount for item in payroll_entries if item.kind == "bonus"
+        )
+        advance_total = sum(
+            item.amount for item in payroll_entries if item.kind == "advance"
+        )
+        deduction_total = sum(
+            item.amount for item in payroll_entries if item.kind == "deduction"
+        )
+        payout_total = sum(
+            item.amount for item in payroll_entries if item.kind == "payout"
+        )
+        adjustment_total = sum(
+            item.amount for item in payroll_entries if item.kind == "adjustment"
+        )
         accrued_from_bookings = sum(item.earned for item in booking_items)
         completed_revenue = sum(item.price for item in booking_items)
-        total_accrued = accrued_from_bookings + worker.salary_base + bonus_total + max(adjustment_total, 0)
-        total_deducted = advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
+
+        # Считаем количество смен за всё время для salary_per_shift
+        # (согласовано с accrued_from_bookings и salary_base — оба за всё время)
+        from datetime import date as _date
+        inspections = _admin_shift_inspections_state(db)
+        shift_count, _shift_dates = _compute_shift_attendance(
+            inspections, worker.id, _date(2000, 1, 1), _date.today()
+        )
+        salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
+        shift_pay_total = shift_count * salary_per_shift
+
+        total_accrued = (
+            accrued_from_bookings
+            + worker.salary_base
+            + shift_pay_total
+            + bonus_total
+            + max(adjustment_total, 0)
+        )
+        total_deducted = (
+            advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
+        )
         result[worker.id] = WorkerPayrollSummaryPayload(
             completedBookings=len(booking_items),
             completedRevenue=completed_revenue,
             accruedFromBookings=accrued_from_bookings,
             baseSalary=worker.salary_base,
+            shiftPayTotal=shift_pay_total,
+            shiftCount=shift_count,
             bonusTotal=bonus_total,
             adjustmentTotal=adjustment_total,
             advanceTotal=advance_total,
@@ -1296,11 +1632,15 @@ def _worker_payload_with_payroll(
 ) -> WorkerPayload:
     payload = _worker_payload(worker)
     if payroll_summaries is not None:
-        payload.payrollSummary = payroll_summaries.get(worker.id, WorkerPayrollSummaryPayload(baseSalary=worker.salary_base))
+        payload.payrollSummary = payroll_summaries.get(
+            worker.id, WorkerPayrollSummaryPayload(baseSalary=worker.salary_base)
+        )
     return payload
 
 
-def _booking_payload(booking: Booking, complaints_by_worker: dict[str, list[Penalty]] | None = None) -> BookingPayload:
+def _booking_payload(
+    booking: Booking, complaints_by_worker: dict[str, list[Penalty]] | None = None
+) -> BookingPayload:
     return BookingPayload(
         id=booking.id,
         clientId=booking.client_id,
@@ -1392,7 +1732,8 @@ def _service_payload(service: Service) -> ServicePayload:
         category=service.category,
         price=service.price,
         duration=service.duration,
-        resourceGroup=(service.resource_group or DEFAULT_RESOURCE_GROUP).strip() or DEFAULT_RESOURCE_GROUP,
+        resourceGroup=(service.resource_group or DEFAULT_RESOURCE_GROUP).strip()
+        or DEFAULT_RESOURCE_GROUP,
         desc=service.description,
         active=service.active,
     )
@@ -1402,7 +1743,8 @@ def _box_payload(box: Box) -> BoxPayload:
     return BoxPayload(
         id=box.id,
         name=box.name,
-        resourceGroup=(box.resource_group or DEFAULT_RESOURCE_GROUP).strip() or DEFAULT_RESOURCE_GROUP,
+        resourceGroup=(box.resource_group or DEFAULT_RESOURCE_GROUP).strip()
+        or DEFAULT_RESOURCE_GROUP,
         pricePerHour=box.price_per_hour,
         active=box.active,
         description=box.description,
@@ -1410,19 +1752,25 @@ def _box_payload(box: Box) -> BoxPayload:
 
 
 def _visible_boxes(db: Session) -> list[Box]:
-    wash_boxes = [
-        box
-        for box in db.scalars(select(Box).order_by(Box.name.asc())).all()
-        if _resource_group_key(box.resource_group or _default_box_resource_group(box)) == WASH_RESOURCE_GROUP
-    ]
-    order_map = {name: index for index, name in enumerate(WASH_BOX_NAMES)}
+    boxes = db.scalars(select(Box).order_by(Box.name.asc())).all()
+    wash_order_map = {name: index for index, name in enumerate(WASH_BOX_NAMES)}
+    detailing_order_map = {name: index for index, name in enumerate(DETAILING_BOX_NAMES)}
+
+    def box_order(box: Box) -> tuple[int, int, str, str]:
+        resource_group = _resource_group_key(
+            box.resource_group or _default_box_resource_group(box)
+        )
+        if resource_group == DETAILING_RESOURCE_GROUP:
+            group_order = 1
+            name_order = detailing_order_map.get(box.name, len(detailing_order_map))
+        else:
+            group_order = 0
+            name_order = wash_order_map.get(box.name, len(wash_order_map))
+        return (group_order, name_order, _normalized_text(box.name).lower(), box.id)
+
     return sorted(
-        wash_boxes,
-        key=lambda box: (
-            order_map.get(_normalized_text(box.name), len(order_map)),
-            _normalized_text(box.name).lower(),
-            box.id,
-        ),
+        boxes,
+        key=box_order,
     )
 
 
@@ -1437,16 +1785,59 @@ def _schedule_payload(entry: ScheduleEntry) -> SchedulePayload:
 
 
 def _settings_payload(db: Session) -> SettingsBundlePayload:
-    admin_profile_default = {"name": "Администратор", "email": "", "phone": "", "telegramChatId": ""}
-    admin_notification_default = {"newBooking": True, "cancelled": True, "paymentDue": False, "workerAssigned": True, "reminders": True}
-    owner_company_default = {"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "", "email": ""}
-    owner_notification_default = {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True}
-    owner_integrations_default = {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False}
+    admin_profile_default = {
+        "name": "Администратор",
+        "email": "",
+        "phone": "",
+        "telegramChatId": "",
+    }
+    admin_notification_default = {
+        "newBooking": True,
+        "cancelled": True,
+        "paymentDue": False,
+        "workerAssigned": True,
+        "reminders": True,
+    }
+    owner_company_default = {
+        "name": "ATMOSFERA",
+        "legalName": "",
+        "inn": "",
+        "address": "",
+        "phone": "",
+        "email": "",
+    }
+    owner_notification_default = {
+        "telegramBot": True,
+        "emailReports": True,
+        "smsReminders": False,
+        "lowStock": True,
+        "dailyReport": True,
+        "weeklyReport": False,
+        "bookingReminders": True,
+    }
+    owner_integrations_default = {
+        "telegram": True,
+        "yookassa": False,
+        "amoCrm": False,
+        "googleCalendar": False,
+    }
     owner_security_default = {"twoFactor": False}
-    worker_notification_default = {"newTask": True, "taskUpdate": True, "payment": True, "reminders": True, "sms": False}
+    worker_notification_default = {
+        "newTask": True,
+        "taskUpdate": True,
+        "payment": True,
+        "reminders": True,
+        "sms": False,
+    }
 
-    admin_profile = _merge_setting_dict(_setting(db, "admin_profile", admin_profile_default), admin_profile_default)
-    admin_staff = db.scalar(select(StaffUser).where(StaffUser.role == "admin").order_by(StaffUser.created_at.asc()))
+    admin_profile = _merge_setting_dict(
+        _setting(db, "admin_profile", admin_profile_default), admin_profile_default
+    )
+    admin_staff = db.scalar(
+        select(StaffUser)
+        .where(StaffUser.role == "admin")
+        .order_by(StaffUser.created_at.asc())
+    )
     owner_staff = _primary_owner(db)
     if admin_staff is not None:
         admin_profile = {
@@ -1456,8 +1847,12 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
             "phone": admin_staff.phone,
             "telegramChatId": admin_staff.telegram_chat_id or "",
         }
-    owner_security = _merge_setting_dict(_setting(db, "owner_security", owner_security_default), owner_security_default)
-    if owner_security.get("twoFactor") and not (owner_staff and owner_staff.telegram_chat_id.strip()):
+    owner_security = _merge_setting_dict(
+        _setting(db, "owner_security", owner_security_default), owner_security_default
+    )
+    if owner_security.get("twoFactor") and not (
+        owner_staff and owner_staff.telegram_chat_id.strip()
+    ):
         owner_security = {"twoFactor": False}
     raw_worker_notifications = _setting(db, "worker_notification_settings", {})
     if not isinstance(raw_worker_notifications, dict):
@@ -1465,20 +1860,34 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
     return SettingsBundlePayload(
         adminProfile=AdminProfilePayload.model_validate(admin_profile),
         adminNotificationSettings=AdminNotificationSettings.model_validate(
-            _merge_setting_dict(_setting(db, "admin_notification_settings", admin_notification_default), admin_notification_default)
+            _merge_setting_dict(
+                _setting(db, "admin_notification_settings", admin_notification_default),
+                admin_notification_default,
+            )
         ),
         ownerCompany=OwnerCompanyPayload.model_validate(
-            _merge_setting_dict(_setting(db, "owner_company", owner_company_default), owner_company_default)
+            _merge_setting_dict(
+                _setting(db, "owner_company", owner_company_default),
+                owner_company_default,
+            )
         ),
         ownerNotificationSettings=OwnerNotificationSettings.model_validate(
-            _merge_setting_dict(_setting(db, "owner_notification_settings", owner_notification_default), owner_notification_default)
+            _merge_setting_dict(
+                _setting(db, "owner_notification_settings", owner_notification_default),
+                owner_notification_default,
+            )
         ),
         ownerIntegrations=OwnerIntegrationsPayload.model_validate(
-            _merge_setting_dict(_setting(db, "owner_integrations", owner_integrations_default), owner_integrations_default)
+            _merge_setting_dict(
+                _setting(db, "owner_integrations", owner_integrations_default),
+                owner_integrations_default,
+            )
         ),
         ownerSecurity=OwnerSecurityPayload.model_validate(owner_security),
         workerNotificationSettings={
-            worker_id: WorkerNotificationSettings.model_validate(_merge_setting_dict(value, worker_notification_default))
+            worker_id: WorkerNotificationSettings.model_validate(
+                _merge_setting_dict(value, worker_notification_default)
+            )
             for worker_id, value in raw_worker_notifications.items()
         },
     )
@@ -1486,7 +1895,9 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
 
 def _empty_settings_payload() -> SettingsBundlePayload:
     return SettingsBundlePayload(
-        adminProfile=AdminProfilePayload(name="", email="", phone="", telegramChatId=""),
+        adminProfile=AdminProfilePayload(
+            name="", email="", phone="", telegramChatId=""
+        ),
         adminNotificationSettings=AdminNotificationSettings(
             newBooking=False,
             cancelled=False,
@@ -1522,7 +1933,9 @@ def _empty_settings_payload() -> SettingsBundlePayload:
     )
 
 
-def _scoped_settings_payload(db: Session, role: str, actor_id: str) -> SettingsBundlePayload:
+def _scoped_settings_payload(
+    db: Session, role: str, actor_id: str
+) -> SettingsBundlePayload:
     full = _settings_payload(db)
     if role == "owner":
         return full
@@ -1576,8 +1989,12 @@ def _session_payload(session_data: dict) -> SessionPayload:
 def _mark_overdue_bookings_for_admin_review(db: Session) -> None:
     now_local = datetime.now().replace(second=0, microsecond=0)
     changed = False
-    for booking in db.scalars(select(Booking).where(Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)))).all():
-        booking_range = _booking_time_range(booking.date, booking.time, booking.duration)
+    for booking in db.scalars(
+        select(Booking).where(Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)))
+    ).all():
+        booking_range = _booking_time_range(
+            booking.date, booking.time, booking.duration
+        )
         if booking_range is None:
             continue
         _start_at, end_at = booking_range
@@ -1604,13 +2021,23 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     ).all()
     all_penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(all_penalties)
-    payroll_summaries = _worker_payroll_summaries(db, workers, complaints_by_worker) if role in {"admin", "owner", "worker", "accountant"} else {}
+    payroll_summaries = (
+        _worker_payroll_summaries(db, workers, complaints_by_worker)
+        if role in {"admin", "owner", "worker", "accountant"}
+        else {}
+    )
     clients: list[ClientSummaryPayload] = []
 
-    bookings_query = select(Booking).options(joinedload(Booking.worker_links)).order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    bookings_query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    )
     notifications_query = select(Notification).order_by(Notification.created_at.desc())
     stock_query = select(StockItem).order_by(StockItem.name)
-    expense_query = select(Expense).order_by(Expense.date.desc(), Expense.created_at.desc())
+    expense_query = select(Expense).order_by(
+        Expense.date.desc(), Expense.created_at.desc()
+    )
 
     client = None
     staff_profile = None
@@ -1619,31 +2046,67 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     if role == "client":
         client = db.get(Client, actor_id)
         bookings_query = bookings_query.where(Booking.client_id == actor_id)
-        notifications_query = notifications_query.where(Notification.recipient_role == "client", Notification.recipient_id == actor_id)
+        notifications_query = notifications_query.where(
+            Notification.recipient_role == "client",
+            Notification.recipient_id == actor_id,
+        )
         stock_items = []
         expenses = []
     else:
         staff_profile = db.get(StaffUser, actor_id)
         if role == "worker":
-            bookings_query = bookings_query.join(Booking.worker_links).where(BookingWorker.worker_id == actor_id)
-            notifications_query = notifications_query.where(Notification.recipient_role == "worker", Notification.recipient_id == actor_id)
+            bookings_query = bookings_query.join(Booking.worker_links).where(
+                BookingWorker.worker_id == actor_id
+            )
+            notifications_query = notifications_query.where(
+                Notification.recipient_role == "worker",
+                Notification.recipient_id == actor_id,
+            )
         elif role in {"admin", "accountant"}:
             notifications_query = notifications_query.where(
                 Notification.recipient_role.in_(("admin", "accountant")),
-                or_(Notification.recipient_id.is_(None), Notification.recipient_id == actor_id),
+                or_(
+                    Notification.recipient_id.is_(None),
+                    Notification.recipient_id == actor_id,
+                ),
             )
-            clients = [_client_summary_payload(item) for item in db.scalars(select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())).all()]
+            clients = [
+                _client_summary_payload(item, db)
+                for item in db.scalars(
+                    select(Client).order_by(
+                        Client.updated_at.desc(), Client.created_at.desc()
+                    )
+                ).all()
+            ]
         else:
             notifications_query = notifications_query.where(
                 Notification.recipient_role == "owner",
-                or_(Notification.recipient_id.is_(None), Notification.recipient_id == actor_id),
+                or_(
+                    Notification.recipient_id.is_(None),
+                    Notification.recipient_id == actor_id,
+                ),
             )
 
         if role in {"owner", "accountant"}:
-            clients = [_client_summary_payload(item) for item in db.scalars(select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())).all()]
-            stock_items = [_stock_payload(item) for item in db.scalars(stock_query).all()]
-            expenses = [_expense_payload(item) for item in db.scalars(expense_query).all()]
-            penalties = [_penalty_payload(item) for item in all_penalties] if role == "owner" else []
+            clients = [
+                _client_summary_payload(item, db)
+                for item in db.scalars(
+                    select(Client).order_by(
+                        Client.updated_at.desc(), Client.created_at.desc()
+                    )
+                ).all()
+            ]
+            stock_items = [
+                _stock_payload(item) for item in db.scalars(stock_query).all()
+            ]
+            expenses = [
+                _expense_payload(item) for item in db.scalars(expense_query).all()
+            ]
+            penalties = (
+                [_penalty_payload(item) for item in all_penalties]
+                if role == "owner"
+                else []
+            )
         else:
             stock_items = []
             expenses = []
@@ -1656,20 +2119,32 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
             else:
                 penalties = []
 
-    bookings = [_booking_payload(item, complaints_by_worker) for item in db.scalars(bookings_query).unique().all()]
-    notifications = [_notification_payload(item) for item in db.scalars(notifications_query).all()]
+    bookings = [
+        _booking_payload(item, complaints_by_worker)
+        for item in db.scalars(bookings_query).unique().all()
+    ]
+    notifications = [
+        _notification_payload(item) for item in db.scalars(notifications_query).all()
+    ]
 
     return BootstrapPayload(
         session=_session_payload(session_data),
         clientProfile=_client_payload(client),
-        staffProfile=_worker_payload_with_payroll(staff_profile, payroll_summaries) if staff_profile else None,
+        staffProfile=_worker_payload_with_payroll(staff_profile, payroll_summaries)
+        if staff_profile
+        else None,
         clients=clients,
         bookings=bookings,
         notifications=notifications,
         stockItems=stock_items,
         expenses=expenses,
         penalties=penalties,
-        workers=[_worker_payload_with_payroll(worker, payroll_summaries) for worker in workers] if role in {"admin", "owner", "accountant"} else [],
+        workers=[
+            _worker_payload_with_payroll(worker, payroll_summaries)
+            for worker in workers
+        ]
+        if role in {"admin", "owner", "accountant"}
+        else [],
         services=[_service_payload(service) for service in services],
         boxes=[_box_payload(box) for box in boxes],
         schedule=[_schedule_payload(entry) for entry in schedule],
@@ -1681,7 +2156,9 @@ def _auth_token(session_data: dict) -> str:
     return create_session_token(session_data, settings.app_secret)
 
 
-def _issue_auth_response(db: Session, request: Request, session_data: dict) -> AuthResponse:
+def _issue_auth_response(
+    db: Session, request: Request, session_data: dict
+) -> AuthResponse:
     auth_session = _create_auth_session(db, session_data, request)
     session_data["sessionId"] = auth_session.id
     db.commit()
@@ -1698,26 +2175,45 @@ def _require_session(
     db: Session = Depends(get_db),
 ) -> dict:
     if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token"
+        )
     token = authorization.split(" ", 1)[1]
     try:
         session_data = decode_session_token(token, settings.app_secret)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
+        ) from exc
     session_id = session_data.get("sessionId")
     if not isinstance(session_id, str) or not session_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is not registered")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is not registered"
+        )
     auth_session = db.get(AuthSession, session_id)
     if auth_session is None or auth_session.revoked_at is not None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been closed")
-    if auth_session.actor_role != session_data.get("role") or auth_session.actor_id != session_data.get("actorId"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session does not match user")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been closed"
+        )
+    if auth_session.actor_role != session_data.get(
+        "role"
+    ) or auth_session.actor_id != session_data.get("actorId"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session does not match user",
+        )
     if session_data.get("role") != "client":
         staff = db.get(StaffUser, session_data.get("actorId"))
         if staff is None or staff.role != session_data.get("role"):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session does not match user")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session does not match user",
+            )
         if not staff.active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Доступ к аккаунту отключён",
+            )
     now = _now()
     last_seen_at = _as_utc(auth_session.last_seen_at)
     if now - last_seen_at > timedelta(seconds=30):
@@ -1731,7 +2227,9 @@ def _ensure_staff_role(session_data: dict, allowed: set[str]) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
-def _validated_booking_workers(db: Session, workers: list[BookingWorkerPayload]) -> list[BookingWorkerPayload]:
+def _validated_booking_workers(
+    db: Session, workers: list[BookingWorkerPayload]
+) -> list[BookingWorkerPayload]:
     if not workers:
         return []
 
@@ -1740,21 +2238,31 @@ def _validated_booking_workers(db: Session, workers: list[BookingWorkerPayload])
     for worker in workers:
         worker_id = worker.workerId.strip()
         if not worker_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите мастера")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите мастера"
+            )
         if worker_id in worker_inputs:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Один и тот же мастер указан несколько раз")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Один и тот же мастер указан несколько раз",
+            )
         ordered_ids.append(worker_id)
         worker_inputs[worker_id] = worker
 
     db_workers = {
         worker.id: worker
-        for worker in db.scalars(select(StaffUser).where(StaffUser.id.in_(ordered_ids))).all()
+        for worker in db.scalars(
+            select(StaffUser).where(StaffUser.id.in_(ordered_ids))
+        ).all()
     }
     validated: list[BookingWorkerPayload] = []
     for worker_id in ordered_ids:
         worker = db_workers.get(worker_id)
         if worker is None or worker.role != "worker" or not worker.active:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Мастер не найден или недоступен")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Мастер не найден или недоступен",
+            )
         worker_input = worker_inputs[worker_id]
         validated.append(
             BookingWorkerPayload(
@@ -1772,7 +2280,9 @@ def _booking_payload_for_response(db: Session, booking: Booking) -> BookingPaylo
     return _booking_payload(booking, _complaints_by_worker(penalties))
 
 
-def _sync_booking_workers(db: Session, booking: Booking, workers: list[BookingWorkerPayload]) -> None:
+def _sync_booking_workers(
+    db: Session, booking: Booking, workers: list[BookingWorkerPayload]
+) -> None:
     booking.worker_links.clear()
     for worker in workers:
         booking.worker_links.append(
@@ -1796,26 +2306,43 @@ def _send_telegram_safe(chat_id: str | None, text: str) -> None:
 
 def _telegram_user_from_init_data(init_data: str) -> tuple[str, dict]:
     if not settings.telegram_bot_token:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="TELEGRAM_BOT_TOKEN is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="TELEGRAM_BOT_TOKEN is not configured",
+        )
     try:
         validated = validate_telegram_init_data(init_data, settings.telegram_bot_token)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
+        ) from exc
     telegram_user = validated.get("user") or {}
-    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    telegram_id = (
+        str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    )
     if not telegram_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing in initData")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Telegram user is missing in initData",
+        )
     return telegram_id, telegram_user
 
 
 def _telegram_display_name(telegram_user: dict, fallback: str) -> str:
     first_name = str(telegram_user.get("first_name") or "").strip()
     last_name = str(telegram_user.get("last_name") or "").strip()
-    return " ".join(part for part in [first_name, last_name] if part).strip() or fallback
+    return (
+        " ".join(part for part in [first_name, last_name] if part).strip() or fallback
+    )
 
 
 def _staff_session_data(staff: StaffUser) -> dict:
-    return {"role": staff.role, "actorId": staff.id, "login": staff.login, "displayName": staff.name}
+    return {
+        "role": staff.role,
+        "actorId": staff.id,
+        "login": staff.login,
+        "displayName": staff.name,
+    }
 
 
 def _client_session_data(client: Client) -> dict:
@@ -1837,15 +2364,18 @@ def _owner_two_factor_recipient(db: Session) -> StaffUser:
     return owner
 
 
-def _owner_export_recipients(db: Session, actor_id: str) -> list[StaffUser]:
-    recipients: list[StaffUser] = []
-    current_owner = db.get(StaffUser, actor_id)
-    if current_owner is not None and current_owner.role == "owner" and current_owner.telegram_chat_id.strip():
-        recipients.append(current_owner)
-    primary_owner = _owner_two_factor_recipient(db)
-    if not any(item.id == primary_owner.id for item in recipients):
-        recipients.append(primary_owner)
-    return recipients
+def _all_owner_telegram_recipients(db: Session) -> list[StaffUser]:
+    """Возвращает всех владельцев с непустым telegram_chat_id, отсортированных по created_at asc."""
+    return list(
+        db.scalars(
+            select(StaffUser)
+            .where(
+                StaffUser.role == "owner",
+                StaffUser.telegram_chat_id != "",
+            )
+            .order_by(StaffUser.created_at.asc())
+        ).all()
+    )
 
 
 def _booking_reminder_target_date(days_ahead: int = 1) -> str:
@@ -1872,6 +2402,94 @@ def _shift_checklists_state(db: Session) -> list[dict[str, Any]]:
 def _admin_shift_inspections_state(db: Session) -> list[dict[str, Any]]:
     value = _setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, [])
     return value if isinstance(value, list) else []
+
+
+def _compute_shift_attendance(
+    inspections: list[dict],
+    worker_id: str,
+    date_from: date,
+    date_to: date,
+) -> tuple[int, list[str]]:
+    """
+    Вычисляет посещаемость мастера за период.
+
+    Критерий включения инспекции:
+    - ``createdAt`` попадает в ``[date_from, date_to]`` (включительно)
+    - в ``masters`` есть объект с ``workerId == worker_id`` и ``checked == True``
+
+    Возвращает ``(shiftCount, shiftDates)``, где ``shiftDates`` — список дат
+    в формате ``DD.MM.YYYY``, отсортированный по убыванию.
+    """
+    shift_dates: list[date] = []
+
+    for inspection in inspections:
+        raw_created_at = inspection.get("createdAt")
+        if raw_created_at is None:
+            continue
+
+        # Разбираем дату создания инспекции
+        if isinstance(raw_created_at, datetime):
+            inspection_date = raw_created_at.date()
+        elif isinstance(raw_created_at, date):
+            inspection_date = raw_created_at
+        else:
+            # Строковый формат ISO 8601 (например "2024-05-01T10:00:00Z")
+            try:
+                dt_str = str(raw_created_at)
+                # Убираем суффикс Z и обрезаем до 19 символов
+                dt_str = dt_str.rstrip("Z").split("+")[0][:19]
+                inspection_date = datetime.fromisoformat(dt_str).date()
+            except (ValueError, AttributeError):
+                continue
+
+        # Проверяем попадание в период
+        if not (date_from <= inspection_date <= date_to):
+            continue
+
+        # Проверяем наличие мастера с checked=True
+        masters = inspection.get("masters")
+        if not isinstance(masters, list):
+            continue
+
+        worker_checked = any(
+            isinstance(m, dict)
+            and m.get("workerId") == worker_id
+            and m.get("checked") is True
+            for m in masters
+        )
+        if not worker_checked:
+            continue
+
+        shift_dates.append(inspection_date)
+
+    # Сортируем по убыванию и форматируем
+    shift_dates.sort(reverse=True)
+    shift_dates_str = [d.strftime("%d.%m.%Y") for d in shift_dates]
+
+    return len(shift_dates_str), shift_dates_str
+
+
+def _period_to_date_range(period: str) -> tuple[date, date]:
+    """
+    Преобразует строковый период в диапазон дат (date_from, date_to).
+
+    - ``week``  → последние 7 дней
+    - ``month`` → последние 30 дней
+    - ``year``  → последние 365 дней
+
+    Неверный period → HTTP 422.
+    """
+    today = date.today()
+    if period == "week":
+        return today - timedelta(days=6), today
+    if period == "month":
+        return today - timedelta(days=29), today
+    if period == "year":
+        return today - timedelta(days=364), today
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="period must be week, month or year",
+    )
 
 
 def _admin_shift_owner_bot_state(db: Session) -> dict[str, Any]:
@@ -1929,7 +2547,15 @@ def _dispatch_booking_reminders(
     owner_settings = _setting(
         db,
         "owner_notification_settings",
-        {"telegramBot": True, "emailReports": True, "smsReminders": False, "lowStock": True, "dailyReport": True, "weeklyReport": False, "bookingReminders": True},
+        {
+            "telegramBot": True,
+            "emailReports": True,
+            "smsReminders": False,
+            "lowStock": True,
+            "dailyReport": True,
+            "weeklyReport": False,
+            "bookingReminders": True,
+        },
     )
     if not owner_settings.get("bookingReminders", True) and not force:
         return OwnerReminderDispatchPayload(
@@ -1952,21 +2578,33 @@ def _dispatch_booking_reminders(
     worker_reminders = 0
     telegram_delivered = 0
 
-    bookings = db.scalars(
-        select(Booking)
-        .options(joinedload(Booking.worker_links))
-        .where(
-            Booking.date == reminder_date,
-            Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
+    bookings = (
+        db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .where(
+                Booking.date == reminder_date,
+                Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
+            )
+            .order_by(Booking.time.asc(), Booking.created_at.asc())
         )
-        .order_by(Booking.time.asc(), Booking.created_at.asc())
-    ).unique().all()
+        .unique()
+        .all()
+    )
 
-    worker_ids = {link.worker_id for booking in bookings for link in booking.worker_links}
-    workers_map = {
-        worker.id: worker
-        for worker in db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
-    } if worker_ids else {}
+    worker_ids = {
+        link.worker_id for booking in bookings for link in booking.worker_links
+    }
+    workers_map = (
+        {
+            worker.id: worker
+            for worker in db.scalars(
+                select(StaffUser).where(StaffUser.id.in_(worker_ids))
+            ).all()
+        }
+        if worker_ids
+        else {}
+    )
 
     for booking in bookings:
         client = db.get(Client, booking.client_id)
@@ -2052,8 +2690,10 @@ def _dispatch_return_visit_reminders(db: Session) -> int:
         client = db.get(Client, client_id)
         if client is None:
             continue
-        last_visit = _parse_booking_datetime(booking.date, booking.time) or _as_utc(booking.created_at).replace(tzinfo=None)
-        if last_visit > datetime.now() - timedelta(days=14):
+        last_visit = _parse_booking_datetime(booking.date, booking.time) or _as_utc(
+            booking.created_at
+        ).replace(tzinfo=None)
+        if last_visit > datetime.now() - timedelta(days=5):
             continue
         reminder_key = f"return:{client_id}:{booking.id}"
         if reminder_key in deliveries:
@@ -2096,8 +2736,12 @@ def _shift_checklist_payload(entry: dict[str, Any]) -> ShiftChecklistPayload:
                 stockItemId=str(item.get("stockItemId") or ""),
                 name=str(item.get("name") or ""),
                 unit=str(item.get("unit") or ""),
-                startQty=int(item.get("startQty")) if item.get("startQty") is not None else None,
-                endQty=int(item.get("endQty")) if item.get("endQty") is not None else None,
+                startQty=int(item.get("startQty"))
+                if item.get("startQty") is not None
+                else None,
+                endQty=int(item.get("endQty"))
+                if item.get("endQty") is not None
+                else None,
                 actualQty=int(item.get("actualQty") or 0),
             )
             for item in entry.get("items", [])
@@ -2107,11 +2751,19 @@ def _shift_checklist_payload(entry: dict[str, Any]) -> ShiftChecklistPayload:
 
 
 def _chemistry_stock_items(db: Session) -> list[StockItem]:
-    return db.scalars(select(StockItem).where(StockItem.category == "Химия").order_by(StockItem.name.asc())).all()
+    return db.scalars(
+        select(StockItem)
+        .where(StockItem.category == "Химия")
+        .order_by(StockItem.name.asc())
+    ).all()
 
 
-def _latest_shift_checklist_entry(entries: list[dict[str, Any]], worker_id: str, phase: str) -> dict[str, Any] | None:
-    for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True):
+def _latest_shift_checklist_entry(
+    entries: list[dict[str, Any]], worker_id: str, phase: str
+) -> dict[str, Any] | None:
+    for entry in sorted(
+        entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True
+    ):
         if entry.get("workerId") == worker_id and entry.get("phase") == phase:
             return entry
     return None
@@ -2124,15 +2776,21 @@ def _clean_data_url_prefix(data_url: str) -> str:
 def _decode_data_url_image(data_url: str) -> tuple[str, bytes]:
     raw = data_url.strip()
     if not raw.startswith("data:image/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нужно загрузить фото")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Нужно загрузить фото"
+        )
     header, _, encoded = raw.partition(",")
     if not encoded:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Фото повреждено")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Фото повреждено"
+        )
     mime_type = header[5:].split(";", 1)[0] or "image/jpeg"
     try:
         content = base64.b64decode(encoded)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Не удалось прочитать фото") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Не удалось прочитать фото"
+        ) from exc
     return mime_type, content
 
 
@@ -2165,7 +2823,9 @@ def _admin_shift_inspection_supplies(db: Session) -> list[dict[str, Any]]:
     ]
 
 
-def _admin_shift_inspection_payload(entry: dict[str, Any]) -> AdminShiftInspectionPayload:
+def _admin_shift_inspection_payload(
+    entry: dict[str, Any],
+) -> AdminShiftInspectionPayload:
     inspection_id = str(entry.get("id") or "")
     return AdminShiftInspectionPayload(
         id=inspection_id,
@@ -2174,7 +2834,9 @@ def _admin_shift_inspection_payload(entry: dict[str, Any]) -> AdminShiftInspecti
         status=str(entry.get("status") or "pending"),  # type: ignore[arg-type]
         createdAt=_parse_state_datetime(entry.get("createdAt")) or _now(),
         reviewedAt=_parse_state_datetime(entry.get("reviewedAt")),
-        floorPhotoUrl=f"/api/admin/shift-inspections/{inspection_id}/photo" if str(entry.get("floorPhotoUrl") or "").strip() else "",
+        floorPhotoUrl=f"/api/admin/shift-inspections/{inspection_id}/photo"
+        if str(entry.get("floorPhotoUrl") or "").strip()
+        else "",
         clothsReady=bool(entry.get("clothsReady")),
         suppliesChecked=bool(entry.get("suppliesChecked")),
         note=str(entry.get("note") or ""),
@@ -2205,8 +2867,16 @@ def _admin_shift_inspection_payload(entry: dict[str, Any]) -> AdminShiftInspecti
 
 
 def _admin_shift_caption(entry: dict[str, Any]) -> str:
-    checked_supplies = [item.get("name") for item in entry.get("supplies", []) if isinstance(item, dict) and item.get("checked")]
-    checked_masters = [item.get("workerName") for item in entry.get("masters", []) if isinstance(item, dict) and item.get("checked")]
+    checked_supplies = [
+        item.get("name")
+        for item in entry.get("supplies", [])
+        if isinstance(item, dict) and item.get("checked")
+    ]
+    checked_masters = [
+        item.get("workerName")
+        for item in entry.get("masters", [])
+        if isinstance(item, dict) and item.get("checked")
+    ]
     created_at = _parse_state_datetime(entry.get("createdAt")) or _now()
     lines = [
         "Открытие смены администратором",
@@ -2226,7 +2896,10 @@ def _admin_shift_owner_inline_keyboard(inspection_id: str) -> dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "Подтвердить", "callback_data": f"shiftapprove:{inspection_id}"},
+                {
+                    "text": "Подтвердить",
+                    "callback_data": f"shiftapprove:{inspection_id}",
+                },
                 {"text": "Отказать", "callback_data": f"shiftreject:{inspection_id}"},
             ]
         ]
@@ -2235,8 +2908,12 @@ def _admin_shift_owner_inline_keyboard(inspection_id: str) -> dict[str, Any]:
 
 def _notify_owner_about_admin_shift(db: Session, entry: dict[str, Any]) -> None:
     caption = _admin_shift_caption(entry)
-    mime_type, photo_bytes = _decode_data_url_image(str(entry.get("floorPhotoUrl") or ""))
-    owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))).all()
+    mime_type, photo_bytes = _decode_data_url_image(
+        str(entry.get("floorPhotoUrl") or "")
+    )
+    owners = db.scalars(
+        select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))
+    ).all()
     for owner in owners:
         db.add(
             Notification(
@@ -2259,7 +2936,9 @@ def _notify_owner_about_admin_shift(db: Session, entry: dict[str, Any]) -> None:
                     reply_markup=_admin_shift_owner_inline_keyboard(str(entry["id"])),
                 )
             except Exception:
-                logger.exception("Failed to send admin shift inspection photo to owner %s", owner.id)
+                logger.exception(
+                    "Failed to send admin shift inspection photo to owner %s", owner.id
+                )
 
 
 def _apply_admin_shift_review(
@@ -2273,11 +2952,19 @@ def _apply_admin_shift_review(
     entries = _admin_shift_inspections_state(db)
     entry = next((item for item in entries if item.get("id") == inspection_id), None)
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Чек-лист смены не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Чек-лист смены не найден"
+        )
     if str(entry.get("status") or "") != "pending":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Решение по смене уже принято")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Решение по смене уже принято",
+        )
     if action == "rejected" and not issue_note.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Опишите проблему при отказе")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Опишите проблему при отказе",
+        )
 
     entry["status"] = action
     entry["issueNote"] = issue_note.strip()
@@ -2289,9 +2976,15 @@ def _apply_admin_shift_review(
     admin = db.get(StaffUser, admin_id) if admin_id else None
     owner = db.get(StaffUser, owner_actor_id)
     owner_name = owner.name if owner is not None else "Владелец"
-    result_line = "подтвердил открытие смены" if action == "approved" else "отклонил открытие смены"
+    result_line = (
+        "подтвердил открытие смены"
+        if action == "approved"
+        else "отклонил открытие смены"
+    )
     extra = f"\nПроблема: {issue_note.strip()}" if issue_note.strip() else ""
-    message = f"{owner_name} {result_line} администратора {entry.get('adminName')}.{extra}"
+    message = (
+        f"{owner_name} {result_line} администратора {entry.get('adminName')}.{extra}"
+    )
     if admin is not None:
         db.add(
             Notification(
@@ -2332,7 +3025,9 @@ def _owner_database_reset_state(db: Session) -> dict[str, Any] | None:
     return row.value
 
 
-def _save_owner_database_reset_state(db: Session, value: dict[str, Any]) -> dict[str, Any]:
+def _save_owner_database_reset_state(
+    db: Session, value: dict[str, Any]
+) -> dict[str, Any]:
     return _upsert_setting(db, OWNER_DATABASE_RESET_SETTING_KEY, value)
 
 
@@ -2354,10 +3049,24 @@ def _owner_database_reset_preview(
     current_session_id: str | None = None,
 ) -> OwnerDatabaseResetPreviewPayload:
     active_session_ids = db.scalars(select(AuthSession.id)).all()
-    sessions_closed = len([item_id for item_id in active_session_ids if not current_session_id or item_id != current_session_id])
+    sessions_closed = len(
+        [
+            item_id
+            for item_id in active_session_ids
+            if not current_session_id or item_id != current_session_id
+        ]
+    )
     return OwnerDatabaseResetPreviewPayload(
-        ownersPreserved=len(db.scalars(select(StaffUser.id).where(StaffUser.role == "owner")).all()),
-        employeesDeleted=len(db.scalars(select(StaffUser.id).where(StaffUser.role.in_(("admin", "worker", "accountant")))).all()),
+        ownersPreserved=len(
+            db.scalars(select(StaffUser.id).where(StaffUser.role == "owner")).all()
+        ),
+        employeesDeleted=len(
+            db.scalars(
+                select(StaffUser.id).where(
+                    StaffUser.role.in_(("admin", "worker", "accountant"))
+                )
+            ).all()
+        ),
         clientsDeleted=len(db.scalars(select(Client.id)).all()),
         bookingsDeleted=len(db.scalars(select(Booking.id)).all()),
         notificationsDeleted=len(db.scalars(select(Notification.id)).all()),
@@ -2372,7 +3081,9 @@ def _owner_database_reset_preview(
     )
 
 
-def _owner_database_reset_warnings(preview: OwnerDatabaseResetPreviewPayload) -> list[str]:
+def _owner_database_reset_warnings(
+    preview: OwnerDatabaseResetPreviewPayload,
+) -> list[str]:
     return [
         (
             "Будут удалены все клиенты, записи, уведомления, склад, расходы и жалобы "
@@ -2390,7 +3101,9 @@ def _owner_database_reset_warnings(preview: OwnerDatabaseResetPreviewPayload) ->
     ]
 
 
-def _perform_owner_database_reset(db: Session, *, current_session_id: str | None) -> None:
+def _perform_owner_database_reset(
+    db: Session, *, current_session_id: str | None
+) -> None:
     db.execute(sa_delete(TelegramLinkCode))
     if current_session_id:
         db.execute(sa_delete(AuthSession).where(AuthSession.id != current_session_id))
@@ -2408,7 +3121,11 @@ def _perform_owner_database_reset(db: Session, *, current_session_id: str | None
     db.execute(sa_delete(Box))
     db.execute(sa_delete(ScheduleEntry))
     db.execute(sa_delete(AppSetting))
-    db.execute(sa_delete(StaffUser).where(StaffUser.role.in_(("admin", "worker", "accountant"))))
+    db.execute(
+        sa_delete(StaffUser).where(
+            StaffUser.role.in_(("admin", "worker", "accountant"))
+        )
+    )
 
     for owner in db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all():
         owner.two_factor_code_hash = None
@@ -2425,27 +3142,54 @@ def _perform_owner_database_reset(db: Session, *, current_session_id: str | None
 def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport:
     owner = db.get(StaffUser, actor_id)
     if owner is None or owner.role != "owner":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
     if kind not in {"report", "pdf"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown export type")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unknown export type"
+        )
 
     _mark_overdue_bookings_for_admin_review(db)
 
     company_settings = _setting(
         db,
         "owner_company",
-        {"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "", "email": ""},
+        {
+            "name": "ATMOSFERA",
+            "legalName": "",
+            "inn": "",
+            "address": "",
+            "phone": "",
+            "email": "",
+        },
     )
-    bookings = db.scalars(
-        select(Booking)
-        .options(joinedload(Booking.worker_links))
-        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
-    ).unique().all()
-    expenses = db.scalars(select(Expense).order_by(Expense.created_at.desc(), Expense.date.desc())).all()
+    bookings = (
+        db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .order_by(
+                Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
+            )
+        )
+        .unique()
+        .all()
+    )
+    expenses = db.scalars(
+        select(Expense).order_by(Expense.created_at.desc(), Expense.date.desc())
+    ).all()
     penalties = _load_penalties(db)
-    workers = db.scalars(select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name)).all()
+    workers = db.scalars(
+        select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name)
+    ).all()
     stock_items = db.scalars(select(StockItem).order_by(StockItem.name)).all()
     services = db.scalars(select(Service).order_by(Service.name)).all()
+    incomes = db.scalars(
+        select(Income).order_by(Income.created_at.desc(), Income.date.desc())
+    ).all()
+    payroll_entries_list = db.scalars(
+        select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
+    ).all()
     export_kind = "report" if kind == "report" else "pdf"
     return build_owner_export(
         kind=export_kind,
@@ -2457,6 +3201,8 @@ def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport
         workers=workers,
         stock_items=stock_items,
         services=services,
+        incomes=incomes,
+        payroll_entries=list(payroll_entries_list),
     )
 
 
@@ -2464,13 +3210,31 @@ def _download_response(export_file: GeneratedExport) -> Response:
     return Response(
         content=export_file.content,
         media_type=export_file.media_type,
-        headers={"Content-Disposition": f'attachment; filename="{export_file.file_name}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{export_file.file_name}"'
+        },
     )
 
 
-def _send_export_to_telegram(db: Session, actor_id: str, export_file: GeneratedExport) -> OwnerExportDeliveryPayload:
-    last_error: Exception | None = None
-    for recipient in _owner_export_recipients(db, actor_id):
+class _PartialBroadcastError(Exception):
+    """Raised when a broadcast partially fails; carries the broadcast payload."""
+
+    def __init__(self, payload: TelegramBroadcastPayload) -> None:
+        super().__init__("partial broadcast failure")
+        self.payload = payload
+
+
+def _send_export_to_telegram(
+    db: Session, actor_id: str, export_file: GeneratedExport
+) -> OwnerExportDeliveryPayload:
+    recipients = _all_owner_telegram_recipients(db)
+    if not recipients:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Нет получателей с привязанным Telegram",
+        )
+    results: list[TelegramDeliveryResult] = []
+    for recipient in recipients:
         try:
             send_telegram_document(
                 recipient.telegram_chat_id,
@@ -2479,70 +3243,141 @@ def _send_export_to_telegram(db: Session, actor_id: str, export_file: GeneratedE
                 caption=export_file.telegram_caption,
                 mime_type=export_file.media_type.split(";", 1)[0],
             )
-            return OwnerExportDeliveryPayload(
-                message=f"Файл отправлен в Telegram владельца ({recipient.telegram_chat_id}).",
-                fileName=export_file.file_name,
-                telegramSent=True,
-                telegramChatId=recipient.telegram_chat_id,
-            )
+            results.append(TelegramDeliveryResult(owner_id=recipient.id, success=True, error=None))
         except Exception as exc:
-            last_error = exc
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"Не удалось отправить файл в Telegram: {last_error}",
-    ) from last_error
+            results.append(TelegramDeliveryResult(owner_id=recipient.id, success=False, error=str(exc)))
+    # Create notifications for successful deliveries
+    for result in results:
+        if result.success:
+            db.add(
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="owner",
+                    recipient_id=result.owner_id,
+                    message=f"Файл {export_file.file_name} отправлен в Telegram.",
+                    read=False,
+                    created_at=_now(),
+                )
+            )
+    delivered = sum(1 for r in results if r.success)
+    failed = sum(1 for r in results if not r.success)
+    if delivered == 0:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Не удалось отправить ни одному получателю",
+        )
+    # Return legacy payload for backward compatibility when all succeeded
+    if failed == 0:
+        first_success = next(r for r in results if r.success)
+        recipient_obj = next(u for u in recipients if u.id == first_success.owner_id)
+        return OwnerExportDeliveryPayload(
+            message=f"Файл отправлен в Telegram ({delivered} получателей).",
+            fileName=export_file.file_name,
+            telegramSent=True,
+            telegramChatId=recipient_obj.telegram_chat_id,
+        )
+    # Partial failure — caller should handle HTTP 207
+    raise _PartialBroadcastError(
+        TelegramBroadcastPayload(results=results, delivered=delivered, failed=failed)
+    )
 
 
-def _owner_summary_report(db: Session, actor_id: str, period: str, segment: str) -> OwnerSummaryReport:
+def _owner_summary_report(
+    db: Session, actor_id: str, period: str, segment: str
+) -> OwnerSummaryReport:
     owner = db.get(StaffUser, actor_id)
     if owner is None or owner.role != "owner":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
     if period not in {"daily", "weekly"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report period")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report period"
+        )
     if segment not in {"wash", "detailing"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report segment")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report segment"
+        )
 
     _mark_overdue_bookings_for_admin_review(db)
     company_settings = _setting(
         db,
         "owner_company",
-        {"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "", "email": ""},
+        {
+            "name": "ATMOSFERA",
+            "legalName": "",
+            "inn": "",
+            "address": "",
+            "phone": "",
+            "email": "",
+        },
     )
-    bookings = db.scalars(
-        select(Booking)
-        .options(joinedload(Booking.worker_links))
-        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
-    ).unique().all()
+    bookings = (
+        db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .order_by(
+                Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
+            )
+        )
+        .unique()
+        .all()
+    )
     services = db.scalars(select(Service).order_by(Service.name)).all()
+    expenses = db.scalars(select(Expense).order_by(Expense.created_at.desc())).all()
+    incomes = db.scalars(select(Income).order_by(Income.created_at.desc())).all()
     return build_owner_summary_report(
         company_name=str(company_settings.get("name") or "ATMOSFERA"),
         bookings=bookings,
         services=services,
+        expenses=list(expenses),
+        incomes=list(incomes),
         period=period,
         segment=segment,
     )
 
 
-def _owner_summary_export_file(db: Session, actor_id: str, period: str, segment: str) -> GeneratedExport:
+def _owner_summary_export_file(
+    db: Session, actor_id: str, period: str, segment: str
+) -> GeneratedExport:
     owner = db.get(StaffUser, actor_id)
     if owner is None or owner.role != "owner":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
     if period not in {"daily", "weekly"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report period")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report period"
+        )
     if segment not in {"wash", "detailing"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report segment")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unknown report segment"
+        )
 
     _mark_overdue_bookings_for_admin_review(db)
     company_settings = _setting(
         db,
         "owner_company",
-        {"name": "ATMOSFERA", "legalName": "", "inn": "", "address": "", "phone": "", "email": ""},
+        {
+            "name": "ATMOSFERA",
+            "legalName": "",
+            "inn": "",
+            "address": "",
+            "phone": "",
+            "email": "",
+        },
     )
-    bookings = db.scalars(
-        select(Booking)
-        .options(joinedload(Booking.worker_links))
-        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
-    ).unique().all()
+    bookings = (
+        db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .order_by(
+                Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
+            )
+        )
+        .unique()
+        .all()
+    )
     services = db.scalars(select(Service).order_by(Service.name)).all()
     return build_owner_summary_export(
         owner=owner,
@@ -2559,30 +3394,64 @@ def _send_owner_summary_report(
     actor_id: str,
     report: OwnerSummaryReport,
     export_file: GeneratedExport,
-) -> GenericMessage:
-    db.add(
-        Notification(
-            id=f"n-{uuid4()}",
-            recipient_role="owner",
-            recipient_id=actor_id,
-            message=report.message,
-            read=False,
-            created_at=_now(),
+) -> Response:
+    recipients = _all_owner_telegram_recipients(db)
+    if not recipients:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Нет получателей с привязанным Telegram",
         )
-    )
-
-    try:
-        delivery = _send_export_to_telegram(db, actor_id, export_file)
-    except HTTPException as exc:
+    results: list[TelegramDeliveryResult] = []
+    for recipient in recipients:
+        try:
+            send_telegram_document(
+                recipient.telegram_chat_id,
+                file_name=export_file.file_name,
+                content=export_file.content,
+                caption=export_file.telegram_caption,
+                mime_type=export_file.media_type.split(";", 1)[0],
+            )
+            results.append(TelegramDeliveryResult(owner_id=recipient.id, success=True, error=None))
+        except Exception as exc:
+            results.append(TelegramDeliveryResult(owner_id=recipient.id, success=False, error=str(exc)))
+    # Create notifications for successful deliveries
+    for result in results:
+        if result.success:
+            db.add(
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="owner",
+                    recipient_id=result.owner_id,
+                    message=report.message,
+                    read=False,
+                    created_at=_now(),
+                )
+            )
+    delivered = sum(1 for r in results if r.success)
+    failed = sum(1 for r in results if not r.success)
+    if delivered == 0:
         db.commit()
-        return GenericMessage(message=f"{report.title} сформирован, но файл не отправлен в Telegram: {exc.detail}")
-
-    db.commit()
-    return GenericMessage(
-        message=(
-            f"{report.title} отправлен в Telegram файлом "
-            f"{delivery.fileName} ({delivery.telegramChatId})."
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Не удалось отправить ни одному получателю",
         )
+    db.commit()
+    if failed == 0:
+        # All succeeded — HTTP 200 for backward compatibility
+        msg = GenericMessage(
+            message=f"{report.title} отправлен в Telegram файлом {export_file.file_name} ({delivered} получателей)."
+        )
+        return Response(
+            content=msg.model_dump_json(),
+            status_code=status.HTTP_200_OK,
+            media_type="application/json",
+        )
+    # Partial failure — HTTP 207
+    broadcast_payload = TelegramBroadcastPayload(results=results, delivered=delivered, failed=failed)
+    return Response(
+        content=broadcast_payload.model_dump_json(),
+        status_code=status.HTTP_207_MULTI_STATUS,
+        media_type="application/json",
     )
 
 
@@ -2592,7 +3461,9 @@ def _booking_car_label(car: str | None, plate: str | None) -> str:
     return f"{car_value}, {plate_value}" if plate_value else car_value
 
 
-def _admin_booking_notification_title(client_name: str, car: str | None, plate: str | None) -> str:
+def _admin_booking_notification_title(
+    client_name: str, car: str | None, plate: str | None
+) -> str:
     return f"{client_name} - {_booking_car_label(car, plate)}"
 
 
@@ -2604,12 +3475,20 @@ def _booking_datetime_label(date: str | None, time: str | None) -> str:
     return f"{date} {time}"
 
 
-def _admin_booking_notification_text(client_name: str, car: str | None, plate: str | None, date: str | None, time: str | None) -> str:
+def _admin_booking_notification_text(
+    client_name: str,
+    car: str | None,
+    plate: str | None,
+    date: str | None,
+    time: str | None,
+) -> str:
     return f"{_admin_booking_notification_title(client_name, car, plate)} - {_booking_datetime_label(date, time)}"
 
 
 def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
-    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all()
+    admins = db.scalars(
+        select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))
+    ).all()
     text = (
         "Новая запись\n"
         f"Клиент: {booking.client_name}\n"
@@ -2637,9 +3516,7 @@ def _normalized_text(value: str | None) -> str:
 def _default_service_resource_group(service: Service | None) -> str:
     if service is None:
         return DEFAULT_RESOURCE_GROUP
-    if _is_detailing_service(service):
-        return DETAILING_RESOURCE_GROUP
-    return WASH_RESOURCE_GROUP
+    return _resource_group_for_service_category(service.category)
 
 
 def _default_box_resource_group(box: Box | None) -> str:
@@ -2655,24 +3532,42 @@ def _default_box_resource_group(box: Box | None) -> str:
 def _service_resource_group(service: Service | None) -> str:
     if service is None:
         return DEFAULT_RESOURCE_GROUP
-    return _resource_group_key(service.resource_group or _default_service_resource_group(service))
+    return _resource_group_key(
+        service.resource_group or _default_service_resource_group(service)
+    )
 
 
 def _compatible_box_names(db: Session, resource_group: str | None) -> list[str]:
     target_group = _resource_group_key(resource_group)
     return [
         box.name
-        for box in db.scalars(select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())).all()
-        if _normalized_text(box.name) and _resource_group_key(box.resource_group or _default_box_resource_group(box)) == target_group
+        for box in db.scalars(
+            select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())
+        ).all()
+        if _normalized_text(box.name)
+        and _resource_group_key(box.resource_group or _default_box_resource_group(box))
+        == target_group
     ]
 
 
 def _is_box_rental_service(service: Service | None) -> bool:
-    return service is not None and _service_category_key(service.category) == "аренда бокса"
+    return (
+        service is not None
+        and _service_category_key(service.category) == "аренда бокса"
+    )
 
 
 def _is_detailing_service(service: Service | None) -> bool:
-    return service is not None and _service_category_key(service.category) == "детейлинг"
+    return (
+        service is not None and _service_category_key(service.category) == "детейлинг"
+    )
+
+
+def _resource_group_for_service_category(category: str | None) -> str:
+    category_key = _service_category_key(category)
+    if category_key == "детейлинг":
+        return DETAILING_RESOURCE_GROUP
+    return WASH_RESOURCE_GROUP
 
 
 def _box_by_name(db: Session, box_name: str) -> Box | None:
@@ -2691,13 +3586,16 @@ def _normalize_service_and_box_resources(db: Session) -> None:
 
     boxes = db.scalars(select(Box).order_by(Box.name.asc())).all()
     if boxes:
-        detailing_boxes = [box for box in boxes if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP]
+        detailing_boxes = [
+            box
+            for box in boxes
+            if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP
+        ]
         if not detailing_boxes:
-            target_box = boxes[2] if len(boxes) >= 3 else None
-            if target_box is None:
+            for i in range(len(DETAILING_BOX_NAMES)):
                 target_box = Box(
-                    id=f"box-{len(boxes) + 1}",
-                    name=DETAILING_BOX_NAME,
+                    id=f"box-detailing-{i + 1}",
+                    name=DETAILING_BOX_NAMES[i],
                     resource_group=DETAILING_RESOURCE_GROUP,
                     price_per_hour=700,
                     active=True,
@@ -2705,23 +3603,44 @@ def _normalize_service_and_box_resources(db: Session) -> None:
                 )
                 db.add(target_box)
                 boxes.append(target_box)
-            else:
-                if _normalized_text(target_box.name).lower() in {"бокс 3", "box 3"}:
-                    target_box.name = DETAILING_BOX_NAME
-                target_box.resource_group = DETAILING_RESOURCE_GROUP
-                if not _normalized_text(target_box.description):
-                    target_box.description = "Отдельное помещение для детейлинга"
             changed = True
         else:
-            target_box = detailing_boxes[0]
-            if target_box.name != DETAILING_BOX_NAME:
-                target_box.name = DETAILING_BOX_NAME
+            for index, box in enumerate(detailing_boxes):
+                if (
+                    index < len(DETAILING_BOX_NAMES)
+                    and box.name != DETAILING_BOX_NAMES[index]
+                ):
+                    box.name = DETAILING_BOX_NAMES[index]
+                    changed = True
+                if not _normalized_text(box.description):
+                    box.description = "Отдельное помещение для детейлинга"
+                    changed = True
+                if not box.active:
+                    box.active = True
+                    changed = True
+            while len(detailing_boxes) < len(DETAILING_BOX_NAMES):
+                target_box = Box(
+                    id=f"box-detailing-{len(detailing_boxes) + 1}",
+                    name=DETAILING_BOX_NAMES[len(detailing_boxes)],
+                    resource_group=DETAILING_RESOURCE_GROUP,
+                    price_per_hour=700,
+                    active=True,
+                    description="Отдельное помещение для детейлинга",
+                )
+                db.add(target_box)
+                boxes.append(target_box)
+                detailing_boxes.append(target_box)
                 changed = True
-            if not _normalized_text(target_box.description):
-                target_box.description = "Отдельное помещение для детейлинга"
-                changed = True
+            for index, box in enumerate(detailing_boxes):
+                if index >= len(DETAILING_BOX_NAMES) and box.active:
+                    box.active = False
+                    changed = True
 
-        wash_boxes = [box for box in boxes if _resource_group_key(box.resource_group) != DETAILING_RESOURCE_GROUP]
+        wash_boxes = [
+            box
+            for box in boxes
+            if _resource_group_key(box.resource_group) != DETAILING_RESOURCE_GROUP
+        ]
         while len(wash_boxes) < len(WASH_BOX_NAMES):
             next_index = len(wash_boxes)
             next_box = Box(
@@ -2746,12 +3665,20 @@ def _normalize_service_and_box_resources(db: Session) -> None:
                 changed = True
 
         for index, box in enumerate(boxes):
-            expected_group = DETAILING_RESOURCE_GROUP if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP else WASH_RESOURCE_GROUP
+            expected_group = (
+                DETAILING_RESOURCE_GROUP
+                if _resource_group_key(box.resource_group) == DETAILING_RESOURCE_GROUP
+                else WASH_RESOURCE_GROUP
+            )
             if _resource_group_key(box.resource_group) != expected_group:
                 box.resource_group = expected_group
                 changed = True
             if expected_group == WASH_RESOURCE_GROUP and not _normalized_text(box.name):
-                box.name = WASH_BOX_NAMES[index] if index < len(WASH_BOX_NAMES) else f"Бокс {index + 1}"
+                box.name = (
+                    WASH_BOX_NAMES[index]
+                    if index < len(WASH_BOX_NAMES)
+                    else f"Бокс {index + 1}"
+                )
                 changed = True
 
     if changed:
@@ -2790,7 +3717,9 @@ def _notify_owners(db: Session, text: str) -> None:
             created_at=_now(),
         )
     )
-    owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))).all()
+    owners = db.scalars(
+        select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))
+    ).all()
     for owner in owners:
         _send_telegram_safe(owner.telegram_chat_id, text)
 
@@ -2809,7 +3738,9 @@ def _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -
     )
 
 
-def _notify_booking_completion_receipt(db: Session, booking: Booking, *, worker_name: str | None = None) -> None:
+def _notify_booking_completion_receipt(
+    db: Session, booking: Booking, *, worker_name: str | None = None
+) -> None:
     message = _booking_receipt_text(booking, worker_name=worker_name)
     db.add(
         Notification(
@@ -2836,12 +3767,16 @@ def _notify_booking_completion_receipt(db: Session, booking: Booking, *, worker_
         if client is not None:
             _send_telegram_safe(client.telegram_id, message)
     _notify_owners(db, message)
-    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all()
+    admins = db.scalars(
+        select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))
+    ).all()
     for admin in admins:
         _send_telegram_safe(admin.telegram_chat_id, message)
 
 
-def _notify_owner_about_worker_booking_event(db: Session, booking: Booking, *, worker_name: str, event_label: str) -> None:
+def _notify_owner_about_worker_booking_event(
+    db: Session, booking: Booking, *, worker_name: str, event_label: str
+) -> None:
     _notify_owners(
         db,
         (
@@ -2855,13 +3790,19 @@ def _notify_owner_about_worker_booking_event(db: Session, booking: Booking, *, w
     )
 
 
-def _notify_workers_about_assignment(db: Session, booking: Booking, worker_ids: set[str]) -> None:
+def _notify_workers_about_assignment(
+    db: Session, booking: Booking, worker_ids: set[str]
+) -> None:
     if not worker_ids:
         return
     workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
     for worker in workers:
-        worker_link = next((link for link in booking.worker_links if link.worker_id == worker.id), None)
-        percent_label = f"{worker_link.percent}%" if worker_link is not None else "не указан"
+        worker_link = next(
+            (link for link in booking.worker_links if link.worker_id == worker.id), None
+        )
+        percent_label = (
+            f"{worker_link.percent}%" if worker_link is not None else "не указан"
+        )
         text = (
             "Вам назначена запись\n"
             f"Клиент: {booking.client_name}\n"
@@ -2885,7 +3826,9 @@ def _notify_workers_about_assignment(db: Session, booking: Booking, worker_ids: 
         _send_telegram_safe(worker.telegram_chat_id, text)
 
 
-def _notify_workers_about_note(db: Session, booking: Booking, worker_ids: set[str]) -> None:
+def _notify_workers_about_note(
+    db: Session, booking: Booking, worker_ids: set[str]
+) -> None:
     note = (booking.notes or "").strip()
     if not worker_ids or not note:
         return
@@ -2922,7 +3865,9 @@ def _notify_workers_about_reschedule(
     if not worker_ids:
         return
     workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
-    old_slot = f"{_booking_datetime_label(previous_date, previous_time)} · {previous_box}"
+    old_slot = (
+        f"{_booking_datetime_label(previous_date, previous_time)} · {previous_box}"
+    )
     new_slot = f"{_booking_datetime_label(booking.date, booking.time)} · {booking.box}"
     for worker in workers:
         text = (
@@ -2967,7 +3912,11 @@ def _notify_worker_about_payroll_entry(
     amount: int,
     note: str,
 ) -> None:
-    actor = db.get(StaffUser, actor_id) if actor_role in {"owner", "admin", "worker", "accountant"} else None
+    actor = (
+        db.get(StaffUser, actor_id)
+        if actor_role in {"owner", "admin", "worker", "accountant"}
+        else None
+    )
     actor_name = actor.name if actor is not None else "CRM"
     action_label = _payroll_entry_label(kind)
     note_suffix = f"\nПримечание: {note}" if note else ""
@@ -2998,26 +3947,42 @@ def health() -> GenericMessage:
 @app.post(settings.telegram_webhook_path, response_model=GenericMessage)
 def handle_telegram_webhook(
     payload: dict[str, Any],
-    telegram_secret: str | None = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token"),
+    telegram_secret: str | None = Header(
+        default=None, alias="X-Telegram-Bot-Api-Secret-Token"
+    ),
 ) -> GenericMessage:
     if not settings.telegram_bot_token:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Telegram bot is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram bot is not configured",
+        )
     expected_secret = telegram_webhook_secret()
     if telegram_secret != expected_secret:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram webhook secret")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Telegram webhook secret",
+        )
     try:
         process_telegram_update(payload)
     except Exception:
         logger.exception("Telegram webhook handler failed")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to process Telegram update")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process Telegram update",
+        )
     return GenericMessage(message="ok")
 
 
 @app.post("/api/telegram/webhook/sync", response_model=GenericMessage)
-def resync_telegram_webhook(session_data: dict = Depends(_require_session)) -> GenericMessage:
+def resync_telegram_webhook(
+    session_data: dict = Depends(_require_session),
+) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
     if settings.telegram_delivery_mode != "webhook":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Telegram delivery mode is not webhook")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telegram delivery mode is not webhook",
+        )
     if not settings.telegram_bot_token or not settings.webapp_url:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -3038,27 +4003,47 @@ def download_owner_export(
     return _download_response(export_file)
 
 
-@app.post("/api/owner/exports/{kind}/telegram", response_model=OwnerExportDeliveryPayload)
+@app.post(
+    "/api/owner/exports/{kind}/telegram", response_model=OwnerExportDeliveryPayload
+)
 def send_owner_export_to_telegram(
     kind: str,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
-) -> OwnerExportDeliveryPayload:
+) -> Response:
     _ensure_staff_role(session_data, {"owner", "accountant"})
     export_file = _owner_export_file(db, session_data["actorId"], kind)
-    return _send_export_to_telegram(db, session_data["actorId"], export_file)
+    try:
+        result = _send_export_to_telegram(db, session_data["actorId"], export_file)
+        db.commit()
+        return Response(
+            content=result.model_dump_json(),
+            status_code=status.HTTP_200_OK,
+            media_type="application/json",
+        )
+    except _PartialBroadcastError as exc:
+        db.commit()
+        return Response(
+            content=exc.payload.model_dump_json(),
+            status_code=status.HTTP_207_MULTI_STATUS,
+            media_type="application/json",
+        )
 
 
-@app.post("/api/owner/reports/{period}/{segment}/telegram", response_model=GenericMessage)
+@app.post(
+    "/api/owner/reports/{period}/{segment}/telegram", response_model=GenericMessage
+)
 def send_owner_summary_report_to_telegram(
     period: str,
     segment: str,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
-) -> GenericMessage:
+) -> Response:
     _ensure_staff_role(session_data, {"owner", "accountant"})
     report = _owner_summary_report(db, session_data["actorId"], period, segment)
-    export_file = _owner_summary_export_file(db, session_data["actorId"], period, segment)
+    export_file = _owner_summary_export_file(
+        db, session_data["actorId"], period, segment
+    )
     return _send_owner_summary_report(db, session_data["actorId"], report, export_file)
 
 
@@ -3069,11 +4054,15 @@ def dispatch_owner_booking_reminders(
     db: Session = Depends(get_db),
 ) -> OwnerReminderDispatchPayload:
     _ensure_staff_role(session_data, {"owner"})
-    response = _dispatch_booking_reminders(db, target_date=payload.targetDate, force=payload.force)
+    response = _dispatch_booking_reminders(
+        db, target_date=payload.targetDate, force=payload.force
+    )
     return_visit_count = _dispatch_return_visit_reminders(db)
     response.clientReminders += return_visit_count
     if return_visit_count:
-        response.message = f"{response.message} Клиентов на возврат: {return_visit_count}."
+        response.message = (
+            f"{response.message} Клиентов на возврат: {return_visit_count}."
+        )
     db.commit()
     return response
 
@@ -3084,9 +4073,11 @@ def remind_admin_about_inactive_clients(
     db: Session = Depends(get_db),
 ) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
-    cutoff = datetime.now() - timedelta(days=14)
+    cutoff = datetime.now() - timedelta(days=5)
     inactive: list[str] = []
-    clients = db.scalars(select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())).all()
+    clients = db.scalars(
+        select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())
+    ).all()
     for client in clients:
         bookings = db.scalars(
             select(Booking)
@@ -3096,13 +4087,23 @@ def remind_admin_about_inactive_clients(
         if not bookings:
             continue
         last_booking = bookings[0]
-        last_visit = _parse_booking_datetime(last_booking.date, last_booking.time) or _as_utc(last_booking.created_at).replace(tzinfo=None)
+        last_visit = _parse_booking_datetime(
+            last_booking.date, last_booking.time
+        ) or _as_utc(last_booking.created_at).replace(tzinfo=None)
         if last_visit <= cutoff:
-            inactive.append(f"• {client.name} ({client.phone}) - последний визит {last_booking.date}")
+            inactive.append(
+                f"• {client.name} ({client.phone}) - последний визит {last_booking.date}"
+            )
     if not inactive:
-        return GenericMessage(message="Клиентов без визита более двух недель не найдено")
-    text = "Нужно обзвонить клиентов, которые не были более двух недель\n" + "\n".join(inactive[:12])
-    admins = db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all()
+        return GenericMessage(
+            message="Клиентов без визита более двух недель не найдено"
+        )
+    text = "Нужно обзвонить клиентов, которые не были более двух недель\n" + "\n".join(
+        inactive[:12]
+    )
+    admins = db.scalars(
+        select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))
+    ).all()
     for admin in admins:
         db.add(
             Notification(
@@ -3116,7 +4117,9 @@ def remind_admin_about_inactive_clients(
         )
         _send_telegram_safe(admin.telegram_chat_id, text)
     db.commit()
-    return GenericMessage(message=f"Админу отправлено напоминание по {len(inactive)} клиентам")
+    return GenericMessage(
+        message=f"Админу отправлено напоминание по {len(inactive)} клиентам"
+    )
 
 
 @app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
@@ -3124,18 +4127,144 @@ def run_booking_reminders_cron(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> OwnerReminderDispatchPayload:
-    if settings.cron_secret and authorization != f"Bearer {settings.cron_secret}":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if authorization != f"Bearer {settings.cron_secret}":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
+        )
+    import ipaddress
+    client_ip = _request_ip_from_header(None)
+    if client_ip:
+        try:
+            ip = ipaddress.ip_address(client_ip)
+            if not (ip.is_loopback or ip.is_private):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cron endpoint not accessible from public networks",
+                )
+        except ValueError:
+            pass
     response = _dispatch_booking_reminders(db)
     return_visit_count = _dispatch_return_visit_reminders(db)
     response.clientReminders += return_visit_count
     if return_visit_count:
-        response.message = f"{response.message} Клиентов на возврат: {return_visit_count}."
+        response.message = (
+            f"{response.message} Клиентов на возврат: {return_visit_count}."
+        )
     db.commit()
     return response
 
 
-@app.post("/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload)
+@app.get("/api/cron/reports", response_model=GenericMessage)
+def run_reports_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    """Автоматическая отправка ежедневного и еженедельного отчётов владельцам."""
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if authorization != f"Bearer {settings.cron_secret}":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
+        )
+
+    owner_settings = _setting(
+        db,
+        "owner_notification_settings",
+        {
+            "telegramBot": True,
+            "emailReports": True,
+            "smsReminders": False,
+            "lowStock": True,
+            "dailyReport": True,
+            "weeklyReport": False,
+            "bookingReminders": True,
+        },
+    )
+
+    recipients = _all_owner_telegram_recipients(db)
+    if not recipients:
+        return GenericMessage(message="Нет получателей с привязанным Telegram")
+
+    sent: list[str] = []
+    today = datetime.now()
+    is_monday = today.weekday() == 0
+
+    for segment in ("wash", "detailing"):
+        if owner_settings.get("dailyReport", True):
+            try:
+                report = _owner_summary_report(db, recipients[0].id, "daily", segment)
+                export_file = _owner_summary_export_file(db, recipients[0].id, "daily", segment)
+                for recipient in recipients:
+                    try:
+                        send_telegram_document(
+                            recipient.telegram_chat_id,
+                            file_name=export_file.file_name,
+                            content=export_file.content,
+                            caption=export_file.telegram_caption,
+                            mime_type=export_file.media_type.split(";", 1)[0],
+                        )
+                        db.add(
+                            Notification(
+                                id=f"n-{uuid4()}",
+                                recipient_role="owner",
+                                recipient_id=recipient.id,
+                                message=report.message,
+                                read=False,
+                                created_at=_now(),
+                            )
+                        )
+                        sent.append(f"daily/{segment}")
+                    except Exception:
+                        logger.exception("Cron: failed to send daily/%s to %s", segment, recipient.id)
+            except Exception:
+                logger.exception("Cron: failed to build daily/%s report", segment)
+
+        if owner_settings.get("weeklyReport", False) and is_monday:
+            try:
+                report = _owner_summary_report(db, recipients[0].id, "weekly", segment)
+                export_file = _owner_summary_export_file(db, recipients[0].id, "weekly", segment)
+                for recipient in recipients:
+                    try:
+                        send_telegram_document(
+                            recipient.telegram_chat_id,
+                            file_name=export_file.file_name,
+                            content=export_file.content,
+                            caption=export_file.telegram_caption,
+                            mime_type=export_file.media_type.split(";", 1)[0],
+                        )
+                        db.add(
+                            Notification(
+                                id=f"n-{uuid4()}",
+                                recipient_role="owner",
+                                recipient_id=recipient.id,
+                                message=report.message,
+                                read=False,
+                                created_at=_now(),
+                            )
+                        )
+                        sent.append(f"weekly/{segment}")
+                    except Exception:
+                        logger.exception("Cron: failed to send weekly/%s to %s", segment, recipient.id)
+            except Exception:
+                logger.exception("Cron: failed to build weekly/%s report", segment)
+
+    db.commit()
+    if sent:
+        return GenericMessage(message=f"Отчёты отправлены: {', '.join(sent)}")
+    return GenericMessage(message="Нет отчётов для отправки")
+
+
+@app.post(
+    "/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload
+)
 def start_owner_database_reset(
     payload: OwnerDatabaseResetStartRequest,
     session_data: dict = Depends(_require_session),
@@ -3144,15 +4273,21 @@ def start_owner_database_reset(
     _ensure_staff_role(session_data, {"owner"})
     owner = db.get(StaffUser, session_data["actorId"])
     if owner is None or owner.role != "owner":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
     if not verify_password(payload.password, owner.password_hash):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Текущий пароль неверный")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Текущий пароль неверный"
+        )
 
     recipient_owner = _owner_two_factor_recipient(db)
     generated_code = f"{secrets.randbelow(1_000_000):06d}"
     expires_at = _now() + timedelta(minutes=OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES)
     request_id = str(uuid4())
-    preview = _owner_database_reset_preview(db, current_session_id=session_data.get("sessionId"))
+    preview = _owner_database_reset_preview(
+        db, current_session_id=session_data.get("sessionId")
+    )
     warnings = _owner_database_reset_warnings(preview)
 
     _save_owner_database_reset_state(
@@ -3198,7 +4333,9 @@ def start_owner_database_reset(
     )
 
 
-@app.post("/api/owner/database-reset/approve", response_model=OwnerDatabaseResetApprovePayload)
+@app.post(
+    "/api/owner/database-reset/approve", response_model=OwnerDatabaseResetApprovePayload
+)
 def approve_owner_database_reset(
     payload: OwnerDatabaseResetApproveRequest,
     session_data: dict = Depends(_require_session),
@@ -3207,11 +4344,20 @@ def approve_owner_database_reset(
     _ensure_staff_role(session_data, {"owner"})
     state = _owner_database_reset_state(db)
     if state is None or state.get("requestId") != payload.requestId:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запрос на очистку не найден. Начните заново.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Запрос на очистку не найден. Начните заново.",
+        )
     if state.get("requestedBy") != session_data["actorId"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Этот запрос на очистку создан другим владельцем.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Этот запрос на очистку создан другим владельцем.",
+        )
 
-    if _normalize_database_reset_phrase(payload.confirmationPhrase) != OWNER_DATABASE_RESET_CONFIRMATION_PHRASE:
+    if (
+        _normalize_database_reset_phrase(payload.confirmationPhrase)
+        != OWNER_DATABASE_RESET_CONFIRMATION_PHRASE
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Введите фразу точно: {OWNER_DATABASE_RESET_CONFIRMATION_PHRASE}",
@@ -3220,11 +4366,21 @@ def approve_owner_database_reset(
     code_expires_at = _parse_state_datetime(state.get("codeExpiresAt"))
     code_hash = str(state.get("codeHash") or "")
     if not code_hash or code_expires_at is None or code_expires_at < _now():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код создателя истёк. Запросите новый.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Код создателя истёк. Запросите новый.",
+        )
     if not payload.creatorCode.strip().isdigit():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Введите 6-значный код от создателя.")
-    if not verify_one_time_code(payload.creatorCode.strip(), code_hash, settings.app_secret):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код создателя неверный.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Введите 6-значный код от создателя.",
+        )
+    if not verify_one_time_code(
+        payload.creatorCode.strip(), code_hash, settings.app_secret
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Код создателя неверный."
+        )
 
     finalize_after = _now() + timedelta(seconds=OWNER_DATABASE_RESET_DELAY_SECONDS)
     state["approvedAt"] = _serialize_state_datetime(_now())
@@ -3232,7 +4388,9 @@ def approve_owner_database_reset(
     state["codeHash"] = None
     state["codeExpiresAt"] = None
     _save_owner_database_reset_state(db, state)
-    preview = _owner_database_reset_preview(db, current_session_id=session_data.get("sessionId"))
+    preview = _owner_database_reset_preview(
+        db, current_session_id=session_data.get("sessionId")
+    )
     warnings = _owner_database_reset_warnings(preview)
     db.commit()
     return OwnerDatabaseResetApprovePayload(
@@ -3244,7 +4402,9 @@ def approve_owner_database_reset(
     )
 
 
-@app.post("/api/owner/database-reset/execute", response_model=OwnerDatabaseResetExecutePayload)
+@app.post(
+    "/api/owner/database-reset/execute", response_model=OwnerDatabaseResetExecutePayload
+)
 def execute_owner_database_reset(
     payload: OwnerDatabaseResetExecuteRequest,
     session_data: dict = Depends(_require_session),
@@ -3253,13 +4413,22 @@ def execute_owner_database_reset(
     _ensure_staff_role(session_data, {"owner"})
     state = _owner_database_reset_state(db)
     if state is None or state.get("requestId") != payload.requestId:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запрос на очистку не найден. Начните заново.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Запрос на очистку не найден. Начните заново.",
+        )
     if state.get("requestedBy") != session_data["actorId"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Этот запрос на очистку создан другим владельцем.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Этот запрос на очистку создан другим владельцем.",
+        )
 
     finalize_after = _parse_state_datetime(state.get("finalizeAfter"))
     if finalize_after is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сначала подтвердите пароль, код создателя и фразу.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Сначала подтвердите пароль, код создателя и фразу.",
+        )
     if finalize_after > _now():
         seconds_left = max(1, int((finalize_after - _now()).total_seconds()) + 1)
         raise HTTPException(
@@ -3267,7 +4436,9 @@ def execute_owner_database_reset(
             detail=f"Финальная кнопка ещё заблокирована. Подождите {seconds_left} сек.",
         )
 
-    preview = _owner_database_reset_preview(db, current_session_id=session_data.get("sessionId"))
+    preview = _owner_database_reset_preview(
+        db, current_session_id=session_data.get("sessionId")
+    )
     _perform_owner_database_reset(db, current_session_id=session_data.get("sessionId"))
     db.commit()
     return OwnerDatabaseResetExecutePayload(
@@ -3277,33 +4448,54 @@ def execute_owner_database_reset(
 
 
 @app.post("/api/auth/client", response_model=AuthResponse)
-def authenticate_client(payload: ClientAuthRequest, request: Request, db: Session = Depends(get_db)) -> AuthResponse:
+def authenticate_client(
+    payload: ClientAuthRequest, request: Request, db: Session = Depends(get_db)
+) -> AuthResponse:
     telegram_id = None
     if payload.initData:
         telegram_id, _telegram_user = _telegram_user_from_init_data(payload.initData)
     elif not settings.allow_insecure_client_auth:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram initData is required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Telegram initData is required",
+        )
     try:
         normalized_car = normalize_vehicle_name(payload.profile.car)
         normalized_plate = normalize_plate(payload.profile.plate)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     vehicles = _normalize_client_vehicles(
         payload.profile.vehicles,
         fallback_car=normalized_car,
         fallback_plate=normalized_plate,
     )
-    primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car=normalized_car, plate=normalized_plate)
+    primary_vehicle = (
+        vehicles[0]
+        if vehicles
+        else ClientVehiclePayload(car=normalized_car, plate=normalized_plate)
+    )
 
     client = None
     if telegram_id:
         client = db.scalar(select(Client).where(Client.telegram_id == telegram_id))
     phone_client = _client_by_phone(db, payload.profile.phone)
     if client is not None and phone_client is not None and phone_client.id != client.id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Клиент с таким номером телефона уже зарегистрирован",
+        )
     if client is None and phone_client is not None:
-        if telegram_id and phone_client.telegram_id and phone_client.telegram_id != telegram_id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
+        if (
+            telegram_id
+            and phone_client.telegram_id
+            and phone_client.telegram_id != telegram_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Клиент с таким номером телефона уже зарегистрирован",
+            )
         client = phone_client
     _require_client_phone_verification(db, telegram_id, payload.profile.phone)
     if client is None:
@@ -3326,7 +4518,9 @@ def authenticate_client(payload: ClientAuthRequest, request: Request, db: Sessio
     return _issue_auth_response(db, request, _client_session_data(client))
 
 
-@app.post("/api/auth/client/phone-verification", response_model=ClientPhoneVerificationPayload)
+@app.post(
+    "/api/auth/client/phone-verification", response_model=ClientPhoneVerificationPayload
+)
 def get_client_phone_verification(
     payload: ClientPhoneVerificationRequest,
     db: Session = Depends(get_db),
@@ -3335,7 +4529,10 @@ def get_client_phone_verification(
     if payload.initData:
         telegram_id, _telegram_user = _telegram_user_from_init_data(payload.initData)
     elif not settings.allow_insecure_client_auth:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram initData is required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Telegram initData is required",
+        )
     return ClientPhoneVerificationPayload(
         phone=payload.phone,
         verified=_client_phone_is_verified(db, telegram_id, payload.phone),
@@ -3357,7 +4554,11 @@ def authenticate_via_telegram(
             StaffUser.active.is_(True),
             StaffUser.role.in_(("owner", "admin", "worker", "accountant")),
         )
-        .order_by(StaffUser.is_primary_owner.desc(), StaffUser.created_at.asc(), StaffUser.id.asc())
+        .order_by(
+            StaffUser.is_primary_owner.desc(),
+            StaffUser.created_at.asc(),
+            StaffUser.id.asc(),
+        )
     ).all()
     if len(matched_staff) > 1:
         raise HTTPException(
@@ -3390,7 +4591,10 @@ def authenticate_primary_owner_via_telegram(
     telegram_id, telegram_user = _telegram_user_from_init_data(payload.initData)
     owner = _primary_owner(db)
     if owner is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Главный владелец не настроен")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Главный владелец не настроен",
+        )
     current_chat_id = owner.telegram_chat_id.strip()
     if not current_chat_id:
         raise HTTPException(
@@ -3398,22 +4602,39 @@ def authenticate_primary_owner_via_telegram(
             detail="Telegram создателя ещё не привязан. Сначала войдите по логину и привяжите Telegram через CRM.",
         )
     if current_chat_id and current_chat_id != telegram_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Этот Telegram не привязан к создателю")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Этот Telegram не привязан к создателю",
+        )
     if not owner.name.strip():
         owner.name = _telegram_display_name(telegram_user, "Создатель")
     return _issue_auth_response(db, request, _staff_session_data(owner))
 
 
 @app.post("/api/auth/staff/login", response_model=AuthResponse)
-def authenticate_staff(payload: StaffLoginRequest, request: Request, db: Session = Depends(get_db)) -> AuthResponse:
-    staff = db.scalar(select(StaffUser).where(StaffUser.login == payload.login.strip().lower()))
-    if staff is None or not verify_password(payload.password, staff.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
+def authenticate_staff(
+    payload: StaffLoginRequest, request: Request, db: Session = Depends(get_db)
+) -> AuthResponse:
+    _check_rate_limit(_request_ip(request))
+    staff = db.scalar(
+        select(StaffUser).where(StaffUser.login == payload.login.strip().lower())
+    )
+    if staff is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
+        )
+    _require_staff_not_locked(staff)
+    if not verify_password(payload.password, staff.password_hash):
+        _record_staff_login_failure(db, staff)
     if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён"
+        )
     owner_security = _setting(db, "owner_security", {"twoFactor": False})
     primary_owner = _primary_owner(db)
-    primary_owner_ready_for_two_factor = bool(primary_owner and primary_owner.telegram_chat_id.strip())
+    primary_owner_ready_for_two_factor = bool(
+        primary_owner and primary_owner.telegram_chat_id.strip()
+    )
     two_factor_enabled = (
         staff.role == "owner"
         and not staff.is_primary_owner
@@ -3421,11 +4642,18 @@ def authenticate_staff(payload: StaffLoginRequest, request: Request, db: Session
         and primary_owner_ready_for_two_factor
     )
     if two_factor_enabled:
-        recipient_owner = primary_owner if primary_owner is not None else _owner_two_factor_recipient(db)
+        recipient_owner = (
+            primary_owner
+            if primary_owner is not None
+            else _owner_two_factor_recipient(db)
+        )
         two_factor_code = (payload.twoFactorCode or "").strip()
         if not two_factor_code:
             generated_code = f"{secrets.randbelow(1_000_000):06d}"
-            staff.two_factor_code_hash = hash_one_time_code(generated_code, settings.app_secret)
+            _clear_staff_login_lock(staff)
+            staff.two_factor_code_hash = hash_one_time_code(
+                generated_code, settings.app_secret
+            )
             staff.two_factor_expires_at = _now() + timedelta(minutes=10)
             staff.updated_at = _now()
             db.commit()
@@ -3447,27 +4675,40 @@ def authenticate_staff(payload: StaffLoginRequest, request: Request, db: Session
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Введите код из Telegram. Мы отправили его создателю.",
             )
-        expires_at = _as_utc(staff.two_factor_expires_at) if staff.two_factor_expires_at is not None else None
+        expires_at = (
+            _as_utc(staff.two_factor_expires_at)
+            if staff.two_factor_expires_at is not None
+            else None
+        )
         if (
             not staff.two_factor_code_hash
             or expires_at is None
             or expires_at < _now()
-            or not verify_one_time_code(two_factor_code, staff.two_factor_code_hash, settings.app_secret)
+            or not verify_one_time_code(
+                two_factor_code, staff.two_factor_code_hash, settings.app_secret
+            )
         ):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный или просроченный код.")
+            _record_staff_login_failure(db, staff)
         staff.two_factor_code_hash = None
         staff.two_factor_expires_at = None
+        _clear_staff_login_lock(staff)
         staff.updated_at = _now()
+    else:
+        _clear_staff_login_lock(staff)
     return _issue_auth_response(db, request, _staff_session_data(staff))
 
 
 @app.get("/api/auth/session", response_model=BootstrapPayload)
-def get_session_bootstrap(session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> BootstrapPayload:
+def get_session_bootstrap(
+    session_data: dict = Depends(_require_session), db: Session = Depends(get_db)
+) -> BootstrapPayload:
     return _build_bootstrap(db, session_data)
 
 
 @app.get("/api/auth/sessions", response_model=list[AuthSessionPayload])
-def get_active_sessions(session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> list[AuthSessionPayload]:
+def get_active_sessions(
+    session_data: dict = Depends(_require_session), db: Session = Depends(get_db)
+) -> list[AuthSessionPayload]:
     return _active_sessions_payload(db, session_data)
 
 
@@ -3479,21 +4720,95 @@ def revoke_active_session(
 ) -> GenericMessage:
     auth_session = db.get(AuthSession, session_id)
     if auth_session is None or auth_session.revoked_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена")
-    if auth_session.actor_role != session_data["role"] or auth_session.actor_id != session_data["actorId"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нельзя завершить чужую сессию")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена"
+        )
+    if (
+        auth_session.actor_role != session_data["role"]
+        or auth_session.actor_id != session_data["actorId"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нельзя завершить чужую сессию",
+        )
     auth_session.revoked_at = _now()
     db.commit()
     return GenericMessage(message="Сессия завершена")
 
 
 @app.post("/api/auth/logout", response_model=GenericMessage)
-def logout(session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> GenericMessage:
+def logout(
+    session_data: dict = Depends(_require_session), db: Session = Depends(get_db)
+) -> GenericMessage:
     auth_session = db.get(AuthSession, session_data["sessionId"])
     if auth_session is not None and auth_session.revoked_at is None:
         auth_session.revoked_at = _now()
         db.commit()
     return GenericMessage(message="Выход выполнен")
+
+
+@app.post("/api/auth/switch-role", response_model=AuthResponse)
+def switch_role(
+    payload: SwitchRoleRequest,
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    current_role = session_data["role"]
+    if current_role not in {"owner", "admin", "worker", "accountant"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Недоступно для этой роли"
+        )
+    staff = db.scalar(select(StaffUser).where(StaffUser.id == session_data["actorId"]))
+    if staff is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
+        )
+    allowed = {staff.role, *(staff.extra_roles or [])}
+    if payload.targetRole not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Роль недоступна"
+        )
+    auth_session = db.get(AuthSession, session_data["sessionId"])
+    if auth_session is None or auth_session.revoked_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия недействительна"
+        )
+    new_session = _create_auth_session(
+        db,
+        {
+            "role": payload.targetRole,
+            "actorId": staff.id,
+            "login": staff.login,
+            "sessionId": auth_session.id,
+        },
+        request,
+    )
+    db.delete(auth_session)
+    db.flush()
+    new_token = create_session_token(
+        {
+            "role": payload.targetRole,
+            "actorId": staff.id,
+            "sessionId": new_session.id,
+            "login": staff.login,
+        },
+        settings.app_secret,
+    )
+    return AuthResponse(
+        token=new_token,
+        role=payload.targetRole,
+        actorId=staff.id,
+        bootstrap=_build_bootstrap(
+            db,
+            session_data={
+                "role": payload.targetRole,
+                "actorId": staff.id,
+                "sessionId": new_session.id,
+                "login": staff.login,
+            },
+        ),
+    )
 
 
 @app.patch("/api/clients/me", response_model=ClientProfilePayload)
@@ -3506,17 +4821,28 @@ def update_client_profile(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     client = db.get(Client, session_data["actorId"])
     if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+        )
     try:
         normalized_car = normalize_vehicle_name(payload.car)
         normalized_plate = normalize_plate(payload.plate)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    vehicles = _normalize_client_vehicles(payload.vehicles, fallback_car=normalized_car, fallback_plate=normalized_plate)
-    primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    vehicles = _normalize_client_vehicles(
+        payload.vehicles, fallback_car=normalized_car, fallback_plate=normalized_plate
+    )
+    primary_vehicle = (
+        vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
+    )
     phone_client = _client_by_phone(db, payload.phone)
     if phone_client is not None and phone_client.id != client.id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Клиент с таким номером телефона уже зарегистрирован",
+        )
     _require_client_phone_verification(db, client.telegram_id, payload.phone)
     client.name = payload.name
     client.phone = payload.phone
@@ -3530,6 +4856,45 @@ def update_client_profile(
     return _client_payload(client)  # type: ignore[return-value]
 
 
+@app.post("/api/clients", response_model=ClientSummaryPayload)
+def create_client(
+    payload: ClientCreateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ClientSummaryPayload:
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    existing_client = _client_by_phone(db, payload.phone)
+    if existing_client is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Клиент с таким номером телефона уже зарегистрирован",
+        )
+
+    vehicles = _normalize_client_vehicles(
+        [{"car": payload.car, "plate": payload.plate}],
+        fallback_car=payload.car,
+        fallback_plate=payload.plate,
+    )
+    primary_vehicle = (
+        vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
+    )
+    client = Client(
+        id=f"c-{uuid4()}",
+        name=payload.name,
+        phone=payload.phone,
+        car=primary_vehicle.car,
+        plate=primary_vehicle.plate,
+        notes=payload.notes.strip(),
+        registered=True,
+    )
+    db.add(client)
+    db.flush()
+    _save_client_vehicles(db, client.id, vehicles)
+    db.commit()
+    db.refresh(client)
+    return _client_summary_payload(client, db)
+
+
 @app.patch("/api/clients/{client_id}/card", response_model=ClientSummaryPayload)
 def update_client_card(
     client_id: str,
@@ -3540,7 +4905,9 @@ def update_client_card(
     _ensure_staff_role(session_data, {"admin", "owner"})
     client = db.get(Client, client_id)
     if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден"
+        )
     updates = payload.model_dump(exclude_unset=True)
     if "notes" in updates and updates["notes"] is not None:
         client.notes = updates["notes"].strip()
@@ -3553,7 +4920,7 @@ def update_client_card(
     client.updated_at = _now()
     db.commit()
     db.refresh(client)
-    return _client_summary_payload(client)
+    return _client_summary_payload(client, db)
 
 
 @app.delete("/api/clients/{client_id}", response_model=GenericMessage)
@@ -3565,7 +4932,9 @@ def delete_client(
     _ensure_staff_role(session_data, {"admin", "owner"})
     client = db.get(Client, client_id)
     if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден"
+        )
     db.execute(
         sa_delete(Notification).where(
             Notification.recipient_role == "client",
@@ -3578,9 +4947,15 @@ def delete_client(
             AuthSession.actor_id == client_id,
         )
     )
-    client_bookings = db.scalars(
-        select(Booking).options(joinedload(Booking.worker_links)).where(Booking.client_id == client_id)
-    ).unique().all()
+    client_bookings = (
+        db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .where(Booking.client_id == client_id)
+        )
+        .unique()
+        .all()
+    )
     for booking in client_bookings:
         db.delete(booking)
     vehicles_map = _client_vehicles_map(db)
@@ -3618,7 +4993,7 @@ def create_booking(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> BookingPayload:
-    if session_data["role"] not in {"client", "admin", "owner"}:
+    if session_data["role"] not in {"client", "admin", "owner", "accountant"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     service = db.get(Service, payload.serviceId) if payload.serviceId else None
@@ -3635,9 +5010,14 @@ def create_booking(
     if session_data["role"] == "client":
         client = db.get(Client, session_data["actorId"])
         if client is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+            )
         if service is None or not service.active:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Услуга не найдена или недоступна")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Услуга не найдена или недоступна",
+            )
         booking_client_name = client.name
         booking_client_phone = client.phone
         booking_car = client.car or ""
@@ -3650,10 +5030,21 @@ def create_booking(
             requested_hours = max(1, (payload.duration + 59) // 60)
             booking_duration = requested_hours * 60
     else:
-        normalized_client_phone = normalize_phone(payload.clientPhone)
+        normalized_client_name = payload.clientName.strip()
+        normalized_client_phone = (
+            normalize_phone(payload.clientPhone) if payload.clientPhone.strip() else ""
+        )
         client = db.get(Client, payload.clientId) if payload.clientId else None
-        phone_client = _client_by_phone(db, normalized_client_phone)
-        if client is not None and phone_client is not None and phone_client.id != client.id:
+        phone_client = (
+            _client_by_phone(db, normalized_client_phone)
+            if normalized_client_phone
+            else None
+        )
+        if (
+            client is not None
+            and phone_client is not None
+            and phone_client.id != client.id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Клиент с таким номером уже зарегистрирован на другой профиль",
@@ -3663,7 +5054,7 @@ def create_booking(
         if client is None:
             client = Client(
                 id=payload.clientId or f"c-{uuid4()}",
-                name=payload.clientName,
+                name=normalized_client_name,
                 phone=normalized_client_phone,
                 car=payload.car or "",
                 plate=payload.plate or "",
@@ -3671,10 +5062,14 @@ def create_booking(
             )
             db.add(client)
         else:
-            client.name = payload.clientName
-            client.phone = normalized_client_phone
-            client.car = payload.car or ""
-            client.plate = payload.plate or ""
+            if normalized_client_name:
+                client.name = normalized_client_name
+            if normalized_client_phone:
+                client.phone = normalized_client_phone
+            if payload.car:
+                client.car = payload.car
+            if payload.plate:
+                client.plate = payload.plate
             client.registered = True
             client.updated_at = _now()
         db.flush()
@@ -3686,13 +5081,19 @@ def create_booking(
             booking_service = service.name
             booking_service_id = service.id
 
-    booking_workers = [] if session_data["role"] == "client" else _validated_booking_workers(db, payload.workers)
+    booking_workers = (
+        []
+        if session_data["role"] == "client"
+        else _validated_booking_workers(db, payload.workers)
+    )
     booking_status = "new" if session_data["role"] == "client" else payload.status
 
-    requires_scheduled_slot = True
+    requires_scheduled_slot = _booking_requires_scheduled_slot(booking_status)
     if requires_scheduled_slot:
-        _ensure_booking_datetime_not_in_past(booking_date, booking_time)
-        _ensure_booking_within_schedule(db, booking_date, booking_time, booking_duration)
+        _ensure_booking_datetime_not_in_past(booking_date, booking_time, session_data["role"])
+        _ensure_booking_within_schedule(
+            db, booking_date, booking_time, booking_duration
+        )
     if session_data["role"] == "client" and requires_scheduled_slot:
         available_box = _pick_available_box(
             db,
@@ -3704,16 +5105,23 @@ def create_booking(
             preferred_box=booking_box or None,
         )
         if available_box is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="На это время нет свободных мест в нужном помещении")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="На это время нет свободных мест в нужном помещении",
+            )
         booking_box = available_box
         if is_box_rental:
-            booking_price = _box_hourly_price(db, booking_box, service.price if service is not None else booking_price) * max(1, booking_duration // 60)
+            booking_price = _box_hourly_price(
+                db, booking_box, service.price if service is not None else booking_price
+            ) * max(1, booking_duration // 60)
     elif booking_box:
         compatible_boxes = _compatible_box_names(db, service_resource_group)
         if compatible_boxes and booking_box not in compatible_boxes:
             booking_box = compatible_boxes[0]
     if _booking_requires_scheduled_slot(booking_status) and not booking_box.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи"
+        )
     _ensure_booking_has_no_conflicts(
         db,
         booking_id=None,
@@ -3749,33 +5157,37 @@ def create_booking(
     db.flush()
     _sync_booking_workers(db, booking, booking_workers)
     if session_data["role"] in {"admin", "owner"} and payload.notifyWorkers:
-        _notify_workers_about_assignment(db, booking, {link.worker_id for link in booking.worker_links})
+        _notify_workers_about_assignment(
+            db, booking, {link.worker_id for link in booking.worker_links}
+        )
     if session_data["role"] == "client":
         client_message = f"Заявка на {booking_service} создана на {booking_date} в {booking_time}. Статус: {_booking_status_label(booking_status)}"
-        db.add_all([
-            Notification(
-                id=f"n-{uuid4()}",
-                recipient_role="client",
-                recipient_id=client.id,
-                message=client_message,
-                read=False,
-                created_at=_now(),
-            ),
-            Notification(
-                id=f"n-{uuid4()}",
-                recipient_role="admin",
-                recipient_id=None,
-                message=_admin_booking_notification_text(
-                    booking_client_name,
-                    booking_car,
-                    booking_plate,
-                    booking_date,
-                    booking_time,
+        db.add_all(
+            [
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="client",
+                    recipient_id=client.id,
+                    message=client_message,
+                    read=False,
+                    created_at=_now(),
                 ),
-                read=False,
-                created_at=_now(),
-            ),
-        ])
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="admin",
+                    recipient_id=None,
+                    message=_admin_booking_notification_text(
+                        booking_client_name,
+                        booking_car,
+                        booking_plate,
+                        booking_date,
+                        booking_time,
+                    ),
+                    read=False,
+                    created_at=_now(),
+                ),
+            ]
+        )
         _notify_admins_about_booking(db, booking)
     db.commit()
     db.refresh(booking)
@@ -3790,9 +5202,15 @@ def update_booking(
     db: Session = Depends(get_db),
 ) -> BookingPayload:
     _ensure_staff_role(session_data, {"admin", "worker", "owner", "accountant"})
-    booking = db.scalar(select(Booking).options(joinedload(Booking.worker_links)).where(Booking.id == booking_id))
+    booking = db.scalar(
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(Booking.id == booking_id)
+    )
     if booking is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
+        )
 
     updates = payload.model_dump(exclude_unset=True, exclude={"workers"})
     previous_date = booking.date
@@ -3801,34 +5219,55 @@ def update_booking(
     previous_service = booking.service
     previous_box = booking.box
     previous_note = (booking.notes or "").strip()
-    worker = db.get(StaffUser, session_data["actorId"]) if session_data["role"] == "worker" else None
+    worker = (
+        db.get(StaffUser, session_data["actorId"])
+        if session_data["role"] == "worker"
+        else None
+    )
     if session_data["role"] == "worker":
         assigned_worker_ids = {link.worker_id for link in booking.worker_links}
         if session_data["actorId"] not in assigned_worker_ids:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        forbidden_fields = set(updates) - {"status", "notes", "paymentType", "paymentSettled"}
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
+        forbidden_fields = set(updates) - {
+            "status",
+            "notes",
+            "paymentType",
+            "paymentSettled",
+        }
         if payload.workers is not None:
             forbidden_fields.add("workers")
         if forbidden_fields:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Worker can update only own task status")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Worker can update only own task status",
+            )
 
     if "serviceId" in updates:
         service = db.get(Service, updates["serviceId"])
         if service is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Service not found"
+            )
         updates["service"] = service.name
         updates.setdefault("duration", service.duration)
         updates.setdefault("price", service.price)
     else:
         service = db.get(Service, booking.service_id) if booking.service_id else None
 
-    if booking.client_id and any(field in updates for field in ("clientName", "clientPhone", "car", "plate")):
+    if booking.client_id and any(
+        field in updates for field in ("clientName", "clientPhone", "car", "plate")
+    ):
         client = db.get(Client, booking.client_id)
         if client is not None:
             if "clientPhone" in updates:
                 phone_client = _client_by_phone(db, updates["clientPhone"])
                 if phone_client is not None and phone_client.id != client.id:
-                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Клиент с таким номером телефона уже зарегистрирован")
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Клиент с таким номером телефона уже зарегистрирован",
+                    )
                 client.phone = updates["clientPhone"]
             if "clientName" in updates:
                 client.name = updates["clientName"]
@@ -3846,23 +5285,36 @@ def update_booking(
     next_status = updates.get("status", booking.status)
     next_payment_settled = updates.get("paymentSettled", booking.payment_settled)
     service_resource_group = _service_resource_group(service)
-    next_workers = _validated_booking_workers(db, payload.workers) if payload.workers is not None else [
-        BookingWorkerPayload(
-            workerId=link.worker_id,
-            workerName=link.worker_name,
-            percent=link.percent,
-        )
-        for link in booking.worker_links
-    ]
-    should_validate_slot = _booking_requires_scheduled_slot(next_status) or any(field in updates for field in ("date", "time", "duration"))
+    next_workers = (
+        _validated_booking_workers(db, payload.workers)
+        if payload.workers is not None
+        else [
+            BookingWorkerPayload(
+                workerId=link.worker_id,
+                workerName=link.worker_name,
+                percent=link.percent,
+            )
+            for link in booking.worker_links
+        ]
+    )
+    should_validate_slot = _booking_requires_scheduled_slot(next_status) or any(
+        field in updates for field in ("date", "time", "duration")
+    )
     has_candidate_slot = bool(next_date and next_time)
     if should_validate_slot:
         if not has_candidate_slot:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите дату и время записи")
-        _ensure_booking_datetime_not_in_past(next_date, next_time)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Укажите дату и время записи",
+            )
+        _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
         _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
-    if _booking_requires_scheduled_slot(next_status) and (not next_box or next_box == DETAILING_REQUEST_BOX):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи")
+    if _booking_requires_scheduled_slot(next_status) and (
+        not next_box or next_box == DETAILING_REQUEST_BOX
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи"
+        )
     if next_box:
         compatible_boxes = _compatible_box_names(db, service_resource_group)
         if compatible_boxes and next_box not in compatible_boxes:
@@ -3878,11 +5330,20 @@ def update_booking(
         worker_ids={worker.workerId for worker in next_workers},
         status_value=next_status,
     )
-    if session_data["role"] == "worker" and previous_status != "completed" and next_status == "completed":
+    if (
+        session_data["role"] == "worker"
+        and previous_status != "completed"
+        and next_status == "completed"
+    ):
         if payload.paymentSettled is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите, оплатил ли клиент заказ")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Укажите, оплатил ли клиент заказ",
+            )
         if next_payment_settled and payload.paymentType is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите способ оплаты")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите способ оплаты"
+            )
 
     for field, value in updates.items():
         target_field = {
@@ -3901,9 +5362,13 @@ def update_booking(
     client_notification_parts: list[str] = []
     if booking.client_id:
         if booking.date != previous_date or booking.time != previous_time:
-            client_notification_parts.append(f"Дата и время: {_booking_datetime_label(booking.date, booking.time)}")
+            client_notification_parts.append(
+                f"Дата и время: {_booking_datetime_label(booking.date, booking.time)}"
+            )
         if booking.status != previous_status:
-            client_notification_parts.append(f"Статус: {_booking_status_label(booking.status)}")
+            client_notification_parts.append(
+                f"Статус: {_booking_status_label(booking.status)}"
+            )
         if booking.service != previous_service:
             client_notification_parts.append(f"Услуга: {booking.service}")
         if booking.box != previous_box:
@@ -3920,7 +5385,11 @@ def update_booking(
             )
         )
 
-    if session_data["role"] == "worker" and previous_status != "completed" and booking.status == "completed":
+    if (
+        session_data["role"] == "worker"
+        and previous_status != "completed"
+        and booking.status == "completed"
+    ):
         worker_name = worker.name if worker is not None else "Мастер"
         db.add(
             Notification(
@@ -3942,8 +5411,14 @@ def update_booking(
     current_worker_ids = {link.worker_id for link in booking.worker_links}
     if payload.workers is not None and session_data["role"] in {"admin", "owner"}:
         if payload.notifyWorkers:
-            _notify_workers_about_assignment(db, booking, current_worker_ids - previous_worker_ids)
-    rescheduled = booking.date != previous_date or booking.time != previous_time or booking.box != previous_box
+            _notify_workers_about_assignment(
+                db, booking, current_worker_ids - previous_worker_ids
+            )
+    rescheduled = (
+        booking.date != previous_date
+        or booking.time != previous_time
+        or booking.box != previous_box
+    )
     wrote_worker_notifications = False
     if session_data["role"] in {"admin", "owner"} and rescheduled:
         _notify_workers_about_reschedule(
@@ -3955,15 +5430,26 @@ def update_booking(
             previous_box,
         )
         wrote_worker_notifications = True
-    if session_data["role"] in {"admin", "owner"} and (booking.notes or "").strip() != previous_note:
+    if (
+        session_data["role"] in {"admin", "owner"}
+        and (booking.notes or "").strip() != previous_note
+    ):
         _notify_workers_about_note(db, booking, current_worker_ids)
         wrote_worker_notifications = True
-    if session_data["role"] == "worker" and worker is not None and booking.status != previous_status:
+    if (
+        session_data["role"] == "worker"
+        and worker is not None
+        and booking.status != previous_status
+    ):
         if booking.status == "in_progress":
-            _notify_owner_about_worker_booking_event(db, booking, worker_name=worker.name, event_label="начал")
+            _notify_owner_about_worker_booking_event(
+                db, booking, worker_name=worker.name, event_label="начал"
+            )
             wrote_worker_notifications = True
         if booking.status == "completed":
-            _notify_owner_about_worker_booking_event(db, booking, worker_name=worker.name, event_label="завершил")
+            _notify_owner_about_worker_booking_event(
+                db, booking, worker_name=worker.name, event_label="завершил"
+            )
             _notify_booking_completion_receipt(db, booking, worker_name=worker.name)
             wrote_worker_notifications = True
     if wrote_worker_notifications:
@@ -3977,37 +5463,43 @@ def delete_booking(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> GenericMessage:
-    if session_data["role"] not in {"client", "admin", "owner"}:
+    if session_data["role"] not in {"client", "admin", "owner", "accountant"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     booking = db.get(Booking, booking_id)
     if booking is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
+        )
     if session_data["role"] == "client":
         if booking.client_id != session_data["actorId"]:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
         if booking.status not in BOOKING_CLIENT_CANCELLABLE_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Клиент может отменить только новую, подтверждённую или запланированную запись",
             )
-        db.add_all([
-            Notification(
-                id=f"n-{uuid4()}",
-                recipient_role="client",
-                recipient_id=booking.client_id,
-                message=f"Запись на {booking.service} от {booking.date} в {booking.time} отменена.",
-                read=False,
-                created_at=_now(),
-            ),
-            Notification(
-                id=f"n-{uuid4()}",
-                recipient_role="admin",
-                recipient_id=None,
-                message=f"Клиент отменил запись: {booking.client_name}, {booking.date} {booking.time}, {booking.service}",
-                read=False,
-                created_at=_now(),
-            ),
-        ])
+        db.add_all(
+            [
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="client",
+                    recipient_id=booking.client_id,
+                    message=f"Запись на {booking.service} от {booking.date} в {booking.time} отменена.",
+                    read=False,
+                    created_at=_now(),
+                ),
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="admin",
+                    recipient_id=None,
+                    message=f"Клиент отменил запись: {booking.client_name}, {booking.date} {booking.time}, {booking.service}",
+                    read=False,
+                    created_at=_now(),
+                ),
+            ]
+        )
     db.delete(booking)
     db.commit()
     return GenericMessage(message="Запись удалена")
@@ -4023,7 +5515,9 @@ def create_notification(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     if session_data["role"] == "worker":
         if payload.recipientRole != "client" or not payload.recipientId:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
         assigned_booking = db.scalar(
             select(Booking)
             .join(Booking.worker_links)
@@ -4034,7 +5528,9 @@ def create_notification(
             )
         )
         if assigned_booking is None:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
     notification = Notification(
         id=f"n-{uuid4()}",
         recipient_role=payload.recipientRole,
@@ -4049,7 +5545,9 @@ def create_notification(
     return _notification_payload(notification)
 
 
-@app.patch("/api/notifications/{notification_id}/read", response_model=NotificationPayload)
+@app.patch(
+    "/api/notifications/{notification_id}/read", response_model=NotificationPayload
+)
 def mark_notification_read(
     notification_id: str,
     session_data: dict = Depends(_require_session),
@@ -4057,17 +5555,28 @@ def mark_notification_read(
 ) -> NotificationPayload:
     notification = db.get(Notification, notification_id)
     if notification is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
     allowed_recipient_roles = {session_data["role"]}
     if session_data["role"] == "accountant":
         allowed_recipient_roles.add("admin")
     if notification.recipient_role not in allowed_recipient_roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    if session_data["role"] in {"client", "worker"} and notification.recipient_id != session_data["actorId"]:
+    if (
+        session_data["role"] in {"client", "worker"}
+        and notification.recipient_id != session_data["actorId"]
+    ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    if session_data["role"] in {"admin", "accountant"} and notification.recipient_id not in {None, session_data["actorId"]}:
+    if session_data["role"] in {
+        "admin",
+        "accountant",
+    } and notification.recipient_id not in {None, session_data["actorId"]}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    if session_data["role"] == "owner" and notification.recipient_id not in {None, session_data["actorId"]}:
+    if session_data["role"] == "owner" and notification.recipient_id not in {
+        None,
+        session_data["actorId"],
+    }:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     notification.read = True
     db.commit()
@@ -4083,19 +5592,26 @@ def mark_all_notifications_read(
 ) -> GenericMessage:
     if payload.role != session_data["role"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    notifications = db.scalars(select(Notification)).all()
-    for notification in notifications:
-        allowed_recipient_roles = {payload.role}
+    
+    actor_id = session_data["actorId"]
+    
+    query = select(Notification).where(Notification.recipient_role == payload.role)
+    
+    if payload.role in {"client", "worker"}:
+        query = query.where(Notification.recipient_id == actor_id)
+    elif payload.role in {"admin", "accountant"}:
+        query = query.where(or_(Notification.recipient_id == actor_id, Notification.recipient_id.is_(None)))
         if payload.role == "accountant":
-            allowed_recipient_roles.add("admin")
-        if notification.recipient_role not in allowed_recipient_roles:
-            continue
-        if payload.role in {"client", "worker"} and notification.recipient_id != session_data["actorId"]:
-            continue
-        if payload.role in {"admin", "accountant"} and notification.recipient_id not in {None, session_data["actorId"]}:
-            continue
-        if payload.role == "owner" and notification.recipient_id not in {None, session_data["actorId"]}:
-            continue
+            query = query.where(
+                or_(Notification.recipient_role == "accountant", Notification.recipient_role == "admin")
+            )
+    elif payload.role == "owner":
+        query = query.where(or_(Notification.recipient_id == actor_id, Notification.recipient_id.is_(None)))
+    
+    query = query.where(Notification.read == False)
+    
+    notifications = db.scalars(query).all()
+    for notification in notifications:
         notification.read = True
     db.commit()
     return GenericMessage(message="ok")
@@ -4132,7 +5648,9 @@ def update_stock_item(
     _ensure_staff_role(session_data, {"owner", "accountant"})
     item = db.get(StockItem, item_id)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found"
+        )
     data = payload.model_dump(exclude_unset=True)
     for field, value in data.items():
         if field == "unitPrice":
@@ -4154,11 +5672,31 @@ def write_off_stock(
     _ensure_staff_role(session_data, {"owner", "accountant"})
     item = db.get(StockItem, item_id)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found"
+        )
     item.qty = max(0, item.qty - payload.qty)
     db.commit()
     db.refresh(item)
     return _stock_payload(item)
+
+
+@app.delete("/api/stock-items/{item_id}", response_model=GenericMessage)
+def delete_stock_item(
+    item_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    item = db.get(StockItem, item_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found"
+        )
+    name = item.name
+    db.delete(item)
+    db.commit()
+    return GenericMessage(message=f"Товар «{name}» удалён")
 
 
 @app.get("/api/shift-checklists", response_model=list[ShiftChecklistPayload])
@@ -4169,8 +5707,17 @@ def list_shift_checklists(
     _ensure_staff_role(session_data, {"owner", "admin", "worker", "accountant"})
     entries = _shift_checklists_state(db)
     if session_data["role"] == "worker":
-        entries = [entry for entry in entries if entry.get("workerId") == session_data["actorId"]]
-    return [_shift_checklist_payload(entry) for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True)]
+        entries = [
+            entry
+            for entry in entries
+            if entry.get("workerId") == session_data["actorId"]
+        ]
+    return [
+        _shift_checklist_payload(entry)
+        for entry in sorted(
+            entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True
+        )
+    ]
 
 
 @app.post("/api/shift-checklists", response_model=ShiftChecklistPayload)
@@ -4182,7 +5729,9 @@ def submit_shift_checklist(
     _ensure_staff_role(session_data, {"worker"})
     worker = db.get(StaffUser, session_data["actorId"])
     if worker is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
+        )
     stock_items = _chemistry_stock_items(db)
     previous_entries = _shift_checklists_state(db)
     previous_start = _latest_shift_checklist_entry(previous_entries, worker.id, "start")
@@ -4201,7 +5750,9 @@ def submit_shift_checklist(
                 "name": stock_item.name,
                 "unit": stock_item.unit,
                 "actualQty": actual_qty,
-                "startQty": previous_start_map.get(stock_item.id) if payload.phase == "end" else stock_item.qty,
+                "startQty": previous_start_map.get(stock_item.id)
+                if payload.phase == "end"
+                else stock_item.qty,
                 "endQty": actual_qty if payload.phase == "end" else None,
             }
         )
@@ -4230,7 +5781,9 @@ def submit_shift_checklist(
     return _shift_checklist_payload(entry)
 
 
-@app.get("/api/admin/shift-inspections", response_model=list[AdminShiftInspectionPayload])
+@app.get(
+    "/api/admin/shift-inspections", response_model=list[AdminShiftInspectionPayload]
+)
 def list_admin_shift_inspections(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
@@ -4238,8 +5791,17 @@ def list_admin_shift_inspections(
     _ensure_staff_role(session_data, {"owner", "admin"})
     entries = _admin_shift_inspections_state(db)
     if session_data["role"] == "admin":
-        entries = [entry for entry in entries if entry.get("adminId") == session_data["actorId"]]
-    return [_admin_shift_inspection_payload(entry) for entry in sorted(entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True)]
+        entries = [
+            entry
+            for entry in entries
+            if entry.get("adminId") == session_data["actorId"]
+        ]
+    return [
+        _admin_shift_inspection_payload(entry)
+        for entry in sorted(
+            entries, key=lambda item: str(item.get("createdAt") or ""), reverse=True
+        )
+    ]
 
 
 @app.get("/api/admin/shift-inspections/{inspection_id}/photo")
@@ -4249,16 +5811,38 @@ def get_admin_shift_inspection_photo(
     db: Session = Depends(get_db),
 ) -> Response:
     _ensure_staff_role(session_data, {"owner", "admin"})
-    entry = next((item for item in _admin_shift_inspections_state(db) if item.get("id") == inspection_id), None)
+    entry = next(
+        (
+            item
+            for item in _admin_shift_inspections_state(db)
+            if item.get("id") == inspection_id
+        ),
+        None,
+    )
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Чек-лист смены не найден")
-    if session_data["role"] == "admin" and entry.get("adminId") != session_data["actorId"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к фото этой смены")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Чек-лист смены не найден"
+        )
+    if (
+        session_data["role"] == "admin"
+        and entry.get("adminId") != session_data["actorId"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нет доступа к фото этой смены",
+        )
     raw_photo = str(entry.get("floorPhotoUrl") or "").strip()
     if not raw_photo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Фото открытия смены не найдено")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Фото открытия смены не найдено",
+        )
     mime_type, content = _decode_data_url_image(raw_photo)
-    return Response(content=content, media_type=mime_type, headers={"Cache-Control": "private, max-age=300"})
+    return Response(
+        content=content,
+        media_type=mime_type,
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @app.post("/api/admin/shift-inspections", response_model=AdminShiftInspectionPayload)
@@ -4270,10 +5854,15 @@ def submit_admin_shift_inspection(
     _ensure_staff_role(session_data, {"admin"})
     admin = db.get(StaffUser, session_data["actorId"])
     if admin is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Администратор не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Администратор не найден"
+        )
     _decode_data_url_image(payload.floorPhotoUrl)
     if not payload.clothsReady:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Подтвердите наличие чистых тряпок")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Подтвердите наличие чистых тряпок",
+        )
 
     supply_checks = {item.stockItemId: item.checked for item in payload.supplies}
     supplies = _admin_shift_inspection_supplies(db)
@@ -4284,7 +5873,9 @@ def submit_admin_shift_inspection(
             "category": str(item.get("category") or ""),
             "unit": str(item.get("unit") or ""),
             "qty": int(item.get("qty") or 0),
-            "checked": bool(supply_checks.get(str(item.get("stockItemId") or ""), False)),
+            "checked": bool(
+                supply_checks.get(str(item.get("stockItemId") or ""), False)
+            ),
         }
         for item in supplies
     ]
@@ -4304,7 +5895,9 @@ def submit_admin_shift_inspection(
         for worker in masters
     ]
     if not any(item["checked"] for item in masters_payload):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте мастеров на смене")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте мастеров на смене"
+        )
 
     entries = _admin_shift_inspections_state(db)
     entry = {
@@ -4330,7 +5923,10 @@ def submit_admin_shift_inspection(
     return _admin_shift_inspection_payload(entry)
 
 
-@app.post("/api/admin/shift-inspections/{inspection_id}/review", response_model=AdminShiftInspectionPayload)
+@app.post(
+    "/api/admin/shift-inspections/{inspection_id}/review",
+    response_model=AdminShiftInspectionPayload,
+)
 def review_admin_shift_inspection(
     inspection_id: str,
     payload: AdminShiftInspectionReviewRequest,
@@ -4368,6 +5964,187 @@ def create_expense(
     return _expense_payload(expense)
 
 
+@app.get("/api/owner/incomes", response_model=list[IncomePayload])
+def list_incomes(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[IncomePayload]:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    incomes = db.scalars(
+        select(Income).order_by(Income.created_at.desc())
+    ).all()
+    return [
+        IncomePayload(
+            id=income.id,
+            amount=income.amount,
+            source=income.source,
+            note=income.note,
+            createdById=income.created_by_id,
+            date=income.date,
+            createdAt=income.created_at,
+        )
+        for income in incomes
+    ]
+
+
+@app.post("/api/owner/incomes", response_model=IncomePayload, status_code=status.HTTP_201_CREATED)
+def create_income(
+    payload: IncomeCreateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> IncomePayload:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    income = Income(
+        id=str(uuid4()),
+        amount=payload.amount,
+        source=payload.source,
+        note=payload.note,
+        created_by_id=session_data["actorId"],
+        date=payload.date,
+        created_at=_now(),
+    )
+    db.add(income)
+    db.commit()
+    db.refresh(income)
+    return IncomePayload(
+        id=income.id,
+        amount=income.amount,
+        source=income.source,
+        note=income.note,
+        createdById=income.created_by_id,
+        date=income.date,
+        createdAt=income.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Shift Attendance Endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/api/owner/workers/{worker_id}/shift-attendance",
+    response_model=ShiftAttendancePayload,
+)
+def get_worker_shift_attendance(
+    worker_id: str,
+    period: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ShiftAttendancePayload:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role != "worker":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+        )
+
+    # Resolve date range
+    if date_from is not None and date_to is not None:
+        try:
+            d_from = date.fromisoformat(date_from)
+            d_to = date.fromisoformat(date_to)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="date_from and date_to must be in YYYY-MM-DD format",
+            )
+    elif period is not None:
+        d_from, d_to = _period_to_date_range(period)
+    else:
+        # Default to week if nothing provided
+        d_from, d_to = _period_to_date_range("week")
+
+    inspections = _admin_shift_inspections_state(db)
+    shift_count, shift_dates = _compute_shift_attendance(
+        inspections, worker_id, d_from, d_to
+    )
+    return ShiftAttendancePayload(
+        workerId=worker.id,
+        workerName=worker.name,
+        shiftCount=shift_count,
+        shiftDates=shift_dates,
+    )
+
+
+@app.get(
+    "/api/owner/shift-attendance",
+    response_model=list[ShiftAttendancePayload],
+)
+def get_all_workers_shift_attendance(
+    period: str = "week",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[ShiftAttendancePayload]:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+
+    d_from, d_to = _period_to_date_range(period)
+
+    active_workers = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role == "worker", StaffUser.active.is_(True))
+        .order_by(StaffUser.name.asc())
+    ).all()
+
+    inspections = _admin_shift_inspections_state(db)
+
+    results: list[ShiftAttendancePayload] = []
+    for worker in active_workers:
+        shift_count, shift_dates = _compute_shift_attendance(
+            inspections, worker.id, d_from, d_to
+        )
+        results.append(
+            ShiftAttendancePayload(
+                workerId=worker.id,
+                workerName=worker.name,
+                shiftCount=shift_count,
+                shiftDates=shift_dates,
+            )
+        )
+
+    # Sort by shiftCount descending
+    results.sort(key=lambda x: x.shiftCount, reverse=True)
+    return results
+
+
+@app.get(
+    "/api/worker/shift-attendance",
+    response_model=ShiftAttendancePayload,
+)
+def get_own_shift_attendance(
+    period: str = "week",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ShiftAttendancePayload:
+    if session_data.get("role") != "worker":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        )
+
+    worker_id = session_data["actorId"]
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role != "worker":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+        )
+
+    d_from, d_to = _period_to_date_range(period)
+
+    inspections = _admin_shift_inspections_state(db)
+    shift_count, shift_dates = _compute_shift_attendance(
+        inspections, worker_id, d_from, d_to
+    )
+    return ShiftAttendancePayload(
+        workerId=worker.id,
+        workerName=worker.name,
+        shiftCount=shift_count,
+        shiftDates=shift_dates,
+    )
+
+
 @app.post("/api/penalties", response_model=PenaltyPayload)
 def create_penalty(
     payload: PenaltyCreateRequest,
@@ -4377,7 +6154,9 @@ def create_penalty(
     _ensure_staff_role(session_data, {"owner"})
     worker = db.get(StaffUser, payload.workerId)
     if worker is None or worker.role != "worker":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+        )
     created_at = _now()
     penalty = Penalty(
         id=f"p-{uuid4()}",
@@ -4395,8 +6174,13 @@ def create_penalty(
     db.add(penalty)
     db.flush()
     worker_penalties = _load_penalties(db, worker_ids={worker.id})
-    complaint_status = complaint_status_for_percent(worker.default_percent, worker_penalties, at=created_at)
-    if complaint_status.reduction_active and complaint_status.reduction_until is not None:
+    complaint_status = complaint_status_for_percent(
+        worker.default_percent, worker_penalties, at=created_at
+    )
+    if (
+        complaint_status.reduction_active
+        and complaint_status.reduction_until is not None
+    ):
         status_line = (
             f"Активных жалоб: {complaint_status.active_count}. "
             f"Процент по работе снижен на {COMPLAINT_PERCENT_DEDUCTION} п.п. "
@@ -4419,9 +6203,16 @@ def create_penalty(
         )
     )
     db.commit()
-    penalty = db.scalar(select(Penalty).options(joinedload(Penalty.worker)).where(Penalty.id == penalty.id))
+    penalty = db.scalar(
+        select(Penalty)
+        .options(joinedload(Penalty.worker))
+        .where(Penalty.id == penalty.id)
+    )
     if penalty is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Penalty was not saved")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Penalty was not saved",
+        )
     _send_telegram_safe(
         worker.telegram_chat_id,
         f"Новая жалоба от владельца\n{penalty.title}\n{status_line}\n{penalty.reason}",
@@ -4436,15 +6227,25 @@ def revoke_penalty(
     db: Session = Depends(get_db),
 ) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
-    penalty = db.scalar(select(Penalty).options(joinedload(Penalty.worker)).where(Penalty.id == penalty_id))
+    penalty = db.scalar(
+        select(Penalty)
+        .options(joinedload(Penalty.worker))
+        .where(Penalty.id == penalty_id)
+    )
     if penalty is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Complaint not found"
+        )
     now = _now()
     active_until = penalty.active_until or complaint_active_until(penalty.created_at)
     if penalty.revoked_at is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Complaint already revoked")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Complaint already revoked"
+        )
     if now >= _as_utc(active_until):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Complaint already expired")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Complaint already expired"
+        )
 
     worker = penalty.worker or db.get(StaffUser, penalty.worker_id)
     penalty_title = penalty.title
@@ -4453,8 +6254,13 @@ def revoke_penalty(
     db.flush()
 
     worker_penalties = _load_penalties(db, worker_ids={penalty.worker_id})
-    complaint_status = complaint_status_for_percent(worker.default_percent if worker else 0, worker_penalties, at=now)
-    if complaint_status.reduction_active and complaint_status.reduction_until is not None:
+    complaint_status = complaint_status_for_percent(
+        worker.default_percent if worker else 0, worker_penalties, at=now
+    )
+    if (
+        complaint_status.reduction_active
+        and complaint_status.reduction_until is not None
+    ):
         status_line = (
             f"Активных жалоб осталось {complaint_status.active_count}. "
             f"Снижение процента действует до {_format_local_datetime(complaint_status.reduction_until)}."
@@ -4485,7 +6291,9 @@ def revoke_penalty(
     return GenericMessage(message=f"Жалоба '{penalty_title}' снята")
 
 
-@app.post("/api/workers/{worker_id}/penalties/revoke-all", response_model=GenericMessage)
+@app.post(
+    "/api/workers/{worker_id}/penalties/revoke-all", response_model=GenericMessage
+)
 def revoke_all_worker_penalties(
     worker_id: str,
     session_data: dict = Depends(_require_session),
@@ -4494,7 +6302,9 @@ def revoke_all_worker_penalties(
     _ensure_staff_role(session_data, {"owner"})
     worker = db.get(StaffUser, worker_id)
     if worker is None or worker.role not in {"worker", "dismissed_worker"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+        )
 
     now = _now()
     penalties = db.scalars(
@@ -4505,7 +6315,9 @@ def revoke_all_worker_penalties(
     ).all()
     revoked_count = 0
     for penalty in penalties:
-        active_until = penalty.active_until or complaint_active_until(penalty.created_at)
+        active_until = penalty.active_until or complaint_active_until(
+            penalty.created_at
+        )
         if penalty.revoked_at is not None or now >= _as_utc(active_until):
             continue
         penalty.revoked_at = now
@@ -4517,8 +6329,13 @@ def revoke_all_worker_penalties(
         return GenericMessage(message="Активных жалоб у мастера нет")
 
     worker_penalties = _load_penalties(db, worker_ids={worker_id})
-    complaint_status = complaint_status_for_percent(worker.default_percent, worker_penalties, at=now)
-    if complaint_status.reduction_active and complaint_status.reduction_until is not None:
+    complaint_status = complaint_status_for_percent(
+        worker.default_percent, worker_penalties, at=now
+    )
+    if (
+        complaint_status.reduction_active
+        and complaint_status.reduction_until is not None
+    ):
         status_line = (
             f"Активных жалоб осталось {complaint_status.active_count}. "
             f"Снижение процента действует до {_format_local_datetime(complaint_status.reduction_until)}."
@@ -4592,7 +6409,12 @@ def save_services(
         service.category = item.category
         service.price = item.price
         service.duration = item.duration
-        service.resource_group = _resource_group_key(item.resourceGroup)
+        # Категория — источник истины для resourceGroup.
+        expected_group = _resource_group_for_service_category(item.category)
+        requested_group = _resource_group_key(item.resourceGroup)
+        service.resource_group = (
+            requested_group if requested_group == expected_group else expected_group
+        )
         service.description = item.desc
         service.active = item.active
     for service_id, service in existing.items():
@@ -4610,24 +6432,22 @@ def save_boxes(
     db: Session = Depends(get_db),
 ) -> list[BoxPayload]:
     _ensure_staff_role(session_data, {"admin", "owner"})
-    existing = {
-        box.id: box
-        for box in db.scalars(select(Box)).all()
-        if _resource_group_key(box.resource_group or _default_box_resource_group(box)) == WASH_RESOURCE_GROUP
-    }
+    existing = {box.id: box for box in db.scalars(select(Box)).all()}
     submitted_ids = {item.id for item in payload}
+    submitted_groups = {_resource_group_key(item.resourceGroup) for item in payload}
     for item in payload:
         box = existing.get(item.id)
         if box is None:
             box = Box(id=item.id)
             db.add(box)
         box.name = item.name
-        box.resource_group = WASH_RESOURCE_GROUP
+        box.resource_group = _resource_group_key(item.resourceGroup)
         box.price_per_hour = item.pricePerHour
         box.active = item.active
         box.description = item.description
     for box_id, box in existing.items():
-        if box_id not in submitted_ids:
+        box_group = _resource_group_key(box.resource_group or _default_box_resource_group(box))
+        if box_id not in submitted_ids and box_group in submitted_groups:
             db.delete(box)
     db.commit()
     boxes = _visible_boxes(db)
@@ -4641,7 +6461,9 @@ def save_schedule(
     db: Session = Depends(get_db),
 ) -> list[SchedulePayload]:
     _ensure_staff_role(session_data, {"admin", "owner"})
-    existing = {entry.day_index: entry for entry in db.scalars(select(ScheduleEntry)).all()}
+    existing = {
+        entry.day_index: entry for entry in db.scalars(select(ScheduleEntry)).all()
+    }
     for item in payload:
         entry = existing.get(item.dayIndex)
         if entry is None:
@@ -4676,7 +6498,9 @@ def save_admin_profile(
                 exclude_staff_id=staff.id,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
         staff.telegram_chat_id = telegram_chat_id
         staff.updated_at = _now()
     value = _upsert_setting(
@@ -4716,7 +6540,9 @@ def save_worker_profile(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     worker = db.get(StaffUser, worker_id)
     if worker is None or worker.role != "worker":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+        )
     worker.name = payload.name
     worker.phone = payload.phone
     worker.email = payload.email
@@ -4731,7 +6557,10 @@ def save_worker_profile(
     return _worker_payload(worker)
 
 
-@app.put("/api/settings/workers/{worker_id}/notifications", response_model=WorkerNotificationSettings)
+@app.put(
+    "/api/settings/workers/{worker_id}/notifications",
+    response_model=WorkerNotificationSettings,
+)
 def save_worker_notifications(
     worker_id: str,
     payload: WorkerNotificationSettings,
@@ -4812,7 +6641,11 @@ def save_worker_settings(
     _ensure_staff_role(session_data, {"owner", "accountant"})
     workers = {
         worker.id: worker
-        for worker in db.scalars(select(StaffUser).where(StaffUser.role.in_(("admin", "worker", "accountant")))).all()
+        for worker in db.scalars(
+            select(StaffUser).where(
+                StaffUser.role.in_(("admin", "worker", "accountant"))
+            )
+        ).all()
     }
     for item in payload:
         worker = workers.get(item.id)
@@ -4821,6 +6654,8 @@ def save_worker_settings(
         worker.name = item.name
         worker.default_percent = clamp_worker_percent(item.percent)
         worker.salary_base = item.salaryBase
+        if hasattr(worker, "salary_per_shift"):
+            worker.salary_per_shift = max(0, item.salaryPerShift)
         worker.active = item.active
         worker.available = item.active
         try:
@@ -4830,7 +6665,9 @@ def save_worker_settings(
                 exclude_staff_id=worker.id,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
         worker.updated_at = _now()
     db.commit()
     refreshed = db.scalars(
@@ -4838,8 +6675,12 @@ def save_worker_settings(
         .where(StaffUser.role.in_(("admin", "worker", "accountant")))
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
     ).all()
-    payroll_summaries = _worker_payroll_summaries(db, refreshed, _complaints_by_worker(_load_penalties(db)))
-    return [_worker_payload_with_payroll(worker, payroll_summaries) for worker in refreshed]
+    payroll_summaries = _worker_payroll_summaries(
+        db, refreshed, _complaints_by_worker(_load_penalties(db))
+    )
+    return [
+        _worker_payload_with_payroll(worker, payroll_summaries) for worker in refreshed
+    ]
 
 
 @app.put("/api/admin/workers/payroll", response_model=list[WorkerPayload])
@@ -4851,7 +6692,9 @@ def save_admin_worker_payroll(
     _ensure_staff_role(session_data, {"admin", "accountant"})
     workers = {
         worker.id: worker
-        for worker in db.scalars(select(StaffUser).where(StaffUser.role == "worker")).all()
+        for worker in db.scalars(
+            select(StaffUser).where(StaffUser.role == "worker")
+        ).all()
     }
     for item in payload:
         worker = workers.get(item.id)
@@ -4868,8 +6711,12 @@ def save_admin_worker_payroll(
         .where(StaffUser.role == "worker")
         .order_by(StaffUser.name.asc())
     ).all()
-    payroll_summaries = _worker_payroll_summaries(db, refreshed, _complaints_by_worker(_load_penalties(db)))
-    return [_worker_payload_with_payroll(worker, payroll_summaries) for worker in refreshed]
+    payroll_summaries = _worker_payroll_summaries(
+        db, refreshed, _complaints_by_worker(_load_penalties(db))
+    )
+    return [
+        _worker_payload_with_payroll(worker, payroll_summaries) for worker in refreshed
+    ]
 
 
 @app.post("/api/payroll/entries", response_model=WorkerPayload)
@@ -4881,17 +6728,28 @@ def create_payroll_entry(
     _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
     worker = db.get(StaffUser, payload.workerId)
     if worker is None or worker.role not in {"admin", "worker", "accountant"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
+        )
     if session_data["role"] in {"admin", "accountant"} and worker.role != "worker":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Администратор может вести выплаты только по мастерам")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Администратор может вести выплаты только по мастерам",
+        )
 
     amount = int(payload.amount)
     if payload.kind == "adjustment":
         if amount == 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите сумму корректировки")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Укажите сумму корректировки",
+            )
     else:
         if amount <= 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Сумма должна быть больше нуля")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Сумма должна быть больше нуля",
+            )
 
     complaints_by_worker = _complaints_by_worker(_load_penalties(db))
     payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
@@ -4944,19 +6802,34 @@ def create_worker(
     login = payload.login.strip().lower()
     password = payload.password.strip()
     if not name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите имя сотрудника")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите имя сотрудника"
+        )
     if not login:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите логин сотрудника")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите логин сотрудника"
+        )
     if not password:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите пароль сотрудника")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Введите пароль"
+        )
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пароль должен содержать минимум 8 символов",
+        )
     try:
         telegram_chat_id = ensure_staff_chat_id_available(db, payload.telegramChatId)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
 
     existing = db.scalar(select(StaffUser).where(StaffUser.login == login))
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Логин уже занят")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Логин уже занят"
+        )
 
     worker = StaffUser(
         id=f"w-{uuid4()}",
@@ -4980,7 +6853,9 @@ def create_worker(
     db.add(worker)
     db.commit()
     db.refresh(worker)
-    payroll_summaries = _worker_payroll_summaries(db, [worker], _complaints_by_worker(_load_penalties(db)))
+    payroll_summaries = _worker_payroll_summaries(
+        db, [worker], _complaints_by_worker(_load_penalties(db))
+    )
     return _worker_payload_with_payroll(worker, payroll_summaries)
 
 
@@ -4993,24 +6868,35 @@ def fire_worker(
     _ensure_staff_role(session_data, {"owner"})
     worker = db.get(StaffUser, worker_id)
     if worker is None or worker.role not in {"admin", "worker", "accountant"}:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found"
+        )
     if worker.is_primary_owner:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Primary owner cannot be dismissed")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Primary owner cannot be dismissed",
+        )
 
     now = _now()
     assigned_bookings: list[Booking] = []
     if worker.role == "worker":
-        assigned_bookings = db.scalars(
-            select(Booking)
-            .join(Booking.worker_links)
-            .options(joinedload(Booking.worker_links))
-            .where(
-                BookingWorker.worker_id == worker_id,
-                Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+        assigned_bookings = (
+            db.scalars(
+                select(Booking)
+                .join(Booking.worker_links)
+                .options(joinedload(Booking.worker_links))
+                .where(
+                    BookingWorker.worker_id == worker_id,
+                    Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+                )
+                .order_by(Booking.date.asc(), Booking.time.asc())
             )
-            .order_by(Booking.date.asc(), Booking.time.asc())
-        ).unique().all()
-    in_progress_bookings = [booking for booking in assigned_bookings if booking.status == "in_progress"]
+            .unique()
+            .all()
+        )
+    in_progress_bookings = [
+        booking for booking in assigned_bookings if booking.status == "in_progress"
+    ]
     if in_progress_bookings:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -5034,10 +6920,19 @@ def fire_worker(
     ).all():
         auth_session.revoked_at = now
 
-    db.execute(sa_delete(TelegramLinkCode).where(TelegramLinkCode.staff_id == worker_id))
+    db.execute(
+        sa_delete(TelegramLinkCode).where(TelegramLinkCode.staff_id == worker_id)
+    )
 
-    employee_label = "Администратор" if worker.role == "admin" else "Бухгалтер" if worker.role == "accountant" else "Мастер"
+    employee_label = (
+        "Администратор"
+        if worker.role == "admin"
+        else "Бухгалтер"
+        if worker.role == "accountant"
+        else "Мастер"
+    )
     dismissed_role = f"dismissed_{worker.role}"
+    previous_telegram_chat_id = worker.telegram_chat_id
     worker.role = dismissed_role
     worker.active = False
     worker.available = False
@@ -5064,7 +6959,7 @@ def fire_worker(
 
     db.commit()
     _send_telegram_safe(
-        worker.telegram_chat_id,
+        previous_telegram_chat_id,
         "Доступ в CRM и Mini App отключён владельцем. Если это ошибка, свяжитесь с руководителем.",
     )
     return GenericMessage(message=f"{employee_label} {worker.name} уволен")
@@ -5077,16 +6972,25 @@ def change_password(
     db: Session = Depends(get_db),
 ) -> GenericMessage:
     if session_data["role"] == "client":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Clients do not use password auth")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Clients do not use password auth",
+        )
     staff = db.get(StaffUser, session_data["actorId"])
     if staff is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     if not verify_password(payload.currentPassword, staff.password_hash):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Текущий пароль неверный")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Текущий пароль неверный"
+        )
     if len(payload.newPassword.strip()) < 8:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Новый пароль должен содержать минимум 8 символов")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Новый пароль должен содержать минимум 8 символов",
+        )
     staff.password_hash = hash_password(payload.newPassword)
     staff.updated_at = _now()
     db.commit()
     return GenericMessage(message="Пароль обновлён")
-

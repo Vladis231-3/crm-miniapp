@@ -41,8 +41,6 @@ const STATUS_COLORS: Record<string, string> = {
 const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress']);
 const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show', 'admin_review']);
 const CANCELLABLE_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled']);
-const DETAILING_BOX_NAME = 'Детейлинг';
-
 type Page = 'catalog' | 'detail' | 'slots' | 'confirm' | 'bookings' | 'profile';
 
 function isBoxRentalService(service: Service | null | undefined) {
@@ -59,7 +57,7 @@ function serviceResourceGroup(service: Service | null | undefined) {
 
 function bookingBoxesForService(service: Service | null | undefined, boxes: Array<{ name: string; resourceGroup: string; active: boolean }>) {
   return serviceResourceGroup(service) === 'detailing'
-    ? [{ name: DETAILING_BOX_NAME, resourceGroup: 'detailing', active: true }]
+    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
     : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
 }
 
@@ -214,7 +212,7 @@ export function ClientApp() {
     ? activeServices
     : activeServices.filter((service) => service.category === activeCategory);
   const compatibleBoxes = bookingBoxesForService(selectedService, boxes);
-  const defaultBoxName = compatibleBoxes[0]?.name || DETAILING_BOX_NAME;
+  const defaultBoxName = compatibleBoxes[0]?.name || 'Детейлинг';
 
   const selectedServiceIsBoxRental = isBoxRentalService(selectedService);
   const selectedServiceIsDetailing = isDetailingService(selectedService);

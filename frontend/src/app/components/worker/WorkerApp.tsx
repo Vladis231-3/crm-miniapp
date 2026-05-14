@@ -7,10 +7,11 @@ import {
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp
 } from 'lucide-react';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
+import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
-type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift';
+type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift' | 'attendance';
 
 const READY_TO_START_STATUSES: Booking['status'][] = ['new', 'confirmed', 'scheduled'];
 
@@ -653,11 +654,18 @@ export function WorkerApp() {
                 {profile.about && <div className={`text-xs ${sub} mt-1`}>{profile.about}</div>}
               </div>
 
+              {/* Attendance */}
+              <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                <div className={`text-xs font-medium ${sub} mb-3`}>МОИ ВЫХОДЫ НА СМЕНУ</div>
+                <AttendanceTable mode="worker" workerId={session?.actorId} primary={primary} />
+              </div>
+
               {/* Menu items */}
               <div className="space-y-2">
                 {[
                   { id: 'personal', icon: Edit3, label: 'Личные данные', desc: profile.phone, color: primary },
                   { id: 'shift', icon: Check, label: 'Чек-лист смены', desc: 'Химия на начало и конец', color: '#34C759' },
+                  { id: 'attendance', icon: TrendingUp, label: 'Мои выходы', desc: 'Посещаемость за период', color: '#8B5CF6' },
                   { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Управление оповещениями', color: '#A855F7' },
                   { id: 'history', icon: History, label: 'История задач', desc: `${allMyTasks.length} всего`, color: '#F59E0B' },
                   { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Пароль и сессии', color: '#EF4444' },
@@ -897,6 +905,15 @@ export function WorkerApp() {
                 <Shield size={16} />{passSaved ? 'Изменён!' : 'Изменить пароль'}
               </button>
             </motion.div>
+
+          ) : tab === 'profile' && profileSection === 'attendance' ? (
+            <motion.div key="profile-attendance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setProfileSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-2">Мои выходы на смену</h2>
+              <p className={`text-xs ${sub} mb-4`}>Количество выходов за выбранный период.</p>
+              <AttendanceTable mode="worker" workerId={session?.actorId} primary={primary} />
+            </motion.div>
+
           ) : null}
         </AnimatePresence>
       </div>

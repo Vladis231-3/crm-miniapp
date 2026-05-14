@@ -11,17 +11,17 @@ from urllib import error, request
 from uuid import uuid4
 
 try:
-    from backend.app.config import get_settings
-    from backend.app.database import session_scope
-    from backend.app.models import AppSetting, Notification, StaffUser
-    from backend.app.schemas import normalize_phone_digits
-    from backend.app.telegram_linking import confirm_link_code
-except ImportError:
     from app.config import get_settings
     from app.database import session_scope
     from app.models import AppSetting, Notification, StaffUser
     from app.schemas import normalize_phone_digits
     from app.telegram_linking import confirm_link_code
+except ImportError:
+    from backend.app.config import get_settings
+    from backend.app.database import session_scope
+    from backend.app.models import AppSetting, Notification, StaffUser
+    from backend.app.schemas import normalize_phone_digits
+    from backend.app.telegram_linking import confirm_link_code
 
 
 @dataclass(frozen=True)

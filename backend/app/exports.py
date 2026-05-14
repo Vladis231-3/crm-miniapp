@@ -21,7 +21,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
 
 from .complaints import adjusted_booking_percent, complaint_status_for_percent
-from .models import Booking, Expense, Penalty, Service, StaffUser, StockItem
+from .models import Booking, Expense, Income, Penalty, PayrollEntry, Service, StaffUser, StockItem
 
 
 ExportKind = Literal["report", "pdf"]
@@ -61,6 +61,7 @@ class OwnerExportData:
     expense_rows: list[list[Any]]
     stock_rows: list[list[Any]]
     complaint_rows: list[list[Any]]
+    income_rows: list[list[Any]]
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,8 @@ def build_owner_summary_report(
     company_name: str,
     bookings: list[Booking],
     services: list[Service],
+    expenses: list[Expense] | None = None,
+    incomes: list[Income] | None = None,
     period: ReportPeriod,
     segment: ReportSegment,
     now: datetime | None = None,
@@ -143,6 +146,27 @@ def build_owner_summary_report(
     revenue = sum(booking.price for booking in completed)
     avg_check = round(revenue / len(completed)) if completed else 0
 
+    # Фильтруем расходы и доходы по тому же периоду что и записи
+    period_start, period_end, _ = _summary_period_bounds(period, context.generated_at)
+
+    def _parse_ddmmyyyy(value: str) -> datetime | None:
+        try:
+            return datetime.strptime(value.strip(), "%d.%m.%Y")
+        except ValueError:
+            return None
+
+    def _in_period(date_str: str) -> bool:
+        dt = _parse_ddmmyyyy(date_str)
+        if dt is None:
+            return False
+        # Сравниваем без timezone (period_start/end могут быть aware)
+        ps = period_start.replace(tzinfo=None) if period_start.tzinfo else period_start
+        pe = period_end.replace(tzinfo=None) if period_end.tzinfo else period_end
+        return ps <= dt < pe
+
+    period_expenses = [e for e in (expenses or []) if _in_period(e.date)]
+    period_incomes = [i for i in (incomes or []) if _in_period(i.date)]
+
     service_rollup: dict[str, dict[str, int | str]] = {}
     for booking, service in filtered:
         service_name = service.name if service is not None else booking.service
@@ -162,6 +186,17 @@ def build_owner_summary_report(
         f"Выручка: {_format_money(revenue)}",
         f"Средний чек: {_format_money(avg_check)}",
     ]
+    if period_expenses:
+        total_expenses = sum(e.amount for e in period_expenses)
+        lines.append(f"Расходы: {_format_money(total_expenses)}")
+    if period_incomes:
+        total_incomes = sum(i.amount for i in period_incomes)
+        lines.append(f"Доп. доходы: {_format_money(total_incomes)}")
+    if period_expenses or period_incomes:
+        total_exp = sum(e.amount for e in period_expenses)
+        total_inc = sum(i.amount for i in period_incomes)
+        profit = revenue + total_inc - total_exp
+        lines.append(f"Прибыль: {_format_money(profit)}")
 
     top_services = sorted(
         service_rollup.values(),
@@ -697,6 +732,8 @@ def build_owner_export(
     workers: list[StaffUser],
     stock_items: list[StockItem],
     services: list[Service],
+    incomes: list[Income] | None = None,
+    payroll_entries: list[PayrollEntry] | None = None,
 ) -> GeneratedExport:
     data = _build_export_data(
         owner=owner,
@@ -707,6 +744,8 @@ def build_owner_export(
         workers=workers,
         stock_items=stock_items,
         services=services,
+        incomes=incomes or [],
+        payroll_entries=payroll_entries or [],
     )
     slug = data.generated_at.strftime("%Y-%m-%d-%H%M")
     if kind == "report":
@@ -734,6 +773,8 @@ def _build_export_data(
     workers: list[StaffUser],
     stock_items: list[StockItem],
     services: list[Service],
+    incomes: list[Income],
+    payroll_entries: list[PayrollEntry] | None = None,
 ) -> OwnerExportData:
     generated_at = datetime.now().astimezone()
     bookings = sorted(bookings, key=_booking_sort_key, reverse=True)
@@ -744,8 +785,10 @@ def _build_export_data(
 
     revenue = sum(item.price for item in completed)
     total_expenses = sum(item.amount for item in expenses)
-    profit = revenue - total_expenses
-    margin = round((profit / revenue) * 100) if revenue else 0
+    total_incomes = sum(i.amount for i in incomes)
+    # Прибыль = выручка + доп. доходы - расходы (согласовано с Telegram-отчётом)
+    profit = revenue + total_incomes - total_expenses
+    margin = round((profit / (revenue + total_incomes)) * 100) if (revenue + total_incomes) else 0
     avg_check = round(revenue / len(completed)) if completed else 0
     completion_rate = round((len(completed) / len(bookings)) * 100) if bookings else 0
     cancellation_rate = round((len(cancelled) / len(bookings)) * 100) if bookings else 0
@@ -798,6 +841,12 @@ def _build_export_data(
     for penalty in penalties:
         complaints_by_worker.setdefault(penalty.worker_id, []).append(penalty)
 
+    # Группируем ручные операции по сотруднику для точного расчёта баланса
+    entries_by_worker: dict[str, list[PayrollEntry]] = {worker.id: [] for worker in workers}
+    for entry in (payroll_entries or []):
+        if entry.worker_id in entries_by_worker:
+            entries_by_worker[entry.worker_id].append(entry)
+
     payroll_rows: list[list[Any]] = []
     total_payroll = 0
     active_assignments = scheduled + in_progress
@@ -820,8 +869,26 @@ def _build_export_data(
         complaint_effect = "Без снижения"
         if complaint_state.reduction_active and complaint_state.reduction_until is not None:
             complaint_effect = f"До {_format_datetime(complaint_state.reduction_until)}"
-        payout = max(0, earned + worker.salary_base)
-        total_payroll += payout
+
+        # Учитываем ручные операции (премии, авансы, удержания, выплаты, корректировки)
+        worker_entries = entries_by_worker.get(worker.id, [])
+        bonus_total = sum(e.amount for e in worker_entries if e.kind == "bonus")
+        advance_total = sum(e.amount for e in worker_entries if e.kind == "advance")
+        deduction_total = sum(e.amount for e in worker_entries if e.kind == "deduction")
+        payout_total = sum(e.amount for e in worker_entries if e.kind == "payout")
+        adjustment_total = sum(e.amount for e in worker_entries if e.kind == "adjustment")
+
+        total_accrued = (
+            earned
+            + worker.salary_base
+            + bonus_total
+            + max(adjustment_total, 0)
+        )
+        total_deducted = (
+            advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
+        )
+        balance = total_accrued - total_deducted
+        total_payroll += max(0, balance)
         payroll_rows.append([
             worker.name,
             "Да" if worker.active else "Нет",
@@ -832,7 +899,7 @@ def _build_export_data(
             earned,
             complaint_state.active_count,
             complaint_effect,
-            payout,
+            balance,  # баланс = начислено - удержано/выдано
         ])
     payroll_rows.sort(key=lambda item: (item[9], item[6], item[0]), reverse=True)
     client_rollup: dict[str, dict[str, Any]] = {}
@@ -930,9 +997,15 @@ def _build_export_data(
         for booking in bookings
     ]
 
+    income_rows: list[list[Any]] = [
+        [i.date, i.source, i.amount, i.note or ""]
+        for i in incomes
+    ]
+
     metrics = [
         ExportMetric("Выручка", _format_money(revenue)),
         ExportMetric("Расходы", _format_money(total_expenses)),
+        ExportMetric("Доп. доходы", _format_money(total_incomes)),
         ExportMetric("Прибыль", _format_money(profit)),
         ExportMetric("Маржа", f"{margin}%"),
         ExportMetric("Средний чек", _format_money(avg_check)),
@@ -964,6 +1037,7 @@ def _build_export_data(
         expense_rows=expense_rows,
         stock_rows=stock_rows,
         complaint_rows=complaint_rows,
+        income_rows=income_rows,
     )
 
 

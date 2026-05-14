@@ -23,6 +23,8 @@ load_dotenv(ROOT_DIR / ".env")
 @dataclass(frozen=True)
 class Settings:
     app_name: str
+    environment: str
+    is_production: bool
     app_secret: str
     telegram_bot_token: str | None
     webapp_url: str | None
@@ -30,6 +32,7 @@ class Settings:
     sync_telegram_webhook: bool
     telegram_webhook_path: str
     cron_secret: str | None
+    allow_demo_seed_data: bool
     run_embedded_bot: bool
     allow_insecure_client_auth: bool
     api_host: str
@@ -58,8 +61,26 @@ def _normalize_webhook_path(raw: str | None) -> str:
     return value
 
 
+def _normalize_environment() -> tuple[str, bool]:
+    raw = (
+        os.getenv("APP_ENV")
+        or os.getenv("ENVIRONMENT")
+        or os.getenv("VERCEL_ENV")
+        or "development"
+    ).strip().lower()
+    aliases = {
+        "prod": "production",
+        "stage": "staging",
+        "dev": "development",
+        "test": "test",
+    }
+    environment = aliases.get(raw, raw or "development")
+    return environment, environment == "production"
+
+
 def get_settings() -> Settings:
     PERSISTENT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    environment, is_production = _normalize_environment()
     raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     origins = tuple(origin.strip() for origin in raw_origins.split(",") if origin.strip())
     database_url = (
@@ -67,17 +88,28 @@ def get_settings() -> Settings:
         or os.getenv("POSTGRES_URL")
         or f"sqlite:///{DEFAULT_DB_PATH.as_posix()}"
     )
+    app_secret = (os.getenv("APP_SECRET") or "").strip()
+    if not app_secret:
+        app_secret = "change-me" if not is_production else ""
+    if is_production and app_secret == "change-me":
+        raise RuntimeError("APP_SECRET must be set to a strong value in production")
     return Settings(
         app_name=os.getenv("APP_NAME", "crm-miniapp-backend"),
-        app_secret=os.getenv("APP_SECRET", "change-me"),
+        environment=environment,
+        is_production=is_production,
+        app_secret=app_secret,
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN") or None,
         webapp_url=os.getenv("WEBAPP_URL") or None,
         telegram_delivery_mode=_parse_telegram_delivery_mode(os.getenv("TELEGRAM_DELIVERY_MODE")),
         sync_telegram_webhook=_parse_bool(os.getenv("SYNC_TELEGRAM_WEBHOOK"), False),
         telegram_webhook_path=_normalize_webhook_path(os.getenv("TELEGRAM_WEBHOOK_PATH")),
         cron_secret=os.getenv("CRON_SECRET") or None,
+        allow_demo_seed_data=_parse_bool(os.getenv("ALLOW_DEMO_SEED_DATA"), not is_production),
         run_embedded_bot=_parse_bool(os.getenv("RUN_EMBEDDED_BOT"), False),
-        allow_insecure_client_auth=_parse_bool(os.getenv("ALLOW_INSECURE_CLIENT_AUTH"), False),
+        allow_insecure_client_auth=(
+            _parse_bool(os.getenv("ALLOW_INSECURE_CLIENT_AUTH"), False)
+            and not is_production
+        ),
         api_host=os.getenv("API_HOST", "0.0.0.0"),
         api_port=int(os.getenv("API_PORT", "8000")),
         cors_origins=origins,

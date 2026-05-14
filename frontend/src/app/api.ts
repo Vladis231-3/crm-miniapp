@@ -40,11 +40,19 @@ function getAuthHeaders(token: string | null) {
 }
 
 async function getErrorDetail(response: Response) {
-  let detail = `Request failed with status ${response.status}`;
+  let detail = `Ошибка сервера (${response.status})`;
   try {
     const payload = await response.json();
     if (typeof payload?.detail === 'string') {
       detail = payload.detail;
+    } else if (Array.isArray(payload?.detail)) {
+      // FastAPI 422 validation errors: [{loc, msg, type}]
+      const messages = payload.detail.map((err: { loc?: string[]; msg?: string }) => {
+        const field = err.loc ? err.loc.filter((p) => p !== 'body').join(' → ') : '';
+        const msg = err.msg || 'неверное значение';
+        return field ? `${field}: ${msg}` : msg;
+      });
+      detail = messages.join('\n');
     }
   } catch {
     // Response body is optional for failed requests.

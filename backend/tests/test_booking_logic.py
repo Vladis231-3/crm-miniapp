@@ -20,7 +20,13 @@ from sqlalchemy import select
 
 def reset_app_modules() -> None:
     for name in list(sys.modules):
-        if name == "app" or name.startswith("app."):
+        if (
+            name == "app"
+            or name.startswith("app.")
+            or name == "backend.app"
+            or name.startswith("backend.app.")
+            or name == "bot"
+        ):
             del sys.modules[name]
 
 
@@ -30,7 +36,10 @@ class BookingLogicTests(unittest.TestCase):
         data_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = data_dir / f"test_suite_{uuid4().hex}.sqlite3"
         os.environ["DATABASE_URL"] = f"sqlite:///{self.db_path.as_posix()}"
+        os.environ["APP_ENV"] = "development"
         os.environ["APP_SECRET"] = "test-secret"
+        os.environ["CRON_SECRET"] = "test-cron-secret"
+        os.environ["ALLOW_DEMO_SEED_DATA"] = "true"
         os.environ["RUN_EMBEDDED_BOT"] = "false"
         os.environ["ALLOW_INSECURE_CLIENT_AUTH"] = "true"
         os.environ["TELEGRAM_BOT_TOKEN"] = "123456:test-bot-token"
@@ -290,9 +299,79 @@ class BookingLogicTests(unittest.TestCase):
             staff.telegram_chat_id = chat_id
             db.commit()
 
+    def verify_client_phone(self, telegram_id: str, phone: str) -> None:
+        from bot import _store_client_phone_verification
+        from app.schemas import normalize_phone_digits
+
+        _store_client_phone_verification(int(telegram_id), normalize_phone_digits(phone))
+
+    def test_cron_requires_configured_secret(self) -> None:
+        self.shutdown_app()
+        os.environ.pop("CRON_SECRET", None)
+        self.restart_app()
+
+        response = self.client.get("/api/cron/reminders")
+        self.assertEqual(response.status_code, 503, response.text)
+
+    def test_production_requires_non_default_app_secret(self) -> None:
+        self.shutdown_app()
+        os.environ["APP_ENV"] = "production"
+        os.environ["APP_SECRET"] = "change-me"
+
+        with self.assertRaisesRegex(RuntimeError, "APP_SECRET"):
+            self.restart_app()
+
+        os.environ["APP_ENV"] = "development"
+        os.environ["APP_SECRET"] = "test-secret"
+        self.restart_app()
+
+    def test_production_does_not_seed_demo_password_accounts(self) -> None:
+        self.shutdown_app()
+        if self.db_path.exists():
+            self.db_path.unlink()
+        self.db_path = self.db_path.with_name(f"prod_seed_{uuid4().hex}.sqlite3")
+        os.environ["DATABASE_URL"] = f"sqlite:///{self.db_path.as_posix()}"
+        os.environ["APP_ENV"] = "production"
+        os.environ["APP_SECRET"] = "prod-secret"
+        os.environ["ALLOW_DEMO_SEED_DATA"] = "false"
+        self.restart_app()
+
+        from app.database import SessionLocal
+        from app.models import StaffUser
+
+        with SessionLocal() as db:
+            staff = db.scalars(select(StaffUser).order_by(StaffUser.id.asc())).all()
+            self.assertEqual([item.login for item in staff], ["creator_owner"])
+            self.assertTrue(staff[0].is_primary_owner)
+
+        os.environ["APP_ENV"] = "development"
+        os.environ["APP_SECRET"] = "test-secret"
+        os.environ["ALLOW_DEMO_SEED_DATA"] = "true"
+        self.restart_app()
+
+    def test_staff_login_is_rate_limited_after_repeated_failures(self) -> None:
+        for attempt in range(4):
+            response = self.client.post(
+                "/api/auth/staff/login",
+                json={"login": "admin", "password": f"wrong-{attempt}"},
+            )
+            self.assertEqual(response.status_code, 401, response.text)
+
+        locked_response = self.client.post(
+            "/api/auth/staff/login",
+            json={"login": "admin", "password": "wrong-final"},
+        )
+        self.assertEqual(locked_response.status_code, 429, locked_response.text)
+
+        correct_password_response = self.client.post(
+            "/api/auth/staff/login",
+            json={"login": "admin", "password": "admin"},
+        )
+        self.assertEqual(correct_password_response.status_code, 429, correct_password_response.text)
+
     @staticmethod
     def extract_owner_reset_code(message: str) -> str:
-        prefixes = ["Код подтверждения: ", "РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ: "]
+        prefixes = ["Код подтверждения: ", "Код подтверждения: "]
         for line in message.splitlines():
             for prefix in prefixes:
                 if line.startswith(prefix):
@@ -366,11 +445,11 @@ class BookingLogicTests(unittest.TestCase):
         response = self.client.patch(
             f"/api/clients/{client_id}/card",
             headers=self.auth_headers(owner_token),
-            json={"notes": "VIP РєР»РёРµРЅС‚", "debtBalance": 1500},
+            json={"notes": "VIP клиент", "debtBalance": 1500},
         )
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
-        self.assertEqual(payload["notes"], "VIP РєР»РёРµРЅС‚")
+        self.assertEqual(payload["notes"], "VIP клиент")
         self.assertEqual(payload["debtBalance"], 1500)
 
         from app.database import SessionLocal
@@ -380,10 +459,11 @@ class BookingLogicTests(unittest.TestCase):
             client = db.get(Client, client_id)
             self.assertIsNotNone(client)
             assert client is not None
-            self.assertEqual(client.notes, "VIP РєР»РёРµРЅС‚")
+            self.assertEqual(client.notes, "VIP клиент")
             self.assertEqual(client.debt_balance, 1500)
 
     def test_owner_dispatches_booking_reminders_once_per_booking(self) -> None:
+        self.verify_client_phone("555111222", "+7 (999) 555-44-33")
         auth_response = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(
@@ -425,7 +505,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": client_id,
                 "clientName": "Alice",
                 "clientPhone": "+7 (999) 555-44-33",
-                "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
+                "service": "Мойка базовая",
                 "serviceId": "s1",
                 "date": reminder_date,
                 "time": "11:00",
@@ -433,7 +513,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "confirmed",
                 "workers": [{"workerId": "w1", "workerName": "РРІР°РЅ", "percent": 30}],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -474,18 +554,16 @@ class BookingLogicTests(unittest.TestCase):
                 select(Notification).where(
                     Notification.recipient_role == "client",
                     Notification.recipient_id == client_id,
-                    Notification.message.like("%РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ Р·Р°РїРёСЃРё%"),
                 )
             ).all()
             worker_notifications = db.scalars(
                 select(Notification).where(
                     Notification.recipient_role == "worker",
                     Notification.recipient_id == "w1",
-                    Notification.message.like("%РќР°РїРѕРјРёРЅР°РЅРёРµ РјР°СЃС‚РµСЂСѓ%"),
                 )
             ).all()
-            self.assertEqual(len(client_notifications), 1)
-            self.assertEqual(len(worker_notifications), 1)
+            self.assertEqual(sum("напомин" in item.message.lower() for item in client_notifications), 1)
+            self.assertEqual(sum("напомин" in item.message.lower() for item in worker_notifications), 1)
 
     def test_client_login_tolerates_legacy_partial_settings(self) -> None:
         from app.database import SessionLocal
@@ -535,7 +613,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": "",
                 "clientName": "First Client",
                 "clientPhone": "+7 (999) 111-22-33",
-                "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
+                "service": "Мойка базовая",
                 "serviceId": "s1",
                 "date": booking_date,
                 "time": "10:00",
@@ -543,7 +621,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -559,7 +637,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": "",
                 "clientName": "Ignored Name",
                 "clientPhone": "+7 (999) 222-33-44",
-                "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
+                "service": "Мойка базовая",
                 "serviceId": "s1",
                 "date": booking_date,
                 "time": "10:00",
@@ -567,7 +645,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "BMW X5",
                 "plate": "A123BC",
@@ -575,7 +653,7 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(client_response.status_code, 200, client_response.text)
         payload = client_response.json()
-        self.assertNotEqual(payload["box"], "Р‘РѕРєСЃ 1")
+        self.assertNotEqual(payload["box"], "Бокс 1")
 
     def test_detailing_booking_uses_detailing_room_and_keeps_slots_separate(self) -> None:
         admin_token = self.login_staff("admin", "admin")
@@ -612,7 +690,9 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(availability_response.status_code, 200, availability_response.text)
         availability_payload = availability_response.json()
         slot = next(item for item in availability_payload["slots"] if item["time"] == "11:00")
-        self.assertEqual(slot["freeBoxes"], 1)
+        # Детейлинг-направление содержит три независимых бокса,
+        # занятие бокса мойки не влияет на них — все три свободны.
+        self.assertEqual(slot["freeBoxes"], 3)
         self.assertTrue(slot["available"])
 
         detailing_response = self.client.post(
@@ -638,7 +718,7 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(detailing_response.status_code, 200, detailing_response.text)
         detailing_payload = detailing_response.json()
-        self.assertEqual(detailing_payload["box"], "Детейлинг")
+        self.assertTrue(str(detailing_payload["box"]).startswith("Детейлинг"))
         self.assertEqual(detailing_payload["status"], "new")
 
     def test_booking_rejects_box_time_overlap(self) -> None:
@@ -659,19 +739,22 @@ class BookingLogicTests(unittest.TestCase):
             "car": "Lada Vesta",
             "plate": "A123BC",
         }
-        first = self.client.post(
-            "/api/bookings",
-            headers=self.auth_headers(token),
-            json={**common, "time": "10:00"},
-        )
-        self.assertEqual(first.status_code, 200, first.text)
+        # Детейлинг-услуга использует 3 бокса — занимаем все три,
+        # после чего 4-я перекрывающаяся запись должна дать 409.
+        for slot in ("10:00", "10:30", "11:00"):
+            resp = self.client.post(
+                "/api/bookings",
+                headers=self.auth_headers(token),
+                json={**common, "time": slot},
+            )
+            self.assertEqual(resp.status_code, 200, resp.text)
 
-        second = self.client.post(
+        overflow = self.client.post(
             "/api/bookings",
             headers=self.auth_headers(token),
-            json={**common, "time": "10:30"},
+            json={**common, "time": "10:15"},
         )
-        self.assertEqual(second.status_code, 409, second.text)
+        self.assertEqual(overflow.status_code, 409, overflow.text)
 
     def test_booking_must_fit_schedule_window(self) -> None:
         token, _ = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
@@ -737,14 +820,14 @@ class BookingLogicTests(unittest.TestCase):
         owner_token = self.login_staff("owner", "owner")
         worker = self.get_staff(login="ivan")
 
-        for title in ("РћРїРѕР·РґР°РЅРёРµ", "РљР°С‡РµСЃС‚РІРѕ"):
+        for title in ("Опоздание", "Качество"):
             response = self.client.post(
                 "/api/penalties",
                 headers=self.auth_headers(owner_token),
                 json={
                     "workerId": worker["id"],
                     "title": title,
-                    "reason": "РџСЂРѕРІРµСЂРєР° СЃРЅСЏС‚РёСЏ РІСЃРµС… Р¶Р°Р»РѕР±",
+                    "reason": "Проверка снятия всех жалоб",
                 },
             )
             self.assertEqual(response.status_code, 200, response.text)
@@ -778,16 +861,16 @@ class BookingLogicTests(unittest.TestCase):
                 client_id=client_id,
                 client_name="Alice",
                 client_phone="+7 (999) 111-22-33",
-                service="РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
+                service="Мойка базовая",
                 service_id="s1",
                 date=today,
                 time="10:00",
                 duration=30,
                 price=1200,
                 status="completed",
-                box="Р‘РѕРєСЃ 1",
+                box="Бокс 1",
                 payment_type="cash",
-                notes="РџРµРЅР° Рё СЃСѓС€РєР°",
+                notes="Пена и сушка",
                 car="Lada Vesta",
                 plate="A123BC",
                 created_at=created_at,
@@ -797,16 +880,16 @@ class BookingLogicTests(unittest.TestCase):
                 client_id=client_id,
                 client_name="Alice",
                 client_phone="+7 (999) 111-22-33",
-                service="РџРѕР»РёСЂРѕРІРєР° СЃС‚РµРєР»Р°",
+                service="Полировка стекла",
                 service_id="s2",
                 date=today,
                 time="11:00",
                 duration=60,
                 price=3500,
                 status="completed",
-                box="Р‘РѕРєСЃ 2",
+                box="Бокс 2",
                 payment_type="card",
-                notes="РќРµ РґРѕР»Р¶РЅРѕ РїРѕРїР°СЃС‚СЊ РІ РјРѕР№РєСѓ",
+                notes="Не должно попасть в мойку",
                 car="Lada Vesta",
                 plate="A123BC",
                 created_at=created_at,
@@ -817,7 +900,7 @@ class BookingLogicTests(unittest.TestCase):
                 BookingWorker(
                     booking_id=wash_booking.id,
                     worker_id="w2",
-                    worker_name="РћР»РµРі",
+                    worker_name="Олег",
                     percent=10,
                 )
             )
@@ -849,27 +932,27 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(document["chat_id"], "123456789")
         self.assertTrue(str(document["file_name"]).endswith(".xlsx"))
         self.assertEqual(document["mime_type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        self.assertIn("Р•Р¶РµРґРЅРµРІРЅС‹Р№ РѕС‚С‡С‘С‚ РїРѕ РЅР°РїСЂР°РІР»РµРЅРёСЋ: РњРѕР№РєР°", str(document["caption"]))
+        self.assertIn("Ежедневный отчёт по направлению: Мойка", str(document["caption"]))
 
         workbook = load_workbook(filename=BytesIO(document["content"]))
-        self.assertIn("РЎРІРѕРґРєР°", workbook.sheetnames)
-        self.assertIn("РЎС‚Р°С‚СѓСЃС‹", workbook.sheetnames)
-        self.assertIn("РЎРѕС‚СЂСѓРґРЅРёРєРё", workbook.sheetnames)
-        self.assertIn("Р РµРµСЃС‚СЂ Р·Р°РїРёСЃРµР№", workbook.sheetnames)
+        self.assertIn("Сводка", workbook.sheetnames)
+        self.assertIn("Статусы", workbook.sheetnames)
+        self.assertIn("Сотрудники", workbook.sheetnames)
+        self.assertIn("Реестр записей", workbook.sheetnames)
 
-        summary = workbook["РЎРІРѕРґРєР°"]
-        self.assertEqual(summary["A2"].value, "Р•Р¶РµРґРЅРµРІРЅС‹Р№ РѕС‚С‡С‘С‚ РїРѕ РЅР°РїСЂР°РІР»РµРЅРёСЋ: РњРѕР№РєР°")
+        summary = workbook["Сводка"]
+        self.assertEqual(summary["A2"].value, "Ежедневный отчёт по направлению: Мойка")
 
-        registry_rows = list(workbook["Р РµРµСЃС‚СЂ Р·Р°РїРёСЃРµР№"].iter_rows(min_row=2, values_only=True))
-        meaningful_registry = [row for row in registry_rows if row[0] != "РќРµС‚ РґР°РЅРЅС‹С…"]
+        registry_rows = list(workbook["Реестр записей"].iter_rows(min_row=2, values_only=True))
+        meaningful_registry = [row for row in registry_rows if row[0] != "Нет данных"]
         self.assertEqual(len(meaningful_registry), 1)
-        self.assertEqual(meaningful_registry[0][6], "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ")
-        self.assertEqual(meaningful_registry[0][7], "РњРѕР№РєР°")
+        self.assertEqual(meaningful_registry[0][6], "Мойка базовая")
+        self.assertEqual(meaningful_registry[0][7], "Мойка")
 
-        worker_rows = list(workbook["РЎРѕС‚СЂСѓРґРЅРёРєРё"].iter_rows(min_row=2, values_only=True))
-        meaningful_workers = [row for row in worker_rows if row[0] != "РќРµС‚ РґР°РЅРЅС‹С…"]
+        worker_rows = list(workbook["Сотрудники"].iter_rows(min_row=2, values_only=True))
+        meaningful_workers = [row for row in worker_rows if row[0] != "Нет данных"]
         self.assertEqual(len(meaningful_workers), 1)
-        self.assertEqual(meaningful_workers[0][0], "РћР»РµРі")
+        self.assertEqual(meaningful_workers[0][0], "Олег")
 
     def test_admin_create_booking_can_assign_workers_and_notify_them(self) -> None:
         from app.database import SessionLocal
@@ -896,7 +979,7 @@ class BookingLogicTests(unittest.TestCase):
                     "clientId": "",
                     "clientName": "Pavel",
                     "clientPhone": "+7 (999) 222-33-44",
-                    "service": "РњРѕР№РєР° Р±Р°Р·РѕРІР°СЏ",
+                    "service": "Мойка базовая",
                     "serviceId": "s1",
                     "date": self.next_active_date(),
                     "time": "12:00",
@@ -904,7 +987,7 @@ class BookingLogicTests(unittest.TestCase):
                     "price": 1200,
                     "status": "scheduled",
                     "workers": [{"workerId": "w1", "workerName": "РРІР°РЅ", "percent": 35}],
-                    "box": "Р‘РѕРєСЃ 1",
+                    "box": "Бокс 1",
                     "paymentType": "cash",
                     "car": "Lada Vesta",
                     "plate": "A123BC",
@@ -966,6 +1049,114 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(payload["car"], "Lada Vesta")
         self.assertEqual(payload["plate"], "")
 
+    def test_admin_can_create_admin_review_booking_with_empty_optional_fields(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+
+        response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "",
+                "clientPhone": "",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": "",
+                "time": "",
+                "duration": 30,
+                "price": 1200,
+                "status": "admin_review",
+                "workers": [],
+                "box": "",
+                "paymentType": "cash",
+                "car": "",
+                "plate": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["status"], "admin_review")
+        self.assertEqual(payload["clientName"], "")
+        self.assertEqual(payload["clientPhone"], "")
+        self.assertEqual(payload["date"], "")
+        self.assertEqual(payload["time"], "")
+        self.assertEqual(payload["box"], "")
+        self.assertEqual(self.count_clients(), 1)
+        client = self.get_client(payload["clientId"])
+        self.assertEqual(client["name"], "")
+        self.assertEqual(client["phone"], "")
+
+    def test_owner_can_create_client_and_past_booking_visible_on_first_client_login(self) -> None:
+        owner_token = self.login_staff("owner", "owner")
+
+        client_response = self.client.post(
+            "/api/clients",
+            headers=self.auth_headers(owner_token),
+            json={
+                "name": "History Client",
+                "phone": "+7 (999) 444-55-66",
+                "car": "Lada Vesta",
+                "plate": "A123BC777",
+                "notes": "created before bot login",
+            },
+        )
+        self.assertEqual(client_response.status_code, 200, client_response.text)
+        client_id = client_response.json()["id"]
+
+        booking_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(owner_token),
+            json={
+                "clientId": client_id,
+                "clientName": "",
+                "clientPhone": "",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": "01.04.2024",
+                "time": "09:30",
+                "duration": 30,
+                "price": 1200,
+                "status": "completed",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "paymentSettled": True,
+                "car": "",
+                "plate": "",
+            },
+        )
+        self.assertEqual(booking_response.status_code, 200, booking_response.text)
+        booking_id = booking_response.json()["id"]
+
+        login_response = self.client.post(
+            "/api/auth/client",
+            json=self.client_auth_payload(name="History Client", phone="+7 (999) 444-55-66", car="Lada Vesta", plate="A123BC777"),
+        )
+        self.assertEqual(login_response.status_code, 200, login_response.text)
+        payload = login_response.json()
+        self.assertEqual(payload["actorId"], client_id)
+        visible_bookings = payload["bootstrap"]["bookings"]
+        self.assertEqual([booking["id"] for booking in visible_bookings], [booking_id])
+        self.assertEqual(visible_bookings[0]["status"], "completed")
+
+    def test_service_resource_group_syncs_from_service_type_on_save(self) -> None:
+        owner_token = self.login_staff("owner", "owner")
+        bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(owner_token)).json()
+        services = bootstrap["services"]
+        services[0]["category"] = "\u0414\u0435\u0442\u0435\u0439\u043b\u0438\u043d\u0433"
+        services[0]["resourceGroup"] = "wash"
+
+        response = self.client.put(
+            "/api/settings/services",
+            headers=self.auth_headers(owner_token),
+            json=services,
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        saved = next(service for service in response.json() if service["id"] == services[0]["id"])
+        self.assertEqual(saved["resourceGroup"], "detailing")
+
     def test_fired_worker_loses_access_and_future_assignments(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         self.disable_owner_two_factor()
@@ -979,7 +1170,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientId": "",
                 "clientName": "Alice",
                 "clientPhone": "+7 (999) 111-22-33",
-                "service": "Р‘Р°Р·РѕРІР°СЏ РјРѕР№РєР°",
+                "service": "Базовая мойка",
                 "serviceId": "s1",
                 "date": self.next_active_date(),
                 "time": "12:00",
@@ -987,7 +1178,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": worker["id"], "workerName": "РРІР°РЅ", "percent": 40}],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -997,12 +1188,16 @@ class BookingLogicTests(unittest.TestCase):
         booking_id = create_response.json()["id"]
         self.assertEqual(len(create_response.json()["workers"]), 1)
 
+        self.set_staff_telegram("ivan", "555123")
         worker_token = self.login_staff("ivan", "master")
-        dismiss_response = self.client.delete(
-            f"/api/workers/{worker['id']}",
-            headers=self.auth_headers(owner_token),
-        )
+        with patch("app.main.send_telegram_message") as send_telegram_message:
+            dismiss_response = self.client.delete(
+                f"/api/workers/{worker['id']}",
+                headers=self.auth_headers(owner_token),
+            )
         self.assertEqual(dismiss_response.status_code, 200, dismiss_response.text)
+        send_telegram_message.assert_called_once()
+        self.assertEqual(send_telegram_message.call_args.args[0], "555123")
 
         session_response = self.client.get("/api/auth/session", headers=self.auth_headers(worker_token))
         self.assertEqual(session_response.status_code, 401, session_response.text)
@@ -1023,6 +1218,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertFalse(bool(fired_worker["active"]))
 
     def test_same_telegram_client_reuses_existing_account(self) -> None:
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         first = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1052,6 +1248,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(client["plate"], "B222BB")
 
     def test_generic_telegram_auth_logs_in_linked_client(self) -> None:
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         first = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1071,6 +1268,7 @@ class BookingLogicTests(unittest.TestCase):
         from app.database import SessionLocal
         from app.models import Client
 
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         first = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1098,6 +1296,7 @@ class BookingLogicTests(unittest.TestCase):
 
     def test_generic_telegram_auth_prefers_linked_staff_window(self) -> None:
         self.set_staff_telegram("ivan", "7001")
+        self.verify_client_phone("7001", "+7 (999) 111-22-33")
         client = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="7001"),
@@ -1127,7 +1326,9 @@ class BookingLogicTests(unittest.TestCase):
             json={"initData": self.make_init_data("9001", first_name="Owner")},
         )
         self.assertEqual(response.status_code, 409, response.text)
-        self.assertEqual(self.get_staff(login="owner")["telegram_chat_id"], "")
+        self.assertEqual(
+            self.get_staff(login="creator_owner")["telegram_chat_id"], ""
+        )
 
     def test_primary_owner_can_log_in_via_dedicated_telegram_route(self) -> None:
         self.set_primary_owner_telegram("9001")
@@ -1141,8 +1342,10 @@ class BookingLogicTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["role"], "owner")
         self.assertEqual(payload["bootstrap"]["session"]["role"], "owner")
-        self.assertEqual(payload["actorId"], self.get_staff(login="owner")["id"])
-        self.assertEqual(self.get_staff(login="owner")["telegram_chat_id"], "9001")
+        self.assertEqual(payload["actorId"], self.get_staff(login="creator_owner")["id"])
+        self.assertEqual(
+            self.get_staff(login="creator_owner")["telegram_chat_id"], "9001"
+        )
 
     def test_generic_telegram_auth_rejects_expired_init_data(self) -> None:
         self.set_staff_telegram("ivan", "7002")
@@ -1163,6 +1366,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertIn("telegram", response.text.lower())
 
     def test_client_registration_rejects_same_phone_for_different_telegram_ids(self) -> None:
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         first = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1256,6 +1460,7 @@ class BookingLogicTests(unittest.TestCase):
 
 
     def test_client_login_rejects_foreign_telegram_id_for_existing_phone(self) -> None:
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         first = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1399,6 +1604,7 @@ class BookingLogicTests(unittest.TestCase):
 
     def test_deleted_client_can_register_again_with_same_phone_and_telegram(self) -> None:
         admin_token = self.login_staff("admin", "admin")
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         first = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1440,6 +1646,7 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(invalid.status_code, 401, invalid.text)
 
+        self.verify_client_phone("1001", "+7 (999) 111-22-33")
         valid = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33", telegram_id="1001"),
@@ -1524,7 +1731,12 @@ class BookingLogicTests(unittest.TestCase):
 
         client_bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(client_token))
         self.assertEqual(client_bootstrap.status_code, 200, client_bootstrap.text)
-        self.assertTrue(any(item["recipientId"] == actor_id and "?????????" in item["message"].lower() for item in client_bootstrap.json()["notifications"]))
+        self.assertTrue(
+            any(
+                item["recipientId"] == actor_id and "заверш" in item["message"].lower()
+                for item in client_bootstrap.json()["notifications"]
+            )
+        )
 
 
     def test_admin_booking_reuses_existing_client_by_normalized_phone(self) -> None:
@@ -1718,7 +1930,7 @@ class BookingLogicTests(unittest.TestCase):
                 "role": "accountant",
                 "name": "Finance Lead",
                 "login": "accountant",
-                "password": "accpass",
+                "password": "accpass_pro",
                 "percent": 0,
                 "salaryBase": 60000,
                 "phone": "+7 (999) 555-33-44",
@@ -1733,7 +1945,7 @@ class BookingLogicTests(unittest.TestCase):
 
         accountant_login = self.client.post(
             "/api/auth/staff/login",
-            json={"login": "accountant", "password": "accpass"},
+            json={"login": "accountant", "password": "accpass_pro"},
         )
         self.assertEqual(accountant_login.status_code, 200, accountant_login.text)
         bootstrap = accountant_login.json()["bootstrap"]
@@ -2155,7 +2367,6 @@ class BookingLogicTests(unittest.TestCase):
                 headers=self.auth_headers(worker_token),
                 json={
                     "status": "completed",
-                    "price": 1800,
                     "paymentSettled": True,
                     "paymentType": "card",
                     "notes": "Сделали полную уборку салона",
@@ -2221,7 +2432,7 @@ class BookingLogicTests(unittest.TestCase):
             self.assertIsNotNone(client)
             assert client is not None
             self.assertEqual(client.car, "Lada Vesta")
-            self.assertEqual(client.plate, "А123ВС")
+            self.assertEqual(client.plate, "A123BC")
 
     def test_owner_can_notify_admin_about_inactive_clients(self) -> None:
         from app.database import SessionLocal
@@ -2284,6 +2495,7 @@ class BookingLogicTests(unittest.TestCase):
 
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")
+        self.verify_client_phone("999888777", "+7 (999) 111-22-33")
         auth_response = self.client.post(
             "/api/auth/client",
             json=self.client_auth_payload(
@@ -3085,7 +3297,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -3108,7 +3320,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Kia Rio",
                 "plate": "B222BB",
@@ -3146,7 +3358,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": first_worker["id"], "workerName": "Ivan", "percent": 40}],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -3169,7 +3381,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": second_worker["id"], "workerName": "Oleg", "percent": 40}],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Kia Rio",
                 "plate": "B222BB",
@@ -3201,7 +3413,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -3335,7 +3547,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -3374,7 +3586,7 @@ class BookingLogicTests(unittest.TestCase):
                 "price": 1200,
                 "status": "scheduled",
                 "workers": [{"workerId": worker["id"], "workerName": "Ivan", "percent": 40}],
-                "box": "Р‘РѕРєСЃ 1",
+                "box": "Бокс 1",
                 "paymentType": "cash",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
@@ -3494,20 +3706,20 @@ class BookingLogicTests(unittest.TestCase):
         stock_response = self.client.post(
             "/api/stock-items",
             headers=self.auth_headers(owner_token),
-            json={"name": "РЁР°РјРїСѓРЅСЊ", "qty": 5, "unit": "С€С‚", "unitPrice": 400, "category": "РҐРёРјРёСЏ"},
+            json={"name": "Шампунь", "qty": 5, "unit": "шт", "unitPrice": 400, "category": "Химия"},
         )
         self.assertEqual(stock_response.status_code, 200, stock_response.text)
 
         expense_response = self.client.post(
             "/api/expenses",
             headers=self.auth_headers(owner_token),
-            json={"title": "РџСЂРѕРІРµСЂРєР°", "amount": 900, "category": "РџСЂРѕС‡РµРµ", "date": self.next_active_date(), "note": ""},
+            json={"title": "Проверка", "amount": 900, "category": "Прочее", "date": self.next_active_date(), "note": ""},
         )
         self.assertEqual(expense_response.status_code, 200, expense_response.text)
         payroll_response = self.client.post(
             "/api/payroll/entries",
             headers=self.auth_headers(owner_token),
-            json={"workerId": "w1", "kind": "bonus", "amount": 500, "note": "РџСЂРµРјРёСЏ"},
+            json={"workerId": "w1", "kind": "bonus", "amount": 500, "note": "Премия"},
         )
         self.assertEqual(payroll_response.status_code, 200, payroll_response.text)
 

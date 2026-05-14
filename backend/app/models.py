@@ -17,7 +17,9 @@ class Client(Base):
     __tablename__ = "clients"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    telegram_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    telegram_id: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True
+    )
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(64))
     car: Mapped[str] = mapped_column(String(120), default="")
@@ -27,8 +29,12 @@ class Client(Base):
     admin_rating: Mapped[int] = mapped_column(Integer, default=0)
     admin_note: Mapped[str] = mapped_column(Text, default="")
     registered: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
 
     bookings: Mapped[list["Booking"]] = relationship(back_populates="client")
 
@@ -50,13 +56,25 @@ class StaffUser(Base):
     telegram_chat_id: Mapped[str] = mapped_column(String(64), default="")
     is_primary_owner: Mapped[bool] = mapped_column(Boolean, default=False)
     two_factor_code_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    two_factor_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    two_factor_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    login_locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    extra_roles: Mapped[list[str]] = mapped_column(JSON, default=list)
     default_percent: Mapped[int] = mapped_column(Integer, default=0)
     salary_base: Mapped[int] = mapped_column(Integer, default=0)
+    salary_per_shift: Mapped[int] = mapped_column(Integer, default=0)
     available: Mapped[bool] = mapped_column(Boolean, default=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
 
     assignments: Mapped[list["BookingWorker"]] = relationship(back_populates="worker")
     penalties: Mapped[list["Penalty"]] = relationship(
@@ -67,6 +85,7 @@ class StaffUser(Base):
         back_populates="worker",
         foreign_keys="PayrollEntry.worker_id",
     )
+    incomes: Mapped[list["Income"]] = relationship(back_populates="created_by")
 
 
 class AuthSession(Base):
@@ -78,9 +97,15 @@ class AuthSession(Base):
     login: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str] = mapped_column(Text, default="")
     ip_address: Mapped[str] = mapped_column(String(120), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class Service(Base):
@@ -138,7 +163,9 @@ class Booking(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     car: Mapped[str | None] = mapped_column(String(120), nullable=True)
     plate: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(
@@ -168,7 +195,9 @@ class Notification(Base):
     recipient_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     message: Mapped[str] = mapped_column(Text)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
 
 class StockItem(Base):
@@ -180,8 +209,12 @@ class StockItem(Base):
     unit: Mapped[str] = mapped_column(String(16))
     unit_price: Mapped[int] = mapped_column(Integer)
     category: Mapped[str] = mapped_column(String(120))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
 
 
 class Expense(Base):
@@ -193,7 +226,9 @@ class Expense(Base):
     category: Mapped[str] = mapped_column(String(120))
     date: Mapped[str] = mapped_column(String(16))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
 
 class Penalty(Base):
@@ -206,10 +241,16 @@ class Penalty(Base):
     reason: Mapped[str] = mapped_column(Text)
     amount: Mapped[int] = mapped_column(Integer, default=0)
     score: Mapped[int] = mapped_column(Integer, default=5)
-    active_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    active_until: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     revoked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     worker: Mapped[StaffUser] = relationship(
         back_populates="penalties",
@@ -227,7 +268,9 @@ class PayrollEntry(Base):
     kind: Mapped[str] = mapped_column(String(32))
     amount: Mapped[int] = mapped_column(Integer)
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
     worker: Mapped[StaffUser] = relationship(
         back_populates="payroll_entries",
@@ -242,8 +285,12 @@ class TelegramLinkCode(Base):
     code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     staff_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
 
 
 class AppSetting(Base):
@@ -251,3 +298,21 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
     value: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
+class Income(Base):
+    __tablename__ = "incomes"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(255))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("staff_users.id")
+    )
+    date: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+    created_by: Mapped["StaffUser"] = relationship(back_populates="incomes")
