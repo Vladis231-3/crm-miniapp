@@ -26,15 +26,9 @@ def _prepare_db_url(raw_url: str) -> str:
     if raw_url.startswith("sqlite"):
         return raw_url
 
-    _STRIP_PARAMS = {"sslmode", "sslrootcert", "sslcert", "sslkey", "pgbouncer", "connect_timeout"}
-
+    # pg8000 не принимает никаких query-параметров — убираем всё после ?
     if "?" in raw_url:
-        base, qs = raw_url.split("?", 1)
-        kept = [
-            part for part in qs.split("&")
-            if part and part.split("=")[0].lower() not in _STRIP_PARAMS
-        ]
-        url = f"{base}?{'&'.join(kept)}" if kept else base
+        url = raw_url.split("?", 1)[0]
     else:
         url = raw_url
 
