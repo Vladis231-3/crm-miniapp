@@ -61,6 +61,14 @@ def _normalize_webhook_path(raw: str | None) -> str:
     return value
 
 
+def _normalize_database_url(raw: str) -> str:
+    if raw.startswith("postgres://"):
+        return f"postgresql+psycopg://{raw.removeprefix('postgres://')}"
+    if raw.startswith("postgresql://"):
+        return f"postgresql+psycopg://{raw.removeprefix('postgresql://')}"
+    return raw
+
+
 def _normalize_environment() -> tuple[str, bool]:
     raw = (
         os.getenv("APP_ENV")
@@ -83,7 +91,7 @@ def get_settings() -> Settings:
     environment, is_production = _normalize_environment()
     raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     origins = tuple(origin.strip() for origin in raw_origins.split(",") if origin.strip())
-    database_url = (
+    database_url = _normalize_database_url(
         os.getenv("DATABASE_URL")
         or os.getenv("POSTGRES_URL")
         or f"sqlite:///{DEFAULT_DB_PATH.as_posix()}"
