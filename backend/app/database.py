@@ -33,7 +33,7 @@ _db_url = _clean_db_url(settings.database_url)
 
 engine = create_engine(
     _db_url,
-    connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {"sslmode": "require"},
+    connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {},
 )
 
 if _db_url.startswith("sqlite"):
