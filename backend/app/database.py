@@ -31,6 +31,9 @@ def _clean_db_url(raw_url: str) -> str:
 
 _db_url = _clean_db_url(settings.database_url)
 
+import logging as _logging
+_logging.getLogger(__name__).warning("DB URL (masked): %s", _db_url.split("@")[-1] if "@" in _db_url else _db_url)
+
 engine = create_engine(
     _db_url,
     connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {"sslmode": "require"},
