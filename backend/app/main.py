@@ -366,6 +366,10 @@ def _request_ip(request: Request) -> str:
     return ""
 
 
+def _safe_text(value: Any) -> str:
+    return value if isinstance(value, str) else ""
+
+
 def _client_by_phone(db: Session, phone: str) -> Client | None:
     if not phone.strip():
         return None
@@ -650,6 +654,11 @@ def _apply_runtime_migrations() -> None:
         with engine.begin() as connection:
             connection.exec_driver_sql(
                 "ALTER TABLE staff_users ADD COLUMN telegram_chat_id VARCHAR(64) DEFAULT ''"
+            )
+    elif "staff_users" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "UPDATE staff_users SET telegram_chat_id = '' WHERE telegram_chat_id IS NULL"
             )
     if "is_primary_owner" not in columns:
         with engine.begin() as connection:
@@ -1851,7 +1860,7 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
         _setting(db, "owner_security", owner_security_default), owner_security_default
     )
     if owner_security.get("twoFactor") and not (
-        owner_staff and owner_staff.telegram_chat_id.strip()
+        owner_staff and _safe_text(owner_staff.telegram_chat_id).strip()
     ):
         owner_security = {"twoFactor": False}
     raw_worker_notifications = _setting(db, "worker_notification_settings", {})
@@ -2356,7 +2365,7 @@ def _owner_two_factor_recipient(db: Session) -> StaffUser:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Главный владелец ещё не настроен. Перезапустите сервер и попробуйте снова.",
         )
-    if not owner.telegram_chat_id.strip():
+    if not _safe_text(owner.telegram_chat_id).strip():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Создатель ещё не открыл Mini App из Telegram. Сначала зайдите создателем через бота.",
@@ -4591,7 +4600,7 @@ def authenticate_primary_owner_via_telegram(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Главный владелец не настроен",
         )
-    current_chat_id = owner.telegram_chat_id.strip()
+    current_chat_id = _safe_text(owner.telegram_chat_id).strip()
     if not current_chat_id:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -4629,7 +4638,7 @@ def authenticate_staff(
     owner_security = _setting(db, "owner_security", {"twoFactor": False})
     primary_owner = _primary_owner(db)
     primary_owner_ready_for_two_factor = bool(
-        primary_owner and primary_owner.telegram_chat_id.strip()
+        primary_owner and _safe_text(primary_owner.telegram_chat_id).strip()
     )
     two_factor_enabled = (
         staff.role == "owner"
@@ -6618,7 +6627,7 @@ def save_owner_security(
 ) -> OwnerSecurityPayload:
     _ensure_staff_role(session_data, {"owner"})
     owner = _primary_owner(db)
-    if payload.twoFactor and (owner is None or not owner.telegram_chat_id.strip()):
+    if payload.twoFactor and (owner is None or not _safe_text(owner.telegram_chat_id).strip()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Сначала главный владелец должен открыть Mini App из Telegram, затем можно включать двухфакторную аутентификацию.",

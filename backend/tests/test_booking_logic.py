@@ -1341,6 +1341,12 @@ class BookingLogicTests(unittest.TestCase):
             self.get_staff(login="creator_owner")["telegram_chat_id"], ""
         )
 
+    def test_nullable_text_values_are_treated_as_empty_strings(self) -> None:
+        from app.main import _safe_text
+
+        self.assertEqual(_safe_text(None), "")
+        self.assertEqual(_safe_text(" 9001 "), " 9001 ")
+
     def test_primary_owner_can_log_in_via_dedicated_telegram_route(self) -> None:
         self.set_primary_owner_telegram("9001")
 
