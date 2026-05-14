@@ -92,7 +92,8 @@ def get_settings() -> Settings:
     raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     origins = tuple(origin.strip() for origin in raw_origins.split(",") if origin.strip())
     database_url = _normalize_database_url(
-        os.getenv("DATABASE_URL")
+        os.getenv("BACKEND_DATABASE_URL")
+        or os.getenv("DATABASE_URL")
         or os.getenv("POSTGRES_URL")
         or f"sqlite:///{DEFAULT_DB_PATH.as_posix()}"
     )
