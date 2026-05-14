@@ -16,12 +16,27 @@ class Base(DeclarativeBase):
     pass
 
 
+def _clean_db_url(raw_url: str) -> str:
+    """Убирает query-параметры из DATABASE_URL.
+
+    psycopg и psycopg2 не принимают нестандартные параметры
+    (supavisor, pgbouncer и т.д.) которые Supabase добавляет в URL.
+    SSL включён по умолчанию в psycopg при подключении к Supabase.
+    """
+    if raw_url.startswith("sqlite"):
+        return raw_url
+    # Убираем всё после ?
+    return raw_url.split("?")[0]
+
+
+_db_url = _clean_db_url(settings.database_url)
+
 engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
+    _db_url,
+    connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {},
 )
 
-if settings.database_url.startswith("sqlite"):
+if _db_url.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def _sqlite_set_pragmas(dbapi_connection, _connection_record) -> None:  # pragma: no cover
         cursor = dbapi_connection.cursor()
