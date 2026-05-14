@@ -1,3 +1,5 @@
 @echo off
-cd /d C:\Users\Vlad\Desktop\concept1.0\backend
-C:\Python314\python.exe bot.py 1> C:\Users\Vlad\Desktop\concept1.0\runtime\bot_polling.out.log 2> C:\Users\Vlad\Desktop\concept1.0\runtime\bot_polling.err.log
+set "PROJECT_ROOT=%~dp0.."
+cd /d "%PROJECT_ROOT%\backend"
+if not exist "%PROJECT_ROOT%\runtime" mkdir "%PROJECT_ROOT%\runtime"
+python bot.py 1> "%PROJECT_ROOT%\runtime\bot_polling.out.log" 2> "%PROJECT_ROOT%\runtime\bot_polling.err.log"

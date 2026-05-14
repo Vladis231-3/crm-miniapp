@@ -3966,10 +3966,6 @@ def handle_telegram_webhook(
         process_telegram_update(payload)
     except Exception:
         logger.exception("Telegram webhook handler failed")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process Telegram update",
-        )
     return GenericMessage(message="ok")
 
 

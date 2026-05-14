@@ -127,6 +127,17 @@ class BookingLogicTests(unittest.TestCase):
         raw = f"{os.environ['APP_SECRET']}:{os.environ['TELEGRAM_BOT_TOKEN']}".encode("utf-8")
         return hashlib.sha256(raw).hexdigest()
 
+    def test_telegram_webhook_acknowledges_processing_errors(self) -> None:
+        with patch("app.main.process_telegram_update", side_effect=RuntimeError("telegram send failed")):
+            response = self.client.post(
+                "/api/telegram/webhook",
+                json={"update_id": 1, "message": {"chat": {"id": 123}, "text": "/start"}},
+                headers={"X-Telegram-Bot-Api-Secret-Token": self.telegram_webhook_secret()},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"message": "ok"})
+
     def login_staff(self, login: str, password: str) -> str:
         response = self.client.post(
             "/api/auth/staff/login",
