@@ -150,6 +150,8 @@ class ClientVehiclePayload(BaseModel):
     @field_validator("plate")
     @classmethod
     def validate_plate(cls, value: str) -> str:
+        if not value.strip():
+            return ""
         return normalize_plate(value)
 
 
