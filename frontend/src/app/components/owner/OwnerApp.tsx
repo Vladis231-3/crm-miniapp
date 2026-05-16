@@ -195,8 +195,8 @@ export function OwnerApp() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetInfo, setResetInfo] = useState<string | null>(null);
 
-  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' });
-  const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '' });
+  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: todayLabel });
+  const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel });
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
   const [bookingForm, setBookingForm] = useState({
     clientId: '',
@@ -492,7 +492,8 @@ export function OwnerApp() {
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const profit = totalRevenue - totalExpenses;
+  const totalIncomes = incomes.reduce((s, i) => s + i.amount, 0);
+  const profit = totalRevenue + totalIncomes - totalExpenses;
   const averageCheck = completedBookings.length > 0 ? Math.round(totalRevenue / completedBookings.length) : 0;
   const activeBookings = bookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
   const pipelineCounts = {
@@ -758,14 +759,16 @@ export function OwnerApp() {
 
   const handleAddExpense = () => {
     if (!expenseForm.title || !expenseForm.amount) return;
+    const dateValid = /^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) && parseFlexibleDate(expenseForm.date) !== null;
+    if (!dateValid) return;
     const title = expenseForm.title;
     const amount = Number(expenseForm.amount);
-    addExpense({ title, amount, category: expenseForm.category, date: todayLabel, note: expenseForm.note });
+    addExpense({ title, amount, category: expenseForm.category, date: expenseForm.date, note: expenseForm.note });
     setExpenseAdded(true);
     setTimeout(() => {
       setExpenseAdded(false);
       setShowAddExpense(false);
-      setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' });
+      setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: todayLabel });
       setBottomToast(`Расход "${title}" добавлен на сумму ${amount.toLocaleString('ru')} ₽`);
       setTimeout(() => setBottomToast(null), 4000);
     }, 1800);
@@ -1814,13 +1817,13 @@ export function OwnerApp() {
               <div className="grid grid-cols-2 gap-3 mb-4">
                   {(isAccountant
                     ? [
-                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
+                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
                         { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
                       ]
                     : [
                         { label: 'Создать запись', icon: Plus, color: primary, action: () => { resetBookingForm(); setShowCreateBooking(true); }, disabled: false },
                         { label: 'Новый клиент', icon: Users, color: '#06B6D4', action: () => setShowCreateClient(true), disabled: false },
-                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => setShowAddExpense(true), disabled: false },
+                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
                         { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
                         { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
                         { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
@@ -2404,10 +2407,10 @@ export function OwnerApp() {
                 <div className={`text-xs ${sub} mb-3`}>ФИНАНСОВЫЙ ИТОГ</div>
                 {[
                   { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent },
-                  { label: 'Доп. доходы', value: `${incomes.reduce((s, i) => s + i.amount, 0).toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Доп. доходы', value: `${totalIncomes.toLocaleString('ru')} ₽`, color: primary },
                   { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
-                  { label: 'Прибыль', value: `${(totalRevenue + incomes.reduce((s, i) => s + i.amount, 0) - totalExpenses).toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Маржа', value: `${totalRevenue > 0 ? Math.round(((totalRevenue + incomes.reduce((s, i) => s + i.amount, 0) - totalExpenses) / totalRevenue) * 100) : 0}%`, color: '#A855F7' },
+                  { label: 'Прибыль', value: `${profit.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Маржа', value: `${totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0}%`, color: '#A855F7' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className="text-sm">{r.label}</span>
@@ -3313,9 +3316,16 @@ export function OwnerApp() {
                 <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Закупка химии..." value={expenseForm.title} onChange={e => setExpenseForm(p => ({ ...p, title: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="number" placeholder="0" value={expenseForm.amount} onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                  <input className={inputCls} type="text" placeholder="ДД.ММ.ГГГГ" value={expenseForm.date} onChange={e => setExpenseForm(p => ({ ...p, date: e.target.value }))} />
+                  {expenseForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) || parseFlexibleDate(expenseForm.date) === null) && (
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                  )}
+                </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={expenseForm.note} onChange={e => setExpenseForm(p => ({ ...p, note: e.target.value }))} /></div>
               </div>
-              <button onClick={handleAddExpense} disabled={!expenseForm.title || !expenseForm.amount} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: '#FF6B6B' }}>Добавить расход</button>
+              <button onClick={handleAddExpense} disabled={!expenseForm.title || !expenseForm.amount || !expenseForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) || parseFlexibleDate(expenseForm.date) === null} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: '#FF6B6B' }}>Добавить расход</button>
             </motion.div>
           </motion.div>
         )}
@@ -3338,27 +3348,27 @@ export function OwnerApp() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub} mb-1`}>Выручка</div>
-                    <div className="font-bold text-lg" style={{ color: accent }}>{completedBookings.reduce((s, b) => s + b.price, 0).toLocaleString('ru')} ₽</div>
+                    <div className="font-bold text-lg" style={{ color: accent }}>{totalRevenue.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub} mb-1`}>Расходы</div>
-                    <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{expenses.reduce((s, e) => s + e.amount, 0).toLocaleString('ru')} ₽</div>
+                    <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{totalExpenses.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
-                    <div className="font-bold text-lg" style={{ color: primary }}>{incomes.reduce((s, i) => s + i.amount, 0).toLocaleString('ru')} ₽</div>
+                    <div className="font-bold text-lg" style={{ color: primary }}>{totalIncomes.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
-                    <div className="font-bold text-lg" style={{ color: completedBookings.reduce((s, b) => s + b.price, 0) + incomes.reduce((s, i) => s + i.amount, 0) - expenses.reduce((s, e) => s + e.amount, 0) >= 0 ? accent : '#FF6B6B' }}>
-                      {(completedBookings.reduce((s, b) => s + b.price, 0) + incomes.reduce((s, i) => s + i.amount, 0) - expenses.reduce((s, e) => s + e.amount, 0)).toLocaleString('ru')} ₽
+                    <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
+                      {profit.toLocaleString('ru')} ₽
                     </div>
                   </div>
                 </div>
 
                 {/* Кнопки действий */}
                 <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => { setShowFinancePanel(false); setShowAddExpense(true); }}
+                  <button onClick={() => { setShowFinancePanel(false); setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }}
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
                     style={{ background: 'rgba(255,107,107,0.12)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,107,107,0.2)' }}>
@@ -3366,7 +3376,7 @@ export function OwnerApp() {
                     </div>
                     <span className="text-sm font-medium" style={{ color: '#FF6B6B' }}>Добавить расход</span>
                   </button>
-                  <button onClick={() => setShowAddIncome(true)}
+                  <button onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }}
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
                     style={{ background: `${primary}12` }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${primary}20` }}>
@@ -3376,10 +3386,10 @@ export function OwnerApp() {
                   </button>
                 </div>
 
-                {/* Последние расходы */}
+                {/* РАСХОДЫ */}
                 {expenses.length > 0 && (
                   <div>
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Последние расходы</div>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>РАСХОДЫ</div>
                     <div className="space-y-2">
                       {expenses.slice(0, 5).map(e => (
                         <div key={e.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
@@ -3394,18 +3404,18 @@ export function OwnerApp() {
                   </div>
                 )}
 
-                {/* Последние доходы */}
+                {/* ДОХОДЫ */}
                 {incomes.length > 0 && (
                   <div>
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Последние доходы</div>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>ДОХОДЫ</div>
                     <div className="space-y-2">
-                      {incomes.slice(0, 5).map(inc => (
-                        <div key={inc.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
+                      {incomes.slice(0, 5).map(i => (
+                        <div key={i.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
                           <div>
-                            <div className="text-sm font-medium">{inc.source}</div>
-                            <div className={`text-xs ${sub}`}>{inc.date}{inc.note ? ` · ${inc.note}` : ''}</div>
+                            <div className="text-sm font-medium">{i.source}</div>
+                            <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
                           </div>
-                          <div className="font-semibold text-sm" style={{ color: primary }}>+{inc.amount.toLocaleString('ru')} ₽</div>
+                          <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
                         </div>
                       ))}
                     </div>
@@ -3426,7 +3436,7 @@ export function OwnerApp() {
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доход</h3>
-                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -3438,6 +3448,13 @@ export function OwnerApp() {
                   <input className={inputCls} placeholder="Аренда, продажа товара..." value={incomeForm.source} onChange={e => setIncomeForm(p => ({ ...p, source: e.target.value }))} />
                 </div>
                 <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                  <input className={inputCls} type="text" placeholder="ДД.ММ.ГГГГ" value={incomeForm.date} onChange={e => setIncomeForm(p => ({ ...p, date: e.target.value }))} />
+                  {incomeForm.date && !parseFlexibleDate(incomeForm.date) && (
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                  )}
+                </div>
+                <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Необязательно" value={incomeForm.note} onChange={e => setIncomeForm(p => ({ ...p, note: e.target.value }))} />
                 </div>
@@ -3445,10 +3462,11 @@ export function OwnerApp() {
               <button
                 onClick={async () => {
                   if (!incomeForm.amount || !incomeForm.source.trim()) return;
+                  if (!incomeForm.date || !parseFlexibleDate(incomeForm.date)) return;
                   try {
-                    await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: todayLabel });
+                    await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: incomeForm.date });
                     setShowAddIncome(false);
-                    setIncomeForm({ amount: '', source: '', note: '' });
+                    setIncomeForm({ amount: '', source: '', note: '', date: todayLabel });
                     setBottomToast(`Доход "${incomeForm.source.trim()}" добавлен на сумму ${Number(incomeForm.amount).toLocaleString('ru')} ₽`);
                     setTimeout(() => setBottomToast(null), 4000);
                   } catch (err) {
@@ -3456,7 +3474,7 @@ export function OwnerApp() {
                     setTimeout(() => setBottomToast(null), 4000);
                   }
                 }}
-                disabled={!incomeForm.amount || !incomeForm.source.trim()}
+                disabled={!incomeForm.amount || !incomeForm.source.trim() || !incomeForm.date || !parseFlexibleDate(incomeForm.date)}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50"
                 style={{ background: primary }}
               >
