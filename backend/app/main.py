@@ -83,9 +83,11 @@ from .schemas import (
     EmployeeSettingPayload,
     ExpenseCreateRequest,
     ExpensePayload,
+    ExpenseUpdateRequest,
     GenericMessage,
     IncomeCreateRequest,
     IncomePayload,
+    IncomeUpdateRequest,
     NotificationCreateRequest,
     NotificationPayload,
     OwnerCompanyPayload,
@@ -6000,6 +6002,32 @@ def create_expense(
     return _expense_payload(expense)
 
 
+@app.patch("/api/expenses/{expense_id}", response_model=ExpensePayload)
+def update_expense(
+    expense_id: str,
+    payload: ExpenseUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ExpensePayload:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    expense = db.get(Expense, expense_id)
+    if expense is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Расход не найден")
+    if payload.title is not None:
+        expense.title = payload.title
+    if payload.amount is not None:
+        expense.amount = payload.amount
+    if payload.category is not None:
+        expense.category = payload.category
+    if payload.date is not None:
+        expense.date = payload.date
+    if "note" in payload.model_fields_set:
+        expense.note = payload.note
+    db.commit()
+    db.refresh(expense)
+    return _expense_payload(expense)
+
+
 @app.get("/api/owner/incomes", response_model=list[IncomePayload])
 def list_incomes(
     session_data: dict = Depends(_require_session),
@@ -6040,6 +6068,38 @@ def create_income(
         created_at=_now(),
     )
     db.add(income)
+    db.commit()
+    db.refresh(income)
+    return IncomePayload(
+        id=income.id,
+        amount=income.amount,
+        source=income.source,
+        note=income.note,
+        createdById=income.created_by_id,
+        date=income.date,
+        createdAt=income.created_at,
+    )
+
+
+@app.patch("/api/owner/incomes/{income_id}", response_model=IncomePayload)
+def update_income(
+    income_id: str,
+    payload: IncomeUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> IncomePayload:
+    _ensure_staff_role(session_data, {"owner"})
+    income = db.get(Income, income_id)
+    if income is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Доход не найден")
+    if payload.amount is not None:
+        income.amount = payload.amount
+    if payload.source is not None:
+        income.source = payload.source
+    if "note" in payload.model_fields_set:
+        income.note = payload.note
+    if payload.date is not None:
+        income.date = payload.date
     db.commit()
     db.refresh(income)
     return IncomePayload(

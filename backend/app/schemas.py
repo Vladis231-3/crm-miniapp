@@ -4,7 +4,7 @@ from datetime import datetime
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 Role = Literal["client", "admin", "worker", "owner", "accountant"]
@@ -973,3 +973,71 @@ class ShiftAttendancePayload(BaseModel):
 
 
 JsonDict = dict[str, Any]
+
+
+
+class ExpenseUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    amount: int | None = Field(default=None, ge=1, le=10_000_000)
+    category: str | None = Field(default=None, max_length=100)
+    date: str | None = None  # DD.MM.YYYY
+    note: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("title не может быть пустым или состоять только из пробелов")
+        return stripped
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):
+            raise ValueError("date должна быть в формате DD.MM.YYYY")
+        return value
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "ExpenseUpdateRequest":
+        if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):
+            raise ValueError("Необходимо передать хотя бы одно поле для обновления")
+        return self
+
+
+class IncomeUpdateRequest(BaseModel):
+    amount: int | None = Field(default=None, ge=1, le=10_000_000)
+    source: str | None = Field(default=None, min_length=1, max_length=255)
+    note: str | None = Field(default=None, max_length=1000)  # явный null очищает поле
+    date: str | None = None  # DD.MM.YYYY
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("source не может быть пустым или состоять только из пробелов")
+        return stripped
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):
+            raise ValueError("date должна быть в формате DD.MM.YYYY")
+        return value
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "IncomeUpdateRequest":
+        # Use model_fields_set to detect explicitly provided fields (including null).
+        # This allows {"note": null} to pass as a valid "clear note" request.
+        if not self.model_fields_set:
+            raise ValueError("Необходимо передать хотя бы одно поле для обновления")
+        return self
