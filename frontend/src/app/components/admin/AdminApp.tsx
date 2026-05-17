@@ -109,15 +109,6 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 
-const SERVICE_TYPE_OPTIONS = [
-  { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
-  { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
-  { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
-] as const;
-
-function adminServiceResourceGroupForCategory(category: string) {
-  return SERVICE_TYPE_OPTIONS.find((option) => option.value === category)?.resourceGroup || 'wash';
-}
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance';
 type EditModalMode = 'edit' | 'reschedule';
 type ClientSearchMode = 'phone' | 'plate';
