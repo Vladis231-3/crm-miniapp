@@ -111,9 +111,9 @@ def seed_database(db: Session, *, include_demo_staff: bool = True) -> None:
 
     if not db.scalar(select(Box.id).limit(1)):
         boxes = [
-            Box(id="box-1", name="Бокс 1", price_per_hour=600, active=True, description="Основной бокс"),
-            Box(id="box-2", name="Бокс 2", price_per_hour=600, active=True, description="С подъемником"),
-            Box(id="box-3", name="Бокс 3", price_per_hour=700, active=True, description="Премиум бокс"),
+            Box(id="box-1", name="Бокс 1", resource_group="wash", price_per_hour=600, active=True, description="Основной бокс мойки"),
+            Box(id="box-2", name="Бокс 2", resource_group="wash", price_per_hour=600, active=True, description="Второй бокс мойки"),
+            Box(id="box-3", name="Детейлинг зона", resource_group="detailing", price_per_hour=700, active=True, description="Зона детейлинга"),
         ]
         db.add_all(boxes)
 
