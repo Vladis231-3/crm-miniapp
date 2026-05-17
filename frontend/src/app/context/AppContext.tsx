@@ -227,6 +227,7 @@ export interface Expense {
   category: string;
   date: string;
   note?: string;
+  serviceCategory?: string; // 'wash' | 'detailing' | ''
 }
 
 export interface Income {
@@ -237,6 +238,7 @@ export interface Income {
   createdById: string;
   date: string;
   createdAt: string;
+  serviceCategory?: string; // 'wash' | 'detailing' | ''
 }
 
 export interface Penalty {
@@ -518,7 +520,7 @@ interface AppContextType {
   writeOffStock: (id: string, qty: number) => Promise<void>;
   deleteStockItem: (id: string) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
-  addIncome: (income: { amount: number; source: string; note?: string; date: string }) => Promise<void>;
+  addIncome: (income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string }) => Promise<void>;
   addPenalty: (penalty: Omit<Penalty, 'id' | 'createdAt' | 'activeUntil' | 'revokedAt' | 'workerName' | 'ownerId'>) => Promise<void>;
   revokePenalty: (penaltyId: string) => Promise<void>;
   revokeAllPenalties: (workerId: string) => Promise<void>;
@@ -1092,7 +1094,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setExpenses((current) => [created, ...current]);
   }
 
-  async function addIncome(income: { amount: number; source: string; note?: string; date: string }) {
+  async function addIncome(income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string }) {
     const created = await apiRequest<Income>('/api/owner/incomes', { method: 'POST', body: income });
     setIncomes((current) => [created, ...current]);
   }

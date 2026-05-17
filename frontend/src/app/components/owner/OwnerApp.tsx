@@ -27,10 +27,10 @@ import {
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'stock' | 'reports' | 'settings';
-type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'notifications' | 'integrations' | 'security';
+type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'notifications' | 'integrations' | 'security' | 'finance';
 type OwnerExportKind = 'report' | 'pdf';
 
-const EXPENSE_CATEGORIES = ['Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
+const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
 const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудование'];
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
 const SERVICE_TYPE_OPTIONS = [
@@ -113,9 +113,9 @@ export function OwnerApp() {
     markAllNotificationsRead,
     markNotificationRead,
     addBooking,
+    updateBooking,
     addClient,
-    addNotification,
-    penalties,
+    addNotification,    penalties,
     addPenalty,
     revokePenalty,
     revokeAllPenalties,
@@ -195,8 +195,8 @@ export function OwnerApp() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetInfo, setResetInfo] = useState<string | null>(null);
 
-  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: todayLabel });
-  const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel });
+  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], serviceCategory: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
+  const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, serviceCategory: '' as '' | 'wash' | 'detailing' });
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
   const [bookingForm, setBookingForm] = useState({
     clientId: '',
@@ -288,6 +288,16 @@ export function OwnerApp() {
   const [ownerNewBookingSaving, setOwnerNewBookingSaving] = useState(false);
   const [ownerNewBookingErrors, setOwnerNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
   const [ownerNewBookingSaveSuccess, setOwnerNewBookingSaveSuccess] = useState<'notify' | 'silent' | null>(null);
+
+  // Owner booking detail edit state
+  const [ownerBookingEditMode, setOwnerBookingEditMode] = useState<null | 'status' | 'price' | 'workers' | 'datetime'>(null);
+  const [ownerBookingEditStatus, setOwnerBookingEditStatus] = useState<BookingStatus>('confirmed');
+  const [ownerBookingEditPrice, setOwnerBookingEditPrice] = useState('');
+  const [ownerBookingEditDate, setOwnerBookingEditDate] = useState('');
+  const [ownerBookingEditTime, setOwnerBookingEditTime] = useState('');
+  const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number }[]>([]);
+  const [ownerBookingEditSaving, setOwnerBookingEditSaving] = useState(false);
+  const [ownerBookingEditError, setOwnerBookingEditError] = useState<string | null>(null);
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -504,6 +514,32 @@ export function OwnerApp() {
     noShow: bookings.filter((booking) => booking.status === 'no_show').length,
   };
   const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+
+  // Finance breakdown by service category
+  const washRevenue = completedBookings
+    .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'wash')
+    .reduce((s, b) => s + b.price, 0);
+  const detailingRevenue = completedBookings
+    .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'detailing')
+    .reduce((s, b) => s + b.price, 0);
+  const washExpenses = expenses
+    .filter(e => e.serviceCategory === 'wash')
+    .reduce((s, e) => s + e.amount, 0);
+  const detailingExpenses = expenses
+    .filter(e => e.serviceCategory === 'detailing')
+    .reduce((s, e) => s + e.amount, 0);
+  const washIncomes = incomes
+    .filter(i => i.serviceCategory === 'wash')
+    .reduce((s, i) => s + i.amount, 0);
+  const detailingIncomes = incomes
+    .filter(i => i.serviceCategory === 'detailing')
+    .reduce((s, i) => s + i.amount, 0);
+
+  const serviceCategoryLabel = (cat?: string) => {
+    if (cat === 'wash') return 'Автомойка';
+    if (cat === 'detailing') return 'Детейлинг';
+    return 'Общее';
+  };
   const payrollRows = workers.map(worker => {
     const workerPenalties = penalties.filter((penalty) => penalty.workerId === worker.id && isComplaintActive(penalty));
     const complaintState = getComplaintPenaltyState(worker.defaultPercent, workerPenalties);
@@ -763,12 +799,12 @@ export function OwnerApp() {
     if (!dateValid) return;
     const title = expenseForm.title;
     const amount = Number(expenseForm.amount);
-    addExpense({ title, amount, category: expenseForm.category, date: expenseForm.date, note: expenseForm.note });
+    addExpense({ title, amount, category: expenseForm.category, serviceCategory: expenseForm.serviceCategory || undefined, date: expenseForm.date, note: expenseForm.note });
     setExpenseAdded(true);
     setTimeout(() => {
       setExpenseAdded(false);
       setShowAddExpense(false);
-      setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: todayLabel });
+      setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], serviceCategory: '', note: '', date: todayLabel });
       setBottomToast(`Расход "${title}" добавлен на сумму ${amount.toLocaleString('ru')} ₽`);
       setTimeout(() => setBottomToast(null), 4000);
     }, 1800);
@@ -1283,10 +1319,49 @@ export function OwnerApp() {
     }
   };
 
+  const handleSaveOwnerBookingEdit = async () => {
+    if (!selectedBooking || !ownerBookingEditMode) return;
+    setOwnerBookingEditSaving(true);
+    setOwnerBookingEditError(null);
+    try {
+      let patch: Record<string, unknown> = {};
+      if (ownerBookingEditMode === 'status') {
+        patch = { status: ownerBookingEditStatus };
+      } else if (ownerBookingEditMode === 'price') {
+        const price = Number(ownerBookingEditPrice);
+        if (isNaN(price) || price < 0) {
+          setOwnerBookingEditError('Введите корректную цену');
+          return;
+        }
+        patch = { price };
+      } else if (ownerBookingEditMode === 'workers') {
+        patch = {
+          workers: ownerBookingEditWorkers.map(w => {
+            const worker = workers.find(wk => wk.id === w.id);
+            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent };
+          }),
+        };
+      } else if (ownerBookingEditMode === 'datetime') {
+        if (!ownerBookingEditDate || !parseFlexibleDate(ownerBookingEditDate)) {
+          setOwnerBookingEditError('Введите корректную дату');
+          return;
+        }
+        patch = { date: ownerBookingEditDate, time: ownerBookingEditTime };
+      }
+      await updateBooking(selectedBooking.id, patch);
+      setSelectedBooking(prev => prev ? { ...prev, ...patch } as typeof prev : null);
+      setOwnerBookingEditMode(null);
+    } catch (error) {
+      setOwnerBookingEditError(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
+    } finally {
+      setOwnerBookingEditSaving(false);
+    }
+  };
+
   const kpiCards = [
     { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
     { label: 'Расходы всего', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
-    { label: 'Прибыль', value: `${profit.toLocaleString('ru')} ₽`, icon: BarChart3, color: accent },
+    { label: 'Прибыль', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
     { label: 'Записей', value: bookings.length, icon: Users, color: '#A855F7' },
   ];
 
@@ -2409,7 +2484,7 @@ export function OwnerApp() {
                   { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent },
                   { label: 'Доп. доходы', value: `${totalIncomes.toLocaleString('ru')} ₽`, color: primary },
                   { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
-                  { label: 'Прибыль', value: `${profit.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Прибыль', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, color: profit >= 0 ? accent : '#FF6B6B' },
                   { label: 'Маржа', value: `${totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0}%`, color: '#A855F7' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -2597,6 +2672,7 @@ export function OwnerApp() {
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
                 { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
+                { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: '2FA включена', color: '#EF4444' },
@@ -2618,8 +2694,7 @@ export function OwnerApp() {
           )}
 
           {/* ── SETTINGS: COMPANY ── */}
-          {!isAccountant && page === 'settings' && settingsSection === 'company' && (
-            <motion.div key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+          {!isAccountant && page === 'settings' && settingsSection === 'company' && (            <motion.div key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Профиль компании</h2>
               <div className="flex flex-col items-center mb-5">
@@ -3231,6 +3306,100 @@ export function OwnerApp() {
               </button>
             </motion.div>
           )}
+
+          {/* ── SETTINGS: FINANCE ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'finance' && (
+            <motion.div key="s-finance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Финансы</h2>
+
+              {/* Общий итог */}
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>ОБЩИЙ ИТОГ</div>
+                {[
+                  { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent },
+                  { label: 'Доп. доходы', value: `${totalIncomes.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
+                  {
+                    label: profit >= 0 ? 'Прибыль' : 'Прибыль (убыток)',
+                    value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`,
+                    color: profit >= 0 ? accent : '#FF6B6B',
+                  },
+                ].map(r => (
+                  <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className="text-sm">{r.label}</span>
+                    <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Автомойка */}
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 АВТОМОЙКА</div>
+                {[
+                  { label: 'Выручка', value: `${washRevenue.toLocaleString('ru')} ₽`, color: accent },
+                  { label: 'Доп. доходы', value: `${washIncomes.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Расходы', value: `${washExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
+                ].map(r => (
+                  <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className="text-sm">{r.label}</span>
+                    <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Детейлинг */}
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>✨ ДЕТЕЙЛИНГ</div>
+                {[
+                  { label: 'Выручка', value: `${detailingRevenue.toLocaleString('ru')} ₽`, color: accent },
+                  { label: 'Доп. доходы', value: `${detailingIncomes.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Расходы', value: `${detailingExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
+                ].map(r => (
+                  <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className="text-sm">{r.label}</span>
+                    <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Последние расходы */}
+              {expenses.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>ПОСЛЕДНИЕ РАСХОДЫ</div>
+                  <div className="space-y-2">
+                    {expenses.slice(0, 10).map(e => (
+                      <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <div>
+                          <div className="text-sm font-medium">{e.title}</div>
+                          <div className={`text-xs ${sub}`}>{e.category} · {serviceCategoryLabel(e.serviceCategory)} · {e.date}</div>
+                        </div>
+                        <div className="font-semibold text-sm shrink-0 ml-2" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Последние доходы */}
+              {incomes.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>ПОСЛЕДНИЕ ДОХОДЫ</div>
+                  <div className="space-y-2">
+                    {incomes.slice(0, 10).map(i => (
+                      <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <div>
+                          <div className="text-sm font-medium">{i.source}</div>
+                          <div className={`text-xs ${sub}`}>{serviceCategoryLabel(i.serviceCategory)} · {i.date}{i.note ? ` · ${i.note}` : ''}</div>
+                        </div>
+                        <div className="font-semibold text-sm shrink-0 ml-2" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -3317,8 +3486,19 @@ export function OwnerApp() {
                 <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="number" placeholder="0" value={expenseForm.amount} onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                 <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
+                  <select className={selectCls} value={expenseForm.serviceCategory} onChange={e => setExpenseForm(p => ({ ...p, serviceCategory: e.target.value as '' | 'wash' | 'detailing' }))}>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
+                  </select>
+                </div>
+                <div>
                   <label className={`text-xs ${sub} block mb-1`}>Дата</label>
-                  <input className={inputCls} type="text" placeholder="ДД.ММ.ГГГГ" value={expenseForm.date} onChange={e => setExpenseForm(p => ({ ...p, date: e.target.value }))} />
+                  <input className={inputCls} type="date" value={toISODate(expenseForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setExpenseForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                  }} />
                   {expenseForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) || parseFlexibleDate(expenseForm.date) === null) && (
                     <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
@@ -3361,7 +3541,7 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
                     <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
-                      {profit.toLocaleString('ru')} ₽
+                      {Math.abs(profit).toLocaleString('ru')} ₽{profit < 0 ? ' (убыток)' : ''}
                     </div>
                   </div>
                 </div>
@@ -3436,7 +3616,7 @@ export function OwnerApp() {
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доход</h3>
-                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, serviceCategory: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -3448,8 +3628,19 @@ export function OwnerApp() {
                   <input className={inputCls} placeholder="Аренда, продажа товара..." value={incomeForm.source} onChange={e => setIncomeForm(p => ({ ...p, source: e.target.value }))} />
                 </div>
                 <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
+                  <select className={selectCls} value={incomeForm.serviceCategory} onChange={e => setIncomeForm(p => ({ ...p, serviceCategory: e.target.value as '' | 'wash' | 'detailing' }))}>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
+                  </select>
+                </div>
+                <div>
                   <label className={`text-xs ${sub} block mb-1`}>Дата</label>
-                  <input className={inputCls} type="text" placeholder="ДД.ММ.ГГГГ" value={incomeForm.date} onChange={e => setIncomeForm(p => ({ ...p, date: e.target.value }))} />
+                  <input className={inputCls} type="date" value={toISODate(incomeForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setIncomeForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                  }} />
                   {incomeForm.date && !parseFlexibleDate(incomeForm.date) && (
                     <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
@@ -3464,9 +3655,9 @@ export function OwnerApp() {
                   if (!incomeForm.amount || !incomeForm.source.trim()) return;
                   if (!incomeForm.date || !parseFlexibleDate(incomeForm.date)) return;
                   try {
-                    await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: incomeForm.date });
+                    await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: incomeForm.date, serviceCategory: incomeForm.serviceCategory || undefined });
                     setShowAddIncome(false);
-                    setIncomeForm({ amount: '', source: '', note: '', date: todayLabel });
+                    setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, serviceCategory: '' });
                     setBottomToast(`Доход "${incomeForm.source.trim()}" добавлен на сумму ${Number(incomeForm.amount).toLocaleString('ru')} ₽`);
                     setTimeout(() => setBottomToast(null), 4000);
                   } catch (err) {
@@ -3728,9 +3919,10 @@ export function OwnerApp() {
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Запись</h3>
-                <button onClick={() => setShowBookingDetail(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowBookingDetail(false); setOwnerBookingEditMode(null); setOwnerBookingEditError(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3">
+                {/* Info card */}
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-start mb-2">
                     <div className="font-medium text-sm">{selectedBooking.clientName || 'Клиент без имени'}</div>
@@ -3763,6 +3955,143 @@ export function OwnerApp() {
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
                   </div>
                 </div>
+
+                {/* Edit buttons */}
+                <div className={`${glass} rounded-2xl p-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РЕДАКТИРОВАТЬ</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { mode: 'status' as const, label: 'Статус' },
+                      { mode: 'price' as const, label: 'Цена' },
+                      { mode: 'workers' as const, label: 'Мастера' },
+                      { mode: 'datetime' as const, label: 'Дата и время' },
+                    ].map(({ mode, label }) => (
+                      <button
+                        key={mode}
+                        onClick={() => {
+                          setOwnerBookingEditMode(mode);
+                          setOwnerBookingEditError(null);
+                          if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
+                          if (mode === 'price') setOwnerBookingEditPrice(String(selectedBooking.price));
+                          if (mode === 'workers') setOwnerBookingEditWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent })));
+                          if (mode === 'datetime') {
+                            setOwnerBookingEditDate(selectedBooking.date);
+                            setOwnerBookingEditTime(selectedBooking.time);
+                          }
+                        }}
+                        className="py-2.5 rounded-xl text-sm font-medium"
+                        style={ownerBookingEditMode === mode
+                          ? { background: primary, color: '#fff' }
+                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#E6EEF8' : '#0B1226' }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Edit panels */}
+                {ownerBookingEditMode === 'status' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить статус</div>
+                    <select className={selectCls} value={ownerBookingEditStatus} onChange={e => setOwnerBookingEditStatus(e.target.value as BookingStatus)}>
+                      {OWNER_BOOKING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                      <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {ownerBookingEditMode === 'price' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить цену</div>
+                    <input className={inputCls} type="number" min={0} value={ownerBookingEditPrice} onChange={e => setOwnerBookingEditPrice(e.target.value)} placeholder="0" />
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                      <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {ownerBookingEditMode === 'workers' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров</div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {workers.filter(w => w.role === 'worker' && w.active).map(worker => {
+                        const assigned = ownerBookingEditWorkers.find(item => item.id === worker.id);
+                        return (
+                          <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium">{worker.name}</span>
+                              <button
+                                onClick={() => assigned
+                                  ? setOwnerBookingEditWorkers(current => current.filter(item => item.id !== worker.id))
+                                  : setOwnerBookingEditWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                                className="px-3 py-1 rounded-lg text-xs shrink-0"
+                                style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                              >
+                                {assigned ? 'Выбран' : 'Выбрать'}
+                              </button>
+                            </div>
+                            {assigned && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className={`text-xs ${sub}`}>%</span>
+                                <input type="number" min={0} max={40} value={assigned.percent}
+                                  onChange={e => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, Number(e.target.value) || 0)) } : item))}
+                                  className={`flex-1 ${inputCls} py-1.5`} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                      <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {ownerBookingEditMode === 'datetime' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить дату и время</div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                        <input className={inputCls} type="date" value={toISODate(ownerBookingEditDate)} onChange={e => {
+                          const val = parseFlexibleDate(e.target.value);
+                          setOwnerBookingEditDate(val ? formatDate(val) : e.target.value);
+                        }} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Время</label>
+                        <select className={selectCls} value={ownerBookingEditTime} onChange={e => setOwnerBookingEditTime(e.target.value)}>
+                          {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                      <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {ownerBookingEditError && (
+                  <div className="flex items-center gap-2 text-red-500 text-xs px-1">
+                    <AlertCircle size={14} />{ownerBookingEditError}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
