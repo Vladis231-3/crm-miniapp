@@ -5,14 +5,14 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ShiftChecklist } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ShiftChecklist } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
@@ -106,6 +106,8 @@ export function OwnerApp() {
     addExpense,
     incomes,
     addIncome,
+    updateExpense,
+    updateIncome,
     stockItems,    addStockItem,
     writeOffStock,
     deleteStockItem,
@@ -298,6 +300,16 @@ export function OwnerApp() {
   const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [ownerBookingEditSaving, setOwnerBookingEditSaving] = useState(false);
   const [ownerBookingEditError, setOwnerBookingEditError] = useState<string | null>(null);
+
+  // Edit expense state (tasks 5.1–5.3)
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editExpenseForm, setEditExpenseForm] = useState({ title: '', amount: '', category: '', date: '', note: '' });
+  const [editFinanceLoading, setEditFinanceLoading] = useState(false);
+  const [editFinanceError, setEditFinanceError] = useState<string | null>(null);
+
+  // Edit income state (tasks 6.1–6.3)
+  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
+  const [editIncomeForm, setEditIncomeForm] = useState({ amount: '', source: '', note: '', date: '' });
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -808,6 +820,128 @@ export function OwnerApp() {
       setBottomToast(`Расход "${title}" добавлен на сумму ${amount.toLocaleString('ru')} ₽`);
       setTimeout(() => setBottomToast(null), 4000);
     }, 1800);
+  };
+
+  // Task 5.1 — open edit expense form
+  const openEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setEditExpenseForm({
+      title: expense.title,
+      amount: String(expense.amount),
+      category: expense.category,
+      date: expense.date,
+      note: expense.note ?? '',
+    });
+    setEditFinanceError(null);
+  };
+
+  // Task 5.1 — save edited expense
+  const handleSaveExpense = async () => {
+    if (!editingExpense) return;
+    const title = editExpenseForm.title.trim();
+    if (!title) { setEditFinanceError('Название не может быть пустым'); return; }
+    const amount = Number(editExpenseForm.amount);
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10_000_000) {
+      setEditFinanceError('Сумма должна быть от 1 до 10 000 000');
+      return;
+    }
+    if (!/^\d{2}\.\d{2}\.\d{4}$/.test(editExpenseForm.date)) {
+      setEditFinanceError('Дата должна быть в формате ДД.ММ.ГГГГ');
+      return;
+    }
+    setEditFinanceLoading(true);
+    setEditFinanceError(null);
+    try {
+      await updateExpense(editingExpense.id, {
+        title,
+        amount,
+        category: editExpenseForm.category,
+        date: editExpenseForm.date,
+        note: editExpenseForm.note || null,
+      });
+      setEditingExpense(null);
+      setBottomToast('Расход обновлён');
+      setTimeout(() => setBottomToast(null), 3500);
+    } catch (err) {
+      if (err instanceof Error) {
+        const msg = err.message;
+        if (msg.includes('422') || msg.toLowerCase().includes('validation')) {
+          setEditFinanceError('Ошибка валидации. Проверьте введённые данные.');
+        } else if (msg.includes('404')) {
+          setEditFinanceError('Запись не найдена. Возможно, она была удалена.');
+        } else if (msg.includes('500')) {
+          setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
+        } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) {
+          setEditFinanceError('Нет соединения с сервером.');
+        } else {
+          setEditFinanceError(msg || 'Не удалось сохранить изменения. Попробуйте ещё раз.');
+        }
+      } else {
+        setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
+      }
+    } finally {
+      setEditFinanceLoading(false);
+    }
+  };
+
+  // Task 6.1 — open edit income form
+  const openEditIncome = (income: Income) => {
+    setEditingIncome(income);
+    setEditIncomeForm({
+      amount: String(income.amount),
+      source: income.source,
+      note: income.note ?? '',
+      date: income.date,
+    });
+    setEditFinanceError(null);
+  };
+
+  // Task 6.1 — save edited income
+  const handleSaveIncome = async () => {
+    if (!editingIncome) return;
+    const source = editIncomeForm.source.trim();
+    if (!source) { setEditFinanceError('Источник не может быть пустым'); return; }
+    const amount = Number(editIncomeForm.amount);
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10_000_000) {
+      setEditFinanceError('Сумма должна быть от 1 до 10 000 000');
+      return;
+    }
+    if (!/^\d{2}\.\d{2}\.\d{4}$/.test(editIncomeForm.date)) {
+      setEditFinanceError('Дата должна быть в формате ДД.ММ.ГГГГ');
+      return;
+    }
+    setEditFinanceLoading(true);
+    setEditFinanceError(null);
+    try {
+      await updateIncome(editingIncome.id, {
+        amount,
+        source,
+        note: editIncomeForm.note || null,
+        date: editIncomeForm.date,
+      });
+      setEditingIncome(null);
+      setBottomToast('Доход обновлён');
+      setTimeout(() => setBottomToast(null), 3500);
+    } catch (err) {
+      if (err instanceof Error) {
+        const msg = err.message;
+        if (msg.includes('422') || msg.toLowerCase().includes('validation')) {
+          setEditFinanceError('Ошибка валидации. Проверьте введённые данные.');
+        } else if (msg.includes('404')) {
+          setEditFinanceError('Запись не найдена. Возможно, она была удалена.');
+        } else if (msg.includes('500')) {
+          setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
+        } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) {
+          setEditFinanceError('Нет соединения с сервером.');
+        } else {
+          setEditFinanceError(msg || 'Не удалось сохранить изменения. Попробуйте ещё раз.');
+        }
+      } else {
+        setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
+      }
+    } finally {
+      setEditFinanceLoading(false);
+    }
   };
 
   const handleAddStock = () => {
@@ -3370,11 +3504,16 @@ export function OwnerApp() {
                   <div className="space-y-2">
                     {expenses.slice(0, 10).map(e => (
                       <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <div>
+                        <button className="flex-1 text-left min-w-0 mr-2" onClick={() => openEditExpense(e)}>
                           <div className="text-sm font-medium">{e.title}</div>
                           <div className={`text-xs ${sub}`}>{e.category} · {serviceCategoryLabel(e.serviceCategory)} · {e.date}</div>
+                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                          <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
+                            <Edit3 size={13} className={sub} />
+                          </button>
                         </div>
-                        <div className="font-semibold text-sm shrink-0 ml-2" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                       </div>
                     ))}
                   </div>
@@ -3388,11 +3527,16 @@ export function OwnerApp() {
                   <div className="space-y-2">
                     {incomes.slice(0, 10).map(i => (
                       <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <div>
+                        <button className="flex-1 text-left min-w-0 mr-2" onClick={() => openEditIncome(i)}>
                           <div className="text-sm font-medium">{i.source}</div>
                           <div className={`text-xs ${sub}`}>{serviceCategoryLabel(i.serviceCategory)} · {i.date}{i.note ? ` · ${i.note}` : ''}</div>
+                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                          <button onClick={() => openEditIncome(i)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
+                            <Edit3 size={13} className={sub} />
+                          </button>
                         </div>
-                        <div className="font-semibold text-sm shrink-0 ml-2" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
                       </div>
                     ))}
                   </div>
@@ -3577,7 +3721,18 @@ export function OwnerApp() {
                             <div className="text-sm font-medium">{e.title}</div>
                             <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
                           </div>
-                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                            {(session?.role === 'owner' || session?.role === 'accountant') && (
+                              <button
+                                onClick={() => openEditExpense(e)}
+                                className={`p-1.5 rounded-lg ${glass}`}
+                                title="Редактировать расход"
+                              >
+                                <Edit3 size={13} className={sub} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -3595,7 +3750,18 @@ export function OwnerApp() {
                             <div className="text-sm font-medium">{i.source}</div>
                             <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
                           </div>
-                          <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                            {session?.role === 'owner' && (
+                              <button
+                                onClick={() => openEditIncome(i)}
+                                className={`p-1.5 rounded-lg ${glass}`}
+                                title="Редактировать доход"
+                              >
+                                <Edit3 size={13} className={sub} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -4330,6 +4496,140 @@ export function OwnerApp() {
                 <div className="text-sm font-medium">{exportSuccess.title}</div>
                 <div className={`text-xs ${sub}`}>{exportSuccess.subtitle}</div>
               </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── EDIT EXPENSE MODAL (task 5.3) ── */}
+      <AnimatePresence>
+        {editingExpense && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Редактировать расход</h3>
+                <button onClick={() => setEditingExpense(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Название</label>
+                  <input className={inputCls} placeholder="Название расхода..." value={editExpenseForm.title} onChange={e => setEditExpenseForm(p => ({ ...p, title: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label>
+                  <input className={inputCls} type="number" placeholder="0" value={editExpenseForm.amount} onChange={e => setEditExpenseForm(p => ({ ...p, amount: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория</label>
+                  <select className={selectCls} value={editExpenseForm.category} onChange={e => setEditExpenseForm(p => ({ ...p, category: e.target.value }))}>
+                    {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата (ДД.ММ.ГГГГ)</label>
+                  <input className={inputCls} type="date" value={toISODate(editExpenseForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setEditExpenseForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                  }} />
+                  {editExpenseForm.date && !/^\d{2}\.\d{2}\.\d{4}$/.test(editExpenseForm.date) && (
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                  )}
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                  <input className={inputCls} placeholder="Необязательно..." value={editExpenseForm.note} onChange={e => setEditExpenseForm(p => ({ ...p, note: e.target.value }))} />
+                </div>
+              </div>
+              {editFinanceError && (
+                <div className="flex items-center gap-2 text-xs mb-3" style={{ color: '#FF6B6B' }}>
+                  <AlertCircle size={13} />
+                  {editFinanceError}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditingExpense(null)}
+                  className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => { void handleSaveExpense(); }}
+                  disabled={editFinanceLoading}
+                  className="flex-1 py-3 rounded-2xl font-semibold text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: '#FF6B6B' }}
+                >
+                  {editFinanceLoading ? (
+                    <><RefreshCw size={14} className="animate-spin" /> Сохранение...</>
+                  ) : 'Сохранить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── EDIT INCOME MODAL (task 6.3) ── */}
+      <AnimatePresence>
+        {editingIncome && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Редактировать доход</h3>
+                <button onClick={() => setEditingIncome(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label>
+                  <input className={inputCls} type="number" placeholder="0" value={editIncomeForm.amount} onChange={e => setEditIncomeForm(p => ({ ...p, amount: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Источник / описание</label>
+                  <input className={inputCls} placeholder="Аренда, продажа товара..." value={editIncomeForm.source} onChange={e => setEditIncomeForm(p => ({ ...p, source: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата (ДД.ММ.ГГГГ)</label>
+                  <input className={inputCls} type="date" value={toISODate(editIncomeForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setEditIncomeForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                  }} />
+                  {editIncomeForm.date && !/^\d{2}\.\d{2}\.\d{4}$/.test(editIncomeForm.date) && (
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                  )}
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                  <input className={inputCls} placeholder="Необязательно..." value={editIncomeForm.note} onChange={e => setEditIncomeForm(p => ({ ...p, note: e.target.value }))} />
+                </div>
+              </div>
+              {editFinanceError && (
+                <div className="flex items-center gap-2 text-xs mb-3" style={{ color: '#FF6B6B' }}>
+                  <AlertCircle size={13} />
+                  {editFinanceError}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditingIncome(null)}
+                  className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => { void handleSaveIncome(); }}
+                  disabled={editFinanceLoading}
+                  className="flex-1 py-3 rounded-2xl font-semibold text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: primary }}
+                >
+                  {editFinanceLoading ? (
+                    <><RefreshCw size={14} className="animate-spin" /> Сохранение...</>
+                  ) : 'Сохранить'}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
