@@ -786,14 +786,6 @@ def _apply_runtime_migrations() -> None:
                 "ALTER TABLE staff_users ADD COLUMN salary_per_shift INTEGER DEFAULT 0"
             )
 
-    # Нормализуем боксы: оставляем активными только box-1 и box-2 (мойка от мастера и самообслуживание)
-    # Деактивируем лишние боксы которые не являются основными боксами мойки
-    if "boxes" in inspector.get_table_names():
-        with engine.begin() as connection:
-            connection.exec_driver_sql(
-                "UPDATE boxes SET active = FALSE WHERE id NOT IN ('box-1', 'box-2') AND active = TRUE"
-            )
-
 
 def _repair_text_value(value: str) -> str:
     if not value or not any(ord(char) > 127 for char in value):
