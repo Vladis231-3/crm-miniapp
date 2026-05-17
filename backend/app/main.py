@@ -1382,7 +1382,7 @@ def _ensure_booking_has_no_conflicts(
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
 
-    for existing in db.scalars(query.with_for_update(skip_locked=True)).unique().all():
+    for existing in db.scalars(query).unique().all():
         existing_range = _booking_time_range(
             existing.date, existing.time, existing.duration
         )
