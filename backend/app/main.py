@@ -1335,14 +1335,30 @@ def _booking_slot_availability(
                 box=box_name,
             )
         )
+        # Считаем сколько записей уже есть в этот слот (глобальный лимит = 2)
+        overlapping_count = sum(
+            1
+            for b in db.scalars(
+                select(Booking).where(
+                    Booking.date == date_value,
+                    Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+                )
+            ).all()
+            if _booking_time_range(b.date, b.time, b.duration) is not None
+            and _time_ranges_overlap(
+                slot_start, slot_end,
+                *_booking_time_range(b.date, b.time, b.duration)  # type: ignore[arg-type]
+            )
+        )
+        global_capacity_full = overlapping_count >= 2
         slot_dt = _parse_booking_datetime(date_value, slot)
         now_local = datetime.now().replace(second=0, microsecond=0)
         is_past = slot_dt is not None and slot_dt < now_local
         slots.append(
             BookingAvailabilitySlotPayload(
                 time=slot,
-                available=free_boxes > 0 and not is_past,
-                freeBoxes=free_boxes,
+                available=free_boxes > 0 and not is_past and not global_capacity_full,
+                freeBoxes=0 if global_capacity_full else free_boxes,
                 occupiedBoxes=max(0, len(active_boxes) - free_boxes),
             )
         )
@@ -1399,6 +1415,21 @@ def _ensure_booking_has_no_conflicts(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Бокс {box} уже занят на это время",
             )
+
+    # Проверяем глобальное ограничение: максимум 2 записи одновременно
+    overlapping_bookings = [
+        b for b in db.scalars(query).unique().all()
+        if _booking_time_range(b.date, b.time, b.duration) is not None
+        and _time_ranges_overlap(
+            start_at, end_at,
+            *_booking_time_range(b.date, b.time, b.duration)  # type: ignore[arg-type]
+        )
+    ]
+    if len(overlapping_bookings) >= 2:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="На это время уже записаны 2 клиента. Пожалуйста, выберите другое время.",
+        )
 
         # Worker overlap check removed: masters can work on multiple cars simultaneously
         # overlapping_worker_names = sorted(
