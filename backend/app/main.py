@@ -824,16 +824,12 @@ def _apply_runtime_migrations() -> None:
     if "schedule_entries" in inspector.get_table_names():
         sched_columns = {col["name"] for col in inspector.get_columns("schedule_entries")}
         if "day_index" in sched_columns:
-            existing_days = [
-                dict(row) for row in
-                inspect(engine).engine.raw_connection().execute(
-                    "SELECT day_index, day_label FROM schedule_entries"
-                ).fetchall()
-            ] if hasattr(inspect(engine).engine, "raw_connection") else []
-            old_labels = {row["day_label"] for row in existing_days} if existing_days else set()
-            has_old_scheme = old_labels & {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
-            if has_old_scheme:
-                with engine.begin() as connection:
+            from sqlalchemy import text
+            with engine.begin() as connection:
+                rows = connection.execute(text("SELECT day_index, day_label FROM schedule_entries")).fetchall()
+                old_labels = {row[1] for row in rows}
+                has_old_scheme = old_labels & {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+                if has_old_scheme:
                     connection.exec_driver_sql(
                         "UPDATE schedule_entries SET day_index = CASE day_index "
                         "WHEN 0 THEN 2 WHEN 1 THEN 3 WHEN 2 THEN 4 WHEN 3 THEN 5 "
