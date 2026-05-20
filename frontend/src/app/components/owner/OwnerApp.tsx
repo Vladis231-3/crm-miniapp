@@ -258,7 +258,7 @@ export function OwnerApp() {
   const [employeeActionLoading, setEmployeeActionLoading] = useState<null | { type: 'hire' | 'fire'; workerId?: string }>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayLabel);
   const [clientSearch, setClientSearch] = useState('');
-  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string }>>({});
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string; adminNote: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
@@ -308,6 +308,8 @@ export function OwnerApp() {
     notes: '',
     car: '',
     plate: '',
+    clientName: '',
+    clientPhone: '',
   });
 
   // Edit expense state (tasks 5.1–5.3)
@@ -1032,6 +1034,7 @@ export function OwnerApp() {
       await updateClientCard(clientId, {
         notes: draft.notes,
         debtBalance: Number(draft.debtBalance || 0),
+        adminNote: draft.adminNote,
       });
       setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
@@ -1478,6 +1481,8 @@ export function OwnerApp() {
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
           plate: ownerBookingEditFull.plate.trim() || undefined,
+          clientName: ownerBookingEditFull.clientName.trim() || undefined,
+          clientPhone: ownerBookingEditFull.clientPhone.trim() || undefined,
         };
       } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus };
@@ -2733,7 +2738,7 @@ export function OwnerApp() {
                 />
                 <div className="space-y-3 mt-3">
                   {filteredClientInsights.slice(0, 12).map((client) => {
-                    const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0) };
+                    const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminNote: client.adminNote || '' };
                     return (
                       <div key={client.id} className={`${glass} rounded-2xl p-4`}>
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -2754,6 +2759,12 @@ export function OwnerApp() {
                             </button>
                           </div>
                         </div>
+                        {(client.adminNote || draft.adminNote) && (
+                          <div className={`rounded-xl px-3 py-2.5 mb-3 text-sm border ${isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                            <div className={`text-xs font-medium mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>⚑ Примечание:</div>
+                            {draft.adminNote || client.adminNote}
+                          </div>
+                        )}
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           <div className={`${glass} rounded-xl px-3 py-2`}>
                             <div className={`text-[11px] ${sub}`}>Любимая услуга</div>
@@ -2787,6 +2798,15 @@ export function OwnerApp() {
                               onChange={(event) => setClientCardDrafts((current) => ({
                                 ...current,
                                 [client.id]: { ...draft, debtBalance: event.target.value },
+                              }))}
+                            />
+                            <textarea
+                              className={`${inputCls} h-20 resize-none`}
+                              placeholder="Особое примечание (всегда видно)"
+                              value={draft.adminNote}
+                              onChange={(event) => setClientCardDrafts((current) => ({
+                                ...current,
+                                [client.id]: { ...draft, adminNote: event.target.value },
                               }))}
                             />
                             <button
@@ -4167,6 +4187,8 @@ export function OwnerApp() {
                               notes: selectedBooking.notes || '',
                               car: selectedBooking.car || '',
                               plate: selectedBooking.plate || '',
+                              clientName: selectedBooking.clientName || '',
+                              clientPhone: selectedBooking.clientPhone || '',
                             });
                           }
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
@@ -4316,6 +4338,16 @@ export function OwnerApp() {
                         <select className={selectCls} value={ownerBookingEditFull.box} onChange={e => setOwnerBookingEditFull(p => ({ ...p, box: e.target.value }))}>
                           {boxes.filter(b => b.active).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                         </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Имя клиента</label>
+                          <input className={inputCls} placeholder="Имя" value={ownerBookingEditFull.clientName} onChange={e => setOwnerBookingEditFull(p => ({ ...p, clientName: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
+                          <input className={inputCls} placeholder="+7..." value={ownerBookingEditFull.clientPhone} onChange={e => setOwnerBookingEditFull(p => ({ ...p, clientPhone: e.target.value }))} />
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>

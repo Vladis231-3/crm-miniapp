@@ -307,7 +307,7 @@ export function AdminApp() {
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
   const [newBookingErrors, setNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
-  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '' });
+  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', clientName: '', clientPhone: '' });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
@@ -907,6 +907,8 @@ export function AdminApp() {
       notes: booking.notes || '',
       car: booking.car || '',
       plate: booking.plate || '',
+      clientName: booking.clientName || '',
+      clientPhone: booking.clientPhone || '',
     });
     setEditBookingError(null);
     setEditBookingSaving(false);
@@ -941,6 +943,8 @@ export function AdminApp() {
         notes: editBookingDraft.notes.trim() || undefined,
         car: editBookingDraft.car.trim() || undefined,
         plate: editBookingDraft.plate.trim() || undefined,
+        clientName: editBookingDraft.clientName.trim() || undefined,
+        clientPhone: editBookingDraft.clientPhone.trim() || undefined,
       });
       setSelectedBooking((current) => (current ? {
         ...current,
@@ -951,6 +955,8 @@ export function AdminApp() {
         notes: editBookingDraft.notes.trim(),
         car: editBookingDraft.car.trim(),
         plate: editBookingDraft.plate.trim(),
+        clientName: editBookingDraft.clientName.trim(),
+        clientPhone: editBookingDraft.clientPhone.trim(),
       } : null));
       setShowEditModal(false);
     } catch (error) {
@@ -2613,6 +2619,26 @@ export function AdminApp() {
                       setEditBookingDraft((current) => ({ ...current, notes: e.target.value }));
                     }}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Имя клиента</label>
+                    <input
+                      className={inputCls}
+                      placeholder="Имя"
+                      value={editBookingDraft.clientName}
+                      onChange={e => setEditBookingDraft((current) => ({ ...current, clientName: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
+                    <input
+                      className={inputCls}
+                      placeholder="+7..."
+                      value={editBookingDraft.clientPhone}
+                      onChange={e => setEditBookingDraft((current) => ({ ...current, clientPhone: e.target.value }))}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
