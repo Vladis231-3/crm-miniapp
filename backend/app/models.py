@@ -226,6 +226,7 @@ class Expense(Base):
     category: Mapped[str] = mapped_column(String(120))
     date: Mapped[str] = mapped_column(String(16))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resource_group: Mapped[str] = mapped_column(String(64), default="wash")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
@@ -311,6 +312,7 @@ class Income(Base):
         String(64), ForeignKey("staff_users.id")
     )
     date: Mapped[str] = mapped_column(String(16))
+    resource_group: Mapped[str] = mapped_column(String(64), default="wash")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

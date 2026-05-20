@@ -209,7 +209,7 @@ DETAILING_RESOURCE_GROUP = "detailing"
 WASH_RESOURCE_GROUP = "wash"
 DETAILING_BOX_NAMES = ("Детейлинг 1", "Детейлинг 2", "Детейлинг 3")
 DETAILING_BOX_NAME = DETAILING_BOX_NAMES[0]
-WASH_BOX_NAMES = ("Мойка самообслуживания", "Мойка от мастера")
+WASH_BOX_NAMES = ("Бокс 1", "Бокс 2")
 CLIENT_PHONE_VERIFICATIONS_KEY = "client_phone_verifications"
 DEFAULT_ADMIN_SHIFT_SUPPLIES = [
     {
@@ -787,6 +787,63 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
                 "ALTER TABLE staff_users ADD COLUMN salary_per_shift INTEGER DEFAULT 0"
             )
+
+    expense_columns = (
+        {column["name"] for column in inspector.get_columns("expenses")}
+        if "expenses" in inspector.get_table_names()
+        else set()
+    )
+    if "resource_group" not in expense_columns and "expenses" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE expenses ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'"
+            )
+
+    income_columns = (
+        {column["name"] for column in inspector.get_columns("incomes")}
+        if "incomes" in inspector.get_table_names()
+        else set()
+    )
+    if "resource_group" not in income_columns and "incomes" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE incomes ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'"
+            )
+
+    # Миграция: старые названия боксов -> новые
+    if "bookings" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "UPDATE bookings SET box = 'Бокс 1' WHERE box = 'Мойка самообслуживания'"
+            )
+            connection.exec_driver_sql(
+                "UPDATE bookings SET box = 'Бокс 2' WHERE box = 'Мойка от мастера'"
+            )
+
+    # Миграция расписания: старая схема (0=Пн..6=Вс) -> новая (0=Сб, 1=Вс, 2=Пн..6=Пт)
+    if "schedule_entries" in inspector.get_table_names():
+        sched_columns = {col["name"] for col in inspector.get_columns("schedule_entries")}
+        if "day_index" in sched_columns:
+            existing_days = [
+                dict(row) for row in
+                inspect(engine).engine.raw_connection().execute(
+                    "SELECT day_index, day_label FROM schedule_entries"
+                ).fetchall()
+            ] if hasattr(inspect(engine).engine, "raw_connection") else []
+            old_labels = {row["day_label"] for row in existing_days} if existing_days else set()
+            has_old_scheme = old_labels & {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+            if has_old_scheme:
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        "UPDATE schedule_entries SET day_index = CASE day_index "
+                        "WHEN 0 THEN 2 WHEN 1 THEN 3 WHEN 2 THEN 4 WHEN 3 THEN 5 "
+                        "WHEN 4 THEN 6 WHEN 5 THEN 0 WHEN 6 THEN 1 END"
+                    )
+                    connection.exec_driver_sql(
+                        "UPDATE schedule_entries SET day_label = CASE day_index "
+                        "WHEN 0 THEN 'Сб' WHEN 1 THEN 'Вс' WHEN 2 THEN 'Пн' WHEN 3 THEN 'Вт' "
+                        "WHEN 4 THEN 'Ср' WHEN 5 THEN 'Чт' WHEN 6 THEN 'Пт' END"
+                    )
 
 
 def _repair_text_value(value: str) -> str:
@@ -1749,6 +1806,7 @@ def _expense_payload(expense: Expense) -> ExpensePayload:
         category=expense.category,
         date=expense.date,
         note=expense.note,
+        resourceGroup=expense.resource_group,
     )
 
 
@@ -3845,6 +3903,11 @@ def _notify_workers_about_assignment(
         percent_label = (
             f"{worker_link.percent}%" if worker_link is not None else "не указан"
         )
+        car_part = ""
+        if booking.car:
+            car_part = f"\nАвто: {booking.car}"
+            if booking.plate:
+                car_part += f" ({booking.plate})"
         text = (
             "Вам назначена запись\n"
             f"Клиент: {booking.client_name}\n"
@@ -3853,6 +3916,8 @@ def _notify_workers_about_assignment(
             f"Бокс: {booking.box}\n"
             f"Процент: {percent_label}"
         )
+        if car_part:
+            text += car_part
         if booking.notes:
             text += f"\nПримечание администратора: {booking.notes}"
         db.add(
@@ -3876,13 +3941,20 @@ def _notify_workers_about_note(
         return
     workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
     for worker in workers:
+        car_part = ""
+        if booking.car:
+            car_part = f"\nАвто: {booking.car}"
+            if booking.plate:
+                car_part += f" ({booking.plate})"
         text = (
             "Администратор обновил примечание к вашей записи\n"
             f"Клиент: {booking.client_name}\n"
             f"Услуга: {booking.service}\n"
-            f"Дата: {booking.date} {booking.time}\n"
-            f"Примечание: {note}"
+            f"Дата: {booking.date} {booking.time}"
         )
+        if car_part:
+            text += car_part
+        text += f"\nПримечание: {note}"
         db.add(
             Notification(
                 id=f"n-{uuid4()}",
@@ -3912,13 +3984,19 @@ def _notify_workers_about_reschedule(
     )
     new_slot = f"{_booking_datetime_label(booking.date, booking.time)} · {booking.box}"
     for worker in workers:
+        car_part = ""
+        if booking.car:
+            car_part = f"\nАвто: {booking.car}"
+            if booking.plate:
+                car_part += f" ({booking.plate})"
         text = (
             "Администратор перенёс вашу запись\n"
             f"Клиент: {booking.client_name}\n"
-            f"Услуга: {booking.service}\n"
-            f"Было: {old_slot}\n"
-            f"Стало: {new_slot}"
+            f"Услуга: {booking.service}"
         )
+        if car_part:
+            text += car_part
+        text += f"\nБыло: {old_slot}\nСтало: {new_slot}"
         if booking.notes:
             text += f"\nПримечание администратора: {booking.notes}"
         db.add(
@@ -5995,6 +6073,7 @@ def create_expense(
         category=payload.category,
         date=payload.date,
         note=payload.note,
+        resource_group=payload.resourceGroup,
     )
     db.add(expense)
     db.commit()
@@ -6023,6 +6102,8 @@ def update_expense(
         expense.date = payload.date
     if "note" in payload.model_fields_set:
         expense.note = payload.note
+    if payload.resourceGroup is not None:
+        expense.resource_group = payload.resourceGroup
     db.commit()
     db.refresh(expense)
     return _expense_payload(expense)
@@ -6045,6 +6126,7 @@ def list_incomes(
             note=income.note,
             createdById=income.created_by_id,
             date=income.date,
+            resourceGroup=income.resource_group,
             createdAt=income.created_at,
         )
         for income in incomes
@@ -6065,6 +6147,7 @@ def create_income(
         note=payload.note,
         created_by_id=session_data["actorId"],
         date=payload.date,
+        resource_group=payload.resourceGroup,
         created_at=_now(),
     )
     db.add(income)
@@ -6077,6 +6160,7 @@ def create_income(
         note=income.note,
         createdById=income.created_by_id,
         date=income.date,
+        resourceGroup=income.resource_group,
         createdAt=income.created_at,
     )
 
@@ -6100,6 +6184,8 @@ def update_income(
         income.note = payload.note
     if payload.date is not None:
         income.date = payload.date
+    if payload.resourceGroup is not None:
+        income.resource_group = payload.resourceGroup
     db.commit()
     db.refresh(income)
     return IncomePayload(
@@ -6109,6 +6195,7 @@ def update_income(
         note=income.note,
         createdById=income.created_by_id,
         date=income.date,
+        resourceGroup=income.resource_group,
         createdAt=income.created_at,
     )
 

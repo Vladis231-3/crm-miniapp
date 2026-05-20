@@ -119,13 +119,13 @@ def seed_database(db: Session, *, include_demo_staff: bool = True) -> None:
 
     if not db.scalar(select(ScheduleEntry.id).limit(1)):
         schedule_entries = [
-            ScheduleEntry(day_index=0, day_label="Пн", open_time="09:00", close_time="21:00", active=True),
-            ScheduleEntry(day_index=1, day_label="Вт", open_time="09:00", close_time="21:00", active=True),
-            ScheduleEntry(day_index=2, day_label="Ср", open_time="09:00", close_time="21:00", active=True),
-            ScheduleEntry(day_index=3, day_label="Чт", open_time="09:00", close_time="21:00", active=True),
-            ScheduleEntry(day_index=4, day_label="Пт", open_time="09:00", close_time="22:00", active=True),
-            ScheduleEntry(day_index=5, day_label="Сб", open_time="09:00", close_time="22:00", active=True),
-            ScheduleEntry(day_index=6, day_label="Вс", open_time="10:00", close_time="20:00", active=False),
+            ScheduleEntry(day_index=0, day_label="Сб", open_time="09:00", close_time="22:00", active=True),
+            ScheduleEntry(day_index=1, day_label="Вс", open_time="10:00", close_time="20:00", active=False),
+            ScheduleEntry(day_index=2, day_label="Пн", open_time="09:00", close_time="21:00", active=True),
+            ScheduleEntry(day_index=3, day_label="Вт", open_time="09:00", close_time="21:00", active=True),
+            ScheduleEntry(day_index=4, day_label="Ср", open_time="09:00", close_time="21:00", active=True),
+            ScheduleEntry(day_index=5, day_label="Чт", open_time="09:00", close_time="21:00", active=True),
+            ScheduleEntry(day_index=6, day_label="Пт", open_time="09:00", close_time="22:00", active=True),
         ]
         db.add_all(schedule_entries)
 

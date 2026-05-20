@@ -55,7 +55,7 @@ export function getUpcomingDates(count = 4): string[] {
 }
 
 export function getScheduleDayIndex(date: Date): number {
-  return (date.getDay() + 6) % 7;
+  return (date.getDay() + 1) % 7;
 }
 
 export function startOfDay(date: Date): Date {

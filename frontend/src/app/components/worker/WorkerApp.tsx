@@ -431,6 +431,7 @@ export function WorkerApp() {
                           <div className="font-semibold text-sm">{task.time} · {task.service}</div>
                           <div className={`text-sm ${sub}`}>{task.clientName}</div>
                           <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
+                          {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(task.status)}`}>
                           {workerStatusLabel(task.status)}
@@ -473,6 +474,7 @@ export function WorkerApp() {
                           <div>
                             <div className="text-sm font-medium">{task.time} — {task.service}</div>
                             <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}</div>
+                            {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
                             {task.status === 'completed' ? 'Выполнено' : workerStatusLabel(task.status)}
@@ -594,6 +596,7 @@ export function WorkerApp() {
                       <div>
                         <div className="text-sm font-medium">{b.service}</div>
                         <div className={`text-xs ${sub}`}>{b.date} · {b.clientName}</div>
+                        {b.car && <div className={`text-xs ${sub}`}>{b.car}{b.plate ? ` (${b.plate})` : ''}</div>}
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>

@@ -307,7 +307,7 @@ export function AdminApp() {
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
   const [newBookingErrors, setNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
-  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '' });
+  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '' });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
@@ -717,6 +717,37 @@ export function AdminApp() {
     return nextErrors;
   };
 
+  const validateBookingDateForEdit = (dateValue: string, timeValue: string, durationMinutes: number): { date?: string; time?: string } => {
+    const nextErrors: { date?: string; time?: string } = {};
+    const parsedDate = parseFlexibleDate(dateValue.trim());
+    if (!parsedDate) {
+      nextErrors.date = 'Укажите дату в формате ДД.ММ.ГГГГ';
+      return nextErrors;
+    }
+    const scheduleDay = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
+    if (!scheduleDay || !scheduleDay.active) {
+      nextErrors.date = 'На выбранную дату запись недоступна';
+    }
+
+    const normalizedTime = timeValue.trim();
+    const slotStart = timeToMinutes(normalizedTime);
+    if (slotStart === null) {
+      nextErrors.time = 'Укажите время в формате ЧЧ:ММ';
+      return nextErrors;
+    }
+    if (!nextErrors.date && scheduleDay) {
+      const openMinutes = timeToMinutes(scheduleDay.open);
+      const closeMinutes = timeToMinutes(scheduleDay.close);
+      const slotEnd = slotStart + Math.max(1, durationMinutes);
+      if (openMinutes === null || closeMinutes === null) {
+        nextErrors.time = 'Для этого дня не настроены часы работы';
+      } else if (slotStart < openMinutes || slotEnd > closeMinutes) {
+        nextErrors.time = `Рабочее время: ${scheduleDay.open}-${scheduleDay.close}`;
+      }
+    }
+    return nextErrors;
+  };
+
   const validateBookingDateTimeFormat = (dateValue: string, timeValue: string): { date?: string; time?: string; parsedDate?: Date } => {
     const nextErrors: { date?: string; time?: string; parsedDate?: Date } = {};
     const parsedDate = parseFlexibleDate(dateValue.trim());
@@ -874,6 +905,8 @@ export function AdminApp() {
       time: booking.time || '10:00',
       box: booking.box && booking.box !== 'По согласованию' ? booking.box : boxes[0]?.name || 'Бокс 1',
       notes: booking.notes || '',
+      car: booking.car || '',
+      plate: booking.plate || '',
     });
     setEditBookingError(null);
     setEditBookingSaving(false);
@@ -886,7 +919,7 @@ export function AdminApp() {
     const detailingBooking = isDetailingService(selectedBooking.serviceId, services);
     const requiresScheduledSlot = !detailingBooking || editBookingDraft.status !== 'admin_review';
     if (requiresScheduledSlot) {
-      const validationErrors = validateBookingDate(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
+      const validationErrors = validateBookingDateForEdit(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
       if (validationErrors.date || validationErrors.time) {
         setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
         return;
@@ -906,6 +939,8 @@ export function AdminApp() {
         time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
         box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim() || undefined,
+        car: editBookingDraft.car.trim() || undefined,
+        plate: editBookingDraft.plate.trim() || undefined,
       });
       setSelectedBooking((current) => (current ? {
         ...current,
@@ -914,6 +949,8 @@ export function AdminApp() {
         time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
         box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim(),
+        car: editBookingDraft.car.trim(),
+        plate: editBookingDraft.plate.trim(),
       } : null));
       setShowEditModal(false);
     } catch (error) {
@@ -1423,6 +1460,12 @@ export function AdminApp() {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                    {selectedClient.adminNote && (
+                      <div className={`rounded-xl px-3 py-2.5 mb-4 text-sm border ${isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                        <div className={`text-xs font-medium mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>⚑ Примечание:</div>
+                        {selectedClient.adminNote}
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => openNewBookingForClient(selectedClient)}
@@ -2571,6 +2614,26 @@ export function AdminApp() {
                     }}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Автомобиль</label>
+                    <input
+                      className={inputCls}
+                      placeholder="Марка модель"
+                      value={editBookingDraft.car}
+                      onChange={e => setEditBookingDraft((current) => ({ ...current, car: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Номер</label>
+                    <input
+                      className={inputCls}
+                      placeholder="А123БВ77"
+                      value={editBookingDraft.plate}
+                      onChange={e => setEditBookingDraft((current) => ({ ...current, plate: e.target.value }))}
+                    />
+                  </div>
+                </div>
                 {editBookingError && <div className="text-xs text-red-500">{editBookingError}</div>}
               </div>
               <button
@@ -2734,7 +2797,7 @@ export function AdminApp() {
                     setNewBookingErrors((current) => ({ ...current, general: undefined }));
                   }}>
                     <option value="">Выберите услугу</option>
-                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — {s.price.toLocaleString('ru')} ₽</option>)}
+                    {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

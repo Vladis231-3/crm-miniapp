@@ -236,7 +236,7 @@ class WorkerPayload(BaseModel):
     role: StaffRole
     name: str
     experience: str
-    defaultPercent: int = Field(ge=0, le=40)
+    defaultPercent: int = Field(ge=0, le=40, default=0)
     salaryBase: int = 0
     salaryPerShift: int = 0
     available: bool
@@ -293,7 +293,7 @@ class WorkerPayrollSummaryPayload(BaseModel):
 class BookingWorkerPayload(BaseModel):
     workerId: str
     workerName: str
-    percent: int = Field(ge=0, le=40)
+    percent: int = Field(ge=0, le=40, default=0)
 
 
 class BookingPayload(BaseModel):
@@ -441,6 +441,7 @@ class ExpensePayload(BaseModel):
     category: str
     date: str
     note: str | None = None
+    resourceGroup: str = "wash"
 
 
 class PenaltyPayload(BaseModel):
@@ -541,7 +542,7 @@ class WorkerProfilePayload(BaseModel):
     experience: str
     specialty: str
     about: str
-    percent: int = Field(ge=0, le=40)
+    percent: int = Field(ge=0, le=40, default=0)
 
 
 class OwnerCompanyPayload(BaseModel):
@@ -587,7 +588,7 @@ class EmployeeSettingPayload(BaseModel):
     id: str
     role: EmployeeRole = "worker"
     name: str
-    percent: int = Field(ge=0, le=40)
+    percent: int = Field(ge=0, le=40, default=0)
     salaryBase: int
     salaryPerShift: int = 0
     active: bool
@@ -599,7 +600,7 @@ class WorkerCreateRequest(BaseModel):
     name: str
     login: str
     password: str
-    percent: int = Field(default=40, ge=0, le=40)
+    percent: int = Field(default=0, ge=0, le=40)
     salaryBase: int = 0
     phone: str = ""
     email: str = ""
@@ -838,6 +839,7 @@ class IncomeCreateRequest(BaseModel):
     source: str = Field(min_length=1, max_length=255)
     note: str | None = None
     date: str  # DD.MM.YYYY
+    resourceGroup: str = "wash"
 
     @field_validator("source")
     @classmethod
@@ -855,6 +857,7 @@ class IncomePayload(BaseModel):
     note: str | None
     createdById: str
     date: str
+    resourceGroup: str = "wash"
     createdAt: datetime
 
 
@@ -864,6 +867,7 @@ class ExpenseCreateRequest(BaseModel):
     category: str
     date: str
     note: str | None = None
+    resourceGroup: str = "wash"
 
 
 class PenaltyCreateRequest(BaseModel):
@@ -982,6 +986,7 @@ class ExpenseUpdateRequest(BaseModel):
     category: str | None = Field(default=None, max_length=100)
     date: str | None = None  # DD.MM.YYYY
     note: str | None = Field(default=None, max_length=1000)
+    resourceGroup: str | None = None
 
     @field_validator("title")
     @classmethod
@@ -1014,6 +1019,7 @@ class IncomeUpdateRequest(BaseModel):
     source: str | None = Field(default=None, min_length=1, max_length=255)
     note: str | None = Field(default=None, max_length=1000)  # явный null очищает поле
     date: str | None = None  # DD.MM.YYYY
+    resourceGroup: str | None = None
 
     @field_validator("source")
     @classmethod

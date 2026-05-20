@@ -197,8 +197,8 @@ export function OwnerApp() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetInfo, setResetInfo] = useState<string | null>(null);
 
-  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], serviceCategory: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
-  const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, serviceCategory: '' as '' | 'wash' | 'detailing' });
+  const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
+  const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' as '' | 'wash' | 'detailing' });
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
   const [bookingForm, setBookingForm] = useState({
     clientId: '',
@@ -249,7 +249,7 @@ export function OwnerApp() {
     name: '',
     login: '',
     password: '',
-    percent: 40,
+    percent: 0,
     salaryBase: 0,
     phone: '',
     email: '',
@@ -292,7 +292,7 @@ export function OwnerApp() {
   const [ownerNewBookingSaveSuccess, setOwnerNewBookingSaveSuccess] = useState<'notify' | 'silent' | null>(null);
 
   // Owner booking detail edit state
-  const [ownerBookingEditMode, setOwnerBookingEditMode] = useState<null | 'status' | 'price' | 'workers' | 'datetime'>(null);
+  const [ownerBookingEditMode, setOwnerBookingEditMode] = useState<null | 'status' | 'price' | 'workers' | 'datetime' | 'full'>(null);
   const [ownerBookingEditStatus, setOwnerBookingEditStatus] = useState<BookingStatus>('confirmed');
   const [ownerBookingEditPrice, setOwnerBookingEditPrice] = useState('');
   const [ownerBookingEditDate, setOwnerBookingEditDate] = useState('');
@@ -300,16 +300,23 @@ export function OwnerApp() {
   const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [ownerBookingEditSaving, setOwnerBookingEditSaving] = useState(false);
   const [ownerBookingEditError, setOwnerBookingEditError] = useState<string | null>(null);
+  const [ownerBookingEditFull, setOwnerBookingEditFull] = useState({
+    status: 'confirmed' as BookingStatus,
+    date: '',
+    time: '',
+    box: '',
+    notes: '',
+    car: '',
+    plate: '',
+  });
 
   // Edit expense state (tasks 5.1–5.3)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [editExpenseForm, setEditExpenseForm] = useState({ title: '', amount: '', category: '', date: '', note: '' });
-  const [editFinanceLoading, setEditFinanceLoading] = useState(false);
-  const [editFinanceError, setEditFinanceError] = useState<string | null>(null);
+  const [editExpenseForm, setEditExpenseForm] = useState({ title: '', amount: '', category: '', date: '', note: '', resourceGroup: '' as '' | 'wash' | 'detailing' });
 
   // Edit income state (tasks 6.1–6.3)
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
-  const [editIncomeForm, setEditIncomeForm] = useState({ amount: '', source: '', note: '', date: '' });
+  const [editIncomeForm, setEditIncomeForm] = useState({ amount: '', source: '', note: '', date: '', resourceGroup: '' as '' | 'wash' | 'detailing' });
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -535,19 +542,15 @@ export function OwnerApp() {
     .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'detailing')
     .reduce((s, b) => s + b.price, 0);
   const washExpenses = expenses
-    .filter(e => e.serviceCategory === 'wash')
-    .reduce((s, e) => s + e.amount, 0);
-  const detailingExpenses = expenses
-    .filter(e => e.serviceCategory === 'detailing')
-    .reduce((s, e) => s + e.amount, 0);
-  const washIncomes = incomes
-    .filter(i => i.serviceCategory === 'wash')
-    .reduce((s, i) => s + i.amount, 0);
-  const detailingIncomes = incomes
-    .filter(i => i.serviceCategory === 'detailing')
-    .reduce((s, i) => s + i.amount, 0);
+    .filter(e => e.resourceGroup === 'wash')
 
-  const serviceCategoryLabel = (cat?: string) => {
+    .filter(e => e.resourceGroup === 'detailing')
+
+    .filter(i => i.resourceGroup === 'wash')
+
+    .filter(i => i.resourceGroup === 'detailing')
+
+  const resourceGroupLabel = (cat?: string) => {
     if (cat === 'wash') return 'Автомойка';
     if (cat === 'detailing') return 'Детейлинг';
     return 'Общее';
@@ -811,12 +814,12 @@ export function OwnerApp() {
     if (!dateValid) return;
     const title = expenseForm.title;
     const amount = Number(expenseForm.amount);
-    addExpense({ title, amount, category: expenseForm.category, serviceCategory: expenseForm.serviceCategory || undefined, date: expenseForm.date, note: expenseForm.note });
+    addExpense({ title, amount, category: expenseForm.category, resourceGroup: expenseForm.resourceGroup || undefined, date: expenseForm.date, note: expenseForm.note });
     setExpenseAdded(true);
     setTimeout(() => {
       setExpenseAdded(false);
       setShowAddExpense(false);
-      setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], serviceCategory: '', note: '', date: todayLabel });
+      setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '', note: '', date: todayLabel });
       setBottomToast(`Расход "${title}" добавлен на сумму ${amount.toLocaleString('ru')} ₽`);
       setTimeout(() => setBottomToast(null), 4000);
     }, 1800);
@@ -831,6 +834,7 @@ export function OwnerApp() {
       category: expense.category,
       date: expense.date,
       note: expense.note ?? '',
+      resourceGroup: expense.resourceGroup || '',
     });
     setEditFinanceError(null);
   };
@@ -858,6 +862,7 @@ export function OwnerApp() {
         category: editExpenseForm.category,
         date: editExpenseForm.date,
         note: editExpenseForm.note || null,
+        resourceGroup: editExpenseForm.resourceGroup || undefined,
       });
       setEditingExpense(null);
       setBottomToast('Расход обновлён');
@@ -892,6 +897,7 @@ export function OwnerApp() {
       source: income.source,
       note: income.note ?? '',
       date: income.date,
+      resourceGroup: income.resourceGroup || '',
     });
     setEditFinanceError(null);
   };
@@ -918,6 +924,7 @@ export function OwnerApp() {
         source,
         note: editIncomeForm.note || null,
         date: editIncomeForm.date,
+        resourceGroup: editIncomeForm.resourceGroup || undefined,
       });
       setEditingIncome(null);
       setBottomToast('Доход обновлён');
@@ -1459,7 +1466,20 @@ export function OwnerApp() {
     setOwnerBookingEditError(null);
     try {
       let patch: Record<string, unknown> = {};
-      if (ownerBookingEditMode === 'status') {
+      if (ownerBookingEditMode === 'full') {
+        const svc = services.find(s => s.id === selectedBooking.serviceId);
+        const isDetailing = svc?.category === 'Детейлинг';
+        const requiresScheduledSlot = !isDetailing || ownerBookingEditFull.status !== 'admin_review';
+        patch = {
+          status: ownerBookingEditFull.status,
+          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : '',
+          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : '',
+          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : 'По согласованию',
+          notes: ownerBookingEditFull.notes.trim() || undefined,
+          car: ownerBookingEditFull.car.trim() || undefined,
+          plate: ownerBookingEditFull.plate.trim() || undefined,
+        };
+      } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus };
       } else if (ownerBookingEditMode === 'price') {
         const price = Number(ownerBookingEditPrice);
@@ -3506,7 +3526,7 @@ export function OwnerApp() {
                       <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <button className="flex-1 text-left min-w-0 mr-2" onClick={() => openEditExpense(e)}>
                           <div className="text-sm font-medium">{e.title}</div>
-                          <div className={`text-xs ${sub}`}>{e.category} · {serviceCategoryLabel(e.serviceCategory)} · {e.date}</div>
+                          <div className={`text-xs ${sub}`}>{e.category} · {resourceGroupLabel(e.resourceGroup)} · {e.date}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
@@ -3529,7 +3549,7 @@ export function OwnerApp() {
                       <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <button className="flex-1 text-left min-w-0 mr-2" onClick={() => openEditIncome(i)}>
                           <div className="text-sm font-medium">{i.source}</div>
-                          <div className={`text-xs ${sub}`}>{serviceCategoryLabel(i.serviceCategory)} · {i.date}{i.note ? ` · ${i.note}` : ''}</div>
+                          <div className={`text-xs ${sub}`}>{resourceGroupLabel(i.resourceGroup)} · {i.date}{i.note ? ` · ${i.note}` : ''}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
@@ -3631,7 +3651,7 @@ export function OwnerApp() {
                 <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
-                  <select className={selectCls} value={expenseForm.serviceCategory} onChange={e => setExpenseForm(p => ({ ...p, serviceCategory: e.target.value as '' | 'wash' | 'detailing' }))}>
+                  <select className={selectCls} value={expenseForm.resourceGroup} onChange={e => setExpenseForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
                     <option value="">Общее</option>
                     <option value="wash">Автомойка</option>
                     <option value="detailing">Детейлинг</option>
@@ -3782,7 +3802,7 @@ export function OwnerApp() {
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доход</h3>
-                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, serviceCategory: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -3795,7 +3815,7 @@ export function OwnerApp() {
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
-                  <select className={selectCls} value={incomeForm.serviceCategory} onChange={e => setIncomeForm(p => ({ ...p, serviceCategory: e.target.value as '' | 'wash' | 'detailing' }))}>
+                  <select className={selectCls} value={incomeForm.resourceGroup} onChange={e => setIncomeForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
                     <option value="">Общее</option>
                     <option value="wash">Автомойка</option>
                     <option value="detailing">Детейлинг</option>
@@ -3821,9 +3841,9 @@ export function OwnerApp() {
                   if (!incomeForm.amount || !incomeForm.source.trim()) return;
                   if (!incomeForm.date || !parseFlexibleDate(incomeForm.date)) return;
                   try {
-                    await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: incomeForm.date, serviceCategory: incomeForm.serviceCategory || undefined });
+                    await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: incomeForm.date, resourceGroup: incomeForm.resourceGroup || undefined });
                     setShowAddIncome(false);
-                    setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, serviceCategory: '' });
+                    setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' });
                     setBottomToast(`Доход "${incomeForm.source.trim()}" добавлен на сумму ${Number(incomeForm.amount).toLocaleString('ru')} ₽`);
                     setTimeout(() => setBottomToast(null), 4000);
                   } catch (err) {
@@ -4127,6 +4147,7 @@ export function OwnerApp() {
                   <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РЕДАКТИРОВАТЬ</div>
                   <div className="grid grid-cols-2 gap-2">
                     {[
+                      { mode: 'full' as const, label: 'Полное' },
                       { mode: 'status' as const, label: 'Статус' },
                       { mode: 'price' as const, label: 'Цена' },
                       { mode: 'workers' as const, label: 'Мастера' },
@@ -4137,6 +4158,17 @@ export function OwnerApp() {
                         onClick={() => {
                           setOwnerBookingEditMode(mode);
                           setOwnerBookingEditError(null);
+                          if (mode === 'full') {
+                            setOwnerBookingEditFull({
+                              status: selectedBooking.status,
+                              date: selectedBooking.date || todayLabel,
+                              time: selectedBooking.time || '10:00',
+                              box: selectedBooking.box || boxes[0]?.name || 'Бокс 1',
+                              notes: selectedBooking.notes || '',
+                              car: selectedBooking.car || '',
+                              plate: selectedBooking.plate || '',
+                            });
+                          }
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
                           if (mode === 'price') setOwnerBookingEditPrice(String(selectedBooking.price));
                           if (mode === 'workers') setOwnerBookingEditWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent })));
@@ -4253,6 +4285,62 @@ export function OwnerApp() {
                   </div>
                 )}
 
+                {ownerBookingEditMode === 'full' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} mb-3`}>Полное редактирование</div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Статус</label>
+                        <select className={selectCls} value={ownerBookingEditFull.status} onChange={e => setOwnerBookingEditFull(p => ({ ...p, status: e.target.value as BookingStatus }))}>
+                          {OWNER_BOOKING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          <option value="in_progress">В работе</option>
+                          <option value="no_show">Не приехал</option>
+                          <option value="cancelled">Отменено</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                          <input className={inputCls} type="date" value={toISODate(ownerBookingEditFull.date)} onChange={e => {
+                            const val = parseFlexibleDate(e.target.value);
+                            setOwnerBookingEditFull(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                          }} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Время</label>
+                          <input className={inputCls} placeholder="ЧЧ:ММ" value={ownerBookingEditFull.time} onChange={e => setOwnerBookingEditFull(p => ({ ...p, time: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
+                        <select className={selectCls} value={ownerBookingEditFull.box} onChange={e => setOwnerBookingEditFull(p => ({ ...p, box: e.target.value }))}>
+                          {boxes.filter(b => b.active).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Автомобиль</label>
+                          <input className={inputCls} placeholder="Марка модель" value={ownerBookingEditFull.car} onChange={e => setOwnerBookingEditFull(p => ({ ...p, car: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Номер</label>
+                          <input className={inputCls} placeholder="А123БВ77" value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                        <textarea className={`${inputCls} min-h-[80px] resize-none`} placeholder="Добавить примечание..." value={ownerBookingEditFull.notes} onChange={e => setOwnerBookingEditFull(p => ({ ...p, notes: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                      <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {ownerBookingEditError && (
                   <div className="flex items-center gap-2 text-red-500 text-xs px-1">
                     <AlertCircle size={14} />{ownerBookingEditError}
@@ -4336,7 +4424,7 @@ export function OwnerApp() {
                     setOwnerNewBookingErrors((current) => ({ ...current, general: undefined }));
                   }}>
                     <option value="">Выберите услугу</option>
-                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — {s.price.toLocaleString('ru')} ₽</option>)}
+                    {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -4540,6 +4628,14 @@ export function OwnerApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Необязательно..." value={editExpenseForm.note} onChange={e => setEditExpenseForm(p => ({ ...p, note: e.target.value }))} />
                 </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
+                  <select className={selectCls} value={editExpenseForm.resourceGroup} onChange={e => setEditExpenseForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
+                  </select>
+                </div>
               </div>
               {editFinanceError && (
                 <div className="flex items-center gap-2 text-xs mb-3" style={{ color: '#FF6B6B' }}>
@@ -4603,6 +4699,14 @@ export function OwnerApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Необязательно..." value={editIncomeForm.note} onChange={e => setEditIncomeForm(p => ({ ...p, note: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
+                  <select className={selectCls} value={editIncomeForm.resourceGroup} onChange={e => setEditIncomeForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
+                  </select>
                 </div>
               </div>
               {editFinanceError && (

@@ -227,7 +227,7 @@ export interface Expense {
   category: string;
   date: string;
   note?: string;
-  serviceCategory?: string; // 'wash' | 'detailing' | ''
+  resourceGroup?: string;
 }
 
 export interface Income {
@@ -238,7 +238,7 @@ export interface Income {
   createdById: string;
   date: string;
   createdAt: string;
-  serviceCategory?: string; // 'wash' | 'detailing' | ''
+  resourceGroup?: string;
 }
 
 export interface Penalty {
@@ -521,6 +521,8 @@ interface AppContextType {
   deleteStockItem: (id: string) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   addIncome: (income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string }) => Promise<void>;
+  updateExpense: (id: string, patch: { title?: string; amount?: number; category?: string; date?: string; note?: string | null }) => Promise<void>;
+  updateIncome: (id: string, patch: { amount?: number; source?: string; note?: string | null; date?: string }) => Promise<void>;
   addPenalty: (penalty: Omit<Penalty, 'id' | 'createdAt' | 'activeUntil' | 'revokedAt' | 'workerName' | 'ownerId'>) => Promise<void>;
   revokePenalty: (penaltyId: string) => Promise<void>;
   revokeAllPenalties: (workerId: string) => Promise<void>;
@@ -1094,9 +1096,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setExpenses((current) => [created, ...current]);
   }
 
-  async function addIncome(income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string }) {
+  async function addIncome(income: { amount: number; source: string; note?: string; date: string; resourceGroup?: string }) {
     const created = await apiRequest<Income>('/api/owner/incomes', { method: 'POST', body: income });
     setIncomes((current) => [created, ...current]);
+  }
+
+  async function updateExpense(id: string, patch: { title?: string; amount?: number; category?: string; date?: string; note?: string | null; resourceGroup?: string }) {
+    const updated = await apiRequest<Expense>(`/api/expenses/${id}`, { method: 'PATCH', body: patch });
+    setExpenses((current) => current.map((e) => (e.id === id ? updated : e)));
+  }
+
+  async function updateIncome(id: string, patch: { amount?: number; source?: string; note?: string | null; date?: string; resourceGroup?: string }) {
+    const updated = await apiRequest<Income>(`/api/owner/incomes/${id}`, { method: 'PATCH', body: patch });
+    setIncomes((current) => current.map((i) => (i.id === id ? updated : i)));
   }
 
   async function addPenalty(penalty: Omit<Penalty, 'id' | 'createdAt' | 'activeUntil' | 'revokedAt' | 'workerName' | 'ownerId'>) {
@@ -1451,6 +1463,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteStockItem,
       addExpense,
       addIncome,
+      updateExpense,
+      updateIncome,
       addPenalty,
       revokePenalty,
       revokeAllPenalties,
