@@ -545,12 +545,16 @@ export function OwnerApp() {
     .reduce((s, b) => s + b.price, 0);
   const washExpenses = expenses
     .filter(e => e.resourceGroup === 'wash')
-
+    .reduce((s, e) => s + e.amount, 0);
+  const detailingExpenses = expenses
     .filter(e => e.resourceGroup === 'detailing')
-
+    .reduce((s, e) => s + e.amount, 0);
+  const washIncomes = incomes
     .filter(i => i.resourceGroup === 'wash')
-
+    .reduce((s, i) => s + i.amount, 0);
+  const detailingIncomes = incomes
     .filter(i => i.resourceGroup === 'detailing')
+    .reduce((s, i) => s + i.amount, 0);
 
   const resourceGroupLabel = (cat?: string) => {
     if (cat === 'wash') return 'Автомойка';
