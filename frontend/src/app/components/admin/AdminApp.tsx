@@ -137,6 +137,43 @@ function bookingLocationLabel(_serviceId: string, _services: Array<{ id: string;
   return 'Помещение';
 }
 
+function parseBookingMinutes(value: string): number | null {
+  const match = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function bookingBlocksBox(booking: Booking, date: string, time: string, duration: number, boxName: string) {
+  if (!STAFF_SCHEDULED_STATUSES.includes(booking.status)) return false;
+  if (booking.date !== date || booking.box !== boxName) return false;
+  const nextStart = parseBookingMinutes(time);
+  const existingStart = parseBookingMinutes(booking.time);
+  if (nextStart === null || existingStart === null) return false;
+  const nextEnd = nextStart + Math.max(1, duration);
+  const existingEnd = existingStart + Math.max(1, booking.duration);
+  return nextStart < existingEnd && nextEnd > existingStart;
+}
+
+function pickDefaultBookingBox(
+  serviceId: string,
+  services: Array<{ id: string; resourceGroup?: string }>,
+  boxes: Array<{ id: string; name: string; resourceGroup: string; active: boolean }>,
+  bookings: Booking[],
+  date: string,
+  time: string,
+  duration: number,
+) {
+  const resourceGroup = serviceResourceGroup(serviceId, services);
+  const preferred = boxes.filter((box) => box.active && box.resourceGroup === resourceGroup);
+  const fallback = boxes.filter((box) => box.active && !preferred.some((preferredBox) => preferredBox.id === box.id));
+  const candidates = [...preferred, ...fallback];
+  if (!date.trim() || !time.trim()) return candidates[0]?.name || '';
+  return candidates.find((box) => !bookings.some((booking) => bookingBlocksBox(booking, date, time, duration, box.name)))?.name || candidates[0]?.name || '';
+}
+
 function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
   if (!paymentSettled) return 'Не оплачено';
   return {
@@ -409,6 +446,18 @@ export function AdminApp() {
       };
     });
   }, [liveServices, newBookingForm.serviceId]);
+  function defaultBoxForService(svcId: string, svcs: Array<{ id: string; resourceGroup?: string }>, bxs: Array<{ id: string; name: string; resourceGroup: string; active: boolean }>) {
+    return pickDefaultBookingBox(
+      svcId,
+      svcs,
+      bxs,
+      bookings,
+      newBookingForm.date,
+      newBookingForm.time,
+      newBookingForm.duration,
+    );
+  }
+
   const settingsBoxes = boxes.filter((box) => box.resourceGroup === 'wash');
   const bookingFormBoxes = bookingBoxesForService(newBookingForm.serviceId, services, boxes);
   const editBookingBoxes = selectedBooking
@@ -937,10 +986,14 @@ export function AdminApp() {
     const detailingBooking = isDetailingService(selectedBooking.serviceId, services);
     const requiresScheduledSlot = !detailingBooking || editBookingDraft.status !== 'admin_review';
     if (requiresScheduledSlot) {
-      const validationErrors = validateBookingDateForEdit(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
-      if (validationErrors.date || validationErrors.time) {
-        setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
-        return;
+      const dateChanged = editBookingDraft.date !== selectedBooking.date;
+      const timeChanged = editBookingDraft.time !== selectedBooking.time;
+      if (dateChanged || timeChanged) {
+        const validationErrors = validateBookingDateForEdit(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
+        if (validationErrors.date || validationErrors.time) {
+          setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
+          return;
+        }
       }
       if (!editBookingDraft.box.trim()) {
         setEditBookingError('Укажите бокс для записи');
@@ -2883,14 +2936,13 @@ export function AdminApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <select className={selectCls} value={newBookingForm.serviceId} onChange={e => {
                     const svc = services.find(s => s.id === e.target.value);
-                    const nextBoxes = bookingBoxesForService(e.target.value, services, boxes);
                     setNewBookingForm(p => ({
                       ...p,
                       serviceId: e.target.value,
                       service: svc?.name || '',
                       price: svc?.price || 0,
                       duration: svc?.duration || 30,
-                      box: nextBoxes[0]?.name || '',
+                      box: defaultBoxForService(e.target.value, services, boxes),
                     }));
                     setNewBookingErrors((current) => ({ ...current, general: undefined }));
                   }}>
@@ -2905,7 +2957,14 @@ export function AdminApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(newBookingForm.duration)} onChange={e => setNewBookingForm(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                    <input className={inputCls} type="number" value={numberInputValue(newBookingForm.duration)} onChange={e => {
+                      const nextDuration = numberFromInput(e.target.value);
+                      setNewBookingForm(p => ({
+                        ...p,
+                        duration: nextDuration,
+                        box: pickDefaultBookingBox(p.serviceId, services, boxes, bookings, p.date, p.time, nextDuration),
+                      }));
+                    }} />
                   </div>
                 </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
@@ -2923,7 +2982,17 @@ export function AdminApp() {
                         status: nextStatus,
                         date: nextStatus === 'admin_review' ? current.date : (current.date || todayLabel),
                         time: nextStatus === 'admin_review' ? current.time : (current.time || '10:00'),
-                        box: bookingStatusRequiresScheduledSlot(nextStatus) ? (current.box || bookingFormBoxes[0]?.name || '') : current.box,
+                        box: bookingStatusRequiresScheduledSlot(nextStatus)
+                          ? pickDefaultBookingBox(
+                            current.serviceId,
+                            services,
+                            boxes,
+                            bookings,
+                            nextStatus === 'admin_review' ? current.date : (current.date || todayLabel),
+                            nextStatus === 'admin_review' ? current.time : (current.time || '10:00'),
+                            current.duration,
+                          )
+                          : current.box,
                       }));
                       setNewBookingErrors((current) => ({ ...current, date: undefined, time: undefined, general: undefined }));
                     }}
@@ -2937,7 +3006,12 @@ export function AdminApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Дата (можно выбрать прошлую)</label>
                   <input className={inputCls} type="date" value={toISODate(newBookingForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
-                    setNewBookingForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                    const nextDate = val ? formatDate(val) : e.target.value;
+                    setNewBookingForm(p => ({
+                      ...p,
+                      date: nextDate,
+                      box: pickDefaultBookingBox(p.serviceId, services, boxes, bookings, nextDate, p.time, p.duration),
+                    }));
                     setNewBookingErrors((current) => ({ ...current, date: undefined, general: undefined }));
                   }} />
                   {newBookingErrors.date && <div className="mt-1 text-xs text-red-500">{newBookingErrors.date}</div>}
@@ -2945,7 +3019,12 @@ export function AdminApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Время (выпадающий список)</label>
                   <select className={selectCls} value={newBookingForm.time} onChange={e => {
-                    setNewBookingForm(p => ({ ...p, time: e.target.value }));
+                    const nextTime = e.target.value;
+                    setNewBookingForm(p => ({
+                      ...p,
+                      time: nextTime,
+                      box: pickDefaultBookingBox(p.serviceId, services, boxes, bookings, p.date, nextTime, p.duration),
+                    }));
                     setNewBookingErrors((current) => ({ ...current, time: undefined, general: undefined }));
                   }}>
                     <option value="">--:--</option>

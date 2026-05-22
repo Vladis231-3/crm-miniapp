@@ -1187,7 +1187,7 @@ def _build_schedule_slots(
 ) -> list[str]:
     slots: list[str] = []
     current = open_minutes
-    while current + step_minutes < close_minutes:
+    while current + step_minutes <= close_minutes:
         hours, minutes = divmod(current, 60)
         slots.append(f"{hours:02d}:{minutes:02d}")
         current += step_minutes
@@ -1263,7 +1263,7 @@ def _ensure_booking_within_schedule(
         )
 
     end_minutes = start_minutes + duration
-    if start_minutes < open_minutes or end_minutes >= close_minutes:
+    if start_minutes < open_minutes or end_minutes > close_minutes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Запись доступна только в часы работы: {day_schedule.open_time}-{day_schedule.close_time}",
@@ -1397,30 +1397,14 @@ def _booking_slot_availability(
                 box=box_name,
             )
         )
-        # Считаем сколько записей уже есть в этот слот (глобальный лимит = 2)
-        overlapping_count = sum(
-            1
-            for b in db.scalars(
-                select(Booking).where(
-                    Booking.date == date_value,
-                    Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
-                )
-            ).all()
-            if _booking_time_range(b.date, b.time, b.duration) is not None
-            and _time_ranges_overlap(
-                slot_start, slot_end,
-                *_booking_time_range(b.date, b.time, b.duration)  # type: ignore[arg-type]
-            )
-        )
-        global_capacity_full = overlapping_count >= 2
         slot_dt = _parse_booking_datetime(date_value, slot)
         now_local = datetime.now().replace(second=0, microsecond=0)
         is_past = slot_dt is not None and slot_dt < now_local
         slots.append(
             BookingAvailabilitySlotPayload(
                 time=slot,
-                available=free_boxes > 0 and not is_past and not global_capacity_full,
-                freeBoxes=0 if global_capacity_full else free_boxes,
+                available=free_boxes > 0 and not is_past,
+                freeBoxes=free_boxes,
                 occupiedBoxes=max(0, len(active_boxes) - free_boxes),
             )
         )
@@ -2478,6 +2462,17 @@ def _owner_two_factor_recipient(db: Session) -> StaffUser:
     return owner
 
 
+def _all_active_owners(db: Session) -> list[StaffUser]:
+    """Возвращает всех активных владельцев, отсортированных по created_at asc."""
+    return list(
+        db.scalars(
+            select(StaffUser)
+            .where(StaffUser.role == "owner", StaffUser.active.is_(True))
+            .order_by(StaffUser.created_at.asc())
+        ).all()
+    )
+
+
 def _all_owner_telegram_recipients(db: Session) -> list[StaffUser]:
     """Возвращает всех владельцев с непустым telegram_chat_id, отсортированных по created_at asc."""
     return list(
@@ -3341,14 +3336,10 @@ class _PartialBroadcastError(Exception):
 def _send_export_to_telegram(
     db: Session, actor_id: str, export_file: GeneratedExport
 ) -> OwnerExportDeliveryPayload:
-    recipients = _all_owner_telegram_recipients(db)
-    if not recipients:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Нет получателей с привязанным Telegram",
-        )
+    all_owners = _all_active_owners(db)
+    telegram_recipients = _all_owner_telegram_recipients(db)
     results: list[TelegramDeliveryResult] = []
-    for recipient in recipients:
+    for recipient in telegram_recipients:
         try:
             send_telegram_document(
                 recipient.telegram_chat_id,
@@ -3360,35 +3351,41 @@ def _send_export_to_telegram(
             results.append(TelegramDeliveryResult(owner_id=recipient.id, success=True, error=None))
         except Exception as exc:
             results.append(TelegramDeliveryResult(owner_id=recipient.id, success=False, error=str(exc)))
-    # Create notifications for successful deliveries
-    for result in results:
-        if result.success:
-            db.add(
-                Notification(
-                    id=f"n-{uuid4()}",
-                    recipient_role="owner",
-                    recipient_id=result.owner_id,
-                    message=f"Файл {export_file.file_name} отправлен в Telegram.",
-                    read=False,
-                    created_at=_now(),
-                )
+    # Create in-app notifications for ALL active owners
+    for owner in all_owners:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="owner",
+                recipient_id=owner.id,
+                message=export_file.telegram_caption or "Экспорт отправлен",
+                read=False,
+                created_at=_now(),
             )
+        )
     delivered = sum(1 for r in results if r.success)
     failed = sum(1 for r in results if not r.success)
-    if delivered == 0:
+    if delivered == 0 and not all_owners:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Не удалось отправить ни одному получателю",
+            detail="Нет получателей с привязанным Telegram",
         )
     # Return legacy payload for backward compatibility when all succeeded
-    if failed == 0:
+    if delivered > 0 and failed == 0:
         first_success = next(r for r in results if r.success)
-        recipient_obj = next(u for u in recipients if u.id == first_success.owner_id)
+        recipient_obj = next(u for u in telegram_recipients if u.id == first_success.owner_id)
         return OwnerExportDeliveryPayload(
             message=f"Файл отправлен в Telegram ({delivered} получателей).",
             fileName=export_file.file_name,
             telegramSent=True,
             telegramChatId=recipient_obj.telegram_chat_id,
+        )
+    if delivered == 0:
+        return OwnerExportDeliveryPayload(
+            message="Файл не отправлен — нет получателей с привязанным Telegram.",
+            fileName=export_file.file_name,
+            telegramSent=False,
+            telegramChatId="",
         )
     # Partial failure — caller should handle HTTP 207
     raise _PartialBroadcastError(
@@ -3509,14 +3506,10 @@ def _send_owner_summary_report(
     report: OwnerSummaryReport,
     export_file: GeneratedExport,
 ) -> Response:
-    recipients = _all_owner_telegram_recipients(db)
-    if not recipients:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Нет получателей с привязанным Telegram",
-        )
+    all_owners = _all_active_owners(db)
+    telegram_recipients = _all_owner_telegram_recipients(db)
     results: list[TelegramDeliveryResult] = []
-    for recipient in recipients:
+    for recipient in telegram_recipients:
         try:
             send_telegram_document(
                 recipient.telegram_chat_id,
@@ -3528,30 +3521,37 @@ def _send_owner_summary_report(
             results.append(TelegramDeliveryResult(owner_id=recipient.id, success=True, error=None))
         except Exception as exc:
             results.append(TelegramDeliveryResult(owner_id=recipient.id, success=False, error=str(exc)))
-    # Create notifications for successful deliveries
-    for result in results:
-        if result.success:
-            db.add(
-                Notification(
-                    id=f"n-{uuid4()}",
-                    recipient_role="owner",
-                    recipient_id=result.owner_id,
-                    message=report.message,
-                    read=False,
-                    created_at=_now(),
-                )
+    # Create in-app notifications for ALL active owners (not just Telegram recipients)
+    for owner in all_owners:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="owner",
+                recipient_id=owner.id,
+                message=report.message,
+                read=False,
+                created_at=_now(),
             )
+        )
     delivered = sum(1 for r in results if r.success)
     failed = sum(1 for r in results if not r.success)
-    if delivered == 0:
+    if delivered == 0 and not all_owners:
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Не удалось отправить ни одному получателю",
+            detail="Нет получателей с привязанным Telegram",
         )
     db.commit()
+    if delivered == 0:
+        msg = GenericMessage(
+            message="Отчёт сохранён в уведомлениях, но нет получателей с привязанным Telegram для отправки файла."
+        )
+        return Response(
+            content=msg.model_dump_json(),
+            status_code=status.HTTP_200_OK,
+            media_type="application/json",
+        )
     if failed == 0:
-        # All succeeded — HTTP 200 for backward compatibility
         msg = GenericMessage(
             message=f"{report.title} отправлен в Telegram файлом {export_file.file_name} ({delivered} получателей)."
         )
@@ -3560,7 +3560,6 @@ def _send_owner_summary_report(
             status_code=status.HTTP_200_OK,
             media_type="application/json",
         )
-    # Partial failure — HTTP 207
     broadcast_payload = TelegramBroadcastPayload(results=results, delivered=delivered, failed=failed)
     return Response(
         content=broadcast_payload.model_dump_json(),
@@ -4319,20 +4318,23 @@ def run_reports_cron(
         },
     )
 
-    recipients = _all_owner_telegram_recipients(db)
-    if not recipients:
+    telegram_recipients = _all_owner_telegram_recipients(db)
+    all_owners = _all_active_owners(db)
+    if not telegram_recipients and not all_owners:
         return GenericMessage(message="Нет получателей с привязанным Telegram")
 
     sent: list[str] = []
     today = datetime.now()
     is_monday = today.weekday() == 0
+    first_owner_id = (telegram_recipients[0] if telegram_recipients else all_owners[0]).id
 
     for segment in ("wash", "detailing"):
         if owner_settings.get("dailyReport", True):
             try:
-                report = _owner_summary_report(db, recipients[0].id, "daily", segment)
-                export_file = _owner_summary_export_file(db, recipients[0].id, "daily", segment)
-                for recipient in recipients:
+                report = _owner_summary_report(db, first_owner_id, "daily", segment)
+                export_file = _owner_summary_export_file(db, first_owner_id, "daily", segment)
+                # Send Telegram to recipients who have chat_id
+                for recipient in telegram_recipients:
                     try:
                         send_telegram_document(
                             recipient.telegram_chat_id,
@@ -4341,27 +4343,29 @@ def run_reports_cron(
                             caption=export_file.telegram_caption,
                             mime_type=export_file.media_type.split(";", 1)[0],
                         )
-                        db.add(
-                            Notification(
-                                id=f"n-{uuid4()}",
-                                recipient_role="owner",
-                                recipient_id=recipient.id,
-                                message=report.message,
-                                read=False,
-                                created_at=_now(),
-                            )
-                        )
                         sent.append(f"daily/{segment}")
                     except Exception:
                         logger.exception("Cron: failed to send daily/%s to %s", segment, recipient.id)
+                # Create in-app notifications for ALL active owners
+                for owner in all_owners:
+                    db.add(
+                        Notification(
+                            id=f"n-{uuid4()}",
+                            recipient_role="owner",
+                            recipient_id=owner.id,
+                            message=report.message,
+                            read=False,
+                            created_at=_now(),
+                        )
+                    )
             except Exception:
                 logger.exception("Cron: failed to build daily/%s report", segment)
 
         if owner_settings.get("weeklyReport", False) and is_monday:
             try:
-                report = _owner_summary_report(db, recipients[0].id, "weekly", segment)
-                export_file = _owner_summary_export_file(db, recipients[0].id, "weekly", segment)
-                for recipient in recipients:
+                report = _owner_summary_report(db, first_owner_id, "weekly", segment)
+                export_file = _owner_summary_export_file(db, first_owner_id, "weekly", segment)
+                for recipient in telegram_recipients:
                     try:
                         send_telegram_document(
                             recipient.telegram_chat_id,
@@ -4370,19 +4374,20 @@ def run_reports_cron(
                             caption=export_file.telegram_caption,
                             mime_type=export_file.media_type.split(";", 1)[0],
                         )
-                        db.add(
-                            Notification(
-                                id=f"n-{uuid4()}",
-                                recipient_role="owner",
-                                recipient_id=recipient.id,
-                                message=report.message,
-                                read=False,
-                                created_at=_now(),
-                            )
-                        )
                         sent.append(f"weekly/{segment}")
                     except Exception:
                         logger.exception("Cron: failed to send weekly/%s to %s", segment, recipient.id)
+                for owner in all_owners:
+                    db.add(
+                        Notification(
+                            id=f"n-{uuid4()}",
+                            recipient_role="owner",
+                            recipient_id=owner.id,
+                            message=report.message,
+                            read=False,
+                            created_at=_now(),
+                        )
+                    )
             except Exception:
                 logger.exception("Cron: failed to build weekly/%s report", segment)
 
@@ -5248,6 +5253,15 @@ def create_booking(
         compatible_boxes = _compatible_box_names(db, service_resource_group)
         if compatible_boxes and booking_box not in compatible_boxes:
             booking_box = compatible_boxes[0]
+    elif requires_scheduled_slot and not booking_box:
+        booking_box = _pick_available_box(
+            db,
+            booking_id=None,
+            date_value=booking_date,
+            time_value=booking_time,
+            duration=booking_duration,
+            resource_group=service_resource_group,
+        )
     _ensure_booking_has_no_conflicts(
         db,
         booking_id=None,
@@ -5424,9 +5438,10 @@ def update_booking(
             for link in booking.worker_links
         ]
     )
-    should_validate_slot = _booking_requires_scheduled_slot(next_status) or any(
+    slot_fields_updated = any(
         field in updates for field in ("date", "time", "duration")
     )
+    should_validate_slot = _booking_requires_scheduled_slot(next_status) or slot_fields_updated
     has_candidate_slot = bool(next_date and next_time)
     if should_validate_slot:
         if not has_candidate_slot:
@@ -5434,14 +5449,27 @@ def update_booking(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Укажите дату и время записи",
             )
-        _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
-        _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
-    if _booking_requires_scheduled_slot(next_status) and (
-        not next_box or next_box == DETAILING_REQUEST_BOX
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи"
-        )
+        if slot_fields_updated:
+            _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
+            _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
+    if _booking_requires_scheduled_slot(next_status):
+        if not next_box or next_box == DETAILING_REQUEST_BOX:
+            picked = _pick_available_box(
+                db,
+                booking_id=booking.id,
+                date_value=next_date,
+                time_value=next_time,
+                duration=next_duration,
+                resource_group=service_resource_group,
+                preferred_box=next_box or None,
+            )
+            if picked:
+                next_box = picked
+                updates["box"] = next_box
+        if not next_box:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи"
+            )
     if next_box:
         compatible_boxes = _compatible_box_names(db, service_resource_group)
         if compatible_boxes and next_box not in compatible_boxes:

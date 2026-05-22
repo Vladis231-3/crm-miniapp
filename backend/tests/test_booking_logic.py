@@ -767,6 +767,167 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(overflow.status_code, 409, overflow.text)
 
+    def test_admin_can_edit_and_complete_existing_booking_on_inactive_day(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Booking, Client
+
+        admin_token = self.login_staff("admin", "admin")
+        inactive_date = "01.06.2025"  # Sunday is inactive in seeded schedule.
+        booking_id = "b-inactive-day"
+        with SessionLocal() as db:
+            client = Client(
+                id="c-inactive-day",
+                name="Legacy Client",
+                phone="+79990000001",
+                car="Lada Vesta",
+                plate="A123BC",
+                registered=True,
+            )
+            booking = Booking(
+                id=booking_id,
+                client_id=client.id,
+                client_name=client.name,
+                client_phone=client.phone,
+                service="Legacy Wash",
+                service_id="s1",
+                date=inactive_date,
+                time="10:00",
+                duration=30,
+                price=1200,
+                status="scheduled",
+                box="Бокс 1",
+                payment_type="cash",
+                payment_settled=True,
+                services=[],
+                notes="",
+                car=client.car,
+                plate=client.plate,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add_all([client, booking])
+            db.commit()
+
+        edit_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={"price": 1500},
+        )
+        self.assertEqual(edit_response.status_code, 200, edit_response.text)
+        self.assertEqual(edit_response.json()["price"], 1500)
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={"status": "completed", "paymentType": "card"},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+        self.assertEqual(complete_response.json()["status"], "completed")
+
+    def test_admin_booking_without_box_picks_available_wash_box(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+        booking_date = self.next_active_date()
+        first_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "First Client",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Wash",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "10:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(first_response.status_code, 200, first_response.text)
+
+        second_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Second Client",
+                "clientPhone": "+7 (999) 222-33-44",
+                "service": "Wash",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "10:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "",
+                "paymentType": "cash",
+                "car": "BMW X5",
+                "plate": "A234BC77",
+            },
+        )
+        self.assertEqual(second_response.status_code, 200, second_response.text)
+        self.assertEqual(second_response.json()["box"], "Бокс 2")
+
+    def test_admin_can_start_booking_that_ends_exactly_at_closing_time(self) -> None:
+        from app.database import SessionLocal
+        from app.models import ScheduleEntry
+
+        admin_token = self.login_staff("admin", "admin")
+        booking_date = self.next_active_date()
+        weekday = datetime.strptime(booking_date, "%d.%m.%Y").weekday()
+        with SessionLocal() as db:
+            schedule_entry = db.scalar(
+                select(ScheduleEntry).where(ScheduleEntry.day_index == weekday)
+            )
+            self.assertIsNotNone(schedule_entry)
+            assert schedule_entry is not None
+            schedule_entry.open_time = "09:00"
+            schedule_entry.close_time = "19:00"
+            schedule_entry.active = True
+            db.commit()
+
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Closing Client",
+                "clientPhone": "+7 (999) 333-44-55",
+                "service": "Wash",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "18:30",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+
+        update_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={
+                "status": "in_progress",
+                "date": booking_date,
+                "time": "18:30",
+                "duration": 30,
+            },
+        )
+        self.assertEqual(update_response.status_code, 200, update_response.text)
+        self.assertEqual(update_response.json()["status"], "in_progress")
+
     def test_booking_must_fit_schedule_window(self) -> None:
         token, _ = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
         response = self.client.post(

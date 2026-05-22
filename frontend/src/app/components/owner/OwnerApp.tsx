@@ -27,7 +27,7 @@ import {
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'stock' | 'reports' | 'settings';
-type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'notifications' | 'integrations' | 'security' | 'finance';
+type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance';
 type OwnerExportKind = 'report' | 'pdf';
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
@@ -44,6 +44,9 @@ const OWNER_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string 
   { value: 'completed', label: 'Прошлая завершённая' },
   { value: 'admin_review', label: 'На уточнении' },
 ];
+function ownerBookingStatusRequiresScheduledSlot(status: BookingStatus) {
+  return ['new', 'confirmed', 'scheduled', 'in_progress'].includes(status);
+}
 function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
   if (role === 'admin') return 'Администратор';
   if (role === 'accountant') return 'Бухгалтер';
@@ -52,6 +55,12 @@ function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
 
 function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
   return services.find((service) => service.id === serviceId)?.resourceGroup || 'wash';
+}
+
+function ownerDefaultBoxForService(svcId: string, svcs: Array<{ id: string; resourceGroup?: string }>, bxs: Array<{ id: string; name: string; resourceGroup: string; active: boolean }>) {
+  const rg = ownerServiceResourceGroup(svcId, svcs);
+  const match = bxs.find(b => b.active && b.resourceGroup === rg);
+  return match?.name || bxs.find(b => b.active)?.name || '';
 }
 
 function ownerBookingBoxes(
@@ -64,6 +73,43 @@ function ownerBookingBoxes(
 
 function ownerLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
   return 'Помещение';
+}
+
+function parseOwnerBookingMinutes(value: string): number | null {
+  const match = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function ownerBookingBlocksBox(booking: Booking, date: string, time: string, duration: number, boxName: string) {
+  if (!['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status)) return false;
+  if (booking.date !== date || booking.box !== boxName) return false;
+  const nextStart = parseOwnerBookingMinutes(time);
+  const existingStart = parseOwnerBookingMinutes(booking.time);
+  if (nextStart === null || existingStart === null) return false;
+  const nextEnd = nextStart + Math.max(1, duration);
+  const existingEnd = existingStart + Math.max(1, booking.duration);
+  return nextStart < existingEnd && nextEnd > existingStart;
+}
+
+function ownerPickDefaultBookingBox(
+  serviceId: string,
+  services: Array<{ id: string; resourceGroup?: string }>,
+  boxes: Array<{ id: string; name: string; resourceGroup: string; active: boolean }>,
+  bookings: Booking[],
+  date: string,
+  time: string,
+  duration: number,
+) {
+  const resourceGroup = ownerServiceResourceGroup(serviceId, services);
+  const preferred = boxes.filter((box) => box.active && box.resourceGroup === resourceGroup);
+  const fallback = boxes.filter((box) => box.active && !preferred.some((preferredBox) => preferredBox.id === box.id));
+  const candidates = [...preferred, ...fallback];
+  if (!date.trim() || !time.trim()) return candidates[0]?.name || '';
+  return candidates.find((box) => !bookings.some((booking) => ownerBookingBlocksBox(booking, date, time, duration, box.name)))?.name || candidates[0]?.name || '';
 }
 
 function serviceResourceGroupForCategory(category: string) {
@@ -2849,6 +2895,7 @@ export function OwnerApp() {
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
                 { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
+                { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
@@ -2896,6 +2943,111 @@ export function OwnerApp() {
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
+            </motion.div>
+          )}
+
+          {!isAccountant && page === 'settings' && settingsSection === 'clients' && (
+            <motion.div key="s-clients" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="font-semibold">Клиенты</h2>
+                  <div className={`text-xs ${sub} mt-1`}>Карточки, история визитов, заметки и долги</div>
+                </div>
+                <button
+                  onClick={() => setShowCreateClient(true)}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-white flex items-center gap-1.5"
+                  style={{ background: primary }}
+                >
+                  <Plus size={14} />
+                  Новый клиент
+                </button>
+              </div>
+              <input
+                className={inputCls}
+                placeholder="Поиск по имени, телефону, авто, номеру или услуге"
+                value={clientSearch}
+                onChange={(event) => setClientSearch(event.target.value)}
+              />
+              <div className="space-y-3 mt-3">
+                {filteredClientInsights.length === 0 && (
+                  <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>Клиенты не найдены</div>
+                )}
+                {filteredClientInsights.map((client) => {
+                  const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminNote: client.adminNote || '' };
+                  return (
+                    <div key={client.id} className={`${glass} rounded-2xl p-4`}>
+                      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                        <div>
+                          <div className="font-semibold">{client.name}</div>
+                          <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>
+                          <div className={`text-xs ${sub}`}>{client.visits} визитов · последний {client.lastVisit}</div>
+                          <button type="button" onClick={() => openBookingForClient(client)} className="mt-2 text-xs font-medium" style={{ color: primary }}>
+                            Добавить прошлую запись
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className={`${glass} rounded-xl px-3 py-2`}>
+                          <div className={`text-[11px] ${sub}`}>Любимая услуга</div>
+                          <div className="text-sm font-medium mt-1">{client.favoriteService}</div>
+                        </div>
+                        <div className={`${glass} rounded-xl px-3 py-2`}>
+                          <div className={`text-[11px] ${sub}`}>Активные записи</div>
+                          <div className="text-sm font-medium mt-1">{client.activeCount}</div>
+                        </div>
+                        <div className={`${glass} rounded-xl px-3 py-2`}>
+                          <div className={`text-[11px] ${sub}`}>Долг</div>
+                          <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} ₽</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        <textarea
+                          className={`${inputCls} h-24 resize-none`}
+                          placeholder="Заметки по клиенту"
+                          value={draft.notes}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [client.id]: { ...draft, notes: event.target.value },
+                          }))}
+                        />
+                        <div className="space-y-2">
+                          <input
+                            className={inputCls}
+                            type="number"
+                            placeholder="Долг клиента"
+                            value={draft.debtBalance}
+                            onChange={(event) => setClientCardDrafts((current) => ({
+                              ...current,
+                              [client.id]: { ...draft, debtBalance: event.target.value },
+                            }))}
+                          />
+                          <textarea
+                            className={`${inputCls} h-20 resize-none`}
+                            placeholder="Особое примечание"
+                            value={draft.adminNote}
+                            onChange={(event) => setClientCardDrafts((current) => ({
+                              ...current,
+                              [client.id]: { ...draft, adminNote: event.target.value },
+                            }))}
+                          />
+                          <button
+                            onClick={() => { void handleSaveClientCard(client.id); }}
+                            disabled={savingClientId === client.id}
+                            className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
+                            style={{ background: primary }}
+                          >
+                            {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить карточку'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </motion.div>
           )}
 
@@ -4453,6 +4605,7 @@ export function OwnerApp() {
                       service: svc?.name || '',
                       price: svc?.price || 0,
                       duration: svc?.duration || 30,
+                      box: ownerPickDefaultBookingBox(e.target.value, services, boxes, bookings, p.date, p.time, svc?.duration || 30),
                     }));
                     setOwnerNewBookingErrors((current) => ({ ...current, general: undefined }));
                   }}>
@@ -4467,7 +4620,14 @@ export function OwnerApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.duration)} onChange={e => setOwnerNewBookingForm(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                    <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.duration)} onChange={e => {
+                      const nextDuration = numberFromInput(e.target.value);
+                      setOwnerNewBookingForm(p => ({
+                        ...p,
+                        duration: nextDuration,
+                        box: ownerPickDefaultBookingBox(p.serviceId, services, boxes, bookings, p.date, p.time, nextDuration),
+                      }));
+                    }} />
                   </div>
                 </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
@@ -4485,7 +4645,17 @@ export function OwnerApp() {
                         status: nextStatus,
                         date: nextStatus === 'admin_review' ? current.date : (current.date || todayLabel),
                         time: nextStatus === 'admin_review' ? current.time : (current.time || '10:00'),
-                        box: current.box,
+                        box: ownerBookingStatusRequiresScheduledSlot(nextStatus)
+                          ? ownerPickDefaultBookingBox(
+                            current.serviceId,
+                            services,
+                            boxes,
+                            bookings,
+                            nextStatus === 'admin_review' ? current.date : (current.date || todayLabel),
+                            nextStatus === 'admin_review' ? current.time : (current.time || '10:00'),
+                            current.duration,
+                          )
+                          : current.box,
                       }));
                       setOwnerNewBookingErrors((current) => ({ ...current, date: undefined, time: undefined, general: undefined }));
                     }}
@@ -4499,7 +4669,12 @@ export function OwnerApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Дата (можно выбрать прошлую)</label>
                   <input className={inputCls} type="date" value={toISODate(ownerNewBookingForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
-                    setOwnerNewBookingForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                    const nextDate = val ? formatDate(val) : e.target.value;
+                    setOwnerNewBookingForm(p => ({
+                      ...p,
+                      date: nextDate,
+                      box: ownerPickDefaultBookingBox(p.serviceId, services, boxes, bookings, nextDate, p.time, p.duration),
+                    }));
                     setOwnerNewBookingErrors((current) => ({ ...current, date: undefined, general: undefined }));
                   }} />
                   {ownerNewBookingErrors.date && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.date}</div>}
@@ -4507,7 +4682,12 @@ export function OwnerApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Время (выпадающий список)</label>
                   <select className={selectCls} value={ownerNewBookingForm.time} onChange={e => {
-                    setOwnerNewBookingForm(p => ({ ...p, time: e.target.value }));
+                    const nextTime = e.target.value;
+                    setOwnerNewBookingForm(p => ({
+                      ...p,
+                      time: nextTime,
+                      box: ownerPickDefaultBookingBox(p.serviceId, services, boxes, bookings, p.date, nextTime, p.duration),
+                    }));
                     setOwnerNewBookingErrors((current) => ({ ...current, time: undefined, general: undefined }));
                   }}>
                     <option value="">--:--</option>
