@@ -3651,13 +3651,16 @@ def _service_resource_group(service: Service | None) -> str:
     )
 
 
-def _compatible_box_names(db: Session, resource_group: str | None = None) -> list[str]:
+def _compatible_box_names(db: Session, resource_group: str | None) -> list[str]:
+    target_group = _resource_group_key(resource_group)
     return [
         box.name
         for box in db.scalars(
             select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())
         ).all()
         if _normalized_text(box.name)
+        and _resource_group_key(box.resource_group or _default_box_resource_group(box))
+        == target_group
     ]
 
 
@@ -5221,7 +5224,7 @@ def create_booking(
         _ensure_booking_within_schedule(
             db, booking_date, booking_time, booking_duration
         )
-    if session_data["role"] == "client" and requires_scheduled_slot:
+    if requires_scheduled_slot:
         available_box = _pick_available_box(
             db,
             booking_id=None,
@@ -5237,14 +5240,10 @@ def create_booking(
                 detail="На это время нет свободных мест в нужном помещении",
             )
         booking_box = available_box
-        if is_box_rental:
+        if session_data["role"] == "client" and is_box_rental:
             booking_price = _box_hourly_price(
                 db, booking_box, service.price if service is not None else booking_price
             ) * max(1, booking_duration // 60)
-    elif booking_box:
-        compatible_boxes = _compatible_box_names(db, service_resource_group)
-        if compatible_boxes and booking_box not in compatible_boxes:
-            booking_box = compatible_boxes[0]
     if _booking_requires_scheduled_slot(booking_status) and not booking_box.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи"
@@ -5437,17 +5436,24 @@ def update_booking(
             )
         _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
         _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
-    if _booking_requires_scheduled_slot(next_status) and (
-        not next_box or next_box == DETAILING_REQUEST_BOX
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Укажите бокс для записи"
+    if should_validate_slot:
+        available_box = _pick_available_box(
+            db,
+            booking_id=booking.id,
+            date_value=next_date,
+            time_value=next_time,
+            duration=next_duration,
+            resource_group=service_resource_group,
+            preferred_box=next_box or None,
         )
-    if next_box:
-        compatible_boxes = _compatible_box_names(db, service_resource_group)
-        if compatible_boxes and next_box not in compatible_boxes:
-            next_box = compatible_boxes[0]
-            updates["box"] = next_box
+        if available_box is not None and available_box != next_box:
+            next_box = available_box
+            updates["box"] = available_box
+    if _booking_requires_scheduled_slot(next_status) and not next_box:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="На это время нет свободных мест в нужном помещении",
+        )
     _ensure_booking_has_no_conflicts(
         db,
         booking_id=booking.id,

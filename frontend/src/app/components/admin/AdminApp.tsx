@@ -126,15 +126,17 @@ function hasManualScheduling(booking: Booking, services: Array<{ id: string; cat
 }
 
 function bookingBoxesForService(
-  _serviceId: string,
-  _services: Array<{ id: string; resourceGroup?: string }>,
+  serviceId: string,
+  services: Array<{ id: string; resourceGroup?: string }>,
   boxes: Array<{ id: string; name: string; resourceGroup: string; pricePerHour: number; active: boolean; description: string }>,
 ) {
-  return boxes.filter((box) => box.active);
+  return serviceResourceGroup(serviceId, services) === 'detailing'
+    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
+    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
 }
 
-function bookingLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
-  return 'Помещение';
+function bookingLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
+  return serviceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
 }
 
 function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
@@ -393,13 +395,11 @@ export function AdminApp() {
     if (!newBookingForm.serviceId) return;
     const selectedService = liveServices.find((service) => service.id === newBookingForm.serviceId);
     if (!selectedService) return;
-    const nextBoxes = bookingBoxesForService(selectedService.id, liveServices, liveBoxes);
     setNewBookingForm((current) => {
       if (
         current.service === selectedService.name
         && current.price === selectedService.price
         && current.duration === selectedService.duration
-        && (!nextBoxes.length || current.box === nextBoxes[0].name || nextBoxes.some((box) => box.name === current.box))
       ) {
         return current;
       }
@@ -408,15 +408,10 @@ export function AdminApp() {
         service: selectedService.name,
         price: selectedService.price,
         duration: selectedService.duration,
-        box: nextBoxes.find((box) => box.name === current.box)?.name || nextBoxes[0]?.name || current.box,
       };
     });
   }, [liveServices, newBookingForm.serviceId]);
   const settingsBoxes = boxes.filter((box) => box.resourceGroup === 'wash');
-  const bookingFormBoxes = bookingBoxesForService(newBookingForm.serviceId, services, boxes);
-  const editBookingBoxes = selectedBooking
-    ? bookingBoxesForService(selectedBooking.serviceId, services, boxes)
-    : settingsBoxes.filter((box) => box.active);
   const newBookingLocationLabel = bookingLocationLabel(newBookingForm.serviceId, services);
   const editBookingLocationLabel = selectedBooking ? bookingLocationLabel(selectedBooking.serviceId, services) : 'Бокс мойки';
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
@@ -945,10 +940,6 @@ export function AdminApp() {
         setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
         return;
       }
-      if (!editBookingDraft.box.trim()) {
-        setEditBookingError('Укажите бокс для записи');
-        return;
-      }
     }
 
     try {
@@ -958,7 +949,6 @@ export function AdminApp() {
         status: editBookingDraft.status,
         date: requiresScheduledSlot ? editBookingDraft.date.trim() : undefined,
         time: requiresScheduledSlot ? editBookingDraft.time.trim() : undefined,
-        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim() || undefined,
         car: editBookingDraft.car.trim() || undefined,
         plate: editBookingDraft.plate.trim() || undefined,
@@ -970,7 +960,6 @@ export function AdminApp() {
         status: editBookingDraft.status,
         date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
         time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
-        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim(),
         car: editBookingDraft.car.trim(),
         plate: editBookingDraft.plate.trim(),
@@ -2665,16 +2654,7 @@ export function AdminApp() {
                     </div>
                     <div>
                       <label className={`text-xs ${sub} block mb-1`}>{editBookingLocationLabel}</label>
-                      <select
-                        className={selectCls}
-                        value={editBookingDraft.box}
-                        onChange={e => {
-                          setEditBookingError(null);
-                          setEditBookingDraft((current) => ({ ...current, box: e.target.value }));
-                        }}
-                      >
-                        {editBookingBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                      </select>
+                      <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
                     </div>
                   </>
                 )}
@@ -2956,17 +2936,15 @@ export function AdminApp() {
                   </select>
                   {newBookingErrors.time && <div className="mt-1 text-xs text-red-500">{newBookingErrors.time}</div>}
                 </div>
-                {(newBookingForm.date.trim() && newBookingForm.time.trim()) ? (
+                {newBookingForm.date.trim() && newBookingForm.time.trim() ? (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                    <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                      {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                    </select>
+                    <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
                   </div>
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
+                    <div className={`${inputCls} ${sub}`}>Будет назначено после выбора даты и времени</div>
                   </div>
                 )}
                 <div>

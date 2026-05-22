@@ -55,15 +55,17 @@ function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: stri
 }
 
 function ownerBookingBoxes(
-  _serviceId: string,
-  _services: Array<{ id: string; resourceGroup?: string }>,
-  boxes: Array<{ id: string; name: string; resourceGroup: boolean; active: boolean; pricePerHour: number; description: string }>,
+  serviceId: string,
+  services: Array<{ id: string; resourceGroup?: string }>,
+  boxes: Array<{ id: string; name: string; resourceGroup: string; active: boolean; pricePerHour: number; description: string }>,
 ) {
-  return boxes.filter((box) => box.active);
+  return ownerServiceResourceGroup(serviceId, services) === 'detailing'
+    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
+    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
 }
 
-function ownerLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
-  return 'Помещение';
+function ownerLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
+  return ownerServiceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
 }
 
 function serviceResourceGroupForCategory(category: string) {
@@ -338,14 +340,7 @@ export function OwnerApp() {
   useEffect(() => setCompany(settings.ownerCompany), [settings.ownerCompany]);
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
-  useEffect(() => {
-    if (!bookingForm.service) return;
-    const nextBoxes = ownerBookingBoxes(bookingForm.service, liveServices, liveBoxes);
-    setBookingForm((current) => ({
-      ...current,
-      box: nextBoxes.find((box) => box.name === current.box)?.name || nextBoxes[0]?.name || current.box,
-    }));
-  }, [bookingForm.service, liveBoxes, liveServices]);
+
   useEffect(() => {
     setEmployeeSettings(
       workers.map(worker => ({
@@ -516,8 +511,8 @@ export function OwnerApp() {
     vv.addEventListener('resize', handler);
     return () => vv.removeEventListener('resize', handler);
   }, []);
-  const bookingFormBoxes = ownerBookingBoxes(bookingForm.service, services, boxes);
   const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
+  const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
   const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -1178,7 +1173,7 @@ export function OwnerApp() {
       service: services[0]?.id || 's1',
       date: tomorrowLabel,
       time: '10:00',
-      box: ownerBookingBoxes(services[0]?.id || '', services, boxes)[0]?.name || 'Бокс 1',
+      box: '',
       status: 'confirmed',
       paymentSettled: true,
       price: 0,
@@ -1199,7 +1194,7 @@ export function OwnerApp() {
       service: services[0]?.id || 's1',
       date: status === 'completed' ? formatDate(historyDate) : tomorrowLabel,
       time: '10:00',
-      box: ownerBookingBoxes(services[0]?.id || '', services, boxes)[0]?.name || 'Бокс 1',
+      box: '',
       status,
       paymentSettled: true,
       price: 0,
@@ -1329,7 +1324,6 @@ export function OwnerApp() {
     ...upcomingDates.slice(0, 7),
     ...bookings.map((booking) => booking.date).filter(Boolean),
   ])).slice(0, 10);
-  const ownerNewBookingFormBoxes = ownerBookingBoxes(ownerNewBookingForm.serviceId, services, boxes);
   const ownerNewBookingLocationLabel = ownerLocationLabel(ownerNewBookingForm.serviceId, services);
   const totalOwnerNewBookingPercent = ownerNewBookingWorkers.reduce((sum, worker) => sum + worker.percent, 0);
 
@@ -1479,7 +1473,6 @@ export function OwnerApp() {
           status: ownerBookingEditFull.status,
           date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : undefined,
           time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : undefined,
-          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : 'По согласованию',
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
           plate: ownerBookingEditFull.plate.trim() || undefined,
@@ -4054,7 +4047,7 @@ export function OwnerApp() {
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Время</label><select className={selectCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))}><option value="">--:--</option>{TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}</select></div>
 
-                <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><div className={`${inputCls} ${sub}`}>Назначается автоматически</div></div>
                 {bookingForm.status === 'completed' && (
                   <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                     <span>Оплачено</span>
@@ -4336,10 +4329,8 @@ export function OwnerApp() {
                         </div>
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Бокс</label>
-                        <select className={selectCls} value={ownerBookingEditFull.box} onChange={e => setOwnerBookingEditFull(p => ({ ...p, box: e.target.value }))}>
-                          {boxes.filter(b => b.active).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                        </select>
+                        <label className={`text-xs ${sub} block mb-1`}>{editBookingLocationLabel}</label>
+                        <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -4446,14 +4437,12 @@ export function OwnerApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <select className={selectCls} value={ownerNewBookingForm.serviceId} onChange={e => {
                     const svc = services.find(s => s.id === e.target.value);
-                    const nextBoxes = ownerBookingBoxes(e.target.value, services, boxes);
                     setOwnerNewBookingForm(p => ({
                       ...p,
                       serviceId: e.target.value,
                       service: svc?.name || '',
                       price: svc?.price || 0,
                       duration: svc?.duration || 30,
-                      box: nextBoxes[0]?.name || '',
                     }));
                     setOwnerNewBookingErrors((current) => ({ ...current, general: undefined }));
                   }}>
@@ -4486,7 +4475,7 @@ export function OwnerApp() {
                         status: nextStatus,
                         date: nextStatus === 'admin_review' ? current.date : (current.date || todayLabel),
                         time: nextStatus === 'admin_review' ? current.time : (current.time || '10:00'),
-                        box: ['new', 'confirmed', 'scheduled', 'in_progress'].includes(nextStatus) ? (current.box || ownerNewBookingFormBoxes[0]?.name || '') : current.box,
+                        box: current.box,
                       }));
                       setOwnerNewBookingErrors((current) => ({ ...current, date: undefined, time: undefined, general: undefined }));
                     }}
@@ -4516,17 +4505,15 @@ export function OwnerApp() {
                   </select>
                   {ownerNewBookingErrors.time && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.time}</div>}
                 </div>
-                {(ownerNewBookingForm.date.trim() && ownerNewBookingForm.time.trim()) ? (
+                {ownerNewBookingForm.date.trim() && ownerNewBookingForm.time.trim() ? (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                    <select className={selectCls} value={ownerNewBookingForm.box} onChange={e => setOwnerNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                      {ownerNewBookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                    </select>
+                    <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
                   </div>
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
+                    <div className={`${inputCls} ${sub}`}>Будет назначено после выбора даты и времени</div>
                   </div>
                 )}
                 <div>
