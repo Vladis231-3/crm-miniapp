@@ -2447,7 +2447,7 @@ export function AdminApp() {
       <AnimatePresence>
         {showAddServiceModal && addServiceTargetBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 ${card}`}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 ${isDark ? 'bg-[#0E1624]' : 'bg-white'}`}>
               <h3 className={`text-lg font-semibold ${text} mb-4`}>Добавить услугу</h3>
               <p className={`text-xs ${sub} mb-4`}>Для: {addServiceTargetBooking.clientName} ({addServiceTargetBooking.service})</p>
               <div className="space-y-3">
