@@ -126,17 +126,15 @@ function hasManualScheduling(booking: Booking, services: Array<{ id: string; cat
 }
 
 function bookingBoxesForService(
-  serviceId: string,
-  services: Array<{ id: string; resourceGroup?: string }>,
+  _serviceId: string,
+  _services: Array<{ id: string; resourceGroup?: string }>,
   boxes: Array<{ id: string; name: string; resourceGroup: string; pricePerHour: number; active: boolean; description: string }>,
 ) {
-  return serviceResourceGroup(serviceId, services) === 'detailing'
-    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
-    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+  return boxes.filter((box) => box.active);
 }
 
-function bookingLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
-  return serviceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
+function bookingLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
+  return 'Помещение';
 }
 
 function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
@@ -233,6 +231,7 @@ export function AdminApp() {
     updateClientCard,
     updateBooking,
     addBooking,
+    addBookingService,
     addNotification,
     notifications,
     markAllNotificationsRead,
@@ -282,6 +281,11 @@ export function AdminApp() {
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', notes: '', status: 'admin_review' as BookingStatus,
   });
+  const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+  const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
+  const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
+  const [addServiceSaving, setAddServiceSaving] = useState(false);
+  const [addServiceError, setAddServiceError] = useState<string | null>(null);
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
@@ -851,28 +855,11 @@ export function AdminApp() {
   };
 
   const openAdditionalServiceModal = (booking: Booking) => {
-    setSaveSuccess(null);
-    setNewBookingSaving(false);
-    setNewBookingErrors({});
-    setNewBookingWorkers(booking.workers.map((worker) => ({ id: worker.workerId, percent: worker.percent })));
-    setNewBookingForm({
-      clientId: booking.clientId,
-      clientName: booking.clientName,
-      clientPhone: booking.clientPhone,
-      service: '',
-      serviceId: '',
-      date: booking.date || todayLabel,
-      time: booking.time || '10:00',
-      box: booking.box && booking.box !== 'По согласованию' ? booking.box : boxes[0]?.name || 'Бокс 1',
-      price: 0,
-      duration: 30,
-      car: booking.car || '',
-      plate: booking.plate || '',
-      notes: '',
-      status: 'admin_review',
-    });
-    setShowSlideOver(false);
-    setShowNewBooking(true);
+    setAddServiceTargetBooking(booking);
+    setAddServiceDraft({ serviceId: '', price: 0, duration: 30 });
+    setAddServiceError(null);
+    setAddServiceSaving(false);
+    setShowAddServiceModal(true);
   };
 
   const openNewBookingForClient = (client: RegisteredClient, status: BookingStatus = 'completed') => {
@@ -896,6 +883,38 @@ export function AdminApp() {
   const closeNewBookingModal = () => {
     setShowNewBooking(false);
     resetNewBookingDraft();
+  };
+
+  const handleAddService = async () => {
+    if (!addServiceTargetBooking) return;
+    if (!addServiceDraft.serviceId) {
+      setAddServiceError('Выберите услугу');
+      return;
+    }
+    setAddServiceSaving(true);
+    setAddServiceError(null);
+    try {
+      const svc = services.find(s => s.id === addServiceDraft.serviceId);
+      const updatedBooking = await addBookingService(addServiceTargetBooking.id, {
+        name: svc?.name || 'Доп. услуга',
+        serviceId: addServiceDraft.serviceId,
+        price: addServiceDraft.price,
+        duration: addServiceDraft.duration,
+      });
+      setSelectedBooking(updatedBooking);
+      setShowAddServiceModal(false);
+      setAddServiceTargetBooking(null);
+    } catch (err: any) {
+      setAddServiceError(err?.detail || err?.message || 'Ошибка при добавлении услуги');
+    } finally {
+      setAddServiceSaving(false);
+    }
+  };
+
+  const closeAddServiceModal = () => {
+    setShowAddServiceModal(false);
+    setAddServiceTargetBooking(null);
+    setAddServiceError(null);
   };
 
   const openEditModal = (booking: Booking, mode: EditModalMode = 'edit') => {
@@ -937,8 +956,8 @@ export function AdminApp() {
       setEditBookingError(null);
       await updateBooking(selectedBooking.id, {
         status: editBookingDraft.status,
-        date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
-        time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
+        date: requiresScheduledSlot ? editBookingDraft.date.trim() : undefined,
+        time: requiresScheduledSlot ? editBookingDraft.time.trim() : undefined,
         box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim() || undefined,
         car: editBookingDraft.car.trim() || undefined,
@@ -1226,7 +1245,7 @@ export function AdminApp() {
                           <div className="font-semibold text-sm">{booking.time} · {booking.clientName}</div>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
                         </div>
-                        <div className={`text-sm ${sub}`}>{booking.service}</div>
+                        <div className={`text-sm ${sub}`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
                         <div className="flex justify-between mt-2">
                           <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
                           <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
@@ -1249,7 +1268,7 @@ export function AdminApp() {
                       <div className="flex justify-between items-center">
                         <div>
                           <div className="text-sm font-medium">{booking.clientName}</div>
-                          <div className={`text-xs ${sub}`}>{booking.service} · {booking.date}</div>
+                          <div className={`text-xs ${sub}`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1" style={{ color: primary }}> +{booking.services.length}</span> : ''} · {booking.date}</div>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
                       </div>
@@ -1589,7 +1608,7 @@ export function AdminApp() {
                           <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
                             <div className="flex items-start justify-between gap-3 mb-2">
                               <div className="min-w-0">
-                                <div className="font-medium text-sm">{booking.service}</div>
+                                <div className="font-medium text-sm">{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
                                 <div className={`text-xs ${sub} mt-0.5`}>
                                   {booking.date} • {booking.time} • {booking.box || 'Без бокса'}
                                 </div>
@@ -2362,8 +2381,18 @@ export function AdminApp() {
                   {selectedBooking.car && <div className={`text-sm ${sub} mt-1`}>{selectedBooking.car} · {selectedBooking.plate}</div>}
                 </div>
                 <div className={`${glass} rounded-2xl p-4`}>
-                  <div className={`text-xs font-medium ${sub} mb-2`}>УСЛУГА</div>
+                  <div className={`text-xs font-medium ${sub} mb-2`}>УСЛУГИ</div>
                   <div className="font-semibold">{selectedBooking.service}</div>
+                  {selectedBooking.services && selectedBooking.services.length > 0 && (
+                    <div className="space-y-1 mt-2">
+                      {selectedBooking.services.map((svc, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm bg-white/5 rounded-xl px-3 py-2">
+                          <span>{svc.name}</span>
+                          <span className="font-medium">{svc.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className={`text-sm ${sub} mt-1`}>
                     {hasManualScheduling(selectedBooking, services)
                       ? 'Время и бокс будут назначены после согласования с клиентом'
@@ -2411,6 +2440,52 @@ export function AdminApp() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* ADD SERVICE MODAL */}
+      <AnimatePresence>
+        {showAddServiceModal && addServiceTargetBooking && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 ${card}`}>
+              <h3 className={`text-lg font-semibold ${text} mb-4`}>Добавить услугу</h3>
+              <p className={`text-xs ${sub} mb-4`}>Для: {addServiceTargetBooking.clientName} ({addServiceTargetBooking.service})</p>
+              <div className="space-y-3">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
+                  <select className={selectCls} value={addServiceDraft.serviceId} onChange={e => {
+                    const svc = services.find(s => s.id === e.target.value);
+                    setAddServiceDraft({
+                      serviceId: e.target.value,
+                      price: svc?.price || 0,
+                      duration: svc?.duration || 30,
+                    });
+                    setAddServiceError(null);
+                  }}>
+                    <option value="">Выберите услугу</option>
+                    {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.price)} onChange={e => setAddServiceDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.duration)} onChange={e => setAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                  </div>
+                </div>
+                {addServiceError && <div className="text-xs text-red-500">{addServiceError}</div>}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={closeAddServiceModal} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
+                <button onClick={handleAddService} disabled={!addServiceDraft.serviceId || addServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
+                  {addServiceSaving ? 'Сохранение...' : 'Добавить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -2882,19 +2957,12 @@ export function AdminApp() {
                   {newBookingErrors.time && <div className="mt-1 text-xs text-red-500">{newBookingErrors.time}</div>}
                 </div>
                 {(newBookingForm.date.trim() && newBookingForm.time.trim()) ? (
-                  serviceResourceGroup(newBookingForm.serviceId, services) === 'detailing' ? (
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                      <div className={`${inputCls} ${sub}`}>Для детейлинга помещение подставляется автоматически</div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                      <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                        {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                      </select>
-                    </div>
-                  )
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
+                    <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
+                      {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
+                  </div>
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>

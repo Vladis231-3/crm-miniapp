@@ -55,17 +55,15 @@ function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: stri
 }
 
 function ownerBookingBoxes(
-  serviceId: string,
-  services: Array<{ id: string; resourceGroup?: string }>,
-  boxes: Array<{ id: string; name: string; resourceGroup: string; active: boolean; pricePerHour: number; description: string }>,
+  _serviceId: string,
+  _services: Array<{ id: string; resourceGroup?: string }>,
+  boxes: Array<{ id: string; name: string; resourceGroup: boolean; active: boolean; pricePerHour: number; description: string }>,
 ) {
-  return ownerServiceResourceGroup(serviceId, services) === 'detailing'
-    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
-    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+  return boxes.filter((box) => box.active);
 }
 
-function ownerLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
-  return ownerServiceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
+function ownerLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
+  return 'Помещение';
 }
 
 function serviceResourceGroupForCategory(category: string) {
@@ -1479,8 +1477,8 @@ export function OwnerApp() {
         const requiresScheduledSlot = !isDetailing || ownerBookingEditFull.status !== 'admin_review';
         patch = {
           status: ownerBookingEditFull.status,
-          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : '',
-          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : '',
+          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : undefined,
+          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : undefined,
           box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : 'По согласованию',
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
@@ -4519,19 +4517,12 @@ export function OwnerApp() {
                   {ownerNewBookingErrors.time && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.time}</div>}
                 </div>
                 {(ownerNewBookingForm.date.trim() && ownerNewBookingForm.time.trim()) ? (
-                  ownerServiceResourceGroup(ownerNewBookingForm.serviceId, services) === 'detailing' ? (
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                      <div className={`${inputCls} ${sub}`}>Для детейлинга помещение подставляется автоматически</div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                      <select className={selectCls} value={ownerNewBookingForm.box} onChange={e => setOwnerNewBookingForm(p => ({ ...p, box: e.target.value }))}>
-                        {ownerNewBookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                      </select>
-                    </div>
-                  )
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
+                    <select className={selectCls} value={ownerNewBookingForm.box} onChange={e => setOwnerNewBookingForm(p => ({ ...p, box: e.target.value }))}>
+                      {ownerNewBookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
+                  </div>
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>

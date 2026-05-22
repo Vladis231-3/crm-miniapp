@@ -65,8 +65,10 @@ from .schemas import (
     AuthResponse,
     BookingCreateRequest,
     BookingPayload,
+    BookingServiceItem,
     BookingUpdateRequest,
     BookingWorkerPayload,
+    AddBookingServiceRequest,
     BootstrapPayload,
     BoxPayload,
     ChangePasswordRequest,
@@ -1736,6 +1738,16 @@ def _worker_payload_with_payroll(
 def _booking_payload(
     booking: Booking, complaints_by_worker: dict[str, list[Penalty]] | None = None
 ) -> BookingPayload:
+    svc_list = booking.services if isinstance(booking.services, list) else []
+    booking_services = [
+        BookingServiceItem(
+            name=s['name'],
+            serviceId=s['serviceId'],
+            price=int(s.get('price', 0)),
+            duration=int(s.get('duration', 30)),
+        )
+        for s in svc_list
+    ]
     return BookingPayload(
         id=booking.id,
         clientId=booking.client_id,
@@ -1769,6 +1781,7 @@ def _booking_payload(
         notes=booking.notes,
         car=booking.car,
         plate=booking.plate,
+        services=booking_services,
     )
 
 
@@ -3633,16 +3646,13 @@ def _service_resource_group(service: Service | None) -> str:
     )
 
 
-def _compatible_box_names(db: Session, resource_group: str | None) -> list[str]:
-    target_group = _resource_group_key(resource_group)
+def _compatible_box_names(db: Session, resource_group: str | None = None) -> list[str]:
     return [
         box.name
         for box in db.scalars(
             select(Box).where(Box.active.is_(True)).order_by(Box.name.asc())
         ).all()
         if _normalized_text(box.name)
-        and _resource_group_key(box.resource_group or _default_box_resource_group(box))
-        == target_group
     ]
 
 
@@ -5260,6 +5270,7 @@ def create_booking(
         box=booking_box,
         payment_type=payload.paymentType,
         payment_settled=payload.paymentSettled,
+        services=[],
         notes=payload.notes,
         car=booking_car,
         plate=booking_plate,
@@ -5615,6 +5626,40 @@ def delete_booking(
     db.delete(booking)
     db.commit()
     return GenericMessage(message="Запись удалена")
+
+
+
+@app.post("/api/bookings/{booking_id}/services", response_model=BookingPayload)
+def add_booking_service(
+    booking_id: str,
+    payload: AddBookingServiceRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingPayload:
+    if session_data["role"] not in {"admin", "owner", "accountant"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    booking = db.scalar(
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(Booking.id == booking_id)
+    )
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
+        )
+    svc_list = booking.services if isinstance(booking.services, list) else []
+    svc_list.append({
+        "name": payload.name,
+        "serviceId": payload.serviceId,
+        "price": payload.price,
+        "duration": payload.duration,
+    })
+    booking.services = svc_list
+    booking.price = (booking.price or 0) + payload.price
+    booking.duration = (booking.duration or 0) + payload.duration
+    db.commit()
+    db.refresh(booking)
+    return _booking_payload_for_response(db, booking)
 
 
 @app.post("/api/notifications", response_model=NotificationPayload)

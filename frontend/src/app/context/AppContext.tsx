@@ -114,6 +114,13 @@ export interface WorkerPayrollSummary {
   entries: PayrollEntry[];
 }
 
+export interface BookingServiceItem {
+  name: string;
+  serviceId: string;
+  price: number;
+  duration: number;
+}
+
 export interface Booking {
   id: string;
   clientId: string;
@@ -134,6 +141,7 @@ export interface Booking {
   notes?: string;
   car?: string;
   plate?: string;
+  services: BookingServiceItem[];
 }
 
 export interface BookingSlotAvailability {
@@ -145,10 +153,12 @@ export interface BookingSlotAvailability {
 
 export type BookingCreateInput = Omit<Booking, 'id' | 'createdAt'> & {
   notifyWorkers?: boolean;
+  services?: BookingServiceItem[];
 };
 
 export type BookingUpdateInput = Partial<Booking> & {
   notifyWorkers?: boolean;
+  services?: BookingServiceItem[];
 };
 
 export interface Notification {
@@ -512,6 +522,7 @@ interface AppContextType {
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
+  addBookingService: (bookingId: string, service: Omit<BookingServiceItem, 'serviceId'> & { serviceId: string }) => Promise<Booking>;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: (role: Role) => Promise<void>;
@@ -1032,6 +1043,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBookings((current) => current.filter((booking) => booking.id !== id));
   }
 
+  async function addBookingService(bookingId: string, service: Omit<BookingServiceItem, 'serviceId'> & { serviceId: string }) {
+    const updated = normalizeBootstrap({
+      session: session as SessionInfo,
+      clientProfile,
+      staffProfile,
+      clients: [],
+      bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/services`, { method: 'POST', body: service })],
+      notifications: [],
+      stockItems: [],
+      expenses: [],
+      penalties: [],
+      workers: [],
+      services: [],
+      boxes: [],
+      schedule: [],
+      settings,
+    }).bookings[0];
+    setBookings((current) => current.map((booking) => (booking.id === bookingId ? updated : booking)));
+    return updated;
+  }
+
   async function addNotification(notification: Omit<Notification, 'id' | 'createdAt'>) {
     const created = normalizeBootstrap({
       session: session as SessionInfo,
@@ -1454,6 +1486,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addBooking,
       updateBooking,
       deleteBooking,
+      addBookingService,
       addNotification,
       markNotificationRead,
       markAllNotificationsRead,

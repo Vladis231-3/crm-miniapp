@@ -163,6 +163,7 @@ class Booking(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     car: Mapped[str | None] = mapped_column(String(120), nullable=True)
     plate: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    services: Mapped[list[dict]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

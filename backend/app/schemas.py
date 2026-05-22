@@ -296,6 +296,13 @@ class BookingWorkerPayload(BaseModel):
     percent: int = Field(ge=0, le=40, default=0)
 
 
+class BookingServiceItem(BaseModel):
+    name: str
+    serviceId: str
+    price: int = Field(ge=0)
+    duration: int = Field(gt=0)
+
+
 class BookingPayload(BaseModel):
     id: str
     clientId: str
@@ -316,6 +323,7 @@ class BookingPayload(BaseModel):
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
+    services: list[BookingServiceItem] = Field(default_factory=list)
 
 
 class BookingAvailabilitySlotPayload(BaseModel):
@@ -742,6 +750,13 @@ class BookingCreateRequest(BaseModel):
         if value is None or not value.strip():
             return ""
         return normalize_plate(value)
+
+
+class AddBookingServiceRequest(BaseModel):
+    name: str
+    serviceId: str
+    price: int = Field(ge=0)
+    duration: int = Field(gt=0)
 
 
 class BookingUpdateRequest(BaseModel):
