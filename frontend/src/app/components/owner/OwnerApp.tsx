@@ -55,17 +55,15 @@ function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: stri
 }
 
 function ownerBookingBoxes(
-  serviceId: string,
-  services: Array<{ id: string; resourceGroup?: string }>,
+  _serviceId: string,
+  _services: Array<{ id: string; resourceGroup?: string }>,
   boxes: Array<{ id: string; name: string; resourceGroup: string; active: boolean; pricePerHour: number; description: string }>,
 ) {
-  return ownerServiceResourceGroup(serviceId, services) === 'detailing'
-    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
-    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+  return boxes.filter((box) => box.active);
 }
 
-function ownerLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
-  return ownerServiceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
+function ownerLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
+  return 'Помещение';
 }
 
 function serviceResourceGroupForCategory(category: string) {
@@ -340,6 +338,14 @@ export function OwnerApp() {
   useEffect(() => setCompany(settings.ownerCompany), [settings.ownerCompany]);
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
+  useEffect(() => {
+    if (!bookingForm.service) return;
+    const nextBoxes = ownerBookingBoxes(bookingForm.service, liveServices, liveBoxes);
+    setBookingForm((current) => ({
+      ...current,
+      box: nextBoxes.find((box) => box.name === current.box)?.name || nextBoxes[0]?.name || current.box,
+    }));
+  }, [bookingForm.service, liveBoxes, liveServices]);
 
   useEffect(() => {
     setEmployeeSettings(
@@ -511,6 +517,7 @@ export function OwnerApp() {
     vv.addEventListener('resize', handler);
     return () => vv.removeEventListener('resize', handler);
   }, []);
+  const bookingFormBoxes = ownerBookingBoxes(bookingForm.service, services, boxes);
   const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
   const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
@@ -1471,8 +1478,9 @@ export function OwnerApp() {
         const requiresScheduledSlot = !isDetailing || ownerBookingEditFull.status !== 'admin_review';
         patch = {
           status: ownerBookingEditFull.status,
-          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : undefined,
-          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : undefined,
+          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : '',
+          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : '',
+          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : 'По согласованию',
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
           plate: ownerBookingEditFull.plate.trim() || undefined,
@@ -4047,7 +4055,7 @@ export function OwnerApp() {
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Время</label><select className={selectCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))}><option value="">--:--</option>{TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}</select></div>
 
-                <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><div className={`${inputCls} ${sub}`}>Назначается автоматически</div></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
                 {bookingForm.status === 'completed' && (
                   <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                     <span>Оплачено</span>
@@ -4330,7 +4338,9 @@ export function OwnerApp() {
                       </div>
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>{editBookingLocationLabel}</label>
-                        <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
+                        <select className={selectCls} value={ownerBookingEditFull.box} onChange={e => setOwnerBookingEditFull(p => ({ ...p, box: e.target.value }))}>
+                          {boxes.filter(b => b.active).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        </select>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -4508,12 +4518,14 @@ export function OwnerApp() {
                 {ownerNewBookingForm.date.trim() && ownerNewBookingForm.time.trim() ? (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
+                    <select className={selectCls} value={ownerNewBookingForm.box} onChange={e => setOwnerNewBookingForm(p => ({ ...p, box: e.target.value }))}>
+                      {boxes.filter(b => b.active).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
                   </div>
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Будет назначено после выбора даты и времени</div>
+                    <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
                   </div>
                 )}
                 <div>

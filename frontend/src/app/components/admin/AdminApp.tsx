@@ -126,17 +126,15 @@ function hasManualScheduling(booking: Booking, services: Array<{ id: string; cat
 }
 
 function bookingBoxesForService(
-  serviceId: string,
-  services: Array<{ id: string; resourceGroup?: string }>,
+  _serviceId: string,
+  _services: Array<{ id: string; resourceGroup?: string }>,
   boxes: Array<{ id: string; name: string; resourceGroup: string; pricePerHour: number; active: boolean; description: string }>,
 ) {
-  return serviceResourceGroup(serviceId, services) === 'detailing'
-    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
-    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+  return boxes.filter((box) => box.active);
 }
 
-function bookingLocationLabel(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
-  return serviceResourceGroup(serviceId, services) === 'detailing' ? 'Зона детейлинга' : 'Бокс мойки';
+function bookingLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
+  return 'Помещение';
 }
 
 function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
@@ -412,6 +410,10 @@ export function AdminApp() {
     });
   }, [liveServices, newBookingForm.serviceId]);
   const settingsBoxes = boxes.filter((box) => box.resourceGroup === 'wash');
+  const bookingFormBoxes = bookingBoxesForService(newBookingForm.serviceId, services, boxes);
+  const editBookingBoxes = selectedBooking
+    ? bookingBoxesForService(selectedBooking.serviceId, services, boxes)
+    : settingsBoxes.filter((box) => box.active);
   const newBookingLocationLabel = bookingLocationLabel(newBookingForm.serviceId, services);
   const editBookingLocationLabel = selectedBooking ? bookingLocationLabel(selectedBooking.serviceId, services) : 'Бокс мойки';
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
@@ -940,6 +942,10 @@ export function AdminApp() {
         setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');
         return;
       }
+      if (!editBookingDraft.box.trim()) {
+        setEditBookingError('Укажите бокс для записи');
+        return;
+      }
     }
 
     try {
@@ -947,8 +953,9 @@ export function AdminApp() {
       setEditBookingError(null);
       await updateBooking(selectedBooking.id, {
         status: editBookingDraft.status,
-        date: requiresScheduledSlot ? editBookingDraft.date.trim() : undefined,
-        time: requiresScheduledSlot ? editBookingDraft.time.trim() : undefined,
+        date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
+        time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
+        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim() || undefined,
         car: editBookingDraft.car.trim() || undefined,
         plate: editBookingDraft.plate.trim() || undefined,
@@ -960,6 +967,7 @@ export function AdminApp() {
         status: editBookingDraft.status,
         date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
         time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
+        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
         notes: editBookingDraft.notes.trim(),
         car: editBookingDraft.car.trim(),
         plate: editBookingDraft.plate.trim(),
@@ -2654,7 +2662,16 @@ export function AdminApp() {
                     </div>
                     <div>
                       <label className={`text-xs ${sub} block mb-1`}>{editBookingLocationLabel}</label>
-                      <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
+                      <select
+                        className={selectCls}
+                        value={editBookingDraft.box}
+                        onChange={e => {
+                          setEditBookingError(null);
+                          setEditBookingDraft((current) => ({ ...current, box: e.target.value }));
+                        }}
+                      >
+                        {editBookingBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                      </select>
                     </div>
                   </>
                 )}
@@ -2936,15 +2953,17 @@ export function AdminApp() {
                   </select>
                   {newBookingErrors.time && <div className="mt-1 text-xs text-red-500">{newBookingErrors.time}</div>}
                 </div>
-                {newBookingForm.date.trim() && newBookingForm.time.trim() ? (
+                {(newBookingForm.date.trim() && newBookingForm.time.trim()) ? (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Назначается автоматически</div>
+                    <select className={selectCls} value={newBookingForm.box} onChange={e => setNewBookingForm(p => ({ ...p, box: e.target.value }))}>
+                      {bookingFormBoxes.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
                   </div>
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{newBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>Будет назначено после выбора даты и времени</div>
+                    <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
                   </div>
                 )}
                 <div>
