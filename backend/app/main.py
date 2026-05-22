@@ -1198,6 +1198,16 @@ def _booking_requires_scheduled_slot(status_value: str) -> bool:
     return status_value in BOOKING_ACTIVE_STATUSES
 
 
+def _booking_slot_fields_changed(booking: Booking, updates: dict) -> bool:
+    if "date" in updates and (updates.get("date") or "").strip() != (booking.date or "").strip():
+        return True
+    if "time" in updates and (updates.get("time") or "").strip() != (booking.time or "").strip():
+        return True
+    if "duration" in updates and updates.get("duration") != booking.duration:
+        return True
+    return False
+
+
 def _booking_time_range(
     date_value: str, time_value: str, duration: int
 ) -> tuple[datetime, datetime] | None:
@@ -5438,9 +5448,7 @@ def update_booking(
             for link in booking.worker_links
         ]
     )
-    slot_fields_updated = any(
-        field in updates for field in ("date", "time", "duration")
-    )
+    slot_fields_updated = _booking_slot_fields_changed(booking, updates)
     should_validate_slot = _booking_requires_scheduled_slot(next_status) or slot_fields_updated
     has_candidate_slot = bool(next_date and next_time)
     if should_validate_slot:

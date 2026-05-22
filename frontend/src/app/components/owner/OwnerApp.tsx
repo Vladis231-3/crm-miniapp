@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -120,6 +120,19 @@ function numberInputValue(value: number) {
   return value === 0 ? '' : String(value);
 }
 
+function ownerPaymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
+  if (!paymentSettled) return 'Не оплачено';
+  if (paymentType === 'card') return 'Карта';
+  if (paymentType === 'online') return 'Онлайн';
+  return 'Наличные';
+}
+
+function normalizeOwnerPhoneSearchValue(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+type OwnerClientSearchMode = 'phone' | 'plate';
+
 function numberFromInput(value: string) {
   return value === '' ? 0 : Number(value);
 }
@@ -161,6 +174,7 @@ export function OwnerApp() {
     addBooking,
     updateBooking,
     addClient,
+    deleteClient,
     addNotification,    penalties,
     addPenalty,
     revokePenalty,
@@ -302,7 +316,10 @@ export function OwnerApp() {
   const [employeeActionLoading, setEmployeeActionLoading] = useState<null | { type: 'hire' | 'fire'; workerId?: string }>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayLabel);
   const [clientSearch, setClientSearch] = useState('');
-  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string; adminNote: string }>>({});
+  const [settingsClientId, setSettingsClientId] = useState<string | null>(null);
+  const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
+  const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string; adminRating: number; adminNote: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
@@ -1076,16 +1093,33 @@ export function OwnerApp() {
     }
   };
 
-  const handleSaveClientCard = async (clientId: string) => {
+  const handleDeleteSettingsClient = async (clientId: string, clientName: string) => {
+    const confirmed = window.confirm(`Удалить клиента "${clientName}"? Профиль и доступ в Mini App будут удалены, история записей останется.`);
+    if (!confirmed) return;
+    try {
+      await deleteClient(clientId);
+      if (settingsClientId === clientId) setSettingsClientId(null);
+      setBottomToast('Клиент удалён');
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось удалить клиента');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  const handleSaveClientCard = async (clientId: string, options?: { adminOnly?: boolean }) => {
     const draft = clientCardDrafts[clientId];
     if (!draft) return;
     try {
       setSavingClientId(clientId);
-      await updateClientCard(clientId, {
-        notes: draft.notes,
-        debtBalance: Number(draft.debtBalance || 0),
-        adminNote: draft.adminNote,
-      });
+      await updateClientCard(clientId, options?.adminOnly
+        ? { adminRating: draft.adminRating, adminNote: draft.adminNote }
+        : {
+          notes: draft.notes,
+          debtBalance: Number(draft.debtBalance || 0),
+          adminRating: draft.adminRating,
+          adminNote: draft.adminNote,
+        });
       setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
@@ -1670,6 +1704,45 @@ export function OwnerApp() {
       value.toLowerCase().includes(query),
     );
   });
+
+  const settingsClientSearchNormalized = settingsClientSearchMode === 'phone'
+    ? normalizeOwnerPhoneSearchValue(settingsClientSearchQuery)
+    : normalizePlateInput(settingsClientSearchQuery);
+  const filteredSettingsClients = clients.filter((client) => {
+    if (!settingsClientSearchNormalized) return true;
+    if (settingsClientSearchMode === 'phone') {
+      return normalizeOwnerPhoneSearchValue(client.phone).includes(settingsClientSearchNormalized);
+    }
+    const plates = [
+      client.plate,
+      ...(client.vehicles || []).map((vehicle) => vehicle.plate),
+    ]
+      .map((plate) => normalizePlateInput(plate || ''))
+      .filter(Boolean);
+    return plates.some((plate) => plate.includes(settingsClientSearchNormalized));
+  });
+  const selectedSettingsClient = clients.find((client) => client.id === settingsClientId) ?? null;
+  const selectedSettingsClientBookings = selectedSettingsClient
+    ? bookings
+      .filter((booking) => booking.clientId === selectedSettingsClient.id)
+      .sort((left, right) => {
+        const leftDate = parseFlexibleDate(left.date)?.getTime() ?? 0;
+        const rightDate = parseFlexibleDate(right.date)?.getTime() ?? 0;
+        if (rightDate !== leftDate) return rightDate - leftDate;
+        return right.time.localeCompare(left.time);
+      })
+    : [];
+  const selectedSettingsClientVehicles = selectedSettingsClient
+    ? (selectedSettingsClient.vehicles?.length
+      ? selectedSettingsClient.vehicles
+      : [{ car: selectedSettingsClient.car, plate: selectedSettingsClient.plate }])
+    : [];
+  const selectedSettingsClientSpent = selectedSettingsClientBookings
+    .filter((booking) => booking.status === 'completed')
+    .reduce((sum, booking) => sum + booking.price, 0);
+  const selectedSettingsClientCompletedCount = selectedSettingsClientBookings.filter((booking) => booking.status === 'completed').length;
+  const selectedSettingsClientUpcoming = selectedSettingsClientBookings.find((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
+  const selectedSettingsClientLastVisit = selectedSettingsClientBookings.find((booking) => booking.status === 'completed');
 
   const ownerStatusLabel = (status: string) => ({
     new: 'Новая',
@@ -2787,7 +2860,7 @@ export function OwnerApp() {
                 />
                 <div className="space-y-3 mt-3">
                   {filteredClientInsights.slice(0, 12).map((client) => {
-                    const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminNote: client.adminNote || '' };
+                    const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminRating: client.adminRating || 0, adminNote: client.adminNote || '' };
                     return (
                       <div key={client.id} className={`${glass} rounded-2xl p-4`}>
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -2948,106 +3021,342 @@ export function OwnerApp() {
 
           {!isAccountant && page === 'settings' && settingsSection === 'clients' && (
             <motion.div key="s-clients" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => { setSettingsSection(null); setSettingsClientId(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
                   <h2 className="font-semibold">Клиенты</h2>
-                  <div className={`text-xs ${sub} mt-1`}>Карточки, история визитов, заметки и долги</div>
+                  <p className={`text-xs ${sub} mt-1`}>
+                    {selectedSettingsClient ? 'История услуг, оплаты, авто и внутренняя заметка по клиенту' : 'Открой клиента, чтобы посмотреть всю историю посещений'}
+                  </p>
                 </div>
-                <button
-                  onClick={() => setShowCreateClient(true)}
-                  className="px-3 py-2 rounded-xl text-xs font-medium text-white flex items-center gap-1.5"
-                  style={{ background: primary }}
-                >
-                  <Plus size={14} />
-                  Новый клиент
-                </button>
+                <div className="flex items-center gap-2">
+                  {!selectedSettingsClient && (
+                    <button
+                      onClick={() => setShowCreateClient(true)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white"
+                      style={{ background: primary }}
+                    >
+                      <Plus size={14} />
+                      Новый
+                    </button>
+                  )}
+                  {selectedSettingsClient && (
+                    <button
+                      onClick={() => setSettingsClientId(null)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                    >
+                      <ArrowLeft size={14} />
+                      Назад
+                    </button>
+                  )}
+                </div>
               </div>
-              <input
-                className={inputCls}
-                placeholder="Поиск по имени, телефону, авто, номеру или услуге"
-                value={clientSearch}
-                onChange={(event) => setClientSearch(event.target.value)}
-              />
-              <div className="space-y-3 mt-3">
-                {filteredClientInsights.length === 0 && (
-                  <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>Клиенты не найдены</div>
-                )}
-                {filteredClientInsights.map((client) => {
-                  const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminNote: client.adminNote || '' };
-                  return (
-                    <div key={client.id} className={`${glass} rounded-2xl p-4`}>
-                      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                        <div>
-                          <div className="font-semibold">{client.name}</div>
-                          <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>
-                          <div className={`text-xs ${sub}`}>{client.visits} визитов · последний {client.lastVisit}</div>
-                          <button type="button" onClick={() => openBookingForClient(client)} className="mt-2 text-xs font-medium" style={{ color: primary }}>
-                            Добавить прошлую запись
-                          </button>
+              {!selectedSettingsClient && clients.length > 0 && (
+                <div className={`${glass} rounded-2xl p-3 mb-4`}>
+                  <div className="flex gap-2 mb-3">
+                    {([
+                      { id: 'phone', label: 'По телефону' },
+                      { id: 'plate', label: 'По госномеру' },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          setSettingsClientSearchMode(option.id);
+                          setSettingsClientSearchQuery('');
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 text-sm ${settingsClientSearchMode === option.id ? 'text-white' : sub}`}
+                        style={settingsClientSearchMode === option.id ? { background: primary } : undefined}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    className={inputCls}
+                    type={settingsClientSearchMode === 'phone' ? 'tel' : 'text'}
+                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'A123BC777'}
+                    value={settingsClientSearchQuery}
+                    onChange={(event) => setSettingsClientSearchQuery(event.target.value)}
+                  />
+                </div>
+              )}
+              {clients.length === 0 && (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <Users size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className={sub}>Пока нет зарегистрированных клиентов</p>
+                </div>
+              )}
+              {!selectedSettingsClient && filteredSettingsClients.map((client) => {
+                const clientBookings = bookings.filter((booking) => booking.clientId === client.id);
+                const spent = clientBookings.filter((booking) => booking.status === 'completed').reduce((sum, booking) => sum + booking.price, 0);
+                const lastBooking = [...clientBookings].sort((left, right) => {
+                  const leftDate = parseFlexibleDate(left.date)?.getTime() ?? 0;
+                  const rightDate = parseFlexibleDate(right.date)?.getTime() ?? 0;
+                  if (rightDate !== leftDate) return rightDate - leftDate;
+                  return right.time.localeCompare(right.time);
+                })[0];
+                const clientDisplayName = client.name.trim() || 'Клиент без имени';
+                const clientPhone = client.phone.trim();
+                return (
+                  <div
+                    key={client.id}
+                    className={`${glass} rounded-2xl p-4 mb-3 cursor-pointer transition-transform hover:-translate-y-0.5`}
+                    onClick={() => setSettingsClientId(client.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSettingsClientId(client.id);
+                      }
+                    }}
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: primary }}>{clientDisplayName.charAt(0).toUpperCase() || '?'}</div>
+                      <div className="flex-1">
+                        <div className="font-semibold">{clientDisplayName}</div>
+                        <div className={`text-xs ${sub}`}>{client.car || 'Автомобиль не указан'}</div>
+                        {clientPhone ? (
+                          <a href={`tel:${clientPhone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }} onClick={(event) => event.stopPropagation()}>
+                            <Phone size={10} />{clientPhone}
+                          </a>
+                        ) : (
+                          <div className={`text-xs ${sub} mt-0.5`}>Телефон не указан</div>
+                        )}
+                        <div className={`text-[11px] ${sub} mt-1`}>
+                          {lastBooking ? `Последний визит: ${lastBooking.date} ${lastBooking.time}` : 'Истории посещений пока нет'}
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mb-3">
-                        <div className={`${glass} rounded-xl px-3 py-2`}>
-                          <div className={`text-[11px] ${sub}`}>Любимая услуга</div>
-                          <div className="text-sm font-medium mt-1">{client.favoriteService}</div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDeleteSettingsClient(client.id, client.name);
+                          }}
+                          className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                          aria-label={`Удалить клиента ${client.name}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <ChevronRight size={16} className={sub} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Записей', value: clientBookings.length },
+                        { label: 'Завершено', value: clientBookings.filter((booking) => booking.status === 'completed').length },
+                        { label: 'Потрачено', value: `${spent.toLocaleString('ru')} ₽` },
+                      ].map((item) => (
+                        <div key={item.label} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-2 text-center`}>
+                          <div className="font-semibold text-sm">{item.value}</div>
+                          <div className={`text-xs ${sub}`}>{item.label}</div>
                         </div>
-                        <div className={`${glass} rounded-xl px-3 py-2`}>
-                          <div className={`text-[11px] ${sub}`}>Активные записи</div>
-                          <div className="text-sm font-medium mt-1">{client.activeCount}</div>
+                      ))}
+                    </div>
+                    <div className={`mt-3 text-xs ${sub} flex items-center justify-between gap-3`}>
+                      <span>Открой карточку, чтобы увидеть все услуги и детали клиента</span>
+                      <span>Рейтинг: {client.adminRating ? `${client.adminRating}/5` : 'без оценки'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {!selectedSettingsClient && clients.length > 0 && filteredSettingsClients.length === 0 && (
+                <div className={`${glass} rounded-2xl p-6 text-center`}>
+                  <div className="font-medium mb-1">Ничего не найдено</div>
+                  <div className={`text-sm ${sub}`}>Попробуйте другой телефон или госномер</div>
+                </div>
+              )}
+              {selectedSettingsClient && (
+                <div className="space-y-3">
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ background: primary }}>
+                        {(selectedSettingsClient.name.trim() || 'К').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-lg">{selectedSettingsClient.name.trim() || 'Клиент без имени'}</div>
+                        <div className={`text-sm ${sub} mt-1`}>
+                          Основное авто: {selectedSettingsClient.car || 'не указано'}{selectedSettingsClient.plate ? `, ${selectedSettingsClient.plate}` : ''}
                         </div>
-                        <div className={`${glass} rounded-xl px-3 py-2`}>
-                          <div className={`text-[11px] ${sub}`}>Долг</div>
-                          <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} ₽</div>
+                        {selectedSettingsClient.phone.trim() ? (
+                          <a href={`tel:${selectedSettingsClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
+                            <Phone size={12} />{selectedSettingsClient.phone}
+                          </a>
+                        ) : (
+                          <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => void handleDeleteSettingsClient(selectedSettingsClient.id, selectedSettingsClient.name)}
+                        className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                        aria-label={`Удалить клиента ${selectedSettingsClient.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    {selectedSettingsClient.adminNote && (
+                      <div className={`rounded-xl px-3 py-2.5 mb-4 text-sm border ${isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                        <div className={`text-xs font-medium mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>⚑ Примечание:</div>
+                        {selectedSettingsClient.adminNote}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openBookingForClient(selectedSettingsClient)}
+                      className="w-full mb-4 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+                      style={{ background: primary }}
+                    >
+                      <Plus size={16} />
+                      Добавить прошлую запись
+                    </button>
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {[
+                        { label: 'Всего записей', value: selectedSettingsClientBookings.length },
+                        { label: 'Завершённых', value: selectedSettingsClientCompletedCount },
+                        { label: 'Потрачено', value: `${selectedSettingsClientSpent.toLocaleString('ru')} ₽` },
+                        { label: 'Долг', value: `${selectedSettingsClient.debtBalance.toLocaleString('ru')} ₽` },
+                      ].map((item) => (
+                        <div key={item.label} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                          <div className="font-semibold">{item.value}</div>
+                          <div className={`text-xs ${sub}`}>{item.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2 mb-4">
+                      <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                        <div className={`text-xs ${sub} mb-1`}>Ближайшая запись</div>
+                        <div className="text-sm">
+                          {selectedSettingsClientUpcoming
+                            ? `${selectedSettingsClientUpcoming.date} ${selectedSettingsClientUpcoming.time} • ${selectedSettingsClientUpcoming.service}`
+                            : 'Нет активных записей'}
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        <textarea
-                          className={`${inputCls} h-24 resize-none`}
-                          placeholder="Заметки по клиенту"
-                          value={draft.notes}
-                          onChange={(event) => setClientCardDrafts((current) => ({
-                            ...current,
-                            [client.id]: { ...draft, notes: event.target.value },
-                          }))}
-                        />
-                        <div className="space-y-2">
-                          <input
-                            className={inputCls}
-                            type="number"
-                            placeholder="Долг клиента"
-                            value={draft.debtBalance}
-                            onChange={(event) => setClientCardDrafts((current) => ({
-                              ...current,
-                              [client.id]: { ...draft, debtBalance: event.target.value },
-                            }))}
-                          />
-                          <textarea
-                            className={`${inputCls} h-20 resize-none`}
-                            placeholder="Особое примечание"
-                            value={draft.adminNote}
-                            onChange={(event) => setClientCardDrafts((current) => ({
-                              ...current,
-                              [client.id]: { ...draft, adminNote: event.target.value },
-                            }))}
-                          />
-                          <button
-                            onClick={() => { void handleSaveClientCard(client.id); }}
-                            disabled={savingClientId === client.id}
-                            className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
-                            style={{ background: primary }}
-                          >
-                            {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить карточку'}
-                          </button>
+                      <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                        <div className={`text-xs ${sub} mb-1`}>Последний завершённый визит</div>
+                        <div className="text-sm">
+                          {selectedSettingsClientLastVisit
+                            ? `${selectedSettingsClientLastVisit.date} ${selectedSettingsClientLastVisit.time} • ${selectedSettingsClientLastVisit.service}`
+                            : 'Пока нет завершённых услуг'}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Рейтинг клиента для админа</label>
+                        <select
+                          className={selectCls}
+                          value={clientCardDrafts[selectedSettingsClient.id]?.adminRating ?? 0}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              notes: current[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? '',
+                              debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
+                              adminRating: Number(event.target.value),
+                              adminNote: current[selectedSettingsClient.id]?.adminNote ?? selectedSettingsClient.adminNote ?? '',
+                            },
+                          }))}
+                        >
+                          {[0, 1, 2, 3, 4, 5].map((value) => (
+                            <option key={value} value={value}>{value === 0 ? 'Без оценки' : `${value}/5`}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Внутреннее примечание</label>
+                        <textarea
+                          className={`${inputCls} min-h-[100px] resize-none`}
+                          placeholder="Видно только администратору"
+                          value={clientCardDrafts[selectedSettingsClient.id]?.adminNote ?? ''}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              notes: current[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? '',
+                              debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
+                              adminRating: current[selectedSettingsClient.id]?.adminRating ?? selectedSettingsClient.adminRating ?? 0,
+                              adminNote: event.target.value,
+                            },
+                          }))}
+                        />
+                      </div>
+                      <button
+                        onClick={() => { void handleSaveClientCard(selectedSettingsClient.id, { adminOnly: true }); }}
+                        disabled={savingClientId === selectedSettingsClient.id}
+                        className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+                        style={{ background: primary }}
+                      >
+                        {savingClientId === selectedSettingsClient.id ? 'Сохраняем...' : 'Сохранить карточку клиента'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="font-semibold mb-3">Автомобили клиента</div>
+                    {selectedSettingsClientVehicles.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>Автомобили ещё не добавлены</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedSettingsClientVehicles.map((vehicle, index) => (
+                          <div key={`${vehicle.car}-${vehicle.plate}-${index}`} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm">{vehicle.car || 'Авто без названия'}</div>
+                              <div className={`text-xs ${sub}`}>{vehicle.plate || 'Номер не указан'}</div>
+                            </div>
+                            <div className={`text-[11px] ${sub}`}>{index === 0 ? 'Основное' : `Авто ${index + 1}`}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="font-semibold mb-3">История услуг</div>
+                    {selectedSettingsClientBookings.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>У клиента пока нет записей</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {selectedSettingsClientBookings.map((booking) => (
+                          <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="min-w-0">
+                                <div className="font-medium text-sm">{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>
+                                  {booking.date} • {booking.time} • {booking.box || 'Без бокса'}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-[11px] ${ownerStatusBadge(booking.status)}`}>
+                                {ownerStatusLabel(booking.status)}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Стоимость</div>
+                                <div>{booking.price.toLocaleString('ru')} ₽</div>
+                              </div>
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Оплата</div>
+                                <div>{ownerPaymentLabel(booking.paymentType, booking.paymentSettled)}</div>
+                              </div>
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Авто</div>
+                                <div>{booking.car || 'Не указано'}</div>
+                              </div>
+                              <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
+                                <div className={`text-[11px] ${sub}`}>Номер</div>
+                                <div>{booking.plate || 'Не указан'}</div>
+                              </div>
+                            </div>
+                            <div className="mt-2 space-y-1 text-xs">
+                              <div className={sub}>Длительность: {booking.duration} мин</div>
+                              <div className={sub}>Мастера: {booking.workers.length ? booking.workers.map((worker) => worker.workerName).join(', ') : 'Не назначены'}</div>
+                              <div className={sub}>Комментарий: {booking.notes?.trim() ? booking.notes : 'Нет комментария'}</div>
+                              <div className={sub}>Создано: {booking.createdAt.toLocaleString('ru-RU')}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 

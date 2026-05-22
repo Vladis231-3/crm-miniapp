@@ -928,6 +928,70 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(update_response.status_code, 200, update_response.text)
         self.assertEqual(update_response.json()["status"], "in_progress")
 
+    def test_admin_can_change_booking_status_without_revalidating_unchanged_slot(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Booking, ScheduleEntry
+
+        admin_token = self.login_staff("admin", "admin")
+        booking_date = self.next_active_date()
+        weekday = datetime.strptime(booking_date, "%d.%m.%Y").weekday()
+        with SessionLocal() as db:
+            schedule_entry = db.scalar(
+                select(ScheduleEntry).where(ScheduleEntry.day_index == weekday)
+            )
+            self.assertIsNotNone(schedule_entry)
+            assert schedule_entry is not None
+            schedule_entry.open_time = "09:00"
+            schedule_entry.close_time = "19:00"
+            schedule_entry.active = True
+            db.commit()
+
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Alice",
+                "clientPhone": "+7 (999) 333-44-55",
+                "service": "Wash",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "17:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+
+        with SessionLocal() as db:
+            booking = db.get(Booking, booking_id)
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            booking.duration = 180
+            db.commit()
+
+        update_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={
+                "status": "in_progress",
+                "box": "Бокс 2",
+                "date": booking_date,
+                "time": "17:00",
+                "duration": 180,
+            },
+        )
+        self.assertEqual(update_response.status_code, 200, update_response.text)
+        self.assertEqual(update_response.json()["status"], "in_progress")
+        self.assertEqual(update_response.json()["box"], "Бокс 2")
+
     def test_booking_must_fit_schedule_window(self) -> None:
         token, _ = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
         response = self.client.post(
