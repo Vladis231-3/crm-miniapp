@@ -742,6 +742,11 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
                 f"ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT {boolean_default_sql(True)}"
             )
+    if "services" not in booking_columns and "bookings" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE bookings ADD COLUMN services TEXT DEFAULT '[]'"
+            )
     if "booking_workers" in inspector.get_table_names():
         ensure_postgres_varchar_length("booking_workers", "booking_id", 64)
         ensure_postgres_varchar_length("booking_workers", "worker_id", 64)
