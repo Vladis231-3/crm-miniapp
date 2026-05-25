@@ -89,7 +89,6 @@ const OWNER_CALENDAR_MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
-const OWNER_CALENDAR_HOUR_HEIGHT = 52;
 const OWNER_CALENDAR_DEFAULT_OPEN = 9 * 60;
 const OWNER_CALENDAR_DEFAULT_CLOSE = 19 * 60;
 
@@ -135,63 +134,46 @@ function ownerCalendarDayHours(schedule: ScheduleDay[], dateLabel: string): { op
   return { open, close: Math.max(open + 60, close), active: true };
 }
 
-function ownerCalendarLoadTone(count: number, maxCount: number): string {
+const OWNER_CALENDAR_LOAD_COLORS = {
+  empty: '#22C55E',
+  medium: '#EAB308',
+  heavy: '#EF4444',
+} as const;
+
+function ownerCalendarLoadTone(count: number, maxCount: number): keyof typeof OWNER_CALENDAR_LOAD_COLORS {
   if (count <= 0) return 'empty';
   const ratio = count / Math.max(1, maxCount);
-  if (ratio >= 0.85) return 'full';
-  if (ratio >= 0.55) return 'high';
-  if (ratio >= 0.3) return 'medium';
-  return 'low';
+  if (ratio >= 0.55) return 'heavy';
+  return 'medium';
 }
 
-type OwnerCalendarLayoutItem = {
-  booking: Booking;
-  startMinutes: number;
-  endMinutes: number;
-  column: number;
-  columnCount: number;
+type OwnerCalendarHourSlot = {
+  hourLabel: string;
+  bookings: Booking[];
 };
 
-function ownerLayoutDayBookings(bookings: Booking[]): OwnerCalendarLayoutItem[] {
-  const items = bookings
-    .map((booking) => {
-      const startMinutes = parseOwnerBookingMinutes(booking.time);
-      if (startMinutes === null) return null;
-      return {
-        booking,
-        startMinutes,
-        endMinutes: startMinutes + Math.max(15, booking.duration),
-      };
-    })
-    .filter((item): item is { booking: Booking; startMinutes: number; endMinutes: number } => item !== null)
-    .sort((left, right) => left.startMinutes - right.startMinutes);
-
-  const columnEnds: number[][] = [];
-  const layouts: OwnerCalendarLayoutItem[] = [];
-
-  for (const item of items) {
-    let columnIndex = columnEnds.findIndex((ends) => ends.every((end) => end <= item.startMinutes));
-    if (columnIndex === -1) {
-      columnIndex = columnEnds.length;
-      columnEnds.push([]);
+function ownerGroupBookingsByHour(
+  bookings: Booking[],
+  openMinutes: number,
+  closeMinutes: number,
+): OwnerCalendarHourSlot[] {
+  const timed = bookings.filter((booking) => parseOwnerBookingMinutes(booking.time) !== null);
+  const slots: OwnerCalendarHourSlot[] = [];
+  for (let slotStart = openMinutes; slotStart < closeMinutes; slotStart += 60) {
+    const hourLabel = `${String(Math.floor(slotStart / 60)).padStart(2, '0')}:00`;
+    const slotEnd = slotStart + 60;
+    const slotBookings = timed
+      .filter((booking) => {
+        const start = parseOwnerBookingMinutes(booking.time);
+        if (start === null) return false;
+        return start >= slotStart && start < slotEnd;
+      })
+      .sort((left, right) => left.time.localeCompare(right.time));
+    if (slotBookings.length > 0) {
+      slots.push({ hourLabel, bookings: slotBookings });
     }
-    columnEnds[columnIndex].push(item.endMinutes);
-    layouts.push({
-      booking: item.booking,
-      startMinutes: item.startMinutes,
-      endMinutes: item.endMinutes,
-      column: columnIndex,
-      columnCount: 1,
-    });
   }
-
-  return layouts.map((item) => {
-    const overlapping = layouts.filter((other) => (
-      other.startMinutes < item.endMinutes && other.endMinutes > item.startMinutes
-    ));
-    const columnCount = Math.max(1, ...overlapping.map((other) => other.column + 1));
-    return { ...item, columnCount };
-  });
+  return slots;
 }
 
 function ownerOpenBookingDetail(
@@ -1777,29 +1759,18 @@ export function OwnerApp() {
     .slice()
     .sort((left, right) => left.time.localeCompare(right.time));
   const ownerCalendarSelectedDayHours = ownerCalendarDayHours(schedule, selectedCalendarDate);
-  const ownerCalendarTimelineHours = Array.from(
-    { length: Math.max(1, Math.ceil((ownerCalendarSelectedDayHours.close - ownerCalendarSelectedDayHours.open) / 60)) },
-    (_, index) => {
-      const minutes = ownerCalendarSelectedDayHours.open + index * 60;
-      const hours = Math.floor(minutes / 60);
-      return `${String(hours).padStart(2, '0')}:00`;
-    },
+  const ownerCalendarHourSlots = ownerGroupBookingsByHour(
+    calendarBookings,
+    ownerCalendarSelectedDayHours.open,
+    ownerCalendarSelectedDayHours.close,
   );
-  const ownerCalendarTimelineHeight = ((ownerCalendarSelectedDayHours.close - ownerCalendarSelectedDayHours.open) / 60) * OWNER_CALENDAR_HOUR_HEIGHT;
-  const ownerCalendarDayLayouts = ownerLayoutDayBookings(calendarBookings);
   const ownerCalendarUntimedBookings = calendarBookings.filter((booking) => parseOwnerBookingMinutes(booking.time) === null);
   const ownerCalendarSelectedDayTitle = parseFlexibleDate(selectedCalendarDate)?.toLocaleDateString('ru-RU', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   }) || selectedCalendarDate;
-  const ownerCalendarLoadColors: Record<string, string> = {
-    empty: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-    low: `${primary}33`,
-    medium: `${primary}66`,
-    high: `${primary}99`,
-    full: primary,
-  };
+  const ownerCalendarLoadColors = OWNER_CALENDAR_LOAD_COLORS;
   const activeCalendarBoxes = boxes.filter((box) => box.active);
   const activeCalendarWorkers = workers.filter((worker) => worker.active);
   const calendarTimeSlots = Array.from(new Set(calendarBookings.map((booking) => booking.time))).sort((left, right) => left.localeCompare(right));
@@ -2047,9 +2018,8 @@ export function OwnerApp() {
                         const loadTone = ownerCalendarLoadTone(dayBookings.length, ownerCalendarMonthMaxLoad);
                         const loadWidth = dayBookings.length > 0
                           ? `${Math.max(24, Math.round((dayBookings.length / ownerCalendarMonthMaxLoad) * 100))}%`
-                          : '0%';
+                          : '100%';
                         const isToday = cell.dateLabel === todayLabel;
-                        const dayHours = ownerCalendarDayHours(schedule, cell.dateLabel);
                         return (
                           <button
                             key={cell.dateLabel}
@@ -2060,7 +2030,7 @@ export function OwnerApp() {
                             }}
                             className={`aspect-square rounded-xl p-1.5 flex flex-col items-stretch text-left transition-transform active:scale-[0.98] border ${
                               isToday ? 'border-2' : 'border-transparent'
-                            } ${!dayHours.active ? 'opacity-50' : ''}`}
+                            }`}
                             style={{
                               background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
                               borderColor: isToday ? primary : 'transparent',
@@ -2073,13 +2043,13 @@ export function OwnerApp() {
                               {dayBookings.length > 0 && (
                                 <span
                                   className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white min-w-[18px] text-center"
-                                  style={{ background: ownerCalendarLoadColors[loadTone] === ownerCalendarLoadColors.empty ? primary : ownerCalendarLoadColors[loadTone] }}
+                                  style={{ background: ownerCalendarLoadColors[loadTone] }}
                                 >
                                   {dayBookings.length}
                                 </span>
                               )}
                             </div>
-                            <div className="mt-auto pt-2 space-y-1">
+                            <div className="mt-auto pt-2">
                               <div
                                 className="h-1.5 rounded-full transition-all"
                                 style={{
@@ -2087,9 +2057,6 @@ export function OwnerApp() {
                                   background: ownerCalendarLoadColors[loadTone],
                                 }}
                               />
-                              {!dayHours.active && (
-                                <div className={`text-[9px] leading-none ${sub}`}>Выходной</div>
-                              )}
                             </div>
                           </button>
                         );
@@ -2100,10 +2067,9 @@ export function OwnerApp() {
                     <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Загруженность</div>
                     <div className="flex flex-wrap gap-3 text-xs">
                       {[
-                        { tone: 'low', label: 'Низкая' },
-                        { tone: 'medium', label: 'Средняя' },
-                        { tone: 'high', label: 'Высокая' },
-                        { tone: 'full', label: 'Пик' },
+                        { tone: 'empty' as const, label: 'Нет нагрузки' },
+                        { tone: 'medium' as const, label: 'Средняя' },
+                        { tone: 'heavy' as const, label: 'Высокая' },
                       ].map((item) => (
                         <div key={item.tone} className="flex items-center gap-2">
                           <span className="w-8 h-2 rounded-full" style={{ background: ownerCalendarLoadColors[item.tone] }} />
@@ -2143,7 +2109,7 @@ export function OwnerApp() {
                         <h2 className="font-semibold capitalize">{ownerCalendarSelectedDayTitle}</h2>
                         <div className={`text-sm ${sub} mt-1`}>
                           {calendarBookings.length} {calendarBookings.length === 1 ? 'запись' : calendarBookings.length < 5 ? 'записи' : 'записей'}
-                          {!ownerCalendarSelectedDayHours.active ? ' · выходной по графику' : ` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00–${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
+                          {` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00–${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
                         </div>
                       </div>
                       <CalendarDays size={22} style={{ color: primary }} />
@@ -2155,62 +2121,40 @@ export function OwnerApp() {
                       <p className={sub}>На этот день записей нет</p>
                     </div>
                   ) : (
-                    <div className={`${glass} rounded-2xl p-3 overflow-hidden`}>
-                      <div className="relative" style={{ height: ownerCalendarTimelineHeight }}>
-                        <div className="absolute left-0 top-0 bottom-0 w-12">
-                          {ownerCalendarTimelineHours.map((hourLabel, index) => (
-                            <div
-                              key={hourLabel}
-                              className={`absolute left-0 right-1 text-[11px] ${sub} -translate-y-1/2`}
-                              style={{ top: index * OWNER_CALENDAR_HOUR_HEIGHT }}
-                            >
-                              {hourLabel}
+                    <div className={`${glass} rounded-2xl p-3`}>
+                      <div className="divide-y" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                        {ownerCalendarHourSlots.map((slot) => (
+                          <div key={slot.hourLabel} className="flex gap-3 py-2 first:pt-0 last:pb-0">
+                            <div className={`w-10 shrink-0 pt-0.5 text-[11px] font-medium tabular-nums ${sub}`}>
+                              {slot.hourLabel}
                             </div>
-                          ))}
-                        </div>
-                        <div className="absolute left-12 right-0 top-0 bottom-0">
-                          {ownerCalendarTimelineHours.map((hourLabel, index) => (
-                            <div
-                              key={`line-${hourLabel}`}
-                              className="absolute left-0 right-0 border-t"
-                              style={{
-                                top: index * OWNER_CALENDAR_HOUR_HEIGHT,
-                                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                              }}
-                            />
-                          ))}
-                          {ownerCalendarDayLayouts.map((item) => {
-                            const top = ((item.startMinutes - ownerCalendarSelectedDayHours.open) / 60) * OWNER_CALENDAR_HOUR_HEIGHT;
-                            const height = Math.max(28, ((item.endMinutes - item.startMinutes) / 60) * OWNER_CALENDAR_HOUR_HEIGHT);
-                            const widthPercent = 100 / item.columnCount;
-                            const leftPercent = item.column * widthPercent;
-                            return (
-                              <button
-                                key={item.booking.id}
-                                type="button"
-                                onClick={() => ownerOpenBookingDetail(item.booking, setSelectedBooking, setShowBookingDetail)}
-                                className="absolute rounded-xl px-2 py-1.5 text-left overflow-hidden border shadow-sm"
-                                style={{
-                                  top,
-                                  height,
-                                  left: `calc(${leftPercent}% + 2px)`,
-                                  width: `calc(${widthPercent}% - 4px)`,
-                                  background: isDark ? 'rgba(74,168,255,0.22)' : 'rgba(10,132,255,0.14)',
-                                  borderColor: `${primary}55`,
-                                }}
-                              >
-                                <div className="text-[11px] font-semibold truncate">{item.booking.time} · {item.booking.clientName || 'Без имени'}</div>
-                                <div className={`text-[10px] truncate ${sub}`}>{item.booking.service}</div>
-                                <div className="mt-1 flex items-center gap-1 flex-wrap">
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${ownerStatusBadge(item.booking.status)}`}>
-                                    {ownerStatusLabel(item.booking.status)}
-                                  </span>
-                                  <span className={`text-[10px] ${sub}`}>{item.booking.box}</span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                            <div className="flex-1 min-w-0 space-y-1">
+                              {slot.bookings.map((booking) => (
+                                <button
+                                  key={booking.id}
+                                  type="button"
+                                  onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
+                                  className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left min-w-0 ${
+                                    isDark ? 'bg-white/[0.04] hover:bg-white/[0.07]' : 'bg-black/[0.03] hover:bg-black/[0.05]'
+                                  }`}
+                                >
+                                  <span className={`w-0.5 self-stretch rounded-full shrink-0 ${ownerStatusColor(booking.status)}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-medium truncate">
+                                      <span className="tabular-nums">{booking.time}</span>
+                                      {' '}
+                                      {booking.clientName || 'Без имени'}
+                                    </div>
+                                    <div className={`text-[11px] truncate ${sub}`}>
+                                      {booking.service}
+                                      {booking.box ? ` · ${booking.box}` : ''}
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -2237,35 +2181,6 @@ export function OwnerApp() {
                       </div>
                     </div>
                   )}
-                  <div className="mt-4 space-y-2">
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider px-1`}>Список на день</div>
-                    {calendarBookings.map((booking) => (
-                      <motion.button
-                        key={`list-${booking.id}`}
-                        whileTap={{ scale: 0.98 }}
-                        type="button"
-                        onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
-                        className={`${glass} rounded-2xl p-4 w-full text-left`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-1 self-stretch rounded-full shrink-0 ${ownerStatusColor(booking.status)}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start gap-2 mb-1">
-                              <div className="font-semibold text-sm truncate">{booking.time || '—'} · {booking.clientName || 'Без имени'}</div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
-                                {ownerStatusLabel(booking.status)}
-                              </span>
-                            </div>
-                            <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
-                            <div className="flex justify-between mt-2 gap-2">
-                              <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
-                              <span className="text-sm font-semibold shrink-0">{booking.price.toLocaleString('ru')} ₽</span>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
                 </>
               )}
             </motion.div>
