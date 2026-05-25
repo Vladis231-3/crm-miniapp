@@ -5,16 +5,16 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ShiftChecklist } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
-import { formatDate, getLastNDates, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
+import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
   normalizePlateInput,
@@ -82,6 +82,125 @@ function parseOwnerBookingMinutes(value: string): number | null {
   const minutes = Number(match[2]);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return null;
   return hours * 60 + minutes;
+}
+
+const OWNER_CALENDAR_WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const OWNER_CALENDAR_MONTHS = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+];
+const OWNER_CALENDAR_HOUR_HEIGHT = 52;
+const OWNER_CALENDAR_DEFAULT_OPEN = 9 * 60;
+const OWNER_CALENDAR_DEFAULT_CLOSE = 19 * 60;
+
+function ownerScheduleTimeToMinutes(value: string): number | null {
+  return parseOwnerBookingMinutes(value);
+}
+
+function ownerMonthTitle(monthDate: Date): string {
+  return `${OWNER_CALENDAR_MONTHS[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
+}
+
+function ownerBuildMonthCells(monthDate: Date): Array<{ date: Date | null; dateLabel: string }> {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const first = new Date(year, month, 1);
+  const offset = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: Array<{ date: Date | null; dateLabel: string }> = [];
+  for (let index = 0; index < offset; index += 1) {
+    cells.push({ date: null, dateLabel: '' });
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(year, month, day);
+    cells.push({ date, dateLabel: formatDate(date) });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push({ date: null, dateLabel: '' });
+  }
+  return cells;
+}
+
+function ownerCalendarDayHours(schedule: ScheduleDay[], dateLabel: string): { open: number; close: number; active: boolean } {
+  const parsedDate = parseFlexibleDate(dateLabel);
+  if (!parsedDate) {
+    return { open: OWNER_CALENDAR_DEFAULT_OPEN, close: OWNER_CALENDAR_DEFAULT_CLOSE, active: true };
+  }
+  const daySchedule = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
+  if (!daySchedule || !daySchedule.active) {
+    return { open: OWNER_CALENDAR_DEFAULT_OPEN, close: OWNER_CALENDAR_DEFAULT_CLOSE, active: false };
+  }
+  const open = ownerScheduleTimeToMinutes(daySchedule.open) ?? OWNER_CALENDAR_DEFAULT_OPEN;
+  const close = ownerScheduleTimeToMinutes(daySchedule.close) ?? OWNER_CALENDAR_DEFAULT_CLOSE;
+  return { open, close: Math.max(open + 60, close), active: true };
+}
+
+function ownerCalendarLoadTone(count: number, maxCount: number): string {
+  if (count <= 0) return 'empty';
+  const ratio = count / Math.max(1, maxCount);
+  if (ratio >= 0.85) return 'full';
+  if (ratio >= 0.55) return 'high';
+  if (ratio >= 0.3) return 'medium';
+  return 'low';
+}
+
+type OwnerCalendarLayoutItem = {
+  booking: Booking;
+  startMinutes: number;
+  endMinutes: number;
+  column: number;
+  columnCount: number;
+};
+
+function ownerLayoutDayBookings(bookings: Booking[]): OwnerCalendarLayoutItem[] {
+  const items = bookings
+    .map((booking) => {
+      const startMinutes = parseOwnerBookingMinutes(booking.time);
+      if (startMinutes === null) return null;
+      return {
+        booking,
+        startMinutes,
+        endMinutes: startMinutes + Math.max(15, booking.duration),
+      };
+    })
+    .filter((item): item is { booking: Booking; startMinutes: number; endMinutes: number } => item !== null)
+    .sort((left, right) => left.startMinutes - right.startMinutes);
+
+  const columnEnds: number[][] = [];
+  const layouts: OwnerCalendarLayoutItem[] = [];
+
+  for (const item of items) {
+    let columnIndex = columnEnds.findIndex((ends) => ends.every((end) => end <= item.startMinutes));
+    if (columnIndex === -1) {
+      columnIndex = columnEnds.length;
+      columnEnds.push([]);
+    }
+    columnEnds[columnIndex].push(item.endMinutes);
+    layouts.push({
+      booking: item.booking,
+      startMinutes: item.startMinutes,
+      endMinutes: item.endMinutes,
+      column: columnIndex,
+      columnCount: 1,
+    });
+  }
+
+  return layouts.map((item) => {
+    const overlapping = layouts.filter((other) => (
+      other.startMinutes < item.endMinutes && other.endMinutes > item.startMinutes
+    ));
+    const columnCount = Math.max(1, ...overlapping.map((other) => other.column + 1));
+    return { ...item, columnCount };
+  });
+}
+
+function ownerOpenBookingDetail(
+  booking: Booking,
+  setSelectedBooking: (booking: Booking) => void,
+  setShowBookingDetail: (value: boolean) => void,
+) {
+  setSelectedBooking(booking);
+  setShowBookingDetail(true);
 }
 
 function ownerBookingBlocksBox(booking: Booking, date: string, time: string, duration: number, boxName: string) {
@@ -158,6 +277,7 @@ export function OwnerApp() {
     isDark,
     toggleTheme,
     bookings,
+    schedule,
     clients,
     expenses,
     addExpense,
@@ -315,6 +435,11 @@ export function OwnerApp() {
   });
   const [employeeActionLoading, setEmployeeActionLoading] = useState<null | { type: 'hire' | 'fire'; workerId?: string }>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayLabel);
+  const [ownerCalendarMonth, setOwnerCalendarMonth] = useState(() => {
+    const today = parseFlexibleDate(todayLabel) || new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [ownerCalendarView, setOwnerCalendarView] = useState<'month' | 'day'>('month');
   const [clientSearch, setClientSearch] = useState('');
   const [settingsClientId, setSettingsClientId] = useState<string | null>(null);
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
@@ -1633,9 +1758,48 @@ export function OwnerApp() {
   ].filter(s => s.value > 0);
   const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
   const selectableCalendarDates = Array.from(new Set([todayLabel, tomorrowLabel, ...upcomingDates.slice(0, 5), ...bookings.map((booking) => booking.date).filter(Boolean)])).slice(0, 8);
-  const calendarBookings = bookings
-    .filter((booking) => booking.date === selectedCalendarDate)
+  const ownerCalendarRelevantBookings = bookings.filter((booking) => Boolean(booking.date?.trim()) && booking.status !== 'cancelled');
+  const ownerCalendarBookingsByDate = ownerCalendarRelevantBookings.reduce<Record<string, Booking[]>>((acc, booking) => {
+    const dateLabel = booking.date.trim();
+    acc[dateLabel] = [...(acc[dateLabel] || []), booking];
+    return acc;
+  }, {});
+  Object.values(ownerCalendarBookingsByDate).forEach((dayBookings) => {
+    dayBookings.sort((left, right) => left.time.localeCompare(right.time));
+  });
+  const ownerCalendarMonthCells = ownerBuildMonthCells(ownerCalendarMonth);
+  const ownerCalendarMonthLabel = ownerMonthTitle(ownerCalendarMonth);
+  const ownerCalendarMonthLoads = ownerCalendarMonthCells
+    .filter((cell) => cell.dateLabel)
+    .map((cell) => ownerCalendarBookingsByDate[cell.dateLabel]?.length || 0);
+  const ownerCalendarMonthMaxLoad = Math.max(1, ...ownerCalendarMonthLoads, 0);
+  const calendarBookings = (ownerCalendarBookingsByDate[selectedCalendarDate] || [])
+    .slice()
     .sort((left, right) => left.time.localeCompare(right.time));
+  const ownerCalendarSelectedDayHours = ownerCalendarDayHours(schedule, selectedCalendarDate);
+  const ownerCalendarTimelineHours = Array.from(
+    { length: Math.max(1, Math.ceil((ownerCalendarSelectedDayHours.close - ownerCalendarSelectedDayHours.open) / 60)) },
+    (_, index) => {
+      const minutes = ownerCalendarSelectedDayHours.open + index * 60;
+      const hours = Math.floor(minutes / 60);
+      return `${String(hours).padStart(2, '0')}:00`;
+    },
+  );
+  const ownerCalendarTimelineHeight = ((ownerCalendarSelectedDayHours.close - ownerCalendarSelectedDayHours.open) / 60) * OWNER_CALENDAR_HOUR_HEIGHT;
+  const ownerCalendarDayLayouts = ownerLayoutDayBookings(calendarBookings);
+  const ownerCalendarUntimedBookings = calendarBookings.filter((booking) => parseOwnerBookingMinutes(booking.time) === null);
+  const ownerCalendarSelectedDayTitle = parseFlexibleDate(selectedCalendarDate)?.toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }) || selectedCalendarDate;
+  const ownerCalendarLoadColors: Record<string, string> = {
+    empty: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    low: `${primary}33`,
+    medium: `${primary}66`,
+    high: `${primary}99`,
+    full: primary,
+  };
   const activeCalendarBoxes = boxes.filter((box) => box.active);
   const activeCalendarWorkers = workers.filter((worker) => worker.active);
   const calendarTimeSlots = Array.from(new Set(calendarBookings.map((booking) => booking.time))).sort((left, right) => left.localeCompare(right));
@@ -1831,54 +1995,278 @@ export function OwnerApp() {
           {/* ── CALENDAR ── */}
           {page === 'calendar' && (
             <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold">Сегодня — {todayLabel}</h2>
-                <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
-              </div>
-              <div className="space-y-3">
-                {todayBookings.length === 0 ? (
-                  <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
-                    <p className={sub}>Записей на сегодня нет</p>
+              {ownerCalendarView === 'month' ? (
+                <>
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setOwnerCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                        className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                        aria-label="Предыдущий месяц"
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <div className="text-center min-w-0">
+                        <div className="font-semibold">{ownerCalendarMonthLabel}</div>
+                        <div className={`text-xs ${sub} mt-0.5`}>Нажмите на день, чтобы открыть расписание по часам</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOwnerCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                        className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                        aria-label="Следующий месяц"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const today = parseFlexibleDate(todayLabel) || new Date();
+                        setOwnerCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                        setSelectedCalendarDate(todayLabel);
+                        setOwnerCalendarView('day');
+                      }}
+                      className="w-full mb-4 py-2.5 rounded-xl text-sm font-medium"
+                      style={{ background: `${primary}18`, color: primary }}
+                    >
+                      Сегодня · {todayLabel}
+                    </button>
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                      {OWNER_CALENDAR_WEEKDAYS.map((weekday) => (
+                        <div key={weekday} className={`text-center text-[11px] font-medium ${sub} py-1`}>{weekday}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {ownerCalendarMonthCells.map((cell, index) => {
+                        if (!cell.date || !cell.dateLabel) {
+                          return <div key={`empty-${index}`} className="aspect-square" />;
+                        }
+                        const dayBookings = ownerCalendarBookingsByDate[cell.dateLabel] || [];
+                        const loadTone = ownerCalendarLoadTone(dayBookings.length, ownerCalendarMonthMaxLoad);
+                        const loadWidth = dayBookings.length > 0
+                          ? `${Math.max(24, Math.round((dayBookings.length / ownerCalendarMonthMaxLoad) * 100))}%`
+                          : '0%';
+                        const isToday = cell.dateLabel === todayLabel;
+                        const dayHours = ownerCalendarDayHours(schedule, cell.dateLabel);
+                        return (
+                          <button
+                            key={cell.dateLabel}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCalendarDate(cell.dateLabel);
+                              setOwnerCalendarView('day');
+                            }}
+                            className={`aspect-square rounded-xl p-1.5 flex flex-col items-stretch text-left transition-transform active:scale-[0.98] border ${
+                              isToday ? 'border-2' : 'border-transparent'
+                            } ${!dayHours.active ? 'opacity-50' : ''}`}
+                            style={{
+                              background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                              borderColor: isToday ? primary : 'transparent',
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              <span className={`text-sm font-semibold ${isToday ? '' : ''}`} style={isToday ? { color: primary } : undefined}>
+                                {cell.date.getDate()}
+                              </span>
+                              {dayBookings.length > 0 && (
+                                <span
+                                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white min-w-[18px] text-center"
+                                  style={{ background: ownerCalendarLoadColors[loadTone] === ownerCalendarLoadColors.empty ? primary : ownerCalendarLoadColors[loadTone] }}
+                                >
+                                  {dayBookings.length}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-auto pt-2 space-y-1">
+                              <div
+                                className="h-1.5 rounded-full transition-all"
+                                style={{
+                                  width: loadWidth,
+                                  background: ownerCalendarLoadColors[loadTone],
+                                }}
+                              />
+                              {!dayHours.active && (
+                                <div className={`text-[9px] leading-none ${sub}`}>Выходной</div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : todayBookings.map(booking => (
-                  <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
-                    onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }}
-                    className={`${glass} rounded-2xl p-4 w-full text-left`}>
-                    <div className="flex items-start gap-3">
-                      <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="font-semibold text-sm">{booking.time} · {booking.clientName}</div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Загруженность</div>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {[
+                        { tone: 'low', label: 'Низкая' },
+                        { tone: 'medium', label: 'Средняя' },
+                        { tone: 'high', label: 'Высокая' },
+                        { tone: 'full', label: 'Пик' },
+                      ].map((item) => (
+                        <div key={item.tone} className="flex items-center gap-2">
+                          <span className="w-8 h-2 rounded-full" style={{ background: ownerCalendarLoadColors[item.tone] }} />
+                          <span className={sub}>{item.label}</span>
                         </div>
-                        <div className={`text-sm ${sub}`}>{booking.service}</div>
-                        <div className="flex justify-between mt-2">
-                          <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
-                          <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setOwnerCalendarView('month')}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                    >
+                      <ArrowLeft size={16} />
+                      Месяц
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCalendarDate(todayLabel);
+                        const today = parseFlexibleDate(todayLabel) || new Date();
+                        setOwnerCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                      }}
+                      className="px-3 py-2 rounded-xl text-sm"
+                      style={{ background: `${primary}18`, color: primary }}
+                    >
+                      Сегодня
+                    </button>
+                  </div>
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <div>
+                        <h2 className="font-semibold capitalize">{ownerCalendarSelectedDayTitle}</h2>
+                        <div className={`text-sm ${sub} mt-1`}>
+                          {calendarBookings.length} {calendarBookings.length === 1 ? 'запись' : calendarBookings.length < 5 ? 'записи' : 'записей'}
+                          {!ownerCalendarSelectedDayHours.active ? ' · выходной по графику' : ` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00–${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
+                        </div>
+                      </div>
+                      <CalendarDays size={22} style={{ color: primary }} />
+                    </div>
+                  </div>
+                  {calendarBookings.length === 0 ? (
+                    <div className={`${glass} rounded-2xl p-8 text-center`}>
+                      <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                      <p className={sub}>На этот день записей нет</p>
+                    </div>
+                  ) : (
+                    <div className={`${glass} rounded-2xl p-3 overflow-hidden`}>
+                      <div className="relative" style={{ height: ownerCalendarTimelineHeight }}>
+                        <div className="absolute left-0 top-0 bottom-0 w-12">
+                          {ownerCalendarTimelineHours.map((hourLabel, index) => (
+                            <div
+                              key={hourLabel}
+                              className={`absolute left-0 right-1 text-[11px] ${sub} -translate-y-1/2`}
+                              style={{ top: index * OWNER_CALENDAR_HOUR_HEIGHT }}
+                            >
+                              {hourLabel}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="absolute left-12 right-0 top-0 bottom-0">
+                          {ownerCalendarTimelineHours.map((hourLabel, index) => (
+                            <div
+                              key={`line-${hourLabel}`}
+                              className="absolute left-0 right-0 border-t"
+                              style={{
+                                top: index * OWNER_CALENDAR_HOUR_HEIGHT,
+                                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                              }}
+                            />
+                          ))}
+                          {ownerCalendarDayLayouts.map((item) => {
+                            const top = ((item.startMinutes - ownerCalendarSelectedDayHours.open) / 60) * OWNER_CALENDAR_HOUR_HEIGHT;
+                            const height = Math.max(28, ((item.endMinutes - item.startMinutes) / 60) * OWNER_CALENDAR_HOUR_HEIGHT);
+                            const widthPercent = 100 / item.columnCount;
+                            const leftPercent = item.column * widthPercent;
+                            return (
+                              <button
+                                key={item.booking.id}
+                                type="button"
+                                onClick={() => ownerOpenBookingDetail(item.booking, setSelectedBooking, setShowBookingDetail)}
+                                className="absolute rounded-xl px-2 py-1.5 text-left overflow-hidden border shadow-sm"
+                                style={{
+                                  top,
+                                  height,
+                                  left: `calc(${leftPercent}% + 2px)`,
+                                  width: `calc(${widthPercent}% - 4px)`,
+                                  background: isDark ? 'rgba(74,168,255,0.22)' : 'rgba(10,132,255,0.14)',
+                                  borderColor: `${primary}55`,
+                                }}
+                              >
+                                <div className="text-[11px] font-semibold truncate">{item.booking.time} · {item.booking.clientName || 'Без имени'}</div>
+                                <div className={`text-[10px] truncate ${sub}`}>{item.booking.service}</div>
+                                <div className="mt-1 flex items-center gap-1 flex-wrap">
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${ownerStatusBadge(item.booking.status)}`}>
+                                    {ownerStatusLabel(item.booking.status)}
+                                  </span>
+                                  <span className={`text-[10px] ${sub}`}>{item.booking.box}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
-                  </motion.button>
-                ))}
-              </div>
-              {bookings.filter(b => b.date !== todayLabel).length > 0 && (
-                <div className="mt-6">
-                  <h3 className={`text-sm font-medium ${sub} mb-3`}>Другие записи</h3>
-                  {bookings.filter(b => b.date !== todayLabel).map(booking => (
-                    <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
-                      onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }}
-                      className={`${glass} rounded-2xl p-4 w-full text-left mb-3`}>
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="text-sm font-medium">{booking.clientName}</div>
-                          <div className={`text-xs ${sub}`}>{booking.service} · {booking.date}</div>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                  )}
+                  {ownerCalendarUntimedBookings.length > 0 && (
+                    <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без точного времени</div>
+                      <div className="space-y-2">
+                        {ownerCalendarUntimedBookings.map((booking) => (
+                          <button
+                            key={booking.id}
+                            type="button"
+                            onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
+                            className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                {ownerStatusLabel(booking.status)}
+                              </span>
+                            </div>
+                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} · {booking.box}</div>
+                          </button>
+                        ))}
                       </div>
-                    </motion.button>
-                  ))}
-                </div>
+                    </div>
+                  )}
+                  <div className="mt-4 space-y-2">
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider px-1`}>Список на день</div>
+                    {calendarBookings.map((booking) => (
+                      <motion.button
+                        key={`list-${booking.id}`}
+                        whileTap={{ scale: 0.98 }}
+                        type="button"
+                        onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
+                        className={`${glass} rounded-2xl p-4 w-full text-left`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-1 self-stretch rounded-full shrink-0 ${ownerStatusColor(booking.status)}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start gap-2 mb-1">
+                              <div className="font-semibold text-sm truncate">{booking.time || '—'} · {booking.clientName || 'Без имени'}</div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                {ownerStatusLabel(booking.status)}
+                              </span>
+                            </div>
+                            <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
+                            <div className="flex justify-between mt-2 gap-2">
+                              <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                              <span className="text-sm font-semibold shrink-0">{booking.price.toLocaleString('ru')} ₽</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </>
               )}
             </motion.div>
           )}
