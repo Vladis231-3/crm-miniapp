@@ -649,6 +649,11 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
                 "ALTER TABLE clients ADD COLUMN admin_note TEXT DEFAULT ''"
             )
+    if "referral_source" not in client_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE clients ADD COLUMN referral_source VARCHAR(64) DEFAULT ''"
+            )
     if "clients" in inspector.get_table_names():
         ensure_postgres_varchar_length("clients", "id", 64)
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
