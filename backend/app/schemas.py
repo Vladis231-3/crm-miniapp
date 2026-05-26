@@ -195,6 +195,7 @@ class ClientSummaryPayload(BaseModel):
     debtBalance: int = 0
     adminRating: int = Field(default=0, ge=0, le=5)
     adminNote: str = ""
+    referralSource: str = ""
 
 
 class ClientCreateRequest(BaseModel):
@@ -203,6 +204,7 @@ class ClientCreateRequest(BaseModel):
     car: str = ""
     plate: str = ""
     notes: str = ""
+    referralSource: str = ""
 
     @field_validator("name")
     @classmethod
@@ -816,6 +818,7 @@ class ClientCardUpdateRequest(BaseModel):
     debtBalance: int | None = None
     adminRating: int | None = Field(default=None, ge=0, le=5)
     adminNote: str | None = None
+    referralSource: str | None = None
 
 
 class NotificationCreateRequest(BaseModel):

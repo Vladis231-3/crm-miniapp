@@ -1121,6 +1121,7 @@ def _client_summary_payload(
         debtBalance=client.debt_balance,
         adminRating=max(0, min(5, client.admin_rating or 0)),
         adminNote=client.admin_note or "",
+        referralSource=client.referral_source or "",
     )
 
 
@@ -5030,6 +5031,7 @@ def create_client(
         car=primary_vehicle.car,
         plate=primary_vehicle.plate,
         notes=payload.notes.strip(),
+        referral_source=payload.referralSource.strip(),
         registered=True,
     )
     db.add(client)
@@ -5062,6 +5064,8 @@ def update_client_card(
         client.admin_rating = max(0, min(5, int(updates["adminRating"])))
     if "adminNote" in updates and updates["adminNote"] is not None:
         client.admin_note = updates["adminNote"].strip()
+    if "referralSource" in updates and updates["referralSource"] is not None:
+        client.referral_source = updates["referralSource"].strip()
     client.updated_at = _now()
     db.commit()
     db.refresh(client)

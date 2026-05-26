@@ -28,6 +28,7 @@ class Client(Base):
     debt_balance: Mapped[int] = mapped_column(Integer, default=0)
     admin_rating: Mapped[int] = mapped_column(Integer, default=0)
     admin_note: Mapped[str] = mapped_column(Text, default="")
+    referral_source: Mapped[str] = mapped_column(String(64), default="")
     registered: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now

@@ -44,6 +44,7 @@ export interface RegisteredClient {
   debtBalance: number;
   adminRating: number;
   adminNote: string;
+  referralSource: string;
 }
 
 export interface ClientCreateInput {
@@ -52,6 +53,7 @@ export interface ClientCreateInput {
   car?: string;
   plate?: string;
   notes?: string;
+  referralSource?: string;
 }
 
 export interface Worker {
@@ -517,7 +519,7 @@ interface AppContextType {
   switchRole: (targetRole: Role) => Promise<void>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
   addClient: (client: ClientCreateInput) => Promise<RegisteredClient>;
-  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) => Promise<void>;
+  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'>>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
@@ -959,7 +961,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return created;
   }
 
-  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote'>>) {
+  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'>>) {
     const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
     setClients((current) => current.map((client) => (client.id === clientId ? saved : client)));
   }
