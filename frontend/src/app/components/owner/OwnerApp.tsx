@@ -378,7 +378,7 @@ export function OwnerApp() {
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
-  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '' });
+  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
   const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
   const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
 
@@ -426,7 +426,7 @@ export function OwnerApp() {
   const [settingsClientId, setSettingsClientId] = useState<string | null>(null);
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
   const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
-  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string; adminRating: number; adminNote: string }>>({});
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
@@ -554,6 +554,7 @@ export function OwnerApp() {
           {
             notes: client.notes || '',
             debtBalance: String(client.debtBalance || 0),
+            referralSource: client.referralSource || '',
           },
         ]),
       ),
@@ -1220,12 +1221,13 @@ export function OwnerApp() {
     try {
       setSavingClientId(clientId);
       await updateClientCard(clientId, options?.adminOnly
-        ? { adminRating: draft.adminRating, adminNote: draft.adminNote }
+        ? { adminRating: draft.adminRating, adminNote: draft.adminNote, referralSource: draft.referralSource }
         : {
           notes: draft.notes,
           debtBalance: Number(draft.debtBalance || 0),
           adminRating: draft.adminRating,
           adminNote: draft.adminNote,
+          referralSource: draft.referralSource,
         });
       setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
@@ -1425,8 +1427,9 @@ export function OwnerApp() {
         car: normalizeVehicleInput(createClientForm.car),
         plate: normalizePlateInput(createClientForm.plate),
         notes: createClientForm.notes.trim(),
+        referralSource: createClientForm.referralSource,
       });
-      setCreateClientForm({ name: '', phone: '', car: '', plate: '', notes: '' });
+      setCreateClientForm({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
       setCreateClientErrors({});
       setShowCreateClient(false);
       setBottomToast('Клиент создан. Можно добавить прошлую запись в его историю.');
@@ -3458,7 +3461,7 @@ export function OwnerApp() {
                       ))}
                     </div>
                     <div className={`mt-3 text-xs ${sub} flex items-center justify-between gap-3`}>
-                      <span>Открой карточку, чтобы увидеть все услуги и детали клиента</span>
+                      <span>{client.referralSource ? `Откуда: ${client.referralSource}` : 'Открой карточку, чтобы увидеть все услуги и детали клиента'}</span>
                       <span>Рейтинг: {client.adminRating ? `${client.adminRating}/5` : 'без оценки'}</span>
                     </div>
                   </div>
@@ -3489,6 +3492,9 @@ export function OwnerApp() {
                         ) : (
                           <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
                         )}
+                        <div className={`text-sm ${sub} mt-1`}>
+                          {selectedSettingsClient.referralSource ? `Узнал: ${selectedSettingsClient.referralSource}` : 'Откуда узнал: не указано'}
+                        </div>
                       </div>
                       <button
                         onClick={() => void handleDeleteSettingsClient(selectedSettingsClient.id, selectedSettingsClient.name)}
@@ -3557,6 +3563,7 @@ export function OwnerApp() {
                               debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
                               adminRating: Number(event.target.value),
                               adminNote: current[selectedSettingsClient.id]?.adminNote ?? selectedSettingsClient.adminNote ?? '',
+                              referralSource: current[selectedSettingsClient.id]?.referralSource ?? selectedSettingsClient.referralSource ?? '',
                             },
                           }))}
                         >
@@ -3578,12 +3585,37 @@ export function OwnerApp() {
                               debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
                               adminRating: current[selectedSettingsClient.id]?.adminRating ?? selectedSettingsClient.adminRating ?? 0,
                               adminNote: event.target.value,
+                              referralSource: current[selectedSettingsClient.id]?.referralSource ?? selectedSettingsClient.referralSource ?? '',
                             },
                           }))}
                         />
                       </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                        <select
+                          className={selectCls}
+                          value={clientCardDrafts[selectedSettingsClient.id]?.referralSource ?? ''}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              notes: current[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? '',
+                              debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
+                              adminRating: current[selectedSettingsClient.id]?.adminRating ?? selectedSettingsClient.adminRating ?? 0,
+                              adminNote: current[selectedSettingsClient.id]?.adminNote ?? selectedSettingsClient.adminNote ?? '',
+                              referralSource: event.target.value,
+                            },
+                          }))}
+                        >
+                          <option value="">Не указано</option>
+                          <option value="Авито">Авито</option>
+                          <option value="Яндекс карты">Яндекс карты</option>
+                          <option value="2ГИС">2ГИС</option>
+                          <option value="Яндекс бизнес">Яндекс бизнес</option>
+                          <option value="Рекомендации">Рекомендации</option>
+                        </select>
+                      </div>
                       <button
-                        onClick={() => { void handleSaveClientCard(selectedSettingsClient.id, { adminOnly: true }); }}
+                        onClick={() => { void handleSaveClientCard(selectedSettingsClient.id); }}
                         disabled={savingClientId === selectedSettingsClient.id}
                         className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
                         style={{ background: primary }}
@@ -4746,6 +4778,21 @@ export function OwnerApp() {
                     value={createClientForm.notes}
                     onChange={(event) => setCreateClientForm((current) => ({ ...current, notes: event.target.value }))}
                   />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                  <select
+                    className={selectCls}
+                    value={createClientForm.referralSource}
+                    onChange={(event) => setCreateClientForm((current) => ({ ...current, referralSource: event.target.value }))}
+                  >
+                    <option value="">Не указано</option>
+                    <option value="Авито">Авито</option>
+                    <option value="Яндекс карты">Яндекс карты</option>
+                    <option value="2ГИС">2ГИС</option>
+                    <option value="Яндекс бизнес">Яндекс бизнес</option>
+                    <option value="Рекомендации">Рекомендации</option>
+                  </select>
                 </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
                   После создания откроется форма прошлой записи для истории клиента.
