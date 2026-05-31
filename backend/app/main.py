@@ -760,12 +760,42 @@ def _apply_runtime_migrations() -> None:
         with engine.begin() as connection:
             connection.exec_driver_sql(
                 "ALTER TABLE boxes ADD COLUMN resource_group VARCHAR(64) DEFAULT 'wash'"
-            )
-    booking_columns = (
-        {column["name"] for column in inspector.get_columns("bookings")}
-        if "bookings" in inspector.get_table_names()
-        else set()
-    )
+                    )
+            if "schedule_entries" in inspector.get_table_names():
+                sched_columns = {col["name"] for col in inspector.get_columns("schedule_entries")}
+                if "day_index" in sched_columns:
+                    from sqlalchemy import text
+                    with engine.begin() as connection:
+                        rows = connection.execute(text("SELECT day_index, day_label FROM schedule_entries")).fetchall()
+                        index_to_label = {row[0]: row[1] for row in rows}
+                        has_old_scheme = index_to_label.get(0) == "Пн"
+                        if has_old_scheme:
+                            connection.exec_driver_sql(
+                                "UPDATE schedule_entries SET day_index = CASE day_index "
+                                "WHEN 0 THEN 2 WHEN 1 THEN 3 WHEN 2 THEN 4 WHEN 3 THEN 5 "
+                                "WHEN 4 THEN 6 WHEN 5 THEN 0 WHEN 6 THEN 1 END"
+                            )
+                            connection.exec_driver_sql(
+                                "UPDATE schedule_entries SET day_label = CASE day_index "
+                                "WHEN 0 THEN 'Сб' WHEN 1 THEN 'Вс' WHEN 2 THEN 'Пн' WHEN 3 THEN 'Вт' "
+                                "WHEN 4 THEN 'Ср' WHEN 5 THEN 'Чт' WHEN 6 THEN 'Пт' END"
+                            )
+
+    # Миграция: columns.deleted_at для clients и bookings
+    if "clients" in inspector.get_table_names():
+        client_columns = {col["name"] for col in inspector.get_columns("clients")}
+        if "deleted_at" not in client_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE clients ADD COLUMN deleted_at TIMESTAMP"
+                )
+    if "bookings" in inspector.get_table_names():
+        booking_columns = {col["name"] for col in inspector.get_columns("bookings")}
+        if "deleted_at" not in booking_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN deleted_at TIMESTAMP"
+                )
     if (
         "payment_settled" not in booking_columns
         and "bookings" in inspector.get_table_names()
