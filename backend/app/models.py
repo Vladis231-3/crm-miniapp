@@ -36,6 +36,9 @@ class Client(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     bookings: Mapped[list["Booking"]] = relationship(back_populates="client")
 
@@ -148,7 +151,7 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    client_id: Mapped[str] = mapped_column(String(64), ForeignKey("clients.id"))
+    client_id: Mapped[str] = mapped_column(String(64), ForeignKey("clients.id", ondelete="CASCADE"))
     client_name: Mapped[str] = mapped_column(String(120))
     client_phone: Mapped[str] = mapped_column(String(64))
     service: Mapped[str] = mapped_column(String(120))
@@ -168,6 +171,9 @@ class Booking(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(
@@ -180,8 +186,8 @@ class BookingWorker(Base):
     __tablename__ = "booking_workers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    booking_id: Mapped[str] = mapped_column(String(64), ForeignKey("bookings.id"))
-    worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
+    booking_id: Mapped[str] = mapped_column(String(64), ForeignKey("bookings.id", ondelete="CASCADE"))
+    worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id", ondelete="CASCADE"))
     worker_name: Mapped[str] = mapped_column(String(120))
     percent: Mapped[int] = mapped_column(Integer)
 

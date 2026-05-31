@@ -224,6 +224,7 @@ def build_owner_summary_export(
     company_name: str,
     bookings: list[Booking],
     services: list[Service],
+    penalties: list[Penalty] | None = None,
     period: ReportPeriod,
     segment: ReportSegment,
     now: datetime | None = None,
@@ -236,7 +237,11 @@ def build_owner_summary_export(
         segment=segment,
         now=now,
     )
-    data = _build_owner_summary_export_data(owner_name=owner.name.strip() or owner.login, context=context)
+    data = _build_owner_summary_export_data(
+        owner_name=owner.name.strip() or owner.login,
+        context=context,
+        penalties=penalties or [],
+    )
     slug = data.generated_at.strftime("%Y-%m-%d-%H%M")
     file_name = f"owner-summary-{period}-{segment}-{slug}.xlsx"
     metrics = {metric.label: metric.value for metric in data.metrics}
@@ -302,7 +307,12 @@ def _summary_header(context: OwnerSummaryContext) -> str:
     return f"{context.company_name}\n{context.title}\nПериод: {context.period_label}"
 
 
-def _build_owner_summary_export_data(*, owner_name: str, context: OwnerSummaryContext) -> OwnerSummaryExportData:
+def _build_owner_summary_export_data(
+    *,
+    owner_name: str,
+    context: OwnerSummaryContext,
+    penalties: list[Penalty] | None = None,
+) -> OwnerSummaryExportData:
     sorted_items = sorted(context.filtered, key=lambda item: _booking_sort_key(item[0]), reverse=True)
     bookings = [booking for booking, _service in sorted_items]
     completed = [booking for booking in bookings if booking.status == "completed"]
@@ -323,8 +333,12 @@ def _build_owner_summary_export_data(*, owner_name: str, context: OwnerSummaryCo
         link.worker_id or link.worker_name
         for booking in bookings
         for link in booking.worker_links
-        if (link.worker_id or link.worker_name)
     }
+
+    # Build complaints_by_worker for adjusted percent calculation
+    complaints_by_worker: dict[str, list[Penalty]] = {}
+    for penalty in (penalties or []):
+        complaints_by_worker.setdefault(penalty.worker_id, []).append(penalty)
     unique_boxes = {booking.box.strip() for booking in bookings if booking.box.strip()}
 
     metrics = [
@@ -536,7 +550,15 @@ def _build_owner_summary_export_data(*, owner_name: str, context: OwnerSummaryCo
             if booking.status == "completed":
                 worker_row["completed"] += 1
                 worker_row["revenue"] += booking.price
-                worker_row["earned"] += round(booking.price * link.percent / 100)
+                worker_penalties = complaints_by_worker.get(link.worker_id, [])
+                percent = adjusted_booking_percent(
+                    link.percent,
+                    worker_penalties,
+                    date_value=booking.date,
+                    time_value=booking.time,
+                    fallback=booking.created_at,
+                )
+                worker_row["earned"] += round(booking.price * percent / 100)
             elif booking.status in {"scheduled", "in_progress"}:
                 worker_row["active"] += 1
             elif booking.status == "admin_review":
@@ -734,6 +756,7 @@ def build_owner_export(
     services: list[Service],
     incomes: list[Income] | None = None,
     payroll_entries: list[PayrollEntry] | None = None,
+    shift_pay_by_worker: dict[str, int] | None = None,
 ) -> GeneratedExport:
     data = _build_export_data(
         owner=owner,
@@ -746,6 +769,7 @@ def build_owner_export(
         services=services,
         incomes=incomes or [],
         payroll_entries=payroll_entries or [],
+        shift_pay_by_worker=shift_pay_by_worker or {},
     )
     slug = data.generated_at.strftime("%Y-%m-%d-%H%M")
     if kind == "report":
@@ -775,6 +799,7 @@ def _build_export_data(
     services: list[Service],
     incomes: list[Income],
     payroll_entries: list[PayrollEntry] | None = None,
+    shift_pay_by_worker: dict[str, int] | None = None,
 ) -> OwnerExportData:
     generated_at = datetime.now().astimezone()
     bookings = sorted(bookings, key=_booking_sort_key, reverse=True)
@@ -811,6 +836,7 @@ def _build_export_data(
                 "total": 0,
                 "completed": 0,
                 "active": 0,
+                "admin_review": 0,
                 "cancelled": 0,
                 "revenue": 0,
                 "last": None,
@@ -822,6 +848,8 @@ def _build_export_data(
             row["revenue"] += booking.price
         elif booking.status in {"scheduled", "in_progress"}:
             row["active"] += 1
+        elif booking.status == "admin_review":
+            row["admin_review"] += 1
         elif booking.status == "cancelled":
             row["cancelled"] += 1
         dt = _booking_datetime(booking)
@@ -829,13 +857,13 @@ def _build_export_data(
             row["last"] = dt
     service_rows = [
         [
-            row["category"], row["name"], row["total"], row["completed"], row["active"], row["cancelled"],
+            row["category"], row["name"], row["total"], row["completed"], row["active"], row["admin_review"], row["cancelled"],
             row["revenue"], round(row["revenue"] / row["completed"]) if row["completed"] else 0,
             _format_datetime(row["last"]),
         ]
         for row in service_rollup.values()
     ]
-    service_rows.sort(key=lambda item: (item[6], item[3], item[2], item[1]), reverse=True)
+    service_rows.sort(key=lambda item: (item[7], item[3], item[2], item[1]), reverse=True)
 
     complaints_by_worker: dict[str, list[Penalty]] = {worker.id: [] for worker in workers}
     for penalty in penalties:
@@ -849,6 +877,7 @@ def _build_export_data(
 
     payroll_rows: list[list[Any]] = []
     total_payroll = 0
+    total_overpaid = 0
     active_assignments = scheduled + in_progress
     for worker in workers:
         worker_completed = [booking for booking in completed if any(link.worker_id == worker.id for link in booking.worker_links)]
@@ -881,6 +910,7 @@ def _build_export_data(
         total_accrued = (
             earned
             + worker.salary_base
+            + (shift_pay_by_worker or {}).get(worker.id, 0)
             + bonus_total
             + max(adjustment_total, 0)
         )
@@ -888,7 +918,10 @@ def _build_export_data(
             advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
         )
         balance = total_accrued - total_deducted
-        total_payroll += max(0, balance)
+        if balance >= 0:
+            total_payroll += balance
+        else:
+            total_overpaid += abs(balance)
         payroll_rows.append([
             worker.name,
             "Да" if worker.active else "Нет",
@@ -914,6 +947,7 @@ def _build_export_data(
                 "total": 0,
                 "completed": 0,
                 "active": 0,
+                "admin_review": 0,
                 "cancelled": 0,
                 "revenue": 0,
                 "first": None,
@@ -926,6 +960,8 @@ def _build_export_data(
             row["revenue"] += booking.price
         elif booking.status in {"scheduled", "in_progress"}:
             row["active"] += 1
+        elif booking.status == "admin_review":
+            row["admin_review"] += 1
         elif booking.status == "cancelled":
             row["cancelled"] += 1
         vehicle = " / ".join(part for part in [booking.car or "", booking.plate or ""] if part)
@@ -937,10 +973,10 @@ def _build_export_data(
         if dt and (row["last"] is None or dt > row["last"]):
             row["last"] = dt
     client_rows = [
-        [row["name"], row["phone"], row["vehicle"], row["total"], row["completed"], row["active"], row["cancelled"], row["revenue"], _format_datetime(row["first"]), _format_datetime(row["last"])]
+        [row["name"], row["phone"], row["vehicle"], row["total"], row["completed"], row["active"], row["admin_review"], row["cancelled"], row["revenue"], _format_datetime(row["first"]), _format_datetime(row["last"])]
         for row in client_rollup.values()
     ]
-    client_rows.sort(key=lambda item: (item[7], item[3], item[0]), reverse=True)
+    client_rows.sort(key=lambda item: (item[8], item[3], item[0]), reverse=True)
 
     expense_rollup: dict[str, list[int]] = {}
     for expense in expenses:
@@ -1017,6 +1053,7 @@ def _build_export_data(
         ExportMetric("Конверсия в завершение", f"{completion_rate}%"),
         ExportMetric("Доля отмен", f"{cancellation_rate}%"),
         ExportMetric("К выплате сотрудникам", _format_money(total_payroll)),
+        ExportMetric("К возврату (переплата)", _format_money(total_overpaid)),
         ExportMetric("Склад на сумму", _format_money(stock_value)),
         ExportMetric("Уникальных клиентов", str(len(client_rows))),
         ExportMetric("Активных жалоб", str(sum(1 for row in complaint_rows if row[5] == "Активна"))),
@@ -1059,14 +1096,16 @@ def _render_excel_report(data: OwnerExportData) -> bytes:
     _style_table(summary, 6, 7, 6 + len(data.metrics), 2)
     _autosize(summary)
 
-    _append_sheet(workbook, "Услуги", ["Категория", "Услуга", "Всего", "Завершено", "Активно", "Отменено", "Выручка", "Средний чек", "Последняя запись"], data.service_rows, currency_cols={7, 8})
+    _append_sheet(workbook, "Услуги", ["Категория", "Услуга", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Средний чек", "Последняя запись"], data.service_rows, currency_cols={8, 9})
     _append_sheet(workbook, "Сотрудники", ["Сотрудник", "Активен", "%", "Оклад", "Завершено", "Активных задач", "Заработано", "Активные жалобы", "Эффект", "К выплате"], data.payroll_rows, currency_cols={4, 7, 10})
-    _append_sheet(workbook, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "Отменено", "Выручка", "Первая запись", "Последняя запись"], data.client_rows, currency_cols={8})
+    _append_sheet(workbook, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"], data.client_rows, currency_cols={9})
     _append_sheet(workbook, "Реестр записей", ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Комментарий"], data.booking_rows, currency_cols={11})
     _append_sheet(workbook, "Расходы", ["Категория", "Операций", "Сумма", "Доля %"], data.expense_category_rows, currency_cols={3})
     _append_sheet(workbook, "Журнал расходов", ["Дата", "Категория", "Статья", "Сумма", "Примечание"], data.expense_rows, currency_cols={4})
     _append_sheet(workbook, "Склад", ["Категория", "Позиция", "Остаток", "Ед.", "Цена за ед.", "Стоимость", "Низкий остаток"], data.stock_rows, currency_cols={5, 6})
     _append_sheet(workbook, "Жалобы", ["Сотрудник", "Заголовок", "Причина", "Создана", "Активна до", "Статус", "Снята"], data.complaint_rows)
+    if data.income_rows:
+        _append_sheet(workbook, "Доп. доходы", ["Дата", "Источник", "Сумма", "Примечание"], data.income_rows, currency_cols={3})
 
     buffer = io.BytesIO()
     workbook.save(buffer)
@@ -1138,7 +1177,7 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
     _append_sheet(
         workbook,
         "Сотрудники",
-        ["Сотрудник", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Начислено", "Средний %", "Минут", "Последняя запись"],
+        ["Сотрудник", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Заработано (% от услуг)", "Средний %", "Минут", "Последняя запись"],
         data.worker_rows,
         currency_cols={7, 8},
     )
@@ -1204,13 +1243,15 @@ def _render_pdf_report(data: OwnerExportData) -> bytes:
         Spacer(1, 8),
     ]
 
-    _pdf_section(story, section_style, font_name, "Услуги и выручка", ["Категория", "Услуга", "Всего", "Завершено", "Активно", "Отменено", "Выручка", "Средний чек", "Последняя запись"], data.service_rows)
+    _pdf_section(story, section_style, font_name, "Услуги и выручка", ["Категория", "Услуга", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Средний чек", "Последняя запись"], _format_rows(data.service_rows, currency_cols={8, 9}))
     _pdf_section(story, section_style, font_name, "Сотрудники и выплаты", ["Сотрудник", "Активен", "%", "Оклад", "Завершено", "Активных задач", "Заработано", "Активные жалобы", "Эффект", "К выплате"], _format_rows(data.payroll_rows, currency_cols={4, 7, 10}))
-    _pdf_section(story, section_style, font_name, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "Отменено", "Выручка", "Первая запись", "Последняя запись"], _format_rows(data.client_rows, currency_cols={8}))
+    _pdf_section(story, section_style, font_name, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"], _format_rows(data.client_rows, currency_cols={9}))
     _pdf_section(story, section_style, font_name, "Расходы по категориям", ["Категория", "Операций", "Сумма", "Доля %"], _format_rows(data.expense_category_rows, currency_cols={3}))
     _pdf_section(story, section_style, font_name, "Журнал расходов", ["Дата", "Категория", "Статья", "Сумма", "Примечание"], _format_rows(data.expense_rows, currency_cols={4}))
     _pdf_section(story, section_style, font_name, "Склад", ["Категория", "Позиция", "Остаток", "Ед.", "Цена за ед.", "Стоимость", "Низкий остаток"], _format_rows(data.stock_rows, currency_cols={5, 6}))
     _pdf_section(story, section_style, font_name, "Жалобы", ["Сотрудник", "Заголовок", "Причина", "Создана", "Активна до", "Статус", "Снята"], data.complaint_rows)
+    if data.income_rows:
+        _pdf_section(story, section_style, font_name, "Доп. доходы", ["Дата", "Источник", "Сумма", "Примечание"], _format_rows(data.income_rows, currency_cols={3}))
     _pdf_section(story, section_style, font_name, "Полный реестр записей", ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Комментарий"], _format_rows(data.booking_rows, currency_cols={11}))
 
     doc.build(story)

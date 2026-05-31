@@ -49,8 +49,8 @@ def _b64url_decode(raw: str) -> bytes:
     return base64.urlsafe_b64decode(raw + padding)
 
 
-def create_session_token(payload: dict[str, Any], secret: str, ttl_seconds: int = 60 * 60 * 24 * 7) -> str:
-    data = {**payload, "exp": int(time.time()) + ttl_seconds}
+def create_session_token(payload: dict[str, Any], secret: str, ttl_seconds: int = 60 * 60 * 24 * 2) -> str:
+    data = {**payload, "exp": int(time.time()) + ttl_seconds, "jti": secrets.token_hex(16)}
     encoded_payload = _b64url_encode(json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
     signature = hmac.new(secret.encode("utf-8"), encoded_payload.encode("ascii"), hashlib.sha256).digest()
     return f"{encoded_payload}.{_b64url_encode(signature)}"

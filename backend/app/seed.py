@@ -7,7 +7,10 @@ from .models import AppSetting, Box, ScheduleEntry, Service, StaffUser
 from .security import hash_password
 
 
-def seed_database(db: Session, *, include_demo_staff: bool = True) -> None:
+def seed_database(db: Session, *, include_demo_staff: bool = True, is_production: bool = False) -> None:
+    if is_production:
+        # Never seed demo data in production
+        include_demo_staff = False
     if include_demo_staff and not db.scalar(select(StaffUser.id).limit(1)):
         staff = [
             StaffUser(

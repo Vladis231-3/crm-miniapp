@@ -14,7 +14,6 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
         <div style={{ padding: 24, fontFamily: 'monospace', background: '#1a1a2e', color: '#ff6b6b', minHeight: '100vh' }}>
           <h2 style={{ color: '#ff6b6b', marginBottom: 12 }}>Ошибка приложения</h2>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: '#e6eef8' }}>{this.state.error.message}</pre>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#9aa6b2', marginTop: 8 }}>{this.state.error.stack}</pre>
           <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', background: '#0a84ff', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
             Перезагрузить
           </button>
@@ -498,14 +497,16 @@ function WelcomeScreen() {
                   </motion.div>
                 )}
 
-                <div className={`${isDark ? 'bg-white/3' : 'bg-gray-50'} rounded-xl p-3 mb-4`}>
-                  <div className={`text-xs ${sub} mb-1 font-medium`}>Тестовые данные:</div>
-                  <div className={`text-xs ${sub} space-y-0.5`}>
-                    <div>admin / <span className="font-mono">admin</span></div>
-                    <div>ivan или oleg / <span className="font-mono">master</span></div>
-                    <div>owner / <span className="font-mono">owner</span></div>
+                {import.meta.env.DEV && (
+                  <div className={`${isDark ? 'bg-white/3' : 'bg-gray-50'} rounded-xl p-3 mb-4`}>
+                    <div className={`text-xs ${sub} mb-1 font-medium`}>Тестовые данные (только в dev):</div>
+                    <div className={`text-xs ${sub} space-y-0.5`}>
+                      <div>admin / <span className="font-mono">admin</span></div>
+                      <div>ivan или oleg / <span className="font-mono">master</span></div>
+                      <div>owner / <span className="font-mono">owner</span></div>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <button
                   onClick={handleStaffLogin}

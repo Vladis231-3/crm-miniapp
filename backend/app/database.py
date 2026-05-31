@@ -36,7 +36,7 @@ _logging.getLogger(__name__).warning("DB URL (masked): %s", _db_url.split("@")[-
 
 engine = create_engine(
     _db_url,
-    connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {"sslmode": "require"},
+    connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {"sslmode": "verify-full"},
 )
 
 if _db_url.startswith("sqlite"):

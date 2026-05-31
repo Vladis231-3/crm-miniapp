@@ -75,13 +75,13 @@ function getDownloadFileName(response: Response, fallback: string) {
 
 export const tokenStorage = {
   get() {
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    return window.sessionStorage.getItem(TOKEN_STORAGE_KEY);
   },
   set(token: string) {
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    window.sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
   },
   clear() {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.sessionStorage.removeItem(TOKEN_STORAGE_KEY);
   },
 };
 

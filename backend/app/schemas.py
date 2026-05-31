@@ -128,9 +128,11 @@ def normalize_plate(value: str) -> str:
             normalized_chars.append(latin_map[char])
         elif char.isdigit() or ("A" <= char <= "Z"):
             normalized_chars.append(char)
-    normalized = "".join(normalized_chars)[:9]
+    normalized = "".join(normalized_chars)
     if not normalized:
         raise ValueError("Enter vehicle plate")
+    if len(normalized) > 9:
+        raise ValueError("Номерной знак слишком длинный (максимум 9 символов)")
     if not re.fullmatch(
         r"^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}(?:\d{2,3})?$", normalized
     ):
@@ -290,6 +292,64 @@ class WorkerPayrollSummaryPayload(BaseModel):
     balance: int = 0
     bookingItems: list[WorkerPayrollBookingPayload] = Field(default_factory=list)
     entries: list[PayrollEntryPayload] = Field(default_factory=list)
+
+
+# --- Salary detail schemas ---
+
+SalaryPeriod = Literal["day", "week", "month", "all"]
+SalarySegment = Literal["all", "wash", "detailing"]
+
+
+class SalaryBookingItem(BaseModel):
+    id: str
+    date: str
+    time: str
+    service: str
+    box: str
+    price: int
+    earned: int
+    percent: int
+    resourceGroup: str
+
+
+class SalaryPayoutItem(BaseModel):
+    id: str
+    amount: int
+    note: str
+    createdAt: datetime
+    createdBy: str
+
+
+class SalaryDetailResponse(BaseModel):
+    workerId: str
+    workerName: str
+    salaryBase: int
+    salaryPerShift: int
+    defaultPercent: int
+    active: bool
+    totalEarned: int
+    totalPaid: int
+    balanceToPay: int
+    completedBookingsCount: int
+    shiftCount: int
+    bookings: list[SalaryBookingItem] = Field(default_factory=list)
+    payouts: list[SalaryPayoutItem] = Field(default_factory=list)
+
+
+class PaySalaryRequest(BaseModel):
+    period: SalaryPeriod = "month"
+    dateFrom: str | None = None
+    dateTo: str | None = None
+    segment: SalarySegment = "all"
+    amount: int = Field(ge=1, le=10_000_000)
+    note: str = ""
+
+
+class PaySalaryResponse(BaseModel):
+    message: str
+    payoutId: str
+    newBalance: int
+    expenseId: str
 
 
 class BookingWorkerPayload(BaseModel):
@@ -609,7 +669,7 @@ class WorkerCreateRequest(BaseModel):
     role: EmployeeRole = "worker"
     name: str
     login: str
-    password: str
+    password: str = Field(max_length=128)
     percent: int = Field(default=0, ge=0, le=40)
     salaryBase: int = 0
     phone: str = ""
@@ -686,7 +746,7 @@ class ClientPhoneVerificationPayload(BaseModel):
 
 class StaffLoginRequest(BaseModel):
     login: str
-    password: str
+    password: str = Field(max_length=128)
     twoFactorCode: str | None = None
 
 
@@ -867,6 +927,13 @@ class IncomeCreateRequest(BaseModel):
             raise ValueError("source не может быть пустым или состоять только из пробелов")
         return stripped
 
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return value.strip()
+
 
 class IncomePayload(BaseModel):
     id: str
@@ -881,17 +948,24 @@ class IncomePayload(BaseModel):
 
 class ExpenseCreateRequest(BaseModel):
     title: str
-    amount: int = Field(ge=0)
+    amount: int = Field(ge=1, le=10_000_000)
     category: str
     date: str
     note: str | None = None
     resourceGroup: str = "wash"
 
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return value.strip()
+
 
 class PenaltyCreateRequest(BaseModel):
     workerId: str
-    title: str
-    reason: str
+    title: str = Field(min_length=1, max_length=160)
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class OwnerReminderDispatchRequest(BaseModel):
@@ -908,8 +982,8 @@ class OwnerReminderDispatchPayload(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    currentPassword: str
-    newPassword: str
+    currentPassword: str = Field(max_length=128)
+    newPassword: str = Field(max_length=128)
 
 
 class OwnerDatabaseResetPreviewPayload(BaseModel):

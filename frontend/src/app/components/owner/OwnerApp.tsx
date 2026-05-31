@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { apiBlobUrl } from '../../api';
+import { apiBlobUrl, apiRequest } from '../../api';
 import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist } from '../../context/AppContext';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -26,9 +26,24 @@ import {
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'stock' | 'reports' | 'settings';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings';
 type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance';
 type OwnerExportKind = 'report' | 'pdf';
+
+interface SalaryBookingItem {
+  id: string; date: string; time: string; service: string; box: string;
+  price: number; earned: number; percent: number; resourceGroup: string;
+}
+interface SalaryPayoutItem {
+  id: string; amount: number; note: string; createdAt: string; createdBy: string;
+}
+interface SalaryDetailResponse {
+  workerId: string; workerName: string; salaryBase: number; salaryPerShift: number;
+  defaultPercent: number; active: boolean;
+  totalEarned: number; totalPaid: number; balanceToPay: number;
+  completedBookingsCount: number; shiftCount: number;
+  bookings: SalaryBookingItem[]; payouts: SalaryPayoutItem[];
+}
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
 const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудование'];
@@ -382,6 +397,14 @@ export function OwnerApp() {
   const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
   const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
 
+  const [selectedSalaryWorkerId, setSelectedSalaryWorkerId] = useState<string | null>(null);
+  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [salaryDetail, setSalaryDetail] = useState<SalaryDetailResponse | null>(null);
+  const [salaryPayAmount, setSalaryPayAmount] = useState('');
+  const [salaryPayNote, setSalaryPayNote] = useState('');
+  const [salaryLoading, setSalaryLoading] = useState(false);
+
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
   const [boxes, setBoxes] = useState(liveBoxes);
@@ -543,6 +566,14 @@ export function OwnerApp() {
       ),
     );
   }, [workers]);
+  useEffect(() => {
+    if (!selectedSalaryWorkerId) { setSalaryDetail(null); return; }
+    setSalaryLoading(true);
+    apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?period=${salaryPeriod}&segment=${salarySegment}`)
+      .then(setSalaryDetail)
+      .catch(() => setSalaryDetail(null))
+      .finally(() => setSalaryLoading(false));
+  }, [selectedSalaryWorkerId, salaryPeriod, salarySegment]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
@@ -2599,14 +2630,10 @@ export function OwnerApp() {
                   </div>
                   <button
                     onClick={() => {
-                      setPayrollDrafts((current) => ({
-                        ...current,
-                        [worker.id]: {
-                          ...(current[worker.id] || { amount: '', note: '' }),
-                          kind: 'payout',
-                        },
-                      }));
-                      document.getElementById(`owner-payroll-action-${worker.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      setSelectedSalaryWorkerId(worker.id);
+                      setSalaryDetail(null);
+                      setSalaryLoading(true);
+                      setPage('salary-detail');
                     }}
                     className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
                     style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}
@@ -2833,6 +2860,162 @@ export function OwnerApp() {
                   )}
                 </div>
               ))}
+            </motion.div>
+          )}
+
+          {/* ── SALARY DETAIL ── */}
+          {page === 'salary-detail' && (
+            <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
+                <ArrowLeft size={16} />Назад к зарплатам
+              </button>
+
+              {!salaryLoading && !salaryDetail && (
+                <div className={`text-sm ${sub} py-10 text-center`}>Выберите мастера из списка зарплат</div>
+              )}
+              {salaryLoading && (
+                <div className={`text-sm ${sub} py-10 text-center`}>Загрузка...</div>
+              )}
+              {salaryDetail && (
+                <>
+                  {/* Worker header */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
+                        {salaryDetail.workerName.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold">{salaryDetail.workerName}</div>
+                        <div className={`text-xs ${sub}`}>
+                          База: {salaryDetail.salaryBase.toLocaleString('ru')} ₽ · %: {salaryDetail.defaultPercent}% · За смену: {salaryDetail.salaryPerShift.toLocaleString('ru')} ₽ · {salaryDetail.active ? 'Активен' : 'Неактивен'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Period toggles */}
+                    <div className="flex gap-1.5 mb-2">
+                      {(['day', 'week', 'month', 'all'] as const).map(p => (
+                        <button key={p} onClick={() => setSalaryPeriod(p)}
+                          className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                          style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
+                          {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Segment toggles */}
+                    <div className="flex gap-1.5">
+                      {(['all', 'wash', 'detailing'] as const).map(s => (
+                        <button key={s} onClick={() => setSalarySegment(s)}
+                          className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                          style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
+                          {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Aggregate cards */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className={`${glass} rounded-xl p-3 text-center`}>
+                      <div className="text-sm font-semibold">{salaryDetail.totalEarned.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub}`}>Заработано</div>
+                    </div>
+                    <div className={`${glass} rounded-xl p-3 text-center`}>
+                      <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub}`}>Выплачено</div>
+                    </div>
+                    <div className={`${glass} rounded-xl p-3 text-center`}>
+                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : sub }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub}`}>К выплате</div>
+                    </div>
+                  </div>
+
+                  {/* Bookings list */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-semibold text-sm">Записи ({salaryDetail.completedBookingsCount})</h3>
+                      <span className={`text-[11px] ${sub}`}>Смен: {salaryDetail.shiftCount}</span>
+                    </div>
+                    {salaryDetail.bookings.length === 0 ? (
+                      <div className={`text-xs ${sub} py-3 text-center`}>Нет записей за выбранный период</div>
+                    ) : (
+                      salaryDetail.bookings.map(b => (
+                        <div key={b.id} className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                          <div className="flex-1 min-w-0 mr-2">
+                            <div className="text-xs font-medium truncate">{b.date} {b.time} · {b.service}</div>
+                            <div className={`text-[10px] ${sub}`}>{b.box} · {b.percent}%</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг'}</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Payout form */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <h3 className="font-semibold text-sm mb-3">Выплата мастеру</h3>
+                    <div className="flex gap-2 mb-3">
+                      <input type="number" placeholder="Сумма" value={salaryPayAmount}
+                        onChange={e => setSalaryPayAmount(e.target.value)}
+                        className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      <button onClick={async () => {
+                        const amount = Number(salaryPayAmount);
+                        if (!amount || amount < 1) return;
+                        setSalaryLoading(true);
+                        try {
+                          const res = await apiRequest<{ message: string; payoutId: string; newBalance: number; expenseId: string }>(
+                            `/api/owner/workers/${selectedSalaryWorkerId}/pay-salary`, {
+                            method: 'POST',
+                            body: {
+                              period: salaryPeriod,
+                              segment: salarySegment,
+                              amount: Math.round(amount),
+                              note: salaryPayNote.trim() || `Выплата за ${salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : 'весь период'}`,
+                            },
+                          });
+                          setSalaryDetail(prev => prev ? { ...prev, totalPaid: prev.totalPaid + Math.round(amount), balanceToPay: res.newBalance } : prev);
+                          setSalaryPayAmount('');
+                          setSalaryPayNote('');
+                          setBottomToast(`Выплата ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} проведена`);
+                          setTimeout(() => setBottomToast(null), 3000);
+                        } catch (e) {
+                          setBottomToast(e instanceof Error ? e.message : 'Ошибка выплаты');
+                          setTimeout(() => setBottomToast(null), 4000);
+                        } finally { setSalaryLoading(false); }
+                      }} className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: primary }}>
+                        {salaryLoading ? '...' : 'Выплатить'}
+                      </button>
+                    </div>
+                    <input type="text" placeholder="Примечание (необязательно)" value={salaryPayNote}
+                      onChange={e => setSalaryPayNote(e.target.value)}
+                      className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  </div>
+
+                  {/* Payout history */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <h3 className="font-semibold text-sm mb-2">История выплат</h3>
+                    {salaryDetail.payouts.length === 0 ? (
+                      <div className={`text-xs ${sub} py-3 text-center`}>Выплат не было</div>
+                    ) : (
+                      salaryDetail.payouts.map(p => (
+                        <div key={p.id} className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                          <div className="flex-1 min-w-0 mr-2">
+                            <div className="text-xs font-medium">-{p.amount.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>{p.note || 'Выплата'}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[11px] font-medium">{new Date(p.createdAt).toLocaleDateString('ru')}</div>
+                            <div className={`text-[10px] ${sub}`}>{p.createdBy}</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 

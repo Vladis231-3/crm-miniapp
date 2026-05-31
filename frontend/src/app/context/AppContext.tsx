@@ -798,8 +798,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     void restoreSession();
   }, []);
 
-  function logout() {
-    void apiRequest('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+  async function logout() {
+    try {
+      await apiRequest('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Server may be unreachable — still clear local state
+    }
     tokenStorage.clear();
     setSession(null);
     setActiveSessions([]);

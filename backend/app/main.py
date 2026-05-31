@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac as hmac_mod
 import logging
 import secrets
 import base64
@@ -129,6 +130,11 @@ from .schemas import (
     PenaltyPayload,
     PayrollEntryCreateRequest,
     PayrollEntryPayload,
+    PaySalaryRequest,
+    PaySalaryResponse,
+    SalaryBookingItem,
+    SalaryDetailResponse,
+    SalaryPayoutItem,
     TelegramDeliveryResult,
     TelegramBroadcastPayload,
     TelegramLinkCodePayload,
@@ -249,32 +255,45 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Telegram-Bot-Api-Secret-Token"],
 )
 
 # Rate limiting for login attempts (simple in-memory store)
 _login_attempts: dict[str, list[float]] = {}
 _LOGIN_RATE_LIMIT_WINDOW = 60  # seconds
 _LOGIN_MAX_ATTEMPTS = 10  # max attempts per window
+_last_rate_limit_cleanup: float = 0.0
+_RATE_LIMIT_CLEANUP_INTERVAL = 300  # clean every 5 minutes
 
 def _check_rate_limit(ip: str) -> None:
+    global _last_rate_limit_cleanup
     now = time_module.time()
     window_start = now - _LOGIN_RATE_LIMIT_WINDOW
-    
-    # Clean old attempts
+
+    # Periodic cleanup of stale entries to prevent memory growth
+    if now - _last_rate_limit_cleanup > _RATE_LIMIT_CLEANUP_INTERVAL:
+        _last_rate_limit_cleanup = now
+        stale_keys = [
+            key for key, attempts in _login_attempts.items()
+            if not attempts or all(t <= window_start for t in attempts)
+        ]
+        for key in stale_keys:
+            del _login_attempts[key]
+
+    # Clean old attempts for this IP
     if ip in _login_attempts:
         _login_attempts[ip] = [t for t in _login_attempts[ip] if t > window_start]
-    
+
     if ip not in _login_attempts:
         _login_attempts[ip] = []
-    
+
     if len(_login_attempts[ip]) >= _LOGIN_MAX_ATTEMPTS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Слишком много запросов. Попробуйте позже.",
         )
-    
+
     _login_attempts[ip].append(now)
 
 if frontend_assets.exists():
@@ -305,7 +324,12 @@ async def serve_single_page_app(request: Request, call_next):
     if candidate.is_file() and str(candidate).startswith(str(frontend_dist.resolve())):
         headers = HTML_NO_CACHE_HEADERS if candidate.suffix == ".html" else None
         return FileResponse(candidate, headers=headers)
-    return FileResponse(index_file, headers=HTML_NO_CACHE_HEADERS)
+    response = FileResponse(index_file, headers=HTML_NO_CACHE_HEADERS)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 @app.on_event("startup")
@@ -315,7 +339,7 @@ def on_startup() -> None:
     _apply_runtime_migrations()
     db = next(get_db())
     try:
-        seed_database(db, include_demo_staff=settings.allow_demo_seed_data)
+        seed_database(db, include_demo_staff=settings.allow_demo_seed_data, is_production=settings.is_production)
         _ensure_owner_accounts(db)
         _repair_text_data(db)
         _normalize_worker_rules(db)
@@ -362,11 +386,12 @@ def _as_utc(value: datetime) -> datetime:
 
 
 def _request_ip(request: Request) -> str:
+    # For rate limiting, prefer direct client IP to prevent X-Forwarded-For spoofing
+    if request.client is not None and request.client.host:
+        return request.client.host
     forwarded_for = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
     if forwarded_for:
         return forwarded_for
-    if request.client is not None and request.client.host:
-        return request.client.host
     return ""
 
 
@@ -381,10 +406,10 @@ def _client_by_phone(db: Session, phone: str) -> Client | None:
         target_phone = normalize_phone_digits(phone)
     except ValueError:
         return None
-    exact = db.scalar(select(Client).where(Client.phone == phone))
+    exact = db.scalar(select(Client).where(Client.phone == phone, Client.deleted_at.is_(None)))
     if exact is not None:
         return exact
-    for client in db.scalars(select(Client).where(Client.phone != "")).all():
+    for client in db.scalars(select(Client).where(Client.phone != "", Client.deleted_at.is_(None))).all():
         try:
             if normalize_phone_digits(client.phone) == target_phone:
                 return client
@@ -442,7 +467,9 @@ def _ensure_owner_accounts(db: Session) -> None:
         if owner.id != primary_owner.id:
             owner.is_primary_owner = False
 
-    if settings.allow_demo_seed_data and not any(
+    if settings.allow_demo_seed_data and settings.is_production:
+        logger.warning("ALLOW_DEMO_SEED_DATA is True in production — skipping demo owner creation for security")
+    elif settings.allow_demo_seed_data and not any(
         owner.id != primary_owner.id for owner in owners
     ):
         db.add(
@@ -839,8 +866,9 @@ def _apply_runtime_migrations() -> None:
             from sqlalchemy import text
             with engine.begin() as connection:
                 rows = connection.execute(text("SELECT day_index, day_label FROM schedule_entries")).fetchall()
-                old_labels = {row[1] for row in rows}
-                has_old_scheme = old_labels & {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+                # Проверяем по actual mapping: в старой схеме day_index=0 → "Пн", в новой → "Сб"
+                index_to_label = {row[0]: row[1] for row in rows}
+                has_old_scheme = index_to_label.get(0) == "Пн"
                 if has_old_scheme:
                     connection.exec_driver_sql(
                         "UPDATE schedule_entries SET day_index = CASE day_index "
@@ -1304,6 +1332,7 @@ def _box_is_available(
         Booking.date == date_value,
         Booking.box == box,
         Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+        Booking.deleted_at.is_(None),
     )
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
@@ -1390,7 +1419,7 @@ def _booking_slot_availability(
         if slot_start is None:
             continue
         slot_end = slot_start + duration
-        if slot_start < open_minutes or slot_end >= close_minutes:
+        if slot_start < open_minutes or slot_end > close_minutes:
             slots.append(
                 BookingAvailabilitySlotPayload(
                     time=slot,
@@ -1455,7 +1484,9 @@ def _ensure_booking_has_no_conflicts(
         .where(
             Booking.date == date_value,
             Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+            Booking.deleted_at.is_(None),
         )
+        .with_for_update(skip_locked=True)
     )
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
@@ -2104,7 +2135,10 @@ def _mark_overdue_bookings_for_admin_review(db: Session) -> None:
     now_local = datetime.now().replace(second=0, microsecond=0)
     changed = False
     for booking in db.scalars(
-        select(Booking).where(Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)))
+        select(Booking).where(
+            Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
+            Booking.deleted_at.is_(None),
+        )
     ).all():
         booking_range = _booking_time_range(
             booking.date, booking.time, booking.duration
@@ -2145,6 +2179,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     bookings_query = (
         select(Booking)
         .options(joinedload(Booking.worker_links))
+        .where(Booking.deleted_at.is_(None))
         .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
     )
     notifications_query = select(Notification).order_by(Notification.created_at.desc())
@@ -2187,7 +2222,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
             clients = [
                 _client_summary_payload(item, db)
                 for item in db.scalars(
-                    select(Client).order_by(
+                    select(Client).where(Client.deleted_at.is_(None)).order_by(
                         Client.updated_at.desc(), Client.created_at.desc()
                     )
                 ).all()
@@ -2205,7 +2240,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
             clients = [
                 _client_summary_payload(item, db)
                 for item in db.scalars(
-                    select(Client).order_by(
+                    select(Client).where(Client.deleted_at.is_(None)).order_by(
                         Client.updated_at.desc(), Client.created_at.desc()
                     )
                 ).all()
@@ -2909,6 +2944,13 @@ def _decode_data_url_image(data_url: str) -> tuple[str, bytes]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Фото повреждено"
         )
+    # Limit base64 payload to ~5MB (base64 encodes 3 bytes per 4 chars, so ~6.7M chars)
+    _MAX_BASE64_CHARS = 7_000_000
+    if len(encoded) > _MAX_BASE64_CHARS:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Фото слишком большое. Максимальный размер — 5 МБ.",
+        )
     mime_type = header[5:].split(";", 1)[0] or "image/jpeg"
     try:
         content = base64.b64decode(encoded)
@@ -2916,6 +2958,11 @@ def _decode_data_url_image(data_url: str) -> tuple[str, bytes]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Не удалось прочитать фото"
         ) from exc
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Фото слишком большое. Максимальный размер — 5 МБ.",
+        )
     return mime_type, content
 
 
@@ -3315,6 +3362,13 @@ def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport
     payroll_entries_list = db.scalars(
         select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
     ).all()
+    # Compute shift pay for each worker to include in export
+    from datetime import date as _date
+    inspections = _admin_shift_inspections_state(db)
+    shift_pay_map: dict[str, int] = {}
+    for worker in workers:
+        sc, _ = _compute_shift_attendance(inspections, worker.id, _date(2000, 1, 1), _date.today())
+        shift_pay_map[worker.id] = sc * (getattr(worker, "salary_per_shift", 0) or 0)
     export_kind = "report" if kind == "report" else "pdf"
     return build_owner_export(
         kind=export_kind,
@@ -3328,6 +3382,7 @@ def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport
         services=services,
         incomes=incomes,
         payroll_entries=list(payroll_entries_list),
+        shift_pay_by_worker=shift_pay_map,
     )
 
 
@@ -3506,11 +3561,13 @@ def _owner_summary_export_file(
         .all()
     )
     services = db.scalars(select(Service).order_by(Service.name)).all()
+    penalties = db.scalars(select(Penalty).order_by(Penalty.created_at.desc())).all()
     return build_owner_summary_export(
         owner=owner,
         company_name=str(company_settings.get("name") or "ATMOSFERA"),
         bookings=bookings,
         services=services,
+        penalties=penalties,
         period=period,
         segment=segment,
     )
@@ -4106,7 +4163,7 @@ def handle_telegram_webhook(
             detail="Telegram bot is not configured",
         )
     expected_secret = telegram_webhook_secret()
-    if telegram_secret != expected_secret:
+    if not telegram_secret or not hmac_mod.compare_digest(telegram_secret, expected_secret):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Telegram webhook secret",
@@ -4267,8 +4324,9 @@ def remind_admin_about_inactive_clients(
     )
 
 
-@app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
+@app.post("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
 def run_booking_reminders_cron(
+    request: Request,
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> OwnerReminderDispatchPayload:
@@ -4277,12 +4335,12 @@ def run_booking_reminders_cron(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRON_SECRET is not configured",
         )
-    if authorization != f"Bearer {settings.cron_secret}":
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
         )
     import ipaddress
-    client_ip = _request_ip_from_header(None)
+    client_ip = _request_ip(request)
     if client_ip:
         try:
             ip = ipaddress.ip_address(client_ip)
@@ -4304,8 +4362,9 @@ def run_booking_reminders_cron(
     return response
 
 
-@app.get("/api/cron/reports", response_model=GenericMessage)
+@app.post("/api/cron/reports", response_model=GenericMessage)
 def run_reports_cron(
+    request: Request,
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> GenericMessage:
@@ -4315,7 +4374,7 @@ def run_reports_cron(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CRON_SECRET is not configured",
         )
-    if authorization != f"Bearer {settings.cron_secret}":
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
         )
@@ -5111,12 +5170,12 @@ def delete_client(
         .all()
     )
     for booking in client_bookings:
-        db.delete(booking)
+        booking.deleted_at = _now()
     vehicles_map = _client_vehicles_map(db)
     if client_id in vehicles_map:
         vehicles_map.pop(client_id, None)
         _upsert_setting(db, "client_vehicles", vehicles_map)
-    db.delete(client)
+    client.deleted_at = _now()
     db.commit()
     return GenericMessage(message="Клиент удалён")
 
@@ -5390,6 +5449,14 @@ def update_booking(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
             )
+        # Log when worker marks payment as settled
+        if "paymentSettled" in updates and updates.get("paymentSettled"):
+            logger.info(
+                "Worker %s marked booking %s as payment settled (type=%s)",
+                session_data["actorId"],
+                booking_id,
+                updates.get("paymentType", "unknown"),
+            )
         forbidden_fields = set(updates) - {
             "status",
             "notes",
@@ -5403,6 +5470,19 @@ def update_booking(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Worker can update only own task status",
             )
+        # Forward-only status transitions for workers
+        if "status" in updates and updates["status"] != booking.status:
+            _WORKER_STATUS_ORDER = ["new", "confirmed", "scheduled", "in_progress", "completed", "no_show", "admin_review", "cancelled"]
+            try:
+                old_idx = _WORKER_STATUS_ORDER.index(booking.status)
+                new_idx = _WORKER_STATUS_ORDER.index(updates["status"])
+                if new_idx < old_idx:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Нельзя вернуть статус на предыдущий этап",
+                    )
+            except ValueError:
+                pass
 
     if "serviceId" in updates:
         service = db.get(Service, updates["serviceId"])
@@ -5529,6 +5609,12 @@ def update_booking(
 
     previous_worker_ids = {link.worker_id for link in booking.worker_links}
     if payload.workers is not None:
+        if not payload.workers and previous_worker_ids:
+            logger.warning(
+                "Booking %s: empty workers list provided, clearing %d worker assignments",
+                booking.id,
+                len(previous_worker_ids),
+            )
         _sync_booking_workers(db, booking, next_workers)
 
     client_notification_parts: list[str] = []
@@ -5672,7 +5758,7 @@ def delete_booking(
                 ),
             ]
         )
-    db.delete(booking)
+    booking.deleted_at = _now()
     db.commit()
     return GenericMessage(message="Запись удалена")
 
@@ -5706,6 +5792,9 @@ def add_booking_service(
     booking.services = svc_list
     booking.price = (booking.price or 0) + payload.price
     booking.duration = (booking.duration or 0) + payload.duration
+    # Re-validate schedule after extending duration
+    if booking.status in BOOKING_ACTIVE_STATUSES and booking.date and booking.time:
+        _ensure_booking_within_schedule(db, booking.date, booking.time, booking.duration)
     db.commit()
     db.refresh(booking)
     return _booking_payload_for_response(db, booking)
@@ -7062,6 +7151,263 @@ def create_payroll_entry(
     db.refresh(worker)
     payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
     return _worker_payload_with_payroll(worker, payroll_summaries)
+
+
+# ── Salary detail (owner) ─────────────────────────────────────────────────
+
+def _salary_date_range(period: str, ref: date | None = None) -> tuple[str, str]:
+    """Возвращает (date_from, date_to) в формате DD.MM.YYYY."""
+    ref = ref or date.today()
+    if period == "day":
+        return ref.strftime("%d.%m.%Y"), ref.strftime("%d.%m.%Y")
+    elif period == "week":
+        monday = ref - timedelta(days=ref.weekday())
+        sunday = monday + timedelta(days=6)
+        return monday.strftime("%d.%m.%Y"), sunday.strftime("%d.%m.%Y")
+    elif period == "month":
+        first = ref.replace(day=1)
+        if ref.month == 12:
+            last = ref.replace(year=ref.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            last = ref.replace(month=ref.month + 1, day=1) - timedelta(days=1)
+        return first.strftime("%d.%m.%Y"), last.strftime("%d.%m.%Y")
+    else:  # all
+        return "01.01.2000", "31.12.2099"
+
+
+def _resource_group_for_service(db: Session, service_id: str) -> str:
+    svc = db.get(Service, service_id)
+    return svc.resource_group if svc else "wash"
+
+
+@app.get(
+    "/api/owner/workers/{worker_id}/salary-detail",
+    response_model=SalaryDetailResponse,
+)
+def owner_worker_salary_detail(
+    worker_id: str,
+    period: str = "month",
+    segment: str = "all",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> SalaryDetailResponse:
+    _ensure_staff_role(session_data, {"owner"})
+
+    if period not in ("day", "week", "month", "all"):
+        raise HTTPException(status_code=400, detail="Invalid period")
+    if segment not in ("all", "wash", "detailing"):
+        raise HTTPException(status_code=400, detail="Invalid segment")
+
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role != "worker":
+        raise HTTPException(status_code=404, detail="Мастер не найден")
+
+    date_from, date_to = _salary_date_range(period)
+
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]  # DD.MM.YYYY → YYYYMMDD
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+
+    # ── Completed bookings within date range (convert date string for proper comparison) ──
+    date_col_key = (
+        func.substr(Booking.date, 7, 4).concat(
+            func.substr(Booking.date, 4, 2)
+        ).concat(
+            func.substr(Booking.date, 1, 2)
+        )
+    )
+    bookings_query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .join(BookingWorker)
+        .where(
+            BookingWorker.worker_id == worker_id,
+            Booking.status == "completed",
+            date_col_key >= date_from_key,
+            date_col_key <= date_to_key,
+        )
+        .order_by(Booking.date.desc(), Booking.time.desc())
+    )
+    completed_bookings = db.scalars(bookings_query).unique().all()
+
+    # ── Penalties (complaints) ──
+    all_penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(all_penalties)
+    worker_complaints = complaints_by_worker.get(worker_id, [])
+
+    # ── Build booking items ──
+    booking_items: list[SalaryBookingItem] = []
+    shift_dates: set[str] = set()
+    total_earned = 0
+    for b in completed_bookings:
+        percent = adjusted_booking_percent(
+            next(
+                (link.percent for link in b.worker_links if link.worker_id == worker_id),
+                worker.default_percent,
+            ),
+            worker_complaints,
+            date_value=b.date,
+            time_value=b.time,
+            fallback=b.created_at,
+        )
+        rg = _resource_group_for_service(db, b.service_id)
+        if segment != "all" and rg != segment:
+            continue
+        earned = round(b.price * percent / 100)
+        total_earned += earned
+        shift_dates.add(b.date)
+        booking_items.append(
+            SalaryBookingItem(
+                id=b.id,
+                date=b.date,
+                time=b.time,
+                service=b.service,
+                box=b.box,
+                price=b.price,
+                earned=earned,
+                percent=percent,
+                resourceGroup=rg,
+            )
+        )
+
+    # ── Payout entries within date range ──
+    payout_entries = db.scalars(
+        select(PayrollEntry).where(
+            PayrollEntry.worker_id == worker_id,
+            PayrollEntry.kind == "payout",
+            PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+        )
+        .order_by(PayrollEntry.created_at.desc())
+    ).all()
+
+    actors = {}
+    if payout_entries:
+        actor_ids = {e.actor_id for e in payout_entries}
+        actors_list = db.scalars(
+            select(StaffUser).where(StaffUser.id.in_(actor_ids))
+        ).all()
+        actors = {a.id: a.name for a in actors_list}
+
+    payout_items = [
+        SalaryPayoutItem(
+            id=e.id,
+            amount=e.amount,
+            note=e.note,
+            createdAt=e.created_at,
+            createdBy=actors.get(e.actor_id, "Сотрудник"),
+        )
+        for e in payout_entries
+    ]
+    total_paid = sum(e.amount for e in payout_entries)
+
+    # ── Shift count ──
+    salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
+    if period == "all":
+        inspections = _admin_shift_inspections_state(db)
+        shift_count, _ = _compute_shift_attendance(
+            inspections, worker.id, date(2000, 1, 1), date.today()
+        )
+    else:
+        d_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        d_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+        inspections = _admin_shift_inspections_state(db)
+        shift_count, _ = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
+
+    return SalaryDetailResponse(
+        workerId=worker.id,
+        workerName=worker.name,
+        salaryBase=worker.salary_base,
+        salaryPerShift=salary_per_shift,
+        defaultPercent=worker.default_percent,
+        active=worker.active,
+        totalEarned=total_earned,
+        totalPaid=total_paid,
+        balanceToPay=total_earned - total_paid,
+        completedBookingsCount=len(booking_items),
+        shiftCount=shift_count,
+        bookings=booking_items,
+        payouts=payout_items,
+    )
+
+
+@app.post(
+    "/api/owner/workers/{worker_id}/pay-salary",
+    response_model=PaySalaryResponse,
+)
+def owner_worker_pay_salary(
+    worker_id: str,
+    payload: PaySalaryRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> PaySalaryResponse:
+    _ensure_staff_role(session_data, {"owner"})
+
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role != "worker":
+        raise HTTPException(status_code=404, detail="Мастер не найден")
+
+    # Determine resource_group from segment
+    if payload.segment == "detailing":
+        resource_group = "detailing"
+    else:
+        resource_group = "wash"
+
+    amount = payload.amount
+
+    # 1. Create PayrollEntry
+    entry = PayrollEntry(
+        id=f"pay-{uuid4()}",
+        worker_id=worker.id,
+        actor_id=session_data["actorId"],
+        actor_role=session_data["role"],
+        kind="payout",
+        amount=amount,
+        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
+        created_at=_now(),
+    )
+    db.add(entry)
+
+    # 2. Create Expense (auto-deduct from budget)
+    today_str = date.today().strftime("%d.%m.%Y")
+    expense = Expense(
+        id=f"exp-{uuid4()}",
+        title=f"Зарплата: {worker.name}",
+        amount=amount,
+        category="Зарплата",
+        date=today_str,
+        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
+        resource_group=resource_group,
+        created_at=_now(),
+    )
+    db.add(expense)
+
+    _notify_worker_about_payroll_entry(
+        db,
+        worker,
+        actor_role=session_data["role"],
+        actor_id=session_data["actorId"],
+        kind="payout",
+        amount=amount,
+        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
+    )
+
+    worker.updated_at = _now()
+    db.commit()
+    db.refresh(worker)
+
+    # Recalculate balance
+    all_penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(all_penalties)
+    payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
+    summary = payroll_summaries.get(worker.id)
+    new_balance = summary.balance if summary else 0
+
+    return PaySalaryResponse(
+        message="Выплата проведена",
+        payoutId=entry.id,
+        newBalance=new_balance,
+        expenseId=expense.id,
+    )
 
 
 @app.post("/api/workers", response_model=WorkerPayload)
