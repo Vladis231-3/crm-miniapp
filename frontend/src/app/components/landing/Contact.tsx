@@ -49,8 +49,7 @@ export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact({ 
               </div>
             </div>
 
-            <a href={`https://t.me/${import.meta.env.VITE_BOT_USERNAME || 'atmosfera_bot'}?start=app`}
-              target="_blank" rel="noopener noreferrer"
+            <a href={window.location.origin}
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-semibold transition-all duration-200 hover:opacity-90"
               style={{ backgroundColor: '#229ED9' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
