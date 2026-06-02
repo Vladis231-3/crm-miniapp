@@ -537,14 +537,14 @@ function AppContent() {
   );
 }
 
-function useHash() {
-  const [hash, setHash] = useState(() => window.location.hash.replace('#', ''));
+function usePath() {
+  const [path, setPath] = useState(() => window.location.pathname);
   useEffect(() => {
-    const onHashChange = () => setHash(window.location.hash.replace('#', ''));
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const onPopState = () => setPath(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
-  return hash;
+  return path;
 }
 
 function LandingWrapper() {
@@ -556,9 +556,9 @@ function LandingWrapper() {
 }
 
 export default function App() {
-  const hash = useHash();
+  const path = usePath();
 
-  if (hash === 'about' || hash === 'works') {
+  if (path === '/about' || path === '/works') {
     return <LandingWrapper />;
   }
 

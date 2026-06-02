@@ -157,8 +157,8 @@ def _welcome_reply_markup(webapp_url: str) -> dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "✨ О нас", "web_app": {"url": f"{webapp_url}#about"}},
-                {"text": "📸 Наши работы", "web_app": {"url": f"{webapp_url}#works"}},
+                {"text": "✨ О нас", "web_app": {"url": f"{webapp_url}/about"}},
+                {"text": "📸 Наши работы", "web_app": {"url": f"{webapp_url}/works"}},
             ],
             [
                 {"text": "🚀 Войти", "web_app": {"url": webapp_url}},
