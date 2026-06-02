@@ -4,7 +4,7 @@ import { Menu, X, Droplets } from 'lucide-react';
 const navLinks = [
   { label: 'Услуги', href: '#services' },
   { label: 'Цены', href: '#pricing' },
-  { label: 'Галерея', href: '#gallery' },
+  { label: 'Галерея', href: '/works', external: true },
   { label: 'Отзывы', href: '#testimonials' },
   { label: 'Контакты', href: '#contact' },
 ];
@@ -19,8 +19,12 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const handleNav = (href: string) => {
+  const handleNav = (href: string, external?: boolean) => {
     setMenuOpen(false);
+    if (external) {
+      window.location.href = window.location.origin + href;
+      return;
+    }
     const el = document.querySelector(href);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
@@ -44,7 +48,7 @@ export function Navbar() {
 
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
-            <button key={link.label} onClick={() => handleNav(link.href)}
+            <button key={link.label} onClick={() => handleNav(link.href, link.external)}
               className={`transition-colors duration-200 hover:text-blue-500 cursor-pointer bg-transparent border-none p-0 ${
                 scrolled ? 'text-gray-600' : 'text-white/90'
               }`} style={{ fontSize: '0.9rem', fontWeight: 500 }}>
@@ -68,7 +72,7 @@ export function Navbar() {
         <div className="md:hidden bg-white border-t border-gray-100 shadow-lg">
           <nav className="px-6 py-4 flex flex-col gap-1">
             {navLinks.map((link) => (
-              <button key={link.label} onClick={() => handleNav(link.href)}
+              <button key={link.label} onClick={() => handleNav(link.href, link.external)}
                 className="text-left text-gray-700 py-3 border-b border-gray-50 hover:text-blue-600 transition-colors cursor-pointer bg-transparent border-none"
                 style={{ fontSize: '0.95rem', fontWeight: 500 }}>
                 {link.label}
