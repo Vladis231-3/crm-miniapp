@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Component, useCallback, useRef } from 'react';
+import { LandingPage } from './components/landing/LandingPage';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -360,17 +361,6 @@ function WelcomeScreen() {
               <p className={`text-xs ${sub} text-center mt-4 mb-5 leading-relaxed`}>
                 Данные используются только для записи на услуги и не передаются третьим лицам
               </p>
-
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleClientSubmit}
-                disabled={authLoading}
-                className="w-full py-4 rounded-2xl font-semibold text-white text-base shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
-              >
-                <Check size={18} />
-                {authLoading ? 'Подключение...' : 'Сохранить и продолжить'}
-              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -547,7 +537,31 @@ function AppContent() {
   );
 }
 
+function useHash() {
+  const [hash, setHash] = useState(() => window.location.hash.replace('#', ''));
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash.replace('#', ''));
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  return hash;
+}
+
+function LandingWrapper() {
+  return (
+    <div className="App">
+      <LandingPage />
+    </div>
+  );
+}
+
 export default function App() {
+  const hash = useHash();
+
+  if (hash === 'about' || hash === 'works') {
+    return <LandingWrapper />;
+  }
+
   return (
     <AppProvider>
       <AppContent />
