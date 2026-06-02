@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Component, useCallback, useRef } from 'react';
 import { LandingPage } from './components/landing/LandingPage';
+import { WorksPage } from './components/landing/WorksPage';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -558,7 +559,11 @@ function LandingWrapper() {
 export default function App() {
   const path = usePath();
 
-  if (path === '/about' || path === '/works') {
+  if (path === '/works') {
+    return <WorksPage />;
+  }
+
+  if (path === '/about') {
     return <LandingWrapper />;
   }
 
