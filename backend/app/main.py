@@ -189,6 +189,14 @@ bot_thread: Thread | None = None
 PRIMARY_OWNER_ID = "owner-primary"
 PRIMARY_OWNER_LOGIN = "creator_owner"
 SECONDARY_OWNER_ID = "owner-1"
+# Жёстко зашитые владельцы, входящие по Telegram без пароля.
+# Формат: (id записи в БД, login, telegram chat id).
+# Эти аккаунты восстанавливаются на каждом старте бэка,
+# поэтому их нельзя случайно отвязать/затереть через UI.
+PERMANENT_TELEGRAM_OWNERS: tuple[tuple[str, str, str], ...] = (
+    ("owner-tg-1768985608", "owner_tg_1", "1768985608"),
+    ("owner-tg-476719812", "owner_tg_2", "476719812"),
+)
 STAFF_LOGIN_MAX_ATTEMPTS = 5
 STAFF_LOGIN_LOCKOUT_MINUTES = 15
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
@@ -434,6 +442,63 @@ def _primary_owner(db: Session) -> StaffUser | None:
     )
 
 
+def _ensure_permanent_telegram_owners(db: Session) -> None:
+    """Гарантирует, что владельцы с зашитыми Telegram ID существуют и активны.
+
+    На каждом старте бэка:
+    * снимает chat_id с любой другой записи, чтобы избежать конфликта уникальности;
+    * создаёт запись владельца, если её нет;
+    * принудительно восстанавливает role/active/telegram_chat_id, если запись есть
+      (защита от случайного/ручного редактирования в UI).
+    """
+    for staff_id, login, chat_id in PERMANENT_TELEGRAM_OWNERS:
+        # 1) Снимаем chat_id с любой другой записи, чтобы upsert не словил 409.
+        squatters = db.scalars(
+            select(StaffUser).where(
+                StaffUser.telegram_chat_id == chat_id,
+                StaffUser.id != staff_id,
+            )
+        ).all()
+        for squatter in squatters:
+            squatter.telegram_chat_id = ""
+
+        # 2) Upsert самой записи владельца.
+        owner = db.get(StaffUser, staff_id)
+        if owner is None:
+            owner = StaffUser(
+                id=staff_id,
+                login=login,
+                password_hash=hash_password(secrets.token_urlsafe(32)),
+                role="owner",
+                name="Владелец",
+                phone="",
+                email="",
+                city="",
+                experience="",
+                specialty="",
+                about=(
+                    "Владелец с зашитым Telegram ID. Входит в Mini App "
+                    "напрямую через Telegram, пароль не используется."
+                ),
+                telegram_chat_id=chat_id,
+                is_primary_owner=False,
+                default_percent=0,
+                salary_base=0,
+                salary_per_shift=0,
+                available=True,
+                active=True,
+            )
+            db.add(owner)
+        else:
+            owner.login = login
+            owner.role = "owner"
+            owner.is_primary_owner = False
+            owner.telegram_chat_id = chat_id
+            owner.active = True
+            owner.updated_at = _now()
+        db.flush()
+
+
 def _ensure_owner_accounts(db: Session) -> None:
     owners = db.scalars(_owner_query()).all()
     primary_owner = next((owner for owner in owners if owner.is_primary_owner), None)
@@ -494,6 +559,8 @@ def _ensure_owner_accounts(db: Session) -> None:
             )
         )
         db.flush()
+
+    _ensure_permanent_telegram_owners(db)
 
 
 def _staff_lock_expires_at(staff: StaffUser) -> datetime | None:

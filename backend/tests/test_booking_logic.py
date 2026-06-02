@@ -352,8 +352,16 @@ class BookingLogicTests(unittest.TestCase):
 
         with SessionLocal() as db:
             staff = db.scalars(select(StaffUser).order_by(StaffUser.id.asc())).all()
-            self.assertEqual([item.login for item in staff], ["creator_owner"])
+            # В production без demo-seed остаётся только primary owner
+            # плюс постоянные Telegram-владельцы (без пароля, вход по TG).
+            self.assertEqual(
+                [item.login for item in staff],
+                ["creator_owner", "owner_tg_1", "owner_tg_2"],
+            )
             self.assertTrue(staff[0].is_primary_owner)
+            for permanent in staff[1:]:
+                self.assertFalse(permanent.is_primary_owner)
+                self.assertTrue(permanent.telegram_chat_id)
 
         os.environ["APP_ENV"] = "development"
         os.environ["APP_SECRET"] = "test-secret"
@@ -4007,8 +4015,14 @@ class BookingLogicTests(unittest.TestCase):
 
         with SessionLocal() as db:
             owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all()
-            self.assertEqual(len(owners), 2)
+            # После reset должны восстановиться: primary + 2 постоянных
+            # Telegram-владельца (вход по TG, без пароля).
+            self.assertEqual(len(owners), 3)
             self.assertEqual(len(db.scalars(select(StaffUser).where(StaffUser.role != "owner")).all()), 0)
+            permanent_logins = {
+                item.login for item in owners if not item.is_primary_owner
+            }
+            self.assertEqual(permanent_logins, {"owner_tg_1", "owner_tg_2"})
             self.assertEqual(len(db.scalars(select(Client)).all()), 0)
             self.assertEqual(len(db.scalars(select(Booking)).all()), 0)
             self.assertEqual(len(db.scalars(select(StockItem)).all()), 0)
