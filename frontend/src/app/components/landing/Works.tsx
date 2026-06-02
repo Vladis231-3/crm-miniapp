@@ -10,7 +10,6 @@ const FALLBACK_WORKS: (ContentWorks & { span?: string })[] = [
   { title: 'Кожаный салон', description: 'Химчистка и кондиционирование кожи', image_url: 'https://images.unsplash.com/photo-1605437241278-c1806d14a4d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
   { title: 'Руль после реставрации', description: 'Восстановление и защита', image_url: 'https://images.unsplash.com/photo-1533630217389-3a5e4dff5683?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
   { title: 'Mustang — после детейлинга', description: 'Белый Ford Mustang, полный пакет услуг', image_url: 'https://images.unsplash.com/photo-1575844611398-2a68400b437c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: 'col-span-2' },
-  { title: 'Экспресс-мойка', description: 'Быстрая и качественная наружная мойка', image_url: 'https://images.unsplash.com/photo-1607860108855-64acf2078ed9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
 ];
 
 export function Works({ apiWorks }: { apiWorks: ContentWorks[] }) {
