@@ -732,18 +732,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const tg = getTelegramWebApp();
+    let onThemeChange: (() => void) | undefined;
     if (tg) {
       tg.ready?.();
       tg.expand?.();
       applyTelegramTheme(tg);
-      const onThemeChange = () => applyTelegramTheme(tg);
+      onThemeChange = () => applyTelegramTheme(tg);
       tg.onEvent?.('themeChanged', onThemeChange);
-      return () => {
-        tg.offEvent?.('themeChanged', onThemeChange);
-      };
     }
     void restoreSession();
-    return () => {};
+    return () => {
+      if (tg && onThemeChange) {
+        tg.offEvent?.('themeChanged', onThemeChange);
+      }
+    };
   }, []);
 
   async function logout() {
