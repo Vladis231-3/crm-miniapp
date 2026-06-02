@@ -14,10 +14,34 @@ declare global {
           };
         };
         colorScheme?: 'light' | 'dark';
+        themeParams?: Record<string, string>;
         ready?: () => void;
         expand?: () => void;
-        requestContact?: (callback?: (shared: boolean) => void) => void;
         showAlert?: (message: string, callback?: () => void) => void;
+        onEvent?: (event: string, callback: () => void) => void;
+        offEvent?: (event: string, callback: () => void) => void;
+        MainButton?: {
+          show: () => void;
+          hide: () => void;
+          setText: (text: string) => void;
+          onClick: (callback: () => void) => void;
+          offClick: (callback: () => void) => void;
+          enable: () => void;
+          disable: () => void;
+          showProgress: () => void;
+          hideProgress: () => void;
+          color: string;
+          textColor: string;
+          isVisible: boolean;
+          isActive: boolean;
+        };
+        BackButton?: {
+          show: () => void;
+          hide: () => void;
+          onClick: (callback: () => void) => void;
+          offClick: (callback: () => void) => void;
+          isVisible: boolean;
+        };
       };
     };
   }

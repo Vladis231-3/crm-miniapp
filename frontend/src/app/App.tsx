@@ -29,6 +29,8 @@ import {
   ChevronRight, AlertCircle, Check, LogIn,
 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
+import { useTelegramMainButton } from './hooks/useTelegramMainButton';
+import { useTelegramBackButton } from './hooks/useTelegramBackButton';
 import { ClientApp } from './components/client/ClientApp';
 import { AdminApp } from './components/admin/AdminApp';
 import { WorkerApp } from './components/worker/WorkerApp';
@@ -61,6 +63,29 @@ function WelcomeScreen() {
   const [clientError, setClientError] = useState('');
 
   const [form, setForm] = useState({ name: '', car: '', plate: '' });
+
+  const handleBack = () => {
+    if (showStaffModal) {
+      setShowStaffModal(false);
+    } else if (step === 'form') {
+      setStep('greeting');
+    }
+  };
+
+  useTelegramBackButton(handleBack);
+
+  const mainBtnText = showStaffModal ? 'Привязать аккаунт' : 'Сохранить и продолжить';
+  const mainBtnAction = showStaffModal ? handleStaffLink : handleClientSubmit;
+  const mainBtnEnabled = showStaffModal
+    ? !!staffLogin && !!staffPassword && !authLoading
+    : step === 'form' && !authLoading;
+  const mainBtnVisible = showStaffModal || step === 'form';
+
+  useTelegramMainButton(
+    mainBtnText,
+    mainBtnAction,
+    mainBtnEnabled && mainBtnVisible,
+  );
 
   const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
   const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';

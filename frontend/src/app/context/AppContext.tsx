@@ -718,14 +718,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveSessions([]);
   }
 
+  function applyTelegramTheme(tg: NonNullable<ReturnType<typeof getTelegramWebApp>>) {
+    setIsDark(tg.colorScheme === 'dark');
+    const root = document.documentElement;
+    const theme = tg.themeParams as Record<string, string> | undefined;
+    if (theme) {
+      Object.entries(theme).forEach(([key, value]) => {
+        const cssVar = `--tg-${key.replace(/_/g, '-')}`;
+        root.style.setProperty(cssVar, value);
+      });
+    }
+  }
+
   useEffect(() => {
     const tg = getTelegramWebApp();
-    tg?.ready?.();
-    tg?.expand?.();
-    if (tg?.colorScheme === 'dark') {
-      setIsDark(true);
+    if (tg) {
+      tg.ready?.();
+      tg.expand?.();
+      applyTelegramTheme(tg);
+      tg.onEvent?.('themeChanged', () => applyTelegramTheme(tg));
     }
     void restoreSession();
+    return () => {
+      if (tg) {
+        tg.offEvent?.('themeChanged', () => applyTelegramTheme(tg));
+      }
+    };
   }, []);
 
   async function logout() {

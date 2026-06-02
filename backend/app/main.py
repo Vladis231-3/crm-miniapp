@@ -4851,7 +4851,6 @@ def update_client_profile(
             status_code=status.HTTP_409_CONFLICT,
             detail="Клиент с таким номером телефона уже зарегистрирован",
         )
-    _require_client_phone_verification(db, client.telegram_id, payload.phone)
     client.name = payload.name
     client.phone = payload.phone
     client.car = primary_vehicle.car
