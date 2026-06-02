@@ -1155,8 +1155,6 @@ export function AdminApp() {
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
-    setTimeout(() => setSettingsSaved(false), 2000);
-  };
 
   const handleGenerateTelegramCode = async () => {
     setTelegramLinkCode(await createTelegramLinkCode());
