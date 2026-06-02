@@ -5,11 +5,17 @@ export function useTelegramMainButton(
   text: string,
   onClick: () => void,
   enabled: boolean = true,
+  show: boolean = true,
 ) {
   useEffect(() => {
     const tg = getTelegramWebApp();
     const btn = tg?.MainButton;
     if (!btn) return;
+
+    if (!show) {
+      btn.hide();
+      return;
+    }
 
     btn.setText(text);
     btn.onClick(onClick);
@@ -24,5 +30,5 @@ export function useTelegramMainButton(
       btn.offClick(onClick);
       btn.hide();
     };
-  }, [text, onClick, enabled]);
+  }, [text, onClick, enabled, show]);
 }

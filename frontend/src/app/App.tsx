@@ -135,6 +135,7 @@ function WelcomeScreen() {
     showStaffModal
       ? !!staffLogin && !!staffPassword && !authLoading
       : step === 'form' && !authLoading,
+    showStaffModal || step === 'form',
   );
 
   return (
