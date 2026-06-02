@@ -1,10 +1,10 @@
 import { Star, Quote } from 'lucide-react';
 
 const reviews = [
-  { id: 1, name: 'Marcus Thompson', role: 'BMW M3 Owner', avatar: 'MT', rating: 5, text: 'The ceramic coating they applied is absolutely incredible. Water just sheets right off.', color: '#2563eb' },
-  { id: 2, name: 'Sarah Chen', role: 'Porsche 911 Owner', avatar: 'SC', rating: 5, text: 'I brought my car in expecting a standard detail and left absolutely stunned.', color: '#7c3aed' },
-  { id: 3, name: 'David Okonkwo', role: 'Range Rover Owner', avatar: 'DO', rating: 5, text: 'Their full detail package transformed my Range Rover. Worth every penny.', color: '#059669' },
-  { id: 4, name: 'Jennifer Walsh', role: 'Tesla Model S Owner', avatar: 'JW', rating: 5, text: 'Quick, professional, and thorough. The only place I trust with my Tesla.', color: '#d97706' },
+  { id: 1, name: 'Дмитрий Соколов', role: 'BMW M3', avatar: 'ДС', rating: 5, text: 'Керамическое покрытие просто невероятное. Вода скатывается моментально.', color: '#2563eb' },
+  { id: 2, name: 'Анна Кузнецова', role: 'Porsche 911', avatar: 'АК', rating: 5, text: 'Приехала на обычную мойку, а уехала в полном восторге.', color: '#7c3aed' },
+  { id: 3, name: 'Артём Фёдоров', role: 'Range Rover', avatar: 'АФ', rating: 5, text: 'Полный пакет преобразил мой Range Rover. Каждая копейка оправдана.', color: '#059669' },
+  { id: 4, name: 'Елена Морозова', role: 'Tesla Model S', avatar: 'ЕМ', rating: 5, text: 'Быстро, профессионально, качественно. Единственное место, которому доверяю свою Tesla.', color: '#d97706' },
 ];
 
 export function Testimonials() {
@@ -13,9 +13,9 @@ export function Testimonials() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <div className="inline-block bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full mb-4"
-            style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em' }}>CUSTOMER REVIEWS</div>
+            style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em' }}>ОТЗЫВЫ</div>
           <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.75rem)', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em', lineHeight: 1.15 }}>
-            What Our Customers Say</h2>
+            Что говорят клиенты</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {reviews.map((review) => (

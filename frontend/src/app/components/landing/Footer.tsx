@@ -14,7 +14,7 @@ export function Footer() {
               <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>ATMOSFERA</span>
             </div>
             <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, maxWidth: '22rem' }}>
-              Professional detailing center in Kazan.</p>
+              Профессиональный детейлинг-центр в Казани.</p>
             <div className="flex gap-3 mt-5">
               {[Instagram, Facebook, Twitter].map((Icon, i) => (
                 <button key={i}
@@ -25,9 +25,9 @@ export function Footer() {
             </div>
           </div>
           <div>
-            <h4 style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '1rem' }}>Services</h4>
+            <h4 style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '1rem' }}>Услуги</h4>
             <ul className="space-y-2.5">
-              {['Express Wash', 'Interior Detail', 'Paint Polish', 'Ceramic Coating'].map((item) => (
+              {['Экспресс-мойка', 'Детейлинг салона', 'Полировка', 'Керамика'].map((item) => (
                 <li key={item}>
                   <button onClick={() => document.querySelector('#services')?.scrollIntoView({ behavior: 'smooth' })}
                     className="bg-transparent border-none p-0 cursor-pointer text-left hover:text-blue-400 transition-colors"
@@ -37,9 +37,9 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <h4 style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '1rem' }}>Company</h4>
+            <h4 style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '1rem' }}>Компания</h4>
             <ul className="space-y-2.5">
-              {['About Us', 'Contact'].map((item) => (
+              {['О нас', 'Контакты'].map((item) => (
                 <li key={item}>
                   <button className="bg-transparent border-none p-0 cursor-pointer text-left hover:text-blue-400 transition-colors"
                     style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>{item}</button>
@@ -49,7 +49,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t pt-8 flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-          <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)' }}>© {year} ATMOSFERA. All rights reserved.</p>
+          <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)' }}>© {year} ATMOSFERA. Все права защищены.</p>
         </div>
       </div>
     </footer>

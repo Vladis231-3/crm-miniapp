@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { Menu, X, Droplets } from 'lucide-react';
 
 const navLinks = [
-  { label: 'Services', href: '#services' },
-  { label: 'Pricing', href: '#pricing' },
-  { label: 'Gallery', href: '#gallery' },
-  { label: 'Testimonials', href: '#testimonials' },
-  { label: 'Contact', href: '#contact' },
+  { label: 'Услуги', href: '#services' },
+  { label: 'Цены', href: '#pricing' },
+  { label: 'Галерея', href: '#gallery' },
+  { label: 'Отзывы', href: '#testimonials' },
+  { label: 'Контакты', href: '#contact' },
 ];
 
 export function Navbar() {
@@ -54,7 +54,7 @@ export function Navbar() {
           <button onClick={() => handleNav('#contact')}
             className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 cursor-pointer border-none"
             style={{ fontSize: '0.875rem', fontWeight: 600 }}>
-            Book Now
+            Записаться
           </button>
         </nav>
 
@@ -77,7 +77,7 @@ export function Navbar() {
             <button onClick={() => handleNav('#contact')}
               className="mt-3 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 cursor-pointer border-none"
               style={{ fontWeight: 600 }}>
-              Book Now
+              Записаться
             </button>
           </nav>
         </div>

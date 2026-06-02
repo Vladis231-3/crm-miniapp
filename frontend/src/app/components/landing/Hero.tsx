@@ -3,16 +3,16 @@ import { ChevronDown, Star, Clock, Shield } from 'lucide-react';
 const HERO_IMG = 'https://images.unsplash.com/photo-1607860108855-64acf2078ed9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwzfHxjYXIlMjB3YXNoJTIwZGV0YWlsaW5nJTIwbHV4dXJ5fGVufDF8fHx8MTc4MDQxMDI0OXww&ixlib=rb-4.1.0&q=80&w=1080';
 
 const stats = [
-  { icon: Star, value: '4.9', label: 'Average Rating' },
-  { icon: Clock, value: '15 min', label: 'Express Wash' },
-  { icon: Shield, value: '100%', label: 'Satisfaction' },
+  { icon: Star, value: '4.9', label: 'Средний рейтинг' },
+  { icon: Clock, value: '15 мин', label: 'Экспресс-мойка' },
+  { icon: Shield, value: '100%', label: 'Довольных клиентов' },
 ];
 
 export function Hero({ content }: { content?: { about?: { text?: string; features?: string[] } } | null }) {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
       <div className="absolute inset-0">
-        <img src={HERO_IMG} alt="Professional car wash" className="w-full h-full object-cover" />
+        <img src={HERO_IMG} alt="Профессиональный детейлинг" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-transparent" />
       </div>
 
@@ -21,28 +21,28 @@ export function Hero({ content }: { content?: { about?: { text?: string; feature
           <div className="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-400/30 text-blue-300 px-4 py-1.5 rounded-full mb-6"
             style={{ fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em' }}>
             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
-            ATMOSFERA DETAILING
+            ATMOSFERA ДЕТЕЙЛИНГ
           </div>
 
           <h1 className="text-white mb-5"
             style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.03em' }}>
-            Your Car Deserves <span className="text-blue-400">the Best</span> Treatment
+            Ваш автомобиль заслуживает <span className="text-blue-400">лучшего</span> ухода
           </h1>
 
           <p className="text-white/70 mb-10" style={{ fontSize: '1.1rem', lineHeight: 1.7 }}>
-            Premium car wash and detailing services that restore your vehicle's shine.
+            Премиум мойка и детейлинг для безупречного блеска вашего авто.
           </p>
 
           <div className="flex flex-wrap gap-4 mb-16">
             <button onClick={() => document.querySelector('#services')?.scrollIntoView({ behavior: 'smooth' })}
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl transition-all duration-200 hover:scale-105 cursor-pointer border-none"
               style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-              Explore Services
+              Наши услуги
             </button>
             <button onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}
               className="bg-white/10 hover:bg-white/20 text-white border border-white/25 px-8 py-3.5 rounded-xl transition-all duration-200 cursor-pointer"
               style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-              Book Appointment
+              Записаться
             </button>
           </div>
 
