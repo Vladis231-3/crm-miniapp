@@ -1061,6 +1061,13 @@ class ContentPayload(BaseModel):
     works: list[ContentWorksPayload] = []
 
 
+class ContactPayload(BaseModel):
+    name: str
+    phone: str = ""
+    service: str = ""
+    message: str = ""
+
+
 class GenericMessage(BaseModel):
     message: str
 

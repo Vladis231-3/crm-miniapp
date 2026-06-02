@@ -1,5 +1,6 @@
 import { useState, useEffect, forwardRef } from 'react';
-import { Phone, MapPin, Clock, Send, CheckCircle } from 'lucide-react';
+import { Phone, MapPin, Clock, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { apiRequest } from '../../api';
 
 interface ContactProps {
   preselectedService?: string;
@@ -7,13 +8,30 @@ interface ContactProps {
 
 export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact({ preselectedService = '' }, ref) {
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', service: preselectedService, message: '' });
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ name: '', phone: '', service: preselectedService, message: '' });
 
   useEffect(() => {
     if (preselectedService) setForm((f) => ({ ...f, service: preselectedService }));
   }, [preselectedService]);
 
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); setSubmitted(true); };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSending(true);
+    try {
+      await apiRequest('/api/contact', {
+        method: 'POST',
+        body: JSON.stringify({ name: form.name, phone: form.phone, service: form.service, message: form.message }),
+      });
+      setSubmitted(true);
+    } catch {
+      setError('Не удалось отправить заявку. Попробуйте позже.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <section id="contact" ref={ref} className="py-24 bg-white">
@@ -65,8 +83,8 @@ export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact({ 
               <div className="h-full flex flex-col items-center justify-center text-center py-12">
                 <CheckCircle size={48} className="text-green-500 mb-4" />
                 <h3 style={{ fontWeight: 700, fontSize: '1.2rem', color: '#0f172a' }}>Заявка отправлена!</h3>
-                <p className="text-gray-500 mt-2" style={{ fontSize: '0.9rem' }}>Подтвердим в течение 2 часов.</p>
-                <button onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', service: preselectedService, message: '' }); }}
+                <p className="text-gray-500 mt-2" style={{ fontSize: '0.9rem' }}>Мы свяжемся с вами в ближайшее время.</p>
+                <button onClick={() => { setSubmitted(false); setForm({ name: '', phone: '', service: preselectedService, message: '' }); }}
                   className="mt-6 px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors cursor-pointer border-none"
                   style={{ fontWeight: 600, fontSize: '0.875rem' }}>Ещё запись</button>
               </div>
@@ -81,17 +99,22 @@ export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact({ 
                       style={{ fontSize: '0.875rem' }} />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-1.5" style={{ fontSize: '0.82rem', fontWeight: 600 }}>Почта *</label>
-                    <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="ivan@mail.ru"
+                    <label className="block text-gray-700 mb-1.5" style={{ fontSize: '0.82rem', fontWeight: 600 }}>Телефон *</label>
+                    <input required type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      placeholder="+7 (999) 123-45-67"
                       className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                       style={{ fontSize: '0.875rem' }} />
                   </div>
                 </div>
-                <button type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 cursor-pointer border-none"
+                {error && (
+                  <div className="flex items-center gap-2 text-red-500 text-xs">
+                    <AlertCircle size={13} /> {error}
+                  </div>
+                )}
+                <button type="submit" disabled={sending}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-60"
                   style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                  <Send size={16} /> Отправить заявку
+                  <Send size={16} /> {sending ? 'Отправка...' : 'Отправить заявку'}
                 </button>
               </form>
             )}

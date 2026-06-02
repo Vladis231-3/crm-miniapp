@@ -147,6 +147,7 @@ from .schemas import (
     ContentAboutPayload,
     ContentServicePayload,
     ContentWorksPayload,
+    ContactPayload,
 )
 from .security import (
     hash_one_time_code,
@@ -4167,6 +4168,31 @@ def save_content(
     _content_cache["data"] = None
     _content_cache["ts"] = 0.0
     return payload
+
+
+@app.post("/api/contact", response_model=GenericMessage)
+def submit_contact(
+    payload: ContactPayload,
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    name = (payload.name or "").strip()
+    phone = (payload.phone or "").strip()
+    service = (payload.service or "").strip()
+    message_text = (payload.message or "").strip()
+    parts = [f"✉️ <b>Новая заявка с сайта</b>\n"]
+    if name:
+        parts.append(f"<b>Имя:</b> {name}")
+    if phone:
+        parts.append(f"<b>Телефон:</b> {phone}")
+    if service:
+        parts.append(f"<b>Услуга:</b> {service}")
+    if message_text:
+        parts.append(f"<b>Сообщение:</b> {message_text}")
+    text = "\n".join(parts)
+    owners = _all_owner_telegram_recipients(db)
+    for owner in owners:
+        send_telegram_message(owner.telegram_chat_id, text)
+    return GenericMessage(message="Заявка отправлена")
 
 
 @app.post(settings.telegram_webhook_path, response_model=GenericMessage)
