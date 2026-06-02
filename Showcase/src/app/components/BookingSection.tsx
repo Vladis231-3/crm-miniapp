@@ -27,7 +27,7 @@ export function BookingSection() {
   };
 
   return (
-    <section id="book" className="py-28 bg-black relative overflow-hidden">
+    <section id="book" className="py-20 md:py-28 bg-black relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
       <div className="absolute inset-0">
         <img
@@ -37,9 +37,9 @@ export function BookingSection() {
         />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-10 md:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -48,7 +48,7 @@ export function BookingSection() {
           <p className="text-sky-400 text-sm font-semibold tracking-widest uppercase mb-3">
             Ready to Book?
           </p>
-          <h2 className="text-white text-4xl md:text-5xl font-black tracking-tight mb-4">
+          <h2 className="text-white text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
             Schedule Your Detail
           </h2>
           <p className="text-white/50 max-w-xl mx-auto text-base">
@@ -77,7 +77,7 @@ export function BookingSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="bg-white/5 border border-white/10 rounded-2xl p-8 space-y-5"
+              className="bg-white/5 border border-white/10 rounded-2xl p-5 sm:p-8 space-y-4 sm:space-y-5"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="relative">

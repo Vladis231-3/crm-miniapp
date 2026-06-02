@@ -55,13 +55,13 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="py-28 bg-black relative overflow-hidden">
+    <section id="pricing" className="py-20 md:py-28 bg-black relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-sky-600/5 rounded-full blur-[150px] pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-10 md:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -70,10 +70,10 @@ export function PricingSection() {
           <p className="text-sky-400 text-sm font-semibold tracking-widest uppercase mb-3">
             Transparent Pricing
           </p>
-          <h2 className="text-white text-4xl md:text-5xl font-black tracking-tight mb-4">
+          <h2 className="text-white text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
             Choose Your Package
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto text-base">
+          <p className="text-white/50 max-w-xl mx-auto text-sm sm:text-base px-2">
             No hidden fees. No surprises. Just exceptional results at every
             price point.
           </p>
@@ -87,7 +87,7 @@ export function PricingSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className={`relative flex flex-col rounded-2xl p-8 border transition-all duration-300 ${
+              className={`relative flex flex-col rounded-2xl p-6 sm:p-8 border transition-all duration-300 ${
                 plan.highlight
                   ? "bg-sky-500/10 border-sky-500/50 shadow-2xl shadow-sky-500/10"
                   : "bg-white/5 border-white/10 hover:border-white/20"

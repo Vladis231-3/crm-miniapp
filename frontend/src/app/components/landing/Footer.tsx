@@ -41,7 +41,8 @@ export function Footer() {
             <ul className="space-y-2.5">
               {['О нас', 'Контакты'].map((item) => (
                 <li key={item}>
-                  <button className="bg-transparent border-none p-0 cursor-pointer text-left hover:text-blue-400 transition-colors"
+                  <button onClick={() => item === 'О нас' ? window.location.href = window.location.origin + '/about' : document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="bg-transparent border-none p-0 cursor-pointer text-left hover:text-blue-400 transition-colors"
                     style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>{item}</button>
                 </li>
               ))}

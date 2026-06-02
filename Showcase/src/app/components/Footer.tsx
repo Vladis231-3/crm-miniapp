@@ -2,8 +2,8 @@ import { Droplets, MapPin, Phone, Mail, Instagram, Facebook, Youtube } from "luc
 
 export function Footer() {
   return (
-    <footer className="bg-zinc-950 border-t border-white/10 pt-16 pb-8">
-      <div className="max-w-7xl mx-auto px-6">
+    <footer className="bg-zinc-950 border-t border-white/10 pt-12 pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div className="md:col-span-2">

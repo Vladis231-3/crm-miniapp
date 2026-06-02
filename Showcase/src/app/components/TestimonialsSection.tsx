@@ -48,13 +48,13 @@ const testimonials = [
 
 export function TestimonialsSection() {
   return (
-    <section id="testimonials" className="py-28 bg-zinc-950 relative overflow-hidden">
+    <section id="testimonials" className="py-20 md:py-28 bg-zinc-950 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-sky-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-10 md:mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -63,7 +63,7 @@ export function TestimonialsSection() {
           <p className="text-sky-400 text-sm font-semibold tracking-widest uppercase mb-3">
             Real Clients
           </p>
-          <h2 className="text-white text-4xl md:text-5xl font-black tracking-tight mb-4">
+          <h2 className="text-white text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
             What They're Saying
           </h2>
           <div className="flex items-center justify-center gap-1 mb-4">

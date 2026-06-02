@@ -25,12 +25,12 @@ export function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 text-sky-400 text-sm font-medium mb-6">
-            <Star className="w-3.5 h-3.5 fill-sky-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 text-sky-400 text-xs sm:text-sm font-medium mb-6">
+            <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-sky-400 flex-shrink-0" />
             <span>Rated #1 Detailing Studio in the City</span>
           </div>
 
-          <h1 className="text-white text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-none mb-6">
+          <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[1.05] mb-5">
             Your Car Deserves
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-500">
@@ -38,32 +38,32 @@ export function HeroSection() {
             </span>
           </h1>
 
-          <p className="text-white/60 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-white/60 text-base md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed px-2">
             Premium car wash and full detailing services that restore your vehicle
             to showroom condition. Every time. No exceptions.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
             <a
               href="#book"
-              className="px-8 py-4 rounded-full bg-sky-500 text-white font-bold text-base hover:bg-sky-400 transition-all shadow-xl shadow-sky-500/30 hover:shadow-sky-400/40 hover:scale-105 active:scale-95"
+              className="px-7 py-4 rounded-full bg-sky-500 text-white font-bold text-base hover:bg-sky-400 transition-all shadow-xl shadow-sky-500/30 active:scale-95 text-center"
             >
               Book a Detail
             </a>
             <a
               href="#services"
-              className="px-8 py-4 rounded-full border border-white/20 text-white font-medium text-base hover:border-white/50 hover:bg-white/5 transition-all"
+              className="px-7 py-4 rounded-full border border-white/20 text-white font-medium text-base hover:border-white/50 hover:bg-white/5 transition-all text-center"
             >
               View Services
             </a>
           </div>
 
-          <div className="mt-16 flex items-center justify-center gap-10 text-white/50">
-            {[["500+", "Cars Detailed"], ["98%", "Satisfaction Rate"], ["7+", "Years of Experience"]].map(
+          <div className="mt-12 grid grid-cols-3 gap-4 max-w-sm mx-auto text-white/50">
+            {[["500+", "Cars Detailed"], ["98%", "Satisfaction"], ["7+", "Years Exp."]].map(
               ([val, label]) => (
                 <div key={label} className="text-center">
-                  <div className="text-white text-2xl md:text-3xl font-black">{val}</div>
-                  <div className="text-xs md:text-sm mt-1">{label}</div>
+                  <div className="text-white text-xl sm:text-2xl md:text-3xl font-black">{val}</div>
+                  <div className="text-xs mt-1 leading-tight">{label}</div>
                 </div>
               )
             )}
