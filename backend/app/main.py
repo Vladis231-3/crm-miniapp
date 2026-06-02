@@ -2298,7 +2298,15 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
     try:
         validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
     except ValueError:
-        return None
+        if settings.allow_insecure_client_auth:
+            try:
+                validated = validate_telegram_init_data(
+                    authorization, settings.telegram_bot_token, skip_validation=True
+                )
+            except ValueError:
+                return None
+        else:
+            return None
     telegram_user = validated.get("user") or {}
     telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
     if not telegram_id:

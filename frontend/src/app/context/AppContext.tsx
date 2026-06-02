@@ -23,6 +23,15 @@ export interface ClientProfile {
   registered: boolean;
 }
 
+export interface ActiveSession {
+  id: string;
+  device: string;
+  ipAddress: string;
+  createdAt: Date;
+  lastSeenAt: Date;
+  current: boolean;
+}
+
 export interface RegisteredClient {
   id: string;
   name: string;
@@ -471,6 +480,7 @@ interface AppContextType {
   authLoading: boolean;
   error: string | null;
   session: SessionInfo | null;
+  activeSessions: ActiveSession[];
   isDark: boolean;
   toggleTheme: () => void;
   logout: () => void;
@@ -555,6 +565,7 @@ interface AppContextType {
   approveOwnerDatabaseReset: (requestId: string, creatorCode: string, confirmationPhrase: string) => Promise<OwnerDatabaseResetApproval>;
   executeOwnerDatabaseReset: (requestId: string) => Promise<OwnerDatabaseResetResult>;
   refreshBootstrap: () => Promise<void>;
+  refreshActiveSessions: () => Promise<void>;
 }
 
 const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false };
@@ -632,6 +643,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [clientProfile, setClientProfile] = useState<ClientProfile>(EMPTY_CLIENT_PROFILE);
   const [staffProfile, setStaffProfile] = useState<Worker | null>(null);
@@ -702,6 +714,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function refreshActiveSessions() {
+    setActiveSessions([]);
+  }
+
   useEffect(() => {
     const tg = getTelegramWebApp();
     tg?.ready?.();
@@ -718,6 +734,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
     }
     setSession(null);
+    setActiveSessions([]);
     setClientProfile(EMPTY_CLIENT_PROFILE);
     setStaffProfile(null);
     setClients([]);
@@ -1288,6 +1305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       authLoading,
       error,
       session,
+      activeSessions,
       isDark,
       toggleTheme: () => setIsDark((current) => !current),
       logout,
@@ -1365,6 +1383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       approveOwnerDatabaseReset,
       executeOwnerDatabaseReset,
       refreshBootstrap,
+      refreshActiveSessions,
     }}>
       {children}
     </AppContext.Provider>

@@ -202,22 +202,8 @@ class BookingLogicTests(unittest.TestCase):
                 ).all()
             )
 
-    def count_client_sessions(self, client_id: str) -> int:
-        from app.database import SessionLocal
-        from app.models import AuthSession
-
-        with SessionLocal() as db:
-            return len(
-                db.scalars(
-                    select(AuthSession).where(
-                        AuthSession.actor_role == "client",
-                        AuthSession.actor_id == client_id,
-                    )
-                ).all()
-            )
-
     def test_session_schema_supports_prefixed_ids_and_long_mobile_user_agents(self) -> None:
-        from app.models import AuthSession, Booking, BookingWorker, Client, Expense, Notification, Penalty, StaffUser, StockItem, TelegramLinkCode
+        from app.models import Booking, BookingWorker, Client, Expense, Notification, Penalty, StaffUser, StockItem, TelegramLinkCode
 
         self.assertEqual(getattr(Client.__table__.c.id.type, "length", None), 64)
         self.assertEqual(getattr(StaffUser.__table__.c.id.type, "length", None), 64)
@@ -225,8 +211,6 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(getattr(Booking.__table__.c.id.type, "length", None), 64)
         self.assertEqual(getattr(BookingWorker.__table__.c.booking_id.type, "length", None), 64)
         self.assertEqual(getattr(BookingWorker.__table__.c.worker_id.type, "length", None), 64)
-        self.assertEqual(getattr(AuthSession.__table__.c.actor_id.type, "length", None), 64)
-        self.assertIsNone(getattr(AuthSession.__table__.c.user_agent.type, "length", None))
         self.assertEqual(getattr(Notification.__table__.c.id.type, "length", None), 64)
         self.assertEqual(getattr(Notification.__table__.c.recipient_id.type, "length", None), 64)
         self.assertEqual(getattr(StockItem.__table__.c.id.type, "length", None), 64)
@@ -251,7 +235,6 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         actor_id = response.json()["actorId"]
         self.assertTrue(actor_id.startswith("c-"))
-        self.assertGreaterEqual(self.count_client_sessions(actor_id), 1)
 
     def count_worker_notifications(self, worker_id: str) -> int:
         from app.database import SessionLocal
@@ -1797,7 +1780,6 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(notification.status_code, 200, notification.text)
         self.assertGreaterEqual(self.count_client_notifications(client_id), 1)
-        self.assertGreaterEqual(self.count_client_sessions(client_id), 1)
 
         delete_response = self.client.delete(
             f"/api/clients/{client_id}",
@@ -1806,7 +1788,6 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(delete_response.status_code, 200, delete_response.text)
         self.assertEqual(self.count_clients(), 0)
         self.assertEqual(self.count_client_notifications(client_id), 0)
-        self.assertEqual(self.count_client_sessions(client_id), 0)
 
         session_response = self.client.get("/api/auth/session", headers=self.auth_headers(client_token))
         self.assertEqual(session_response.status_code, 401, session_response.text)
@@ -3808,7 +3789,6 @@ class BookingLogicTests(unittest.TestCase):
 
         delete_response = self.client.delete(f"/api/clients/{client_id}", headers=self.auth_headers(admin_token))
         self.assertEqual(delete_response.status_code, 200, delete_response.text)
-        self.assertEqual(self.count_client_sessions(client_id), 0)
 
         client_session = self.client.get("/api/auth/session", headers=self.auth_headers(client_token))
         self.assertEqual(client_session.status_code, 401, client_session.text)

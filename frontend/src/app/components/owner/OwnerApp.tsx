@@ -784,7 +784,6 @@ export function OwnerApp() {
     { label: 'Удалятся позиции склада', value: resetPreview.stockItemsDeleted },
     { label: 'Удалятся расходы', value: resetPreview.expensesDeleted },
     { label: 'Удалятся жалобы', value: resetPreview.penaltiesDeleted },
-    { label: 'Закроются лишние сессии', value: resetPreview.sessionsClosed },
     { label: 'Сбросятся услуги', value: resetPreview.servicesReset },
     { label: 'Сбросятся боксы', value: resetPreview.boxesReset },
     { label: 'Сбросится график', value: resetPreview.scheduleReset },

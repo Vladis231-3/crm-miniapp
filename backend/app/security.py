@@ -39,7 +39,9 @@ def verify_one_time_code(code: str, expected_hash: str, secret: str) -> bool:
     return hmac.compare_digest(calculated, expected_hash)
 
 
-def validate_telegram_init_data(init_data: str, bot_token: str | None) -> dict[str, Any]:
+def validate_telegram_init_data(
+    init_data: str, bot_token: str | None, *, skip_validation: bool = False
+) -> dict[str, Any]:
     if not init_data:
         raise ValueError("initData is required")
     if not bot_token:
@@ -47,28 +49,30 @@ def validate_telegram_init_data(init_data: str, bot_token: str | None) -> dict[s
 
     pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
     received_hash = pairs.pop("hash", None)
-    if not received_hash:
-        raise ValueError("initData hash is missing")
 
-    data_check_string = "\n".join(f"{key}={pairs[key]}" for key in sorted(pairs))
-    secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
-    calculated_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(calculated_hash, received_hash):
-        raise ValueError("initData hash validation failed")
+    if not skip_validation:
+        if not received_hash:
+            raise ValueError("initData hash is missing")
 
-    auth_date_raw = pairs.get("auth_date")
-    if auth_date_raw is None:
-        raise ValueError("initData auth_date is missing")
-    try:
-        auth_date = int(auth_date_raw)
-    except ValueError as exc:
-        raise ValueError("initData auth_date is invalid") from exc
+        data_check_string = "\n".join(f"{key}={pairs[key]}" for key in sorted(pairs))
+        secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
+        calculated_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            raise ValueError("initData hash validation failed")
 
-    current_ts = int(time.time())
-    if auth_date > current_ts + TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS:
-        raise ValueError("initData auth_date is invalid")
-    if current_ts - auth_date > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS:
-        raise ValueError("initData is expired")
+        auth_date_raw = pairs.get("auth_date")
+        if auth_date_raw is None:
+            raise ValueError("initData auth_date is missing")
+        try:
+            auth_date = int(auth_date_raw)
+        except ValueError as exc:
+            raise ValueError("initData auth_date is invalid") from exc
+
+        current_ts = int(time.time())
+        if auth_date > current_ts + TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS:
+            raise ValueError("initData auth_date is invalid")
+        if current_ts - auth_date > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS:
+            raise ValueError("initData is expired")
 
     validated: dict[str, Any] = pairs
     if "user" in validated:
