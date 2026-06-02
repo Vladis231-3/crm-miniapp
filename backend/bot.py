@@ -153,15 +153,16 @@ def _telegram_multipart_call(
     return result["result"]
 
 
-def _start_reply_markup(webapp_url: str) -> dict[str, Any]:
+def _welcome_reply_markup(webapp_url: str) -> dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {
-                    "text": "Открыть CRM",
-                    "web_app": {"url": webapp_url},
-                }
-            ]
+                {"text": "✨ О нас", "callback_data": "btn_about"},
+                {"text": "📸 Наши работы", "callback_data": "btn_works"},
+            ],
+            [
+                {"text": "🚀 Войти", "web_app": {"url": webapp_url}},
+            ],
         ]
     }
 
@@ -173,7 +174,7 @@ def _configure_bot_metadata(runtime: BotRuntime) -> str | None:
         "setMyCommands",
         {
             "commands": [
-                {"command": "start", "description": "Открыть CRM mini app"},
+                {"command": "start", "description": "Главное меню ATMOSFERA"},
                 {"command": "chatid", "description": "Показать chat id"},
                 {"command": "link", "description": "Привязать Telegram к CRM"},
             ]
@@ -235,6 +236,7 @@ def _send_text_message(
     text: str,
     *,
     reply_markup: dict[str, Any] | None = None,
+    parse_mode: str | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "chat_id": chat_id,
@@ -242,20 +244,80 @@ def _send_text_message(
     }
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
     _telegram_call(runtime, "sendMessage", payload)
 
 
+WELCOME_PHOTO_URL = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1000"
+
+WELCOME_CAPTION = (
+    '<b>Добро пожаловать в ATMOSFERA!</b>\n\n'
+    'Мы — профессиональный автокомплекс полного цикла в Анапе. '
+    'Мойка, детейлинг, ремонт и обслуживание — всё в одном месте.\n\n'
+    '✨ Записывайтесь на услуги, отслеживайте историю и управляйте '
+    'бронированиями прямо в Telegram.\n\n'
+    'Нажмите «Войти», чтобы начать, или узнайте больше о нас и наших работах.'
+)
+
+
 def _send_start_message(runtime: BotRuntime, chat_id: int) -> None:
-    _send_text_message(
-        runtime,
-        chat_id,
-        (
-            "CRM mini app готово. Откройте его кнопкой ниже.\n\n"
-            "Чтобы привязать Telegram автоматически, создайте код в CRM и отправьте боту команду /link 123456.\n"
-            f"Ваш chat id: {chat_id}"
-        ),
-        reply_markup=_start_reply_markup(runtime.webapp_url),
-    )
+    markup = _welcome_reply_markup(runtime.webapp_url)
+    try:
+        req = request.Request(WELCOME_PHOTO_URL)
+        with request.urlopen(req, timeout=10) as response:
+            photo_bytes = response.read()
+        send_telegram_photo(
+            chat_id,
+            file_name="welcome.jpg",
+            content=photo_bytes,
+            caption=WELCOME_CAPTION,
+            reply_markup=markup,
+        )
+    except Exception:
+        logging.warning("Failed to load welcome photo, falling back to text", exc_info=True)
+        _send_text_message(
+            runtime,
+            chat_id,
+            WELCOME_CAPTION,
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
+
+
+ABOUT_TEXT = (
+    '<b>✨ О студии ATMOSFERA</b>\n\n'
+    'Мы — современный автокомплекс в Анапе, где сочетаются '
+    'профессионализм, качество и забота о вашем автомобиле.\n\n'
+    '<b>Наши преимущества:</b>\n'
+    '🛠 Профессиональная мойка и детейлинг\n'
+    '🔧 Ремонт и техническое обслуживание\n'
+    '📅 Удобное онлайн-бронирование\n'
+    '👨‍🔧 Опытные мастера с многолетним стажем\n'
+    '⭐ Индивидуальный подход к каждому клиенту\n\n'
+    'Приезжайте и убедитесь сами!'
+)
+
+WORKS_TEXT = (
+    '<b>📸 Наши работы</b>\n\n'
+    'Мы гордимся каждым проектом. В нашем портфолио:\n\n'
+    '🚗 Полный детейлинг премиальных автомобилей\n'
+    '✨ Профессиональная полировка кузова\n'
+    '🧹 Химчистка салона любой сложности\n'
+    '🔩 Ремонт и покраска кузовных элементов\n'
+    '🛡 Нанесение защитных покрытий (керамика, плёнка)\n\n'
+    'Чтобы увидеть фотографии наших работ, '
+    'откройте мини-приложение через кнопку «Войти».\n\n'
+    'Ждём вас в ATMOSFERA!'
+)
+
+
+def _send_about_message(runtime: BotRuntime, chat_id: int) -> None:
+    _send_text_message(runtime, chat_id, ABOUT_TEXT, parse_mode="HTML")
+
+
+def _send_works_message(runtime: BotRuntime, chat_id: int) -> None:
+    _send_text_message(runtime, chat_id, WORKS_TEXT, parse_mode="HTML")
 
 
 def send_telegram_message(chat_id: str | int, text: str) -> None:
@@ -512,6 +574,14 @@ def _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> Non
     callback = _extract_callback(update)
     if callback is not None:
         callback_id, data = callback
+        if data == "btn_about":
+            _answer_callback_query(runtime, callback_id, "✨ О студии")
+            _send_about_message(runtime, chat_id)
+            return
+        if data == "btn_works":
+            _answer_callback_query(runtime, callback_id, "📸 Наши работы")
+            _send_works_message(runtime, chat_id)
+            return
         if data.startswith("shiftapprove:"):
             _answer_callback_query(runtime, callback_id, _apply_shift_review_from_bot(chat_id, data.split(":", 1)[1], "approved"))
             return

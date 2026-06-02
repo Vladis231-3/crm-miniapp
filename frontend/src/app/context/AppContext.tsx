@@ -566,6 +566,8 @@ interface AppContextType {
   executeOwnerDatabaseReset: (requestId: string) => Promise<OwnerDatabaseResetResult>;
   refreshBootstrap: () => Promise<void>;
   refreshActiveSessions: () => Promise<void>;
+  checkConsent: () => Promise<boolean>;
+  submitConsent: () => Promise<void>;
 }
 
 const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false };
@@ -1149,6 +1151,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshBootstrap();
   }
 
+  async function checkConsent() {
+    try {
+      const response = await apiRequest<{ consented: boolean }>('/api/auth/consent/check');
+      return response.consented;
+    } catch {
+      return false;
+    }
+  }
+
+  async function submitConsent() {
+    await apiRequest<{ consented: boolean; consentedAt: string }>('/api/auth/consent', { method: 'POST' });
+  }
+
   async function listShiftChecklists() {
     const entries = await apiRequest<Array<Omit<ShiftChecklist, 'createdAt'> & { createdAt: string }>>('/api/shift-checklists');
     return entries.map((entry) => ({ ...entry, createdAt: new Date(entry.createdAt) }));
@@ -1404,6 +1419,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       executeOwnerDatabaseReset,
       refreshBootstrap,
       refreshActiveSessions,
+      checkConsent,
+      submitConsent,
     }}>
       {children}
     </AppContext.Provider>

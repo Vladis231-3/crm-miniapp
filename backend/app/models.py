@@ -289,6 +289,14 @@ class AppSetting(Base):
     value: Mapped[dict[str, Any]] = mapped_column(JSON)
 
 
+class DataConsent(Base):
+    __tablename__ = "data_consent"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telegram_id: Mapped[str] = mapped_column(String(64), unique=True)
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class Income(Base):
     __tablename__ = "incomes"
 

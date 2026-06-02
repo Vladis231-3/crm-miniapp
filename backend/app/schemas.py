@@ -743,6 +743,15 @@ class ClientRegisterRequest(BaseModel):
         return normalize_phone(value)
 
 
+class ConsentRecordPayload(BaseModel):
+    consented: bool
+    consentedAt: str = ""
+
+
+class ConsentCheckResponse(BaseModel):
+    consented: bool
+
+
 class StaffLinkRequest(BaseModel):
     login: str
     password: str = Field(max_length=128)

@@ -1,4 +1,4 @@
-import React, { useState, Component, useCallback, useRef } from 'react';
+import React, { useState, useEffect, Component, useCallback, useRef } from 'react';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -53,6 +53,8 @@ function WelcomeScreen() {
     loginClient,
     linkStaff,
     authLoading,
+    checkConsent,
+    submitConsent,
   } = useApp();
 
   const [step, setStep] = useState<'greeting' | 'form'>('greeting');
@@ -63,6 +65,38 @@ function WelcomeScreen() {
   const [showPass, setShowPass] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [clientError, setClientError] = useState('');
+
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(true);
+  const [consentDeclined, setConsentDeclined] = useState(false);
+
+  useEffect(() => {
+    checkConsent().then((consented) => {
+      if (consented) {
+        setConsentGiven(true);
+      }
+      setConsentChecked(true);
+      setConsentLoading(false);
+    });
+  }, [checkConsent]);
+
+  const handleConsentAgree = async () => {
+    try {
+      setConsentLoading(true);
+      await submitConsent();
+      setConsentGiven(true);
+      setConsentDeclined(false);
+    } catch {
+      setConsentDeclined(true);
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  const handleConsentDecline = () => {
+    setConsentDeclined(true);
+  };
 
   const [form, setForm] = useState({ name: '', car: '', plate: '' });
 
@@ -138,8 +172,79 @@ function WelcomeScreen() {
     showStaffModal || step === 'form',
   );
 
+  if (consentLoading) {
+    return (
+      <div className={`${isDark ? 'dark bg-[#0B1226] text-[#E6EEF8]' : 'bg-[#F6F7FA] text-[#0B1226]'} min-h-screen flex items-center justify-center text-sm`}>
+        Загрузка...
+      </div>
+    );
+  }
+
   return (
     <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col relative overflow-hidden`}>
+      <AnimatePresence>
+        {!consentGiven && consentChecked && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center p-5"
+            style={{ background: isDark ? 'rgba(11, 18, 38, 0.97)' : 'rgba(246, 247, 250, 0.98)' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="w-full max-w-sm max-h-[85vh] overflow-y-auto"
+            >
+              <div className={`${isDark ? 'bg-[#0E1624] border-white/10' : 'bg-white border-black/10'} border rounded-3xl p-6 shadow-2xl`}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}18` }}>
+                  <Shield size={22} style={{ color: primary }} />
+                </div>
+                <h2 className="text-lg font-bold text-center mb-1">Согласие на обработку данных</h2>
+                <p className={`text-xs ${sub} text-center mb-4`}>Федеральный закон № 152-ФЗ</p>
+
+                <div className={`text-xs leading-relaxed ${sub} space-y-2 mb-5 max-h-52 overflow-y-auto ${isDark ? 'bg-white/3' : 'bg-gray-50'} rounded-xl p-3`}>
+                  <p>Настоящим, принимая условия настоящего согласия, я свободно, своей волей и в своем интересе даю согласие <b>ООО «Атмосфера»</b> (далее — Оператор) на обработку моих персональных данных, указанных мной при использовании сервиса ATMOSFERA (Telegram-бот и мини-приложение).</p>
+                  <p><b>1. Перечень персональных данных:</b> имя и фамилия; номер телефона; марка, модель и госномер автомобиля; идентификатор Telegram (Telegram ID); история записей на услуги и обращений.</p>
+                  <p><b>2. Цели обработки:</b> оказание услуг по записи, бронированию и обслуживанию; связь по вопросам бронирования; ведение учёта и истории обращений; улучшение качества сервиса.</p>
+                  <p><b>3. Действия с данными:</b> сбор, запись, систематизация, накопление, хранение, уточнение, использование, блокирование, удаление, уничтожение.</p>
+                  <p><b>4. Способы обработки:</b> смешанная (с использованием средств автоматизации и без).</p>
+                  <p><b>5. Срок действия:</b> бессрочно с момента предоставления до момента отзыва.</p>
+                  <p><b>6. Отзыв согласия:</b> могу отозвать в любой момент, направив уведомление Оператору. После отзыва данные будут удалены.</p>
+                  <p><b>7. Гарантии:</b> данные предоставляются добровольно; передача третьим лицам не осуществляется; обработка ведётся в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных».</p>
+                </div>
+
+                {consentDeclined && (
+                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-xs mb-4 justify-center">
+                    <AlertCircle size={13} />
+                    Для использования сервиса необходимо согласиться на обработку персональных данных
+                  </motion.div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleConsentAgree}
+                    disabled={consentLoading}
+                    className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm shadow-lg disabled:opacity-60"
+                    style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
+                  >
+                    {consentLoading ? 'Сохранение...' : 'Согласен'}
+                  </motion.button>
+                  <button
+                    onClick={handleConsentDecline}
+                    className={`w-full py-3 rounded-2xl text-sm font-medium ${sub} ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} transition-all`}
+                  >
+                    Не согласен
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative z-10 flex items-center justify-between px-5 pt-5">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-lg" style={{ background: primary }}>A</div>

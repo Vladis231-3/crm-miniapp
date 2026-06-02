@@ -43,6 +43,7 @@ from .models import (
     BookingWorker,
     Box,
     Client,
+    DataConsent,
     Expense,
     Income,
     Notification,
@@ -72,6 +73,8 @@ from .schemas import (
     BoxPayload,
     ChangePasswordRequest,
     ClientRegisterRequest,
+    ConsentCheckResponse,
+    ConsentRecordPayload,
     StaffLinkRequest,
     ClientCreateRequest,
     ClientCardUpdateRequest,
@@ -4758,6 +4761,47 @@ def authenticate_primary_owner_via_telegram(
         "displayName": owner.name,
         "sessionId": "",
     })
+
+
+def _extract_telegram_id_from_init_data(authorization: str) -> str:
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData")
+    try:
+        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    telegram_user = validated.get("user") or {}
+    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    if not telegram_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing")
+    return telegram_id
+
+
+@app.get("/api/auth/consent/check", response_model=ConsentCheckResponse)
+def check_data_consent(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> ConsentCheckResponse:
+    authorization = request.headers.get("authorization", "")
+    telegram_id = _extract_telegram_id_from_init_data(authorization)
+    consent = db.scalar(select(DataConsent).where(DataConsent.telegram_id == telegram_id))
+    return ConsentCheckResponse(consented=consent is not None)
+
+
+@app.post("/api/auth/consent", response_model=ConsentRecordPayload)
+def record_data_consent(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> ConsentRecordPayload:
+    authorization = request.headers.get("authorization", "")
+    telegram_id = _extract_telegram_id_from_init_data(authorization)
+    existing = db.scalar(select(DataConsent).where(DataConsent.telegram_id == telegram_id))
+    if existing is not None:
+        return ConsentRecordPayload(consented=True, consentedAt=existing.consented_at.isoformat())
+    consent = DataConsent(telegram_id=telegram_id)
+    db.add(consent)
+    db.commit()
+    return ConsentRecordPayload(consented=True, consentedAt=consent.consented_at.isoformat())
 
 
 @app.get("/api/auth/session", response_model=BootstrapPayload)
