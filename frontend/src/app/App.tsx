@@ -1,4 +1,4 @@
-import React, { useState, Component } from 'react';
+import React, { useState, Component, useCallback, useRef } from 'react';
 
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
@@ -44,6 +44,8 @@ import {
   validateVehicleName,
 } from './utils/validation';
 
+const NOOP = () => {};
+
 function WelcomeScreen() {
   const {
     isDark,
@@ -64,15 +66,19 @@ function WelcomeScreen() {
 
   const [form, setForm] = useState({ name: '', car: '', plate: '' });
 
-  const handleBack = () => {
-    if (showStaffModal) {
+  const navRef = useRef({ showStaffModal, step });
+  navRef.current = { showStaffModal, step };
+
+  const handleBack = useCallback(() => {
+    const { showStaffModal: ssm, step: s } = navRef.current;
+    if (ssm) {
       setShowStaffModal(false);
-    } else if (step === 'form') {
+    } else if (s === 'form') {
       setStep('greeting');
     }
-  };
+  }, []);
 
-  useTelegramBackButton(handleBack);
+  useTelegramBackButton(handleBack, showStaffModal || step === 'form');
 
   const mainBtnText = showStaffModal ? 'Привязать аккаунт' : 'Сохранить и продолжить';
   const mainBtnAction = showStaffModal ? handleStaffLink : handleClientSubmit;

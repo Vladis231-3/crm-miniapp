@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Menu, ChevronRight, Clock, Star, ArrowLeft, Check,
@@ -14,6 +14,10 @@ import {
   validatePlateValue,
   validateVehicleName,
 } from '../../utils/validation';
+import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
+import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
+
+const NOOP = () => {};
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новая заявка',
@@ -104,6 +108,48 @@ export function ClientApp() {
   const [profileError, setProfileError] = useState('');
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+
+  const handleCancelBooking = useCallback(() => {
+    if (showCancelConfirm) deleteBooking(showCancelConfirm);
+  }, [showCancelConfirm, deleteBooking]);
+
+  const mainBtnState = (() => {
+    if (showSlotModal && selectedSlot) {
+      return { text: 'Подтвердить запись', onClick: handleConfirmBooking, enabled: true };
+    }
+    if (showCancelConfirm) {
+      return { text: 'Отменить запись', onClick: handleCancelBooking, enabled: true };
+    }
+    if (page === 'profile') {
+      return { text: 'Сохранить изменения', onClick: handleSaveProfile, enabled: true };
+    }
+    return null;
+  })();
+
+  useTelegramMainButton(
+    mainBtnState?.text || '',
+    mainBtnState?.onClick || NOOP,
+    mainBtnState !== null,
+  );
+
+  const navRef = useRef({ page, showCancelConfirm, showSlotModal });
+  navRef.current = { page, showCancelConfirm, showSlotModal };
+
+  const handleBack = useCallback(() => {
+    const { page: p, showCancelConfirm: scc, showSlotModal: ssm } = navRef.current;
+    if (scc) { setShowCancelConfirm(null); return; }
+    if (ssm) { setShowSlotModal(false); return; }
+    if (p === 'detail') setPage('catalog');
+    else if (p === 'slots') setPage('detail');
+    else if (p === 'confirm') setPage('slots');
+    else if (p === 'bookings') setPage('catalog');
+    else if (p === 'profile') setPage('catalog');
+  }, []);
+
+  useTelegramBackButton(
+    handleBack,
+    page !== 'catalog' || showSlotModal || showCancelConfirm !== null,
+  );
 
   useEffect(() => {
     if (!selectedDate && upcomingDates[0]) {
@@ -271,6 +317,8 @@ export function ClientApp() {
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
     if (!selectedSlot) return;
+
+    setShowSlotModal(false);
     if (!selectedDayDate || selectedDayDate < todayStart) {
       const nextAvailableDate = upcomingDates.find((dateValue) => {
         const parsedDate = parseFlexibleDate(dateValue);

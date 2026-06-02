@@ -736,14 +736,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       tg.ready?.();
       tg.expand?.();
       applyTelegramTheme(tg);
-      tg.onEvent?.('themeChanged', () => applyTelegramTheme(tg));
+      const onThemeChange = () => applyTelegramTheme(tg);
+      tg.onEvent?.('themeChanged', onThemeChange);
+      return () => {
+        tg.offEvent?.('themeChanged', onThemeChange);
+      };
     }
     void restoreSession();
-    return () => {
-      if (tg) {
-        tg.offEvent?.('themeChanged', () => applyTelegramTheme(tg));
-      }
-    };
+    return () => {};
   }, []);
 
   async function logout() {
