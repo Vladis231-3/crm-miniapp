@@ -49,7 +49,7 @@ export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact({ 
               <h3 style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '1.25rem' }}>Свяжитесь с нами</h3>
               <div className="space-y-5">
                 {[
-                  { icon: Phone, label: 'Telegram', value: '@atmosfera_bot', sub: 'Онлайн 24/7' },
+                  { icon: Phone, label: 'Telegram', value: '@system_polish', sub: 'Онлайн 24/7' },
                   { icon: MapPin, label: 'Адрес', value: 'г. Казань, ул. Гладилова 27а', sub: 'По записи' },
                   { icon: Clock, label: 'Часы работы', value: 'Пн–Сб: 9:00 – 19:00', sub: 'Вс: выходной' },
                 ].map(({ icon: Icon, label, value, sub }) => (
