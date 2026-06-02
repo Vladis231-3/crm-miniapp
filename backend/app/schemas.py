@@ -702,7 +702,7 @@ class SettingsBundlePayload(BaseModel):
 class SessionPayload(BaseModel):
     role: Role
     actorId: str
-    sessionId: str
+    sessionId: str = ""
     login: str | None = None
     displayName: str
 
@@ -724,14 +724,18 @@ class BootstrapPayload(BaseModel):
     settings: SettingsBundlePayload
 
 
-class ClientAuthRequest(BaseModel):
-    profile: ClientProfileInput
-    initData: str | None = None
-
-
-class ClientPhoneVerificationRequest(BaseModel):
+class ClientRegisterRequest(BaseModel):
+    name: str
     phone: str
-    initData: str | None = None
+    car: str = ""
+    plate: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Имя обязательно")
+        return normalize_person_name(value)
 
     @field_validator("phone")
     @classmethod
@@ -739,30 +743,13 @@ class ClientPhoneVerificationRequest(BaseModel):
         return normalize_phone(value)
 
 
-class ClientPhoneVerificationPayload(BaseModel):
-    phone: str
-    verified: bool
-
-
-class StaffLoginRequest(BaseModel):
+class StaffLinkRequest(BaseModel):
     login: str
     password: str = Field(max_length=128)
-    twoFactorCode: str | None = None
-
-
-class TelegramOwnerAuthRequest(BaseModel):
-    initData: str
 
 
 class SwitchRoleRequest(BaseModel):
     targetRole: StaffRole
-
-
-class AuthResponse(BaseModel):
-    token: str
-    role: Role
-    actorId: str
-    bootstrap: BootstrapPayload
 
 
 class BookingCreateRequest(BaseModel):
@@ -995,7 +982,6 @@ class OwnerDatabaseResetPreviewPayload(BaseModel):
     stockItemsDeleted: int
     expensesDeleted: int
     penaltiesDeleted: int
-    sessionsClosed: int
     servicesReset: int
     boxesReset: int
     scheduleReset: int

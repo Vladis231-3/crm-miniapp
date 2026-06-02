@@ -92,26 +92,6 @@ class StaffUser(Base):
     incomes: Mapped[list["Income"]] = relationship(back_populates="created_by")
 
 
-class AuthSession(Base):
-    __tablename__ = "auth_sessions"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    actor_role: Mapped[str] = mapped_column(String(32), index=True)
-    actor_id: Mapped[str] = mapped_column(String(64), index=True)
-    login: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    user_agent: Mapped[str] = mapped_column(Text, default="")
-    ip_address: Mapped[str] = mapped_column(String(120), default="")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now
-    )
-    last_seen_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now
-    )
-    revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
-
 class Service(Base):
     __tablename__ = "services"
 

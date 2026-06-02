@@ -48,7 +48,6 @@ from .models import (
     Notification,
     Penalty,
     PayrollEntry,
-    AuthSession,
     ScheduleEntry,
     Service,
     StaffUser,
@@ -63,7 +62,6 @@ from .schemas import (
     AdminProfilePayload,
     BookingAvailabilityPayload,
     BookingAvailabilitySlotPayload,
-    AuthResponse,
     BookingCreateRequest,
     BookingPayload,
     BookingServiceItem,
@@ -73,12 +71,10 @@ from .schemas import (
     BootstrapPayload,
     BoxPayload,
     ChangePasswordRequest,
-    ClientAuthRequest,
+    ClientRegisterRequest,
+    StaffLinkRequest,
     ClientCreateRequest,
-    ClientPhoneVerificationPayload,
-    ClientPhoneVerificationRequest,
     ClientCardUpdateRequest,
-    DetailingRequestCreateRequest,
     ClientProfileInput,
     ClientProfilePayload,
     ClientSummaryPayload,
@@ -116,7 +112,6 @@ from .schemas import (
     ShiftChecklistItemPayload,
     ShiftChecklistSubmitRequest,
     SettingsBundlePayload,
-    StaffLoginRequest,
     StockItemCreateRequest,
     SwitchRoleRequest,
     StockItemPayload,
@@ -138,7 +133,6 @@ from .schemas import (
     TelegramDeliveryResult,
     TelegramBroadcastPayload,
     TelegramLinkCodePayload,
-    TelegramOwnerAuthRequest,
     ShiftAttendancePayload,
     WorkerNotificationSettings,
     WorkerPayrollBookingPayload,
@@ -148,8 +142,6 @@ from .schemas import (
     WorkerProfilePayload,
 )
 from .security import (
-    create_session_token,
-    decode_session_token,
     hash_one_time_code,
     hash_password,
     validate_telegram_init_data,
@@ -197,8 +189,6 @@ PERMANENT_TELEGRAM_OWNERS: tuple[tuple[str, str, str], ...] = (
     ("owner-tg-1768985608", "owner_tg_1", "1768985608"),
     ("owner-tg-476719812", "owner_tg_2", "476719812"),
 )
-STAFF_LOGIN_MAX_ATTEMPTS = 5
-STAFF_LOGIN_LOCKOUT_MINUTES = 15
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
 BOOKING_REMINDER_STATE_KEY = "booking_reminder_dispatch_state"
 RETURN_REMINDER_STATE_KEY = "return_visit_reminder_state"
@@ -563,53 +553,6 @@ def _ensure_owner_accounts(db: Session) -> None:
     _ensure_permanent_telegram_owners(db)
 
 
-def _staff_lock_expires_at(staff: StaffUser) -> datetime | None:
-    if staff.login_locked_until is None:
-        return None
-    return _as_utc(staff.login_locked_until)
-
-
-def _require_staff_not_locked(staff: StaffUser) -> None:
-    locked_until = _staff_lock_expires_at(staff)
-    if locked_until is not None and locked_until > _now():
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Слишком много неудачных попыток входа. Попробуйте позже.",
-        )
-
-
-def _clear_staff_login_lock(staff: StaffUser) -> None:
-    staff.failed_login_attempts = 0
-    staff.login_locked_until = None
-
-
-def _record_staff_login_failure(db: Session, staff: StaffUser) -> None:
-    locked_until = _staff_lock_expires_at(staff)
-    if locked_until is not None and locked_until > _now():
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Слишком много неудачных попыток входа. Попробуйте позже.",
-        )
-
-    next_attempt = (staff.failed_login_attempts or 0) + 1
-    staff.failed_login_attempts = next_attempt
-    if next_attempt >= STAFF_LOGIN_MAX_ATTEMPTS:
-        staff.login_locked_until = _now() + timedelta(
-            minutes=STAFF_LOGIN_LOCKOUT_MINUTES
-        )
-        staff.failed_login_attempts = 0
-    staff.updated_at = _now()
-    db.commit()
-    if staff.login_locked_until is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Слишком много неудачных попыток входа. Попробуйте позже.",
-        )
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
-    )
-
-
 def _device_label(user_agent: str) -> str:
     if "Telegram-Android" in user_agent:
         return "Telegram Android"
@@ -626,50 +569,6 @@ def _device_label(user_agent: str) -> str:
     if "Linux" in user_agent:
         return "Linux"
     return "Неизвестное устройство"
-
-
-def _create_auth_session(
-    db: Session, session_data: dict, request: Request
-) -> AuthSession:
-    auth_session = AuthSession(
-        id=str(uuid4()),
-        actor_role=session_data["role"],
-        actor_id=session_data["actorId"],
-        login=session_data.get("login"),
-        user_agent=request.headers.get("user-agent", ""),
-        ip_address=_request_ip(request),
-        created_at=_now(),
-        last_seen_at=_now(),
-    )
-    db.add(auth_session)
-    db.flush()
-    return auth_session
-
-
-def _active_sessions_payload(
-    db: Session, session_data: dict
-) -> list[AuthSessionPayload]:
-    sessions = db.scalars(
-        select(AuthSession)
-        .where(
-            AuthSession.actor_role == session_data["role"],
-            AuthSession.actor_id == session_data["actorId"],
-            AuthSession.revoked_at.is_(None),
-        )
-        .order_by(AuthSession.last_seen_at.desc(), AuthSession.created_at.desc())
-    ).all()
-    current_session_id = session_data.get("sessionId")
-    return [
-        AuthSessionPayload(
-            id=item.id,
-            device=_device_label(item.user_agent),
-            ipAddress=item.ip_address or "Неизвестный IP",
-            createdAt=item.created_at,
-            lastSeenAt=item.last_seen_at,
-            current=item.id == current_session_id,
-        )
-        for item in sessions
-    ]
 
 
 def _apply_runtime_migrations() -> None:
@@ -797,11 +696,6 @@ def _apply_runtime_migrations() -> None:
         TelegramLinkCode.__table__.create(bind=engine)
     else:
         ensure_postgres_varchar_length("telegram_link_codes", "staff_id", 64)
-    if "auth_sessions" not in inspector.get_table_names():
-        AuthSession.__table__.create(bind=engine)
-    else:
-        ensure_postgres_varchar_length("auth_sessions", "actor_id", 64)
-        ensure_postgres_text_column("auth_sessions", "user_agent")
     if "bookings" in inspector.get_table_names():
         ensure_postgres_varchar_length("bookings", "id", 64)
         ensure_postgres_varchar_length("bookings", "client_id", 64)
@@ -2222,7 +2116,7 @@ def _session_payload(session_data: dict) -> SessionPayload:
     return SessionPayload(
         role=session_data["role"],
         actorId=session_data["actorId"],
-        sessionId=session_data["sessionId"],
+        sessionId=session_data.get("sessionId", ""),
         login=session_data.get("login"),
         displayName=session_data["displayName"],
     )
@@ -2398,73 +2292,59 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
     )
 
 
-def _auth_token(session_data: dict) -> str:
-    return create_session_token(session_data, settings.app_secret)
-
-
-def _issue_auth_response(
-    db: Session, request: Request, session_data: dict
-) -> AuthResponse:
-    auth_session = _create_auth_session(db, session_data, request)
-    session_data["sessionId"] = auth_session.id
-    db.commit()
-    return AuthResponse(
-        token=_auth_token(session_data),
-        role=session_data["role"],
-        actorId=session_data["actorId"],
-        bootstrap=_build_bootstrap(db, session_data),
+def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None:
+    try:
+        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
+    except ValueError:
+        return None
+    telegram_user = validated.get("user") or {}
+    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    if not telegram_id:
+        return None
+    staff = db.scalar(
+        select(StaffUser).where(
+            StaffUser.telegram_chat_id == telegram_id,
+            StaffUser.active.is_(True),
+        )
     )
+    if staff is not None:
+        return {
+            "role": staff.role,
+            "actorId": staff.id,
+            "login": staff.login,
+            "displayName": staff.name,
+            "sessionId": "",
+        }
+    client = db.scalar(
+        select(Client).where(
+            Client.telegram_id == telegram_id,
+            Client.deleted_at.is_(None),
+        )
+    )
+    if client is not None:
+        return {
+            "role": "client",
+            "actorId": client.id,
+            "displayName": client.name,
+            "sessionId": "",
+        }
+    return None
 
 
 def _require_session(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> dict:
-    if not authorization or not authorization.lower().startswith("bearer "):
+    if not authorization:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization"
         )
-    token = authorization.split(" ", 1)[1]
-    try:
-        session_data = decode_session_token(token, settings.app_secret)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
-        ) from exc
-    session_id = session_data.get("sessionId")
-    if not isinstance(session_id, str) or not session_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is not registered"
-        )
-    auth_session = db.get(AuthSession, session_id)
-    if auth_session is None or auth_session.revoked_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been closed"
-        )
-    if auth_session.actor_role != session_data.get(
-        "role"
-    ) or auth_session.actor_id != session_data.get("actorId"):
+    session_data = _resolve_user_from_init_data(authorization, db)
+    if session_data is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session does not match user",
+            detail="Аккаунт не привязан. Сначала завершите регистрацию или привязку профиля.",
         )
-    if session_data.get("role") != "client":
-        staff = db.get(StaffUser, session_data.get("actorId"))
-        if staff is None or staff.role != session_data.get("role"):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session does not match user",
-            )
-        if not staff.active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Доступ к аккаунту отключён",
-            )
-    now = _now()
-    last_seen_at = _as_utc(auth_session.last_seen_at)
-    if now - last_seen_at > timedelta(seconds=30):
-        auth_session.last_seen_at = now
-        db.commit()
     return session_data
 
 
@@ -2550,49 +2430,12 @@ def _send_telegram_safe(chat_id: str | None, text: str) -> None:
         pass
 
 
-def _telegram_user_from_init_data(init_data: str) -> tuple[str, dict]:
-    if not settings.telegram_bot_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="TELEGRAM_BOT_TOKEN is not configured",
-        )
-    try:
-        validated = validate_telegram_init_data(init_data, settings.telegram_bot_token)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
-        ) from exc
-    telegram_user = validated.get("user") or {}
-    telegram_id = (
-        str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
-    )
-    if not telegram_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Telegram user is missing in initData",
-        )
-    return telegram_id, telegram_user
-
-
 def _telegram_display_name(telegram_user: dict, fallback: str) -> str:
     first_name = str(telegram_user.get("first_name") or "").strip()
     last_name = str(telegram_user.get("last_name") or "").strip()
     return (
         " ".join(part for part in [first_name, last_name] if part).strip() or fallback
     )
-
-
-def _staff_session_data(staff: StaffUser) -> dict:
-    return {
-        "role": staff.role,
-        "actorId": staff.id,
-        "login": staff.login,
-        "displayName": staff.name,
-    }
-
-
-def _client_session_data(client: Client) -> dict:
-    return {"role": "client", "actorId": client.id, "displayName": client.name}
 
 
 def _owner_two_factor_recipient(db: Session) -> StaffUser:
@@ -3314,17 +3157,7 @@ def _normalize_database_reset_phrase(value: str) -> str:
 
 def _owner_database_reset_preview(
     db: Session,
-    *,
-    current_session_id: str | None = None,
 ) -> OwnerDatabaseResetPreviewPayload:
-    active_session_ids = db.scalars(select(AuthSession.id)).all()
-    sessions_closed = len(
-        [
-            item_id
-            for item_id in active_session_ids
-            if not current_session_id or item_id != current_session_id
-        ]
-    )
     return OwnerDatabaseResetPreviewPayload(
         ownersPreserved=len(
             db.scalars(select(StaffUser.id).where(StaffUser.role == "owner")).all()
@@ -3342,7 +3175,6 @@ def _owner_database_reset_preview(
         stockItemsDeleted=len(db.scalars(select(StockItem.id)).all()),
         expensesDeleted=len(db.scalars(select(Expense.id)).all()),
         penaltiesDeleted=len(db.scalars(select(Penalty.id)).all()),
-        sessionsClosed=sessions_closed,
         servicesReset=len(db.scalars(select(Service.id)).all()),
         boxesReset=len(db.scalars(select(Box.id)).all()),
         scheduleReset=len(db.scalars(select(ScheduleEntry.id)).all()),
@@ -3366,18 +3198,12 @@ def _owner_database_reset_warnings(
             "Услуги, боксы, расписание и настройки CRM будут сброшены до стартовых значений "
             f"({preview.servicesReset} услуг, {preview.boxesReset} боксов, {preview.scheduleReset} дней расписания)."
         ),
-        f"Сохранятся только аккаунты владельцев ({preview.ownersPreserved}) и текущая сессия инициатора.",
+        f"Сохранятся только аккаунты владельцев ({preview.ownersPreserved}).",
     ]
 
 
-def _perform_owner_database_reset(
-    db: Session, *, current_session_id: str | None
-) -> None:
+def _perform_owner_database_reset(db: Session) -> None:
     db.execute(sa_delete(TelegramLinkCode))
-    if current_session_id:
-        db.execute(sa_delete(AuthSession).where(AuthSession.id != current_session_id))
-    else:
-        db.execute(sa_delete(AuthSession))
     db.execute(sa_delete(Notification))
     db.execute(sa_delete(BookingWorker))
     db.execute(sa_delete(Booking))
@@ -4695,9 +4521,7 @@ def approve_owner_database_reset(
     state["codeHash"] = None
     state["codeExpiresAt"] = None
     _save_owner_database_reset_state(db, state)
-    preview = _owner_database_reset_preview(
-        db, current_session_id=session_data.get("sessionId")
-    )
+    preview = _owner_database_reset_preview(db)
     warnings = _owner_database_reset_warnings(preview)
     db.commit()
     return OwnerDatabaseResetApprovePayload(
@@ -4743,10 +4567,8 @@ def execute_owner_database_reset(
             detail=f"Финальная кнопка ещё заблокирована. Подождите {seconds_left} сек.",
         )
 
-    preview = _owner_database_reset_preview(
-        db, current_session_id=session_data.get("sessionId")
-    )
-    _perform_owner_database_reset(db, current_session_id=session_data.get("sessionId"))
+    preview = _owner_database_reset_preview(db)
+    _perform_owner_database_reset(db)
     db.commit()
     return OwnerDatabaseResetExecutePayload(
         message="Полная очистка CRM завершена. Владельцы сохранены, остальные данные сброшены до стартового состояния.",
@@ -4754,175 +4576,90 @@ def execute_owner_database_reset(
     )
 
 
-@app.post("/api/auth/client", response_model=AuthResponse)
-def authenticate_client(
-    payload: ClientAuthRequest, request: Request, db: Session = Depends(get_db)
-) -> AuthResponse:
-    telegram_id = None
-    if payload.initData:
-        telegram_id, _telegram_user = _telegram_user_from_init_data(payload.initData)
-    elif not settings.allow_insecure_client_auth:
+@app.post("/api/auth/client", response_model=BootstrapPayload)
+def register_or_login_client(
+    payload: ClientRegisterRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = request.headers.get("authorization", "")
+    if not authorization:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Telegram initData is required",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
         )
     try:
-        normalized_car = normalize_vehicle_name(payload.profile.car)
-        normalized_plate = normalize_plate(payload.profile.plate)
+        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
+        )
+    telegram_user = validated.get("user") or {}
+    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    if not telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
+        )
+    existing = db.scalar(
+        select(Client).where(
+            Client.telegram_id == telegram_id,
+            Client.deleted_at.is_(None),
+        )
+    )
+    if existing:
+        return _build_bootstrap(db, {
+            "role": "client",
+            "actorId": existing.id,
+            "displayName": existing.name,
+            "sessionId": "",
+        })
+    try:
+        normalized_car = normalize_vehicle_name(payload.car)
+        normalized_plate = normalize_plate(payload.plate)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        ) from exc
-    vehicles = _normalize_client_vehicles(
-        payload.profile.vehicles,
-        fallback_car=normalized_car,
-        fallback_plate=normalized_plate,
-    )
-    primary_vehicle = (
-        vehicles[0]
-        if vehicles
-        else ClientVehiclePayload(car=normalized_car, plate=normalized_plate)
-    )
-
-    client = None
-    if telegram_id:
-        client = db.scalar(select(Client).where(Client.telegram_id == telegram_id))
-    phone_client = _client_by_phone(db, payload.profile.phone)
-    if client is not None and phone_client is not None and phone_client.id != client.id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Клиент с таким номером телефона уже зарегистрирован",
         )
-    if client is None and phone_client is not None:
-        if (
-            telegram_id
-            and phone_client.telegram_id
-            and phone_client.telegram_id != telegram_id
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Клиент с таким номером телефона уже зарегистрирован",
-            )
-        client = phone_client
-    _require_client_phone_verification(db, telegram_id, payload.profile.phone)
-    if client is None:
-        client_payload = payload.profile.model_dump()
-        client_payload.pop("vehicles", None)
-        client_payload["car"] = primary_vehicle.car
-        client_payload["plate"] = primary_vehicle.plate
-        client = Client(id=f"c-{uuid4()}", telegram_id=telegram_id, **client_payload)
-        db.add(client)
-    else:
-        client.telegram_id = telegram_id or client.telegram_id
-        client.name = payload.profile.name
-        client.phone = payload.profile.phone
-        client.car = primary_vehicle.car
-        client.plate = primary_vehicle.plate
-        client.registered = payload.profile.registered
-        client.updated_at = _now()
-    _save_client_vehicles(db, client.id, vehicles)
-
-    return _issue_auth_response(db, request, _client_session_data(client))
-
-
-@app.post(
-    "/api/auth/client/phone-verification", response_model=ClientPhoneVerificationPayload
-)
-def get_client_phone_verification(
-    payload: ClientPhoneVerificationRequest,
-    db: Session = Depends(get_db),
-) -> ClientPhoneVerificationPayload:
-    telegram_id = None
-    if payload.initData:
-        telegram_id, _telegram_user = _telegram_user_from_init_data(payload.initData)
-    elif not settings.allow_insecure_client_auth:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Telegram initData is required",
-        )
-    return ClientPhoneVerificationPayload(
+    client = Client(
+        id=f"c-{uuid4()}",
+        telegram_id=telegram_id,
+        name=payload.name,
         phone=payload.phone,
-        verified=_client_phone_is_verified(db, telegram_id, payload.phone),
+        car=normalized_car,
+        plate=normalized_plate,
     )
+    db.add(client)
+    db.commit()
+    return _build_bootstrap(db, {
+        "role": "client",
+        "actorId": client.id,
+        "displayName": client.name,
+        "sessionId": "",
+    })
 
 
-@app.post("/api/auth/telegram", response_model=AuthResponse)
-def authenticate_via_telegram(
-    payload: TelegramOwnerAuthRequest,
+@app.post("/api/auth/staff/link", response_model=BootstrapPayload)
+def link_staff_account(
+    payload: StaffLinkRequest,
     request: Request,
     db: Session = Depends(get_db),
-) -> AuthResponse:
-    telegram_id, telegram_user = _telegram_user_from_init_data(payload.initData)
-
-    matched_staff = db.scalars(
-        select(StaffUser)
-        .where(
-            StaffUser.telegram_chat_id == telegram_id,
-            StaffUser.active.is_(True),
-            StaffUser.role.in_(("owner", "admin", "worker", "accountant")),
-        )
-        .order_by(
-            StaffUser.is_primary_owner.desc(),
-            StaffUser.created_at.asc(),
-            StaffUser.id.asc(),
-        )
-    ).all()
-    if len(matched_staff) > 1:
+) -> BootstrapPayload:
+    authorization = request.headers.get("authorization", "")
+    if not authorization:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Этот Telegram привязан сразу к нескольким сотрудникам. Исправьте привязку в CRM.",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
         )
-    staff = matched_staff[0] if matched_staff else None
-    if staff is not None:
-        if not staff.name.strip():
-            staff.name = _telegram_display_name(telegram_user, "Сотрудник")
-            staff.updated_at = _now()
-        return _issue_auth_response(db, request, _staff_session_data(staff))
-
-    client = db.scalar(select(Client).where(Client.telegram_id == telegram_id))
-    if client is not None:
-        return _issue_auth_response(db, request, _client_session_data(client))
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Аккаунт для этого Telegram ещё не привязан. Сначала завершите регистрацию или привязку профиля.",
-    )
-
-
-@app.post("/api/auth/telegram-owner", response_model=AuthResponse)
-def authenticate_primary_owner_via_telegram(
-    payload: TelegramOwnerAuthRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-) -> AuthResponse:
-    telegram_id, telegram_user = _telegram_user_from_init_data(payload.initData)
-    owner = _primary_owner(db)
-    if owner is None:
+    try:
+        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
+    except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Главный владелец не настроен",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
         )
-    current_chat_id = _safe_text(owner.telegram_chat_id).strip()
-    if not current_chat_id:
+    telegram_user = validated.get("user") or {}
+    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    if not telegram_id:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Telegram создателя ещё не привязан. Сначала войдите по логину и привяжите Telegram через CRM.",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
         )
-    if current_chat_id and current_chat_id != telegram_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Этот Telegram не привязан к создателю",
-        )
-    if not owner.name.strip():
-        owner.name = _telegram_display_name(telegram_user, "Создатель")
-    return _issue_auth_response(db, request, _staff_session_data(owner))
-
-
-@app.post("/api/auth/staff/login", response_model=AuthResponse)
-def authenticate_staff(
-    payload: StaffLoginRequest, request: Request, db: Session = Depends(get_db)
-) -> AuthResponse:
-    _check_rate_limit(_request_ip(request))
     staff = db.scalar(
         select(StaffUser).where(StaffUser.login == payload.login.strip().lower())
     )
@@ -4930,79 +4667,87 @@ def authenticate_staff(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
         )
-    _require_staff_not_locked(staff)
     if not verify_password(payload.password, staff.password_hash):
-        _record_staff_login_failure(db, staff)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
+        )
     if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён"
         )
-    owner_security = _setting(db, "owner_security", {"twoFactor": False})
-    primary_owner = _primary_owner(db)
-    primary_owner_ready_for_two_factor = bool(
-        primary_owner and _safe_text(primary_owner.telegram_chat_id).strip()
-    )
-    two_factor_enabled = (
-        staff.role == "owner"
-        and not staff.is_primary_owner
-        and owner_security.get("twoFactor", False)
-        and primary_owner_ready_for_two_factor
-    )
-    if two_factor_enabled:
-        recipient_owner = (
-            primary_owner
-            if primary_owner is not None
-            else _owner_two_factor_recipient(db)
+    staff.telegram_chat_id = telegram_id
+    staff.updated_at = _now()
+    db.commit()
+    return _build_bootstrap(db, {
+        "role": staff.role,
+        "actorId": staff.id,
+        "login": staff.login,
+        "displayName": staff.name,
+        "sessionId": "",
+    })
+
+
+@app.post("/api/auth/telegram", response_model=BootstrapPayload)
+def authenticate_via_telegram(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = request.headers.get("authorization", "")
+    session_data = _resolve_user_from_init_data(authorization, db)
+    if session_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Аккаунт для этого Telegram ещё не привязан. Сначала завершите регистрацию или привязку профиля.",
         )
-        two_factor_code = (payload.twoFactorCode or "").strip()
-        if not two_factor_code:
-            generated_code = f"{secrets.randbelow(1_000_000):06d}"
-            _clear_staff_login_lock(staff)
-            staff.two_factor_code_hash = hash_one_time_code(
-                generated_code, settings.app_secret
-            )
-            staff.two_factor_expires_at = _now() + timedelta(minutes=10)
-            staff.updated_at = _now()
-            db.commit()
-            try:
-                send_telegram_message(
-                    recipient_owner.telegram_chat_id,
-                    (
-                        f"Код входа для второго владельца: {generated_code}\n"
-                        f"Логин: {staff.login}\n"
-                        "Код действует 10 минут."
-                    ),
-                )
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Не удалось отправить код создателю в Telegram. Проверьте доступность бота и Telegram создателя.",
-                ) from exc
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Введите код из Telegram. Мы отправили его создателю.",
-            )
-        expires_at = (
-            _as_utc(staff.two_factor_expires_at)
-            if staff.two_factor_expires_at is not None
-            else None
+    return _build_bootstrap(db, session_data)
+
+
+@app.post("/api/auth/telegram-owner", response_model=BootstrapPayload)
+def authenticate_primary_owner_via_telegram(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = request.headers.get("authorization", "")
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
         )
-        if (
-            not staff.two_factor_code_hash
-            or expires_at is None
-            or expires_at < _now()
-            or not verify_one_time_code(
-                two_factor_code, staff.two_factor_code_hash, settings.app_secret
-            )
-        ):
-            _record_staff_login_failure(db, staff)
-        staff.two_factor_code_hash = None
-        staff.two_factor_expires_at = None
-        _clear_staff_login_lock(staff)
-        staff.updated_at = _now()
-    else:
-        _clear_staff_login_lock(staff)
-    return _issue_auth_response(db, request, _staff_session_data(staff))
+    try:
+        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
+        )
+    telegram_user = validated.get("user") or {}
+    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    if not telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
+        )
+    owner = _primary_owner(db)
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Главный владелец не настроен"
+        )
+    current_chat_id = _safe_text(owner.telegram_chat_id).strip()
+    if not current_chat_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Telegram создателя ещё не привязан. Сначала войдите по логину и привяжите Telegram через CRM.",
+        )
+    if current_chat_id != telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Этот Telegram не привязан к создателю"
+        )
+    if not owner.name.strip():
+        owner.name = _telegram_display_name(telegram_user, "Создатель")
+    return _build_bootstrap(db, {
+        "role": owner.role,
+        "actorId": owner.id,
+        "login": owner.login,
+        "displayName": owner.name,
+        "sessionId": "",
+    })
 
 
 @app.get("/api/auth/session", response_model=BootstrapPayload)
@@ -5014,53 +4759,32 @@ def get_session_bootstrap(
 
 @app.get("/api/auth/sessions", response_model=list[AuthSessionPayload])
 def get_active_sessions(
-    session_data: dict = Depends(_require_session), db: Session = Depends(get_db)
+    session_data: dict = Depends(_require_session),
 ) -> list[AuthSessionPayload]:
-    return _active_sessions_payload(db, session_data)
+    return []
 
 
 @app.post("/api/auth/sessions/{session_id}/revoke", response_model=GenericMessage)
 def revoke_active_session(
     session_id: str,
     session_data: dict = Depends(_require_session),
-    db: Session = Depends(get_db),
 ) -> GenericMessage:
-    auth_session = db.get(AuthSession, session_id)
-    if auth_session is None or auth_session.revoked_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Сессия не найдена"
-        )
-    if (
-        auth_session.actor_role != session_data["role"]
-        or auth_session.actor_id != session_data["actorId"]
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Нельзя завершить чужую сессию",
-        )
-    auth_session.revoked_at = _now()
-    db.commit()
     return GenericMessage(message="Сессия завершена")
 
 
 @app.post("/api/auth/logout", response_model=GenericMessage)
 def logout(
-    session_data: dict = Depends(_require_session), db: Session = Depends(get_db)
+    session_data: dict = Depends(_require_session),
 ) -> GenericMessage:
-    auth_session = db.get(AuthSession, session_data["sessionId"])
-    if auth_session is not None and auth_session.revoked_at is None:
-        auth_session.revoked_at = _now()
-        db.commit()
     return GenericMessage(message="Выход выполнен")
 
 
-@app.post("/api/auth/switch-role", response_model=AuthResponse)
+@app.post("/api/auth/switch-role", response_model=BootstrapPayload)
 def switch_role(
     payload: SwitchRoleRequest,
-    request: Request,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
-) -> AuthResponse:
+) -> BootstrapPayload:
     current_role = session_data["role"]
     if current_role not in {"owner", "admin", "worker", "accountant"}:
         raise HTTPException(
@@ -5076,46 +4800,13 @@ def switch_role(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Роль недоступна"
         )
-    auth_session = db.get(AuthSession, session_data["sessionId"])
-    if auth_session is None or auth_session.revoked_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Сессия недействительна"
-        )
-    new_session = _create_auth_session(
-        db,
-        {
-            "role": payload.targetRole,
-            "actorId": staff.id,
-            "login": staff.login,
-            "sessionId": auth_session.id,
-        },
-        request,
-    )
-    db.delete(auth_session)
-    db.flush()
-    new_token = create_session_token(
-        {
-            "role": payload.targetRole,
-            "actorId": staff.id,
-            "sessionId": new_session.id,
-            "login": staff.login,
-        },
-        settings.app_secret,
-    )
-    return AuthResponse(
-        token=new_token,
-        role=payload.targetRole,
-        actorId=staff.id,
-        bootstrap=_build_bootstrap(
-            db,
-            session_data={
-                "role": payload.targetRole,
-                "actorId": staff.id,
-                "sessionId": new_session.id,
-                "login": staff.login,
-            },
-        ),
-    )
+    return _build_bootstrap(db, {
+        "role": payload.targetRole,
+        "actorId": staff.id,
+        "login": staff.login,
+        "displayName": staff.name,
+        "sessionId": "",
+    })
 
 
 @app.patch("/api/clients/me", response_model=ClientProfilePayload)
@@ -5249,12 +4940,6 @@ def delete_client(
         sa_delete(Notification).where(
             Notification.recipient_role == "client",
             Notification.recipient_id == client_id,
-        )
-    )
-    db.execute(
-        sa_delete(AuthSession).where(
-            AuthSession.actor_role == "client",
-            AuthSession.actor_id == client_id,
         )
     )
     client_bookings = (
@@ -7626,15 +7311,6 @@ def fire_worker(
         for link in list(booking.worker_links):
             if link.worker_id == worker_id:
                 booking.worker_links.remove(link)
-
-    for auth_session in db.scalars(
-        select(AuthSession).where(
-            AuthSession.actor_role == worker.role,
-            AuthSession.actor_id == worker_id,
-            AuthSession.revoked_at.is_(None),
-        )
-    ).all():
-        auth_session.revoked_at = now
 
     db.execute(
         sa_delete(TelegramLinkCode).where(TelegramLinkCode.staff_id == worker_id)
