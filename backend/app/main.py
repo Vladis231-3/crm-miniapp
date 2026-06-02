@@ -4768,8 +4768,16 @@ def _extract_telegram_id_from_init_data(authorization: str) -> str:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData")
     try:
         validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    except ValueError:
+        if settings.allow_insecure_client_auth:
+            try:
+                validated = validate_telegram_init_data(
+                    authorization, settings.telegram_bot_token, skip_validation=True
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+        else:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData")
     telegram_user = validated.get("user") or {}
     telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
     if not telegram_id:

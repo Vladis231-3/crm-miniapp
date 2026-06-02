@@ -272,6 +272,7 @@ def _send_start_message(runtime: BotRuntime, chat_id: int) -> None:
             file_name="welcome.jpg",
             content=photo_bytes,
             caption=WELCOME_CAPTION,
+            parse_mode="HTML",
             reply_markup=markup,
         )
     except Exception:
@@ -351,6 +352,7 @@ def send_telegram_photo(
     file_name: str,
     content: bytes,
     caption: str | None = None,
+    parse_mode: str | None = None,
     mime_type: str = "image/jpeg",
     reply_markup: dict[str, Any] | None = None,
 ) -> None:
@@ -358,6 +360,8 @@ def send_telegram_photo(
     fields: dict[str, Any] = {"chat_id": int(chat_id)}
     if caption:
         fields["caption"] = caption
+    if parse_mode is not None:
+        fields["parse_mode"] = parse_mode
     if reply_markup is not None:
         fields["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
     _telegram_multipart_call(
