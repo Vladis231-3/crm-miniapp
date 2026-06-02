@@ -25,8 +25,8 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
 }
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Sun, Moon, Shield, Eye, EyeOff, X, Car, Phone, User, Hash,
-  ChevronRight, AlertCircle, Check, Wrench, BarChart3, LogIn, DollarSign,
+  Sun, Moon, Shield, X, Car, User, Hash,
+  ChevronRight, AlertCircle, Check, LogIn,
 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ClientApp } from './components/client/ClientApp';
@@ -38,7 +38,6 @@ import {
   normalizePlateInput,
   normalizeVehicleInput,
   validatePersonName,
-  validatePhoneValue,
   validatePlateValue,
   validateVehicleName,
 } from './utils/validation';
@@ -48,9 +47,7 @@ function WelcomeScreen() {
     isDark,
     toggleTheme,
     loginClient,
-    verifyClientPhone,
-    loginStaff,
-    loginPrimaryOwnerViaTelegram,
+    linkStaff,
     authLoading,
   } = useApp();
 
@@ -58,17 +55,12 @@ function WelcomeScreen() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffLogin, setStaffLogin] = useState('');
   const [staffPassword, setStaffPassword] = useState('');
-  const [staffTwoFactorCode, setStaffTwoFactorCode] = useState('');
-  const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
-  const [showPass, setShowPass] = useState(false);
   const [staffError, setStaffError] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [clientError, setClientError] = useState('');
-  const [phoneVerificationState, setPhoneVerificationState] = useState<'idle' | 'pending' | 'verified'>('idle');
-  const [phoneVerificationMessage, setPhoneVerificationMessage] = useState('');
 
-  const [form, setForm] = useState({ name: '', phone: '', car: '', plate: '' });
-  const canUseTelegramOwnerLogin = typeof window !== 'undefined' && Boolean(window.Telegram?.WebApp?.initData);
+  const [form, setForm] = useState({ name: '', car: '', plate: '' });
 
   const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
   const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
@@ -82,12 +74,10 @@ function WelcomeScreen() {
   const validate = () => {
     const errors: Record<string, string> = {};
     const nameError = validatePersonName(form.name);
-    const phoneError = validatePhoneValue(form.phone);
     const carError = validateVehicleName(form.car);
     const plateError = validatePlateValue(form.plate);
 
     if (nameError) errors.name = nameError;
-    if (phoneError) errors.phone = phoneError;
     if (carError) errors.car = carError;
     if (plateError) errors.plate = plateError;
     setFormErrors(errors);
@@ -96,15 +86,10 @@ function WelcomeScreen() {
 
   const handleClientSubmit = async () => {
     if (!validate()) return;
-    if (phoneVerificationState !== 'verified') {
-      setClientError('Подтвердите номер телефона через Telegram перед регистрацией');
-      return;
-    }
     try {
       setClientError('');
       await loginClient({
         name: normalizePersonName(form.name),
-        phone: form.phone.trim(),
         car: normalizeVehicleInput(form.car),
         plate: normalizePlateInput(form.plate),
         registered: true,
@@ -115,50 +100,13 @@ function WelcomeScreen() {
     }
   };
 
-  const handleVerifyPhone = async () => {
-    const phoneError = validatePhoneValue(form.phone);
-    if (phoneError) {
-      setFormErrors((current) => ({ ...current, phone: phoneError }));
-      return;
-    }
-    try {
-      setClientError('');
-      setPhoneVerificationMessage('');
-      setPhoneVerificationState('pending');
-      await verifyClientPhone(form.phone.trim());
-      setPhoneVerificationState('verified');
-      setPhoneVerificationMessage('Номер подтвержден через Telegram');
-    } catch (nextError) {
-      setPhoneVerificationState('idle');
-      setPhoneVerificationMessage(nextError instanceof Error ? nextError.message : 'Не удалось подтвердить номер');
-    }
-  };
-
-  const handleStaffLogin = async () => {
+  const handleStaffLink = async () => {
     setStaffError('');
     try {
-      await loginStaff(staffLogin.toLowerCase().trim(), staffPassword, staffTwoFactorCode.trim() || undefined);
+      await linkStaff(staffLogin.toLowerCase().trim(), staffPassword);
       setShowStaffModal(false);
-      setStaffTwoFactorCode('');
-      setNeedsTwoFactor(false);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Не удалось выполнить вход';
-      setStaffError(message);
-      if (message.toLowerCase().includes('код') || message.toLowerCase().includes('telegram')) {
-        setNeedsTwoFactor(true);
-      }
-    }
-  };
-
-  const handlePrimaryOwnerLogin = async () => {
-    setStaffError('');
-    try {
-      await loginPrimaryOwnerViaTelegram();
-      setShowStaffModal(false);
-      setStaffTwoFactorCode('');
-      setNeedsTwoFactor(false);
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Не удалось войти как создатель';
+      const message = nextError instanceof Error ? nextError.message : 'Не удалось привязать сотрудника';
       setStaffError(message);
     }
   };
@@ -262,42 +210,6 @@ function WelcomeScreen() {
 
                 <div>
                   <div className="relative">
-                    <Phone size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
-                    <input
-                      className={`${inputCls} pl-11 ${formErrors.phone ? 'border-red-400' : ''}`}
-                      placeholder="+7 (___) ___-__-__"
-                      type="tel"
-                      value={form.phone}
-                      onChange={(e) => {
-                        setForm((current) => ({ ...current, phone: e.target.value }));
-                        setFormErrors((current) => ({ ...current, phone: '' }));
-                        setClientError('');
-                        setPhoneVerificationState('idle');
-                        setPhoneVerificationMessage('');
-                      }}
-                    />
-                  </div>
-                  {formErrors.phone && <p className="text-red-500 text-xs mt-1 ml-1">{formErrors.phone}</p>}
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div className={`text-xs ${phoneVerificationState === 'verified' ? 'text-emerald-500' : sub}`}>
-                      {phoneVerificationState === 'verified'
-                        ? 'Номер подтвержден'
-                        : phoneVerificationMessage || 'Подтвердите номер через Telegram, чтобы завершить регистрацию'}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { void handleVerifyPhone(); }}
-                      disabled={phoneVerificationState === 'pending'}
-                      className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium disabled:opacity-60"
-                      style={{ background: `${primary}16`, color: primary }}
-                    >
-                      {phoneVerificationState === 'pending' ? 'Проверяем...' : phoneVerificationState === 'verified' ? 'Подтверждено' : 'Подтвердить'}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="relative">
                     <Car size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input
                       className={`${inputCls} pl-11 ${formErrors.car ? 'border-red-400' : ''}`}
@@ -376,8 +288,8 @@ function WelcomeScreen() {
                       <Shield size={18} style={{ color: primary }} />
                     </div>
                     <div>
-                      <div className="font-semibold">Служебный вход</div>
-                      <div className={`text-xs ${sub}`}>Только для сотрудников</div>
+                      <div className="font-semibold">Привязка сотрудника</div>
+                      <div className={`text-xs ${sub}`}>Один раз — и навсегда</div>
                     </div>
                   </div>
                   <button
@@ -386,8 +298,6 @@ function WelcomeScreen() {
                       setStaffError('');
                       setStaffLogin('');
                       setStaffPassword('');
-                      setStaffTwoFactorCode('');
-                      setNeedsTwoFactor(false);
                     }}
                     className={`p-1.5 rounded-xl ${glass}`}
                   >
@@ -395,61 +305,18 @@ function WelcomeScreen() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-4 gap-2 mb-5">
-                  {[
-                    { icon: Shield, label: 'Админ', login: 'admin', color: '#A855F7' },
-                    { icon: DollarSign, label: 'Бух', login: 'accountant', color: '#14B8A6' },
-                    { icon: Wrench, label: 'Мастер', login: 'ivan', color: '#34C759' },
-                    { icon: BarChart3, label: 'Владелец', login: 'owner', color: '#FF9500' },
-                  ].map((role) => (
-                    <button
-                      key={role.login}
-                      onClick={() => {
-                        setStaffLogin(role.login);
-                        setStaffPassword('');
-                        setStaffTwoFactorCode('');
-                        setNeedsTwoFactor(false);
-                        setStaffError('');
-                      }}
-                      className={`p-2.5 rounded-2xl flex flex-col items-center gap-1 transition-all ${staffLogin === role.login ? 'ring-2' : ''}`}
-                      style={{
-                        background: `${role.color}15`,
-                        ringColor: role.color,
-                        ...(staffLogin === role.login ? { outline: `2px solid ${role.color}`, outlineOffset: '-2px' } : {}),
-                      }}
-                    >
-                      <role.icon size={16} style={{ color: role.color }} />
-                      <span className="text-xs font-medium">{role.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {canUseTelegramOwnerLogin && (
-                  <button
-                    onClick={() => { void handlePrimaryOwnerLogin(); }}
-                    disabled={authLoading}
-                    className="w-full mb-5 py-3 rounded-2xl font-semibold text-sm text-white disabled:opacity-60 flex items-center justify-center gap-2"
-                    style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
-                  >
-                    <LogIn size={16} />
-                    Войти как создатель через Telegram
-                  </button>
-                )}
-
                 <div className="space-y-3 mb-4">
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Логин</label>
                     <input
                       className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                      placeholder="admin / ivan / oleg / owner"
+                      placeholder="Логин, выданный администратором"
                       value={staffLogin}
                       onChange={(e) => {
                         setStaffLogin(e.target.value);
                         setStaffError('');
-                        setStaffTwoFactorCode('');
-                        setNeedsTwoFactor(false);
                       }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
+                      onKeyDown={(e) => e.key === 'Enter' && handleStaffLink()}
                     />
                   </div>
                   <div>
@@ -464,30 +331,13 @@ function WelcomeScreen() {
                           setStaffPassword(e.target.value);
                           setStaffError('');
                         }}
-                        onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
+                        onKeyDown={(e) => e.key === 'Enter' && handleStaffLink()}
                       />
                       <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
                         {showPass ? <EyeOff size={14} className={sub} /> : <Eye size={14} className={sub} />}
                       </button>
                     </div>
                   </div>
-                  {needsTwoFactor && (
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1.5`}>Код из Telegram</label>
-                      <input
-                        className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                        placeholder="6 цифр"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={staffTwoFactorCode}
-                        onChange={(e) => {
-                          setStaffTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                          setStaffError('');
-                        }}
-                        onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {staffError && (
@@ -509,13 +359,13 @@ function WelcomeScreen() {
                 )}
 
                 <button
-                  onClick={handleStaffLogin}
-                  disabled={!staffLogin || !staffPassword || authLoading || (needsTwoFactor && staffTwoFactorCode.length !== 6)}
+                  onClick={handleStaffLink}
+                  disabled={!staffLogin || !staffPassword || authLoading}
                   className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
                   style={{ background: primary }}
                 >
                   <LogIn size={16} />
-                  {authLoading ? 'Вход...' : 'Войти'}
+                  {authLoading ? 'Сохранение...' : 'Привязать аккаунт'}
                 </button>
               </div>
             </motion.div>

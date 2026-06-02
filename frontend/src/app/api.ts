@@ -1,5 +1,4 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const TOKEN_STORAGE_KEY = 'crm-miniapp-token';
 
 declare global {
   interface Window {
@@ -27,16 +26,10 @@ declare global {
 type RequestOptions = {
   method?: string;
   body?: unknown;
-  token?: string | null;
-  useStoredToken?: boolean;
 };
 
-function getAuthHeaders(token: string | null) {
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
+function getInitData(): string {
+  return window.Telegram?.WebApp?.initData || import.meta.env.VITE_MOCK_INIT_DATA || '';
 }
 
 async function getErrorDetail(response: Response) {
@@ -46,7 +39,6 @@ async function getErrorDetail(response: Response) {
     if (typeof payload?.detail === 'string') {
       detail = payload.detail;
     } else if (Array.isArray(payload?.detail)) {
-      // FastAPI 422 validation errors: [{loc, msg, type}]
       const messages = payload.detail.map((err: { loc?: string[]; msg?: string }) => {
         const field = err.loc ? err.loc.filter((p) => p !== 'body').join(' → ') : '';
         const msg = err.msg || 'неверное значение';
@@ -55,7 +47,6 @@ async function getErrorDetail(response: Response) {
       detail = messages.join('\n');
     }
   } catch {
-    // Response body is optional for failed requests.
   }
   return detail;
 }
@@ -73,39 +64,25 @@ function getDownloadFileName(response: Response, fallback: string) {
   return fallback;
 }
 
-export const tokenStorage = {
-  get() {
-    return window.sessionStorage.getItem(TOKEN_STORAGE_KEY);
-  },
-  set(token: string) {
-    window.sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
-  },
-  clear() {
-    window.sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-  },
-};
-
 export function getTelegramWebApp() {
   return window.Telegram?.WebApp;
 }
 
 export function getTelegramInitData() {
-  return getTelegramWebApp()?.initData || '';
+  return window.Telegram?.WebApp?.initData || '';
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const {
-    method = 'GET',
-    body,
-    token = null,
-    useStoredToken = true,
-  } = options;
+  const { method = 'GET', body } = options;
 
-  const authToken = token ?? (useStoredToken ? tokenStorage.get() : null);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...getAuthHeaders(authToken),
   };
+
+  const initData = getInitData();
+  if (initData) {
+    headers.Authorization = initData;
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
@@ -121,10 +98,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export async function apiDownload(path: string, fallbackFileName: string): Promise<string> {
-  const authToken = tokenStorage.get();
+  const headers: Record<string, string> = {};
+  const initData = getInitData();
+  if (initData) {
+    headers.Authorization = initData;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'GET',
-    headers: getAuthHeaders(authToken),
+    headers,
   });
 
   if (!response.ok) {
@@ -145,10 +127,15 @@ export async function apiDownload(path: string, fallbackFileName: string): Promi
 }
 
 export async function apiBlobUrl(path: string): Promise<string> {
-  const authToken = tokenStorage.get();
+  const headers: Record<string, string> = {};
+  const initData = getInitData();
+  if (initData) {
+    headers.Authorization = initData;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'GET',
-    headers: getAuthHeaders(authToken),
+    headers,
   });
 
   if (!response.ok) {

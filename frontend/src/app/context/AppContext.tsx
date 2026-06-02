@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { apiDownload, apiRequest, getTelegramInitData, getTelegramWebApp, tokenStorage } from '../api';
+import { apiDownload, apiRequest, getTelegramInitData, getTelegramWebApp } from '../api';
 import { getScheduleDayIndex, getUpcomingDates, isPastTimeSlot, parseFlexibleDate } from '../utils/date';
 
 export type Role = 'client' | 'admin' | 'worker' | 'owner' | 'accountant';
@@ -14,15 +14,6 @@ export interface SessionInfo {
   displayName: string;
 }
 
-export interface ActiveSession {
-  id: string;
-  device: string;
-  ipAddress: string;
-  createdAt: Date;
-  lastSeenAt: Date;
-  current: boolean;
-}
-
 export interface ClientProfile {
   name: string;
   phone: string;
@@ -30,7 +21,6 @@ export interface ClientProfile {
   plate: string;
   vehicles?: Array<{ car: string; plate: string }>;
   registered: boolean;
-  phoneVerified?: boolean;
 }
 
 export interface RegisteredClient {
@@ -291,7 +281,6 @@ export interface OwnerDatabaseResetPreview {
   stockItemsDeleted: number;
   expensesDeleted: number;
   penaltiesDeleted: number;
-  sessionsClosed: number;
   servicesReset: number;
   boxesReset: number;
   scheduleReset: number;
@@ -477,19 +466,11 @@ interface BootstrapPayload {
   settings: SettingsBundle;
 }
 
-interface AuthResponse {
-  token: string;
-  role: Role;
-  actorId: string;
-  bootstrap: BootstrapPayload;
-}
-
 interface AppContextType {
   loading: boolean;
   authLoading: boolean;
   error: string | null;
   session: SessionInfo | null;
-  activeSessions: ActiveSession[];
   isDark: boolean;
   toggleTheme: () => void;
   logout: () => void;
@@ -512,10 +493,8 @@ interface AppContextType {
   tomorrowLabel: string;
   getTimeSlotsForDate: (date: string, options?: { durationMinutes?: number; boxName?: string; resourceGroup?: string }) => string[];
   getBookingAvailabilityForDate: (date: string, options?: { durationMinutes?: number; serviceId?: string; resourceGroup?: string }) => Promise<BookingSlotAvailability[]>;
-  loginClient: (profile: ClientProfile) => Promise<Role>;
-  verifyClientPhone: (phone: string) => Promise<boolean>;
-  loginStaff: (login: string, password: string, twoFactorCode?: string) => Promise<Role>;
-  loginPrimaryOwnerViaTelegram: () => Promise<Role>;
+  loginClient: (profile: { name: string; car?: string; plate?: string; registered?: boolean }) => Promise<Role>;
+  linkStaff: (login: string, password: string) => Promise<Role>;
   switchRole: (targetRole: Role) => Promise<void>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
   addClient: (client: ClientCreateInput) => Promise<RegisteredClient>;
@@ -576,11 +555,9 @@ interface AppContextType {
   approveOwnerDatabaseReset: (requestId: string, creatorCode: string, confirmationPhrase: string) => Promise<OwnerDatabaseResetApproval>;
   executeOwnerDatabaseReset: (requestId: string) => Promise<OwnerDatabaseResetResult>;
   refreshBootstrap: () => Promise<void>;
-  refreshActiveSessions: () => Promise<void>;
-  revokeSession: (sessionId: string) => Promise<void>;
 }
 
-const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false, phoneVerified: false };
+const EMPTY_CLIENT_PROFILE: ClientProfile = { name: '', phone: '', car: '', plate: '', vehicles: [], registered: false };
 const EMPTY_WORKER_NOTIFICATIONS: WorkerNotificationSettings = { newTask: true, taskUpdate: true, payment: true, reminders: false, sms: false };
 const EMPTY_SETTINGS: SettingsBundle = {
   adminProfile: { name: 'Администратор', email: '', phone: '', telegramChatId: '' },
@@ -655,7 +632,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [clientProfile, setClientProfile] = useState<ClientProfile>(EMPTY_CLIENT_PROFILE);
   const [staffProfile, setStaffProfile] = useState<Worker | null>(null);
@@ -705,29 +681,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function refreshBootstrap() {
-    if (!tokenStorage.get()) {
-      return;
-    }
     const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/session');
     applyBootstrap(bootstrap);
-    if (bootstrap.session.role !== 'client') {
-      await refreshActiveSessions();
-    }
-  }
-
-  async function refreshActiveSessions() {
-    if (!tokenStorage.get()) {
-      setActiveSessions([]);
-      return;
-    }
-    const sessions = await apiRequest<Array<Omit<ActiveSession, 'createdAt' | 'lastSeenAt'> & { createdAt: string; lastSeenAt: string }>>('/api/auth/sessions');
-    setActiveSessions(
-      sessions.map((item) => ({
-        ...item,
-        createdAt: new Date(item.createdAt),
-        lastSeenAt: new Date(item.lastSeenAt),
-      })),
-    );
   }
 
   function handleError(nextError: unknown) {
@@ -736,53 +691,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     throw nextError;
   }
 
-  async function tryTelegramAutoLogin() {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      return false;
-    }
-    try {
-      const response = await apiRequest<AuthResponse>('/api/auth/telegram', {
-        method: 'POST',
-        useStoredToken: false,
-        body: { initData },
-      });
-      tokenStorage.set(response.token);
-      applyBootstrap(response.bootstrap);
-      if (response.bootstrap.session.role === 'client') {
-        setActiveSessions([]);
-      } else {
-        await refreshActiveSessions();
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   async function restoreSession() {
     try {
-      const telegramAutoLoggedIn = await tryTelegramAutoLogin();
-      if (telegramAutoLoggedIn) {
-        return;
-      }
-
-      const token = tokenStorage.get();
-      if (!token) {
-        return;
-      }
-
       const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/session');
       applyBootstrap(bootstrap);
-      if (bootstrap.session.role === 'client') {
-        setActiveSessions([]);
-      } else {
-        await refreshActiveSessions();
-      }
     } catch {
-      tokenStorage.clear();
       setSession(null);
-      setActiveSessions([]);
     } finally {
       setLoading(false);
     }
@@ -802,11 +716,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiRequest('/api/auth/logout', { method: 'POST' });
     } catch {
-      // Server may be unreachable — still clear local state
     }
-    tokenStorage.clear();
     setSession(null);
-    setActiveSessions([]);
     setClientProfile(EMPTY_CLIENT_PROFILE);
     setStaffProfile(null);
     setClients([]);
@@ -823,22 +734,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   }
 
-  async function loginClient(profile: ClientProfile) {
+  async function loginClient(profile: { name: string; car?: string; plate?: string; registered?: boolean }) {
     try {
       setAuthLoading(true);
       setError(null);
-      const response = await apiRequest<AuthResponse>('/api/auth/client', {
+      const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/client', {
         method: 'POST',
-        useStoredToken: false,
-        body: {
-          profile,
-          initData: getTelegramInitData() || undefined,
-        },
+        body: profile,
       });
-      tokenStorage.set(response.token);
-      applyBootstrap(response.bootstrap);
-      setActiveSessions([]);
-      return response.role;
+      applyBootstrap(bootstrap);
+      return bootstrap.session.role;
     } catch (nextError) {
       handleError(nextError);
       throw nextError;
@@ -847,46 +752,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function loginStaff(login: string, password: string, twoFactorCode?: string) {
+  async function linkStaff(login: string, password: string) {
     try {
       setAuthLoading(true);
       setError(null);
-      const response = await apiRequest<AuthResponse>('/api/auth/staff/login', {
+      const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/staff/link', {
         method: 'POST',
-        useStoredToken: false,
-        body: { login, password, twoFactorCode },
+        body: { login, password },
       });
-      tokenStorage.set(response.token);
-      applyBootstrap(response.bootstrap);
-      await refreshActiveSessions();
-      return response.role;
-    } catch (nextError) {
-      handleError(nextError);
-      throw nextError;
-    } finally {
-      setAuthLoading(false);
-    }
-  }
-
-  async function loginPrimaryOwnerViaTelegram() {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      const error = new Error('Откройте Mini App из Telegram, чтобы войти как создатель');
-      setError(error.message);
-      throw error;
-    }
-    try {
-      setAuthLoading(true);
-      setError(null);
-      const response = await apiRequest<AuthResponse>('/api/auth/telegram-owner', {
-        method: 'POST',
-        useStoredToken: false,
-        body: { initData },
-      });
-      tokenStorage.set(response.token);
-      applyBootstrap(response.bootstrap);
-      await refreshActiveSessions();
-      return response.role;
+      applyBootstrap(bootstrap);
+      return bootstrap.session.role;
     } catch (nextError) {
       handleError(nextError);
       throw nextError;
@@ -899,13 +774,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       setAuthLoading(true);
       setError(null);
-      const response = await apiRequest<AuthResponse>('/api/auth/switch-role', {
+      const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/switch-role', {
         method: 'POST',
         body: { targetRole },
       });
-      tokenStorage.set(response.token);
-      applyBootstrap(response.bootstrap);
-      await refreshActiveSessions();
+      applyBootstrap(bootstrap);
       window.location.reload();
     } catch (nextError) {
       handleError(nextError);
@@ -925,39 +798,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const response = await apiRequest<{ message: string }>('/api/owner/inactive-clients/remind-admin', { method: 'POST' });
       return response.message;
     }
-
-  async function verifyClientPhone(phone: string) {
-    const initData = getTelegramInitData();
-    const webApp = getTelegramWebApp();
-    if (!initData || !webApp?.requestContact) {
-      throw new Error('Откройте Mini App из Telegram и подтвердите номер через системное окно');
-    }
-
-    const contactShared = await new Promise<boolean>((resolve) => {
-      try {
-        webApp.requestContact?.((shared) => resolve(Boolean(shared)));
-      } catch {
-        resolve(false);
-      }
-    });
-    if (!contactShared) {
-      throw new Error('Подтверждение номера отменено. Разрешите Telegram передать ваш номер');
-    }
-
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const response = await apiRequest<{ phone: string; verified: boolean }>('/api/auth/client/phone-verification', {
-        method: 'POST',
-        useStoredToken: false,
-        body: { phone, initData },
-      });
-      if (response.verified) {
-        return true;
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
-    }
-
-    throw new Error('Telegram ещё не передал подтверждённый номер. Повторите попытку через пару секунд');
-  }
 
   async function addClient(client: ClientCreateInput) {
     const created = await apiRequest<RegisteredClient>('/api/clients', { method: 'POST', body: client });
@@ -1377,17 +1217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       body: { requestId },
     });
     await refreshBootstrap();
-    await refreshActiveSessions();
     return response;
-  }
-
-  async function revokeSession(sessionId: string) {
-    await apiRequest(`/api/auth/sessions/${sessionId}/revoke`, { method: 'POST' });
-    if (session?.sessionId === sessionId) {
-      logout();
-      return;
-    }
-    await refreshActiveSessions();
   }
 
   function getTimeSlotsForDate(date: string, options?: { durationMinutes?: number; boxName?: string; resourceGroup?: string }) {
@@ -1458,7 +1288,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       authLoading,
       error,
       session,
-      activeSessions,
       isDark,
       toggleTheme: () => setIsDark((current) => !current),
       logout,
@@ -1481,9 +1310,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getTimeSlotsForDate,
       getBookingAvailabilityForDate,
       loginClient,
-      verifyClientPhone,
-      loginStaff,
-      loginPrimaryOwnerViaTelegram,
+      linkStaff,
       switchRole,
       updateClientProfile,
       addClient,
@@ -1538,8 +1365,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       approveOwnerDatabaseReset,
       executeOwnerDatabaseReset,
       refreshBootstrap,
-      refreshActiveSessions,
-      revokeSession,
     }}>
       {children}
     </AppContext.Provider>

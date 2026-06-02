@@ -11,7 +11,6 @@ import {
   normalizePlateInput,
   normalizeVehicleInput,
   validatePersonName,
-  validatePhoneValue,
   validatePlateValue,
   validateVehicleName,
 } from '../../utils/validation';
@@ -78,7 +77,6 @@ export function ClientApp() {
     boxes,
     addBooking,
     updateClientProfile,
-    verifyClientPhone,
     logout,
     upcomingDates,
     schedule,
@@ -309,15 +307,12 @@ export function ClientApp() {
   const handleSaveProfile = async () => {
     const nextErrors: Record<string, string> = {};
     const nameError = validatePersonName(profileForm.name);
-    const phoneError = validatePhoneValue(profileForm.phone);
     const primaryVehicle = profileForm.vehicles?.[0] || { car: profileForm.car, plate: profileForm.plate };
     const carError = validateVehicleName(primaryVehicle.car);
     const plateError = validatePlateValue(primaryVehicle.plate);
     if (nameError) nextErrors.name = nameError;
-    if (phoneError) nextErrors.phone = phoneError;
     if (carError) nextErrors.car = carError;
     if (plateError) nextErrors.plate = plateError;
-    if (!profileForm.phoneVerified) nextErrors.phone = 'Подтвердите номер телефона через Telegram';
     setProfileErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -327,7 +322,6 @@ export function ClientApp() {
       phone: profileForm.phone.trim(),
       car: normalizeVehicleInput(primaryVehicle.car),
       plate: normalizePlateInput(primaryVehicle.plate),
-      phoneVerified: true,
       vehicles: (profileForm.vehicles || [])
         .map((vehicle) => ({
           car: normalizeVehicleInput(vehicle.car),
@@ -343,22 +337,6 @@ export function ClientApp() {
       setTimeout(() => setProfileSaved(false), 2000);
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Не удалось сохранить профиль');
-    }
-  };
-
-  const handleVerifyProfilePhone = async () => {
-    const phoneError = validatePhoneValue(profileForm.phone);
-    if (phoneError) {
-      setProfileErrors((current) => ({ ...current, phone: phoneError }));
-      return;
-    }
-    try {
-      setProfileError('');
-      await verifyClientPhone(profileForm.phone.trim());
-      setProfileForm((current) => ({ ...current, phoneVerified: true }));
-      setProfileErrors((current) => ({ ...current, phone: '' }));
-    } catch (error) {
-      setProfileError(error instanceof Error ? error.message : 'Не удалось подтвердить номер телефона');
     }
   };
 
@@ -954,18 +932,10 @@ export function ClientApp() {
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
                     <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
-                      setProfileForm((current) => ({ ...current, phone: e.target.value, phoneVerified: false }));
+                      setProfileForm((current) => ({ ...current, phone: e.target.value }));
                       setProfileErrors((current) => ({ ...current, phone: '' }));
                       setProfileError('');
                     }} />
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <div className={`text-xs ${profileForm.phoneVerified ? 'text-emerald-500' : sub}`}>
-                        {profileForm.phoneVerified ? 'Номер подтверждён через Telegram' : 'Подтвердите номер через Telegram перед сохранением'}
-                      </div>
-                      <button type="button" onClick={() => { void handleVerifyProfilePhone(); }} className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium" style={{ background: `${primary}16`, color: primary }}>
-                        {profileForm.phoneVerified ? 'Обновить' : 'Подтвердить'}
-                      </button>
-                    </div>
                     {profileErrors.phone && <div className="mt-1 text-xs text-red-500">{profileErrors.phone}</div>}
                   </div>
                   <div>

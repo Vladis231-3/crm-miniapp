@@ -169,7 +169,7 @@ class ClientProfilePayload(BaseModel):
 
 class ClientProfileInput(BaseModel):
     name: str
-    phone: str
+    phone: str = ""
     car: str = ""
     plate: str = ""
     vehicles: list[ClientVehiclePayload] = Field(default_factory=list)

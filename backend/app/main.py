@@ -1086,6 +1086,8 @@ def _client_verified_phone_digits(db: Session, telegram_id: str | None) -> str |
 
 
 def _client_phone_is_verified(db: Session, telegram_id: str | None, phone: str) -> bool:
+    if not phone.strip():
+        return True
     if not telegram_id:
         return bool(settings.allow_insecure_client_auth)
     try:
