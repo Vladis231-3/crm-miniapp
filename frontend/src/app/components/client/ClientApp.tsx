@@ -109,48 +109,6 @@ export function ClientApp() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const handleCancelBooking = useCallback(() => {
-    if (showCancelConfirm) deleteBooking(showCancelConfirm);
-  }, [showCancelConfirm, deleteBooking]);
-
-  const mainBtnState = (() => {
-    if (showSlotModal && selectedSlot) {
-      return { text: 'Подтвердить запись', onClick: handleConfirmBooking, enabled: true };
-    }
-    if (showCancelConfirm) {
-      return { text: 'Отменить запись', onClick: handleCancelBooking, enabled: true };
-    }
-    if (page === 'profile') {
-      return { text: 'Сохранить изменения', onClick: handleSaveProfile, enabled: true };
-    }
-    return null;
-  })();
-
-  useTelegramMainButton(
-    mainBtnState?.text || '',
-    mainBtnState?.onClick || NOOP,
-    mainBtnState !== null,
-  );
-
-  const navRef = useRef({ page, showCancelConfirm, showSlotModal });
-  navRef.current = { page, showCancelConfirm, showSlotModal };
-
-  const handleBack = useCallback(() => {
-    const { page: p, showCancelConfirm: scc, showSlotModal: ssm } = navRef.current;
-    if (scc) { setShowCancelConfirm(null); return; }
-    if (ssm) { setShowSlotModal(false); return; }
-    if (p === 'detail') setPage('catalog');
-    else if (p === 'slots') setPage('detail');
-    else if (p === 'confirm') setPage('slots');
-    else if (p === 'bookings') setPage('catalog');
-    else if (p === 'profile') setPage('catalog');
-  }, []);
-
-  useTelegramBackButton(
-    handleBack,
-    page !== 'catalog' || showSlotModal || showCancelConfirm !== null,
-  );
-
   useEffect(() => {
     if (!selectedDate && upcomingDates[0]) {
       setSelectedDate(upcomingDates[0]);
@@ -387,6 +345,48 @@ export function ClientApp() {
       setProfileError(error instanceof Error ? error.message : 'Не удалось сохранить профиль');
     }
   };
+
+  const handleCancelBooking = useCallback(() => {
+    if (showCancelConfirm) deleteBooking(showCancelConfirm);
+  }, [showCancelConfirm, deleteBooking]);
+
+  const mainBtnState = (() => {
+    if (showSlotModal && selectedSlot) {
+      return { text: 'Подтвердить запись', onClick: handleConfirmBooking, enabled: true };
+    }
+    if (showCancelConfirm) {
+      return { text: 'Отменить запись', onClick: handleCancelBooking, enabled: true };
+    }
+    if (page === 'profile') {
+      return { text: 'Сохранить изменения', onClick: handleSaveProfile, enabled: true };
+    }
+    return null;
+  })();
+
+  useTelegramMainButton(
+    mainBtnState?.text || '',
+    mainBtnState?.onClick || NOOP,
+    mainBtnState !== null,
+  );
+
+  const navRef = useRef({ page, showCancelConfirm, showSlotModal });
+  navRef.current = { page, showCancelConfirm, showSlotModal };
+
+  const handleBack = useCallback(() => {
+    const { page: p, showCancelConfirm: scc, showSlotModal: ssm } = navRef.current;
+    if (scc) { setShowCancelConfirm(null); return; }
+    if (ssm) { setShowSlotModal(false); return; }
+    if (p === 'detail') setPage('catalog');
+    else if (p === 'slots') setPage('detail');
+    else if (p === 'confirm') setPage('slots');
+    else if (p === 'bookings') setPage('catalog');
+    else if (p === 'profile') setPage('catalog');
+  }, []);
+
+  useTelegramBackButton(
+    handleBack,
+    page !== 'catalog' || showSlotModal || showCancelConfirm !== null,
+  );
 
   return (
     <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col relative`}>

@@ -25,7 +25,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
 }
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Sun, Moon, Shield, X, Car, User, Hash,
+  Sun, Moon, Shield, X, Car, User, Hash, Eye, EyeOff,
   ChevronRight, AlertCircle, Check, LogIn,
 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
@@ -65,33 +65,6 @@ function WelcomeScreen() {
   const [clientError, setClientError] = useState('');
 
   const [form, setForm] = useState({ name: '', car: '', plate: '' });
-
-  const navRef = useRef({ showStaffModal, step });
-  navRef.current = { showStaffModal, step };
-
-  const handleBack = useCallback(() => {
-    const { showStaffModal: ssm, step: s } = navRef.current;
-    if (ssm) {
-      setShowStaffModal(false);
-    } else if (s === 'form') {
-      setStep('greeting');
-    }
-  }, []);
-
-  useTelegramBackButton(handleBack, showStaffModal || step === 'form');
-
-  const mainBtnText = showStaffModal ? 'Привязать аккаунт' : 'Сохранить и продолжить';
-  const mainBtnAction = showStaffModal ? handleStaffLink : handleClientSubmit;
-  const mainBtnEnabled = showStaffModal
-    ? !!staffLogin && !!staffPassword && !authLoading
-    : step === 'form' && !authLoading;
-  const mainBtnVisible = showStaffModal || step === 'form';
-
-  useTelegramMainButton(
-    mainBtnText,
-    mainBtnAction,
-    mainBtnEnabled && mainBtnVisible,
-  );
 
   const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
   const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
@@ -141,6 +114,28 @@ function WelcomeScreen() {
       setStaffError(message);
     }
   };
+
+  const navRef = useRef({ showStaffModal, step });
+  navRef.current = { showStaffModal, step };
+
+  const handleBack = useCallback(() => {
+    const { showStaffModal: ssm, step: s } = navRef.current;
+    if (ssm) {
+      setShowStaffModal(false);
+    } else if (s === 'form') {
+      setStep('greeting');
+    }
+  }, []);
+
+  useTelegramBackButton(handleBack, showStaffModal || step === 'form');
+
+  useTelegramMainButton(
+    showStaffModal ? 'Привязать аккаунт' : 'Сохранить и продолжить',
+    showStaffModal ? handleStaffLink : handleClientSubmit,
+    showStaffModal
+      ? !!staffLogin && !!staffPassword && !authLoading
+      : step === 'form' && !authLoading,
+  );
 
   return (
     <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col relative overflow-hidden`}>
