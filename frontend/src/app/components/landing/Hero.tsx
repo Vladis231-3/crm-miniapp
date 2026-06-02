@@ -1,6 +1,6 @@
 import { ChevronDown, Star, Clock, Shield } from 'lucide-react';
 
-const HERO_IMG = 'https://images.unsplash.com/photo-1607860108855-64acf2078ed9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwzfHxjYXIlMjB3YXNoJTIwZGV0YWlsaW5nJTIwbHV4dXJ5fGVufDF8fHx8MTc4MDQxMDI0OXww&ixlib=rb-4.1.0&q=80&w=1080';
+const HERO_IMG = '/hero-bg.jpg';
 
 const stats = [
   { icon: Star, value: '4.9', label: 'Средний рейтинг' },
