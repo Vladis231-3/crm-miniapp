@@ -6,13 +6,14 @@ import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
   Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
-  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign
+  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData } from '../../context/AppContext';
+import { ContentEditor } from './ContentEditor';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   normalizePersonName,
@@ -109,7 +110,7 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
 
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
 
-type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance';
+type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance' | 'content';
 type EditModalMode = 'edit' | 'reschedule';
 type ClientSearchMode = 'phone' | 'plate';
 type ShiftPhotoCategoryId = typeof SHIFT_PHOTO_CATEGORIES[number]['id'];
@@ -286,6 +287,8 @@ export function AdminApp() {
     saveAdminProfile,
     saveAdminNotificationSettings,
     saveAdminWorkerPayroll,
+    saveContent,
+    content,
     createPayrollEntry,
     listAdminShiftInspections,
     submitAdminShiftInspection,
@@ -1152,6 +1155,8 @@ export function AdminApp() {
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
+    setTimeout(() => setSettingsSaved(false), 2000);
+  };
 
   const handleGenerateTelegramCode = async () => {
     setTelegramLinkCode(await createTelegramLinkCode());
@@ -1725,6 +1730,7 @@ export function AdminApp() {
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#A855F7' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#EF4444' },
+                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'О студии, услуги, портфолио', color: '#06B6D4' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => setSettingsSection(item.id as SettingsSection)}
@@ -2126,6 +2132,22 @@ export function AdminApp() {
                 style={{ background: '#EF4444' }}>
                 <Shield size={16} />{securitySaved ? 'Пароль изменён!' : 'Изменить пароль'}
               </button>
+            </motion.div>
+          )}
+
+          {/* SETTINGS: CONTENT */}
+          {page === 'settings' && settingsSection === 'content' && (
+            <motion.div key="settings-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <ContentEditor
+                initialContent={content}
+                onSave={saveContent}
+                glass={glass}
+                inputCls={inputCls}
+                sub={sub}
+                primary={primary}
+                isDark={isDark}
+              />
             </motion.div>
           )}
 

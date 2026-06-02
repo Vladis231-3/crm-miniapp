@@ -286,39 +286,50 @@ def _send_start_message(runtime: BotRuntime, chat_id: int) -> None:
         )
 
 
-ABOUT_TEXT = (
-    '<b>✨ О студии ATMOSFERA</b>\n\n'
-    'Мы — профессиональный детейлинг-центр в Казани, где сочетаются '
-    'профессионализм, качество и забота о вашем автомобиле.\n\n'
-    '<b>Наши преимущества:</b>\n'
-    '🛠 Профессиональная мойка и детейлинг\n'
-    '🧼 Бережный уход за любым покрытием\n'
-    '📅 Удобное онлайн-бронирование\n'
-    '👨‍🔧 Опытные мастера с многолетним стажем\n'
-    '⭐ Индивидуальный подход к каждому клиенту\n\n'
-    'Приезжайте и убедитесь сами!'
+_ABOUT_TEXT_FALLBACK = (
+    '<b>\u2728 \u041e \u0441\u0442\u0443\u0434\u0438\u0438 ATMOSFERA</b>\n\n'
+    '\u041c\u044b \u2014 \u043f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u0434\u0435\u0442\u0435\u0439\u043b\u0438\u043d\u0433-\u0446\u0435\u043d\u0442\u0440 \u0432 \u041a\u0430\u0437\u0430\u043d\u0438.'
 )
 
-WORKS_TEXT = (
-    '<b>📸 Наши работы</b>\n\n'
-    'Мы гордимся каждым проектом. В нашем портфолио:\n\n'
-    '🚗 Полный детейлинг премиальных автомобилей\n'
-    '✨ Профессиональная полировка кузова\n'
-    '🧹 Химчистка салона любой сложности\n'
-    '🧼 Бесконтактная мойка любой сложности\n'
-    '🛡 Нанесение защитных покрытий (керамика, плёнка)\n\n'
-    'Чтобы увидеть фотографии наших работ, '
-    'откройте мини-приложение через кнопку «Войти».\n\n'
-    'Ждём вас в ATMOSFERA!'
+_WORKS_TEXT_FALLBACK = (
+    '<b>\U0001f4f8 \u041d\u0430\u0448\u0438 \u0440\u0430\u0431\u043e\u0442\u044b</b>\n\n'
+    '\u0421\u043a\u043e\u0440\u043e \u043c\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u043c \u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0438 \u043d\u0430\u0448\u0438\u0445 \u0440\u0430\u0431\u043e\u0442. '
+    '\u0410 \u043f\u043e\u043a\u0430 \u2014 \u043e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043c\u0438\u043d\u0438-\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u043a\u043d\u043e\u043f\u043a\u0443 \u00ab\u0412\u043e\u0439\u0442\u0438\u00bb.'
 )
-
 
 def _send_about_message(runtime: BotRuntime, chat_id: int) -> None:
-    _send_text_message(runtime, chat_id, ABOUT_TEXT, parse_mode="HTML")
+    with session_scope() as db:
+        row = db.get(AppSetting, "content")
+        if row and isinstance(row.value, dict):
+            about = row.value.get("about", {})
+            text = about.get("text", "") if isinstance(about, dict) else ""
+        else:
+            text = ""
+    if not text:
+        text = _ABOUT_TEXT_FALLBACK
+    _send_text_message(runtime, chat_id, text, parse_mode="HTML")
 
 
 def _send_works_message(runtime: BotRuntime, chat_id: int) -> None:
-    _send_text_message(runtime, chat_id, WORKS_TEXT, parse_mode="HTML")
+    with session_scope() as db:
+        row = db.get(AppSetting, "content")
+        works = (row.value or {}).get("works", []) if row else []
+    if works and isinstance(works, list):
+        lines = ["<b>\U0001f4f8 \u041d\u0430\u0448\u0438 \u0440\u0430\u0431\u043e\u0442\u044b</b>\n"]
+        for w in works:
+            if not isinstance(w, dict):
+                continue
+            title = w.get("title", "")
+            desc = w.get("description", "")
+            if title:
+                lines.append(f"<b>{title}</b>")
+            if desc:
+                lines.append(f"{desc}")
+            lines.append("")
+        text = "\n".join(lines).strip()
+    else:
+        text = _WORKS_TEXT_FALLBACK
+    _send_text_message(runtime, chat_id, text, parse_mode="HTML")
 
 
 def send_telegram_message(chat_id: str | int, text: str) -> None:

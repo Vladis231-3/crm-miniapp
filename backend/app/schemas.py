@@ -1033,6 +1033,34 @@ class OwnerDatabaseResetExecutePayload(BaseModel):
     preview: OwnerDatabaseResetPreviewPayload
 
 
+class ContentAboutPayload(BaseModel):
+    text: str
+    features: list[str] = []
+
+
+class ContentServicePayload(BaseModel):
+    title: str
+    subtitle: str = ""
+    description: str = ""
+    price: str = ""
+    features: list[str] = []
+    image: str = ""
+    accent: str = "#2563eb"
+    category: str = ""
+
+
+class ContentWorksPayload(BaseModel):
+    title: str
+    description: str = ""
+    image_url: str = ""
+
+
+class ContentPayload(BaseModel):
+    about: ContentAboutPayload = ContentAboutPayload(text="")
+    services: list[ContentServicePayload] = []
+    works: list[ContentWorksPayload] = []
+
+
 class GenericMessage(BaseModel):
     message: str
 

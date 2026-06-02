@@ -448,6 +448,34 @@ export interface PayrollEntryCreateInput {
   note: string;
 }
 
+export interface ContentAbout {
+  text: string;
+  features: string[];
+}
+
+export interface ContentService {
+  title: string;
+  subtitle: string;
+  description: string;
+  price: string;
+  features: string[];
+  image: string;
+  accent: string;
+  category: string;
+}
+
+export interface ContentWorks {
+  title: string;
+  description: string;
+  image_url: string;
+}
+
+export interface ContentData {
+  about: ContentAbout;
+  services: ContentService[];
+  works: ContentWorks[];
+}
+
 export interface SettingsBundle {
   adminProfile: AdminProfile;
   adminNotificationSettings: AdminNotificationSettings;
@@ -547,6 +575,7 @@ interface AppContextType {
   saveOwnerSecurity: (settings: OwnerSecurity) => Promise<void>;
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
   saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
+  saveContent: (content: ContentData) => Promise<void>;
   createPayrollEntry: (entry: PayrollEntryCreateInput) => Promise<void>;
   listShiftChecklists: () => Promise<ShiftChecklist[]>;
   submitShiftChecklist: (payload: { phase: 'start' | 'end'; note?: string; items: Array<{ stockItemId: string; actualQty: number }> }) => Promise<ShiftChecklist>;
@@ -580,6 +609,12 @@ const EMPTY_SETTINGS: SettingsBundle = {
   ownerIntegrations: { telegram: true, yookassa: false, amoCrm: false, googleCalendar: false },
   ownerSecurity: { twoFactor: false },
   workerNotificationSettings: {},
+};
+
+export const EMPTY_CONTENT: ContentData = {
+  about: { text: '', features: [] },
+  services: [],
+  works: [],
 };
 const ACTIVE_BOOKING_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled', 'in_progress'];
 
@@ -661,6 +696,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [schedule, setSchedule] = useState<ScheduleDay[]>([]);
   const [settings, setSettings] = useState<SettingsBundle>(EMPTY_SETTINGS);
+  const [content, setContent] = useState<ContentData>(EMPTY_CONTENT);
 
   const upcomingDates = getUpcomingDates(10);
   const todayLabel = upcomingDates[0];
@@ -770,6 +806,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBoxes([]);
     setSchedule([]);
     setSettings(EMPTY_SETTINGS);
+    setContent(EMPTY_CONTENT);
     setError(null);
   }
 
@@ -1146,6 +1183,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }
 
+  async function saveContent(nextContent: ContentData) {
+    const saved = await apiRequest<ContentData>('/api/content', { method: 'PUT', body: nextContent });
+    setContent(saved);
+  }
+
   async function createPayrollEntry(entry: PayrollEntryCreateInput) {
     await apiRequest<Worker>('/api/payroll/entries', { method: 'POST', body: entry });
     await refreshBootstrap();
@@ -1357,6 +1399,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       boxes,
       schedule,
       settings,
+      content,
       upcomingDates,
       todayLabel,
       tomorrowLabel,
@@ -1406,6 +1449,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveOwnerSecurity,
       saveWorkerSettings,
       saveAdminWorkerPayroll,
+      saveContent,
       createPayrollEntry,
       listShiftChecklists,
       submitShiftChecklist,

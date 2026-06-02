@@ -143,6 +143,10 @@ from .schemas import (
     WorkerPayload,
     WorkerCreateRequest,
     WorkerProfilePayload,
+    ContentPayload,
+    ContentAboutPayload,
+    ContentServicePayload,
+    ContentWorksPayload,
 )
 from .security import (
     hash_one_time_code,
@@ -4084,6 +4088,85 @@ def _notify_worker_about_payroll_entry(
 @app.get("/api/health", response_model=GenericMessage)
 def health() -> GenericMessage:
     return GenericMessage(message="ok")
+
+
+_content_cache: dict[str, Any] = {"data": None, "ts": 0.0}
+
+
+def _default_content() -> ContentPayload:
+    return ContentPayload(
+        about=ContentAboutPayload(
+            text=(
+                "<b>\u2728 \u041e \u0441\u0442\u0443\u0434\u0438\u0438 ATMOSFERA</b>\n\n"
+                "\u041c\u044b \u2014 \u043f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u0434\u0435\u0442\u0435\u0439\u043b\u0438\u043d\u0433-\u0446\u0435\u043d\u0442\u0440 \u0432 \u041a\u0430\u0437\u0430\u043d\u0438.\n\n"
+                "<b>\u041d\u0430\u0448\u0438 \u043f\u0440\u0435\u0438\u043c\u0443\u0449\u0435\u0441\u0442\u0432\u0430:</b>\n"
+                "\U0001f6e0 \u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u0430\u044f \u043c\u043e\u0439\u043a\u0430 \u0438 \u0434\u0435\u0442\u0435\u0439\u043b\u0438\u043d\u0433\n"
+                "\U0001f9fc \u0411\u0435\u0440\u0435\u0436\u043d\u044b\u0439 \u0443\u0445\u043e\u0434\n"
+                "\U0001f4c5 \u0423\u0434\u043e\u0431\u043d\u043e\u0435 \u043e\u043d\u043b\u0430\u0439\u043d-\u0431\u0440\u043e\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435\n"
+                "\U0001f468\u200d\U0001f52c \u041e\u043f\u044b\u0442\u043d\u044b\u0435 \u043c\u0430\u0441\u0442\u0435\u0440\u0430\n"
+                "\u2b50 \u0418\u043d\u0434\u0438\u0432\u0438\u0434\u0443\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u043e\u0434\u0445\u043e\u0434"
+            ),
+            features=[
+                "\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u0430\u044f \u043c\u043e\u0439\u043a\u0430",
+                "\u0414\u0435\u0442\u0435\u0439\u043b\u0438\u043d\u0433",
+                "\u041e\u043d\u043b\u0430\u0439\u043d-\u0431\u0440\u043e\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435",
+            ],
+        ),
+        services=[
+            ContentServicePayload(
+                title="\u042d\u043a\u0441\u043f\u0440\u0435\u0441\u0441-\u043c\u043e\u0439\u043a\u0430",
+                subtitle="\u0411\u044b\u0441\u0442\u0440\u043e \u0438 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0435\u043d\u043d\u043e",
+                description="\u041c\u043e\u0439\u043a\u0430 \u043a\u0443\u0437\u043e\u0432\u0430 \u0437\u0430 15 \u043c\u0438\u043d\u0443\u0442",
+                price="\u041e\u0442 500 \u20bd",
+                features=["\u041f\u0435\u043d\u0430", "\u041c\u043e\u0439\u043a\u0430", "\u0421\u0443\u0448\u043a\u0430"],
+            ),
+            ContentServicePayload(
+                title="\u0425\u0438\u043c\u0447\u0438\u0441\u0442\u043a\u0430 \u0441\u0430\u043b\u043e\u043d\u0430",
+                subtitle="\u0413\u043b\u0443\u0431\u043e\u043a\u0430\u044f \u043e\u0447\u0438\u0441\u0442\u043a\u0430",
+                description="\u041f\u043e\u043b\u043d\u0430\u044f \u0445\u0438\u043c\u0447\u0438\u0441\u0442\u043a\u0430 \u0441\u0430\u043b\u043e\u043d\u0430",
+                price="\u041e\u0442 3000 \u20bd",
+                features=["\u041f\u044b\u043b\u0435\u0441\u043e\u0441", "\u041f\u0430\u0440", "\u041a\u043e\u0436\u0430"],
+            ),
+        ],
+        works=[],
+    )
+
+
+def _get_or_create_content(db: Session) -> ContentPayload:
+    row = db.get(AppSetting, "content")
+    if row is None or not isinstance(row.value, dict):
+        default = _default_content()
+        db.add(AppSetting(key="content", value=default.model_dump()))
+        db.flush()
+        return default
+    return ContentPayload.model_validate(row.value)
+
+
+@app.get("/api/content", response_model=ContentPayload)
+def get_public_content(
+    db: Session = Depends(get_db),
+) -> ContentPayload:
+    now = time_module.time()
+    if _content_cache["data"] is not None and now - _content_cache["ts"] < 30.0:
+        return _content_cache["data"]
+    content = _get_or_create_content(db)
+    _content_cache["data"] = content
+    _content_cache["ts"] = now
+    return content
+
+
+@app.put("/api/content", response_model=ContentPayload)
+def save_content(
+    payload: ContentPayload,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ContentPayload:
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    _upsert_setting(db, "content", payload.model_dump())
+    db.commit()
+    _content_cache["data"] = None
+    _content_cache["ts"] = 0.0
+    return payload
 
 
 @app.post(settings.telegram_webhook_path, response_model=GenericMessage)
