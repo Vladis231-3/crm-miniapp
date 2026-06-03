@@ -315,6 +315,7 @@ export function OwnerApp() {
     executeOwnerDatabaseReset,
     hireWorker,
     fireWorker,
+    resetWorkerPassword,
     staffProfile,
     switchRole,
     activeSessions,
@@ -438,7 +439,11 @@ export function OwnerApp() {
     email: '',
     telegramChatId: '',
   });
-  const [employeeActionLoading, setEmployeeActionLoading] = useState<null | { type: 'hire' | 'fire'; workerId?: string }>(null);
+  const [employeeActionLoading, setEmployeeActionLoading] = useState<null | { type: 'hire' | 'fire' | 'reset-password'; workerId?: string }>(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<EmployeeSetting | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
+  const [resetPasswordError, setResetPasswordError] = useState('');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(todayLabel);
   const [ownerCalendarMonth, setOwnerCalendarMonth] = useState(() => {
     const today = parseFlexibleDate(todayLabel) || new Date();
@@ -1383,6 +1388,32 @@ export function OwnerApp() {
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : `\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0443\u0432\u043e\u043b\u0438\u0442\u044c ${employeeTitle.toLowerCase()}`);
       setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setEmployeeActionLoading(null);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordTarget) return;
+    if (resetPasswordValue.length < 8) {
+      setResetPasswordError('Пароль должен содержать минимум 8 символов');
+      return;
+    }
+    if (resetPasswordValue !== resetPasswordConfirm) {
+      setResetPasswordError('Пароли не совпадают');
+      return;
+    }
+    try {
+      setEmployeeActionLoading({ type: 'reset-password', workerId: resetPasswordTarget.id });
+      await resetWorkerPassword(resetPasswordTarget.id, resetPasswordValue);
+      setResetPasswordTarget(null);
+      setResetPasswordValue('');
+      setResetPasswordConfirm('');
+      setResetPasswordError('');
+      setBottomToast(`Пароль сброшен для ${resetPasswordTarget.name}`);
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (error) {
+      setResetPasswordError(error instanceof Error ? error.message : 'Не удалось сбросить пароль');
     } finally {
       setEmployeeActionLoading(null);
     }
@@ -4124,6 +4155,18 @@ export function OwnerApp() {
                       >
                         Уволить
                       </button>
+                      <button
+                        onClick={() => {
+                          setResetPasswordTarget(emp);
+                          setResetPasswordValue('');
+                          setResetPasswordConfirm('');
+                          setResetPasswordError('');
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium border disabled:opacity-60"
+                        style={{ color: primary, borderColor: `${primary}30`, background: `${primary}10` }}
+                      >
+                        Сбросить пароль
+                      </button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -5807,6 +5850,75 @@ export function OwnerApp() {
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}><Check size={14} style={{ color: primary }} /></div>
             <span className="text-sm font-medium">Настройки сохранены</span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── RESET PASSWORD MODAL ── */}
+      <AnimatePresence>
+        {resetPasswordTarget && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              onClick={() => { setResetPasswordTarget(null); setResetPasswordError(''); }} />
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="fixed inset-0 z-50 flex items-center justify-center px-5">
+              <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${accent}18` }}>
+                      <Shield size={18} style={{ color: accent }} />
+                    </div>
+                    <div>
+                      <div className="font-semibold">Сброс пароля</div>
+                      <div className={`text-xs ${sub}`}>{resetPasswordTarget.name}</div>
+                    </div>
+                  </div>
+                  <button onClick={() => { setResetPasswordTarget(null); setResetPasswordError(''); }}
+                    className={`p-1.5 rounded-xl ${glass}`}><X size={16} /></button>
+                </div>
+
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1.5`}>Новый пароль</label>
+                    <input
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      type="text"
+                      placeholder="Минимум 8 символов"
+                      value={resetPasswordValue}
+                      onChange={e => { setResetPasswordValue(e.target.value); setResetPasswordError(''); }}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1.5`}>Подтверждение</label>
+                    <input
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      type="text"
+                      placeholder="Повторите пароль"
+                      value={resetPasswordConfirm}
+                      onChange={e => { setResetPasswordConfirm(e.target.value); setResetPasswordError(''); }}
+                    />
+                  </div>
+                </div>
+
+                {resetPasswordError && (
+                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 text-red-500 text-xs mb-3">
+                    <AlertCircle size={13} />{resetPasswordError}
+                  </motion.div>
+                )}
+
+                <button
+                  onClick={() => void handleResetPassword()}
+                  disabled={!resetPasswordValue || !resetPasswordConfirm || employeeActionLoading?.type === 'reset-password'}
+                  className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                  style={{ background: accent }}
+                >
+                  {employeeActionLoading?.type === 'reset-password' ? 'Сохранение...' : 'Сбросить пароль'}
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

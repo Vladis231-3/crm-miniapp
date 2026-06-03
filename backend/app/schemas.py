@@ -1068,6 +1068,10 @@ class ContactPayload(BaseModel):
     message: str = ""
 
 
+class ResetPasswordRequest(BaseModel):
+    newPassword: str = Field(max_length=128)
+
+
 class GenericMessage(BaseModel):
     message: str
 

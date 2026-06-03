@@ -589,6 +589,7 @@ interface AppContextType {
   }) => Promise<AdminShiftInspection>;
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
+  resetWorkerPassword: (workerId: string, newPassword: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   requestOwnerDatabaseReset: (password: string) => Promise<OwnerDatabaseResetStart>;
   approveOwnerDatabaseReset: (requestId: string, creatorCode: string, confirmationPhrase: string) => Promise<OwnerDatabaseResetApproval>;
@@ -1263,6 +1264,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshBootstrap();
   }
 
+  async function resetWorkerPassword(workerId: string, newPassword: string) {
+    await apiRequest(`/api/workers/${workerId}/reset-password`, {
+      method: 'POST',
+      body: { newPassword },
+    });
+  }
+
   async function changePassword(currentPassword: string, newPassword: string) {
     await apiRequest('/api/auth/change-password', {
       method: 'POST',
@@ -1457,6 +1465,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       submitAdminShiftInspection,
       hireWorker,
       fireWorker,
+      resetWorkerPassword,
       changePassword,
       requestOwnerDatabaseReset,
       approveOwnerDatabaseReset,

@@ -148,6 +148,7 @@ from .schemas import (
     ContentServicePayload,
     ContentWorksPayload,
     ContactPayload,
+    ResetPasswordRequest,
 )
 from .security import (
     hash_one_time_code,
@@ -7428,6 +7429,36 @@ def create_worker(
         db, [worker], _complaints_by_worker(_load_penalties(db))
     )
     return _worker_payload_with_payroll(worker, payroll_summaries)
+
+
+@app.post("/api/workers/{worker_id}/reset-password", response_model=GenericMessage)
+def reset_worker_password(
+    worker_id: str,
+    payload: ResetPasswordRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    _ensure_staff_role(session_data, {"owner"})
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role not in {"admin", "worker", "accountant"}:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found"
+        )
+    if worker.is_primary_owner:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Primary owner password cannot be reset this way",
+        )
+    new_password = payload.newPassword.strip()
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Новый пароль должен содержать минимум 8 символов",
+        )
+    worker.password_hash = hash_password(new_password)
+    worker.updated_at = _now()
+    db.commit()
+    return GenericMessage(message="Пароль сброшен")
 
 
 @app.delete("/api/workers/{worker_id}", response_model=GenericMessage)
