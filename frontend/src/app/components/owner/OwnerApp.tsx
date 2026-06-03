@@ -4134,20 +4134,15 @@ export function OwnerApp() {
               </div>
               {employeeSettings.map((emp, i) => (
                 <div key={emp.id} className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className="flex items-center justify-between mb-3 gap-3">
-                    <div className="flex items-start gap-1.5 min-w-0 -ml-1">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold shrink-0 mt-1 text-sm" style={{ background: primary }}>{emp.name.charAt(0)}</div>
-                      <div className="min-w-0 pt-1">
+                  <div className="flex items-center justify-between mb-3 gap-2">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shrink-0 text-sm" style={{ background: primary }}>{emp.name.charAt(0)}</div>
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="min-w-0">
                         <div className="font-medium truncate text-sm">{emp.name}</div>
                         <div className={`text-xs ${sub}`}>{employeeRoleLabel(emp.role)}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button onClick={() => setEmployeeSettings(p => p.map((e, j) => j === i ? { ...e, active: !e.active } : e))}
-                        className="w-8 h-5 rounded-full relative transition-all shrink-0"
-                        style={{ background: emp.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
-                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${emp.active ? 'left-3.5' : 'left-0.5'}`} />
-                      </button>
                       <button
                         disabled={employeeActionLoading?.type === 'fire' && employeeActionLoading.workerId === emp.id}
                         onClick={() => { void handleFireWorker(emp.id, emp.name); }}
