@@ -4135,9 +4135,9 @@ export function OwnerApp() {
               {employeeSettings.map((emp, i) => (
                 <div key={emp.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center justify-between mb-3 gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ background: primary }}>{emp.name.charAt(0)}</div>
-                      <div className="min-w-0">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0 mt-0.5" style={{ background: primary }}>{emp.name.charAt(0)}</div>
+                      <div className="min-w-0 pt-0.5">
                         <div className="font-medium truncate">{emp.name}</div>
                         <div className={`text-xs ${sub}`}>{employeeRoleLabel(emp.role)}</div>
                       </div>
