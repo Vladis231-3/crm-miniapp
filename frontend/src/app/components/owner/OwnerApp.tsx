@@ -4142,11 +4142,11 @@ export function OwnerApp() {
                         <div className={`text-xs ${sub}`}>{employeeRoleLabel(emp.role)}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         disabled={employeeActionLoading?.type === 'fire' && employeeActionLoading.workerId === emp.id}
                         onClick={() => { void handleFireWorker(emp.id, emp.name); }}
-                        className="px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 border border-red-500/20 bg-red-500/10 disabled:opacity-60"
+                        className="px-2 py-1 rounded-lg text-[11px] font-medium text-red-500 border border-red-500/20 bg-red-500/10 disabled:opacity-60"
                       >
                         Уволить
                       </button>
@@ -4157,10 +4157,10 @@ export function OwnerApp() {
                           setResetPasswordConfirm('');
                           setResetPasswordError('');
                         }}
-                        className="px-3 py-1.5 rounded-xl text-xs font-medium border disabled:opacity-60"
+                        className="px-2 py-1 rounded-lg text-[11px] font-medium border disabled:opacity-60"
                         style={{ color: primary, borderColor: `${primary}30`, background: `${primary}10` }}
                       >
-                        Сбросить пароль
+                        Сбросить
                       </button>
                     </div>
                   </div>
