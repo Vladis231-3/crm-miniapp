@@ -28,7 +28,7 @@ from .complaints import (
     complaint_active_until,
     complaint_status_for_percent,
 )
-from .config import get_settings
+from .config import get_settings, PERSISTENT_DATA_DIR
 from .database import Base, engine, get_db
 from .exports import (
     GeneratedExport,
@@ -187,8 +187,11 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 frontend_assets = frontend_dist / "assets"
-UPLOAD_DIR = Path(__file__).resolve().parent / "assets" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = PERSISTENT_DATA_DIR / "uploads"
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    logger.warning("Cannot create upload dir at %s", UPLOAD_DIR)
 bot_thread: Thread | None = None
 PRIMARY_OWNER_ID = "owner-primary"
 PRIMARY_OWNER_LOGIN = "creator_owner"
@@ -308,7 +311,8 @@ def _check_rate_limit(ip: str) -> None:
 
 if frontend_assets.exists():
     app.mount("/assets", StaticFiles(directory=frontend_assets), name="frontend-assets")
-app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "assets"), name="static-assets")
+if UPLOAD_DIR.exists():
+    app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 HTML_NO_CACHE_HEADERS = {
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
