@@ -51,7 +51,7 @@ const NOOP = () => {};
 function ConsentDialog({ onConsent }: { onConsent: () => void }) {
   const { isDark, submitConsent } = useApp();
   const [consentLoading, setConsentLoading] = useState(false);
-  const [consentDeclined, setConsentDeclined] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const primary = isDark ? '#4AA8FF' : '#0A84FF';
   const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
@@ -61,11 +61,11 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
   const handleAgree = async () => {
     try {
       setConsentLoading(true);
+      setConsentError(null);
       await submitConsent();
-      setConsentDeclined(false);
       onConsent();
-    } catch {
-      setConsentDeclined(true);
+    } catch (err) {
+      setConsentError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {
       setConsentLoading(false);
     }
@@ -251,10 +251,10 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
             <p>6.3. Руководители структурных подразделений Оператора несут персональную ответственность за исполнение обязанностей их подчиненными.</p>
           </div>
 
-          {consentDeclined && (
-            <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-xs mb-4 justify-center">
+          {consentError && (
+            <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 bg-red-500/10 text-red-500 text-xs px-3 py-2 rounded-xl mb-3">
               <AlertCircle size={13} />
-              Для использования сервиса необходимо согласиться на обработку персональных данных
+              {consentError}
             </motion.div>
           )}
 
@@ -269,7 +269,7 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
               {consentLoading ? 'Сохранение...' : 'Согласен'}
             </motion.button>
             <button
-              onClick={() => setConsentDeclined(true)}
+              onClick={() => setConsentError('Вы не приняли соглашение. Для продолжения необходимо согласиться.')}
               className={`w-full py-3 rounded-2xl text-sm font-medium ${sub} ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} transition-all`}
             >
               Не согласен
@@ -634,10 +634,14 @@ function AppContent() {
   const [consentNeeded, setConsentNeeded] = useState(true);
 
   useEffect(() => {
-    checkConsent().then((consented) => {
-      setConsentNeeded(!consented);
-      setConsentReady(true);
-    });
+    checkConsent()
+      .then((consented) => {
+        setConsentNeeded(!consented);
+        setConsentReady(true);
+      })
+      .catch(() => {
+        setConsentReady(true);
+      });
   }, [checkConsent]);
 
   if (loading || !consentReady) {
