@@ -23,6 +23,10 @@
       "destination": "/api/index"
     },
     {
+      "source": "/static/(.*)",
+      "destination": "/api/index"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
