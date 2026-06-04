@@ -3,6 +3,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ZoomIn } from 'lucide-react';
 import type { ContentWorks } from '../../context/AppContext';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function resolveImageUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/') && API_BASE) return `${API_BASE}${url}`;
+  return url;
+}
+
 const FALLBACK_WORKS: (ContentWorks & { span?: string })[] = [
   { title: 'Полный детейлинг купе', description: 'Чёрный BMW M4 — восстановление ЛКП, керамика 9H', image_url: 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080', span: 'col-span-2 row-span-2' },
   { title: 'Пенная обработка', description: 'Наружная мойка премиум-класса', image_url: 'https://images.unsplash.com/photo-1608506375591-b90e1f955e4b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
@@ -40,7 +49,7 @@ export function Works({ apiWorks }: { apiWorks: ContentWorks[] }) {
               onClick={() => setLightbox(i)}
             >
               <img
-                src={item.image_url}
+                src={resolveImageUrl(item.image_url)}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 loading="lazy"
@@ -72,7 +81,7 @@ export function Works({ apiWorks }: { apiWorks: ContentWorks[] }) {
               <X className="w-8 h-8" />
             </button>
             <motion.img
-              src={items[lightbox].image_url}
+              src={resolveImageUrl(items[lightbox].image_url)}
               alt={items[lightbox].title}
               className="max-w-full max-h-full object-contain rounded-xl"
               initial={{ scale: 0.9, opacity: 0 }}

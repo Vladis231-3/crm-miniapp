@@ -1,6 +1,15 @@
 import { ChevronDown, Star, Clock, Shield } from 'lucide-react';
 import type { ContentHero } from '../../context/AppContext';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function resolveImageUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/') && API_BASE) return `${API_BASE}${url}`;
+  return url;
+}
+
 const FALLBACK_HERO: ContentHero = {
   backgroundImage: '/hero-bg.jpg',
   badgeText: 'ATMOSFERA ДЕТЕЙЛИНГ',
@@ -37,7 +46,7 @@ export function Hero({ content }: { content?: { hero?: ContentHero } | null }) {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
       <div className="absolute inset-0">
-        <img src={bg} alt="Профессиональный детейлинг" className="w-full h-full object-cover" />
+        <img src={resolveImageUrl(bg)} alt="Профессиональный детейлинг" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-transparent" />
       </div>
 
