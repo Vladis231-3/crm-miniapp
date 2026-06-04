@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Save, Plus, X, Image, Loader2, Upload } from 'lucide-react';
+import { Save, Plus, X, Image, Loader2, Upload, AlertCircle } from 'lucide-react';
 import { type ContentData, type ContentHero, type ContentAbout, type ContentService, type ContentWorks, type ContentStats } from '../../context/AppContext';
 import { apiRequest, apiUploadFile } from '../../api';
 
@@ -92,6 +92,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
   const [content, setContent] = useState<ContentData>(initialContent);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     apiRequest<ContentData>('/api/content').then(setContent).catch(() => {});
@@ -99,10 +100,13 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError('');
     try {
       await onSave(content);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Ошибка сохранения');
     } finally {
       setSaving(false);
     }
@@ -387,6 +391,14 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
           <button onClick={addWork} className={`flex items-center gap-2 ${glass} rounded-2xl p-4 w-full text-left ${sub} text-sm`}>
             <Plus size={16} /> Добавить работу
           </button>
+        </div>
+      )}
+
+      {/* Save error */}
+      {saveError && (
+        <div className="flex items-start gap-2 text-red-500 text-xs mt-3 p-3 rounded-xl bg-red-500/10">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <span>{saveError}</span>
         </div>
       )}
 

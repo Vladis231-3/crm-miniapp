@@ -269,7 +269,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Telegram-Bot-Api-Secret-Token"],
 )
 
@@ -4157,13 +4157,7 @@ def _get_or_create_content(db: Session) -> ContentPayload:
 def get_public_content(
     db: Session = Depends(get_db),
 ) -> ContentPayload:
-    now = time_module.time()
-    if _content_cache["data"] is not None and now - _content_cache["ts"] < 30.0:
-        return _content_cache["data"]
-    content = _get_or_create_content(db)
-    _content_cache["data"] = content
-    _content_cache["ts"] = now
-    return content
+    return _get_or_create_content(db)
 
 
 @app.put("/api/content", response_model=ContentPayload)
@@ -4175,8 +4169,6 @@ def save_content(
     _ensure_staff_role(session_data, {"admin", "owner"})
     _upsert_setting(db, "content", payload.model_dump())
     db.commit()
-    _content_cache["data"] = None
-    _content_cache["ts"] = 0.0
     return payload
 
 
