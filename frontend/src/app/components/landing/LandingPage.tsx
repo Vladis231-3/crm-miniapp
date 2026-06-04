@@ -3,6 +3,7 @@ import { apiRequest } from '../../api';
 import type { ContentData, ContentService } from '../../context/AppContext';
 import { Navbar } from './Navbar';
 import { Hero } from './Hero';
+import { StudioInfo } from './StudioInfo';
 import { Services } from './Services';
 import { Pricing } from './Pricing';
 import { Testimonials } from './Testimonials';
@@ -32,6 +33,7 @@ export function LandingPage() {
       <Navbar />
       <main>
         <Hero content={content} />
+        <StudioInfo about={content?.about} />
         <Services onBook={handleBook} apiServices={content?.services ?? []} />
         <Pricing services={content?.services ?? []} />
         <Testimonials />
