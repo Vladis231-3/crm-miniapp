@@ -54,6 +54,7 @@ from .models import (
     StaffUser,
     StockItem,
     TelegramLinkCode,
+    UploadedFile,
 )
 from .schemas import (
     AdminNotificationSettings,
@@ -4186,6 +4187,7 @@ ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
 async def upload_file(
     file: UploadFile = ...,
     session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
 ) -> dict:
     _ensure_staff_role(session_data, {"admin", "owner"})
     ext = Path(file.filename or "").suffix.lower()
@@ -4195,13 +4197,20 @@ async def upload_file(
     dest = UPLOAD_DIR / unique_name
     content = await file.read()
     dest.write_bytes(content)
+    mime = file.content_type or "application/octet-stream"
+    db.add(UploadedFile(id=Path(unique_name).stem, filename=file.filename or unique_name, mime_type=mime, data=content))
+    db.commit()
     return {"url": f"/api/uploads/{unique_name}"}
 
 
 @app.get("/api/uploads/{filename}")
-async def serve_upload(filename: str) -> Response:
+async def serve_upload(filename: str, db: Session = Depends(get_db)) -> Response:
     if "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
+    stem = Path(filename).stem
+    record = db.get(UploadedFile, stem)
+    if record is not None:
+        return Response(content=record.data, media_type=record.mime_type)
     dest = UPLOAD_DIR / filename
     if not dest.is_file():
         raise HTTPException(status_code=404, detail="File not found")
