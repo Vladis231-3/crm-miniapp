@@ -332,6 +332,8 @@ async def serve_single_page_app(request: Request, call_next):
         return await call_next(request)
     if path.startswith("/assets/"):
         return await call_next(request)
+    if path.startswith("/static/"):
+        return await call_next(request)
     if not frontend_dist.exists() or not index_file.exists():
         return await call_next(request)
 
