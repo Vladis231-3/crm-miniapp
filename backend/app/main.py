@@ -311,8 +311,7 @@ def _check_rate_limit(ip: str) -> None:
 
 if frontend_assets.exists():
     app.mount("/assets", StaticFiles(directory=frontend_assets), name="frontend-assets")
-if UPLOAD_DIR.exists():
-    app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 
 HTML_NO_CACHE_HEADERS = {
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -331,8 +330,6 @@ async def serve_single_page_app(request: Request, call_next):
     if path.startswith("/api") or path in {"/docs", "/redoc", "/openapi.json"}:
         return await call_next(request)
     if path.startswith("/assets/"):
-        return await call_next(request)
-    if path.startswith("/static/"):
         return await call_next(request)
     if not frontend_dist.exists() or not index_file.exists():
         return await call_next(request)
@@ -4198,7 +4195,17 @@ async def upload_file(
     dest = UPLOAD_DIR / unique_name
     content = await file.read()
     dest.write_bytes(content)
-    return {"url": f"/static/uploads/{unique_name}"}
+    return {"url": f"/api/uploads/{unique_name}"}
+
+
+@app.get("/api/uploads/{filename}")
+async def serve_upload(filename: str) -> Response:
+    if "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    dest = UPLOAD_DIR / filename
+    if not dest.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(dest)
 
 
 @app.post("/api/contact", response_model=GenericMessage)
