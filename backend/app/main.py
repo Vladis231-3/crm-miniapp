@@ -10,7 +10,7 @@ from threading import Thread
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, Response
@@ -147,6 +147,7 @@ from .schemas import (
     ContentAboutPayload,
     ContentServicePayload,
     ContentWorksPayload,
+    ContentHeroPayload,
     ContactPayload,
     ResetPasswordRequest,
 )
@@ -186,6 +187,8 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 frontend_assets = frontend_dist / "assets"
+UPLOAD_DIR = Path(__file__).resolve().parent / "assets" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 bot_thread: Thread | None = None
 PRIMARY_OWNER_ID = "owner-primary"
 PRIMARY_OWNER_LOGIN = "creator_owner"
@@ -305,6 +308,7 @@ def _check_rate_limit(ip: str) -> None:
 
 if frontend_assets.exists():
     app.mount("/assets", StaticFiles(directory=frontend_assets), name="frontend-assets")
+app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "assets"), name="static-assets")
 
 HTML_NO_CACHE_HEADERS = {
     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -4097,6 +4101,7 @@ _content_cache: dict[str, Any] = {"data": None, "ts": 0.0}
 
 def _default_content() -> ContentPayload:
     return ContentPayload(
+        hero=ContentHeroPayload(),
         about=ContentAboutPayload(
             text=(
                 "<b>\u2728 \u041e \u0441\u0442\u0443\u0434\u0438\u0438 ATMOSFERA</b>\n\n"
@@ -4169,6 +4174,25 @@ def save_content(
     _content_cache["data"] = None
     _content_cache["ts"] = 0.0
     return payload
+
+
+ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+
+
+@app.post("/api/upload")
+async def upload_file(
+    file: UploadFile = ...,
+    session_data: dict = Depends(_require_session),
+) -> dict:
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Недопустимый формат файла: {ext}")
+    unique_name = f"{uuid4().hex}{ext}"
+    dest = UPLOAD_DIR / unique_name
+    content = await file.read()
+    dest.write_bytes(content)
+    return {"url": f"/static/uploads/{unique_name}"}
 
 
 @app.post("/api/contact", response_model=GenericMessage)

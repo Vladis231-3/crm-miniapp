@@ -150,6 +150,21 @@ export async function apiDownload(path: string, fallbackFileName: string): Promi
   return fileName;
 }
 
+export async function apiUploadFile(file: File): Promise<{ url: string }> {
+  const initData = getInitData();
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${API_BASE_URL}/api/upload`, {
+    method: 'POST',
+    headers: initData ? { Authorization: initData } : {},
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error(await getErrorDetail(response));
+  }
+  return response.json();
+}
+
 export async function apiBlobUrl(path: string): Promise<string> {
   const headers: Record<string, string> = {};
   const initData = getInitData();

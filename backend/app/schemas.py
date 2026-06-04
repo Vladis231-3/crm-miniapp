@@ -1036,6 +1036,7 @@ class OwnerDatabaseResetExecutePayload(BaseModel):
 class ContentAboutPayload(BaseModel):
     text: str
     features: list[str] = []
+    image: str = ""
 
 
 class ContentServicePayload(BaseModel):
@@ -1055,7 +1056,30 @@ class ContentWorksPayload(BaseModel):
     image_url: str = ""
 
 
+class ContentStatsPayload(BaseModel):
+    value: str = "4.9"
+    label: str = "Средний рейтинг"
+
+
+class ContentHeroPayload(BaseModel):
+    backgroundImage: str = ""
+    badgeText: str = "ATMOSFERA ДЕТЕЙЛИНГ"
+    title: str = "Ваш автомобиль заслуживает лучшего ухода"
+    titleHighlight: str = "лучшего"
+    subtitle: str = "Премиум мойка и детейлинг для безупречного блеска вашего авто."
+    button1Text: str = "Наши услуги"
+    button1Action: str = "services"
+    button2Text: str = "Записаться"
+    button2Action: str = "contact"
+    stats: list[ContentStatsPayload] = [
+        ContentStatsPayload(value="4.9", label="Средний рейтинг"),
+        ContentStatsPayload(value="15 мин", label="Экспресс-мойка"),
+        ContentStatsPayload(value="100%", label="Довольных клиентов"),
+    ]
+
+
 class ContentPayload(BaseModel):
+    hero: ContentHeroPayload = ContentHeroPayload()
     about: ContentAboutPayload = ContentAboutPayload(text="")
     services: list[ContentServicePayload] = []
     works: list[ContentWorksPayload] = []

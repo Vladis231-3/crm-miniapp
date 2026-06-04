@@ -448,9 +448,28 @@ export interface PayrollEntryCreateInput {
   note: string;
 }
 
+export interface ContentStats {
+  value: string;
+  label: string;
+}
+
+export interface ContentHero {
+  backgroundImage: string;
+  badgeText: string;
+  title: string;
+  titleHighlight: string;
+  subtitle: string;
+  button1Text: string;
+  button1Action: string;
+  button2Text: string;
+  button2Action: string;
+  stats: ContentStats[];
+}
+
 export interface ContentAbout {
   text: string;
   features: string[];
+  image: string;
 }
 
 export interface ContentService {
@@ -471,6 +490,7 @@ export interface ContentWorks {
 }
 
 export interface ContentData {
+  hero: ContentHero;
   about: ContentAbout;
   services: ContentService[];
   works: ContentWorks[];
@@ -613,7 +633,23 @@ const EMPTY_SETTINGS: SettingsBundle = {
 };
 
 export const EMPTY_CONTENT: ContentData = {
-  about: { text: '', features: [] },
+  hero: {
+    backgroundImage: '',
+    badgeText: 'ATMOSFERA ДЕТЕЙЛИНГ',
+    title: 'Ваш автомобиль заслуживает лучшего ухода',
+    titleHighlight: 'лучшего',
+    subtitle: 'Премиум мойка и детейлинг для безупречного блеска вашего авто.',
+    button1Text: 'Наши услуги',
+    button1Action: 'services',
+    button2Text: 'Записаться',
+    button2Action: 'contact',
+    stats: [
+      { value: '4.9', label: 'Средний рейтинг' },
+      { value: '15 мин', label: 'Экспресс-мойка' },
+      { value: '100%', label: 'Довольных клиентов' },
+    ],
+  },
+  about: { text: '', features: [], image: '' },
   services: [],
   works: [],
 };
