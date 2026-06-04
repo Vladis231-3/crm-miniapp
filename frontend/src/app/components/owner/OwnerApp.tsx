@@ -12,7 +12,8 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData } from '../../context/AppContext';
+import { ContentEditor } from '../admin/ContentEditor';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
@@ -27,7 +28,7 @@ import {
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings';
-type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance';
+type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -308,6 +309,8 @@ export function OwnerApp() {
     saveOwnerNotificationSettings,
     saveOwnerIntegrations,
     saveOwnerSecurity,
+    saveContent,
+    content,
     updateClientCard,
     changePassword,
     requestOwnerDatabaseReset,
@@ -3491,6 +3494,7 @@ export function OwnerApp() {
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
+                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: '2FA включена', color: '#EF4444' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
@@ -4255,6 +4259,22 @@ export function OwnerApp() {
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
+            </motion.div>
+          )}
+
+          {/* ── SETTINGS: CONTENT ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'content' && (
+            <motion.div key="s-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <ContentEditor
+                initialContent={content}
+                onSave={saveContent}
+                glass={glass}
+                inputCls={inputCls}
+                sub={sub}
+                primary={primary}
+                isDark={isDark}
+              />
             </motion.div>
           )}
 
