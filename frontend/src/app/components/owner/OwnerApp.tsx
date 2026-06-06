@@ -462,6 +462,7 @@ export function OwnerApp() {
   const [settingsClientId, setSettingsClientId] = useState<string | null>(null);
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
   const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
+  const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
@@ -600,6 +601,9 @@ export function OwnerApp() {
       ),
     );
   }, [clients]);
+  useEffect(() => {
+    setEditingSettingsClientCard(false);
+  }, [settingsClientId]);
   useEffect(() => {
     if (settingsSection !== 'security') {
       setSecurityError(null);
@@ -1272,6 +1276,7 @@ export function OwnerApp() {
           adminNote: draft.adminNote,
           referralSource: draft.referralSource,
         });
+      setEditingSettingsClientCard(false);
       setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
@@ -3762,65 +3767,95 @@ export function OwnerApp() {
                       <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ background: primary }}>
                         {(selectedSettingsClient.name.trim() || 'К').charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <input
-                          className={inputCls}
-                          placeholder="Имя клиента"
-                          value={clientCardDrafts[selectedSettingsClient.id]?.name ?? selectedSettingsClient.name}
-                          onChange={(event) => setClientCardDrafts((current) => ({
-                            ...current,
-                            [selectedSettingsClient.id]: {
-                              ...current[selectedSettingsClient.id],
-                              name: event.target.value,
-                            },
-                          }))}
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            className={inputCls}
-                            placeholder="Автомобиль"
-                            value={clientCardDrafts[selectedSettingsClient.id]?.car ?? selectedSettingsClient.car}
-                            onChange={(event) => setClientCardDrafts((current) => ({
-                              ...current,
-                              [selectedSettingsClient.id]: {
-                                ...current[selectedSettingsClient.id],
-                                car: event.target.value,
-                              },
-                            }))}
-                          />
-                          <input
-                            className={inputCls}
-                            placeholder="Госномер"
-                            value={clientCardDrafts[selectedSettingsClient.id]?.plate ?? selectedSettingsClient.plate}
-                            onChange={(event) => setClientCardDrafts((current) => ({
-                              ...current,
-                              [selectedSettingsClient.id]: {
-                                ...current[selectedSettingsClient.id],
-                                plate: event.target.value,
-                              },
-                            }))}
-                          />
-                        </div>
-                        <input
-                          className={inputCls}
-                          placeholder="Телефон"
-                          value={clientCardDrafts[selectedSettingsClient.id]?.phone ?? selectedSettingsClient.phone}
-                          onChange={(event) => setClientCardDrafts((current) => ({
-                            ...current,
-                            [selectedSettingsClient.id]: {
-                              ...current[selectedSettingsClient.id],
-                              phone: event.target.value,
-                            },
-                          }))}
-                        />
+                      <div className="flex-1 min-w-0">
+                        {editingSettingsClientCard ? (
+                          <div className="space-y-2">
+                            <input
+                              className={inputCls}
+                              placeholder="Имя клиента"
+                              value={clientCardDrafts[selectedSettingsClient.id]?.name ?? selectedSettingsClient.name}
+                              onChange={(event) => setClientCardDrafts((current) => ({
+                                ...current,
+                                [selectedSettingsClient.id]: {
+                                  ...current[selectedSettingsClient.id],
+                                  name: event.target.value,
+                                },
+                              }))}
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                className={inputCls}
+                                placeholder="Автомобиль"
+                                value={clientCardDrafts[selectedSettingsClient.id]?.car ?? selectedSettingsClient.car}
+                                onChange={(event) => setClientCardDrafts((current) => ({
+                                  ...current,
+                                  [selectedSettingsClient.id]: {
+                                    ...current[selectedSettingsClient.id],
+                                    car: event.target.value,
+                                  },
+                                }))}
+                              />
+                              <input
+                                className={inputCls}
+                                placeholder="Госномер"
+                                value={clientCardDrafts[selectedSettingsClient.id]?.plate ?? selectedSettingsClient.plate}
+                                onChange={(event) => setClientCardDrafts((current) => ({
+                                  ...current,
+                                  [selectedSettingsClient.id]: {
+                                    ...current[selectedSettingsClient.id],
+                                    plate: event.target.value,
+                                  },
+                                }))}
+                              />
+                            </div>
+                            <input
+                              className={inputCls}
+                              placeholder="Телефон"
+                              value={clientCardDrafts[selectedSettingsClient.id]?.phone ?? selectedSettingsClient.phone}
+                              onChange={(event) => setClientCardDrafts((current) => ({
+                                ...current,
+                                [selectedSettingsClient.id]: {
+                                  ...current[selectedSettingsClient.id],
+                                  phone: event.target.value,
+                                },
+                              }))}
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-semibold text-lg">{selectedSettingsClient.name.trim() || 'Клиент без имени'}</div>
+                            <div className={`text-sm ${sub} mt-1`}>
+                              {selectedSettingsClient.car || 'Авто не указано'}{selectedSettingsClient.plate ? `, ${selectedSettingsClient.plate}` : ''}
+                            </div>
+                            {selectedSettingsClient.phone.trim() ? (
+                              <a href={`tel:${selectedSettingsClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
+                                <Phone size={12} />{selectedSettingsClient.phone}
+                              </a>
+                            ) : (
+                              <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
+                            )}
+                            <div className={`text-sm ${sub} mt-1`}>
+                              {selectedSettingsClient.referralSource ? `Узнал: ${selectedSettingsClient.referralSource}` : 'Откуда узнал: не указано'}
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <button
-                        onClick={() => void handleDeleteSettingsClient(selectedSettingsClient.id, selectedSettingsClient.name)}
-                        className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
-                        aria-label={`Удалить клиента ${selectedSettingsClient.name}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => setEditingSettingsClientCard(!editingSettingsClientCard)}
+                          className={`p-2 rounded-xl ${isDark ? 'bg-white/10 text-white/60 hover:bg-white/20' : 'bg-black/5 text-black/40 hover:bg-black/10'}`}
+                          aria-label="Редактировать карточку"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => void handleDeleteSettingsClient(selectedSettingsClient.id, selectedSettingsClient.name)}
+                          className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                          aria-label={`Удалить клиента ${selectedSettingsClient.name}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                     {selectedSettingsClient.adminNote && (
                       <div className={`rounded-xl px-3 py-2.5 mb-4 text-sm border ${isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
