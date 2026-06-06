@@ -294,6 +294,7 @@ export function AdminApp() {
     submitAdminShiftInspection,
     createTelegramLinkCode,
     deleteClient,
+    deleteBooking,
     changePassword,
     refreshActiveSessions,
     revokeSession,
@@ -1040,6 +1041,15 @@ export function AdminApp() {
     } finally {
       setEditBookingSaving(false);
     }
+  };
+
+  const handleDeleteBooking = () => {
+    if (!selectedBooking) return;
+    const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
+    if (!window.confirm(`Удалить запись клиента "${name}"? Это действие нельзя отменить.`)) return;
+    deleteBooking(selectedBooking.id);
+    setShowEditModal(false);
+    setSelectedBooking(null);
   };
 
   const handleAssignWorkers = async (notify: boolean) => {
@@ -2825,6 +2835,11 @@ export function AdminApp() {
               >
                 {editBookingSaving ? 'Сохраняем...' : editModalMode === 'reschedule' ? 'Перенести запись' : 'Сохранить'}
               </button>
+              {editModalMode !== 'reschedule' && (
+                <button onClick={handleDeleteBooking} className={`w-full mt-2 py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
+                  <Trash2 size={15} className="inline mr-1.5 -mt-0.5" />Удалить запись
+                </button>
+              )}
             </motion.div>
           </motion.div>
         )}
