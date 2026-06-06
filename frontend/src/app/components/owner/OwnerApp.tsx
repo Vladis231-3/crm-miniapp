@@ -292,6 +292,7 @@ export function OwnerApp() {
     markNotificationRead,
     addBooking,
     updateBooking,
+    deleteBooking,
     addClient,
     deleteClient,
     addNotification,    penalties,
@@ -1836,6 +1837,15 @@ export function OwnerApp() {
     } finally {
       setOwnerBookingEditSaving(false);
     }
+  };
+
+  const handleDeleteOwnerBooking = () => {
+    if (!selectedBooking) return;
+    const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
+    if (!window.confirm(`Удалить запись клиента "${name}"? Это действие нельзя отменить.`)) return;
+    deleteBooking(selectedBooking.id);
+    setShowBookingDetail(false);
+    setSelectedBooking(null);
   };
 
   const kpiCards = [
@@ -5600,6 +5610,9 @@ export function OwnerApp() {
                     <AlertCircle size={14} />{ownerBookingEditError}
                   </div>
                 )}
+                <button onClick={handleDeleteOwnerBooking} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
+                  <Trash2 size={15} className="inline mr-1.5 -mt-0.5" />Удалить запись
+                </button>
               </div>
             </motion.div>
           </motion.div>
