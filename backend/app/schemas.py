@@ -334,6 +334,7 @@ class SalaryDetailResponse(BaseModel):
     shiftCount: int
     bookings: list[SalaryBookingItem] = Field(default_factory=list)
     payouts: list[SalaryPayoutItem] = Field(default_factory=list)
+    entries: list[PayrollEntryPayload] = Field(default_factory=list)
 
 
 class PaySalaryRequest(BaseModel):
@@ -689,6 +690,16 @@ class PayrollEntryCreateRequest(BaseModel):
         return value.strip()
 
 
+class PayrollEntryUpdateRequest(BaseModel):
+    amount: int
+    note: str = ""
+
+    @field_validator("note")
+    @classmethod
+    def validate_note(cls, value: str) -> str:
+        return value.strip()
+
+
 class SettingsBundlePayload(BaseModel):
     adminProfile: AdminProfilePayload
     adminNotificationSettings: AdminNotificationSettings
@@ -870,11 +881,47 @@ class BookingUpdateRequest(BaseModel):
 
 
 class ClientCardUpdateRequest(BaseModel):
+    name: str | None = None
+    phone: str | None = None
+    car: str | None = None
+    plate: str | None = None
     notes: str | None = None
     debtBalance: int | None = None
     adminRating: int | None = Field(default=None, ge=0, le=5)
     adminNote: str | None = None
     referralSource: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_person_name(value)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_phone(value)
+
+    @field_validator("car")
+    @classmethod
+    def validate_car(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.strip():
+            return ""
+        return normalize_vehicle_name(value)
+
+    @field_validator("plate")
+    @classmethod
+    def validate_plate(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.strip():
+            return ""
+        return normalize_plate(value)
 
 
 class NotificationCreateRequest(BaseModel):
@@ -1061,11 +1108,19 @@ class ContentStatsPayload(BaseModel):
     label: str = "Средний рейтинг"
 
 
+class ContentTitlePayload(BaseModel):
+    before: str = "Ваш автомобиль заслуживает "
+    highlight: str = "лучшего"
+    after: str = " ухода"
+
+    def to_full_title(self) -> str:
+        return f"{self.before}{self.highlight}{self.after}"
+
+
 class ContentHeroPayload(BaseModel):
     backgroundImage: str = ""
     badgeText: str = "ATMOSFERA ДЕТЕЙЛИНГ"
-    title: str = "Ваш автомобиль заслуживает лучшего ухода"
-    titleHighlight: str = "лучшего"
+    title: ContentTitlePayload = ContentTitlePayload()
     subtitle: str = "Премиум мойка и детейлинг для безупречного блеска вашего авто."
     button1Text: str = "Наши услуги"
     button1Action: str = "services"

@@ -129,6 +129,7 @@ from .schemas import (
     PenaltyPayload,
     PayrollEntryCreateRequest,
     PayrollEntryPayload,
+    PayrollEntryUpdateRequest,
     PaySalaryRequest,
     PaySalaryResponse,
     SalaryBookingItem,
@@ -4167,8 +4168,13 @@ def save_content(
     db: Session = Depends(get_db),
 ) -> ContentPayload:
     _ensure_staff_role(session_data, {"admin", "owner"})
-    _upsert_setting(db, "content", payload.model_dump())
+    dumped = payload.model_dump()
+    logger.info("Saving content: about.image=%s hero.backgroundImage=%s",
+                dumped.get("about", {}).get("image"),
+                dumped.get("hero", {}).get("backgroundImage"))
+    _upsert_setting(db, "content", dumped)
     db.commit()
+    logger.info("Content saved successfully")
     return payload
 
 
@@ -5127,6 +5133,14 @@ def update_client_card(
         client.admin_note = updates["adminNote"].strip()
     if "referralSource" in updates and updates["referralSource"] is not None:
         client.referral_source = updates["referralSource"].strip()
+    if "name" in updates and updates["name"] is not None:
+        client.name = updates["name"].strip()
+    if "phone" in updates and updates["phone"] is not None:
+        client.phone = updates["phone"].strip()
+    if "car" in updates and updates["car"] is not None:
+        client.car = updates["car"].strip()
+    if "plate" in updates and updates["plate"] is not None:
+        client.plate = updates["plate"].strip()
     client.updated_at = _now()
     db.commit()
     db.refresh(client)
@@ -7144,6 +7158,49 @@ def create_payroll_entry(
     return _worker_payload_with_payroll(worker, payroll_summaries)
 
 
+@app.put("/api/payroll/entries/{entry_id}", response_model=PayrollEntryPayload)
+def update_payroll_entry(
+    entry_id: str,
+    payload: PayrollEntryUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> PayrollEntryPayload:
+    _ensure_staff_role(session_data, {"owner"})
+
+    entry = db.get(PayrollEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+
+    worker = db.get(StaffUser, entry.worker_id)
+    if worker is None:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+
+    if payload.amount < 0:
+        raise HTTPException(status_code=400, detail="Сумма не может быть отрицательной")
+
+    entry.amount = payload.amount
+    entry.note = payload.note.strip()
+    entry.actor_id = session_data["actorId"]
+    entry.actor_role = session_data["role"]
+    db.commit()
+    db.refresh(entry)
+
+    actor = db.get(StaffUser, entry.actor_id)
+    actor_name = actor.name if actor is not None else "Сотрудник"
+
+    _notify_worker_about_payroll_entry(
+        db,
+        worker,
+        actor_role=session_data["role"],
+        actor_id=session_data["actorId"],
+        kind=entry.kind,
+        amount=entry.amount,
+        note=f"Изменено: {payload.note.strip()}" if payload.note else "Изменено",
+    )
+
+    return _payroll_entry_payload(entry, actor_name)
+
+
 # ── Salary detail (owner) ─────────────────────────────────────────────────
 
 def _salary_date_range(period: str, ref: date | None = None) -> tuple[str, str]:
@@ -7260,11 +7317,10 @@ def owner_worker_salary_detail(
             )
         )
 
-    # ── Payout entries within date range ──
-    payout_entries = db.scalars(
+    # ── Payroll entries within date range ──
+    all_entries = db.scalars(
         select(PayrollEntry).where(
             PayrollEntry.worker_id == worker_id,
-            PayrollEntry.kind == "payout",
             PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
             PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
         )
@@ -7272,13 +7328,14 @@ def owner_worker_salary_detail(
     ).all()
 
     actors = {}
-    if payout_entries:
-        actor_ids = {e.actor_id for e in payout_entries}
+    if all_entries:
+        actor_ids = {e.actor_id for e in all_entries}
         actors_list = db.scalars(
             select(StaffUser).where(StaffUser.id.in_(actor_ids))
         ).all()
         actors = {a.id: a.name for a in actors_list}
 
+    payout_entries = [e for e in all_entries if e.kind == "payout"]
     payout_items = [
         SalaryPayoutItem(
             id=e.id,
@@ -7290,6 +7347,11 @@ def owner_worker_salary_detail(
         for e in payout_entries
     ]
     total_paid = sum(e.amount for e in payout_entries)
+
+    entry_payloads = [
+        _payroll_entry_payload(e, actors.get(e.actor_id, "Сотрудник"))
+        for e in all_entries
+    ]
 
     # ── Shift count ──
     salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
@@ -7318,6 +7380,7 @@ def owner_worker_salary_detail(
         shiftCount=shift_count,
         bookings=booking_items,
         payouts=payout_items,
+        entries=entry_payloads,
     )
 
 

@@ -960,6 +960,10 @@ export function AdminApp() {
     }
   };
 
+  const handleRemoveService = (serviceId: string) => {
+    setServicesState((current) => current.filter((s) => s.id !== serviceId));
+  };
+
   const closeAddServiceModal = () => {
     setShowAddServiceModal(false);
     setAddServiceTargetBooking(null);
@@ -1754,6 +1758,11 @@ export function AdminApp() {
               <p className={`text-xs ${sub} mb-4`}>Изменения отображаются у клиентов после сохранения</p>
               {services.map((svc, i) => (
                 <div key={svc.id} className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div className="flex justify-end -mt-1 -mr-1 mb-1">
+                    <button onClick={() => handleRemoveService(svc.id)} className="p-1.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                   <div className="space-y-2">
                     <div>
                       <label className={`text-xs ${sub} block mb-1`}>Название</label>
@@ -2722,15 +2731,16 @@ export function AdminApp() {
                       </div>
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Время</label>
-                        <input
-                          className={inputCls}
-                          placeholder="ЧЧ:ММ"
+                        <select
+                          className={selectCls}
                           value={editBookingDraft.time}
                           onChange={e => {
                             setEditBookingError(null);
                             setEditBookingDraft((current) => ({ ...current, time: e.target.value }));
                           }}
-                        />
+                        >
+                          {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+                        </select>
                       </div>
                     </div>
                     <div>

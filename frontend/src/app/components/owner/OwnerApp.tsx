@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type PayrollEntryKind, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -44,6 +44,7 @@ interface SalaryDetailResponse {
   totalEarned: number; totalPaid: number; balanceToPay: number;
   completedBookingsCount: number; shiftCount: number;
   bookings: SalaryBookingItem[]; payouts: SalaryPayoutItem[];
+  entries: PayrollEntry[];
 }
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
@@ -398,9 +399,6 @@ export function OwnerApp() {
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
   const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
-  const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
-  const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
-
   const [selectedSalaryWorkerId, setSelectedSalaryWorkerId] = useState<string | null>(null);
   const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
@@ -408,6 +406,13 @@ export function OwnerApp() {
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
   const [salaryLoading, setSalaryLoading] = useState(false);
+  const [bonusAmount, setBonusAmount] = useState('');
+  const [bonusNote, setBonusNote] = useState('');
+  const [fineAmount, setFineAmount] = useState('');
+  const [fineNote, setFineNote] = useState('');
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editNote, setEditNote] = useState('');
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -457,7 +462,7 @@ export function OwnerApp() {
   const [settingsClientId, setSettingsClientId] = useState<string | null>(null);
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
   const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
-  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
@@ -565,14 +570,6 @@ export function OwnerApp() {
       ...current,
       workerId: workers.some((worker) => worker.id === current.workerId) ? current.workerId : workers[0]?.id || '',
     }));
-    setPayrollDrafts((current) =>
-      Object.fromEntries(
-        workers.map((worker) => [
-          worker.id,
-          current[worker.id] || { kind: 'advance', amount: '', note: '' },
-        ]),
-      ),
-    );
   }, [workers]);
   useEffect(() => {
     if (!selectedSalaryWorkerId) { setSalaryDetail(null); return; }
@@ -591,6 +588,10 @@ export function OwnerApp() {
         clients.map((client) => [
           client.id,
           {
+            name: client.name || '',
+            phone: client.phone || '',
+            car: client.car || '',
+            plate: client.plate || '',
             notes: client.notes || '',
             debtBalance: String(client.debtBalance || 0),
             referralSource: client.referralSource || '',
@@ -1261,6 +1262,10 @@ export function OwnerApp() {
       await updateClientCard(clientId, options?.adminOnly
         ? { adminRating: draft.adminRating, adminNote: draft.adminNote, referralSource: draft.referralSource }
         : {
+          name: draft.name,
+          phone: draft.phone,
+          car: draft.car,
+          plate: draft.plate,
           notes: draft.notes,
           debtBalance: Number(draft.debtBalance || 0),
           adminRating: draft.adminRating,
@@ -1288,35 +1293,89 @@ export function OwnerApp() {
     }
   };
 
-  const handleCreatePayrollEntry = async (workerId: string, workerName: string) => {
-    const draft = payrollDrafts[workerId];
-    const amount = Number(draft?.amount || 0);
-    if (!draft) return;
-    if (!Number.isFinite(amount) || amount === 0) {
-      setBottomToast('Укажите сумму операции по зарплате');
+  const refreshSalaryDetail = () => {
+    if (!selectedSalaryWorkerId) return;
+    setSalaryLoading(true);
+    apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?period=${salaryPeriod}&segment=${salarySegment}`)
+      .then(setSalaryDetail)
+      .catch(() => setSalaryDetail(null))
+      .finally(() => setSalaryLoading(false));
+  };
+
+  const handleAddBonus = async () => {
+    if (!selectedSalaryWorkerId || !salaryDetail) return;
+    const amount = Number(bonusAmount);
+    if (!Number.isFinite(amount) || amount < 1) {
+      setBottomToast('Укажите сумму премии');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
-
     try {
-      setPayrollEntryLoading(workerId);
       await createPayrollEntry({
-        workerId,
-        kind: draft.kind,
+        workerId: selectedSalaryWorkerId,
+        kind: 'bonus',
         amount: Math.round(amount),
-        note: draft.note.trim(),
+        note: bonusNote.trim() || 'Премия',
       });
-      setPayrollDrafts((current) => ({
-        ...current,
-        [workerId]: { kind: draft.kind, amount: '', note: '' },
-      }));
-      setBottomToast(`Операция по зарплате для ${workerName} сохранена`);
+      setBonusAmount('');
+      setBonusNote('');
+      setBottomToast(`Премия ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} начислена`);
       setTimeout(() => setBottomToast(null), 3000);
+      refreshSalaryDetail();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить операцию по зарплате');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось начислить премию');
       setTimeout(() => setBottomToast(null), 4000);
-    } finally {
-      setPayrollEntryLoading(null);
+    }
+  };
+
+  const handleAddFine = async () => {
+    if (!selectedSalaryWorkerId || !salaryDetail) return;
+    const amount = Number(fineAmount);
+    if (!Number.isFinite(amount) || amount < 1) {
+      setBottomToast('Укажите сумму штрафа');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+    try {
+      await createPayrollEntry({
+        workerId: selectedSalaryWorkerId,
+        kind: 'deduction',
+        amount: Math.round(amount),
+        note: fineNote.trim() || 'Штраф',
+      });
+      setFineAmount('');
+      setFineNote('');
+      setBottomToast(`Штраф ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} выписан`);
+      setTimeout(() => setBottomToast(null), 3000);
+      refreshSalaryDetail();
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось выписать штраф');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  const handleUpdateEntry = async () => {
+    if (!editingEntryId || !selectedSalaryWorkerId) return;
+    const amount = Number(editAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setBottomToast('Укажите корректную сумму');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+    try {
+      await apiRequest(`/api/payroll/entries/${editingEntryId}`, {
+        method: 'PUT',
+        body: { amount: Math.round(amount), note: editNote.trim() },
+      });
+      setEditingEntryId(null);
+      setEditAmount('');
+      setEditNote('');
+      setBottomToast('Операция обновлена');
+      setTimeout(() => setBottomToast(null), 3000);
+      refreshSalaryDetail();
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Ошибка обновления');
+      setTimeout(() => setBottomToast(null), 4000);
     }
   };
 
@@ -2738,66 +2797,7 @@ export function OwnerApp() {
                       </>
                     );
                   })()}
-                  <div id={`owner-payroll-action-${worker.id}`} className={`${glass} rounded-xl p-3 mb-3`}>
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <div>
-                        <div className="text-sm font-medium">Операция по зарплате</div>
-                        <div className={`text-[11px] ${sub}`}>Аванс, списание, выплата, премия или ручная корректировка с примечанием</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <select
-                        className={selectCls}
-                        value={payrollDrafts[worker.id]?.kind || 'advance'}
-                        onChange={(event) => setPayrollDrafts((current) => ({
-                          ...current,
-                          [worker.id]: {
-                            ...(current[worker.id] || { amount: '', note: '' }),
-                            kind: event.target.value as PayrollEntryKind,
-                          },
-                        }))}
-                      >
-                        <option value="advance">Аванс</option>
-                        <option value="deduction">Списание</option>
-                        <option value="bonus">Премия</option>
-                        <option value="payout">Выплата</option>
-                        <option value="adjustment">Корректировка +/-</option>
-                      </select>
-                      <input
-                        className={inputCls}
-                        type="number"
-                        value={payrollDrafts[worker.id]?.amount || ''}
-                        onChange={(event) => setPayrollDrafts((current) => ({
-                          ...current,
-                          [worker.id]: {
-                            ...(current[worker.id] || { kind: 'advance', note: '' }),
-                            amount: event.target.value,
-                          },
-                        }))}
-                        placeholder={payrollDrafts[worker.id]?.kind === 'adjustment' ? 'Можно отрицательное число' : 'Сумма'}
-                      />
-                    </div>
-                    <textarea
-                      className={`${inputCls} h-20 resize-none mb-2`}
-                      placeholder="Примечание: за что выдан аванс, почему списание, что входит в выплату"
-                      value={payrollDrafts[worker.id]?.note || ''}
-                      onChange={(event) => setPayrollDrafts((current) => ({
-                        ...current,
-                        [worker.id]: {
-                          ...(current[worker.id] || { kind: 'advance', amount: '' }),
-                          note: event.target.value,
-                        },
-                      }))}
-                    />
-                    <button
-                      onClick={() => { void handleCreatePayrollEntry(worker.id, worker.name); }}
-                      disabled={payrollEntryLoading === worker.id}
-                      className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-                      style={{ background: primary }}
-                    >
-                      {payrollEntryLoading === worker.id ? 'Сохраняю...' : 'Провести операцию по зарплате'}
-                    </button>
-                  </div>
+
                   {!isAccountant && (complaintState.reductionActive ? (
                     <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
                       Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
@@ -2987,6 +2987,40 @@ export function OwnerApp() {
                     )}
                   </div>
 
+                  {/* Bonus form */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#22c55e' }}>Премия мастеру</h3>
+                    <div className="flex gap-2 mb-3">
+                      <input type="number" placeholder="Сумма" value={bonusAmount}
+                        onChange={e => setBonusAmount(e.target.value)}
+                        className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      <button onClick={handleAddBonus}
+                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
+                        Начислить
+                      </button>
+                    </div>
+                    <input type="text" placeholder="Примечание (за что премия)" value={bonusNote}
+                      onChange={e => setBonusNote(e.target.value)}
+                      className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  </div>
+
+                  {/* Fine form */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Штраф мастеру</h3>
+                    <div className="flex gap-2 mb-3">
+                      <input type="number" placeholder="Сумма" value={fineAmount}
+                        onChange={e => setFineAmount(e.target.value)}
+                        className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      <button onClick={handleAddFine}
+                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#ef4444' }}>
+                        Выписать штраф
+                      </button>
+                    </div>
+                    <input type="text" placeholder="Примечание (за что штраф)" value={fineNote}
+                      onChange={e => setFineNote(e.target.value)}
+                      className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  </div>
+
                   {/* Payout form */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
                     <h3 className="font-semibold text-sm mb-3">Выплата мастеру</h3>
@@ -2999,7 +3033,7 @@ export function OwnerApp() {
                         if (!amount || amount < 1) return;
                         setSalaryLoading(true);
                         try {
-                          const res = await apiRequest<{ message: string; payoutId: string; newBalance: number; expenseId: string }>(
+                          await apiRequest<{ message: string; payoutId: string; newBalance: number; expenseId: string }>(
                             `/api/owner/workers/${selectedSalaryWorkerId}/pay-salary`, {
                             method: 'POST',
                             body: {
@@ -3009,11 +3043,11 @@ export function OwnerApp() {
                               note: salaryPayNote.trim() || `Выплата за ${salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : 'весь период'}`,
                             },
                           });
-                          setSalaryDetail(prev => prev ? { ...prev, totalPaid: prev.totalPaid + Math.round(amount), balanceToPay: res.newBalance } : prev);
                           setSalaryPayAmount('');
                           setSalaryPayNote('');
                           setBottomToast(`Выплата ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} проведена`);
                           setTimeout(() => setBottomToast(null), 3000);
+                          refreshSalaryDetail();
                         } catch (e) {
                           setBottomToast(e instanceof Error ? e.message : 'Ошибка выплаты');
                           setTimeout(() => setBottomToast(null), 4000);
@@ -3027,24 +3061,55 @@ export function OwnerApp() {
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
 
-                  {/* Payout history */}
+                  {/* Operations history */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-2">История выплат</h3>
-                    {salaryDetail.payouts.length === 0 ? (
-                      <div className={`text-xs ${sub} py-3 text-center`}>Выплат не было</div>
+                    <h3 className="font-semibold text-sm mb-2">История операций</h3>
+                    {salaryDetail.entries.length === 0 ? (
+                      <div className={`text-xs ${sub} py-3 text-center`}>Операций не было</div>
                     ) : (
-                      salaryDetail.payouts.map(p => (
-                        <div key={p.id} className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                          <div className="flex-1 min-w-0 mr-2">
-                            <div className="text-xs font-medium">-{p.amount.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>{p.note || 'Выплата'}</div>
+                      salaryDetail.entries.slice(0, 20).map(e => {
+                        const isEditing = editingEntryId === e.id;
+                        const kindLabel: Record<string, string> = {
+                          bonus: 'Премия', deduction: 'Штраф', payout: 'Выплата',
+                          advance: 'Аванс', adjustment: 'Корректировка',
+                        };
+                        const kindColor: Record<string, string> = {
+                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E6EEF8' : '#0B1226',
+                          advance: '#f59e0b', adjustment: '#3b82f6',
+                        };
+                        const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'bonus';
+                        return (
+                          <div key={e.id} className="flex items-start justify-between py-2 border-b gap-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                            {isEditing ? (
+                              <div className="flex-1 min-w-0">
+                                <div className="flex gap-2 mb-1">
+                                  <input type="number" value={editAmount} onChange={e2 => setEditAmount(e2.target.value)} className={`${inputCls} flex-1 text-xs py-1 px-2 rounded-lg`} />
+                                  <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} /></button>
+                                  <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: sub }}><X size={14} /></button>
+                                </div>
+                                <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="Примечание" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-medium">
+                                    <span className="font-semibold" style={{ color: kindColor[e.kind] || sub }}>{kindLabel[e.kind] || e.kind}</span>
+                                    {' · '}{e.amount.toLocaleString('ru')} ₽
+                                  </div>
+                                  {e.note && <div className={`text-[10px] ${sub}`}>{e.note}</div>}
+                                </div>
+                                <div className="text-right shrink-0 flex items-center gap-1">
+                                  <div>
+                                    <div className="text-[11px] font-medium">{new Date(e.createdAt).toLocaleDateString('ru')}</div>
+                                    <div className={`text-[10px] ${sub}`}>{e.createdByName}</div>
+                                  </div>
+                                  {canEdit && <button onClick={() => { setEditingEntryId(e.id); setEditAmount(String(e.amount)); setEditNote(e.note || ''); }} className="p-1 rounded hover:bg-white/10" style={{ color: sub }}><Edit3 size={12} /></button>}
+                                </div>
+                              </>
+                            )}
                           </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-[11px] font-medium">{new Date(p.createdAt).toLocaleDateString('ru')}</div>
-                            <div className={`text-[10px] ${sub}`}>{p.createdBy}</div>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </>
@@ -3382,7 +3447,7 @@ export function OwnerApp() {
                 />
                 <div className="space-y-3 mt-3">
                   {filteredClientInsights.slice(0, 12).map((client) => {
-                    const draft = clientCardDrafts[client.id] || { notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminRating: client.adminRating || 0, adminNote: client.adminNote || '' };
+                    const draft = clientCardDrafts[client.id] || { name: client.name || '', phone: client.phone || '', car: client.car || '', plate: client.plate || '', notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminRating: client.adminRating || 0, adminNote: client.adminNote || '', referralSource: client.referralSource || '' };
                     return (
                       <div key={client.id} className={`${glass} rounded-2xl p-4`}>
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -3697,21 +3762,57 @@ export function OwnerApp() {
                       <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ background: primary }}>
                         {(selectedSettingsClient.name.trim() || 'К').charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-lg">{selectedSettingsClient.name.trim() || 'Клиент без имени'}</div>
-                        <div className={`text-sm ${sub} mt-1`}>
-                          Основное авто: {selectedSettingsClient.car || 'не указано'}{selectedSettingsClient.plate ? `, ${selectedSettingsClient.plate}` : ''}
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <input
+                          className={inputCls}
+                          placeholder="Имя клиента"
+                          value={clientCardDrafts[selectedSettingsClient.id]?.name ?? selectedSettingsClient.name}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              ...current[selectedSettingsClient.id],
+                              name: event.target.value,
+                            },
+                          }))}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            className={inputCls}
+                            placeholder="Автомобиль"
+                            value={clientCardDrafts[selectedSettingsClient.id]?.car ?? selectedSettingsClient.car}
+                            onChange={(event) => setClientCardDrafts((current) => ({
+                              ...current,
+                              [selectedSettingsClient.id]: {
+                                ...current[selectedSettingsClient.id],
+                                car: event.target.value,
+                              },
+                            }))}
+                          />
+                          <input
+                            className={inputCls}
+                            placeholder="Госномер"
+                            value={clientCardDrafts[selectedSettingsClient.id]?.plate ?? selectedSettingsClient.plate}
+                            onChange={(event) => setClientCardDrafts((current) => ({
+                              ...current,
+                              [selectedSettingsClient.id]: {
+                                ...current[selectedSettingsClient.id],
+                                plate: event.target.value,
+                              },
+                            }))}
+                          />
                         </div>
-                        {selectedSettingsClient.phone.trim() ? (
-                          <a href={`tel:${selectedSettingsClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
-                            <Phone size={12} />{selectedSettingsClient.phone}
-                          </a>
-                        ) : (
-                          <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
-                        )}
-                        <div className={`text-sm ${sub} mt-1`}>
-                          {selectedSettingsClient.referralSource ? `Узнал: ${selectedSettingsClient.referralSource}` : 'Откуда узнал: не указано'}
-                        </div>
+                        <input
+                          className={inputCls}
+                          placeholder="Телефон"
+                          value={clientCardDrafts[selectedSettingsClient.id]?.phone ?? selectedSettingsClient.phone}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              ...current[selectedSettingsClient.id],
+                              phone: event.target.value,
+                            },
+                          }))}
+                        />
                       </div>
                       <button
                         onClick={() => void handleDeleteSettingsClient(selectedSettingsClient.id, selectedSettingsClient.name)}
@@ -3769,6 +3870,37 @@ export function OwnerApp() {
                     </div>
                     <div className="space-y-2">
                       <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Заметки по клиенту</label>
+                        <textarea
+                          className={`${inputCls} h-24 resize-none`}
+                          placeholder="Общие заметки"
+                          value={clientCardDrafts[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? ''}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              ...current[selectedSettingsClient.id],
+                              notes: event.target.value,
+                            },
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Долг клиента</label>
+                        <input
+                          className={inputCls}
+                          type="number"
+                          placeholder="0"
+                          value={clientCardDrafts[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0)}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedSettingsClient.id]: {
+                              ...current[selectedSettingsClient.id],
+                              debtBalance: event.target.value,
+                            },
+                          }))}
+                        />
+                      </div>
+                      <div>
                         <label className={`text-xs ${sub} block mb-1`}>Рейтинг клиента для админа</label>
                         <select
                           className={selectCls}
@@ -3776,11 +3908,8 @@ export function OwnerApp() {
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
                             [selectedSettingsClient.id]: {
-                              notes: current[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? '',
-                              debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
+                              ...current[selectedSettingsClient.id],
                               adminRating: Number(event.target.value),
-                              adminNote: current[selectedSettingsClient.id]?.adminNote ?? selectedSettingsClient.adminNote ?? '',
-                              referralSource: current[selectedSettingsClient.id]?.referralSource ?? selectedSettingsClient.referralSource ?? '',
                             },
                           }))}
                         >
@@ -3798,11 +3927,8 @@ export function OwnerApp() {
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
                             [selectedSettingsClient.id]: {
-                              notes: current[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? '',
-                              debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
-                              adminRating: current[selectedSettingsClient.id]?.adminRating ?? selectedSettingsClient.adminRating ?? 0,
+                              ...current[selectedSettingsClient.id],
                               adminNote: event.target.value,
-                              referralSource: current[selectedSettingsClient.id]?.referralSource ?? selectedSettingsClient.referralSource ?? '',
                             },
                           }))}
                         />
@@ -3815,10 +3941,7 @@ export function OwnerApp() {
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
                             [selectedSettingsClient.id]: {
-                              notes: current[selectedSettingsClient.id]?.notes ?? selectedSettingsClient.notes ?? '',
-                              debtBalance: current[selectedSettingsClient.id]?.debtBalance ?? String(selectedSettingsClient.debtBalance || 0),
-                              adminRating: current[selectedSettingsClient.id]?.adminRating ?? selectedSettingsClient.adminRating ?? 0,
-                              adminNote: current[selectedSettingsClient.id]?.adminNote ?? selectedSettingsClient.adminNote ?? '',
+                              ...current[selectedSettingsClient.id],
                               referralSource: event.target.value,
                             },
                           }))}
@@ -3877,7 +4000,14 @@ export function OwnerApp() {
                               <span className={`px-2 py-1 rounded-full text-[11px] ${ownerStatusBadge(booking.status)}`}>
                                 {ownerStatusLabel(booking.status)}
                               </span>
-                            </div>
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }}
+                                className={`p-1.5 rounded-lg shrink-0 ${isDark ? 'bg-white/10 text-white/60 hover:bg-white/20' : 'bg-black/5 text-black/40 hover:bg-black/10'}`}
+                                title="Редактировать запись"
+                              >
+                                <Edit3 size={14} />
+                              </button>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
                                 <div className={`text-[11px] ${sub}`}>Стоимость</div>
@@ -5384,7 +5514,9 @@ export function OwnerApp() {
                         </div>
                         <div>
                           <label className={`text-xs ${sub} block mb-1`}>Время</label>
-                          <input className={inputCls} placeholder="ЧЧ:ММ" value={ownerBookingEditFull.time} onChange={e => setOwnerBookingEditFull(p => ({ ...p, time: e.target.value }))} />
+                          <select className={selectCls} value={ownerBookingEditFull.time} onChange={e => setOwnerBookingEditFull(p => ({ ...p, time: e.target.value }))}>
+                            {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
+                          </select>
                         </div>
                       </div>
                       <div>
