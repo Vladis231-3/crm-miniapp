@@ -4008,6 +4008,7 @@ export function OwnerApp() {
                               >
                                 <Edit3 size={14} />
                               </button>
+                            </div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
                                 <div className={`text-[11px] ${sub}`}>Стоимость</div>
