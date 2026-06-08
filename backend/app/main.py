@@ -868,6 +868,18 @@ def _apply_runtime_migrations() -> None:
                 "UPDATE bookings SET box = 'Бокс 2' WHERE box = 'Мойка от мастера'"
             )
 
+    # Миграция: percent INTEGER -> NUMERIC(7,5) для поддержки дробных процентов
+    if engine.dialect.name == "postgresql":
+        for table, column in [("staff_users", "default_percent"), ("booking_workers", "percent")]:
+            col_info = next(
+                (c for c in inspector.get_columns(table) if c["name"] == column), None
+            )
+            if col_info and str(col_info.get("type", "")).upper().startswith("INT"):
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        f"ALTER TABLE {table} ALTER COLUMN {column} TYPE NUMERIC(7,5) USING {column}::numeric"
+                    )
+
     # Миграция расписания: старая схема (0=Пн..6=Вс) -> новая (0=Сб, 1=Вс, 2=Пн..6=Пт)
     if "schedule_entries" in inspector.get_table_names():
         sched_columns = {col["name"] for col in inspector.get_columns("schedule_entries")}

@@ -316,8 +316,8 @@ export function AdminApp() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [editModalMode, setEditModalMode] = useState<EditModalMode>('edit');
   const [saveSuccess, setSaveSuccess] = useState<'notify' | 'silent' | null>(null);
-  const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number }[]>([]);
-  const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
+  const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', notes: '', status: 'admin_review' as BookingStatus,
@@ -1056,7 +1056,7 @@ export function AdminApp() {
     if (!selectedBooking) return;
     const updatedWorkers = assignedWorkers.map(aw => {
       const w = masterWorkers.find(wk => wk.id === aw.id);
-      return { workerId: aw.id, workerName: w?.name || '', percent: aw.percent };
+      return { workerId: aw.id, workerName: w?.name || '', percent: aw.percent === '' ? 0 : aw.percent };
     });
     await updateBooking(selectedBooking.id, { workers: updatedWorkers, notifyWorkers: notify });
     setSelectedBooking(prev => prev ? { ...prev, workers: updatedWorkers } : null);
@@ -1090,7 +1090,7 @@ export function AdminApp() {
       return {
         workerId: item.id,
         workerName: worker?.name || '',
-        percent: item.percent,
+        percent: item.percent === '' ? 0 : item.percent,
       };
     });
     const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
@@ -1248,8 +1248,8 @@ export function AdminApp() {
     }
   };
 
-  const totalPercent = assignedWorkers.reduce((s, w) => s + w.percent, 0);
-  const totalNewBookingPercent = newBookingWorkers.reduce((sum, worker) => sum + worker.percent, 0);
+  const totalPercent = assignedWorkers.reduce((s, w) => s + (w.percent === '' ? 0 : w.percent), 0);
+  const totalNewBookingPercent = newBookingWorkers.reduce((sum, worker) => sum + (worker.percent === '' ? 0 : worker.percent), 0);
 
   const tooltipStyle = { background: surface, border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 12, color: text };
 
@@ -2207,7 +2207,7 @@ export function AdminApp() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Процент мастера</label>
-                        <input className={inputCls} type="number" min={0} max={40} value={worker.percent} onChange={(event) => setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, percent: Math.max(0, Math.min(40, Number(event.target.value) || 0)) } : item))} />
+                        <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={worker.percent === '' ? '' : worker.percent} onChange={(event) => { const r = event.target.value; if (r === '') { setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }} onBlur={() => setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))} />
                       </div>
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Оклад</label>
@@ -2607,8 +2607,9 @@ export function AdminApp() {
                       {assigned && (
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-xs ${sub}`}>%</span>
-                          <input type="number" min={0} max={40} value={assigned.percent}
-                            onChange={e => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(40, Math.max(0, +e.target.value)) } : aw))}
+                          <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
+                            onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: '' } : aw)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(40, Math.max(0, n)) } : aw)); } }}
+                            onBlur={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: aw.percent === '' ? 0 : aw.percent } : aw))}
                             className={`flex-1 ${inputCls} py-1.5`} />
                         </div>
                       )}
@@ -3123,10 +3124,12 @@ export function AdminApp() {
                               <span className={`text-xs ${sub}`}>%</span>
                               <input
                                 type="number"
+                                step="0.00001"
                                 min={0}
                                 max={40}
-                                value={assigned.percent}
-                                onChange={e => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, +e.target.value)) } : item))}
+                                value={assigned.percent === '' ? '' : assigned.percent}
+                                onChange={e => { const r = e.target.value; if (r === '') { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                onBlur={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                 className={`flex-1 ${inputCls} py-1.5`}
                               />
                             </div>

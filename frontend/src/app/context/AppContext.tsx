@@ -60,7 +60,7 @@ export interface Worker {
   role: 'admin' | 'worker' | 'owner' | 'accountant';
   name: string;
   experience: string;
-  defaultPercent: number;
+  defaultPercent: number | '';
   salaryBase: number;
   salaryPerShift: number;
   available: boolean;
@@ -94,8 +94,7 @@ export interface WorkerPayrollBooking {
   date: string;
   time: string;
   price: number;
-  percent: number;
-  earned: number;
+  percent: number | '';
 }
 
 export interface WorkerPayrollSummary {
@@ -134,7 +133,7 @@ export interface Booking {
   duration: number;
   price: number;
   status: BookingStatus;
-  workers: { workerId: string; workerName: string; percent: number }[];
+  workers: { workerId: string; workerName: string; percent: number | '' }[];
   box: string;
   paymentType: PaymentType;
   paymentSettled: boolean;
@@ -377,7 +376,7 @@ export interface WorkerProfile {
   experience: string;
   specialty: string;
   about: string;
-  percent: number;
+  percent: number | '';
 }
 
 export interface OwnerCompany {
@@ -422,7 +421,7 @@ export interface EmployeeSetting {
   id: string;
   role: 'admin' | 'worker' | 'accountant';
   name: string;
-  percent: number;
+  percent: number | '';
   salaryBase: number;
   salaryPerShift: number;
   active: boolean;
@@ -434,7 +433,7 @@ export interface WorkerCreateInput {
   name: string;
   login: string;
   password: string;
-  percent: number;
+  percent: number | '';
   salaryBase: number;
   phone?: string;
   email?: string;

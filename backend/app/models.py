@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -68,7 +68,7 @@ class StaffUser(Base):
         DateTime(timezone=True), nullable=True
     )
     extra_roles: Mapped[list[str]] = mapped_column(JSON, default=list)
-    default_percent: Mapped[int] = mapped_column(Integer, default=0)
+    default_percent: Mapped[float] = mapped_column(Numeric(7, 5), default=0)
     salary_base: Mapped[int] = mapped_column(Integer, default=0)
     salary_per_shift: Mapped[int] = mapped_column(Integer, default=0)
     available: Mapped[bool] = mapped_column(Boolean, default=True)

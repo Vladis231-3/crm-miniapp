@@ -240,7 +240,7 @@ class WorkerPayload(BaseModel):
     role: StaffRole
     name: str
     experience: str
-    defaultPercent: int = Field(ge=0, le=40, default=0)
+    defaultPercent: float = Field(ge=0, le=40, default=0)
     salaryBase: int = 0
     salaryPerShift: int = 0
     available: bool
@@ -271,7 +271,7 @@ class WorkerPayrollBookingPayload(BaseModel):
     date: str
     time: str
     price: int
-    percent: int
+    percent: float
     earned: int
 
 
@@ -308,7 +308,7 @@ class SalaryBookingItem(BaseModel):
     box: str
     price: int
     earned: int
-    percent: int
+    percent: float
     resourceGroup: str
 
 
@@ -325,7 +325,7 @@ class SalaryDetailResponse(BaseModel):
     workerName: str
     salaryBase: int
     salaryPerShift: int
-    defaultPercent: int
+    defaultPercent: float
     active: bool
     totalEarned: int
     totalPaid: int
@@ -356,7 +356,7 @@ class PaySalaryResponse(BaseModel):
 class BookingWorkerPayload(BaseModel):
     workerId: str
     workerName: str
-    percent: int = Field(ge=0, le=40, default=0)
+    percent: float = Field(ge=0, le=40, default=0)
 
 
 class BookingServiceItem(BaseModel):
@@ -613,7 +613,7 @@ class WorkerProfilePayload(BaseModel):
     experience: str
     specialty: str
     about: str
-    percent: int = Field(ge=0, le=40, default=0)
+    percent: float = Field(ge=0, le=40, default=0)
 
 
 class OwnerCompanyPayload(BaseModel):
@@ -659,7 +659,7 @@ class EmployeeSettingPayload(BaseModel):
     id: str
     role: EmployeeRole = "worker"
     name: str
-    percent: int = Field(ge=0, le=40, default=0)
+    percent: float = Field(ge=0, le=40, default=0)
     salaryBase: int
     salaryPerShift: int = 0
     active: bool
@@ -671,7 +671,7 @@ class WorkerCreateRequest(BaseModel):
     name: str
     login: str
     password: str = Field(max_length=128)
-    percent: int = Field(default=0, ge=0, le=40)
+    percent: float = Field(default=0, ge=0, le=40)
     salaryBase: int = 0
     phone: str = ""
     email: str = ""

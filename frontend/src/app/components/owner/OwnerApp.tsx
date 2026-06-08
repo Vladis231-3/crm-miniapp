@@ -270,6 +270,8 @@ const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
   return `${h}:${m}`;
 });
 
+type PercentValue = number | '';
+
 export function OwnerApp() {
   const {
     session,
@@ -396,7 +398,7 @@ export function OwnerApp() {
     price: 0,
     duration: 30,
   });
-  const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
+  const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
   const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
@@ -442,7 +444,7 @@ export function OwnerApp() {
     name: '',
     login: '',
     password: '',
-    percent: 0,
+    percent: 0 as PercentValue,
     salaryBase: 0,
     phone: '',
     email: '',
@@ -491,7 +493,7 @@ export function OwnerApp() {
     notes: '',
     status: 'admin_review' as BookingStatus,
   });
-  const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number }[]>([]);
+  const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
   const [ownerNewBookingSaving, setOwnerNewBookingSaving] = useState(false);
   const [ownerNewBookingErrors, setOwnerNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
@@ -503,7 +505,7 @@ export function OwnerApp() {
   const [ownerBookingEditPrice, setOwnerBookingEditPrice] = useState('');
   const [ownerBookingEditDate, setOwnerBookingEditDate] = useState('');
   const [ownerBookingEditTime, setOwnerBookingEditTime] = useState('');
-  const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number }[]>([]);
+  const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [ownerBookingEditSaving, setOwnerBookingEditSaving] = useState(false);
   const [ownerBookingEditError, setOwnerBookingEditError] = useState<string | null>(null);
   const [ownerBookingEditFull, setOwnerBookingEditFull] = useState({
@@ -874,7 +876,7 @@ export function OwnerApp() {
         name,
         login,
         password,
-        percent: newEmployee.percent,
+        percent: newEmployee.percent === '' ? 0 : newEmployee.percent,
         salaryBase: newEmployee.salaryBase,
         phone: newEmployee.phone.trim(),
         email: newEmployee.email.trim(),
@@ -1605,7 +1607,7 @@ export function OwnerApp() {
     const selectedWorkers = bookingWorkers
       .map((item) => {
         const worker = workers.find((candidate) => candidate.id === item.id);
-        return worker ? { workerId: worker.id, workerName: worker.name, percent: item.percent } : null;
+        return worker ? { workerId: worker.id, workerName: worker.name, percent: item.percent === '' ? 0 : item.percent } : null;
       })
       .filter((item): item is { workerId: string; workerName: string; percent: number } => Boolean(item));
 
@@ -1651,7 +1653,7 @@ export function OwnerApp() {
     ...bookings.map((booking) => booking.date).filter(Boolean),
   ])).slice(0, 10);
   const ownerNewBookingLocationLabel = ownerLocationLabel(ownerNewBookingForm.serviceId, services);
-  const totalOwnerNewBookingPercent = ownerNewBookingWorkers.reduce((sum, worker) => sum + worker.percent, 0);
+  const totalOwnerNewBookingPercent = ownerNewBookingWorkers.reduce((sum, worker) => sum + (worker.percent === '' ? 0 : worker.percent), 0);
 
   const resetOwnerNewBookingDraft = () => {
     setOwnerNewBookingSaveSuccess(null);
@@ -1743,7 +1745,7 @@ export function OwnerApp() {
     const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
     const createdWorkers = ownerNewBookingWorkers.map((item) => {
       const worker = ownerNewBookingMasterWorkers.find((candidate) => candidate.id === item.id);
-      return { workerId: item.id, workerName: worker?.name || '', percent: item.percent };
+      return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent };
     });
     const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
     try {
@@ -1819,7 +1821,7 @@ export function OwnerApp() {
         patch = {
           workers: ownerBookingEditWorkers.map(w => {
             const worker = workers.find(wk => wk.id === w.id);
-            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent };
+            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent };
           }),
         };
       } else if (ownerBookingEditMode === 'datetime') {
@@ -2789,7 +2791,7 @@ export function OwnerApp() {
                         <div className="grid grid-cols-2 gap-2 mb-3">
                           <div>
                             <label className={`text-[11px] ${sub} block mb-1`}>Процент</label>
-                            <input className={inputCls} type="number" min={0} max={40} value={payrollDraft.percent} onChange={e => setEmployeeSettings((current) => current.map((item) => item.id === worker.id ? { ...item, percent: Math.max(0, Math.min(40, Number(e.target.value) || 0)) } : item))} />
+                            <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={payrollDraft.percent === '' ? '' : payrollDraft.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }} onBlur={() => setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))} />
                           </div>
                           <div>
                             <label className={`text-[11px] ${sub} block mb-1`}>Оклад</label>
@@ -4300,7 +4302,7 @@ export function OwnerApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>% от выручки</label>
-                    <input className={inputCls} type="number" min={0} max={40} value={newEmployee.percent} onChange={e => setNewEmployee(p => ({ ...p, percent: Math.min(40, Math.max(0, +e.target.value)) }))} />
+                    <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={newEmployee.percent === '' ? '' : newEmployee.percent} onChange={e => { const r = e.target.value; if (r === '') { setNewEmployee(p => ({ ...p, percent: '' })); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewEmployee(p => ({ ...p, percent: Math.min(40, Math.max(0, n)) })); } }} onBlur={() => setNewEmployee(p => ({ ...p, percent: p.percent === '' ? 0 : p.percent }))} />
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
@@ -4347,7 +4349,7 @@ export function OwnerApp() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className={`text-xs ${sub} block mb-1`}>% от выручки (до 40)</label>
-                      <input className={inputCls} type="number" min={0} max={40} value={emp.percent} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: Math.min(40, Math.max(0, +e.target.value)) } : em))} />
+                      <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={emp.percent === '' ? '' : emp.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: '' } : em)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: Math.min(40, Math.max(0, n)) } : em)); } }} onBlur={() => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: em.percent === '' ? 0 : em.percent } : em))} />
                     </div>
                     <div>
                       <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
@@ -5323,10 +5325,12 @@ export function OwnerApp() {
                               <span className={`text-xs ${sub}`}>%</span>
                               <input
                                 type="number"
+                                step="0.00001"
                                 min={0}
                                 max={40}
-                                value={assigned.percent}
-                                onChange={e => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.max(0, Math.min(40, Number(e.target.value) || 0)) } : item))}
+                                value={assigned.percent === '' ? '' : assigned.percent}
+                                onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                onBlur={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                 className={`flex-1 ${inputCls} py-1.5`}
                               />
                             </div>
@@ -5492,8 +5496,9 @@ export function OwnerApp() {
                             {assigned && (
                               <div className="flex items-center gap-2 mt-2">
                                 <span className={`text-xs ${sub}`}>%</span>
-                                <input type="number" min={0} max={40} value={assigned.percent}
-                                  onChange={e => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, Number(e.target.value) || 0)) } : item))}
+                                <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
+                                  onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                  onBlur={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                   className={`flex-1 ${inputCls} py-1.5`} />
                               </div>
                             )}
@@ -5821,10 +5826,12 @@ export function OwnerApp() {
                               <span className={`text-xs ${sub}`}>%</span>
                               <input
                                 type="number"
+                                step="0.00001"
                                 min={0}
                                 max={40}
-                                value={assigned.percent}
-                                onChange={e => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, +e.target.value)) } : item))}
+                                value={assigned.percent === '' ? '' : assigned.percent}
+                                onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                onBlur={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                 className={`flex-1 ${inputCls} py-1.5`}
                               />
                             </div>

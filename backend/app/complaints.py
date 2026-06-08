@@ -17,7 +17,7 @@ class ComplaintStatus:
     active_count: int
     reduction_active: bool
     reduction_until: datetime | None
-    effective_percent: int
+    effective_percent: float
 
 
 def as_utc(value: datetime) -> datetime:
@@ -26,8 +26,8 @@ def as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def clamp_worker_percent(value: int) -> int:
-    return max(0, min(int(value), WORKER_MAX_PERCENT))
+def clamp_worker_percent(value: float) -> float:
+    return max(0, min(float(value), WORKER_MAX_PERCENT))
 
 
 def complaint_active_until(created_at: datetime) -> datetime:
@@ -52,7 +52,7 @@ def complaint_is_active_at(complaint: Any, at: datetime | None = None) -> bool:
 
 
 def complaint_status_for_percent(
-    base_percent: int,
+    base_percent: float,
     complaints: Iterable[Any],
     *,
     at: datetime | None = None,
@@ -86,13 +86,13 @@ def parse_booking_datetime(date_value: str, time_value: str) -> datetime | None:
 
 
 def adjusted_booking_percent(
-    assigned_percent: int,
+    assigned_percent: float,
     complaints: Iterable[Any],
     *,
     date_value: str,
     time_value: str,
     fallback: datetime | None = None,
-) -> int:
+) -> float:
     booking_at = parse_booking_datetime(date_value, time_value)
     effective_at = booking_at or as_utc(fallback or datetime.now(timezone.utc))
     return complaint_status_for_percent(assigned_percent, complaints, at=effective_at).effective_percent
