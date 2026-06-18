@@ -4,6 +4,7 @@ import hmac as hmac_mod
 import logging
 import secrets
 import base64
+import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from threading import Thread
@@ -111,6 +112,7 @@ from .schemas import (
     OwnerSecurityPayload,
     PiggyBankResponse,
     PiggyBankTransactionPayload,
+    PiggyBankWashBreakdown,
     PiggyBankWithdrawRequest,
     ReadAllNotificationsRequest,
     SchedulePayload,
@@ -191,7 +193,21 @@ except ImportError:
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
-frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+def _resolve_frontend_dist() -> Path:
+    """Каталог собранного React-фронтенда.
+
+    В обычном режиме — <project>/frontend/dist (родитель каталога app/).
+    В frozen-режиме (PyInstaller bundle десктоп-приложения) фронт лежит рядом
+    с исполняемым файлом в resources/frontend/dist.
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "frontend" / "dist"
+    return Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+frontend_dist = _resolve_frontend_dist()
 frontend_assets = frontend_dist / "assets"
 UPLOAD_DIR = PERSISTENT_DATA_DIR / "uploads"
 try:
@@ -905,6 +921,18 @@ def _apply_runtime_migrations() -> None:
                         "WHEN 0 THEN 'Сб' WHEN 1 THEN 'Вс' WHEN 2 THEN 'Пн' WHEN 3 THEN 'Вт' "
                         "WHEN 4 THEN 'Ср' WHEN 5 THEN 'Чт' WHEN 6 THEN 'Пт' END"
                     )
+
+    # wash_type column migration
+    if "services" in inspector.get_table_names():
+        service_columns = {col["name"] for col in inspector.get_columns("services")}
+        if "wash_type" not in service_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE services ADD COLUMN wash_type VARCHAR(32) DEFAULT ''"
+                )
+                connection.exec_driver_sql(
+                    "UPDATE services SET wash_type = 'classic' WHERE category = 'Мойка' AND wash_type = ''"
+                )
 
 
 def _repair_text_value(value: str) -> str:
@@ -1906,6 +1934,7 @@ def _service_payload(service: Service) -> ServicePayload:
         duration=service.duration,
         resourceGroup=(service.resource_group or DEFAULT_RESOURCE_GROUP).strip()
         or DEFAULT_RESOURCE_GROUP,
+        washType=service.wash_type or "",
         desc=service.description,
         active=service.active,
     )
@@ -6519,7 +6548,82 @@ def get_piggy_bank(
             )
         )
 
-    return PiggyBankResponse(balance=balance, transactions=transaction_payloads)
+    services_map = {
+        s.id: s for s in db.scalars(select(Service)).all()
+    }
+    completed_wash_bookings = (
+        db.scalars(
+            select(Booking)
+            .where(
+                Booking.status == "completed",
+                Booking.deleted_at.is_(None),
+            )
+            .order_by(Booking.date.desc())
+        )
+        .all()
+    )
+    self_service_revenue = 0
+    classic_revenue = 0
+    for booking in completed_wash_bookings:
+        svc = services_map.get(booking.service_id)
+        if svc is None or svc.resource_group != WASH_RESOURCE_GROUP:
+            continue
+        if svc.wash_type == "self_service":
+            self_service_revenue += booking.price
+        else:
+            classic_revenue += booking.price
+    self_master = round(self_service_revenue * 10 / 100)
+    self_piggy = self_service_revenue - self_master
+    classic_master = round(classic_revenue * 40 / 100)
+    classic_piggy = classic_revenue - classic_master
+    total_revenue = self_service_revenue + classic_revenue
+    total_master = self_master + classic_master
+    total_piggy = self_piggy + classic_piggy
+    inspections = _admin_shift_inspections_state(db)
+    workers = db.scalars(select(StaffUser).where(
+        StaffUser.role.in_({"worker", "admin"}),
+        StaffUser.active.is_(True),
+    )).all()
+    total_daily_outputs = 0
+    for worker in workers:
+        shift_count, _ = _compute_shift_attendance(
+            inspections, worker.id, date(2000, 1, 1), date.today()
+        )
+        salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
+        total_daily_outputs += shift_count * salary_per_shift
+    wash_expenses = (
+        db.scalar(
+            select(func.coalesce(func.sum(Expense.amount), 0))
+            .where(Expense.resource_group == WASH_RESOURCE_GROUP)
+        ) or 0
+    )
+    wash_incomes = (
+        db.scalar(
+            select(func.coalesce(func.sum(Income.amount), 0))
+            .where(Income.resource_group == WASH_RESOURCE_GROUP)
+        ) or 0
+    )
+    remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
+
+    return PiggyBankResponse(
+        balance=balance,
+        transactions=transaction_payloads,
+        wash=PiggyBankWashBreakdown(
+            selfServiceRevenue=self_service_revenue,
+            selfServiceMaster=self_master,
+            selfServicePiggy=self_piggy,
+            classicRevenue=classic_revenue,
+            classicMaster=classic_master,
+            classicPiggy=classic_piggy,
+            totalRevenue=total_revenue,
+            totalMaster=total_master,
+            totalPiggy=total_piggy,
+        ),
+        masterDailyOutputs=total_daily_outputs,
+        washExpenses=wash_expenses,
+        washIncomes=wash_incomes,
+        remainingInPiggyBank=remaining,
+    )
 
 
 @app.post("/api/owner/piggy-bank/withdraw", response_model=PiggyBankTransactionPayload)
@@ -6979,6 +7083,7 @@ def save_services(
         service.resource_group = (
             requested_group if requested_group == expected_group else expected_group
         )
+        service.wash_type = item.washType or ""
         service.description = item.desc
         service.active = item.active
     for service_id, service in existing.items():

@@ -540,6 +540,7 @@ class ServicePayload(BaseModel):
     price: int
     duration: int
     resourceGroup: str = "wash"
+    washType: str = ""
     desc: str = Field(default="")
     active: bool = True
 
@@ -1283,6 +1284,23 @@ class PiggyBankWithdrawRequest(BaseModel):
         return value.strip()
 
 
+class PiggyBankWashBreakdown(BaseModel):
+    selfServiceRevenue: int = 0
+    selfServiceMaster: int = 0
+    selfServicePiggy: int = 0
+    classicRevenue: int = 0
+    classicMaster: int = 0
+    classicPiggy: int = 0
+    totalRevenue: int = 0
+    totalMaster: int = 0
+    totalPiggy: int = 0
+
+
 class PiggyBankResponse(BaseModel):
-    balance: int
+    balance: int = 0
     transactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
+    wash: PiggyBankWashBreakdown | None = None
+    masterDailyOutputs: int = 0
+    washExpenses: int = 0
+    washIncomes: int = 0
+    remainingInPiggyBank: int = 0

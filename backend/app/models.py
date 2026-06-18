@@ -101,6 +101,7 @@ class Service(Base):
     price: Mapped[int] = mapped_column(Integer)
     duration: Mapped[int] = mapped_column(Integer)
     resource_group: Mapped[str] = mapped_column(String(64), default="wash")
+    wash_type: Mapped[str] = mapped_column(String(32), default="")
     description: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 

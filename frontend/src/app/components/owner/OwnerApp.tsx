@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRef } from 'react';
 import {
@@ -45,6 +45,19 @@ interface SalaryDetailResponse {
   completedBookingsCount: number; shiftCount: number;
   bookings: SalaryBookingItem[]; payouts: SalaryPayoutItem[];
   entries: PayrollEntry[];
+}
+
+interface PiggyBankWashBreakdown {
+  selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
+  classicRevenue: number; classicMaster: number; classicPiggy: number;
+  totalRevenue: number; totalMaster: number; totalPiggy: number;
+}
+interface PiggyBankData {
+  wash: PiggyBankWashBreakdown;
+  masterDailyOutputs: number;
+  washExpenses: number;
+  washIncomes: number;
+  remainingInPiggyBank: number;
 }
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
@@ -428,6 +441,8 @@ export function OwnerApp() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [piggyBank, setPiggyBank] = useState<PiggyBankData | null>(null);
+  const [piggyBankLoading, setPiggyBankLoading] = useState(false);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -702,6 +717,16 @@ export function OwnerApp() {
     }
   }, [isAccountant, page]);
 
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'finance') {
+      setPiggyBankLoading(true);
+      apiRequest<PiggyBankData>('/api/owner/piggy-bank')
+        .then(setPiggyBank)
+        .catch(() => setPiggyBank(null))
+        .finally(() => setPiggyBankLoading(false));
+    }
+  }, [page, settingsSection]);
+
   const ownerNotifications = notifications.filter((notification) => notification.recipientRole === financeNotificationRole);
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
@@ -891,6 +916,7 @@ export function OwnerApp() {
         name: 'Новая услуга',
         category: 'Мойка',
         resourceGroup: 'wash',
+        washType: '',
         price: 0,
         duration: 30,
         desc: '',
@@ -4830,19 +4856,80 @@ export function OwnerApp() {
                 ))}
               </div>
 
-              {/* Автомойка */}
+              {/* Копилка · Автомойка */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 АВТОМОЙКА</div>
-                {[
-                  { label: 'Выручка', value: `${washRevenue.toLocaleString('ru')} ₽`, color: accent },
-                  { label: 'Доп. доходы', value: `${washIncomes.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Расходы', value: `${washExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
-                ].map(r => (
-                  <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className="text-sm">{r.label}</span>
-                    <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
-                  </div>
-                ))}
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 КОПИЛКА · АВТОМОЙКА</div>
+                {piggyBankLoading ? (
+                  <div className={`text-sm ${sub} text-center py-4`}>Загрузка...</div>
+                ) : piggyBank ? (
+                  <>
+                    {/* Самообслуживание */}
+                    <div className="mb-3">
+                      <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание (1 000 ₽/ч)</div>
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className={sub}>Выручка</span>
+                        <span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className={sub}>ЗП мастера (10%)</span>
+                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>В копилку (90%)</span>
+                        <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} ₽</span>
+                      </div>
+                    </div>
+                    {/* Классическая мойка */}
+                    <div className="mb-3">
+                      <div className={`text-xs font-medium ${sub} mb-2`}>▸ Классическая мойка</div>
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className={sub}>Выручка</span>
+                        <span className="font-semibold">{piggyBank.wash.classicRevenue.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className={sub}>ЗП мастера (40%)</span>
+                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>В копилку (60%)</span>
+                        <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} ₽</span>
+                      </div>
+                    </div>
+                    {/* Итого */}
+                    <div className="flex justify-between py-2 text-sm font-semibold">
+                      <span>Всего в копилку</span>
+                      <span style={{ color: accent }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>Выручка</span>
+                      <span className="font-semibold">{piggyBank.wash.totalRevenue.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>ЗП мастеров всего</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={sub}>Выход мастеров (смены)</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.masterDailyOutputs.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>Доп. доходы</span>
+                      <span className="font-semibold" style={{ color: primary }}>+{piggyBank.washIncomes.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>Расходы на мойку</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.washExpenses.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+                      <span>🏦 Остаток в копилке</span>
+                      <span style={{ color: piggyBank.remainingInPiggyBank >= 0 ? accent : '#FF6B6B' }}>
+                        {piggyBank.remainingInPiggyBank >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank).toLocaleString('ru')} ₽
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className={`text-sm ${sub} text-center py-4`}>Нет данных</div>
+                )}
               </div>
 
               {/* Детейлинг */}

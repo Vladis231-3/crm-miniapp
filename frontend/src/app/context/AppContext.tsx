@@ -324,6 +324,7 @@ export interface Service {
   price: number;
   duration: number;
   resourceGroup: string;
+  washType: string;
   desc: string;
   active: boolean;
 }

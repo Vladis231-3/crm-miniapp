@@ -103,7 +103,8 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
 
     if not db.scalar(select(Service.id).limit(1)):
         services = [
-            Service(id="s1", name="Мойка базовая", category="Мойка", price=1200, duration=30, description="Полная ручная мойка кузова, стекол и дисков.", active=True),
+            Service(id="s1", name="Мойка базовая", category="Мойка", price=1200, duration=30, wash_type="classic", description="Полная ручная мойка кузова, стекол и дисков.", active=True),
+            Service(id="s1-self", name="Мойка самообслуживания", category="Мойка", price=1000, duration=60, wash_type="self_service", description="Самостоятельная мойка в боксе с оборудованием, 1 час.", active=True),
             Service(id="s2", name="Полировка стекла", category="Детейлинг", price=3500, duration=60, description="Устранение царапин и замутнений, нанесение гидрофобного покрытия.", active=True),
             Service(id="s3", name="Ремонт лобового стекла", category="Ремонт стекла", price=7000, duration=90, description="Устранение сколов и трещин до 5 см.", active=True),
             Service(id="s4", name="Аренда бокса", category="Аренда бокса", price=600, duration=60, description="Аренда бокса с подъемником и инструментами.", active=True),
