@@ -324,3 +324,22 @@ class Income(Base):
     )
 
     created_by: Mapped["StaffUser"] = relationship(back_populates="incomes")
+
+
+class PiggyBankTransaction(Base):
+    __tablename__ = "piggy_bank_transactions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    booking_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True
+    )
+    amount: Mapped[int] = mapped_column(Integer)
+    transaction_type: Mapped[str] = mapped_column(String(32))
+    purpose: Mapped[str] = mapped_column(String(255))
+    material_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    material_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    date: Mapped[str] = mapped_column(String(16))
+    resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )

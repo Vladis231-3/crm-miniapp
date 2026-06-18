@@ -1252,3 +1252,37 @@ class IncomeUpdateRequest(BaseModel):
         if not self.model_fields_set:
             raise ValueError("Необходимо передать хотя бы одно поле для обновления")
         return self
+
+
+class PiggyBankTransactionPayload(BaseModel):
+    id: str
+    bookingId: str | None = None
+    amount: int
+    transactionType: str
+    purpose: str
+    materialName: str | None = None
+    materialCost: int | None = None
+    date: str
+    resourceGroup: str = "detailing"
+    createdAt: datetime
+    bookingInfo: str | None = None
+
+
+class PiggyBankWithdrawRequest(BaseModel):
+    bookingId: str
+    materialName: str = Field(min_length=1, max_length=255)
+    materialCost: int = Field(ge=1, le=10_000_000)
+    purpose: str = ""
+    date: str
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return value.strip()
+
+
+class PiggyBankResponse(BaseModel):
+    balance: int
+    transactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)

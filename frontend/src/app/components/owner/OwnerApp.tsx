@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -27,7 +27,7 @@ import {
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank';
 type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content';
 type OwnerExportKind = 'report' | 'pdf';
 
@@ -378,6 +378,18 @@ export function OwnerApp() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetInfo, setResetInfo] = useState<string | null>(null);
 
+  // Piggy bank state
+  interface PiggyBankTx {
+    id: string; bookingId: string | null; amount: number; transactionType: string;
+    purpose: string; materialName: string | null; materialCost: number | null;
+    date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
+  }
+  const [piggyBankBalance, setPiggyBankBalance] = useState(0);
+  const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
+  const [piggyBankLoading, setPiggyBankLoading] = useState(false);
+  const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
+  const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
+
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
   const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' as '' | 'wash' | 'detailing' });
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
@@ -584,6 +596,40 @@ export function OwnerApp() {
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
+
+  const loadPiggyBank = useCallback(async () => {
+    setPiggyBankLoading(true);
+    try {
+      const data = await apiRequest<{ balance: number; transactions: PiggyBankTx[] }>('/api/owner/piggy-bank');
+      setPiggyBankBalance(data.balance);
+      setPiggyBankTxs(data.transactions);
+    } catch { /* ignore */ }
+    finally { setPiggyBankLoading(false); }
+  }, []);
+
+  async function handlePiggyWithdraw() {
+    const f = piggyWithdrawForm;
+    if (!f.bookingId || !f.materialName || !f.materialCost) return;
+    try {
+      await apiRequest('/api/owner/piggy-bank/withdraw', {
+        method: 'POST',
+        body: {
+          bookingId: f.bookingId,
+          materialName: f.materialName,
+          materialCost: Number(f.materialCost),
+          purpose: f.purpose,
+          date: f.date,
+        },
+      });
+      setShowPiggyWithdraw(false);
+      setPiggyWithdrawForm({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
+      await loadPiggyBank();
+    } catch (e: unknown) {
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка');
+    }
+  }
+
+  useEffect(() => { void loadPiggyBank(); }, [page]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -3315,6 +3361,66 @@ export function OwnerApp() {
             </motion.div>
           )}
 
+          {/* ── PIGGY BANK ── */}
+          {page === 'piggy-bank' && (
+            <motion.div key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold">Копилка</h2>
+                <button onClick={() => { void loadPiggyBank(); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
+                  <RefreshCw size={16} className={piggyBankLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              {/* Balance card */}
+              <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
+                <div className={`text-xs ${sub} mb-1`}>Баланс копилки</div>
+                <div className="font-bold text-3xl" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
+                  {piggyBankBalance.toLocaleString('ru')} ₽
+                </div>
+              </div>
+
+              {/* Withdraw button */}
+              <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mb-6" style={{ background: accent }}>
+                <Plus size={16} className="inline mr-1.5" />Снять на материалы
+              </button>
+
+              {/* Transaction history */}
+              <h3 className={`text-xs font-medium ${sub} mb-3 uppercase tracking-wider`}>История операций</h3>
+              {piggyBankTxs.length === 0 ? (
+                <div className={`text-center py-8 text-sm ${sub}`}>Пока нет операций</div>
+              ) : (
+                <div className="space-y-2">
+                  {piggyBankTxs.map(tx => {
+                    const isDeposit = tx.amount > 0;
+                    const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
+                      : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                      : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
+                      : 'Корректировка';
+                    return (
+                      <div key={tx.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-green-500' : 'bg-red-500'}`} />
+                              <span className="text-sm font-medium">{txLabel}</span>
+                            </div>
+                            <div className={`text-xs ${sub} mt-0.5`}>{tx.date}</div>
+                            {tx.materialName && <div className="text-xs mt-1"><span className={sub}>Материал:</span> {tx.materialName} ({(tx.materialCost ?? 0).toLocaleString('ru')} ₽)</div>}
+                            {tx.bookingInfo && <div className="text-xs mt-0.5"><span className={sub}>Заказ:</span> {tx.bookingInfo}</div>}
+                            <div className="text-xs mt-0.5">{tx.purpose}</div>
+                          </div>
+                          <div className={`font-bold text-sm ml-3 ${isDeposit ? 'text-green-500' : 'text-red-500'}`}>
+                            {isDeposit ? '+' : ''}{tx.amount.toLocaleString('ru')} ₽
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* ── REPORTS ── */}
           {page === 'reports' && (
             <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
@@ -4809,6 +4915,7 @@ export function OwnerApp() {
               { id: 'dashboard', icon: Home, label: 'Главная' },
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
+              { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
               { id: 'stock', icon: Box, label: 'Склад' },
               { id: 'reports', icon: FileText, label: 'Отчёты' },
             ]
@@ -4816,6 +4923,7 @@ export function OwnerApp() {
               { id: 'dashboard', icon: Home, label: 'Главная' },
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
+              { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
               { id: 'stock', icon: Box, label: 'Склад' },
               { id: 'reports', icon: FileText, label: 'Отчёты' },
               { id: 'settings', icon: Settings, label: 'Настройки' },
@@ -4908,6 +5016,51 @@ export function OwnerApp() {
             </motion.div>
           </motion.div>
         )}
+
+        {/* ── PIGGY BANK WITHDRAW MODAL ── */}
+        {showPiggyWithdraw && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Снять на материалы</h3>
+                <button onClick={() => setShowPiggyWithdraw(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Запись (заказ)</label>
+                  <select className={selectCls} value={piggyWithdrawForm.bookingId} onChange={e => setPiggyWithdrawForm(p => ({ ...p, bookingId: e.target.value }))}>
+                    <option value="">Выберите запись...</option>
+                    {bookings.filter(b => {
+                      const rg = ownerServiceResourceGroup(b.serviceId, services);
+                      return rg === 'detailing' && b.status !== 'cancelled' && b.status !== 'no_show';
+                    }).map(b => (
+                      <option key={b.id} value={b.id}>{b.service} — {b.clientName} ({b.date})</option>
+                    ))}
+                  </select>
+                </div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Название материала</label><input className={inputCls} placeholder="Например: Пленка PPF" value={piggyWithdrawForm.materialName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, materialName: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Стоимость (₽)</label><input className={inputCls} type="number" placeholder="0" value={piggyWithdrawForm.materialCost} onChange={e => setPiggyWithdrawForm(p => ({ ...p, materialCost: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                  <input className={inputCls} type="date" value={toISODate(piggyWithdrawForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setPiggyWithdrawForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                  }} />
+                  {piggyWithdrawForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null) && (
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                  )}
+                </div>
+              </div>
+              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.bookingId || !piggyWithdrawForm.materialName || !piggyWithdrawForm.materialCost || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null}
+                className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+                Снять {piggyWithdrawForm.materialCost ? `${Number(piggyWithdrawForm.materialCost).toLocaleString('ru')} ₽` : ''}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ── FINANCE PANEL ── */}
@@ -4942,6 +5095,17 @@ export function OwnerApp() {
                     <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
                       {Math.abs(profit).toLocaleString('ru')} ₽{profit < 0 ? ' (убыток)' : ''}
                     </div>
+                  </div>
+                </div>
+
+                {/* Копилка */}
+                <div className={`${glass} rounded-2xl p-3 flex items-center justify-between cursor-pointer`} onClick={() => { setShowFinancePanel(false); setPage('piggy-bank'); }}>
+                  <div className="flex items-center gap-2">
+                    <PiggyBank size={18} style={{ color: accent }} />
+                    <span className="text-sm font-medium">Копилка</span>
+                  </div>
+                  <div className="font-bold text-sm" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
+                    {piggyBankBalance.toLocaleString('ru')} ₽
                   </div>
                 </div>
 
