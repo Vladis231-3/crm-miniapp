@@ -689,7 +689,9 @@ function AppContent() {
         )}
         {(session.role === 'owner' || session.role === 'accountant') && (
           <motion.div key="owner" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
-            <OwnerApp />
+            <ErrorBoundary>
+              <OwnerApp />
+            </ErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>
