@@ -441,8 +441,6 @@ export function OwnerApp() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
-  const [piggyBank, setPiggyBank] = useState<PiggyBankData | null>(null);
-  const [piggyBankLoading, setPiggyBankLoading] = useState(false);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -617,9 +615,10 @@ export function OwnerApp() {
   const loadPiggyBank = useCallback(async () => {
     setPiggyBankLoading(true);
     try {
-      const data = await apiRequest<{ balance: number; transactions: PiggyBankTx[] }>('/api/owner/piggy-bank');
+      const data = await apiRequest<PiggyBankData>('/api/owner/piggy-bank');
       setPiggyBankBalance(data.balance);
       setPiggyBankTxs(data.transactions);
+      setPiggyBank(data);
     } catch { /* ignore */ }
     finally { setPiggyBankLoading(false); }
   }, []);
@@ -716,16 +715,6 @@ export function OwnerApp() {
       setSettingsSection(null);
     }
   }, [isAccountant, page]);
-
-  useEffect(() => {
-    if (page === 'settings' && settingsSection === 'finance') {
-      setPiggyBankLoading(true);
-      apiRequest<PiggyBankData>('/api/owner/piggy-bank')
-        .then(setPiggyBank)
-        .catch(() => setPiggyBank(null))
-        .finally(() => setPiggyBankLoading(false));
-    }
-  }, [page, settingsSection]);
 
   const ownerNotifications = notifications.filter((notification) => notification.recipientRole === financeNotificationRole);
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
