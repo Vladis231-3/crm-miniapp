@@ -558,6 +558,8 @@ export function OwnerApp() {
     plate: '',
     clientName: '',
     clientPhone: '',
+    paymentType: 'cash' as 'cash' | 'card' | 'online',
+    paymentSettled: false,
   });
 
   // Edit expense state (tasks 5.1–5.3)
@@ -1889,6 +1891,8 @@ export function OwnerApp() {
           plate: ownerBookingEditFull.plate.trim() || undefined,
           clientName: ownerBookingEditFull.clientName.trim() || undefined,
           clientPhone: ownerBookingEditFull.clientPhone.trim() || undefined,
+          paymentType: ownerBookingEditFull.paymentType,
+          paymentSettled: ownerBookingEditFull.paymentSettled,
         };
       } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus };
@@ -5952,6 +5956,8 @@ export function OwnerApp() {
                               plate: selectedBooking.plate || '',
                               clientName: selectedBooking.clientName || '',
                               clientPhone: selectedBooking.clientPhone || '',
+                              paymentType: selectedBooking.paymentType || 'cash',
+                              paymentSettled: selectedBooking.paymentSettled ?? false,
                             });
                           }
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
@@ -6128,6 +6134,23 @@ export function OwnerApp() {
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                         <textarea className={`${inputCls} min-h-[80px] resize-none`} placeholder="Добавить примечание..." value={ownerBookingEditFull.notes} onChange={e => setOwnerBookingEditFull(p => ({ ...p, notes: e.target.value }))} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Тип оплаты</label>
+                          <select className={selectCls} value={ownerBookingEditFull.paymentType} onChange={e => setOwnerBookingEditFull(p => ({ ...p, paymentType: e.target.value as 'cash' | 'card' | 'online' }))}>
+                            <option value="cash">Наличные</option>
+                            <option value="card">Карта</option>
+                            <option value="online">Онлайн</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Оплата получена</label>
+                          <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                            <input type="checkbox" className="w-4 h-4 accent-indigo-500" checked={ownerBookingEditFull.paymentSettled} onChange={e => setOwnerBookingEditFull(p => ({ ...p, paymentSettled: e.target.checked }))} />
+                            <span className="text-sm">Подтверждена</span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
