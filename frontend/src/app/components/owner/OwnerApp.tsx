@@ -404,6 +404,7 @@ export function OwnerApp() {
   const [piggyBankBalance, setPiggyBankBalance] = useState(0);
   const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
   const [piggyBankLoading, setPiggyBankLoading] = useState(false);
+  const [piggyBank, setPiggyBank] = useState(null);
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
 
