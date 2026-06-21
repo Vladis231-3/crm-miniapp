@@ -110,6 +110,7 @@ from .schemas import (
     OwnerNotificationSettings,
     AuthSessionPayload,
     OwnerSecurityPayload,
+    PiggyBankDetailingBreakdown,
     PiggyBankResponse,
     PiggyBankTransactionPayload,
     PiggyBankWashBreakdown,
@@ -3504,12 +3505,16 @@ def _owner_summary_report(
     services = db.scalars(select(Service).order_by(Service.name)).all()
     expenses = db.scalars(select(Expense).order_by(Expense.created_at.desc())).all()
     incomes = db.scalars(select(Income).order_by(Income.created_at.desc())).all()
+    piggy_transactions = db.scalars(
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+    ).all()
     return build_owner_summary_report(
         company_name=str(company_settings.get("name") or "ATMOSFERA"),
         bookings=bookings,
         services=services,
         expenses=list(expenses),
         incomes=list(incomes),
+        piggy_transactions=list(piggy_transactions),
         period=period,
         segment=segment,
     )
@@ -3558,12 +3563,16 @@ def _owner_summary_export_file(
     )
     services = db.scalars(select(Service).order_by(Service.name)).all()
     penalties = db.scalars(select(Penalty).order_by(Penalty.created_at.desc())).all()
+    piggy_transactions = db.scalars(
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+    ).all()
     return build_owner_summary_export(
         owner=owner,
         company_name=str(company_settings.get("name") or "ATMOSFERA"),
         bookings=bookings,
         services=services,
         penalties=penalties,
+        piggy_transactions=list(piggy_transactions),
         period=period,
         segment=segment,
     )
@@ -5464,15 +5473,13 @@ def create_booking(
 
 
 def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
-    """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals."""
+    """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any service."""
     service = db.get(Service, booking.service_id) if booking.service_id else None
     rg = _service_resource_group(service)
-    if rg != "detailing":
-        return
 
     date_str = booking.date
 
-    # 1. Repay outstanding material withdrawals for this booking
+    # 1. Repay outstanding material withdrawals for this booking (any service type)
     withdrawals = db.scalars(
         select(PiggyBankTransaction).where(
             PiggyBankTransaction.booking_id == booking.id,
@@ -5481,7 +5488,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
     ).all()
     total_withdrawn = sum(abs(t.amount) for t in withdrawals if t.amount < 0)
 
-    # Check if already repaid (sum of material_repayment for this booking)
+    # Check if already repaid
     existing_repayments = db.scalars(
         select(PiggyBankTransaction).where(
             PiggyBankTransaction.booking_id == booking.id,
@@ -5502,28 +5509,29 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
                 material_name=None,
                 material_cost=None,
                 date=date_str,
-                resource_group="detailing",
+                resource_group=rg,
                 created_at=_now(),
             )
         )
 
-    # 2. Deposit 24% of booking price
-    deposit_amount = round(booking.price * 24 / 100)
-    if deposit_amount > 0:
-        db.add(
-            PiggyBankTransaction(
-                id=f"pb-{uuid4()}",
-                booking_id=booking.id,
-                amount=deposit_amount,
-                transaction_type="deposit_24percent",
-                purpose=f"24% от заказа {booking.service} ({booking.client_name})",
-                material_name=None,
-                material_cost=None,
-                date=date_str,
-                resource_group="detailing",
-                created_at=_now(),
+    # 2. Deposit 24% of booking price (only for detailing)
+    if rg == "detailing":
+        deposit_amount = round(booking.price * 24 / 100)
+        if deposit_amount > 0:
+            db.add(
+                PiggyBankTransaction(
+                    id=f"pb-{uuid4()}",
+                    booking_id=booking.id,
+                    amount=deposit_amount,
+                    transaction_type="deposit_24percent",
+                    purpose=f"24% от заказа {booking.service} ({booking.client_name})",
+                    material_name=None,
+                    material_cost=None,
+                    date=date_str,
+                    resource_group="detailing",
+                    created_at=_now(),
+                )
             )
-        )
 
 
 @app.patch("/api/bookings/{booking_id}", response_model=BookingPayload)
@@ -6511,6 +6519,8 @@ def update_income(
 @app.get("/api/owner/piggy-bank", response_model=PiggyBankResponse)
 def get_piggy_bank(
     booking_id: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> PiggyBankResponse:
@@ -6521,6 +6531,10 @@ def get_piggy_bank(
     )
     if booking_id:
         query = query.where(PiggyBankTransaction.booking_id == booking_id)
+    if date_from:
+        query = query.where(PiggyBankTransaction.date >= date_from)
+    if date_to:
+        query = query.where(PiggyBankTransaction.date <= date_to)
     transactions = db.scalars(query).all()
 
     balance = sum(t.amount for t in transactions)
@@ -6551,6 +6565,8 @@ def get_piggy_bank(
     services_map = {
         s.id: s for s in db.scalars(select(Service)).all()
     }
+
+    # === Wash breakdown ===
     completed_wash_bookings = (
         db.scalars(
             select(Booking)
@@ -6605,6 +6621,32 @@ def get_piggy_bank(
     )
     remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
 
+    # === Detailing breakdown ===
+    completed_detailing_bookings = [
+        b for b in completed_wash_bookings
+        if services_map.get(b.service_id) and services_map[b.service_id].resource_group == "detailing"
+    ]
+    detailing_revenue = sum(b.price for b in completed_detailing_bookings)
+    detailing_master = round(detailing_revenue * 40 / 100)
+
+    deposits_24 = sum(t.amount for t in transactions if t.transaction_type == "deposit_24percent")
+    withdrawals = sum(abs(t.amount) for t in transactions if t.transaction_type == "material_withdrawal" and t.amount < 0)
+    repayments = sum(t.amount for t in transactions if t.transaction_type == "material_repayment")
+    net_piggy = deposits_24 + repayments - withdrawals
+
+    detailing_expenses = (
+        db.scalar(
+            select(func.coalesce(func.sum(Expense.amount), 0))
+            .where(Expense.resource_group == "detailing")
+        ) or 0
+    )
+    detailing_incomes = (
+        db.scalar(
+            select(func.coalesce(func.sum(Income.amount), 0))
+            .where(Income.resource_group == "detailing")
+        ) or 0
+    )
+
     return PiggyBankResponse(
         balance=balance,
         transactions=transaction_payloads,
@@ -6619,9 +6661,21 @@ def get_piggy_bank(
             totalMaster=total_master,
             totalPiggy=total_piggy,
         ),
+        detailing=PiggyBankDetailingBreakdown(
+            detailingRevenue=detailing_revenue,
+            detailingMaster=detailing_master,
+            deposits24Percent=deposits_24,
+            materialWithdrawals=withdrawals,
+            materialRepayments=repayments,
+            netPiggy=net_piggy,
+            detailingExpenses=detailing_expenses,
+            detailingIncomes=detailing_incomes,
+        ),
         masterDailyOutputs=total_daily_outputs,
         washExpenses=wash_expenses,
         washIncomes=wash_incomes,
+        detailingExpenses=detailing_expenses,
+        detailingIncomes=detailing_incomes,
         remainingInPiggyBank=remaining,
     )
 
@@ -6640,6 +6694,10 @@ def piggy_bank_withdraw(
             status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена"
         )
 
+    # Determine resource group from booking's service
+    service = db.get(Service, booking.service_id) if booking.service_id else None
+    rg = _service_resource_group(service)
+
     transaction = PiggyBankTransaction(
         id=f"pb-{uuid4()}",
         booking_id=payload.bookingId,
@@ -6649,7 +6707,7 @@ def piggy_bank_withdraw(
         material_name=payload.materialName,
         material_cost=payload.materialCost,
         date=payload.date,
-        resource_group="detailing",
+        resource_group=rg,
         created_at=_now(),
     )
     db.add(transaction)
@@ -6661,7 +6719,7 @@ def piggy_bank_withdraw(
         category="Материалы",
         date=payload.date,
         note=f"Закупка для заказа {booking.service} ({booking.client_name}). {payload.purpose}".strip(),
-        resource_group="detailing",
+        resource_group=rg,
         created_at=_now(),
     )
     db.add(expense)

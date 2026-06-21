@@ -1296,11 +1296,25 @@ class PiggyBankWashBreakdown(BaseModel):
     totalPiggy: int = 0
 
 
+class PiggyBankDetailingBreakdown(BaseModel):
+    detailingRevenue: int = 0
+    detailingMaster: int = 0
+    deposits24Percent: int = 0
+    materialWithdrawals: int = 0
+    materialRepayments: int = 0
+    netPiggy: int = 0
+    detailingExpenses: int = 0
+    detailingIncomes: int = 0
+
+
 class PiggyBankResponse(BaseModel):
     balance: int = 0
     transactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
     wash: PiggyBankWashBreakdown | None = None
+    detailing: PiggyBankDetailingBreakdown | None = None
     masterDailyOutputs: int = 0
     washExpenses: int = 0
     washIncomes: int = 0
+    detailingExpenses: int = 0
+    detailingIncomes: int = 0
     remainingInPiggyBank: int = 0

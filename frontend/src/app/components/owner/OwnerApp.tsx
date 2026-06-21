@@ -52,13 +52,22 @@ interface PiggyBankWashBreakdown {
   classicRevenue: number; classicMaster: number; classicPiggy: number;
   totalRevenue: number; totalMaster: number; totalPiggy: number;
 }
+interface PiggyBankDetailingBreakdown {
+  detailingRevenue: number; detailingMaster: number;
+  deposits24Percent: number; materialWithdrawals: number;
+  materialRepayments: number; netPiggy: number;
+  detailingExpenses: number; detailingIncomes: number;
+}
 interface PiggyBankData {
   balance: number;
   transactions: PiggyBankTx[];
   wash?: PiggyBankWashBreakdown;
+  detailing?: PiggyBankDetailingBreakdown;
   masterDailyOutputs: number;
   washExpenses: number;
   washIncomes: number;
+  detailingExpenses: number;
+  detailingIncomes: number;
   remainingInPiggyBank: number;
 }
 
@@ -405,6 +414,9 @@ export function OwnerApp() {
   const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
   const [piggyBankLoading, setPiggyBankLoading] = useState(false);
   const [piggyBank, setPiggyBank] = useState(null);
+  const [piggyTab, setPiggyTab] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [piggyDateFrom, setPiggyDateFrom] = useState('');
+  const [piggyDateTo, setPiggyDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
 
@@ -615,10 +627,16 @@ export function OwnerApp() {
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
 
-  const loadPiggyBank = useCallback(async () => {
+  const loadPiggyBank = useCallback(async (dateFrom?: string, dateTo?: string) => {
     setPiggyBankLoading(true);
     try {
-      const data = await apiRequest<PiggyBankData>('/api/owner/piggy-bank');
+      let path = '/api/owner/piggy-bank';
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      const qs = params.toString();
+      if (qs) path += '?' + qs;
+      const data = await apiRequest<PiggyBankData>(path);
       setPiggyBankBalance(data.balance);
       setPiggyBankTxs(data.transactions);
       setPiggyBank(data);
@@ -648,7 +666,7 @@ export function OwnerApp() {
     }
   }
 
-  useEffect(() => { void loadPiggyBank(); }, [page]);
+  useEffect(() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }, [page, piggyDateFrom, piggyDateTo]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -3381,14 +3399,28 @@ export function OwnerApp() {
             </motion.div>
           )}
 
-          {/* ── PIGGY BANK ── */}
+          {/* ── PIGGY BANK / FINANCE HUB ── */}
           {page === 'piggy-bank' && (
             <motion.div key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold">Копилка</h2>
-                <button onClick={() => { void loadPiggyBank(); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold">Финансы</h2>
+                <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
                   <RefreshCw size={16} className={piggyBankLoading ? 'animate-spin' : ''} />
                 </button>
+              </div>
+
+              {/* Date filter */}
+              <div className="flex items-center gap-2 mb-4">
+                <input type="date" value={toISODate(piggyDateFrom)} onChange={e => {
+                  const val = parseFlexibleDate(e.target.value);
+                  setPiggyDateFrom(val ? formatDate(val) : '');
+                }} className={`${inputCls} flex-1 text-xs`} />
+                <span className={`text-xs ${sub}`}>—</span>
+                <input type="date" value={toISODate(piggyDateTo)} onChange={e => {
+                  const val = parseFlexibleDate(e.target.value);
+                  setPiggyDateTo(val ? formatDate(val) : '');
+                }} className={`${inputCls} flex-1 text-xs`} />
               </div>
 
               {/* Balance card */}
@@ -3399,45 +3431,242 @@ export function OwnerApp() {
                 </div>
               </div>
 
-              {/* Withdraw button */}
-              <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mb-6" style={{ background: accent }}>
-                <Plus size={16} className="inline mr-1.5" />Снять на материалы
-              </button>
+              {/* Tabs */}
+              <div className="flex gap-1 mb-4 bg-white/5 rounded-xl p-1">
+                {[
+                  { id: 'all' as const, label: 'Всё' },
+                  { id: 'wash' as const, label: '🚗 Мойка' },
+                  { id: 'detailing' as const, label: '✨ Детейлинг' },
+                ].map(tab => (
+                  <button key={tab.id} onClick={() => setPiggyTab(tab.id)}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${piggyTab === tab.id ? 'bg-white/10 text-white' : sub}`}
+                    style={piggyTab === tab.id ? { background: `${primary}20`, color: primary } : {}}>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── TAB: ALL ── */}
+              {piggyTab === 'all' && (
+                <>
+                  {/* Quick summary */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Выручка</div>
+                      <div className="font-bold text-lg" style={{ color: accent }}>{totalRevenue.toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Расходы</div>
+                      <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{totalExpenses.toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
+                      <div className="font-bold text-lg" style={{ color: primary }}>{totalIncomes.toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
+                      <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
+                        {Math.abs(profit).toLocaleString('ru')} ₽{profit < 0 ? ' (убыток)' : ''}
+                      </div>
+                    </div>
+                  </div>
+
+              {/* Wash mini */}
+              {piggyBank?.wash && (() => {
+                const rem = piggyBank.remainingInPiggyBank ?? 0;
+                return (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>🚗 Мойка</div>
+                  <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.wash.totalRevenue.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>ЗП мастеров</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>В копилку (90%+60%)</span><span style={{ color: accent }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>Выход мастеров</span><span style={{ color: '#FF6B6B' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 text-sm font-semibold">
+                    <span>Остаток</span>
+                    <span style={{ color: rem >= 0 ? accent : '#FF6B6B' }}>{rem.toLocaleString('ru')} ₽</span>
+                  </div>
+                </div>
+                );
+              })()}
+
+                  {/* Detailing mini */}
+                  {piggyBank?.detailing && (
+                    <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>✨ Детейлинг</div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>ЗП мастеров (40%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Начислено 24%</span><span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Снято на материалы</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Возврат материалов</span><span style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1.5 text-sm font-semibold">
+                        <span>Нетто в копилке</span><span style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? accent : '#FF6B6B' }}>{(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Withdraw button */}
+                  <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mb-4" style={{ background: accent }}>
+                    <Plus size={16} className="inline mr-1.5" />Снять на материалы
+                  </button>
+                </>
+              )}
+
+              {/* ── TAB: WASH ── */}
+              {piggyTab === 'wash' && piggyBank?.wash && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 КОПИЛКА · МОЙКА</div>
+                  {/* Self-service */}
+                  <div className="mb-3">
+                    <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание (1 000 ₽/ч)</div>
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className={sub}>ЗП мастера (10%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={sub}>В копилку (90%)</span><span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} ₽</span>
+                    </div>
+                  </div>
+                  {/* Classic */}
+                  <div className="mb-3">
+                    <div className={`text-xs font-medium ${sub} mb-2`}>▸ Классическая мойка</div>
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.wash.classicRevenue.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className={sub}>ЗП мастера (40%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={sub}>В копилку (60%)</span><span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} ₽</span>
+                    </div>
+                  </div>
+                  {/* Totals */}
+                  <div className="flex justify-between py-2 text-sm font-semibold">
+                    <span>Всего в копилку</span><span style={{ color: accent }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.wash.totalRevenue.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>ЗП мастеров всего</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>Выход мастеров (смены)</span><span style={{ color: '#FF6B6B' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Расходы на мойку</span><span style={{ color: '#FF6B6B' }}>−{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Доп. доходы</span><span className="font-semibold" style={{ color: primary }}>+{(piggyBank.washIncomes ?? 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+                    <span>🏦 Остаток в копилке</span>
+                    <span style={{ color: (piggyBank.remainingInPiggyBank ?? 0) >= 0 ? accent : '#FF6B6B' }}>
+                      {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── TAB: DETAILING ── */}
+              {piggyTab === 'detailing' && piggyBank?.detailing && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>✨ КОПИЛКА · ДЕТЕЙЛИНГ</div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>ЗП мастеров (40%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>Начислено 24%</span><span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Снято на материалы</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>Возврат материалов</span><span style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Расходы на детейлинг</span><span style={{ color: '#FF6B6B' }}>−{(piggyBank.detailingExpenses ?? 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={sub}>Доп. доходы</span><span className="font-semibold" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+                    <span>🏦 Нетто в копилке</span>
+                    <span style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? accent : '#FF6B6B' }}>
+                      {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
+                    </span>
+                  </div>
+                  <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mt-4" style={{ background: accent }}>
+                    <Plus size={16} className="inline mr-1.5" />Снять на материалы
+                  </button>
+                </div>
+              )}
 
               {/* Transaction history */}
               <h3 className={`text-xs font-medium ${sub} mb-3 uppercase tracking-wider`}>История операций</h3>
-              {piggyBankTxs.length === 0 ? (
-                <div className={`text-center py-8 text-sm ${sub}`}>Пока нет операций</div>
-              ) : (
-                <div className="space-y-2">
-                  {piggyBankTxs.map(tx => {
-                    const isDeposit = tx.amount > 0;
-                    const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
-                      : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
-                      : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
-                      : 'Корректировка';
-                    return (
-                      <div key={tx.id} className={`${glass} rounded-xl p-3`}>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-green-500' : 'bg-red-500'}`} />
-                              <span className="text-sm font-medium">{txLabel}</span>
+              {(() => {
+                const filteredTxs = piggyTab === 'all' ? piggyBankTxs
+                  : piggyTab === 'wash' ? piggyBankTxs.filter(tx => tx.resourceGroup === 'wash')
+                  : piggyBankTxs.filter(tx => tx.resourceGroup === 'detailing');
+                if (filteredTxs.length === 0) {
+                  return <div className={`text-center py-8 text-sm ${sub}`}>Пока нет операций</div>;
+                }
+                return (
+                  <div className="space-y-2">
+                    {filteredTxs.map(tx => {
+                      const isDeposit = tx.amount > 0;
+                      const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
+                        : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                        : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
+                        : 'Корректировка';
+                      return (
+                        <div key={tx.id} className={`${glass} rounded-xl p-3`}>
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <span className="text-sm font-medium">{txLabel}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+                                  {tx.resourceGroup === 'detailing' ? '✨' : '🚗'}
+                                </span>
+                              </div>
+                              <div className={`text-xs ${sub} mt-0.5`}>{tx.date}</div>
+                              {tx.materialName && <div className="text-xs mt-1"><span className={sub}>Материал:</span> {tx.materialName} ({(tx.materialCost ?? 0).toLocaleString('ru')} ₽)</div>}
+                              {tx.bookingInfo && <div className="text-xs mt-0.5"><span className={sub}>Заказ:</span> {tx.bookingInfo}</div>}
+                              <div className="text-xs mt-0.5">{tx.purpose}</div>
                             </div>
-                            <div className={`text-xs ${sub} mt-0.5`}>{tx.date}</div>
-                            {tx.materialName && <div className="text-xs mt-1"><span className={sub}>Материал:</span> {tx.materialName} ({(tx.materialCost ?? 0).toLocaleString('ru')} ₽)</div>}
-                            {tx.bookingInfo && <div className="text-xs mt-0.5"><span className={sub}>Заказ:</span> {tx.bookingInfo}</div>}
-                            <div className="text-xs mt-0.5">{tx.purpose}</div>
-                          </div>
-                          <div className={`font-bold text-sm ml-3 ${isDeposit ? 'text-green-500' : 'text-red-500'}`}>
-                            {isDeposit ? '+' : ''}{tx.amount.toLocaleString('ru')} ₽
+                            <div className={`font-bold text-sm ml-3 ${isDeposit ? 'text-green-500' : 'text-red-500'}`}>
+                              {isDeposit ? '+' : ''}{tx.amount.toLocaleString('ru')} ₽
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </motion.div>
           )}
 
@@ -3502,6 +3731,34 @@ export function OwnerApp() {
                   </div>
                 ))}
               </div>
+
+              {/* Копилка в отчётах */}
+              {piggyBank && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>💰 КОПИЛКА</div>
+                  <div className="flex justify-between py-2 text-sm">
+                    <span className={sub}>Баланс</span>
+                    <span className="font-semibold" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>{piggyBankBalance.toLocaleString('ru')} ₽</span>
+                  </div>
+                  {piggyBank.detailing && (
+                    <>
+                      <div className="flex justify-between py-2 text-sm">
+                        <span className={sub}>Начислено 24%</span>
+                        <span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-2 text-sm">
+                        <span className={sub}>Снято на материалы</span>
+                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Возврат материалов</span>
+                        <span style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Доходы */}
               {incomes.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
@@ -4924,19 +5181,51 @@ export function OwnerApp() {
                 )}
               </div>
 
-              {/* Детейлинг */}
+              {/* Копилка · Детейлинг */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>✨ ДЕТЕЙЛИНГ</div>
-                {[
-                  { label: 'Выручка', value: `${detailingRevenue.toLocaleString('ru')} ₽`, color: accent },
-                  { label: 'Доп. доходы', value: `${detailingIncomes.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Расходы', value: `${detailingExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
-                ].map(r => (
-                  <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className="text-sm">{r.label}</span>
-                    <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
-                  </div>
-                ))}
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>✨ КОПИЛКА · ДЕТЕЙЛИНГ</div>
+                {piggyBankLoading ? (
+                  <div className={`text-sm ${sub} text-center py-4`}>Загрузка...</div>
+                ) : piggyBank?.detailing ? (
+                  <>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>Выручка</span>
+                      <span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>ЗП мастеров (40%)</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={sub}>Начислено 24%</span>
+                      <span className="font-semibold" style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>Снято на материалы</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={sub}>Возврат материалов</span>
+                      <span className="font-semibold" style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className={sub}>Расходы на детейлинг</span>
+                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.detailingExpenses ?? 0).toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={sub}>Доп. доходы</span>
+                      <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+                      <span>🏦 Нетто в копилке</span>
+                      <span style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? accent : '#FF6B6B' }}>
+                        {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className={`text-sm ${sub} text-center py-4`}>Нет данных</div>
+                )}
               </div>
 
               {/* Последние расходы */}
@@ -5113,10 +5402,7 @@ export function OwnerApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Запись (заказ)</label>
                   <select className={selectCls} value={piggyWithdrawForm.bookingId} onChange={e => setPiggyWithdrawForm(p => ({ ...p, bookingId: e.target.value }))}>
                     <option value="">Выберите запись...</option>
-                    {bookings.filter(b => {
-                      const rg = ownerServiceResourceGroup(b.serviceId, services);
-                      return rg === 'detailing' && b.status !== 'cancelled' && b.status !== 'no_show';
-                    }).map(b => (
+            {bookings.filter(b => b.status !== 'cancelled' && b.status !== 'no_show').map(b => (
                       <option key={b.id} value={b.id}>{b.service} — {b.clientName} ({b.date})</option>
                     ))}
                   </select>

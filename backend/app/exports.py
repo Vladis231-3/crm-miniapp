@@ -21,7 +21,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
 
 from .complaints import adjusted_booking_percent, complaint_status_for_percent
-from .models import Booking, Expense, Income, Penalty, PayrollEntry, Service, StaffUser, StockItem
+from .models import Booking, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
 
 
 ExportKind = Literal["report", "pdf"]
@@ -121,6 +121,7 @@ def build_owner_summary_report(
     services: list[Service],
     expenses: list[Expense] | None = None,
     incomes: list[Income] | None = None,
+    piggy_transactions: list[PiggyBankTransaction] | None = None,
     period: ReportPeriod,
     segment: ReportSegment,
     now: datetime | None = None,
@@ -198,6 +199,24 @@ def build_owner_summary_report(
         profit = revenue + total_inc - total_exp
         lines.append(f"Прибыль: {_format_money(profit)}")
 
+    # Piggy bank data for the period
+    if piggy_transactions:
+        period_piggy = [t for t in piggy_transactions if t.date and _in_period(t.date)]
+        deposits = sum(t.amount for t in period_piggy if t.transaction_type == "deposit_24percent" and t.amount > 0)
+        withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "material_withdrawal" and t.amount < 0)
+        repayments = sum(t.amount for t in period_piggy if t.transaction_type == "material_repayment" and t.amount > 0)
+        total_balance = sum(t.amount for t in piggy_transactions)
+        if deposits or withdrawals or repayments:
+            lines.append("")
+            lines.append("💰 Копилка:")
+            if deposits:
+                lines.append(f"  24% начислено: +{_format_money(deposits)}")
+            if withdrawals:
+                lines.append(f"  Снято на материалы: −{_format_money(withdrawals)}")
+            if repayments:
+                lines.append(f"  Возврат материалов: +{_format_money(repayments)}")
+            lines.append(f"  Баланс: {_format_money(total_balance)}")
+
     top_services = sorted(
         service_rollup.values(),
         key=lambda item: (int(item["revenue"]), int(item["completed"]), int(item["total"]), str(item["name"])),
@@ -225,6 +244,7 @@ def build_owner_summary_export(
     bookings: list[Booking],
     services: list[Service],
     penalties: list[Penalty] | None = None,
+    piggy_transactions: list[PiggyBankTransaction] | None = None,
     period: ReportPeriod,
     segment: ReportSegment,
     now: datetime | None = None,
