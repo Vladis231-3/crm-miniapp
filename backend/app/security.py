@@ -44,7 +44,10 @@ def validate_telegram_init_data(
 ) -> dict[str, Any]:
     if not init_data:
         raise ValueError("initData is required")
-    if not bot_token:
+    # bot_token нужен только для проверки HMAC-подписи. В десктоп-режиме
+    # (skip_validation=True, allow_insecure_client_auth=True) токена нет —
+    # подпись всё равно не проверяется, поэтому не требуем его.
+    if not skip_validation and not bot_token:
         raise ValueError("TELEGRAM_BOT_TOKEN is not configured")
 
     pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))

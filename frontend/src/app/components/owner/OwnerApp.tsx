@@ -53,7 +53,9 @@ interface PiggyBankWashBreakdown {
   totalRevenue: number; totalMaster: number; totalPiggy: number;
 }
 interface PiggyBankData {
-  wash: PiggyBankWashBreakdown;
+  balance: number;
+  transactions: PiggyBankTx[];
+  wash?: PiggyBankWashBreakdown;
   masterDailyOutputs: number;
   washExpenses: number;
   washIncomes: number;
@@ -4850,7 +4852,7 @@ export function OwnerApp() {
                 <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 КОПИЛКА · АВТОМОЙКА</div>
                 {piggyBankLoading ? (
                   <div className={`text-sm ${sub} text-center py-4`}>Загрузка...</div>
-                ) : piggyBank ? (
+                ) : piggyBank?.wash ? (
                   <>
                     {/* Самообслуживание */}
                     <div className="mb-3">
@@ -4899,20 +4901,20 @@ export function OwnerApp() {
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                       <span className={sub}>Выход мастеров (смены)</span>
-                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.masterDailyOutputs.toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>Доп. доходы</span>
-                      <span className="font-semibold" style={{ color: primary }}>+{piggyBank.washIncomes.toLocaleString('ru')} ₽</span>
+                      <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.washIncomes ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>Расходы на мойку</span>
-                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.washExpenses.toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
                       <span>🏦 Остаток в копилке</span>
-                      <span style={{ color: piggyBank.remainingInPiggyBank >= 0 ? accent : '#FF6B6B' }}>
-                        {piggyBank.remainingInPiggyBank >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank).toLocaleString('ru')} ₽
+                      <span style={{ color: (piggyBank.remainingInPiggyBank ?? 0) >= 0 ? accent : '#FF6B6B' }}>
+                        {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </>

@@ -1,0 +1,31 @@
+{
+  "name": "atmosfera-crm-native",
+  "version": "1.0.0",
+  "description": "Atmosfera CRM — нативное Windows-приложение",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder build --win portable"
+  },
+  "build": {
+    "appId": "com.atmosfera.crm",
+    "productName": "Atmosfera CRM",
+    "win": {
+      "target": ["portable"],
+      "icon": "icon.ico"
+    },
+    "extraResources": [
+      {
+        "from": "../../shiny-falcon",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ]
+  },
+  "dependencies": {
+    "electron": "^33.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^25.0.0"
+  }
+}
