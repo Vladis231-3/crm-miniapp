@@ -327,6 +327,24 @@ class Income(Base):
     created_by: Mapped["StaffUser"] = relationship(back_populates="incomes")
 
 
+class WeeklyArchive(Base):
+    __tablename__ = "weekly_archives"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    week_start: Mapped[str] = mapped_column(String(16))
+    week_end: Mapped[str] = mapped_column(String(16))
+    total_revenue: Mapped[int] = mapped_column(Integer, default=0)
+    total_income: Mapped[int] = mapped_column(Integer, default=0)
+    total_expense: Mapped[int] = mapped_column(Integer, default=0)
+    booking_count: Mapped[int] = mapped_column(Integer, default=0)
+    income_count: Mapped[int] = mapped_column(Integer, default=0)
+    expense_count: Mapped[int] = mapped_column(Integer, default=0)
+    piggy_bank_balance: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
 class PiggyBankTransaction(Base):
     __tablename__ = "piggy_bank_transactions"
 

@@ -27,7 +27,7 @@ import {
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'wallet';
 type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content';
 type OwnerExportKind = 'report' | 'pdf';
 
@@ -69,6 +69,33 @@ interface PiggyBankData {
   detailingExpenses: number;
   detailingIncomes: number;
   remainingInPiggyBank: number;
+}
+
+interface WeeklyArchiveInfo {
+  id: number;
+  weekStart: string;
+  weekEnd: string;
+  totalRevenue: number;
+  totalIncome: number;
+  totalExpense: number;
+  bookingCount: number;
+  incomeCount: number;
+  expenseCount: number;
+  piggyBankBalance: number;
+  createdAt: Date;
+}
+interface WalletData {
+  weekStart: string;
+  weekEnd: string;
+  revenue: number;
+  totalIncome: number;
+  totalExpense: number;
+  profit: number;
+  bookingCount: number;
+  incomes: Income[];
+  expenses: Expense[];
+  piggyBankBalance: number;
+  archives: WeeklyArchiveInfo[];
 }
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
@@ -420,6 +447,10 @@ export function OwnerApp() {
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
 
+  // Wallet state
+  const [walletData, setWalletData] = useState<WalletData | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
   const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' as '' | 'wash' | 'detailing' });
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
@@ -646,6 +677,15 @@ export function OwnerApp() {
     finally { setPiggyBankLoading(false); }
   }, []);
 
+  const loadWallet = useCallback(async () => {
+    setWalletLoading(true);
+    try {
+      const data = await apiRequest<WalletData>('/api/owner/wallet');
+      setWalletData(data);
+    } catch { /* ignore */ }
+    finally { setWalletLoading(false); }
+  }, []);
+
   async function handlePiggyWithdraw() {
     const f = piggyWithdrawForm;
     if (!f.bookingId || !f.materialName || !f.materialCost) return;
@@ -669,6 +709,7 @@ export function OwnerApp() {
   }
 
   useEffect(() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }, [page, piggyDateFrom, piggyDateTo]);
+  useEffect(() => { if (page === 'wallet') { void loadWallet(); } }, [page]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -3403,6 +3444,178 @@ export function OwnerApp() {
             </motion.div>
           )}
 
+          {/* ── WALLET ── */}
+          {page === 'wallet' && (
+            <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold">Кошелёк</h2>
+                <button onClick={() => { void loadWallet(); }} disabled={walletLoading} className={`p-2 rounded-xl ${glass}`}>
+                  <RefreshCw size={16} className={walletLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              {walletData && (
+                <>
+                  {/* Week period */}
+                  <div className={`text-xs ${sub} mb-4`}>
+                    {walletData.weekStart.split('-').reverse().join('.')} – {walletData.weekEnd.split('-').reverse().join('.')}
+                  </div>
+
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Выручка</div>
+                      <div className="font-bold text-lg" style={{ color: accent }}>{walletData.revenue.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub} mt-1`}>{walletData.bookingCount} записей</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
+                      <div className="font-bold text-lg" style={{ color: primary }}>+{walletData.totalIncome.toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Расходы</div>
+                      <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>−{walletData.totalExpense.toLocaleString('ru')} ₽</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
+                      <div className="font-bold text-lg" style={{ color: walletData.profit >= 0 ? accent : '#FF6B6B' }}>
+                        {walletData.profit >= 0 ? '+' : ''}{walletData.profit.toLocaleString('ru')} ₽
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Piggy bank balance */}
+                  <div className={`${glass} rounded-2xl p-4 mb-4 flex justify-between items-center`}>
+                    <div>
+                      <div className={`text-xs ${sub}`}>Баланс копилки</div>
+                      <div className="font-semibold" style={{ color: accent }}>{walletData.piggyBankBalance.toLocaleString('ru')} ₽</div>
+                    </div>
+                    <button onClick={() => setPage('piggy-bank')} className={`text-xs font-medium px-3 py-1.5 rounded-xl`} style={{ background: `${primary}20`, color: primary }}>
+                      Подробнее
+                    </button>
+                  </div>
+
+                  {/* Incomes this week */}
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Доходы</div>
+                      <button onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} className="text-xs font-medium px-2.5 py-1.5 rounded-xl" style={{ background: `${primary}20`, color: primary }}>
+                        + Добавить
+                      </button>
+                    </div>
+                    {walletData.incomes.length === 0 ? (
+                      <p className={`text-sm ${sub} text-center py-4`}>Нет доходов за эту неделю</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {walletData.incomes.map(i => (
+                          <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{i.source}</div>
+                              <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                              <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                              {session?.role === 'owner' && (
+                                <button onClick={() => openEditIncome(i)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
+                                  <Edit3 size={13} className={sub} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Expenses this week */}
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex justify-between items-center mb-3">
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Расходы</div>
+                      <button onClick={() => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }} className="text-xs font-medium px-2.5 py-1.5 rounded-xl" style={{ background: `${primary}20`, color: primary }}>
+                        + Добавить
+                      </button>
+                    </div>
+                    {walletData.expenses.length === 0 ? (
+                      <p className={`text-sm ${sub} text-center py-4`}>Нет расходов за эту неделю</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {walletData.expenses.map(e => (
+                          <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{e.title}</div>
+                              <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                              <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                              {(session?.role === 'owner' || session?.role === 'accountant') && (
+                                <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
+                                  <Edit3 size={13} className={sub} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Archives */}
+                  {walletData.archives.length > 0 && (
+                    <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Архив недель</div>
+                      <div className="space-y-2">
+                        {walletData.archives.map(a => (
+                          <div key={a.id} className={`${glass} rounded-xl p-3`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="text-sm font-medium">
+                                {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
+                              </div>
+                              <div className="font-semibold text-sm" style={{ color: a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? accent : '#FF6B6B' }}>
+                                {a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? '+' : ''}{(a.totalRevenue + a.totalIncome - a.totalExpense).toLocaleString('ru')} ₽
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div>
+                                <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')} ₽</div>
+                                <div className={`text-[10px] ${sub}`}>Выручка</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')} ₽</div>
+                                <div className={`text-[10px] ${sub}`}>Доходы</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px]" style={{ color: '#FF6B6B' }}>−{a.totalExpense.toLocaleString('ru')} ₽</div>
+                                <div className={`text-[10px] ${sub}`}>Расходы</div>
+                              </div>
+                            </div>
+                            <div className={`text-[10px] ${sub} mt-2 text-center`}>
+                              {a.bookingCount} записей · {a.incomeCount} доходов · {a.expenseCount} расходов · Копилка: {a.piggyBankBalance.toLocaleString('ru')} ₽
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {!walletData && !walletLoading && (
+                <div className="text-center py-12">
+                  <button onClick={() => { void loadWallet(); }} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: `${primary}20`, color: primary }}>
+                    Загрузить данные
+                  </button>
+                </div>
+              )}
+
+              {walletLoading && !walletData && (
+                <div className="text-center py-12">
+                  <div className={`text-sm ${sub}`}>Загрузка...</div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* ── PIGGY BANK / FINANCE HUB ── */}
           {page === 'piggy-bank' && (
             <motion.div key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
@@ -5290,6 +5503,7 @@ export function OwnerApp() {
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
+              { id: 'wallet', icon: Wallet, label: 'Кошелёк' },
               { id: 'stock', icon: Box, label: 'Склад' },
               { id: 'reports', icon: FileText, label: 'Отчёты' },
             ]
@@ -5298,6 +5512,7 @@ export function OwnerApp() {
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
+              { id: 'wallet', icon: Wallet, label: 'Кошелёк' },
               { id: 'stock', icon: Box, label: 'Склад' },
               { id: 'reports', icon: FileText, label: 'Отчёты' },
               { id: 'settings', icon: Settings, label: 'Настройки' },

@@ -57,6 +57,7 @@ from .models import (
     StockItem,
     TelegramLinkCode,
     UploadedFile,
+    WeeklyArchive,
 )
 from .schemas import (
     AdminNotificationSettings,
@@ -159,6 +160,8 @@ from .schemas import (
     ContentHeroPayload,
     ContactPayload,
     ResetPasswordRequest,
+    WalletResponse,
+    WeeklyArchivePayload,
 )
 from .security import (
     hash_one_time_code,
@@ -4616,6 +4619,120 @@ def run_reports_cron(
     return GenericMessage(message="Нет отчётов для отправки")
 
 
+def _create_weekly_archive(db: Session) -> str | None:
+    today = date.today()
+    days_since_monday = today.weekday()
+    last_monday = today - timedelta(days=days_since_monday + 7)
+    last_sunday = last_monday + timedelta(days=6)
+
+    week_start_str = last_monday.isoformat()
+    week_end_str = last_sunday.isoformat()
+
+    existing = db.scalars(
+        select(WeeklyArchive).where(WeeklyArchive.week_start == week_start_str)
+    ).first()
+    if existing:
+        return None
+
+    week_incomes = db.scalars(
+        select(Income).where(Income.date >= week_start_str, Income.date <= week_end_str)
+    ).all()
+    week_expenses = db.scalars(
+        select(Expense).where(Expense.date >= week_start_str, Expense.date <= week_end_str)
+    ).all()
+    week_bookings = db.scalars(
+        select(Booking).where(
+            Booking.status == "completed",
+            Booking.deleted_at.is_(None),
+            Booking.date >= week_start_str,
+            Booking.date <= week_end_str,
+        )
+    ).all()
+    all_piggy = db.scalars(select(PiggyBankTransaction)).all()
+    piggy_balance = sum(t.amount for t in all_piggy)
+
+    archive = WeeklyArchive(
+        week_start=week_start_str,
+        week_end=week_end_str,
+        total_revenue=sum(b.price for b in week_bookings),
+        total_income=sum(i.amount for i in week_incomes),
+        total_expense=sum(e.amount for e in week_expenses),
+        booking_count=len(week_bookings),
+        income_count=len(week_incomes),
+        expense_count=len(week_expenses),
+        piggy_bank_balance=piggy_balance,
+    )
+    db.add(archive)
+    db.commit()
+
+    return (
+        f"Архив за неделю {week_start_str} — {week_end_str} создан: "
+        f"выручка {archive.total_revenue}₽, "
+        f"доходы {archive.total_income}₽, "
+        f"расходы {archive.total_expense}₽, "
+        f"записей {archive.booking_count}"
+    )
+
+
+def _run_weekly_archive_scheduler() -> None:
+    while True:
+        try:
+            db = next(get_db())
+            try:
+                msg = _create_weekly_archive(db)
+                if msg:
+                    logger.info("Weekly archive: %s", msg)
+            finally:
+                db.close()
+        except Exception:
+            logger.exception("Weekly archive scheduler error")
+        time_module.sleep(3600)  # Check every hour
+
+
+@app.on_event("startup")
+def _start_weekly_archive_thread() -> None:
+    thread = Thread(target=_run_weekly_archive_scheduler, name="weekly-archive", daemon=True)
+    thread.start()
+
+
+@app.post("/api/cron/weekly-archive", response_model=GenericMessage)
+def run_weekly_archive_cron(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
+        )
+
+    import ipaddress
+    client_ip = _request_ip(request)
+    if client_ip:
+        try:
+            ip = ipaddress.ip_address(client_ip)
+            if not (ip.is_loopback or ip.is_private):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cron endpoint not accessible from public networks",
+                )
+        except ValueError:
+            pass
+
+    msg = _create_weekly_archive(db)
+    if msg is None:
+        today = date.today()
+        days_since_monday = today.weekday()
+        last_monday = today - timedelta(days=days_since_monday + 7)
+        return GenericMessage(message=f"Архив за неделю {last_monday.isoformat()} уже существует")
+    return GenericMessage(message=msg)
+
+
 @app.post(
     "/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload
 )
@@ -6740,6 +6857,120 @@ def piggy_bank_withdraw(
         resourceGroup=transaction.resource_group,
         createdAt=transaction.created_at,
         bookingInfo=booking_info,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Wallet Endpoints
+# ---------------------------------------------------------------------------
+
+
+def _week_bounds() -> tuple[date, date]:
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    return monday, sunday
+
+
+@app.get("/api/owner/wallet", response_model=WalletResponse)
+def get_wallet(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> WalletResponse:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+
+    monday, sunday = _week_bounds()
+    week_start_str = monday.isoformat()
+    week_end_str = sunday.isoformat()
+
+    # Filter incomes for current week
+    incomes = db.scalars(
+        select(Income).where(Income.date >= week_start_str, Income.date <= week_end_str)
+        .order_by(Income.date.desc(), Income.created_at.desc())
+    ).all()
+
+    # Filter expenses for current week
+    expenses = db.scalars(
+        select(Expense).where(Expense.date >= week_start_str, Expense.date <= week_end_str)
+        .order_by(Expense.date.desc(), Expense.created_at.desc())
+    ).all()
+
+    # Completed bookings for current week
+    completed_bookings = db.scalars(
+        select(Booking).where(
+            Booking.status == "completed",
+            Booking.deleted_at.is_(None),
+            Booking.date >= week_start_str,
+            Booking.date <= week_end_str,
+        )
+    ).all()
+
+    revenue = sum(b.price for b in completed_bookings)
+    total_income = sum(i.amount for i in incomes)
+    total_expense = sum(e.amount for e in expenses)
+    profit = revenue + total_income - total_expense
+
+    # Piggy bank balance (all-time)
+    all_piggy = db.scalars(
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+    ).all()
+    piggy_balance = sum(t.amount for t in all_piggy)
+
+    # Archives
+    archives_db = db.scalars(
+        select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc())
+    ).all()
+
+    return WalletResponse(
+        weekStart=week_start_str,
+        weekEnd=week_end_str,
+        revenue=revenue,
+        totalIncome=total_income,
+        totalExpense=total_expense,
+        profit=profit,
+        bookingCount=len(completed_bookings),
+        incomes=[
+            IncomePayload(
+                id=i.id,
+                amount=i.amount,
+                source=i.source,
+                note=i.note,
+                createdById=i.created_by_id,
+                date=i.date,
+                resourceGroup=i.resource_group,
+                createdAt=i.created_at,
+            )
+            for i in incomes
+        ],
+        expenses=[
+            ExpensePayload(
+                id=e.id,
+                title=e.title,
+                amount=e.amount,
+                category=e.category,
+                date=e.date,
+                note=e.note,
+                resourceGroup=e.resource_group,
+            )
+            for e in expenses
+        ],
+        piggyBankBalance=piggy_balance,
+        archives=[
+            WeeklyArchivePayload(
+                id=a.id,
+                weekStart=a.week_start,
+                weekEnd=a.week_end,
+                totalRevenue=a.total_revenue,
+                totalIncome=a.total_income,
+                totalExpense=a.total_expense,
+                bookingCount=a.booking_count,
+                incomeCount=a.income_count,
+                expenseCount=a.expense_count,
+                piggyBankBalance=a.piggy_bank_balance,
+                createdAt=a.created_at,
+            )
+            for a in archives_db
+        ],
     )
 
 

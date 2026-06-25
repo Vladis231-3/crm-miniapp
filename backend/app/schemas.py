@@ -1318,3 +1318,31 @@ class PiggyBankResponse(BaseModel):
     detailingExpenses: int = 0
     detailingIncomes: int = 0
     remainingInPiggyBank: int = 0
+
+
+class WeeklyArchivePayload(BaseModel):
+    id: int
+    weekStart: str
+    weekEnd: str
+    totalRevenue: int = 0
+    totalIncome: int = 0
+    totalExpense: int = 0
+    bookingCount: int = 0
+    incomeCount: int = 0
+    expenseCount: int = 0
+    piggyBankBalance: int = 0
+    createdAt: datetime
+
+
+class WalletResponse(BaseModel):
+    weekStart: str
+    weekEnd: str
+    revenue: int = 0
+    totalIncome: int = 0
+    totalExpense: int = 0
+    profit: int = 0
+    bookingCount: int = 0
+    incomes: list[IncomePayload] = Field(default_factory=list)
+    expenses: list[ExpensePayload] = Field(default_factory=list)
+    piggyBankBalance: int = 0
+    archives: list[WeeklyArchivePayload] = Field(default_factory=list)
