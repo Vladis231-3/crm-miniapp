@@ -27,8 +27,8 @@ import {
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'wallet';
-type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank';
+type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -3445,11 +3445,16 @@ export function OwnerApp() {
           )}
 
           {/* ── WALLET ── */}
-          {page === 'wallet' && (
+          {(page === 'wallet' || (page === 'settings' && settingsSection === 'wallet')) && (
             <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold">Кошелёк</h2>
+                <div className="flex items-center gap-2">
+                  {page === 'settings' && (
+                    <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} text-sm`}><ArrowLeft size={16} /></button>
+                  )}
+                  <h2 className="font-semibold">Кошелёк</h2>
+                </div>
                 <button onClick={() => { void loadWallet(); }} disabled={walletLoading} className={`p-2 rounded-xl ${glass}`}>
                   <RefreshCw size={16} className={walletLoading ? 'animate-spin' : ''} />
                 </button>
@@ -4172,6 +4177,7 @@ export function OwnerApp() {
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
                 { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
+                { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
@@ -5503,7 +5509,6 @@ export function OwnerApp() {
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
-              { id: 'wallet', icon: Wallet, label: 'Кошелёк' },
               { id: 'stock', icon: Box, label: 'Склад' },
               { id: 'reports', icon: FileText, label: 'Отчёты' },
             ]
@@ -5512,7 +5517,6 @@ export function OwnerApp() {
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
-              { id: 'wallet', icon: Wallet, label: 'Кошелёк' },
               { id: 'stock', icon: Box, label: 'Склад' },
               { id: 'reports', icon: FileText, label: 'Отчёты' },
               { id: 'settings', icon: Settings, label: 'Настройки' },
