@@ -300,7 +300,7 @@ function normalizeOwnerPhoneSearchValue(value: string) {
   return value.replace(/\D/g, '');
 }
 
-type OwnerClientSearchMode = 'phone' | 'plate';
+type OwnerClientSearchMode = 'phone' | 'name';
 
 function numberFromInput(value: string) {
   return value === '' ? 0 : Number(value);
@@ -2110,21 +2110,14 @@ export function OwnerApp() {
     );
   });
 
-  const settingsClientSearchNormalized = settingsClientSearchMode === 'phone'
-    ? normalizeOwnerPhoneSearchValue(settingsClientSearchQuery)
-    : normalizePlateInput(settingsClientSearchQuery);
   const filteredSettingsClients = clients.filter((client) => {
-    if (!settingsClientSearchNormalized) return true;
+    if (!settingsClientSearchQuery.trim()) return true;
     if (settingsClientSearchMode === 'phone') {
-      return normalizeOwnerPhoneSearchValue(client.phone).includes(settingsClientSearchNormalized);
+      const normalized = normalizeOwnerPhoneSearchValue(settingsClientSearchQuery);
+      return normalizeOwnerPhoneSearchValue(client.phone).includes(normalized);
     }
-    const plates = [
-      client.plate,
-      ...(client.vehicles || []).map((vehicle) => vehicle.plate),
-    ]
-      .map((plate) => normalizePlateInput(plate || ''))
-      .filter(Boolean);
-    return plates.some((plate) => plate.includes(settingsClientSearchNormalized));
+    const query = settingsClientSearchQuery.trim().toLowerCase();
+    return client.name.toLowerCase().includes(query);
   });
   const selectedSettingsClient = clients.find((client) => client.id === settingsClientId) ?? null;
   const selectedSettingsClientBookings = selectedSettingsClient
@@ -4078,14 +4071,24 @@ export function OwnerApp() {
                           <div className="text-right">
                             <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>
                             <div className={`text-xs ${sub}`}>{client.visits} визитов · последний {client.lastVisit}</div>
-                            <button
-                              type="button"
-                              onClick={() => openBookingForClient(client)}
-                              className="mt-2 text-xs font-medium"
-                              style={{ color: primary }}
-                            >
-                              Добавить прошлую запись
-                            </button>
+                            <div className="mt-2 flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => openBookingForClient(client, 'completed')}
+                                className="text-xs font-medium"
+                                style={{ color: primary }}
+                              >
+                                + Прошлая запись
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openBookingForClient(client, 'confirmed')}
+                                className="text-xs font-medium"
+                                style={{ color: primary }}
+                              >
+                                + Новая запись
+                              </button>
+                            </div>
                           </div>
                         </div>
                         {(client.adminNote || draft.adminNote) && (
@@ -4265,7 +4268,7 @@ export function OwnerApp() {
                   <div className="flex gap-2 mb-3">
                     {([
                       { id: 'phone', label: 'По телефону' },
-                      { id: 'plate', label: 'По госномеру' },
+                      { id: 'name', label: 'По имени' },
                     ] as const).map((option) => (
                       <button
                         key={option.id}
@@ -4284,7 +4287,7 @@ export function OwnerApp() {
                   <input
                     className={inputCls}
                     type={settingsClientSearchMode === 'phone' ? 'tel' : 'text'}
-                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'A123BC777'}
+                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'Иван'}
                     value={settingsClientSearchQuery}
                     onChange={(event) => setSettingsClientSearchQuery(event.target.value)}
                   />
@@ -4373,7 +4376,7 @@ export function OwnerApp() {
               {!selectedSettingsClient && clients.length > 0 && filteredSettingsClients.length === 0 && (
                 <div className={`${glass} rounded-2xl p-6 text-center`}>
                   <div className="font-medium mb-1">Ничего не найдено</div>
-                  <div className={`text-sm ${sub}`}>Попробуйте другой телефон или госномер</div>
+                  <div className={`text-sm ${sub}`}>Попробуйте другое имя или телефон</div>
                 </div>
               )}
               {selectedSettingsClient && (
@@ -4479,15 +4482,26 @@ export function OwnerApp() {
                         {selectedSettingsClient.adminNote}
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => openBookingForClient(selectedSettingsClient)}
-                      className="w-full mb-4 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
-                      style={{ background: primary }}
-                    >
-                      <Plus size={16} />
-                      Добавить прошлую запись
-                    </button>
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => openBookingForClient(selectedSettingsClient, 'completed')}
+                        className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+                        style={{ background: primary }}
+                      >
+                        <Plus size={16} />
+                        Прошлая запись
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openBookingForClient(selectedSettingsClient, 'confirmed')}
+                        className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
+                        style={{ background: primary }}
+                      >
+                        <Plus size={16} />
+                        Новая запись
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-2 mb-4">
                       {[
                         { label: 'Всего записей', value: selectedSettingsClientBookings.length },
