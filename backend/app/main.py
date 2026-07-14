@@ -6683,14 +6683,18 @@ def get_piggy_bank(
         s.id: s for s in db.scalars(select(Service)).all()
     }
 
+    # Build date filters for breakdowns
+    booking_filters = [Booking.status == "completed", Booking.deleted_at.is_(None)]
+    if date_from:
+        booking_filters.append(Booking.date >= date_from)
+    if date_to:
+        booking_filters.append(Booking.date <= date_to)
+
     # === Wash breakdown ===
     completed_wash_bookings = (
         db.scalars(
             select(Booking)
-            .where(
-                Booking.status == "completed",
-                Booking.deleted_at.is_(None),
-            )
+            .where(*booking_filters)
             .order_by(Booking.date.desc())
         )
         .all()
@@ -6712,6 +6716,8 @@ def get_piggy_bank(
     total_revenue = self_service_revenue + classic_revenue
     total_master = self_master + classic_master
     total_piggy = self_piggy + classic_piggy
+
+    # Master daily outputs (use date range if provided)
     inspections = _admin_shift_inspections_state(db)
     workers = db.scalars(select(StaffUser).where(
         StaffUser.role.in_({"worker", "admin"}),
@@ -6719,21 +6725,40 @@ def get_piggy_bank(
     )).all()
     total_daily_outputs = 0
     for worker in workers:
+        shift_start = date.fromisoformat(date_from) if date_from else date(2000, 1, 1)
+        shift_end = date.fromisoformat(date_to) if date_to else date.today()
         shift_count, _ = _compute_shift_attendance(
-            inspections, worker.id, date(2000, 1, 1), date.today()
+            inspections, worker.id, shift_start, shift_end
         )
         salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
         total_daily_outputs += shift_count * salary_per_shift
+
+    # Wash expenses/incomes with date filter
+    wash_exp_q = [Expense.resource_group == WASH_RESOURCE_GROUP]
+    wash_inc_q = [Income.resource_group == WASH_RESOURCE_GROUP]
+    det_exp_q = [Expense.resource_group == "detailing"]
+    det_inc_q = [Income.resource_group == "detailing"]
+    if date_from:
+        wash_exp_q.append(Expense.date >= date_from)
+        wash_inc_q.append(Income.date >= date_from)
+        det_exp_q.append(Expense.date >= date_from)
+        det_inc_q.append(Income.date >= date_from)
+    if date_to:
+        wash_exp_q.append(Expense.date <= date_to)
+        wash_inc_q.append(Income.date <= date_to)
+        det_exp_q.append(Expense.date <= date_to)
+        det_inc_q.append(Income.date <= date_to)
+
     wash_expenses = (
         db.scalar(
             select(func.coalesce(func.sum(Expense.amount), 0))
-            .where(Expense.resource_group == WASH_RESOURCE_GROUP)
+            .where(*wash_exp_q)
         ) or 0
     )
     wash_incomes = (
         db.scalar(
             select(func.coalesce(func.sum(Income.amount), 0))
-            .where(Income.resource_group == WASH_RESOURCE_GROUP)
+            .where(*wash_inc_q)
         ) or 0
     )
     remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
@@ -6754,15 +6779,20 @@ def get_piggy_bank(
     detailing_expenses = (
         db.scalar(
             select(func.coalesce(func.sum(Expense.amount), 0))
-            .where(Expense.resource_group == "detailing")
+            .where(*det_exp_q)
         ) or 0
     )
     detailing_incomes = (
         db.scalar(
             select(func.coalesce(func.sum(Income.amount), 0))
-            .where(Income.resource_group == "detailing")
+            .where(*det_inc_q)
         ) or 0
     )
+
+    # Weekly archives
+    archives_db = db.scalars(
+        select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc())
+    ).all()
 
     return PiggyBankResponse(
         balance=balance,
@@ -6794,6 +6824,22 @@ def get_piggy_bank(
         detailingExpenses=detailing_expenses,
         detailingIncomes=detailing_incomes,
         remainingInPiggyBank=remaining,
+        archives=[
+            WeeklyArchivePayload(
+                id=a.id,
+                weekStart=a.week_start,
+                weekEnd=a.week_end,
+                totalRevenue=a.total_revenue,
+                totalIncome=a.total_income,
+                totalExpense=a.total_expense,
+                bookingCount=a.booking_count,
+                incomeCount=a.income_count,
+                expenseCount=a.expense_count,
+                piggyBankBalance=a.piggy_bank_balance,
+                createdAt=a.created_at,
+            )
+            for a in archives_db
+        ],
     )
 
 

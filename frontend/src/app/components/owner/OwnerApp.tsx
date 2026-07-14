@@ -863,11 +863,29 @@ export function OwnerApp() {
   const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
   const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
-  const totalRevenue = completedBookings.reduce((s, b) => s + b.price, 0);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const totalIncomes = incomes.reduce((s, i) => s + i.amount, 0);
+
+  // Current week bounds (Monday - Sunday) for weekly KPI filtering
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const weekMonday = new Date(now);
+  weekMonday.setDate(now.getDate() - diffToMonday);
+  weekMonday.setHours(0, 0, 0, 0);
+  const weekSunday = new Date(weekMonday);
+  weekSunday.setDate(weekMonday.getDate() + 6);
+  weekSunday.setHours(23, 59, 59, 999);
+  const isDateInWeek = (dateStr: string) => {
+    const d = parseFlexibleDate(dateStr);
+    return d ? d >= weekMonday && d <= weekSunday : false;
+  };
+  const weeklyCompletedBookings = completedBookings.filter((b) => isDateInWeek(b.date));
+  const weeklyExpenses = expenses.filter((e) => isDateInWeek(e.date));
+  const weeklyIncomes = incomes.filter((i) => isDateInWeek(i.date));
+  const totalRevenue = weeklyCompletedBookings.reduce((s, b) => s + b.price, 0);
+  const totalExpenses = weeklyExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalIncomes = weeklyIncomes.reduce((s, i) => s + i.amount, 0);
   const profit = totalRevenue + totalIncomes - totalExpenses;
-  const averageCheck = completedBookings.length > 0 ? Math.round(totalRevenue / completedBookings.length) : 0;
+  const averageCheck = weeklyCompletedBookings.length > 0 ? Math.round(totalRevenue / weeklyCompletedBookings.length) : 0;
   const activeBookings = bookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
   const pipelineCounts = {
     new: bookings.filter((booking) => booking.status === 'new').length,
@@ -1979,16 +1997,16 @@ export function OwnerApp() {
 
   const kpiCards = [
     { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
-    { label: 'Расходы всего', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
-    { label: 'Прибыль', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
-    { label: 'Записей', value: bookings.length, icon: Users, color: '#A855F7' },
+    { label: 'Расходы за неделю', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
+    { label: 'Прибыль за неделю', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
+    { label: 'Записей за неделю', value: bookings.length, icon: Users, color: '#A855F7' },
   ];
 
   const byService = services
     .map(service => ({
       name: service.name.split(' ')[0],
-      revenue: bookings.filter(booking => booking.serviceId === service.id && booking.status === 'completed').reduce((sum, booking) => sum + booking.price, 0),
-      count: bookings.filter(booking => booking.serviceId === service.id).length,
+      revenue: weeklyCompletedBookings.filter(booking => booking.serviceId === service.id).reduce((sum, booking) => sum + booking.price, 0),
+      count: weeklyCompletedBookings.filter(booking => booking.serviceId === service.id).length,
     }))
     .filter(service => service.count > 0);
   const revenueWeek = getLastNDates(7).map((date) => {
@@ -3882,6 +3900,44 @@ export function OwnerApp() {
                   </div>
                 );
               })()}
+
+              {/* Archives */}
+              {piggyBank?.archives && piggyBank.archives.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-4 mt-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Архив недель</div>
+                  <div className="space-y-2">
+                    {piggyBank.archives.map(a => (
+                      <div key={a.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="text-sm font-medium">
+                            {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
+                          </div>
+                          <div className="font-semibold text-sm" style={{ color: a.piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
+                            {a.piggyBankBalance >= 0 ? '+' : ''}{a.piggyBankBalance.toLocaleString('ru')} ₽
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>Выручка</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>Доходы</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px]" style={{ color: '#FF6B6B' }}>−{a.totalExpense.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>Расходы</div>
+                          </div>
+                        </div>
+                        <div className={`text-[10px] ${sub} mt-2 text-center`}>
+                          {a.bookingCount} записей · {a.incomeCount} доходов · {a.expenseCount} расходов · Копилка: {a.piggyBankBalance.toLocaleString('ru')} ₽
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 

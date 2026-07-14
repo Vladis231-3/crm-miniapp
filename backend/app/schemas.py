@@ -1318,6 +1318,7 @@ class PiggyBankResponse(BaseModel):
     detailingExpenses: int = 0
     detailingIncomes: int = 0
     remainingInPiggyBank: int = 0
+    archives: list[WeeklyArchivePayload] = Field(default_factory=list)
 
 
 class WeeklyArchivePayload(BaseModel):
