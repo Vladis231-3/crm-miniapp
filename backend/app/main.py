@@ -6643,21 +6643,43 @@ def get_piggy_bank(
 ) -> PiggyBankResponse:
     _ensure_staff_role(session_data, {"owner", "accountant"})
 
-    query = select(PiggyBankTransaction).order_by(
-        PiggyBankTransaction.created_at.desc()
-    )
-    if booking_id:
-        query = query.where(PiggyBankTransaction.booking_id == booking_id)
-    if date_from:
-        query = query.where(PiggyBankTransaction.date >= date_from)
-    if date_to:
-        query = query.where(PiggyBankTransaction.date <= date_to)
-    transactions = db.scalars(query).all()
+    # Helper to parse DD.MM.YYYY or YYYY-MM-DD to date
+    def _parse_date_str(s: str) -> date | None:
+        try:
+            if "." in s:
+                parts = s.split(".")
+                return date(int(parts[2]), int(parts[1]), int(parts[0]))
+            return date.fromisoformat(s)
+        except (ValueError, IndexError):
+            return None
 
-    balance = sum(t.amount for t in transactions)
+    parsed_from = _parse_date_str(date_from) if date_from else None
+    parsed_to = _parse_date_str(date_to) if date_to else None
+
+    def _in_range(d: str | None) -> bool:
+        if not d:
+            return True
+        parsed = _parse_date_str(d)
+        if not parsed:
+            return True
+        if parsed_from and parsed < parsed_from:
+            return False
+        if parsed_to and parsed > parsed_to:
+            return False
+        return True
+
+    # Load ALL transactions — balance is always all-time
+    all_tx = db.scalars(
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+    ).all()
+    balance = sum(t.amount for t in all_tx)
+    # Filter transactions by date for display only
+    if booking_id:
+        all_tx = [t for t in all_tx if t.booking_id == booking_id]
+    filtered_tx = [t for t in all_tx if _in_range(t.date)]
 
     transaction_payloads = []
-    for t in transactions:
+    for t in filtered_tx:
         booking_info = None
         if t.booking_id:
             b = db.get(Booking, t.booking_id)
@@ -6683,25 +6705,18 @@ def get_piggy_bank(
         s.id: s for s in db.scalars(select(Service)).all()
     }
 
-    # Build date filters for breakdowns
-    booking_filters = [Booking.status == "completed", Booking.deleted_at.is_(None)]
-    if date_from:
-        booking_filters.append(Booking.date >= date_from)
-    if date_to:
-        booking_filters.append(Booking.date <= date_to)
-
     # === Wash breakdown ===
-    completed_wash_bookings = (
-        db.scalars(
-            select(Booking)
-            .where(*booking_filters)
-            .order_by(Booking.date.desc())
-        )
-        .all()
-    )
+    all_completed_bookings = db.scalars(
+        select(Booking)
+        .where(Booking.status == "completed", Booking.deleted_at.is_(None))
+        .order_by(Booking.date.desc())
+    ).all()
+
     self_service_revenue = 0
     classic_revenue = 0
-    for booking in completed_wash_bookings:
+    for booking in all_completed_bookings:
+        if not _in_range(booking.date):
+            continue
         svc = services_map.get(booking.service_id)
         if svc is None or svc.resource_group != WASH_RESOURCE_GROUP:
             continue
@@ -6717,77 +6732,45 @@ def get_piggy_bank(
     total_master = self_master + classic_master
     total_piggy = self_piggy + classic_piggy
 
+    # === Detailing breakdown ===
+    detailing_revenue = 0
+    for booking in all_completed_bookings:
+        if not _in_range(booking.date):
+            continue
+        svc = services_map.get(booking.service_id)
+        if svc and svc.resource_group == "detailing":
+            detailing_revenue += booking.price
+    detailing_master = round(detailing_revenue * 40 / 100)
+
     # Master daily outputs (use date range if provided)
     inspections = _admin_shift_inspections_state(db)
-    workers = db.scalars(select(StaffUser).where(
+    workers_list = db.scalars(select(StaffUser).where(
         StaffUser.role.in_({"worker", "admin"}),
         StaffUser.active.is_(True),
     )).all()
     total_daily_outputs = 0
-    for worker in workers:
-        shift_start = date.fromisoformat(date_from) if date_from else date(2000, 1, 1)
-        shift_end = date.fromisoformat(date_to) if date_to else date.today()
-        shift_count, _ = _compute_shift_attendance(
-            inspections, worker.id, shift_start, shift_end
-        )
-        salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
+    for w in workers_list:
+        sd = parsed_from or date(2000, 1, 1)
+        ed = parsed_to or date.today()
+        shift_count, _ = _compute_shift_attendance(inspections, w.id, sd, ed)
+        salary_per_shift = getattr(w, "salary_per_shift", 0) or 0
         total_daily_outputs += shift_count * salary_per_shift
 
-    # Wash expenses/incomes with date filter
-    wash_exp_q = [Expense.resource_group == WASH_RESOURCE_GROUP]
-    wash_inc_q = [Income.resource_group == WASH_RESOURCE_GROUP]
-    det_exp_q = [Expense.resource_group == "detailing"]
-    det_inc_q = [Income.resource_group == "detailing"]
-    if date_from:
-        wash_exp_q.append(Expense.date >= date_from)
-        wash_inc_q.append(Income.date >= date_from)
-        det_exp_q.append(Expense.date >= date_from)
-        det_inc_q.append(Income.date >= date_from)
-    if date_to:
-        wash_exp_q.append(Expense.date <= date_to)
-        wash_inc_q.append(Income.date <= date_to)
-        det_exp_q.append(Expense.date <= date_to)
-        det_inc_q.append(Income.date <= date_to)
+    # Expenses and incomes filtered in Python
+    all_expenses = db.scalars(select(Expense)).all()
+    all_incomes = db.scalars(select(Income)).all()
 
-    wash_expenses = (
-        db.scalar(
-            select(func.coalesce(func.sum(Expense.amount), 0))
-            .where(*wash_exp_q)
-        ) or 0
-    )
-    wash_incomes = (
-        db.scalar(
-            select(func.coalesce(func.sum(Income.amount), 0))
-            .where(*wash_inc_q)
-        ) or 0
-    )
+    wash_expenses = sum(e.amount for e in all_expenses if e.resource_group == WASH_RESOURCE_GROUP and _in_range(e.date))
+    wash_incomes = sum(i.amount for i in all_incomes if i.resource_group == WASH_RESOURCE_GROUP and _in_range(i.date))
+    detailing_expenses = sum(e.amount for e in all_expenses if e.resource_group == "detailing" and _in_range(e.date))
+    detailing_incomes = sum(i.amount for i in all_incomes if i.resource_group == "detailing" and _in_range(i.date))
+
     remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
 
-    # === Detailing breakdown ===
-    completed_detailing_bookings = [
-        b for b in completed_wash_bookings
-        if services_map.get(b.service_id) and services_map[b.service_id].resource_group == "detailing"
-    ]
-    detailing_revenue = sum(b.price for b in completed_detailing_bookings)
-    detailing_master = round(detailing_revenue * 40 / 100)
-
-    deposits_24 = sum(t.amount for t in transactions if t.transaction_type == "deposit_24percent")
-    withdrawals = sum(abs(t.amount) for t in transactions if t.transaction_type == "material_withdrawal" and t.amount < 0)
-    repayments = sum(t.amount for t in transactions if t.transaction_type == "material_repayment")
+    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent")
+    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0)
+    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment")
     net_piggy = deposits_24 + repayments - withdrawals
-
-    detailing_expenses = (
-        db.scalar(
-            select(func.coalesce(func.sum(Expense.amount), 0))
-            .where(*det_exp_q)
-        ) or 0
-    )
-    detailing_incomes = (
-        db.scalar(
-            select(func.coalesce(func.sum(Income.amount), 0))
-            .where(*det_inc_q)
-        ) or 0
-    )
 
     # Weekly archives
     archives_db = db.scalars(
