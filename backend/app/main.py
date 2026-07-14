@@ -5505,8 +5505,20 @@ def create_booking(
             ) * max(1, booking_duration // 60)
     elif booking_box:
         compatible_boxes = _compatible_box_names(db, service_resource_group)
-        if compatible_boxes and booking_box not in compatible_boxes:
-            booking_box = compatible_boxes[0]
+        if compatible_boxes:
+            if booking_box not in compatible_boxes:
+                booking_box = compatible_boxes[0]
+        elif requires_scheduled_slot:
+            picked = _pick_available_box(
+                db,
+                booking_id=None,
+                date_value=booking_date,
+                time_value=booking_time,
+                duration=booking_duration,
+                resource_group=service_resource_group,
+            )
+            if picked is not None:
+                booking_box = picked
     elif requires_scheduled_slot and not booking_box:
         booking_box = _pick_available_box(
             db,

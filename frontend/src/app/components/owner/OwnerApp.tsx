@@ -1654,6 +1654,9 @@ export function OwnerApp() {
   const openBookingForClient = (client: RegisteredClient, status: BookingStatus = 'completed') => {
     const historyDate = new Date();
     historyDate.setDate(historyDate.getDate() - 1);
+    const firstServiceId = services[0]?.id || 's1';
+    const availableBoxes = ownerBookingBoxes(firstServiceId, services, boxes);
+    const defaultBox = availableBoxes[0]?.name || '';
     setBookingWorkers([]);
     setBookingForm({
       clientId: client.id,
@@ -1661,10 +1664,10 @@ export function OwnerApp() {
       clientPhone: client.phone,
       car: client.car || '',
       plate: client.plate || '',
-      service: services[0]?.id || 's1',
+      service: firstServiceId,
       date: status === 'completed' ? formatDate(historyDate) : tomorrowLabel,
       time: '10:00',
-      box: '',
+      box: status !== 'completed' ? defaultBox : '',
       status,
       paymentSettled: true,
       price: 0,
@@ -1747,6 +1750,13 @@ export function OwnerApp() {
         return;
       }
     }
+    const requiresScheduledSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(bookingForm.status);
+    if (requiresScheduledSlot && !bookingForm.box.trim()) {
+      setBottomToast('Для записи на это время укажите помещение');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+
     const selectedWorkers = bookingWorkers
       .map((item) => {
         const worker = workers.find((candidate) => candidate.id === item.id);
@@ -1767,7 +1777,7 @@ export function OwnerApp() {
         price: bookingForm.price || svc.price,
         status: bookingForm.status,
         workers: selectedWorkers,
-        box: bookingForm.box.trim() || 'По согласованию',
+        box: bookingForm.box.trim(),
         paymentType: 'cash',
         paymentSettled: bookingForm.status === 'completed' ? bookingForm.paymentSettled : true,
         car: normalizedCar,
@@ -6109,7 +6119,7 @@ export function OwnerApp() {
                     <span className={`text-xs ${sub}`}>Выбрано: {bookingWorkers.length}</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto">
-                    {workers.filter(worker => worker.role === 'worker' && worker.active).map(worker => {
+                    {workers.filter(worker => worker.role === 'worker').map(worker => {
                       const assigned = bookingWorkers.find(item => item.id === worker.id);
                       return (
                         <div key={worker.id} className={`${glass} rounded-xl p-3`}>
@@ -6626,7 +6636,7 @@ export function OwnerApp() {
                     <span className={`text-xs ${sub}`}>Сумма: {totalOwnerNewBookingPercent}%</span>
                   </div>
                   <div className="space-y-2">
-                    {ownerNewBookingMasterWorkers.filter(worker => worker.active).map(worker => {
+                    {ownerNewBookingMasterWorkers.map(worker => {
                       const assigned = ownerNewBookingWorkers.find(item => item.id === worker.id);
                       return (
                         <div key={worker.id} className={`${glass} rounded-xl p-3`}>
