@@ -709,7 +709,7 @@ export function OwnerApp() {
   }
 
   useEffect(() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }, [page, piggyDateFrom, piggyDateTo]);
-  useEffect(() => { if (page === 'wallet') { void loadWallet(); } }, [page]);
+  useEffect(() => { if (page === 'wallet' || page === 'dashboard') { void loadWallet(); } }, [page]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -2830,6 +2830,44 @@ export function OwnerApp() {
                       <span className="text-sm">Низкий остаток: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Weekly archive */}
+              {walletData?.archives && walletData.archives.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Архив недель</div>
+                  <div className="space-y-2">
+                    {walletData.archives.map(a => (
+                      <div key={a.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="text-sm font-medium">
+                            {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
+                          </div>
+                          <div className="font-semibold text-sm" style={{ color: a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? accent : '#FF6B6B' }}>
+                            {a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? '+' : ''}{(a.totalRevenue + a.totalIncome - a.totalExpense).toLocaleString('ru')} ₽
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>Выручка</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>Доходы</div>
+                          </div>
+                          <div>
+                            <div className="text-[11px]" style={{ color: '#FF6B6B' }}>−{a.totalExpense.toLocaleString('ru')} ₽</div>
+                            <div className={`text-[10px] ${sub}`}>Расходы</div>
+                          </div>
+                        </div>
+                        <div className={`text-[10px] ${sub} mt-2 text-center`}>
+                          {a.bookingCount} записей · {a.incomeCount} доходов · {a.expenseCount} расходов · Копилка: {a.piggyBankBalance.toLocaleString('ru')} ₽
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </motion.div>
