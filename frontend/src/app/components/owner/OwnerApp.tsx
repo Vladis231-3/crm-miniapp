@@ -446,6 +446,14 @@ export function OwnerApp() {
   const [piggyDateFrom, setPiggyDateFrom] = useState('');
   const [piggyDateTo, setPiggyDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
+
+  // Report date range state (defaults to current week)
+  const __nowRpt = new Date();
+  const __dowRpt = __nowRpt.getDay();
+  const __monRpt = new Date(__nowRpt); __monRpt.setDate(__nowRpt.getDate() - (__dowRpt === 0 ? 6 : __dowRpt - 1));
+  const __sunRpt = new Date(__monRpt); __sunRpt.setDate(__monRpt.getDate() + 6);
+  const [reportDateFrom, setReportDateFrom] = useState(formatDate(__monRpt));
+  const [reportDateTo, setReportDateTo] = useState(formatDate(__sunRpt));
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
 
   // Wallet state
@@ -3991,12 +3999,70 @@ export function OwnerApp() {
 
           {/* ── REPORTS ── */}
           {page === 'reports' && (
+            (() => {
+              const isDateInReportRange = (dateStr: string) => {
+                const d = parseFlexibleDate(dateStr);
+                if (!d) return false;
+                const from = parseFlexibleDate(reportDateFrom);
+                const to = parseFlexibleDate(reportDateTo);
+                if (from && d < from) return false;
+                if (to && d > to) return false;
+                return true;
+              };
+              const reportCompletedBookings = completedBookings.filter(b => isDateInReportRange(b.date));
+              const reportFilteredExpenses = expenses.filter(e => isDateInReportRange(e.date));
+              const reportFilteredIncomes = incomes.filter(i => isDateInReportRange(i.date));
+              const reportTotalRevenue = reportCompletedBookings.reduce((s, b) => s + b.price, 0);
+              const reportTotalExpenses = reportFilteredExpenses.reduce((s, e) => s + e.amount, 0);
+              const reportTotalIncomes = reportFilteredIncomes.reduce((s, i) => s + i.amount, 0);
+              const reportProfit = reportTotalRevenue + reportTotalIncomes - reportTotalExpenses;
+              const reportAverageCheck = reportCompletedBookings.length > 0 ? Math.round(reportTotalRevenue / reportCompletedBookings.length) : 0;
+              const reportByService = services.map(service => ({
+                name: service.name.split(' ')[0],
+                revenue: reportCompletedBookings.filter(booking => booking.serviceId === service.id).reduce((sum, booking) => sum + booking.price, 0),
+                count: reportCompletedBookings.filter(booking => booking.serviceId === service.id).length,
+              })).filter(service => service.count > 0);
+              const reportTopServiceName = [...reportByService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
+              const reportBoxLoadData = boxes.filter((box) => box.active).map((box) => {
+                const boxBookings = reportCompletedBookings.filter((booking) => booking.box === box.name);
+                return {
+                  name: box.name,
+                  count: bookings.filter((booking) => booking.box === box.name).length,
+                  revenue: boxBookings.reduce((sum, booking) => sum + booking.price, 0),
+                };
+              });
+              const reportWorkerEfficiencyData = workers.filter((worker) => worker.active).map((worker) => {
+                const workerBookings = reportCompletedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
+                const workerRevenue = workerBookings.reduce((sum, booking) => sum + booking.price, 0);
+                return {
+                  id: worker.id,
+                  name: worker.name,
+                  completed: workerBookings.length,
+                  revenue: workerRevenue,
+                  averageCheck: workerBookings.length > 0 ? Math.round(workerRevenue / workerBookings.length) : 0,
+                };
+              }).sort((left, right) => right.revenue - left.revenue);
+              return (
             <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Отчёты</h2>
                 <button onClick={() => { void handleExport('pdf'); }} disabled={exportingKind !== null} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white disabled:opacity-60" style={{ background: accent }}>
                   <Download size={14} />{exportingKind === 'pdf' ? 'Выгрузка...' : 'Экспорт PDF'}
                 </button>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="text-xs text-[#6B7280] mb-3">Период отчёта</div>
+                <div className="flex items-center gap-2">
+                  <input type="date" value={toISODate(reportDateFrom)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setReportDateFrom(val ? formatDate(val) : '');
+                  }} className="flex-1 px-3 py-2 rounded-xl text-sm border" style={{ background: isDark ? '#1A2332' : '#F9FAFB', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: isDark ? '#E5E7EB' : '#111827' }} />
+                  <span className="text-xs text-[#6B7280]">—</span>
+                  <input type="date" value={toISODate(reportDateTo)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setReportDateTo(val ? formatDate(val) : '');
+                  }} className="flex-1 px-3 py-2 rounded-xl text-sm border" style={{ background: isDark ? '#1A2332' : '#F9FAFB', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: isDark ? '#E5E7EB' : '#111827' }} />
+                </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="text-xs text-[#6B7280] mb-3">Сводные Telegram-отчёты</div>
@@ -4024,8 +4090,8 @@ export function OwnerApp() {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'Средний чек', value: `${averageCheck.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Топ-услуга', value: topServiceName, color: '#A855F7' },
+                  { label: 'Средний чек', value: `${reportAverageCheck.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Топ-услуга', value: reportTopServiceName, color: '#A855F7' },
                   { label: 'Активных клиентов', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
                   { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
                 ].map((item) => (
@@ -4038,11 +4104,11 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-3`}>ФИНАНСОВЫЙ ИТОГ</div>
                 {[
-                  { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent },
-                  { label: 'Доп. доходы', value: `${totalIncomes.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
-                  { label: 'Прибыль', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, color: profit >= 0 ? accent : '#FF6B6B' },
-                  { label: 'Маржа', value: `${totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0}%`, color: '#A855F7' },
+                  { label: 'Выручка', value: `${reportTotalRevenue.toLocaleString('ru')} ₽`, color: accent },
+                  { label: 'Доп. доходы', value: `${reportTotalIncomes.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Расходы', value: `${reportTotalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
+                  { label: 'Прибыль', value: `${Math.abs(reportProfit).toLocaleString('ru')} ₽${reportProfit < 0 ? ' (убыток)' : ''}`, color: reportProfit >= 0 ? accent : '#FF6B6B' },
+                  { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#A855F7' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className="text-sm">{r.label}</span>
@@ -4079,11 +4145,11 @@ export function OwnerApp() {
               )}
 
               {/* Доходы */}
-              {incomes.length > 0 && (
+              {reportFilteredIncomes.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
                   <div className={`text-xs ${sub} mb-3`}>ДОХОДЫ</div>
                   <div className="space-y-2">
-                    {incomes.slice(0, 10).map(inc => (
+                    {reportFilteredIncomes.slice(0, 10).map(inc => (
                       <div key={inc.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <div>
                           <div className="text-sm font-medium">{inc.source}</div>
@@ -4099,7 +4165,7 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-3`}>ВЫРУЧКА ПО УСЛУГАМ</div>
                 <ResponsiveContainer width="100%" height={120}>
-                  <BarChart data={byService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <BarChart data={reportByService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                     <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
@@ -4111,7 +4177,7 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-3`}>ЗАГРУЗКА ПО БОКСАМ</div>
                 <div className="space-y-3">
-                  {boxLoadData.map((box) => (
+                  {reportBoxLoadData.map((box) => (
                     <div key={box.name}>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium">{box.name}</span>
@@ -4127,7 +4193,7 @@ export function OwnerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-3`}>ЭФФЕКТИВНОСТЬ МАСТЕРОВ</div>
                 <div className="space-y-2">
-                  {workerEfficiencyData.map((worker) => (
+                  {reportWorkerEfficiencyData.map((worker) => (
                     <div key={worker.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{worker.name}</div>
@@ -4270,8 +4336,10 @@ export function OwnerApp() {
                   <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                 </div>
               ))}
-            </motion.div>
-          )}
+              </motion.div>
+            );
+          })()
+        )}
 
           {/* ── SETTINGS MAIN ── */}
           {!isAccountant && page === 'settings' && !settingsSection && (
