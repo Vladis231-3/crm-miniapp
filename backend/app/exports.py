@@ -740,7 +740,9 @@ def _summary_period_bounds(period: ReportPeriod, current: datetime) -> tuple[dat
     end_at = current.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     if period == "daily":
         return end_at - timedelta(days=1), end_at, "Ежедневный"
-    return end_at - timedelta(days=7), end_at, "Еженедельный"
+    days_since_saturday = (current.weekday() - 5) % 7
+    start_at = end_at - timedelta(days=days_since_saturday + 7)
+    return start_at, end_at, "Еженедельный"
 
 
 def _summary_period_label(period_start: datetime, period_end: datetime) -> str:

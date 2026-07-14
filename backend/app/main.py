@@ -1257,6 +1257,10 @@ def _parse_booking_datetime(date_value: str, time_value: str) -> datetime | None
     return None
 
 
+def _py_weekday_to_schedule_index(py_weekday: int) -> int:
+    return (py_weekday + 2) % 7
+
+
 def _parse_time_to_minutes(time_value: str) -> int | None:
     raw = time_value.strip()
     if len(raw) != 5 or raw[2] != ":":
@@ -1348,7 +1352,7 @@ def _ensure_booking_within_schedule(
 
     scheduled_at, _ = time_range
     day_schedule = db.scalar(
-        select(ScheduleEntry).where(ScheduleEntry.day_index == scheduled_at.weekday())
+        select(ScheduleEntry).where(ScheduleEntry.day_index == _py_weekday_to_schedule_index(scheduled_at.weekday()))
     )
     if day_schedule is None or not day_schedule.active:
         raise HTTPException(
@@ -1455,7 +1459,7 @@ def _booking_slot_availability(
         )
 
     day_schedule = db.scalar(
-        select(ScheduleEntry).where(ScheduleEntry.day_index == parsed_date.weekday())
+        select(ScheduleEntry).where(ScheduleEntry.day_index == _py_weekday_to_schedule_index(parsed_date.weekday()))
     )
     if day_schedule is None or not day_schedule.active:
         return BookingAvailabilityPayload(date=date_value, duration=duration, slots=[])
@@ -4547,7 +4551,7 @@ def run_reports_cron(
 
     sent: list[str] = []
     today = datetime.now()
-    is_monday = today.weekday() == 0
+    is_saturday = today.weekday() == 5
     first_owner_id = (telegram_recipients[0] if telegram_recipients else all_owners[0]).id
 
     for segment in ("wash", "detailing"):
@@ -4583,7 +4587,7 @@ def run_reports_cron(
             except Exception:
                 logger.exception("Cron: failed to build daily/%s report", segment)
 
-        if owner_settings.get("weeklyReport", False) and is_monday:
+        if owner_settings.get("weeklyReport", False) and is_saturday:
             try:
                 report = _owner_summary_report(db, first_owner_id, "weekly", segment)
                 export_file = _owner_summary_export_file(db, first_owner_id, "weekly", segment)
@@ -4621,12 +4625,12 @@ def run_reports_cron(
 
 def _create_weekly_archive(db: Session) -> str | None:
     today = date.today()
-    days_since_monday = today.weekday()
-    last_monday = today - timedelta(days=days_since_monday + 7)
-    last_sunday = last_monday + timedelta(days=6)
+    days_since_saturday = (today.weekday() - 5) % 7
+    last_saturday = today - timedelta(days=days_since_saturday + 7)
+    last_friday = last_saturday + timedelta(days=6)
 
-    week_start_str = last_monday.isoformat()
-    week_end_str = last_sunday.isoformat()
+    week_start_str = last_saturday.isoformat()
+    week_end_str = last_friday.isoformat()
 
     existing = db.scalars(
         select(WeeklyArchive).where(WeeklyArchive.week_start == week_start_str)
@@ -4727,9 +4731,8 @@ def run_weekly_archive_cron(
     msg = _create_weekly_archive(db)
     if msg is None:
         today = date.today()
-        days_since_monday = today.weekday()
-        last_monday = today - timedelta(days=days_since_monday + 7)
-        return GenericMessage(message=f"Архив за неделю {last_monday.isoformat()} уже существует")
+        last_saturday = today - timedelta(days=((today.weekday() - 5) % 7) + 7)
+        return GenericMessage(message=f"Архив за неделю {last_saturday.isoformat()} уже существует")
     return GenericMessage(message=msg)
 
 
@@ -6908,9 +6911,9 @@ def piggy_bank_withdraw(
 
 def _week_bounds() -> tuple[date, date]:
     today = date.today()
-    monday = today - timedelta(days=today.weekday())
-    sunday = monday + timedelta(days=6)
-    return monday, sunday
+    saturday = today - timedelta(days=(today.weekday() - 5) % 7)
+    friday = saturday + timedelta(days=6)
+    return saturday, friday
 
 
 @app.get("/api/owner/wallet", response_model=WalletResponse)
@@ -6920,9 +6923,9 @@ def get_wallet(
 ) -> WalletResponse:
     _ensure_staff_role(session_data, {"owner", "accountant"})
 
-    monday, sunday = _week_bounds()
-    week_start_str = monday.isoformat()
-    week_end_str = sunday.isoformat()
+    saturday, friday = _week_bounds()
+    week_start_str = saturday.isoformat()
+    week_end_str = friday.isoformat()
 
     # Filter incomes for current week
     incomes = db.scalars(
@@ -7841,9 +7844,9 @@ def _salary_date_range(period: str, ref: date | None = None) -> tuple[str, str]:
     if period == "day":
         return ref.strftime("%d.%m.%Y"), ref.strftime("%d.%m.%Y")
     elif period == "week":
-        monday = ref - timedelta(days=ref.weekday())
-        sunday = monday + timedelta(days=6)
-        return monday.strftime("%d.%m.%Y"), sunday.strftime("%d.%m.%Y")
+        saturday = ref - timedelta(days=(ref.weekday() - 5) % 7)
+        friday = saturday + timedelta(days=6)
+        return saturday.strftime("%d.%m.%Y"), friday.strftime("%d.%m.%Y")
     elif period == "month":
         first = ref.replace(day=1)
         if ref.month == 12:

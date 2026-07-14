@@ -152,7 +152,7 @@ function parseOwnerBookingMinutes(value: string): number | null {
   return hours * 60 + minutes;
 }
 
-const OWNER_CALENDAR_WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const OWNER_CALENDAR_WEEKDAYS = ['Сб', 'Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
 const OWNER_CALENDAR_MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
@@ -172,7 +172,7 @@ function ownerBuildMonthCells(monthDate: Date): Array<{ date: Date | null; dateL
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const first = new Date(year, month, 1);
-  const offset = (first.getDay() + 6) % 7;
+  const offset = (first.getDay() + 1) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: Array<{ date: Date | null; dateLabel: string }> = [];
   for (let index = 0; index < offset; index += 1) {
@@ -474,7 +474,7 @@ export function OwnerApp() {
     time: '10:00',
     box: liveBoxes[0]?.name || 'Бокс 1',
     status: 'confirmed' as BookingStatus,
-    paymentSettled: true,
+    paymentSettled: false,
     price: 0,
     duration: 30,
   });
@@ -880,19 +880,19 @@ export function OwnerApp() {
   const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
 
-  // Current week bounds (Monday - Sunday) for weekly KPI filtering
+  // Current week bounds (Saturday - Friday) for weekly KPI filtering
   const now = new Date();
   const dayOfWeek = now.getDay();
-  const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekMonday = new Date(now);
-  weekMonday.setDate(now.getDate() - diffToMonday);
-  weekMonday.setHours(0, 0, 0, 0);
-  const weekSunday = new Date(weekMonday);
-  weekSunday.setDate(weekMonday.getDate() + 6);
-  weekSunday.setHours(23, 59, 59, 999);
+  const diffToSaturday = (dayOfWeek + 1) % 7;
+  const weekSaturday = new Date(now);
+  weekSaturday.setDate(now.getDate() - diffToSaturday);
+  weekSaturday.setHours(0, 0, 0, 0);
+  const weekFriday = new Date(weekSaturday);
+  weekFriday.setDate(weekSaturday.getDate() + 6);
+  weekFriday.setHours(23, 59, 59, 999);
   const isDateInWeek = (dateStr: string) => {
     const d = parseFlexibleDate(dateStr);
-    return d ? d >= weekMonday && d <= weekSunday : false;
+    return d ? d >= weekSaturday && d <= weekFriday : false;
   };
   const weeklyCompletedBookings = completedBookings.filter((b) => isDateInWeek(b.date));
   const weeklyExpenses = expenses.filter((e) => isDateInWeek(e.date));
@@ -1661,7 +1661,7 @@ export function OwnerApp() {
       time: '10:00',
       box: '',
       status: 'confirmed',
-      paymentSettled: true,
+      paymentSettled: false,
       price: 0,
       duration: 30,
     });
@@ -1685,7 +1685,7 @@ export function OwnerApp() {
       time: '10:00',
       box: status !== 'completed' ? defaultBox : '',
       status,
-      paymentSettled: true,
+      paymentSettled: false,
       price: 0,
       duration: 30,
     });
@@ -1795,7 +1795,7 @@ export function OwnerApp() {
         workers: selectedWorkers,
         box: bookingForm.box.trim(),
         paymentType: 'cash',
-        paymentSettled: bookingForm.status === 'completed' ? bookingForm.paymentSettled : true,
+        paymentSettled: bookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
         notifyWorkers: selectedWorkers.length > 0 && bookingForm.status !== 'completed',
@@ -6223,16 +6223,14 @@ export function OwnerApp() {
                 <div><label className={`text-xs ${sub} block mb-1`}>Время</label><select className={selectCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))}><option value="">--:--</option>{TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}</select></div>
 
                 <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
-                {bookingForm.status === 'completed' && (
-                  <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                    <span>Оплачено</span>
-                    <input
-                      type="checkbox"
-                      checked={bookingForm.paymentSettled}
-                      onChange={(event) => setBookingForm((current) => ({ ...current, paymentSettled: event.target.checked }))}
-                    />
-                  </label>
-                )}
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Оплачено</span>
+                  <input
+                    type="checkbox"
+                    checked={bookingForm.paymentSettled}
+                    onChange={(event) => setBookingForm((current) => ({ ...current, paymentSettled: event.target.checked }))}
+                  />
+                </label>
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
