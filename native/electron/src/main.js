@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -6,21 +6,32 @@ const net = require('net');
 const PORT = 8000;
 const BACKEND_URL = `http://127.0.0.1:${PORT}`;
 
-// Path to project root (concept1.0 or shiny-falcon)
-const PROJECT_DIR = path.resolve(__dirname, '..', '..', '..');
-const BACKEND_DIR = path.join(PROJECT_DIR, 'backend');
-const BACKEND_SCRIPT = path.join(BACKEND_DIR, 'run_desktop.py');
-const BACKEND_ENV = path.join(BACKEND_DIR, '.env');
-
 let backendProcess = null;
 let mainWindow = null;
+let bootTimedOut = false;
 
-function waitForPort(port, timeout = 30000) {
+// В собранном (packaged) приложении extraResources кладёт собранный
+// PyInstaller-бэкенд в resources/backend. В dev (npm start) — берём из
+// desktop/build рядом с корнем проекта.
+function resolveBackendDir() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'backend');
+  }
+  // dev-режим: <project>/desktop/build/atmosfera-backend
+  const projectRoot = path.resolve(__dirname, '..', '..', '..');
+  return path.join(projectRoot, 'desktop', 'build', 'atmosfera-backend');
+}
+
+function backendExeName() {
+  return process.platform === 'win32' ? 'atmosfera-backend.exe' : 'atmosfera-backend';
+}
+
+function waitForPort(port, timeout = 60000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     function check() {
       if (Date.now() - start > timeout) {
-        reject(new Error('Backend did not start within timeout'));
+        reject(new Error('Бэкенд не запустился за отведённое время'));
         return;
       }
       const sock = new net.Socket();
@@ -38,27 +49,55 @@ function waitForPort(port, timeout = 30000) {
   });
 }
 
-function startBackend() {
-  console.log('Starting backend...');
-  console.log(`  Script: ${BACKEND_SCRIPT}`);
+// Надёжно завершаем дерево процессов бэкенда (PyInstaller onedir порождает
+// дочерний процесс; обычный kill() оставляет его висеть).
+function killBackendTree() {
+  if (!backendProcess || backendProcess.killed) {
+    backendProcess = null;
+    return;
+  }
+  try {
+    // taskkill /T убивает и дочерние процессы. Используем PID, не имя exe,
+    // чтобы не задеть другие копии CRM.
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/F', '/T', '/PID', String(backendProcess.pid)], {
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+    }
+  } catch (_) {
+    /* best effort */
+  }
+  try {
+    backendProcess.kill();
+  } catch (_) {
+    /* best effort */
+  }
+  backendProcess = null;
+}
 
-  backendProcess = spawn('python', [BACKEND_SCRIPT], {
-    cwd: BACKEND_DIR,
-    env: {
-      ...process.env,
-      APP_ENV: 'development',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+function startBackend() {
+  const backendDir = resolveBackendDir();
+  const exe = path.join(backendDir, backendExeName());
+  console.log(`Starting backend: ${exe}`);
+
+  backendProcess = spawn(exe, [], {
+    cwd: backendDir,
+    windowsHide: false, // консоль бэкенда полезна при отладке
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
+
+  // Закрываем stdin сразу — PyInstaller-бэкенд на Windows виснет на startup,
+  // если stdin-pipe остаётся открытым (ждёт ввода). EOF позволяет uvicorn
+  // продолжить запуск.
+  backendProcess.stdin.end();
 
   backendProcess.stdout.on('data', (data) => {
     console.log(`[backend] ${data.toString().trim()}`);
   });
-
   backendProcess.stderr.on('data', (data) => {
     console.error(`[backend:err] ${data.toString().trim()}`);
   });
-
   backendProcess.on('close', (code) => {
     console.log(`Backend exited with code ${code}`);
     backendProcess = null;
@@ -67,12 +106,13 @@ function startBackend() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 800,
+    width: 1280,
+    height: 860,
     minWidth: 375,
     minHeight: 600,
     title: 'Atmosfera CRM',
     icon: path.join(__dirname, '..', 'icon.ico'),
+    backgroundColor: '#0b1220',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -80,6 +120,15 @@ function createWindow() {
   });
 
   mainWindow.loadURL(BACKEND_URL);
+
+  // Внешние ссылки открываем в системном браузере, не в окне приложения.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://127.0.0.1:') || url.startsWith('http://localhost:')) {
+      return { action: 'allow' };
+    }
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -95,23 +144,36 @@ app.on('ready', async () => {
     console.log('Backend is ready!');
   } catch (err) {
     console.error(err.message);
-    // Still try to open the window even if backend isn't ready
+    bootTimedOut = true;
   }
 
   createWindow();
+
+  // Если бэкенд ещё не успел подняться — показываем заглушку и ретраим.
+  if (bootTimedOut) {
+    mainWindow.loadURL(
+      'data:text/html;charset=utf-8,' +
+        encodeURIComponent(
+          '<html><body style="font-family:sans-serif;padding:40px">' +
+            '<h2>Запуск Atmosfera CRM…</h2>' +
+            '<p>Сервер ещё поднимается. Окно обновится автоматически.</p></body></html>'
+        )
+    );
+    waitForPort(PORT, 120000)
+      .then(() => mainWindow && mainWindow.loadURL(BACKEND_URL))
+      .catch(() => console.error('Бэкенд так и не поднялся'));
+  }
 });
 
 app.on('window-all-closed', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
-  }
+  killBackendTree();
   app.quit();
 });
 
 app.on('before-quit', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
-  }
+  killBackendTree();
+});
+
+process.on('exit', () => {
+  killBackendTree();
 });

@@ -346,6 +346,7 @@ export function OwnerApp() {
     addBooking,
     updateBooking,
     deleteBooking,
+    addBookingService,
     addClient,
     deleteClient,
     addNotification,    penalties,
@@ -592,6 +593,13 @@ export function OwnerApp() {
     paymentType: 'cash' as 'cash' | 'card' | 'online',
     paymentSettled: false,
   });
+
+  // Add additional service state
+  const [showOwnerAddService, setShowOwnerAddService] = useState(false);
+  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
+  const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [ownerAddServiceSaving, setOwnerAddServiceSaving] = useState(false);
+  const [ownerAddServiceError, setOwnerAddServiceError] = useState<string | null>(null);
 
   // Edit expense state (tasks 5.1–5.3)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -2003,6 +2011,50 @@ export function OwnerApp() {
     deleteBooking(selectedBooking.id);
     setShowBookingDetail(false);
     setSelectedBooking(null);
+  };
+
+  const handleOpenOwnerAddService = () => {
+    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30 });
+    setOwnerAddServiceWorkers([]);
+    setOwnerAddServiceError(null);
+    setOwnerAddServiceSaving(false);
+    setShowOwnerAddService(true);
+  };
+
+  const handleAddOwnerService = async () => {
+    if (!selectedBooking || !ownerAddServiceDraft.serviceId) {
+      setOwnerAddServiceError('Выберите услугу');
+      return;
+    }
+    setOwnerAddServiceSaving(true);
+    setOwnerAddServiceError(null);
+    try {
+      const svc = liveServices.find(s => s.id === ownerAddServiceDraft.serviceId);
+      const updatedBooking = await addBookingService(selectedBooking.id, {
+        name: svc?.name || 'Доп. услуга',
+        serviceId: ownerAddServiceDraft.serviceId,
+        price: ownerAddServiceDraft.price,
+        duration: ownerAddServiceDraft.duration,
+      });
+      if (ownerAddServiceWorkers.length > 0) {
+        const currentWorkers = selectedBooking.workers.map(w => ({ workerId: w.workerId, workerName: w.workerName, percent: w.percent }));
+        const newWorkerIds = new Set(ownerAddServiceWorkers.map(w => w.id));
+        const mergedWorkers = [
+          ...currentWorkers.filter(w => !newWorkerIds.has(w.workerId)),
+          ...ownerAddServiceWorkers.map(w => {
+            const worker = workers.find(wk => wk.id === w.id);
+            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent };
+          }),
+        ];
+        await updateBooking(selectedBooking.id, { workers: mergedWorkers });
+      }
+      setSelectedBooking(updatedBooking);
+      setShowOwnerAddService(false);
+    } catch (err: any) {
+      setOwnerAddServiceError(err?.detail || err?.message || 'Ошибка при добавлении услуги');
+    } finally {
+      setOwnerAddServiceSaving(false);
+    }
   };
 
   const kpiCards = [
@@ -6212,6 +6264,17 @@ export function OwnerApp() {
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
                   </div>
+                  {selectedBooking.services && selectedBooking.services.length > 0 && (
+                    <div className="mt-3 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>ДОП. УСЛУГИ</div>
+                      {selectedBooking.services.map((s, i) => (
+                        <div key={i} className="flex justify-between items-center py-1.5 text-sm border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                          <span>{s.name}</span>
+                          <span className="font-medium">{s.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Edit buttons */}
@@ -6262,6 +6325,17 @@ export function OwnerApp() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Add additional service button */}
+                <div className={`${glass} rounded-2xl p-4`}>
+                  <button
+                    onClick={handleOpenOwnerAddService}
+                    className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                    style={{ background: `${primary}15`, color: primary }}
+                  >
+                    <Plus size={15} />Добавить доп. услугу
+                  </button>
                 </div>
 
                 {/* Edit panels */}
@@ -6454,6 +6528,103 @@ export function OwnerApp() {
                 )}
                 <button onClick={handleDeleteOwnerBooking} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
                   <Trash2 size={15} className="inline mr-1.5 -mt-0.5" />Удалить запись
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ADD SERVICE MODAL */}
+      <AnimatePresence>
+        {showOwnerAddService && selectedBooking && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowOwnerAddService(false); }}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Добавить доп. услугу</h3>
+                <button onClick={() => setShowOwnerAddService(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
+              <div className="space-y-4">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
+                  <select className={selectCls} value={ownerAddServiceDraft.serviceId} onChange={e => {
+                    const svc = liveServices.find(s => s.id === e.target.value);
+                    setOwnerAddServiceDraft({
+                      serviceId: e.target.value,
+                      price: svc?.price || 0,
+                      duration: svc?.duration || 30,
+                    });
+                    setOwnerAddServiceError(null);
+                  }}>
+                    <option value="">Выберите услугу</option>
+                    {liveServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(ownerAddServiceDraft.price)} onChange={e => setOwnerAddServiceDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(ownerAddServiceDraft.duration)} onChange={e => setOwnerAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
+                    {ownerAddServiceWorkers.length > 0 && (
+                      <span className={`text-xs ${sub}`}>Выбрано: {ownerAddServiceWorkers.length}</span>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {workers.filter(w => w.role === 'worker' && w.active).map(worker => {
+                      const assigned = ownerAddServiceWorkers.find(item => item.id === worker.id);
+                      return (
+                        <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              <span className="text-sm font-medium">{worker.name}</span>
+                            </div>
+                            <button
+                              onClick={() => assigned
+                                ? setOwnerAddServiceWorkers(current => current.filter(item => item.id !== worker.id))
+                                : setOwnerAddServiceWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                              className="px-3 py-1 rounded-lg text-xs shrink-0"
+                              style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                            >
+                              {assigned ? 'Выбран' : 'Выбрать'}
+                            </button>
+                          </div>
+                          {assigned && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className={`text-xs ${sub}`}>%</span>
+                              <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
+                                onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                onBlur={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                className={`flex-1 ${inputCls} py-1.5`} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {ownerAddServiceError && (
+                  <div className="flex items-center gap-2 text-red-500 text-xs">
+                    <AlertCircle size={14} />{ownerAddServiceError}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setShowOwnerAddService(false)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
+                <button onClick={() => void handleAddOwnerService()} disabled={!ownerAddServiceDraft.serviceId || ownerAddServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
+                  {ownerAddServiceSaving ? 'Добавление...' : 'Добавить'}
                 </button>
               </div>
             </motion.div>
