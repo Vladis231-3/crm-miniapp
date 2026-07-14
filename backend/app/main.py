@@ -8019,6 +8019,157 @@ def owner_worker_salary_detail(
     )
 
 
+@app.get(
+    "/api/worker/salary-detail",
+    response_model=SalaryDetailResponse,
+)
+def worker_my_salary_detail(
+    period: str = "month",
+    segment: str = "all",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> SalaryDetailResponse:
+    _ensure_staff_role(session_data, {"worker"})
+    worker_id = session_data["actorId"]
+
+    if period not in ("day", "week", "month", "all"):
+        raise HTTPException(status_code=400, detail="Invalid period")
+    if segment not in ("all", "wash", "detailing"):
+        raise HTTPException(status_code=400, detail="Invalid segment")
+
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role != "worker":
+        raise HTTPException(status_code=404, detail="Мастер не найден")
+
+    date_from, date_to = _salary_date_range(period)
+
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+
+    date_col_key = (
+        func.substr(Booking.date, 7, 4).concat(
+            func.substr(Booking.date, 4, 2)
+        ).concat(
+            func.substr(Booking.date, 1, 2)
+        )
+    )
+    bookings_query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .join(BookingWorker)
+        .where(
+            BookingWorker.worker_id == worker_id,
+            Booking.status == "completed",
+            date_col_key >= date_from_key,
+            date_col_key <= date_to_key,
+        )
+        .order_by(Booking.date.desc(), Booking.time.desc())
+    )
+    completed_bookings = db.scalars(bookings_query).unique().all()
+
+    all_penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(all_penalties)
+    worker_complaints = complaints_by_worker.get(worker_id, [])
+
+    booking_items: list[SalaryBookingItem] = []
+    shift_dates: set[str] = set()
+    total_earned = 0
+    for b in completed_bookings:
+        percent = adjusted_booking_percent(
+            next(
+                (link.percent for link in b.worker_links if link.worker_id == worker_id),
+                worker.default_percent,
+            ),
+            worker_complaints,
+            date_value=b.date,
+            time_value=b.time,
+            fallback=b.created_at,
+        )
+        rg = _resource_group_for_service(db, b.service_id)
+        if segment != "all" and rg != segment:
+            continue
+        earned = round(b.price * percent / 100)
+        total_earned += earned
+        shift_dates.add(b.date)
+        booking_items.append(
+            SalaryBookingItem(
+                id=b.id,
+                date=b.date,
+                time=b.time,
+                service=b.service,
+                box=b.box,
+                price=b.price,
+                earned=earned,
+                percent=percent,
+                resourceGroup=rg,
+            )
+        )
+
+    all_entries = db.scalars(
+        select(PayrollEntry).where(
+            PayrollEntry.worker_id == worker_id,
+            PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+        )
+        .order_by(PayrollEntry.created_at.desc())
+    ).all()
+
+    actors = {}
+    if all_entries:
+        actor_ids = {e.actor_id for e in all_entries}
+        actors_list = db.scalars(
+            select(StaffUser).where(StaffUser.id.in_(actor_ids))
+        ).all()
+        actors = {a.id: a.name for a in actors_list}
+
+    payout_entries = [e for e in all_entries if e.kind == "payout"]
+    payout_items = [
+        SalaryPayoutItem(
+            id=e.id,
+            amount=e.amount,
+            note=e.note,
+            createdAt=e.created_at,
+            createdBy=actors.get(e.actor_id, "Сотрудник"),
+        )
+        for e in payout_entries
+    ]
+    total_paid = sum(e.amount for e in payout_entries)
+
+    entry_payloads = [
+        _payroll_entry_payload(e, actors.get(e.actor_id, "Сотрудник"))
+        for e in all_entries
+    ]
+
+    salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
+    if period == "all":
+        inspections = _admin_shift_inspections_state(db)
+        shift_count, _ = _compute_shift_attendance(
+            inspections, worker.id, date(2000, 1, 1), date.today()
+        )
+    else:
+        d_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        d_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+        inspections = _admin_shift_inspections_state(db)
+        shift_count, _ = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
+
+    return SalaryDetailResponse(
+        workerId=worker.id,
+        workerName=worker.name,
+        salaryBase=worker.salary_base,
+        salaryPerShift=salary_per_shift,
+        defaultPercent=worker.default_percent,
+        active=worker.active,
+        totalEarned=total_earned,
+        totalPaid=total_paid,
+        balanceToPay=total_earned - total_paid,
+        completedBookingsCount=len(booking_items),
+        shiftCount=shift_count,
+        bookings=booking_items,
+        payouts=payout_items,
+        entries=entry_payloads,
+    )
+
+
 @app.post(
     "/api/owner/workers/{worker_id}/pay-salary",
     response_model=PaySalaryResponse,

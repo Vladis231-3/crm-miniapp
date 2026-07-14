@@ -2,13 +2,14 @@
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bell, Sun, Moon, Calendar, DollarSign, User, Play,
-  Info, ArrowLeft, Phone, X, Check, Clock, ChevronRight, AlertCircle,
+  Info, ArrowLeft, Phone, X, Check, Clock, ChevronRight, ChevronLeft, AlertCircle,
   Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp
 } from 'lucide-react';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
 import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
+import { apiRequest } from '../../api';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
 type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift' | 'attendance';
@@ -57,6 +58,149 @@ function workerStatusBadge(status: Booking['status']) {
     default:
       return 'bg-red-500/15 text-red-500';
   }
+}
+
+const kindLabel: Record<string, string> = {
+  bonus: 'Премия',
+  deduction: 'Штраф',
+  payout: 'Выплата',
+  advance: 'Аванс',
+  adjustment: 'Корректировка',
+};
+
+const DAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+function groupBookingsByDate(bookings: any[]) {
+  const groups: Record<string, any[]> = {};
+  for (const b of bookings) {
+    if (!groups[b.date]) groups[b.date] = [];
+    groups[b.date].push(b);
+  }
+  return Object.entries(groups)
+    .sort(([a], [b]) => b.localeCompare(a, 'ru'))
+    .map(([date, items]) => ({ date, items }));
+}
+
+function WorkerEarningsCalendar({
+  bookings,
+  selectedDate,
+  onSelectDate,
+  glass,
+  isDark,
+  sub,
+  primary,
+  accent,
+}: {
+  bookings: any[];
+  selectedDate: string | null;
+  onSelectDate: (date: string | null) => void;
+  glass: string;
+  isDark: boolean;
+  sub: string;
+  primary: string;
+  accent: string;
+}) {
+  const [monthOffset, setMonthOffset] = useState(0);
+  const now = new Date();
+  const calYear = now.getFullYear();
+  const calMonth = now.getMonth() + monthOffset;
+
+  const datesWithBookings = new Set(bookings.map((b: any) => b.date));
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startPad = (firstDay.getDay() + 6) % 7;
+  const totalDays = lastDay.getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let d = 1; d <= totalDays; d++) cells.push(d);
+
+  const selectedDayBookings = selectedDate
+    ? bookings.filter((b: any) => b.date === selectedDate)
+    : [];
+
+  function formatDateKey(year: number, month: number, day: number) {
+    const mm = String(month + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    return `${dd}.${mm}.${year}`;
+  }
+
+  return (
+    <div className={`${glass} rounded-2xl p-3 mb-3`}>
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={() => setMonthOffset(m => m - 1)} className="p-1 rounded-lg hover:bg-white/10">
+          <ChevronLeft size={16} className={sub} />
+        </button>
+        <div className="font-semibold text-sm">
+          {MONTH_NAMES[calMonth]} {calYear}
+        </div>
+        <button onClick={() => setMonthOffset(m => m + 1)} className="p-1 rounded-lg hover:bg-white/10">
+          <ChevronRight size={16} className={sub} />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 gap-0.5 mb-1">
+        {DAY_NAMES.map(d => (
+          <div key={d} className={`text-center text-[10px] ${sub} py-1`}>{d}</div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`e-${i}`} />;
+          const dateKey = formatDateKey(calYear, calMonth, day);
+          const hasBooking = datesWithBookings.has(dateKey);
+          const isSelected = selectedDate === dateKey;
+          const isToday = formatDateKey(now.getFullYear(), now.getMonth(), now.getDate()) === dateKey;
+          return (
+            <button key={dateKey}
+              onClick={() => onSelectDate(isSelected ? null : dateKey)}
+              className="relative flex flex-col items-center py-1.5 rounded-lg text-xs transition-all"
+              style={{
+                background: isSelected ? primary : 'transparent',
+                color: isSelected ? '#fff' : isToday ? primary : undefined,
+                fontWeight: isToday ? 600 : 400,
+              }}>
+              <span>{day}</span>
+              {hasBooking && (
+                <span className="w-1 h-1 rounded-full mt-0.5" style={{ background: isSelected ? '#fff' : accent }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected day tasks */}
+      {selectedDate && (
+        <div className="mt-3 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+          <div className={`text-xs font-medium ${sub} mb-1.5`}>{selectedDate}</div>
+          {selectedDayBookings.length === 0 ? (
+            <div className={`text-xs ${sub}`}>Нет задач</div>
+          ) : (
+            selectedDayBookings.map((b: any) => (
+              <div key={b.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-2.5 mb-1.5`}>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="text-sm font-medium">{b.time} · {b.service}</div>
+                    <div className={`text-xs ${sub}`}>{b.box}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
+                    <div className={`text-xs ${sub}`}>{b.percent}%</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function WorkerApp() {
@@ -114,6 +258,14 @@ export function WorkerApp() {
   const [shiftChecklistNote, setShiftChecklistNote] = useState('');
   const [submittingShiftPhase, setSubmittingShiftPhase] = useState<'start' | 'end' | null>(null);
 
+  // Earnings state
+  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [salaryDetail, setSalaryDetail] = useState<any>(null);
+  const [salaryLoading, setSalaryLoading] = useState(false);
+  const [earningsViewMode, setEarningsViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [selectedCalDate, setSelectedCalDate] = useState<string | null>(null);
+
   // Profile state
   const [profile, setProfile] = useState({
     name: staffProfile?.name || '',
@@ -155,6 +307,15 @@ export function WorkerApp() {
     if (tab === 'profile' && profileSection === 'shift') {
       void listShiftChecklists().then(setShiftChecklists);
     }
+
+  useEffect(() => {
+    if (tab !== 'earnings') return;
+    setSalaryLoading(true);
+    apiRequest<any>(`/api/worker/salary-detail?period=${salaryPeriod}&segment=${salarySegment}`)
+      .then(setSalaryDetail)
+      .catch(() => setSalaryDetail(null))
+      .finally(() => setSalaryLoading(false));
+  }, [tab, salaryPeriod, salarySegment]);
   }, [tab, profileSection]);
 
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
@@ -489,129 +650,235 @@ export function WorkerApp() {
 
           ) : tab === 'earnings' && !profileSection ? (
             <motion.div key="earnings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">Заработок</h2>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {[
-                  { label: 'К выплате', value: `${payoutAfterPenalties.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Задач', value: completedCount, color: accent },
-                  { label: 'Жалоб', value: complaintState.activeCount, color: '#EF4444' },
-                ].map(s => (
-                  <div key={s.label} className={`${glass} rounded-2xl p-3 text-center`}>
-                    <div className="font-bold" style={{ color: s.color }}>{s.value}</div>
-                    <div className={`text-xs ${sub}`}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-1`}>Мой процент</div>
-                <div className="font-bold text-xl" style={{ color: accent }}>{complaintState.effectivePercent}% от каждого заказа</div>
-                <div className={`text-xs ${sub} mt-1`}>База: {complaintState.basePercent}% · максимум 40%</div>
-                <div className="h-2 rounded-full mt-2" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
-                  <div className="h-2 rounded-full" style={{ width: `${complaintState.effectivePercent}%`, background: accent }} />
+              {/* Period + Segment filters */}
+              <div className={`${glass} rounded-2xl p-3 mb-3`}>
+                <div className="flex gap-1.5 mb-1.5">
+                  {(['day', 'week', 'month', 'all'] as const).map(p => (
+                    <button key={p} onClick={() => setSalaryPeriod(p)}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                      style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
+                      {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1.5">
+                  {(['all', 'wash', 'detailing'] as const).map(s => (
+                    <button key={s} onClick={() => setSalarySegment(s)}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                      style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
+                      {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <div className={`text-xs ${sub}`}>Жалобы владельца</div>
-                    <div className="font-bold text-xl text-red-500">{complaintState.activeCount}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-xs ${sub}`}>Оклад</div>
-                    <div className="font-semibold">{(staffProfile?.salaryBase || 0).toLocaleString('ru')} ₽</div>
-                  </div>
+
+              {salaryLoading ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <div className={`text-sm ${sub}`}>Загрузка...</div>
                 </div>
-                {complaintState.reductionActive ? (
-                  <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
-                    Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
-                  </div>
-                ) : (
-                  <div className={`text-xs ${sub} mb-3`}>
-                    {complaintState.activeCount === 0
-                      ? 'Активных жалоб нет.'
-                      : `До снижения процента осталось ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} жалобы.`}
-                  </div>
-                )}
-                {myPenalties.length === 0 ? (
-                  <div className={`text-sm ${sub}`}>Жалоб пока нет</div>
-                ) : (
-                  <div className="space-y-2">
-                    {myPenalties.slice(0, 3).map((penalty) => (
-                      <div key={penalty.id} className={`${glass} rounded-xl p-3 flex justify-between items-start text-sm gap-3`}>
-                        <div>
-                          <div className="font-medium">{penalty.title}</div>
-                          <div className={`text-xs ${sub}`}>{penalty.reason}</div>
-                          <div className={`text-[11px] ${sub} mt-1`}>{`Активна до ${formatComplaintDate(penalty.activeUntil)}`}</div>
-                        </div>
-                        <div className="text-right text-xs shrink-0" style={{ color: '#EF4444' }}>Активна</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {payrollSummary && (
-                <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className={`text-xs ${sub}`}>Зарплата и выплаты</div>
-                      <div className="font-bold text-xl" style={{ color: accent }}>{(payrollSummary.balance || 0).toLocaleString('ru')} ₽</div>
+              ) : !salaryDetail ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className={sub}>Нет данных за выбранный период</p>
+                </div>
+              ) : (
+                <>
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className={`${glass} rounded-2xl p-3 text-center`}>
+                      <div className="font-bold" style={{ color: primary }}>{salaryDetail.totalEarned.toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>Заработано</div>
                     </div>
-                    <div className="text-right">
+                    <div className={`${glass} rounded-2xl p-3 text-center`}>
+                      <div className="font-bold" style={{ color: '#EF4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>Выплачено</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-3 text-center`}>
+                      <div className="font-bold" style={{ color: salaryDetail.balanceToPay > 0 ? accent : sub }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
                       <div className={`text-xs ${sub}`}>К выплате</div>
-                      <div className="font-semibold">{(payrollSummary.totalAccrued || 0).toLocaleString('ru')} ₽</div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                      <div className={`text-xs ${sub}`}>Начислено</div>
-                      <div className="font-semibold mt-1">{(payrollSummary.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className={`${glass} rounded-2xl p-3 text-center`}>
+                      <div className="font-bold text-sm">{salaryDetail.completedBookingsCount}</div>
+                      <div className={`text-xs ${sub}`}>Задач</div>
                     </div>
-                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                      <div className={`text-xs ${sub}`}>Удержано и выдано</div>
-                      <div className="font-semibold mt-1">{(payrollSummary.totalDeducted || 0).toLocaleString('ru')} ₽</div>
+                    <div className={`${glass} rounded-2xl p-3 text-center`}>
+                      <div className="font-bold text-sm">{salaryDetail.shiftCount}</div>
+                      <div className={`text-xs ${sub}`}>Смен</div>
+                    </div>
+                    <div className={`${glass} rounded-2xl p-3 text-center`}>
+                      <div className="font-bold text-sm">{(salaryDetail.salaryBase || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>Оклад</div>
                     </div>
                   </div>
-                  {(payrollSummary.entries?.length || 0) > 0 && (
-                    <div className="space-y-2">
-                      {payrollSummary.entries.slice(0, 4).map((entry) => (
-                        <div key={entry.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3`}>
-                          <div>
-                            <div className="text-sm font-medium">{entry.kind}</div>
-                            <div className={`text-xs ${sub}`}>{entry.note || entry.createdByName}</div>
+
+                  {/* Salary composition */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>СОСТАВ ЗП</div>
+                    {(() => {
+                      const shiftPay = (salaryDetail.shiftCount || 0) * (salaryDetail.salaryPerShift || 0);
+                      const bonuses = (salaryDetail.entries || []).filter((e: any) => e.kind === 'bonus').reduce((s: number, e: any) => s + e.amount, 0);
+                      const advances = (salaryDetail.entries || []).filter((e: any) => e.kind === 'advance').reduce((s: number, e: any) => s + e.amount, 0);
+                      const deductions = (salaryDetail.entries || []).filter((e: any) => e.kind === 'deduction').reduce((s: number, e: any) => s + e.amount, 0);
+                      const adjustments = (salaryDetail.entries || []).filter((e: any) => e.kind === 'adjustment').reduce((s: number, e: any) => s + e.amount, 0);
+                      const totalAccrued = salaryDetail.totalEarned + (salaryDetail.salaryBase || 0) + shiftPay + bonuses + Math.max(adjustments, 0);
+                      const totalDeducted = advances + deductions + salaryDetail.totalPaid + Math.max(-adjustments, 0);
+                      return (
+                        <div className="space-y-1.5 text-sm">
+                          <div className="flex justify-between"><span className={sub}>С услуг</span><span>{salaryDetail.totalEarned.toLocaleString('ru')} ₽ <span className={`${sub} text-xs`}>({salaryDetail.completedBookingsCount} задач)</span></span></div>
+                          <div className="flex justify-between"><span className={sub}>Оклад</span><span>{(salaryDetail.salaryBase || 0).toLocaleString('ru')} ₽</span></div>
+                          <div className="flex justify-between"><span className={sub}>За смены</span><span>{shiftPay.toLocaleString('ru')} ₽ <span className={`${sub} text-xs`}>({salaryDetail.shiftCount} × {(salaryDetail.salaryPerShift || 0).toLocaleString('ru')} ₽)</span></span></div>
+                          {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: '#22c55e' }}>+{bonuses.toLocaleString('ru')} ₽</span></div>}
+                          {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: '#f59e0b' }}>−{advances.toLocaleString('ru')} ₽</span></div>}
+                          {deductions > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: '#EF4444' }}>−{deductions.toLocaleString('ru')} ₽</span></div>}
+                          {adjustments !== 0 && <div className="flex justify-between"><span className={sub}>Корректировки</span><span style={{ color: adjustments > 0 ? '#22c55e' : '#EF4444' }}>{adjustments > 0 ? '+' : ''}{adjustments.toLocaleString('ru')} ₽</span></div>}
+                          <div className="border-t pt-1.5 mt-1.5 flex justify-between font-semibold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+                            <span>Итого начислено</span><span style={{ color: primary }}>{totalAccrued.toLocaleString('ru')} ₽</span>
                           </div>
-                          <div className="text-right">
-                            <div className="font-semibold">{entry.amount.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[11px] ${sub}`}>{entry.createdAt.toLocaleDateString('ru-RU')}</div>
+                          <div className="flex justify-between font-semibold">
+                            <span>Удержано и выплачено</span><span style={{ color: '#EF4444' }}>{totalDeducted.toLocaleString('ru')} ₽</span>
                           </div>
+                          <div className="flex justify-between font-bold text-base">
+                            <span>К выплате</span><span style={{ color: accent }}>{(totalAccrued - totalDeducted).toLocaleString('ru')} ₽</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* View toggle for completed tasks */}
+                  <div className="flex gap-1.5 mb-3">
+                    <button onClick={() => setEarningsViewMode('calendar')}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                      style={{ background: earningsViewMode === 'calendar' ? primary : 'transparent', color: earningsViewMode === 'calendar' ? '#fff' : sub }}>
+                      Календарь
+                    </button>
+                    <button onClick={() => setEarningsViewMode('list')}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                      style={{ background: earningsViewMode === 'list' ? primary : 'transparent', color: earningsViewMode === 'list' ? '#fff' : sub }}>
+                      По датам
+                    </button>
+                  </div>
+
+                  {/* Calendar view */}
+                  {earningsViewMode === 'calendar' && (
+                    <WorkerEarningsCalendar
+                      bookings={salaryDetail.bookings || []}
+                      selectedDate={selectedCalDate}
+                      onSelectDate={setSelectedCalDate}
+                      glass={glass}
+                      isDark={isDark}
+                      sub={sub}
+                      primary={primary}
+                      accent={accent}
+                    />
+                  )}
+
+                  {/* Grouped by date list */}
+                  {earningsViewMode === 'list' && (
+                    <div className="space-y-3 mb-3">
+                      {groupBookingsByDate(salaryDetail.bookings || []).map(({ date, items }) => (
+                        <div key={date}>
+                          <div className={`text-xs font-medium ${sub} mb-1.5`}>{date}</div>
+                          {items.map((b: any) => (
+                            <div key={b.id} className={`${glass} rounded-xl p-3 mb-1.5`}>
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <div className="text-sm font-medium">{b.time} · {b.service}</div>
+                                  <div className={`text-xs ${sub}`}>{b.box}</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
+                                  <div className={`text-xs ${sub}`}>{b.percent}%</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ))}
+                      {(salaryDetail.bookings || []).length === 0 && (
+                        <div className={`${glass} rounded-2xl p-8 text-center`}>
+                          <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
+                          <p className={sub}>Нет завершённых задач</p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
-              <div className="space-y-2">
-                {myEarnings.map(b => (
-                  <div key={b.id} className={`${glass} rounded-xl p-3`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-medium">{b.service}</div>
-                        <div className={`text-xs ${sub}`}>{b.date} · {b.clientName}</div>
-                        {b.car && <div className={`text-xs ${sub}`}>{b.car}{b.plate ? ` (${b.plate})` : ''}</div>}
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
-                        <div className={`text-xs ${sub}`}>{b.workers.find(w => w.workerId === workerId)?.percent}%</div>
-                      </div>
+
+                  {/* Percent card */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Мой процент</div>
+                    <div className="font-bold text-xl" style={{ color: accent }}>{complaintState.effectivePercent}% от каждого заказа</div>
+                    <div className={`text-xs ${sub} mt-1`}>База: {complaintState.basePercent}% · максимум 40%</div>
+                    <div className="h-2 rounded-full mt-2" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                      <div className="h-2 rounded-full" style={{ width: `${complaintState.effectivePercent}%`, background: accent }} />
                     </div>
                   </div>
-                ))}
-                {myEarnings.length === 0 && (
-                  <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
-                    <p className={sub}>Нет завершённых задач</p>
+
+                  {/* Penalties */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className={`text-xs ${sub}`}>Жалобы владельца</div>
+                        <div className="font-bold text-xl text-red-500">{complaintState.activeCount}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-xs ${sub}`}>Оклад</div>
+                        <div className="font-semibold">{(staffProfile?.salaryBase || 0).toLocaleString('ru')} ₽</div>
+                      </div>
+                    </div>
+                    {complaintState.reductionActive ? (
+                      <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
+                        Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
+                      </div>
+                    ) : (
+                      <div className={`text-xs ${sub} mb-3`}>
+                        {complaintState.activeCount === 0
+                          ? 'Активных жалоб нет.'
+                          : `До снижения процента осталось ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} жалобы.`}
+                      </div>
+                    )}
+                    {myPenalties.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>Жалоб пока нет</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {myPenalties.slice(0, 3).map((penalty) => (
+                          <div key={penalty.id} className={`${glass} rounded-xl p-3 flex justify-between items-start text-sm gap-3`}>
+                            <div>
+                              <div className="font-medium">{penalty.title}</div>
+                              <div className={`text-xs ${sub}`}>{penalty.reason}</div>
+                              <div className={`text-[11px] ${sub} mt-1`}>{`Активна до ${formatComplaintDate(penalty.activeUntil)}`}</div>
+                            </div>
+                            <div className="text-right text-xs shrink-0" style={{ color: '#EF4444' }}>Активна</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  {/* Operations history */}
+                  {(salaryDetail.entries?.length || 0) > 0 && (
+                    <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                      <div className={`text-xs font-medium ${sub} mb-2`}>ОПЕРАЦИИ ЗА ПЕРИОД</div>
+                      <div className="space-y-1.5">
+                        {salaryDetail.entries.slice(0, 10).map((entry: any) => (
+                          <div key={entry.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                            <div>
+                              <div className="text-sm font-medium">{kindLabel[entry.kind] || entry.kind}</div>
+                              <div className={`text-xs ${sub}`}>{entry.note || entry.createdByName}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold">{entry.amount.toLocaleString('ru')} ₽</div>
+                              <div className={`text-[11px] ${sub}`}>{new Date(entry.createdAt).toLocaleDateString('ru-RU')}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </motion.div>
 
           ) : tab === 'profile' && !profileSection ? (
