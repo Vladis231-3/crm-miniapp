@@ -321,6 +321,7 @@ export function AdminApp() {
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', notes: '', status: 'admin_review' as BookingStatus,
+    paymentSettled: false,
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
@@ -896,6 +897,7 @@ export function AdminApp() {
       plate: '',
       notes: '',
       status: 'admin_review',
+      paymentSettled: false,
     });
   };
 
@@ -1110,7 +1112,7 @@ export function AdminApp() {
         workers: createdWorkers,
         box: newBookingForm.box.trim() || 'По согласованию',
         paymentType: 'cash',
-        paymentSettled: true,
+        paymentSettled: newBookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
         notes: newBookingForm.notes,
@@ -3149,6 +3151,14 @@ export function AdminApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Доп. информация..." value={newBookingForm.notes} onChange={e => setNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
                 </div>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Оплачено</span>
+                  <input
+                    type="checkbox"
+                    checked={newBookingForm.paymentSettled}
+                    onChange={(event) => setNewBookingForm((current) => ({ ...current, paymentSettled: event.target.checked }))}
+                  />
+                </label>
               </div>
               <div className="p-4 space-y-2">
                 <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>

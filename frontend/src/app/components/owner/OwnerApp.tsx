@@ -572,6 +572,7 @@ export function OwnerApp() {
     plate: '',
     notes: '',
     status: 'admin_review' as BookingStatus,
+    paymentSettled: false,
   });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
@@ -1933,7 +1934,7 @@ export function OwnerApp() {
         workers: createdWorkers,
         box: ownerNewBookingForm.box.trim() || 'По согласованию',
         paymentType: 'cash',
-        paymentSettled: true,
+        paymentSettled: ownerNewBookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
         notes: ownerNewBookingForm.notes,
@@ -6925,6 +6926,14 @@ export function OwnerApp() {
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Доп. информация..." value={ownerNewBookingForm.notes} onChange={e => setOwnerNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
                 </div>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Оплачено</span>
+                  <input
+                    type="checkbox"
+                    checked={ownerNewBookingForm.paymentSettled}
+                    onChange={(event) => setOwnerNewBookingForm((current) => ({ ...current, paymentSettled: event.target.checked }))}
+                  />
+                </label>
               </div>
               <div className="p-4 space-y-2">
                 <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || totalOwnerNewBookingPercent > 100 || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>

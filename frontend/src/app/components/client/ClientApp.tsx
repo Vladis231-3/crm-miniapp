@@ -301,7 +301,7 @@ export function ClientApp() {
       workers: [],
       box: defaultBoxName,
       paymentType: 'cash',
-      paymentSettled: true,
+      paymentSettled: false,
       car: primaryVehicle.car,
       plate: primaryVehicle.plate,
       notes: detailingNote.trim() || undefined,

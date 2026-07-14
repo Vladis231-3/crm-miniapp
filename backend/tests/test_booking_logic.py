@@ -870,10 +870,11 @@ class BookingLogicTests(unittest.TestCase):
 
         admin_token = self.login_staff("admin", "admin")
         booking_date = self.next_active_date()
-        weekday = datetime.strptime(booking_date, "%d.%m.%Y").weekday()
+        py_weekday = datetime.strptime(booking_date, "%d.%m.%Y").weekday()
+        sched_index = (py_weekday + 2) % 7
         with SessionLocal() as db:
             schedule_entry = db.scalar(
-                select(ScheduleEntry).where(ScheduleEntry.day_index == weekday)
+                select(ScheduleEntry).where(ScheduleEntry.day_index == sched_index)
             )
             self.assertIsNotNone(schedule_entry)
             assert schedule_entry is not None
@@ -925,10 +926,11 @@ class BookingLogicTests(unittest.TestCase):
 
         admin_token = self.login_staff("admin", "admin")
         booking_date = self.next_active_date()
-        weekday = datetime.strptime(booking_date, "%d.%m.%Y").weekday()
+        py_weekday = datetime.strptime(booking_date, "%d.%m.%Y").weekday()
+        sched_index = (py_weekday + 2) % 7
         with SessionLocal() as db:
             schedule_entry = db.scalar(
-                select(ScheduleEntry).where(ScheduleEntry.day_index == weekday)
+                select(ScheduleEntry).where(ScheduleEntry.day_index == sched_index)
             )
             self.assertIsNotNone(schedule_entry)
             assert schedule_entry is not None

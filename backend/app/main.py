@@ -805,7 +805,7 @@ def _apply_runtime_migrations() -> None:
     ):
         with engine.begin() as connection:
             connection.exec_driver_sql(
-                f"ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT {boolean_default_sql(True)}"
+                f"ALTER TABLE bookings ADD COLUMN payment_settled BOOLEAN DEFAULT {boolean_default_sql(False)}"
             )
     if "services" not in booking_columns and "bookings" in inspector.get_table_names():
         with engine.begin() as connection:
