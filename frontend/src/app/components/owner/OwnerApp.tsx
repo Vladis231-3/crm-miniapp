@@ -709,7 +709,7 @@ export function OwnerApp() {
   }
 
   useEffect(() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }, [page, piggyDateFrom, piggyDateTo]);
-  useEffect(() => { if (page === 'wallet' || page === 'dashboard') { void loadWallet(); } }, [page]);
+  useEffect(() => { if (page === 'wallet') { void loadWallet(); } }, [page]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -2805,22 +2805,7 @@ export function OwnerApp() {
                   )}
                 </div>
               </div>
-              {/* Recent bookings */}
-              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Последние записи</h3>
-              {bookings.slice(0, 4).map(b => (
-                <div key={b.id} className={`${glass} rounded-xl p-3 flex justify-between items-center mb-2`}>
-                  <div>
-                    <div className="text-sm font-medium">{b.clientName}</div>
-                    <div className={`text-xs ${sub}`}>{b.service} · {b.date}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold">{b.price.toLocaleString('ru')} ₽</div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(b.status)}`}>
-                      {ownerStatusLabel(b.status)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+
               {stockItems.filter(s => s.qty <= 5).length > 0 && (
                 <div className="mt-3">
                   <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Предупреждения склада</h3>
@@ -2833,43 +2818,6 @@ export function OwnerApp() {
                 </div>
               )}
 
-              {/* Weekly archive */}
-              {walletData?.archives && walletData.archives.length > 0 && (
-                <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Архив недель</div>
-                  <div className="space-y-2">
-                    {walletData.archives.map(a => (
-                      <div key={a.id} className={`${glass} rounded-xl p-3`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="text-sm font-medium">
-                            {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
-                          </div>
-                          <div className="font-semibold text-sm" style={{ color: a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? accent : '#FF6B6B' }}>
-                            {a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? '+' : ''}{(a.totalRevenue + a.totalIncome - a.totalExpense).toLocaleString('ru')} ₽
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div>
-                            <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>Выручка</div>
-                          </div>
-                          <div>
-                            <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>Доходы</div>
-                          </div>
-                          <div>
-                            <div className="text-[11px]" style={{ color: '#FF6B6B' }}>−{a.totalExpense.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>Расходы</div>
-                          </div>
-                        </div>
-                        <div className={`text-[10px] ${sub} mt-2 text-center`}>
-                          {a.bookingCount} записей · {a.incomeCount} доходов · {a.expenseCount} расходов · Копилка: {a.piggyBankBalance.toLocaleString('ru')} ₽
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
 
