@@ -326,6 +326,7 @@ export function AdminApp() {
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
   const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
+  const [addServiceWorkers, setAddServiceWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [addServiceSaving, setAddServiceSaving] = useState(false);
   const [addServiceError, setAddServiceError] = useState<string | null>(null);
   const [showCreateClient, setShowCreateClient] = useState(false);
@@ -909,6 +910,7 @@ export function AdminApp() {
   const openAdditionalServiceModal = (booking: Booking) => {
     setAddServiceTargetBooking(booking);
     setAddServiceDraft({ serviceId: '', price: 0, duration: 30 });
+    setAddServiceWorkers([]);
     setAddServiceError(null);
     setAddServiceSaving(false);
     setShowAddServiceModal(true);
@@ -953,6 +955,18 @@ export function AdminApp() {
         price: addServiceDraft.price,
         duration: addServiceDraft.duration,
       });
+      if (addServiceWorkers.length > 0) {
+        const currentWorkers = addServiceTargetBooking.workers.map(w => ({ workerId: w.workerId, workerName: w.workerName, percent: w.percent }));
+        const newWorkerIds = new Set(addServiceWorkers.map(w => w.id));
+        const mergedWorkers = [
+          ...currentWorkers.filter(w => !newWorkerIds.has(w.workerId)),
+          ...addServiceWorkers.map(w => {
+            const worker = masterWorkers.find(wk => wk.id === w.id);
+            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent };
+          }),
+        ];
+        await updateBooking(addServiceTargetBooking.id, { workers: mergedWorkers });
+      }
       setSelectedBooking(updatedBooking);
       setShowAddServiceModal(false);
       setAddServiceTargetBooking(null);
@@ -2476,11 +2490,22 @@ export function AdminApp() {
                   <div className={`text-xs font-medium ${sub} mb-2`}>УСЛУГИ</div>
                   <div className="font-semibold">{selectedBooking.service}</div>
                   {selectedBooking.services && selectedBooking.services.length > 0 && (
-                    <div className="space-y-1 mt-2">
+                    <div className="space-y-2 mt-2">
                       {selectedBooking.services.map((svc, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm bg-white/5 rounded-xl px-3 py-2">
-                          <span>{svc.name}</span>
-                          <span className="font-medium">{svc.price.toLocaleString('ru')} ₽</span>
+                        <div key={idx} className="rounded-xl px-3 py-2" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{svc.name}</span>
+                            <span className="font-semibold">{svc.price.toLocaleString('ru')} ₽</span>
+                          </div>
+                          {selectedBooking.workers.length > 0 && selectedBooking.workers.map(w => {
+                            const earned = Math.round(svc.price * (w.percent || 0) / 100);
+                            return (
+                              <div key={w.workerId} className="flex justify-between items-center mt-1">
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       ))}
                     </div>
@@ -2539,37 +2564,113 @@ export function AdminApp() {
       <AnimatePresence>
         {showAddServiceModal && addServiceTargetBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 ${isDark ? 'bg-[#0E1624]' : 'bg-white'}`}>
-              <h3 className={`text-lg font-semibold ${text} mb-4`}>Добавить услугу</h3>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-[#0E1624]' : 'bg-white'}`}>
+              <h3 className={`text-lg font-semibold ${text} mb-1`}>Добавить услугу</h3>
               <p className={`text-xs ${sub} mb-4`}>Для: {addServiceTargetBooking.clientName} ({addServiceTargetBooking.service})</p>
-              <div className="space-y-3">
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                  <select className={selectCls} value={addServiceDraft.serviceId} onChange={e => {
-                    const svc = services.find(s => s.id === e.target.value);
-                    setAddServiceDraft({
-                      serviceId: e.target.value,
-                      price: svc?.price || 0,
-                      duration: svc?.duration || 30,
-                    });
-                    setAddServiceError(null);
-                  }}>
-                    <option value="">Выберите услугу</option>
-                    {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.price)} onChange={e => setAddServiceDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
-                  </div>
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.duration)} onChange={e => setAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
-                  </div>
-                </div>
-                {addServiceError && <div className="text-xs text-red-500">{addServiceError}</div>}
+
+              {/* ── Услуга ── */}
+              <div>
+                <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
+                <select className={selectCls} value={addServiceDraft.serviceId} onChange={e => {
+                  const svc = services.find(s => s.id === e.target.value);
+                  setAddServiceDraft({
+                    serviceId: e.target.value,
+                    price: svc?.price || 0,
+                    duration: svc?.duration || 30,
+                  });
+                  setAddServiceError(null);
+                }}>
+                  <option value="">Выберите услугу</option>
+                  {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
               </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Цена и длительность ── */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.price)} onChange={e => setAddServiceDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.duration)} onChange={e => setAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Мастера ── */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Назначить мастеров</label>
+                  {addServiceWorkers.length > 0 && (
+                    <span className={`text-xs ${sub}`}>Выбрано: {addServiceWorkers.length}</span>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {masterWorkers.filter(w => w.active).map(worker => {
+                    const assigned = addServiceWorkers.find(item => item.id === worker.id);
+                    return (
+                      <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-sm font-medium">{worker.name}</span>
+                          </div>
+                          <button
+                            onClick={() => assigned
+                              ? setAddServiceWorkers(current => current.filter(item => item.id !== worker.id))
+                              : setAddServiceWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                            className="px-3 py-1 rounded-lg text-xs shrink-0"
+                            style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                          >
+                            {assigned ? 'Выбран' : 'Выбрать'}
+                          </button>
+                        </div>
+                        {assigned && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`text-xs ${sub}`}>%</span>
+                            <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
+                              onChange={e => { const r = e.target.value; if (r === '') { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                              onBlur={() => setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                              className={`flex-1 ${inputCls} py-1.5`} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Итого ── */}
+              {addServiceDraft.serviceId && (
+                <>
+                  <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+                  <div className={`${glass} rounded-2xl p-4 space-y-2`}>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Итого</div>
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm ${sub}`}>Клиент заплатит</span>
+                      <span className="text-sm font-semibold">{addServiceDraft.price.toLocaleString('ru')} ₽</span>
+                    </div>
+                    {addServiceWorkers.length > 0 && addServiceWorkers.map(item => {
+                      const w = masterWorkers.find(wk => wk.id === item.id);
+                      const pct = item.percent === '' ? 0 : item.percent;
+                      const earned = Math.round(addServiceDraft.price * pct / 100);
+                      return (
+                        <div key={item.id} className="flex justify-between items-center">
+                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'} · {pct}%</span>
+                          <span className="text-sm font-medium text-green-500">{earned.toLocaleString('ru')} ₽</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {addServiceError && <div className="text-xs text-red-500 mt-2">{addServiceError}</div>}
+
               <div className="flex gap-2 mt-4">
                 <button onClick={closeAddServiceModal} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
                 <button onClick={handleAddService} disabled={!addServiceDraft.serviceId || addServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>

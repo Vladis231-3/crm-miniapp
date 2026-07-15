@@ -1549,7 +1549,6 @@ def _ensure_booking_has_no_conflicts(
             Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
             Booking.deleted_at.is_(None),
         )
-        .with_for_update(skip_locked=True)
     )
     if booking_id is not None:
         query = query.where(Booking.id != booking_id)
