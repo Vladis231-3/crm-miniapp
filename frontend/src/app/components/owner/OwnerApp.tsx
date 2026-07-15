@@ -4543,6 +4543,7 @@ export function OwnerApp() {
                       <div className="flex-1">
                         <div className="font-semibold">{clientDisplayName}</div>
                         <div className={`text-xs ${sub}`}>{client.car || 'Автомобиль не указан'}</div>
+                        {client.plate && <div className={`text-xs ${sub} font-mono`}>{client.plate}</div>}
                         {clientPhone ? (
                           <a href={`tel:${clientPhone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }} onClick={(event) => event.stopPropagation()}>
                             <Phone size={10} />{clientPhone}

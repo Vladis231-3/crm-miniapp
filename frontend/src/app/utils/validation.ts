@@ -1,4 +1,4 @@
-const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё' -]{1,59}$/;
+const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{0,59}$/;
 const REPEATED_LETTERS_PATTERN = /([A-Za-zА-Яа-яЁё])\1{3,}/i;
 const VEHICLE_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$/;
 const REPEATED_VEHICLE_PATTERN = /([A-Za-zА-Яа-яЁё0-9])\1{3,}/i;
@@ -42,12 +42,8 @@ export function normalizePersonName(value: string): string {
 
 export function validatePersonName(value: string): string | null {
   const normalized = normalizePersonName(value);
-  const lettersOnly = normalized.replace(/[^A-Za-zА-Яа-яЁё]/g, '');
   if (!normalized) return 'Введите ваше имя';
   if (!NAME_PATTERN.test(normalized)) return 'Введите настоящее имя';
-  if (lettersOnly.length < 2) return 'Введите настоящее имя';
-  if (new Set(lettersOnly.toLowerCase().split('')).size < 2) return 'Введите настоящее имя';
-  if (REPEATED_LETTERS_PATTERN.test(lettersOnly)) return 'Введите настоящее имя';
   return null;
 }
 

@@ -23,7 +23,7 @@ BookingStatus = Literal[
 PaymentType = Literal["cash", "card", "online"]
 PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]
 
-NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё' -]{1,59}$")
+NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{1,59}$")
 REPEATED_LETTERS_PATTERN = re.compile(r"([A-Za-zА-Яа-яЁё])\1{3,}")
 VEHICLE_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$")
 REPEATED_VEHICLE_PATTERN = re.compile(r"([A-Za-zА-Яа-яЁё0-9])\1{3,}")
@@ -46,17 +46,10 @@ PLATE_PATTERN = re.compile(r"^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРС
 
 def normalize_person_name(value: str) -> str:
     normalized = re.sub(r"\s+", " ", value).strip()
-    letters_only = "".join(char for char in normalized if char.isalpha())
-    if len(letters_only) < 2:
+    if len(normalized) < 1:
         raise ValueError("Введите настоящее имя")
-    if any(char.isdigit() for char in normalized):
-        raise ValueError("Имя не должно содержать цифры")
     if not NAME_PATTERN.fullmatch(normalized):
-        raise ValueError("Имя должно содержать только буквы")
-    if len(set(letter.lower() for letter in letters_only)) < 2:
-        raise ValueError("Введите настоящее имя")
-    if REPEATED_LETTERS_PATTERN.search(letters_only):
-        raise ValueError("Введите настоящее имя")
+        raise ValueError("Имя должно содержать только буквы, цифры, пробелы или дефис")
     return normalized
 
 
