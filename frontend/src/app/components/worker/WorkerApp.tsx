@@ -307,6 +307,7 @@ export function WorkerApp() {
     if (tab === 'profile' && profileSection === 'shift') {
       void listShiftChecklists().then(setShiftChecklists);
     }
+  }, [tab, profileSection]);
 
   useEffect(() => {
     if (tab !== 'earnings') return;
@@ -316,7 +317,6 @@ export function WorkerApp() {
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
   }, [tab, salaryPeriod, salarySegment]);
-  }, [tab, profileSection]);
 
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
