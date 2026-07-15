@@ -303,6 +303,11 @@ class SalaryBookingItem(BaseModel):
     earned: int
     percent: float
     resourceGroup: str
+    car: str | None = None
+    plate: str | None = None
+    clientName: str | None = None
+    paymentType: str | None = None
+    paymentSettled: bool | None = None
 
 
 class SalaryPayoutItem(BaseModel):

@@ -8027,6 +8027,11 @@ def owner_worker_salary_detail(
                 earned=earned,
                 percent=percent,
                 resourceGroup=rg,
+                car=b.car,
+                plate=b.plate,
+                clientName=b.client_name,
+                paymentType=b.payment_type,
+                paymentSettled=b.payment_settled,
             )
         )
 
@@ -8180,6 +8185,11 @@ def worker_my_salary_detail(
                 earned=earned,
                 percent=percent,
                 resourceGroup=rg,
+                car=b.car,
+                plate=b.plate,
+                clientName=b.client_name,
+                paymentType=b.payment_type,
+                paymentSettled=b.payment_settled,
             )
         )
 

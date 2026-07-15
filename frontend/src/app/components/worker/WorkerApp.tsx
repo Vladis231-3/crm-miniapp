@@ -86,6 +86,7 @@ function WorkerEarningsCalendar({
   bookings,
   selectedDate,
   onSelectDate,
+  onSelectBooking,
   glass,
   isDark,
   sub,
@@ -95,6 +96,7 @@ function WorkerEarningsCalendar({
   bookings: any[];
   selectedDate: string | null;
   onSelectDate: (date: string | null) => void;
+  onSelectBooking: (booking: any) => void;
   glass: string;
   isDark: boolean;
   sub: string;
@@ -183,11 +185,12 @@ function WorkerEarningsCalendar({
             <div className={`text-xs ${sub}`}>Нет задач</div>
           ) : (
             selectedDayBookings.map((b: any) => (
-              <div key={b.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-2.5 mb-1.5`}>
+              <div key={b.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-2.5 mb-1.5 cursor-pointer`} onClick={() => onSelectBooking(b)}>
                 <div className="flex justify-between items-center">
                   <div>
                     <div className="text-sm font-medium">{b.time} · {b.service}</div>
-                    <div className={`text-xs ${sub}`}>{b.box}</div>
+                    {b.car && <div className={`text-xs ${sub}`}>{b.car}{b.plate ? ` (${b.plate})` : ''}</div>}
+                    <div className={`text-xs ${sub}`}>{b.box} · {b.price?.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
@@ -265,6 +268,7 @@ export function WorkerApp() {
   const [salaryLoading, setSalaryLoading] = useState(false);
   const [earningsViewMode, setEarningsViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedCalDate, setSelectedCalDate] = useState<string | null>(null);
+  const [selectedCompletedOrder, setSelectedCompletedOrder] = useState<any>(null);
 
   // Profile state
   const [profile, setProfile] = useState({
@@ -767,6 +771,7 @@ export function WorkerApp() {
                       bookings={salaryDetail.bookings || []}
                       selectedDate={selectedCalDate}
                       onSelectDate={setSelectedCalDate}
+                      onSelectBooking={setSelectedCompletedOrder}
                       glass={glass}
                       isDark={isDark}
                       sub={sub}
@@ -782,11 +787,12 @@ export function WorkerApp() {
                         <div key={date}>
                           <div className={`text-xs font-medium ${sub} mb-1.5`}>{date}</div>
                           {items.map((b: any) => (
-                            <div key={b.id} className={`${glass} rounded-xl p-3 mb-1.5`}>
+                            <div key={b.id} className={`${glass} rounded-xl p-3 mb-1.5 cursor-pointer`} onClick={() => setSelectedCompletedOrder(b)}>
                               <div className="flex justify-between items-center">
                                 <div>
                                   <div className="text-sm font-medium">{b.time} · {b.service}</div>
-                                  <div className={`text-xs ${sub}`}>{b.box}</div>
+                                  {b.car && <div className={`text-xs ${sub}`}>{b.car}{b.plate ? ` (${b.plate})` : ''}</div>}
+                                  <div className={`text-xs ${sub}`}>{b.box} · {b.price?.toLocaleString('ru')} ₽{b.paymentType ? ` · ${b.paymentType === 'cash' ? 'Наличные' : b.paymentType === 'card' ? 'Карта' : 'Онлайн'}` : ''}</div>
                                 </div>
                                 <div className="text-right">
                                   <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
@@ -1103,13 +1109,15 @@ export function WorkerApp() {
               ) : allMyTasks.map(task => {
                 const w = task.workers.find(wk => wk.workerId === workerId);
                 const earned = task.status === 'completed' ? Math.round(task.price * (w?.percent || 0) / 100) : 0;
+                const paymentLabel = task.paymentType === 'cash' ? 'Наличные' : task.paymentType === 'card' ? 'Карта' : task.paymentType === 'online' ? 'Онлайн' : '';
                 return (
-                  <div key={task.id} className={`${glass} rounded-xl p-3 mb-2`}>
+                  <div key={task.id} className={`${glass} rounded-xl p-3 mb-2 cursor-pointer`} onClick={() => setSelectedCompletedOrder({ service: task.service, car: task.car, plate: task.plate, date: task.date, time: task.time, box: task.box, price: task.price, paymentType: task.paymentType, paymentSettled: task.paymentSettled, earned, percent: w?.percent, notes: task.notes })}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="text-sm font-medium">{task.service}</div>
-                        <div className={`text-xs ${sub}`}>{task.date} · {task.clientName}</div>
-                        <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
+                        {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
+                        <div className={`text-xs ${sub}`}>{task.date} · {task.box} · {task.duration} мин</div>
+                        <div className={`text-xs ${sub}`}>{task.price.toLocaleString('ru')} ₽ · {paymentLabel}{task.paymentSettled ? '' : ' (не оплачено)'}</div>
                       </div>
                       <div className="text-right shrink-0">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
@@ -1342,6 +1350,81 @@ export function WorkerApp() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── COMPLETED ORDER DETAIL ── */}
+      <AnimatePresence>
+        {selectedCompletedOrder && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setSelectedCompletedOrder(null)} />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+                <h3 className="font-semibold mt-2">Детали заказа</h3>
+                <button onClick={() => setSelectedCompletedOrder(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="p-4 space-y-3">
+                {/* Service */}
+                <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                  <div className={`text-xs ${sub} mb-1`}>Услуга</div>
+                  <div className="font-semibold">{selectedCompletedOrder.service}</div>
+                </div>
+
+                {/* Car */}
+                {selectedCompletedOrder.car && (
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Автомобиль</div>
+                    <div className="font-semibold">{selectedCompletedOrder.car}</div>
+                    {selectedCompletedOrder.plate && <div className={`text-sm ${sub}`}>Гос. номер: {selectedCompletedOrder.plate}</div>}
+                  </div>
+                )}
+
+                {/* Date & Time */}
+                <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                  <div className={`text-xs ${sub} mb-1`}>Дата и время</div>
+                  <div className="font-semibold">{selectedCompletedOrder.date} · {selectedCompletedOrder.time}</div>
+                  {selectedCompletedOrder.box && <div className={`text-sm ${sub}`}>{selectedCompletedOrder.box}</div>}
+                </div>
+
+                {/* Payment */}
+                <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                  <div className={`text-xs ${sub} mb-1`}>Оплата</div>
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-lg" style={{ color: accent }}>{selectedCompletedOrder.price?.toLocaleString('ru')} ₽</div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${selectedCompletedOrder.paymentSettled ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
+                      {selectedCompletedOrder.paymentSettled ? 'Оплачено' : 'Не оплачено'}
+                    </span>
+                  </div>
+                  {selectedCompletedOrder.paymentType && (
+                    <div className={`text-sm ${sub} mt-1`}>
+                      Способ: {selectedCompletedOrder.paymentType === 'cash' ? 'Наличные' : selectedCompletedOrder.paymentType === 'card' ? 'Карта' : 'Онлайн'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Worker earnings */}
+                {selectedCompletedOrder.earned != null && (
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Мой заработок</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-lg" style={{ color: primary }}>+{selectedCompletedOrder.earned?.toLocaleString('ru')} ₽</div>
+                      {selectedCompletedOrder.percent != null && <div className={`text-sm ${sub}`}>{selectedCompletedOrder.percent}%</div>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {selectedCompletedOrder.notes && (
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Комментарий</div>
+                    <div className="text-sm">{selectedCompletedOrder.notes}</div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </>
