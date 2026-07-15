@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -454,6 +454,16 @@ export function OwnerApp() {
   const __sunRpt = new Date(__monRpt); __sunRpt.setDate(__monRpt.getDate() + 6);
   const [reportDateFrom, setReportDateFrom] = useState(formatDate(__monRpt));
   const [reportDateTo, setReportDateTo] = useState(formatDate(__sunRpt));
+
+  // Export wizard state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportModalKind, setExportModalKind] = useState<'report' | 'pdf'>('report');
+  const [exportModalStep, setExportModalStep] = useState<'segment' | 'period' | 'date'>('segment');
+  const [exportModalSegment, setExportModalSegment] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [exportModalPeriod, setExportModalPeriod] = useState<'daily' | 'weekly' | 'custom'>('daily');
+  const [exportModalDateFrom, setExportModalDateFrom] = useState('');
+  const [exportModalDateTo, setExportModalDateTo] = useState('');
+
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
 
   // Wallet state
@@ -1355,7 +1365,7 @@ export function OwnerApp() {
     }
   };
 
-  const handleExport = async (kind: OwnerExportKind) => {
+  const handleExport = async (kind: OwnerExportKind, params?: OwnerExportParams) => {
     const labels = {
       report: { noun: 'Excel-файл' },
       pdf: { noun: 'PDF' },
@@ -1363,11 +1373,11 @@ export function OwnerApp() {
 
     try {
       setExportingKind(kind);
-      const fileName = await downloadOwnerExport(kind);
+      const fileName = await downloadOwnerExport(kind, params);
       let subtitle = `Файл ${fileName} скачан`;
 
       try {
-        const delivery = await sendOwnerExportToTelegram(kind);
+        const delivery = await sendOwnerExportToTelegram(kind, params);
         subtitle = `${subtitle} и отправлен в Telegram`;
         setBottomToast(delivery.message);
         setTimeout(() => setBottomToast(null), 5000);
@@ -1389,6 +1399,40 @@ export function OwnerApp() {
     } finally {
       setExportingKind(null);
     }
+  };
+
+  const openExportModal = (kind: 'report' | 'pdf') => {
+    setExportModalKind(kind);
+    setExportModalStep('segment');
+    setExportModalSegment('all');
+    setExportModalPeriod('daily');
+    setExportModalDateFrom('');
+    setExportModalDateTo('');
+    setShowExportModal(true);
+  };
+
+  const handleExportWithParams = async () => {
+    setShowExportModal(false);
+    const kind = exportModalKind;
+    const params: OwnerExportParams = {
+      segment: exportModalSegment,
+    };
+    if (exportModalPeriod === 'custom') {
+      params.date_from = exportModalDateFrom;
+      params.date_to = exportModalDateTo;
+    } else {
+      const now = new Date();
+      if (exportModalPeriod === 'daily') {
+        params.date_from = formatDate(now);
+        params.date_to = formatDate(now);
+      } else {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 6);
+        params.date_from = formatDate(weekAgo);
+        params.date_to = formatDate(now);
+      }
+    }
+    await handleExport(kind, params);
   };
 
   const handleSummaryReport = async (period: 'daily' | 'weekly', segment: 'wash' | 'detailing') => {
@@ -4047,22 +4091,13 @@ export function OwnerApp() {
             <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Отчёты</h2>
-                <button onClick={() => { void handleExport('pdf'); }} disabled={exportingKind !== null} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white disabled:opacity-60" style={{ background: accent }}>
-                  <Download size={14} />{exportingKind === 'pdf' ? 'Выгрузка...' : 'Экспорт PDF'}
-                </button>
-              </div>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#6B7280] mb-3">Период отчёта</div>
-                <div className="flex items-center gap-2">
-                  <input type="date" value={toISODate(reportDateFrom)} onChange={e => {
-                    const val = parseFlexibleDate(e.target.value);
-                    setReportDateFrom(val ? formatDate(val) : '');
-                  }} className="flex-1 px-3 py-2 rounded-xl text-sm border" style={{ background: isDark ? '#1A2332' : '#F9FAFB', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: isDark ? '#E5E7EB' : '#111827' }} />
-                  <span className="text-xs text-[#6B7280]">—</span>
-                  <input type="date" value={toISODate(reportDateTo)} onChange={e => {
-                    const val = parseFlexibleDate(e.target.value);
-                    setReportDateTo(val ? formatDate(val) : '');
-                  }} className="flex-1 px-3 py-2 rounded-xl text-sm border" style={{ background: isDark ? '#1A2332' : '#F9FAFB', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', color: isDark ? '#E5E7EB' : '#111827' }} />
+                <div className="flex gap-1.5">
+                  <button onClick={() => openExportModal('report')} disabled={exportingKind !== null} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
+                    <Download size={12} />{exportingKind === 'report' ? '...' : 'Excel'}
+                  </button>
+                  <button onClick={() => openExportModal('pdf')} disabled={exportingKind !== null} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
+                    <Download size={12} />{exportingKind === 'pdf' ? '...' : 'PDF'}
+                  </button>
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
@@ -5714,6 +5749,85 @@ export function OwnerApp() {
           </button>
         ))}
       </div>
+
+      {/* ── EXPORT MODAL ── */}
+      <AnimatePresence>
+        {showExportModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowExportModal(false)} />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">
+                  {exportModalStep === 'segment' ? 'За что отчёт?' : exportModalStep === 'period' ? 'За какой период?' : 'Выберите даты'}
+                </h3>
+                <button onClick={() => setShowExportModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+
+              {exportModalStep === 'segment' && (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'all', label: 'Всё вместе' },
+                    { value: 'wash', label: 'Мойка' },
+                    { value: 'detailing', label: 'Детейлинг' },
+                  ].map(opt => (
+                    <button key={opt.value} onClick={() => { setExportModalSegment(opt.value as 'all' | 'wash' | 'detailing'); setExportModalStep('period'); }}
+                      className="rounded-xl py-3 px-2 text-sm font-medium disabled:opacity-60"
+                      style={{ background: exportModalSegment === opt.value ? `${primary}25` : glass, color: primary }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {exportModalStep === 'period' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'daily', label: 'День' },
+                      { value: 'weekly', label: 'Неделя' },
+                      { value: 'custom', label: 'Своё время' },
+                    ].map(opt => (
+                      <button key={opt.value} onClick={() => { setExportModalPeriod(opt.value as 'daily' | 'weekly' | 'custom'); if (opt.value !== 'custom') { void handleExportWithParams(); } else { setExportModalStep('date'); } }}
+                        className="rounded-xl py-3 px-2 text-sm font-medium"
+                        style={{ background: exportModalPeriod === opt.value ? `${primary}25` : glass, color: primary }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setExportModalStep('segment')} className={`mt-4 text-xs ${sub} flex items-center gap-1`}>
+                    <ArrowLeft size={12} /> Назад
+                  </button>
+                </>
+              )}
+
+              {exportModalStep === 'date' && (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
+                    <input type="date" value={toISODate(exportModalDateFrom)} onChange={e => {
+                      const val = parseFlexibleDate(e.target.value);
+                      setExportModalDateFrom(val ? formatDate(val) : '');
+                    }} className={`flex-1 ${inputCls}`} />
+                    <span className={`text-xs ${sub}`}>—</span>
+                    <input type="date" value={toISODate(exportModalDateTo)} onChange={e => {
+                      const val = parseFlexibleDate(e.target.value);
+                      setExportModalDateTo(val ? formatDate(val) : '');
+                    }} className={`flex-1 ${inputCls}`} />
+                  </div>
+                  <button onClick={() => void handleExportWithParams()} disabled={!exportModalDateFrom || !exportModalDateTo}
+                    className="w-full py-3 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+                    Сформировать отчёт
+                  </button>
+                  <button onClick={() => setExportModalStep('period')} className={`mt-3 text-xs ${sub} flex items-center gap-1`}>
+                    <ArrowLeft size={12} /> Назад
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── NOTIFICATIONS ── */}
       <AnimatePresence>

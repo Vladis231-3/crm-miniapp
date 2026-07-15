@@ -11,7 +11,7 @@ from threading import Thread
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, Response
@@ -3315,7 +3315,27 @@ def _perform_owner_database_reset(db: Session) -> None:
     _clear_owner_database_reset_state(db)
 
 
-def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport:
+def _parse_date(s: str) -> date | None:
+    if "." in s:
+        parts = s.split(".")
+        try:
+            return date(int(parts[2]), int(parts[1]), int(parts[0]))
+        except (ValueError, IndexError):
+            return None
+    try:
+        return date.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+
+
+def _owner_export_file(
+    db: Session,
+    actor_id: str,
+    kind: str,
+    segment: str = "all",
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> GeneratedExport:
     owner = db.get(StaffUser, actor_id)
     if owner is None or owner.role != "owner":
         raise HTTPException(
@@ -3366,6 +3386,35 @@ def _owner_export_file(db: Session, actor_id: str, kind: str) -> GeneratedExport
     payroll_entries_list = db.scalars(
         select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
     ).all()
+
+    # Filter by segment
+    if segment in ("wash", "detailing"):
+        service_map = {s.id: s for s in services}
+        from .exports import _booking_matches_segment
+        bookings = [
+            b for b in bookings
+            if _booking_matches_segment(b, service_map.get(b.service_id), segment)
+        ]
+
+    # Filter by date range
+    if date_from or date_to:
+        parsed_from = _parse_date(date_from) if date_from else None
+        parsed_to = _parse_date(date_to) if date_to else None
+        def _in_range(d: str | None) -> bool:
+            if not d:
+                return True
+            parsed = _parse_date(d)
+            if not parsed:
+                return True
+            if parsed_from and parsed < parsed_from:
+                return False
+            if parsed_to and parsed > parsed_to:
+                return False
+            return True
+        bookings = [b for b in bookings if _in_range(b.date)]
+        expenses = [e for e in expenses if _in_range(e.date)]
+        incomes = [i for i in incomes if _in_range(i.date)]
+
     # Compute shift pay for each worker to include in export
     from datetime import date as _date
     inspections = _admin_shift_inspections_state(db)
@@ -4348,11 +4397,14 @@ def resync_telegram_webhook(
 @app.get("/api/owner/exports/{kind}")
 def download_owner_export(
     kind: str,
+    segment: str = Query("all"),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
     _ensure_staff_role(session_data, {"owner", "accountant"})
-    export_file = _owner_export_file(db, session_data["actorId"], kind)
+    export_file = _owner_export_file(db, session_data["actorId"], kind, segment, date_from, date_to)
     return _download_response(export_file)
 
 
@@ -4361,11 +4413,14 @@ def download_owner_export(
 )
 def send_owner_export_to_telegram(
     kind: str,
+    segment: str = Query("all"),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
     _ensure_staff_role(session_data, {"owner", "accountant"})
-    export_file = _owner_export_file(db, session_data["actorId"], kind)
+    export_file = _owner_export_file(db, session_data["actorId"], kind, segment, date_from, date_to)
     try:
         result = _send_export_to_telegram(db, session_data["actorId"], export_file)
         db.commit()

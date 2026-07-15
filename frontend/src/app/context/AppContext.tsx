@@ -272,6 +272,11 @@ export interface TelegramLinkCode {
 export type OwnerExportKind = 'report' | 'pdf';
 export type OwnerReportPeriod = 'daily' | 'weekly';
 export type OwnerReportSegment = 'wash' | 'detailing';
+export interface OwnerExportParams {
+  segment?: 'all' | 'wash' | 'detailing';
+  date_from?: string;
+  date_to?: string;
+}
 
 export interface OwnerExportDelivery {
   message: string;
@@ -577,8 +582,8 @@ interface AppContextType {
   revokePenalty: (penaltyId: string) => Promise<void>;
   revokeAllPenalties: (workerId: string) => Promise<void>;
   createTelegramLinkCode: () => Promise<TelegramLinkCode>;
-  downloadOwnerExport: (kind: OwnerExportKind) => Promise<string>;
-  sendOwnerExportToTelegram: (kind: OwnerExportKind) => Promise<OwnerExportDelivery>;
+  downloadOwnerExport: (kind: OwnerExportKind, params?: OwnerExportParams) => Promise<string>;
+  sendOwnerExportToTelegram: (kind: OwnerExportKind, params?: OwnerExportParams) => Promise<OwnerExportDelivery>;
   sendOwnerSummaryReport: (period: OwnerReportPeriod, segment: OwnerReportSegment) => Promise<string>;
     dispatchOwnerReminders: (options?: { targetDate?: string; force?: boolean }) => Promise<OwnerReminderDispatchResult>;
     remindAdminAboutInactiveClients: () => Promise<string>;
@@ -1122,13 +1127,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { ...created, expiresAt: new Date(created.expiresAt) };
   }
 
-  async function downloadOwnerExport(kind: OwnerExportKind) {
+  async function downloadOwnerExport(kind: OwnerExportKind, params?: OwnerExportParams) {
     const fallback = kind === 'pdf' ? 'owner-report.pdf' : 'owner-report.xlsx';
-    return apiDownload(`/api/owner/exports/${kind}`, fallback);
+    let path = `/api/owner/exports/${kind}`;
+    if (params) {
+      const qs = new URLSearchParams();
+      if (params.segment) qs.set('segment', params.segment);
+      if (params.date_from) qs.set('date_from', params.date_from);
+      if (params.date_to) qs.set('date_to', params.date_to);
+      const qstr = qs.toString();
+      if (qstr) path += '?' + qstr;
+    }
+    return apiDownload(path, fallback);
   }
 
-  async function sendOwnerExportToTelegram(kind: OwnerExportKind) {
-    return apiRequest<OwnerExportDelivery>(`/api/owner/exports/${kind}/telegram`, { method: 'POST' });
+  async function sendOwnerExportToTelegram(kind: OwnerExportKind, params?: OwnerExportParams) {
+    let path = `/api/owner/exports/${kind}/telegram`;
+    if (params) {
+      const qs = new URLSearchParams();
+      if (params.segment) qs.set('segment', params.segment);
+      if (params.date_from) qs.set('date_from', params.date_from);
+      if (params.date_to) qs.set('date_to', params.date_to);
+      const qstr = qs.toString();
+      if (qstr) path += '?' + qstr;
+    }
+    return apiRequest<OwnerExportDelivery>(path, { method: 'POST' });
   }
 
   async function sendOwnerSummaryReport(period: OwnerReportPeriod, segment: OwnerReportSegment) {
