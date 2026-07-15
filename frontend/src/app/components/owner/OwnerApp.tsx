@@ -4872,7 +4872,28 @@ export function OwnerApp() {
                               <div className="font-medium text-sm">{vehicle.car || 'Авто без названия'}</div>
                               <div className={`text-xs ${sub}`}>{vehicle.plate || 'Номер не указан'}</div>
                             </div>
-                            <div className={`text-[11px] ${sub}`}>{index === 0 ? 'Основное' : `Авто ${index + 1}`}</div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className={`text-[11px] ${sub}`}>{index === 0 ? 'Основное' : `Авто ${index + 1}`}</div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const client = selectedSettingsClient;
+                                  if (!client) return;
+                                  const current = draftVehicles[client.id] ?? (client.vehicles?.length
+                                    ? client.vehicles
+                                    : [{ car: client.car || '', plate: client.plate || '' }]);
+                                  setDraftVehicles((prev) => ({
+                                    ...prev,
+                                    [client.id]: current.filter((_, i) => i !== index),
+                                  }));
+                                  setBottomToast('Авто удалено');
+                                  setTimeout(() => setBottomToast(null), 3000);
+                                }}
+                                className={`p-1.5 rounded-lg ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
