@@ -879,6 +879,7 @@ class ClientCardUpdateRequest(BaseModel):
     phone: str | None = None
     car: str | None = None
     plate: str | None = None
+    vehicles: list[ClientVehiclePayload] | None = None
     notes: str | None = None
     debtBalance: int | None = None
     adminRating: int | None = Field(default=None, ge=0, le=5)

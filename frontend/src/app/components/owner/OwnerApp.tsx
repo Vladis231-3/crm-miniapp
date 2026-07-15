@@ -558,6 +558,9 @@ export function OwnerApp() {
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
+  const [newVehicleCar, setNewVehicleCar] = useState('');
+  const [newVehiclePlate, setNewVehiclePlate] = useState('');
+  const [draftVehicles, setDraftVehicles] = useState<Record<string, Array<{ car: string; plate: string }>>>({});
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
   const [shiftChecklists, setShiftChecklists] = useState<ShiftChecklist[]>([]);
@@ -1470,6 +1473,7 @@ export function OwnerApp() {
     if (!draft) return;
     try {
       setSavingClientId(clientId);
+      const vehicles = draftVehicles[clientId];
       await updateClientCard(clientId, options?.adminOnly
         ? { adminRating: draft.adminRating, adminNote: draft.adminNote, referralSource: draft.referralSource }
         : {
@@ -1482,7 +1486,17 @@ export function OwnerApp() {
           adminRating: draft.adminRating,
           adminNote: draft.adminNote,
           referralSource: draft.referralSource,
+          ...(vehicles ? { vehicles } : {}),
         });
+      if (vehicles) {
+        setDraftVehicles((prev) => {
+          const next = { ...prev };
+          delete next[clientId];
+          return next;
+        });
+      }
+      setNewVehicleCar('');
+      setNewVehiclePlate('');
       setEditingSettingsClientCard(false);
       setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
@@ -2266,9 +2280,9 @@ export function OwnerApp() {
       })
     : [];
   const selectedSettingsClientVehicles = selectedSettingsClient
-    ? (selectedSettingsClient.vehicles?.length
+    ? (draftVehicles[selectedSettingsClient.id] ?? (selectedSettingsClient.vehicles?.length
       ? selectedSettingsClient.vehicles
-      : [{ car: selectedSettingsClient.car, plate: selectedSettingsClient.plate }])
+      : [{ car: selectedSettingsClient.car, plate: selectedSettingsClient.plate }]))
     : [];
   const selectedSettingsClientSpent = selectedSettingsClientBookings
     .filter((booking) => booking.status === 'completed')
@@ -4468,7 +4482,7 @@ export function OwnerApp() {
                   )}
                   {selectedSettingsClient && (
                     <button
-                      onClick={() => setSettingsClientId(null)}
+                      onClick={() => { setSettingsClientId(null); setNewVehicleCar(''); setNewVehiclePlate(''); }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
                       <ArrowLeft size={14} />
@@ -4845,7 +4859,34 @@ export function OwnerApp() {
                     </div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className="font-semibold mb-3">Автомобили клиента</div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-semibold">Автомобили клиента</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newVehicleCar.trim() || newVehiclePlate.trim()) {
+                            const client = selectedSettingsClient;
+                            if (!client) return;
+                            const current = draftVehicles[client.id] ?? (client.vehicles?.length
+                              ? client.vehicles
+                              : [{ car: client.car || '', plate: client.plate || '' }]);
+                            setDraftVehicles((prev) => ({
+                              ...prev,
+                              [client.id]: [...current, { car: newVehicleCar.trim(), plate: newVehiclePlate.trim() }],
+                            }));
+                            setNewVehicleCar('');
+                            setNewVehiclePlate('');
+                            setBottomToast('Авто добавлено. Нажмите «Сохранить карточку клиента»');
+                            setTimeout(() => setBottomToast(null), 3000);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-medium"
+                        style={{ color: primary }}
+                      >
+                        <Plus size={14} />
+                        Добавить авто
+                      </button>
+                    </div>
                     {selectedSettingsClientVehicles.length === 0 ? (
                       <div className={`text-sm ${sub}`}>Автомобили ещё не добавлены</div>
                     ) : (
@@ -4861,6 +4902,21 @@ export function OwnerApp() {
                         ))}
                       </div>
                     )}
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <input
+                        className={inputCls}
+                        placeholder="Марка авто"
+                        value={newVehicleCar}
+                        onChange={(e) => setNewVehicleCar(normalizeVehicleInput(e.target.value))}
+                      />
+                      <input
+                        className={inputCls}
+                        placeholder="Госномер"
+                        maxLength={9}
+                        value={newVehiclePlate}
+                        onChange={(e) => setNewVehiclePlate(normalizePlateInput(e.target.value))}
+                      />
+                    </div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="font-semibold mb-3">История услуг</div>

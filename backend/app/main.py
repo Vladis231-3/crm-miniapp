@@ -5370,6 +5370,16 @@ def update_client_card(
         client.car = updates["car"].strip()
     if "plate" in updates and updates["plate"] is not None:
         client.plate = updates["plate"].strip()
+    if "vehicles" in updates and updates["vehicles"] is not None:
+        vehicles = _normalize_client_vehicles(
+            updates["vehicles"],
+            fallback_car=client.car or "",
+            fallback_plate=client.plate or "",
+        )
+        primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
+        client.car = primary_vehicle.car
+        client.plate = primary_vehicle.plate
+        _save_client_vehicles(db, client.id, vehicles)
     client.updated_at = _now()
     db.commit()
     db.refresh(client)
