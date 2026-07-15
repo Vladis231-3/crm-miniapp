@@ -13,6 +13,9 @@ __pycache__/
 
 frontend/node_modules/
 frontend/dist/
+native/electron/node_modules/
+native/electron/dist/
+native/electron/out/
 
 backend/data/*.sqlite3
 backend/data/*.db
