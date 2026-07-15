@@ -4860,35 +4860,10 @@ export function OwnerApp() {
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="font-semibold">Автомобили клиента</div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (newVehicleCar.trim() || newVehiclePlate.trim()) {
-                            const client = selectedSettingsClient;
-                            if (!client) return;
-                            const current = draftVehicles[client.id] ?? (client.vehicles?.length
-                              ? client.vehicles
-                              : [{ car: client.car || '', plate: client.plate || '' }]);
-                            setDraftVehicles((prev) => ({
-                              ...prev,
-                              [client.id]: [...current, { car: newVehicleCar.trim(), plate: newVehiclePlate.trim() }],
-                            }));
-                            setNewVehicleCar('');
-                            setNewVehiclePlate('');
-                            setBottomToast('Авто добавлено. Нажмите «Сохранить карточку клиента»');
-                            setTimeout(() => setBottomToast(null), 3000);
-                          }
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-medium"
-                        style={{ color: primary }}
-                      >
-                        <Plus size={14} />
-                        Добавить авто
-                      </button>
+                      <div className="font-semibold">Автомобили клиента <span className={`text-xs font-normal ${sub}`}>({selectedSettingsClientVehicles.length}/10)</span></div>
                     </div>
                     {selectedSettingsClientVehicles.length === 0 ? (
-                      <div className={`text-sm ${sub}`}>Автомобили ещё не добавлены</div>
+                      <div className={`text-sm ${sub} mb-3`}>Автомобили ещё не добавлены</div>
                     ) : (
                       <div className="space-y-2">
                         {selectedSettingsClientVehicles.map((vehicle, index) => (
@@ -4902,21 +4877,49 @@ export function OwnerApp() {
                         ))}
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      <input
-                        className={inputCls}
-                        placeholder="Марка авто"
-                        value={newVehicleCar}
-                        onChange={(e) => setNewVehicleCar(normalizeVehicleInput(e.target.value))}
-                      />
-                      <input
-                        className={inputCls}
-                        placeholder="Госномер"
-                        maxLength={9}
-                        value={newVehiclePlate}
-                        onChange={(e) => setNewVehiclePlate(normalizePlateInput(e.target.value))}
-                      />
-                    </div>
+                    {selectedSettingsClientVehicles.length < 10 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            className={inputCls}
+                            placeholder="Марка авто"
+                            value={newVehicleCar}
+                            onChange={(e) => setNewVehicleCar(normalizeVehicleInput(e.target.value))}
+                          />
+                          <input
+                            className={inputCls}
+                            placeholder="Госномер"
+                            maxLength={9}
+                            value={newVehiclePlate}
+                            onChange={(e) => setNewVehiclePlate(normalizePlateInput(e.target.value))}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!newVehicleCar.trim() && !newVehiclePlate.trim()}
+                          onClick={() => {
+                            const client = selectedSettingsClient;
+                            if (!client) return;
+                            const current = draftVehicles[client.id] ?? (client.vehicles?.length
+                              ? client.vehicles
+                              : [{ car: client.car || '', plate: client.plate || '' }]);
+                            setDraftVehicles((prev) => ({
+                              ...prev,
+                              [client.id]: [...current, { car: newVehicleCar.trim(), plate: newVehiclePlate.trim() }],
+                            }));
+                            setNewVehicleCar('');
+                            setNewVehiclePlate('');
+                            setBottomToast('Авто добавлено');
+                            setTimeout(() => setBottomToast(null), 3000);
+                          }}
+                          className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-40"
+                          style={{ color: primary }}
+                        >
+                          <Plus size={14} />
+                          Добавить авто
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="font-semibold mb-3">История услуг</div>
