@@ -3,3 +3,9 @@ frontend/dist
 backend/data
 runtime
 __pycache__
+native
+desktop
+portable
+scripts
+Showcase
+backend/tests
