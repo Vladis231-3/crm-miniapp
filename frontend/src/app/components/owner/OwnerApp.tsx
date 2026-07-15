@@ -480,10 +480,10 @@ export function OwnerApp() {
     car: '',
     plate: '',
     service: liveServices[0]?.id || '',
-    date: tomorrowLabel,
+    date: todayLabel,
     time: '10:00',
     box: liveBoxes[0]?.name || 'Бокс 1',
-    status: 'confirmed' as BookingStatus,
+    status: 'scheduled' as BookingStatus,
     paymentSettled: false,
     price: 0,
     duration: 30,
@@ -581,7 +581,7 @@ export function OwnerApp() {
     car: '',
     plate: '',
     notes: '',
-    status: 'admin_review' as BookingStatus,
+    status: 'scheduled' as BookingStatus,
     paymentSettled: false,
   });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
@@ -1702,17 +1702,17 @@ export function OwnerApp() {
       car: '',
       plate: '',
       service: services[0]?.id || 's1',
-      date: tomorrowLabel,
+      date: todayLabel,
       time: '10:00',
       box: '',
-      status: 'confirmed',
+      status: 'scheduled',
       paymentSettled: false,
       price: 0,
       duration: 30,
     });
   };
 
-  const openBookingForClient = (client: RegisteredClient, status: BookingStatus = 'completed') => {
+  const openBookingForClient = (client: RegisteredClient, status: BookingStatus = 'scheduled') => {
     const historyDate = new Date();
     historyDate.setDate(historyDate.getDate() - 1);
     const firstServiceId = services[0]?.id || 's1';
@@ -1726,7 +1726,7 @@ export function OwnerApp() {
       car: client.car || '',
       plate: client.plate || '',
       service: firstServiceId,
-      date: status === 'completed' ? formatDate(historyDate) : tomorrowLabel,
+      date: status === 'completed' ? formatDate(historyDate) : todayLabel,
       time: '10:00',
       box: status !== 'completed' ? defaultBox : '',
       status,
@@ -1847,6 +1847,7 @@ export function OwnerApp() {
       });
       if (bookingForm.status !== 'completed') {
         await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc.name} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
+        await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientName} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
       }
       setShowCreateBooking(false);
       resetBookingForm();
@@ -1889,7 +1890,7 @@ export function OwnerApp() {
       car: '',
       plate: '',
       notes: '',
-      status: 'admin_review',
+      status: 'scheduled',
     });
   };
 
@@ -1974,7 +1975,7 @@ export function OwnerApp() {
         time: ownerNewBookingForm.time.trim(),
         duration: ownerNewBookingForm.duration || svc?.duration || 30,
         price: ownerNewBookingForm.price || svc?.price || 0,
-        status: !ownerNewBookingForm.clientPhone.trim() ? 'admin_review' : ownerNewBookingForm.status,
+        status: ownerNewBookingForm.status,
         workers: createdWorkers,
         box: ownerNewBookingForm.box.trim() || 'По согласованию',
         paymentType: 'cash',
@@ -1988,6 +1989,7 @@ export function OwnerApp() {
         ? `${normalizedDate} ${ownerNewBookingForm.time.trim()}`
         : 'без даты и времени';
       await addNotification({ recipientRole: 'owner', message: `${clientLabel} • ${carLabel} • ${requestScheduleLabel}`, read: false });
+      await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientLabel} • ${requestScheduleLabel}`, read: false });
       setOwnerNewBookingSaveSuccess(notify ? 'notify' : 'silent');
       setTimeout(() => {
         closeOwnerNewBookingModal();

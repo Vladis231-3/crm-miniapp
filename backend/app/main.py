@@ -5625,6 +5625,19 @@ def create_booking(
         _notify_workers_about_assignment(
             db, booking, {link.worker_id for link in booking.worker_links}
         )
+    if session_data["role"] in {"admin", "owner"}:
+        admin_message = f"Новая запись: {booking_client_name} — {_booking_datetime_label(booking_date, booking_time)}"
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="admin",
+                recipient_id=None,
+                message=admin_message,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        _notify_admins_about_booking(db, booking)
     if session_data["role"] == "client":
         client_message = f"Заявка на {booking_service} создана на {booking_date} в {booking_time}. Статус: {_booking_status_label(booking_status)}"
         db.add_all(
