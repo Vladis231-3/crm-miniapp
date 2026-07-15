@@ -27,8 +27,8 @@ import {
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank';
-type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
+type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -4392,10 +4392,14 @@ export function OwnerApp() {
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
+                { id: 'reports', icon: FileText, label: 'Отчёты', desc: 'Сводные отчёты по мойке и детейлингу', color: '#F59E0B' },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: '2FA включена', color: '#EF4444' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
-                  onClick={() => setSettingsSection(item.id as SettingsSection)}
+                  onClick={() => {
+                    if (item.id === 'reports') { setPage('reports'); setSettingsSection(null); }
+                    else { setSettingsSection(item.id as SettingsSection); }
+                  }}
                   className={`${glass} rounded-2xl p-4 w-full text-left mb-2 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
                     <item.icon size={18} style={{ color: item.color }} />
@@ -5740,14 +5744,26 @@ export function OwnerApp() {
               { id: 'payroll', icon: Users, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
               { id: 'stock', icon: Box, label: 'Склад' },
-              { id: 'reports', icon: FileText, label: 'Отчёты' },
+              { id: 'clients', icon: Users, label: 'Клиенты' },
               { id: 'settings', icon: Settings, label: 'Настройки' },
-            ]).map(t => (
+            ]).map(t => {
+          if (t.id === 'clients') {
+            const isActive = page === 'settings' && settingsSection === 'clients';
+            return (
+              <button key={t.id} onClick={() => { setPage('settings'); setSettingsSection('clients'); }} className="flex-1 py-3 flex flex-col items-center gap-0.5">
+                <t.icon size={18} style={{ color: isActive ? primary : undefined }} className={!isActive ? sub : ''} />
+                <span className="text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
+              </button>
+            );
+          }
+          const isActive = t.id === 'settings' ? (page === 'settings' && settingsSection === null) : (page === t.id);
+          return (
           <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-0.5">
-            <t.icon size={18} style={{ color: page === t.id ? primary : undefined }} className={page !== t.id ? sub : ''} />
-            <span className="text-[10px]" style={{ color: page === t.id ? primary : undefined }}>{t.label}</span>
+            <t.icon size={18} style={{ color: isActive ? primary : undefined }} className={!isActive ? sub : ''} />
+            <span className="text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── EXPORT MODAL ── */}
