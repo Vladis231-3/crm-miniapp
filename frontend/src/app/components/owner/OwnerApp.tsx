@@ -300,7 +300,7 @@ function normalizeOwnerPhoneSearchValue(value: string) {
   return value.replace(/\D/g, '');
 }
 
-type OwnerClientSearchMode = 'phone' | 'name';
+type OwnerClientSearchMode = 'phone' | 'name' | 'plate';
 
 function numberFromInput(value: string) {
   return value === '' ? 0 : Number(value);
@@ -2264,6 +2264,17 @@ export function OwnerApp() {
     if (settingsClientSearchMode === 'phone') {
       const normalized = normalizeOwnerPhoneSearchValue(settingsClientSearchQuery);
       return normalizeOwnerPhoneSearchValue(client.phone).includes(normalized);
+    }
+    if (settingsClientSearchMode === 'plate') {
+      const normalized = normalizePlateInput(settingsClientSearchQuery);
+      if (!normalized) return false;
+      const plates = [
+        client.plate,
+        ...(client.vehicles || []).map((vehicle) => vehicle.plate),
+      ]
+        .map((plate) => normalizePlateInput(plate || ''))
+        .filter(Boolean);
+      return plates.some((plate) => plate.includes(normalized));
     }
     const query = settingsClientSearchQuery.trim().toLowerCase();
     return client.name.toLowerCase().includes(query);
@@ -4497,6 +4508,7 @@ export function OwnerApp() {
                     {([
                       { id: 'phone', label: 'По телефону' },
                       { id: 'name', label: 'По имени' },
+                      { id: 'plate', label: 'По госномеру' },
                     ] as const).map((option) => (
                       <button
                         key={option.id}
@@ -4515,7 +4527,7 @@ export function OwnerApp() {
                   <input
                     className={inputCls}
                     type={settingsClientSearchMode === 'phone' ? 'tel' : 'text'}
-                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'Иван'}
+                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : settingsClientSearchMode === 'plate' ? 'A123BC777' : 'Иван'}
                     value={settingsClientSearchQuery}
                     onChange={(event) => setSettingsClientSearchQuery(event.target.value)}
                   />
