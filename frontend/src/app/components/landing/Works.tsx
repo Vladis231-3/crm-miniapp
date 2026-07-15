@@ -13,7 +13,7 @@ function resolveImageUrl(url: string): string {
 }
 
 const FALLBACK_WORKS: (ContentWorks & { span?: string })[] = [
-  { title: 'Полный детейлинг купе', description: 'Чёрный BMW M4 — восстановление ЛКП, керамика 9H', image_url: 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080', span: 'col-span-2 row-span-2' },
+  { title: 'Полный детейлинг купе', description: 'Чёрный BMW M4 — восстановление ЛКП, керамика 9H', image_url: 'https://downloader.disk.yandex.ru/preview/50d1901fe794bdd07b3b5399856df8e162c4d41cfb7abb083baabe710438d14b/6a57bb5d/ElQ6rI0Jt3lcY4oGt7v3tRzAUbAH0hFgGrDJCHcxCWSxemg8lQSVTV4--Tnua0OW1jGY3abBKuhxm77f9y_hZg%3D%3D?uid=0&filename=IMG_1270.JPG&disposition=inline&hash=&limit=0&content_type=image%2Fjpeg&owner_uid=0&tknv=v3&is_direct_zip_experiment=1&size=1901x930', span: 'col-span-2 row-span-2' },
   { title: 'Пенная обработка', description: 'Наружная мойка премиум-класса', image_url: 'https://images.unsplash.com/photo-1608506375591-b90e1f955e4b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
   { title: 'Детейлинг колёс', description: 'Полная чистка и покрытие шин', image_url: 'https://images.unsplash.com/photo-1565689876697-e467b6c54da2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
   { title: 'Кожаный салон', description: 'Химчистка и кондиционирование кожи', image_url: 'https://images.unsplash.com/photo-1605437241278-c1806d14a4d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400', span: '' },
