@@ -4917,7 +4917,7 @@ export function OwnerApp() {
                             className={inputCls}
                             placeholder="Марка авто"
                             value={newVehicleCar}
-                            onChange={(e) => setNewVehicleCar(normalizeVehicleInput(e.target.value))}
+                            onChange={(e) => setNewVehicleCar(e.target.value)}
                           />
                           <input
                             className={inputCls}
@@ -4938,7 +4938,7 @@ export function OwnerApp() {
                               : [{ car: client.car || '', plate: client.plate || '' }]);
                             setDraftVehicles((prev) => ({
                               ...prev,
-                              [client.id]: [...current, { car: newVehicleCar.trim(), plate: newVehiclePlate.trim() }],
+                              [client.id]: [...current, { car: normalizeVehicleInput(newVehicleCar), plate: normalizePlateInput(newVehiclePlate) }],
                             }));
                             setNewVehicleCar('');
                             setNewVehiclePlate('');
