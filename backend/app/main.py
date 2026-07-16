@@ -3747,6 +3747,20 @@ def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
         _send_telegram_safe(admin.telegram_chat_id, text)
 
 
+def _notify_owners_about_booking(db: Session, booking: Booking) -> None:
+    owners = _all_owner_telegram_recipients(db)
+    text = (
+        "Новая запись\n"
+        f"Клиент: {booking.client_name}\n"
+        f"Авто: {_booking_car_label(booking.car, booking.plate)}\n"
+        f"Услуга: {booking.service}\n"
+        f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
+        f"Телефон: {booking.client_phone}"
+    )
+    for owner in owners:
+        _send_telegram_safe(owner.telegram_chat_id, text)
+
+
 def _service_category_key(value: str | None) -> str:
     return (value or "").strip().lower()
 
@@ -5647,8 +5661,16 @@ def create_booking(
             )
         )
         _notify_admins_about_booking(db, booking)
+        _notify_owners_about_booking(db, booking)
     if session_data["role"] == "client":
         client_message = f"Заявка на {booking_service} создана на {booking_date} в {booking_time}. Статус: {_booking_status_label(booking_status)}"
+        admin_booking_text = _admin_booking_notification_text(
+            booking_client_name,
+            booking_car,
+            booking_plate,
+            booking_date,
+            booking_time,
+        )
         db.add_all(
             [
                 Notification(
@@ -5663,19 +5685,22 @@ def create_booking(
                     id=f"n-{uuid4()}",
                     recipient_role="admin",
                     recipient_id=None,
-                    message=_admin_booking_notification_text(
-                        booking_client_name,
-                        booking_car,
-                        booking_plate,
-                        booking_date,
-                        booking_time,
-                    ),
+                    message=admin_booking_text,
+                    read=False,
+                    created_at=_now(),
+                ),
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="owner",
+                    recipient_id=None,
+                    message=admin_booking_text,
                     read=False,
                     created_at=_now(),
                 ),
             ]
         )
         _notify_admins_about_booking(db, booking)
+        _notify_owners_about_booking(db, booking)
     db.commit()
     db.refresh(booking)
     return _booking_payload_for_response(db, booking)
