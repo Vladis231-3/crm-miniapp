@@ -24,6 +24,7 @@ class Client(Base):
     phone: Mapped[str] = mapped_column(String(64))
     car: Mapped[str] = mapped_column(String(120), default="")
     plate: Mapped[str] = mapped_column(String(32), default="")
+    plate_type: Mapped[str] = mapped_column(String(16), default="russian")
     notes: Mapped[str] = mapped_column(Text, default="")
     debt_balance: Mapped[int] = mapped_column(Integer, default=0)
     admin_rating: Mapped[int] = mapped_column(Integer, default=0)
@@ -149,6 +150,7 @@ class Booking(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     car: Mapped[str | None] = mapped_column(String(120), nullable=True)
     plate: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    plate_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
     services: Mapped[list[dict]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now

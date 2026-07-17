@@ -24,6 +24,7 @@ import {
   validatePhoneValue,
   validatePlateValue,
   validateVehicleName,
+  type PlateType,
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 

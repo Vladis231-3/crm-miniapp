@@ -23,6 +23,7 @@ import {
   validatePhoneValue,
   validatePlateValue,
   validateVehicleName,
+  type PlateType,
 } from '../../utils/validation';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -322,7 +323,7 @@ export function AdminApp() {
   const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
-    time: '', box: '', price: 0, duration: 30, car: '', plate: '', notes: '', status: 'admin_review' as BookingStatus,
+    time: '', box: '', price: 0, duration: 30, car: '', plate: '', plateType: 'russian' as PlateType, notes: '', status: 'admin_review' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
   });
@@ -335,7 +336,7 @@ export function AdminApp() {
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
-  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '' });
+  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '' });
 
   // Settings state
   const [boxes, setBoxes] = useState(liveBoxes);
@@ -357,7 +358,7 @@ export function AdminApp() {
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
   const [newBookingErrors, setNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
-  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', clientName: '', clientPhone: '' });
+  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', plateType: 'russian' as PlateType, clientName: '', clientPhone: '' });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
@@ -641,8 +642,8 @@ export function AdminApp() {
       const carError = validateVehicleName(createClientForm.car);
       if (carError) nextErrors.car = carError;
     }
-    if (normalizePlateInput(createClientForm.plate)) {
-      const plateError = validatePlateValue(createClientForm.plate);
+    if (normalizePlateInput(createClientForm.plate, createClientForm.plateType)) {
+      const plateError = validatePlateValue(createClientForm.plate, createClientForm.plateType);
       if (plateError) nextErrors.plate = plateError;
     }
     setCreateClientErrors(nextErrors);
@@ -654,10 +655,11 @@ export function AdminApp() {
         name: normalizePersonName(createClientForm.name),
         phone: createClientForm.phone.trim(),
         car: normalizeVehicleInput(createClientForm.car),
-        plate: normalizePlateInput(createClientForm.plate),
+        plate: normalizePlateInput(createClientForm.plate, createClientForm.plateType),
+        plateType: createClientForm.plateType,
         notes: createClientForm.notes.trim(),
       });
-      setCreateClientForm({ name: '', phone: '', car: '', plate: '', notes: '' });
+      setCreateClientForm({ name: '', phone: '', car: '', plate: '', plateType: 'russian', notes: '' });
       setCreateClientErrors({});
       setShowCreateClient(false);
       setSelectedClientId(created.id);
@@ -837,8 +839,8 @@ export function AdminApp() {
       const carError = validateVehicleName(newBookingForm.car);
       if (carError) nextErrors.car = carError;
     }
-    if (normalizePlateInput(newBookingForm.plate)) {
-      const plateError = validatePlateValue(newBookingForm.plate);
+    if (normalizePlateInput(newBookingForm.plate, newBookingForm.plateType)) {
+      const plateError = validatePlateValue(newBookingForm.plate, newBookingForm.plateType);
       if (plateError) nextErrors.plate = plateError;
     }
     const hasDate = Boolean(newBookingForm.date.trim());
@@ -993,6 +995,7 @@ export function AdminApp() {
       notes: booking.notes || '',
       car: booking.car || '',
       plate: booking.plate || '',
+      plateType: (booking as any).plateType || 'russian',
       clientName: booking.clientName || '',
       clientPhone: booking.clientPhone || '',
     });
@@ -1033,6 +1036,7 @@ export function AdminApp() {
         notes: editBookingDraft.notes.trim() || undefined,
         car: editBookingDraft.car.trim() || undefined,
         plate: editBookingDraft.plate.trim() || undefined,
+        plateType: editBookingDraft.plateType,
         clientName: editBookingDraft.clientName.trim() || undefined,
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
       });
@@ -1045,6 +1049,7 @@ export function AdminApp() {
         notes: editBookingDraft.notes.trim(),
         car: editBookingDraft.car.trim(),
         plate: editBookingDraft.plate.trim(),
+        plateType: editBookingDraft.plateType,
         clientName: editBookingDraft.clientName.trim(),
         clientPhone: editBookingDraft.clientPhone.trim(),
       } : null));
@@ -1089,7 +1094,7 @@ export function AdminApp() {
     const svc = services.find(s => s.id === newBookingForm.serviceId);
     const normalizedClientName = normalizePersonName(newBookingForm.clientName);
     const normalizedCar = normalizeVehicleInput(newBookingForm.car);
-    const normalizedPlate = normalizePlateInput(newBookingForm.plate);
+    const normalizedPlate = normalizePlateInput(newBookingForm.plate, newBookingForm.plateType);
     const hasDateTime = Boolean(newBookingForm.date.trim() && newBookingForm.time.trim());
     const parsedDate = hasDateTime ? parseFlexibleDate(newBookingForm.date.trim()) : null;
     if (hasDateTime && !parsedDate) {
@@ -1126,6 +1131,7 @@ export function AdminApp() {
         paymentSettled: newBookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
+        plateType: newBookingForm.plateType,
         notes: newBookingForm.notes,
         notifyWorkers: notify,
       });
@@ -2946,12 +2952,24 @@ export function AdminApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Номер</label>
-                    <input
-                      className={inputCls}
-                      placeholder="А123БВ77"
-                      value={editBookingDraft.plate}
-                      onChange={e => setEditBookingDraft((current) => ({ ...current, plate: e.target.value }))}
-                    />
+                    <div className="flex gap-1.5">
+                      <div className="flex flex-col gap-1 shrink-0">
+                        {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                          <button key={t} type="button"
+                            className={`text-[10px] px-1.5 py-0.5 rounded ${editBookingDraft.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                            style={editBookingDraft.plateType === t ? { background: primary } : {}}
+                            onClick={() => setEditBookingDraft(p => ({ ...p, plateType: t }))}
+                          >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                        ))}
+                      </div>
+                      <input
+                        className={`${inputCls} flex-1`}
+                        placeholder={editBookingDraft.plateType === 'motorcycle' ? '1234AB77' : editBookingDraft.plateType === 'foreign' ? 'XYZ1234' : 'A123BC777'}
+                        maxLength={editBookingDraft.plateType === 'foreign' ? 15 : 9}
+                        value={editBookingDraft.plate}
+                        onChange={e => setEditBookingDraft((current) => ({ ...current, plate: normalizePlateInput(e.target.value, current.plateType) }))}
+                      />
+                    </div>
                   </div>
                 </div>
                 {editBookingError && <div className="text-xs text-red-500">{editBookingError}</div>}
@@ -3001,18 +3019,43 @@ export function AdminApp() {
                 ].map((field) => (
                   <div key={field.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
-                    <input
-                      className={`${inputCls} ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
-                      type={field.type}
-                      placeholder={field.placeholder}
-                      maxLength={field.key === 'plate' ? 9 : undefined}
-                      value={(createClientForm as any)[field.key]}
-                      onChange={(event) => {
-                        const nextValue = field.key === 'plate' ? normalizePlateInput(event.target.value) : event.target.value;
-                        setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
-                        setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
-                      }}
-                    />
+                    {field.key === 'plate' ? (
+                      <div className="flex gap-1.5">
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                            <button key={t} type="button"
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${createClientForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                              style={createClientForm.plateType === t ? { background: primary } : {}}
+                              onClick={() => setCreateClientForm(p => ({ ...p, plateType: t }))}
+                            >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                          ))}
+                        </div>
+                        <input
+                          className={`${inputCls} flex-1 ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
+                          type={field.type}
+                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234AB77' : createClientForm.plateType === 'foreign' ? 'XYZ1234' : 'A123BC777'}
+                          maxLength={createClientForm.plateType === 'foreign' ? 15 : 9}
+                          value={(createClientForm as any)[field.key]}
+                          onChange={(event) => {
+                            const nextValue = normalizePlateInput(event.target.value, createClientForm.plateType);
+                            setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
+                            setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        className={`${inputCls} ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
+                        type={field.type}
+                        placeholder={field.placeholder}
+                        value={(createClientForm as any)[field.key]}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
+                          setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
+                        }}
+                      />
+                    )}
                     {(field.key === 'name' && createClientErrors.name) && <div className="mt-1 text-xs text-red-500">{createClientErrors.name}</div>}
                     {(field.key === 'phone' && createClientErrors.phone) && <div className="mt-1 text-xs text-red-500">{createClientErrors.phone}</div>}
                     {(field.key === 'car' && createClientErrors.car) && <div className="mt-1 text-xs text-red-500">{createClientErrors.car}</div>}
@@ -3091,15 +3134,38 @@ export function AdminApp() {
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
-                    <input className={`${inputCls} ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
-                      maxLength={f.key === 'plate' ? 9 : undefined}
-                      value={(newBookingForm as any)[f.key]} onChange={e => {
-                        const nextValue = f.key === 'plate' ? normalizePlateInput(e.target.value) : e.target.value;
-                        setNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
-                        if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
-                          setNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
-                        }
-                      }} />
+                    {f.key === 'plate' ? (
+                      <div className="flex gap-1.5">
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                            <button key={t} type="button"
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${newBookingForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                              style={newBookingForm.plateType === t ? { background: primary } : {}}
+                              onClick={() => setNewBookingForm(p => ({ ...p, plateType: t }))}
+                            >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                          ))}
+                        </div>
+                        <input className={`${inputCls} flex-1 ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type}
+                          placeholder={newBookingForm.plateType === 'motorcycle' ? '1234AB77' : newBookingForm.plateType === 'foreign' ? 'XYZ1234' : 'A123BC777'}
+                          maxLength={newBookingForm.plateType === 'foreign' ? 15 : 9}
+                          value={(newBookingForm as any)[f.key]} onChange={e => {
+                            const nextValue = normalizePlateInput(e.target.value, newBookingForm.plateType);
+                            setNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
+                            if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
+                              setNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
+                            }
+                          }} />
+                        </div>
+                    ) : (
+                      <input className={`${inputCls} ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
+                        value={(newBookingForm as any)[f.key]} onChange={e => {
+                          const nextValue = e.target.value;
+                          setNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
+                          if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
+                            setNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
+                          }
+                        }} />
+                    )}
                     {(f.key === 'clientName' && newBookingErrors.clientName) && <div className="mt-1 text-xs text-red-500">{newBookingErrors.clientName}</div>}
                     {(f.key === 'clientPhone' && newBookingErrors.clientPhone) && <div className="mt-1 text-xs text-red-500">{newBookingErrors.clientPhone}</div>}
                     {(f.key === 'car' && newBookingErrors.car) && <div className="mt-1 text-xs text-red-500">{newBookingErrors.car}</div>}

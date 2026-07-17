@@ -19,7 +19,8 @@ export interface ClientProfile {
   phone: string;
   car: string;
   plate: string;
-  vehicles?: Array<{ car: string; plate: string }>;
+  plateType?: string;
+  vehicles?: Array<{ car: string; plate: string; plateType?: string }>;
   registered: boolean;
 }
 
@@ -38,7 +39,8 @@ export interface RegisteredClient {
   phone: string;
   car: string;
   plate: string;
-  vehicles?: Array<{ car: string; plate: string }>;
+  plateType?: string;
+  vehicles?: Array<{ car: string; plate: string; plateType?: string }>;
   notes: string;
   debtBalance: number;
   adminRating: number;
@@ -51,6 +53,7 @@ export interface ClientCreateInput {
   phone: string;
   car?: string;
   plate?: string;
+  plateType?: string;
   notes?: string;
   referralSource?: string;
 }
@@ -166,6 +169,7 @@ export interface Booking {
   notes?: string;
   car?: string;
   plate?: string;
+  plateType?: string;
   services: BookingServiceItem[];
   additionalServices: AdditionalService[];
 }
@@ -959,7 +963,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return created;
   }
 
-  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string }> }>) {
+  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string }> }>) {
     const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
     setClients((current) => current.map((client) => (client.id === clientId ? saved : client)));
   }
@@ -996,6 +1000,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           phone: created.clientPhone,
           car: created.car || '',
           plate: created.plate || '',
+          plateType: created.plateType || 'russian',
           vehicles: existingClient?.vehicles || [],
           notes: existingClient?.notes || '',
           debtBalance: existingClient?.debtBalance || 0,

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 Role = Literal["client", "admin", "worker", "owner", "accountant"]
+PlateType = Literal["russian", "motorcycle", "foreign"]
 StaffRole = Literal["admin", "worker", "owner", "accountant"]
 EmployeeRole = Literal["admin", "worker", "accountant"]
 BookingStatus = Literal[
@@ -42,6 +43,7 @@ PLATE_LATIN_TO_CYRILLIC = {
     "Y": "У",
 }
 PLATE_PATTERN = re.compile(r"^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}$")
+MOTORCYCLE_PLATE_PATTERN = re.compile(r"^\d{4}[АВЕКМНОРСТУХ]{2}\d{2,3}$")
 
 
 def normalize_person_name(value: str) -> str:
@@ -87,7 +89,15 @@ def normalize_vehicle_name(value: str) -> str:
     return normalized
 
 
-def normalize_plate(value: str) -> str:
+def normalize_plate(value: str, plate_type: str = "russian") -> str:
+    if plate_type == "foreign":
+        normalized = re.sub(r"[^A-Za-z0-9]", "", value).upper()
+        if not normalized:
+            raise ValueError("Enter vehicle plate")
+        if len(normalized) < 2 or len(normalized) > 15:
+            raise ValueError("Foreign plate must be 2-15 characters")
+        return normalized
+
     cleaned = re.sub(r"\s+", "", value).upper()
     latin_map = {
         "A": "A",
@@ -126,28 +136,33 @@ def normalize_plate(value: str) -> str:
         raise ValueError("Enter vehicle plate")
     if len(normalized) > 9:
         raise ValueError("Номерной знак слишком длинный (максимум 9 символов)")
-    if not re.fullmatch(
-        r"^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}(?:\d{2,3})?$", normalized
-    ):
-        raise ValueError("Enter plate as A123BC77 or A123BC777")
+    if plate_type == "russian":
+        if not re.fullmatch(
+            r"^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}(?:\d{2,3})?$", normalized
+        ):
+            raise ValueError("Enter plate as A123BC77 or A123BC777")
+    elif plate_type == "motorcycle":
+        if not re.fullmatch(
+            r"^\d{4}[ABEKMHOPCTYX]{2}\d{2,3}$", normalized
+        ):
+            raise ValueError("Enter plate as 1234AB77")
+    else:
+        raise ValueError(f"Unknown plate type: {plate_type}")
     return normalized
 
 
 class ClientVehiclePayload(BaseModel):
     car: str = ""
     plate: str = ""
+    plateType: str = "russian"
 
-    @field_validator("car")
-    @classmethod
-    def validate_car(cls, value: str) -> str:
-        return normalize_vehicle_name(value)
-
-    @field_validator("plate")
-    @classmethod
-    def validate_plate(cls, value: str) -> str:
-        if not value.strip():
-            return ""
-        return normalize_plate(value)
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "ClientVehiclePayload":
+        if self.car.strip():
+            self.car = normalize_vehicle_name(self.car)
+        if self.plate.strip():
+            self.plate = normalize_plate(self.plate, self.plateType)
+        return self
 
 
 class ClientProfilePayload(BaseModel):
@@ -155,6 +170,7 @@ class ClientProfilePayload(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    plateType: str = "russian"
     vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     registered: bool = True
     phoneVerified: bool = False
@@ -165,6 +181,7 @@ class ClientProfileInput(BaseModel):
     phone: str = ""
     car: str = ""
     plate: str = ""
+    plateType: str = "russian"
     vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     registered: bool = True
 
@@ -178,6 +195,12 @@ class ClientProfileInput(BaseModel):
     def validate_phone(cls, value: str) -> str:
         return normalize_phone(value)
 
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "ClientProfileInput":
+        if self.plate.strip():
+            self.plate = normalize_plate(self.plate, self.plateType)
+        return self
+
 
 class ClientSummaryPayload(BaseModel):
     id: str
@@ -185,6 +208,7 @@ class ClientSummaryPayload(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    plateType: str = "russian"
     vehicles: list[ClientVehiclePayload] = Field(default_factory=list)
     notes: str = ""
     debtBalance: int = 0
@@ -198,6 +222,7 @@ class ClientCreateRequest(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    plateType: str = "russian"
     notes: str = ""
     referralSource: str = ""
 
@@ -213,19 +238,13 @@ class ClientCreateRequest(BaseModel):
             return ""
         return normalize_phone(value)
 
-    @field_validator("car")
-    @classmethod
-    def validate_car(cls, value: str) -> str:
-        if not value.strip():
-            return ""
-        return normalize_vehicle_name(value)
-
-    @field_validator("plate")
-    @classmethod
-    def validate_plate(cls, value: str) -> str:
-        if not value.strip():
-            return ""
-        return normalize_plate(value)
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "ClientCreateRequest":
+        if self.car.strip():
+            self.car = normalize_vehicle_name(self.car)
+        if self.plate.strip():
+            self.plate = normalize_plate(self.plate, self.plateType)
+        return self
 
 
 class WorkerPayload(BaseModel):
@@ -409,6 +428,7 @@ class BookingPayload(BaseModel):
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
+    plateType: str = "russian"
     services: list[BookingServiceItem] = Field(default_factory=list)
     additionalServices: list[AdditionalServicePayload] = Field(default_factory=list)
 
@@ -575,6 +595,7 @@ class DetailingRequestCreateRequest(BaseModel):
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
+    plateType: str = "russian"
 
     @field_validator("car")
     @classmethod
@@ -583,12 +604,14 @@ class DetailingRequestCreateRequest(BaseModel):
             return None
         return normalize_vehicle_name(value)
 
-    @field_validator("plate")
-    @classmethod
-    def validate_plate(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        return normalize_plate(value)
+    @model_validator(mode="after")
+    def validate_plate_field(self) -> "DetailingRequestCreateRequest":
+        if self.plate is not None:
+            if not self.plate.strip():
+                self.plate = None
+            else:
+                self.plate = normalize_plate(self.plate, self.plateType)
+        return self
 
 
 class BoxPayload(BaseModel):
@@ -766,6 +789,7 @@ class ClientRegisterRequest(BaseModel):
     phone: str
     car: str = ""
     plate: str = ""
+    plateType: str = "russian"
 
     @field_validator("name")
     @classmethod
@@ -778,6 +802,12 @@ class ClientRegisterRequest(BaseModel):
     @classmethod
     def validate_phone(cls, value: str) -> str:
         return normalize_phone(value)
+
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "ClientRegisterRequest":
+        if self.plate.strip():
+            self.plate = normalize_plate(self.plate, self.plateType)
+        return self
 
 
 class ConsentRecordPayload(BaseModel):
@@ -816,6 +846,7 @@ class BookingCreateRequest(BaseModel):
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
+    plateType: str = "russian"
     notifyWorkers: bool = False
 
     @field_validator("clientName")
@@ -832,19 +863,13 @@ class BookingCreateRequest(BaseModel):
             return ""
         return normalize_phone(value)
 
-    @field_validator("car")
-    @classmethod
-    def validate_car(cls, value: str | None) -> str:
-        if value is None or not value.strip():
-            return ""
-        return normalize_vehicle_name(value)
-
-    @field_validator("plate")
-    @classmethod
-    def validate_plate(cls, value: str | None) -> str:
-        if value is None or not value.strip():
-            return ""
-        return normalize_plate(value)
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "BookingCreateRequest":
+        if self.car is not None and self.car.strip():
+            self.car = normalize_vehicle_name(self.car)
+        if self.plate is not None and self.plate.strip():
+            self.plate = normalize_plate(self.plate, self.plateType)
+        return self
 
 
 class AddBookingServiceRequest(BaseModel):
@@ -871,6 +896,7 @@ class BookingUpdateRequest(BaseModel):
     notes: str | None = None
     car: str | None = None
     plate: str | None = None
+    plateType: str | None = None
     notifyWorkers: bool | None = None
 
     @field_validator("clientName")
@@ -887,23 +913,18 @@ class BookingUpdateRequest(BaseModel):
             return None
         return normalize_phone(value)
 
-    @field_validator("car")
-    @classmethod
-    def validate_car(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        if not value.strip():
-            return ""
-        return normalize_vehicle_name(value)
-
-    @field_validator("plate")
-    @classmethod
-    def validate_plate(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        if not value.strip():
-            return ""
-        return normalize_plate(value)
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "BookingUpdateRequest":
+        if self.car is not None and not self.car.strip():
+            self.car = ""
+        if self.car is not None and self.car.strip():
+            self.car = normalize_vehicle_name(self.car)
+        if self.plate is not None and not self.plate.strip():
+            self.plate = ""
+        if self.plate is not None and self.plate.strip():
+            plate_type = self.plateType if self.plateType else "russian"
+            self.plate = normalize_plate(self.plate, plate_type)
+        return self
 
 
 class ClientCardUpdateRequest(BaseModel):
@@ -911,6 +932,7 @@ class ClientCardUpdateRequest(BaseModel):
     phone: str | None = None
     car: str | None = None
     plate: str | None = None
+    plateType: str | None = None
     vehicles: list[ClientVehiclePayload] | None = None
     notes: str | None = None
     debtBalance: int | None = None
@@ -932,23 +954,18 @@ class ClientCardUpdateRequest(BaseModel):
             return None
         return normalize_phone(value)
 
-    @field_validator("car")
-    @classmethod
-    def validate_car(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        if not value.strip():
-            return ""
-        return normalize_vehicle_name(value)
-
-    @field_validator("plate")
-    @classmethod
-    def validate_plate(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        if not value.strip():
-            return ""
-        return normalize_plate(value)
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "ClientCardUpdateRequest":
+        if self.car is not None and not self.car.strip():
+            self.car = ""
+        if self.car is not None and self.car.strip():
+            self.car = normalize_vehicle_name(self.car)
+        if self.plate is not None and not self.plate.strip():
+            self.plate = ""
+        if self.plate is not None and self.plate.strip():
+            plate_type = self.plateType if self.plateType else "russian"
+            self.plate = normalize_plate(self.plate, plate_type)
+        return self
 
 
 class NotificationCreateRequest(BaseModel):

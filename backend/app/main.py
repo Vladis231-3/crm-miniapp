@@ -1096,7 +1096,7 @@ def _merge_setting_dict(value: Any, default: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_client_vehicles(
-    vehicles: list[ClientVehiclePayload] | list[dict[str, str]] | None,
+    vehicles: list[ClientVehiclePayload] | list[dict[str, Any]] | None,
     *,
     fallback_car: str = "",
     fallback_plate: str = "",
@@ -1106,14 +1106,16 @@ def _normalize_client_vehicles(
         if isinstance(item, dict):
             car = item.get("car", "")
             plate = item.get("plate", "")
+            plate_type = item.get("plateType", "russian")
         else:
             car = item.car
             plate = item.plate
+            plate_type = item.plateType
         car = normalize_vehicle_name(car) if car.strip() else ""
-        plate = normalize_plate(plate) if plate.strip() else ""
+        plate = normalize_plate(plate, plate_type) if plate.strip() else ""
         if not car and not plate:
             continue
-        normalized.append(ClientVehiclePayload(car=car, plate=plate))
+        normalized.append(ClientVehiclePayload(car=car, plate=plate, plateType=plate_type))
     if not normalized and (fallback_car.strip() or fallback_plate.strip()):
         normalized.append(ClientVehiclePayload(car=fallback_car, plate=fallback_plate))
     deduped: list[ClientVehiclePayload] = []
@@ -1198,6 +1200,7 @@ def _client_payload(client: Client | None) -> ClientProfilePayload | None:
         phone=client.phone,
         car=client.car or "",
         plate=client.plate or "",
+        plateType=client.plate_type or "russian",
         vehicles=vehicles,
         registered=client.registered,
         phoneVerified=phone_verified,
@@ -1218,6 +1221,7 @@ def _client_summary_payload(
         phone=client.phone,
         car=client.car or "",
         plate=client.plate or "",
+        plateType=client.plate_type or "russian",
         vehicles=vehicles,
         notes=client.notes or "",
         debtBalance=client.debt_balance,
@@ -1756,7 +1760,7 @@ def _worker_payroll_summaries(
                     time=booking.time,
                     price=booking.price,
                     percent=percent,
-                    earned=round(booking.price * percent / 100),
+                    earned=1200 if booking.service == "подготовка к полировке" else round(booking.price * percent / 100),
                 )
             )
 
@@ -1909,6 +1913,7 @@ def _booking_payload(
         notes=booking.notes,
         car=booking.car,
         plate=booking.plate,
+        plateType=booking.plate_type or "russian",
         services=booking_services,
         additionalServices=additional_services,
     )
@@ -5316,8 +5321,8 @@ def update_client_profile(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
         )
     try:
-        normalized_car = normalize_vehicle_name(payload.car)
-        normalized_plate = normalize_plate(payload.plate)
+        normalized_car = normalize_vehicle_name(payload.car) if payload.car.strip() else ""
+        normalized_plate = normalize_plate(payload.plate, payload.plateType) if payload.plate.strip() else ""
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -5338,6 +5343,7 @@ def update_client_profile(
     client.phone = payload.phone
     client.car = primary_vehicle.car
     client.plate = primary_vehicle.plate
+    client.plate_type = primary_vehicle.plateType
     client.registered = payload.registered
     client.updated_at = _now()
     _save_client_vehicles(db, client.id, vehicles)
@@ -5361,7 +5367,7 @@ def create_client(
         )
 
     vehicles = _normalize_client_vehicles(
-        [{"car": payload.car, "plate": payload.plate}],
+        [{"car": payload.car, "plate": payload.plate, "plateType": payload.plateType}],
         fallback_car=payload.car,
         fallback_plate=payload.plate,
     )
@@ -5374,6 +5380,7 @@ def create_client(
         phone=payload.phone,
         car=primary_vehicle.car,
         plate=primary_vehicle.plate,
+        plate_type=primary_vehicle.plateType,
         notes=payload.notes.strip(),
         referral_source=payload.referralSource.strip(),
         registered=True,
@@ -5418,6 +5425,8 @@ def update_client_card(
         client.car = updates["car"].strip()
     if "plate" in updates and updates["plate"] is not None:
         client.plate = updates["plate"].strip()
+    if "plateType" in updates and updates["plateType"] is not None:
+        client.plate_type = updates["plateType"]
     if "vehicles" in updates and updates["vehicles"] is not None:
         vehicles = _normalize_client_vehicles(
             updates["vehicles"],
@@ -5427,6 +5436,7 @@ def update_client_card(
         primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
         client.car = primary_vehicle.car
         client.plate = primary_vehicle.plate
+        client.plate_type = primary_vehicle.plateType
         _save_client_vehicles(db, client.id, vehicles)
     client.updated_at = _now()
     db.commit()
@@ -5527,6 +5537,7 @@ def create_booking(
         booking_client_phone = client.phone
         booking_car = client.car or ""
         booking_plate = client.plate or ""
+        booking_plate_type = client.plate_type or "russian"
         booking_service = service.name
         booking_service_id = service.id
         booking_duration = service.duration
@@ -5563,6 +5574,7 @@ def create_booking(
                 phone=normalized_client_phone,
                 car=payload.car or "",
                 plate=payload.plate or "",
+                plate_type=payload.plateType,
                 registered=True,
             )
             db.add(client)
@@ -5575,6 +5587,7 @@ def create_booking(
                 client.car = payload.car
             if payload.plate:
                 client.plate = payload.plate
+                client.plate_type = payload.plateType
             client.registered = True
             client.updated_at = _now()
         db.flush()
@@ -5582,6 +5595,7 @@ def create_booking(
         booking_client_phone = client.phone
         booking_car = client.car or ""
         booking_plate = client.plate or ""
+        booking_plate_type = client.plate_type or payload.plateType
         if service is not None:
             booking_service = service.name
             booking_service_id = service.id
@@ -5674,6 +5688,7 @@ def create_booking(
         notes=payload.notes,
         car=booking_car,
         plate=booking_plate,
+        plate_type=booking_plate_type,
         created_at=_now(),
     )
     db.add(booking)
@@ -5888,7 +5903,7 @@ def update_booking(
         service = db.get(Service, booking.service_id) if booking.service_id else None
 
     if booking.client_id and any(
-        field in updates for field in ("clientName", "clientPhone", "car", "plate")
+        field in updates for field in ("clientName", "clientPhone", "car", "plate", "plateType")
     ):
         client = db.get(Client, booking.client_id)
         if client is not None:
@@ -5906,6 +5921,8 @@ def update_booking(
                 client.car = updates["car"] or ""
             if "plate" in updates:
                 client.plate = updates["plate"] or ""
+            if "plateType" in updates:
+                client.plate_type = updates["plateType"]
             client.registered = True
             client.updated_at = _now()
 
@@ -5995,6 +6012,7 @@ def update_booking(
             "serviceId": "service_id",
             "paymentType": "payment_type",
             "paymentSettled": "payment_settled",
+            "plateType": "plate_type",
         }.get(field, field)
         setattr(booking, target_field, value)
 
@@ -8170,7 +8188,7 @@ def owner_worker_salary_detail(
         # Main service contribution
         additional_total = sum(asvc.price for asvc in (b.additional_services or []))
         main_price = max(0, b.price - additional_total)
-        main_earned = round(main_price * percent / 100)
+        main_earned = 1200 if b.service == "подготовка к полировке" else round(main_price * percent / 100)
         # Additional services contribution
         additional_earned = 0
         for asvc in (b.additional_services or []):
@@ -8340,7 +8358,7 @@ def worker_my_salary_detail(
             continue
         additional_total = sum(asvc.price for asvc in (b.additional_services or []))
         main_price = max(0, b.price - additional_total)
-        main_earned = round(main_price * percent / 100)
+        main_earned = 1200 if b.service == "подготовка к полировке" else round(main_price * percent / 100)
         additional_earned = 0
         for asvc in (b.additional_services or []):
             for alink in asvc.worker_links:

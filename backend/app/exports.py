@@ -578,7 +578,7 @@ def _build_owner_summary_export_data(
                     time_value=booking.time,
                     fallback=booking.created_at,
                 )
-                worker_row["earned"] += round(booking.price * percent / 100)
+                worker_row["earned"] += 1200 if booking.service == "подготовка к полировке" else round(booking.price * percent / 100)
             elif booking.status in {"scheduled", "in_progress"}:
                 worker_row["active"] += 1
             elif booking.status == "admin_review":
@@ -915,7 +915,7 @@ def _build_export_data(
                 time_value=booking.time,
                 fallback=booking.created_at,
             )
-            earned += round(booking.price * percent / 100)
+            earned += 1200 if booking.service == "подготовка к полировке" else round(booking.price * percent / 100)
         complaint_state = complaint_status_for_percent(worker.default_percent, worker_penalties)
         complaint_effect = "Без снижения"
         if complaint_state.reduction_active and complaint_state.reduction_until is not None:

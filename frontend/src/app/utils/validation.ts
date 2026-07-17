@@ -1,12 +1,12 @@
+export type PlateType = 'russian' | 'motorcycle' | 'foreign';
+
 const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{0,59}$/;
 const REPEATED_LETTERS_PATTERN = /([A-Za-zА-Яа-яЁё])\1{3,}/i;
 const VEHICLE_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$/;
 const REPEATED_VEHICLE_PATTERN = /([A-Za-zА-Яа-яЁё0-9])\1{3,}/i;
-// Разрешённые латинские буквы для российских госномеров (по ГОСТ Р 50577-2018).
 const PLATE_ALLOWED_LETTERS = new Set(["A", "B", "E", "K", "M", "H", "O", "P", "C", "T", "Y", "X"]);
 
 const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
-  // Латиница (нижний и верхний регистр)
   A: 'A', a: 'A',
   B: 'B', b: 'B',
   C: 'C', c: 'C',
@@ -19,7 +19,6 @@ const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
   T: 'T', t: 'T',
   X: 'X', x: 'X',
   Y: 'Y', y: 'Y',
-  // Кириллица — конвертируем в визуально похожую латиницу
   А: 'A', а: 'A',
   В: 'B', в: 'B',
   С: 'C', с: 'C',
@@ -35,6 +34,7 @@ const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
   У: 'Y', у: 'Y',
 };
 const PLATE_PATTERN = /^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2,3}$/;
+const MOTORCYCLE_PLATE_PATTERN = /^\d{4}[ABEKMHOPCTYX]{2}\d{2,3}$/;
 
 export function normalizePersonName(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -72,58 +72,61 @@ export function validateVehicleName(value: string): string | null {
   return null;
 }
 
-/**
- * Возвращает тип символа, ожидаемого на данной позиции российского госномера.
- * - "letter" — позиции 0, 4, 5
- * - "digit"  — позиции 1, 2, 3, 6, 7, 8
- */
-function plateExpectedAtPosition(index: number): 'letter' | 'digit' {
+function plateExpectedAtPosition(index: number, plateType: PlateType): 'letter' | 'digit' {
+  if (plateType === 'motorcycle') {
+    if (index < 4) return 'digit';
+    if (index < 6) return 'letter';
+    return 'digit';
+  }
   if (index === 0 || index === 4 || index === 5) return 'letter';
   return 'digit';
 }
 
-/**
- * Нормализует ввод госномера, фильтруя посимвольно по позициям.
- * - Любые русские буквы, визуально похожие на латиницу, конвертируются (А→A, В→B, ...)
- * - Любые буквы вне разрешённого набора отбрасываются
- * - Если на позиции ожидается цифра — буквы отбрасываются (даже разрешённые)
- * - Если на позиции ожидается буква — цифры отбрасываются
- * - Любая раскладка (RU/EN, lower/upper) приводится к латинскому upper
- */
-export function normalizePlateInput(value: string): string {
+export function normalizePlateInput(value: string, plateType: PlateType = 'russian'): string {
+  if (plateType === 'foreign') {
+    return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 15);
+  }
+
   let result = '';
   for (const ch of value) {
     if (result.length >= 9) break;
     if (/\s/.test(ch)) continue;
 
-    const expected = plateExpectedAtPosition(result.length);
+    const expected = plateExpectedAtPosition(result.length, plateType);
 
-    // Пробуем сконвертировать раскладку
     const mapped = PLATE_LAYOUT_TO_LATIN[ch];
     if (mapped !== undefined) {
-      // Это буква (латинская или кириллическая визуально-похожая)
-      if (expected !== 'letter') continue; // на этой позиции ждём цифру
-      if (!PLATE_ALLOWED_LETTERS.has(mapped)) continue; // не из списка разрешённых
+      if (expected !== 'letter') continue;
+      if (!PLATE_ALLOWED_LETTERS.has(mapped)) continue;
       result += mapped;
       continue;
     }
 
-    // Цифра?
     if (/[0-9]/.test(ch)) {
-      if (expected !== 'digit') continue; // на этой позиции ждём букву
+      if (expected !== 'digit') continue;
       result += ch;
       continue;
     }
-
-    // Любые прочие символы (включая буквы вне разрешённого набора)
-    // молча отбрасываем — это и есть «защита от любой раскладки».
   }
   return result;
 }
 
-export function validatePlateValue(value: string): string | null {
-  const normalized = normalizePlateInput(value);
+export function validatePlateValue(value: string, plateType: PlateType = 'russian'): string | null {
+  if (plateType === 'foreign') {
+    const normalized = normalizePlateInput(value, 'foreign');
+    if (!normalized) return 'Введите иностранный номер';
+    if (normalized.length < 2) return 'Слишком короткий номер (мин. 2 символа)';
+    if (normalized.length > 15) return 'Слишком длинный номер (макс. 15 символов)';
+    if (!/^[A-Z0-9]+$/.test(normalized)) return 'Допустимы только латинские буквы и цифры';
+    return null;
+  }
+
+  const normalized = normalizePlateInput(value, plateType);
   if (!normalized) return 'Введите госномер';
-  if (!PLATE_PATTERN.test(normalized)) return 'Введите номер в формате A123BC77 или A123BC777';
+  if (plateType === 'russian') {
+    if (!PLATE_PATTERN.test(normalized)) return 'Введите номер в формате A123BC77 или A123BC777';
+  } else if (plateType === 'motorcycle') {
+    if (!MOTORCYCLE_PLATE_PATTERN.test(normalized)) return 'Введите номер в формате 1234AB77';
+  }
   return null;
 }
