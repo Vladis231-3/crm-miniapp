@@ -529,6 +529,7 @@ export function OwnerApp() {
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
   const [penaltyForm, setPenaltyForm] = useState({ workerId: workers[0]?.id || '', title: '', reason: '' });
+  const [showComplaintsWorkerId, setShowComplaintsWorkerId] = useState<string | null>(null);
   const [newEmployee, setNewEmployee] = useState({
     role: 'worker' as 'admin' | 'worker' | 'accountant',
     name: '',
@@ -3125,6 +3126,15 @@ export function OwnerApp() {
                         </div>
                       ))}
                     </div>
+                  )}
+                  {!isAccountant && complaintState.activeCount > 0 && (
+                    <button
+                      onClick={() => setShowComplaintsWorkerId(worker.id)}
+                      className="mb-3 w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                      style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}
+                    >
+                      Все жалобы ({complaintState.activeCount})
+                    </button>
                   )}
                   {(payrollSummary?.bookingItems?.length || 0) > 0 && (
                     <div className="mb-3">
@@ -6300,6 +6310,45 @@ export function OwnerApp() {
               <div className="flex gap-2">
                 <button onClick={() => setShowWriteOff(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                 <button onClick={handleWriteOff} className="flex-1 py-2.5 rounded-xl text-sm text-white" style={{ background: '#FF6B6B' }}>Списать</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── ACTIVE COMPLAINTS ── */}
+      <AnimatePresence>
+        {showComplaintsWorkerId && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Активные жалобы</h3>
+                <button onClick={() => setShowComplaintsWorkerId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="space-y-3">
+                {penalties.filter(p => p.workerId === showComplaintsWorkerId && isComplaintActive(p)).map(penalty => {
+                  const ownerName = workers.find(w => w.id === penalty.ownerId)?.name || 'Неизвестно';
+                  return (
+                    <div key={penalty.id} className={`${glass} rounded-xl p-3`}>
+                      <div className="font-medium text-sm">{penalty.title}</div>
+                      <div className={`text-xs ${sub} mt-1`}>{penalty.reason}</div>
+                      <div className={`text-[11px] ${sub} mt-2`}>
+                        Выдана: {formatComplaintDate(penalty.createdAt)}
+                      </div>
+                      <div className={`text-[11px] ${sub}`}>
+                        Кем: {ownerName}
+                      </div>
+                      <div className={`text-[11px] ${sub}`}>
+                        Активна до: {formatComplaintDate(penalty.activeUntil)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {penalties.filter(p => p.workerId === showComplaintsWorkerId && isComplaintActive(p)).length === 0 && (
+                  <div className={`text-sm ${sub} text-center py-6`}>Нет активных жалоб</div>
+                )}
               </div>
             </motion.div>
           </motion.div>
