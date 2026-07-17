@@ -44,8 +44,6 @@ from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, 
 
 from .complaints import adjusted_booking_percent, complaint_status_for_percent
 
-from .main import FIXED_MASTER_EARNED, FIXED_MASTER_SERVICE_NAME, is_fixed_master_service
-
 from .models import Booking, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
 
 
@@ -1649,6 +1647,9 @@ def _build_export_data(
     shift_pay_by_worker: dict[str, int] | None = None,
 
 ) -> OwnerExportData:
+
+    # Ленивый импорт, чтобы избежать циклического импорта с main (main импортирует exports на верхнем уровне).
+    from .main import FIXED_MASTER_EARNED, FIXED_MASTER_SERVICE_NAME, is_fixed_master_service
 
     generated_at = datetime.now().astimezone()
 
