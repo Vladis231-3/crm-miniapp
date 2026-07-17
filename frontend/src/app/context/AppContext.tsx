@@ -165,6 +165,8 @@ export interface Booking {
   box: string;
   paymentType: PaymentType;
   paymentSettled: boolean;
+  isOutsource: boolean;
+  outsourceAmount: number;
   createdAt: Date;
   notes?: string;
   car?: string;

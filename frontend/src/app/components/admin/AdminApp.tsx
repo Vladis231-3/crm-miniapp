@@ -326,6 +326,8 @@ export function AdminApp() {
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', plateType: 'russian' as PlateType, notes: '', status: 'admin_review' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
+    isOutsource: false,
+    outsourceAmount: 0,
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
@@ -905,6 +907,8 @@ export function AdminApp() {
       status: 'admin_review',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
+      isOutsource: false,
+      outsourceAmount: 0,
     });
   };
 

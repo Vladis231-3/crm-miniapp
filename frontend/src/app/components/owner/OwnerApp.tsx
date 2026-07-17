@@ -2018,7 +2018,7 @@ export function OwnerApp() {
         car: normalizedCar,
         plate: normalizedPlate,
         notes: ownerNewBookingForm.notes,
-        notifyWorkers: notify,
+        notifyWorkers: !ownerNewBookingForm.isOutsource && notify,
       });
       const requestScheduleLabel = hasDateTime
         ? `${normalizedDate} ${ownerNewBookingForm.time.trim()}`

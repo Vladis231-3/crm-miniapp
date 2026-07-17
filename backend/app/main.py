@@ -50,6 +50,7 @@ from .models import (
     Expense,
     Income,
     Notification,
+    OwnerProfitShare,
     Penalty,
     PayrollEntry,
     PiggyBankTransaction,
@@ -115,7 +116,12 @@ from .schemas import (
     OwnerIntegrationsPayload,
     OwnerNotificationSettings,
     AuthSessionPayload,
+    OwnerProfitShareItem,
+    OwnerProfitShareSummary,
+    OwnerSalaryDetailResponse,
     OwnerSecurityPayload,
+    PayOwnerSalaryRequest,
+    PayOwnerSalaryResponse,
     PiggyBankDetailingBreakdown,
     PiggyBankResponse,
     PiggyBankTransactionPayload,
@@ -947,6 +953,10 @@ def _apply_runtime_migrations() -> None:
                 connection.exec_driver_sql(
                     "ALTER TABLE services ADD COLUMN material_consumption INTEGER"
                 )
+
+    # Миграция: таблица долей прибыли владельцев
+    if "owner_profit_shares" not in inspector.get_table_names():
+        OwnerProfitShare.__table__.create(bind=engine)
 
 
 def _repair_text_value(value: str) -> str:
@@ -6083,8 +6093,13 @@ def update_booking(
             "paymentType": "payment_type",
             "paymentSettled": "payment_settled",
             "plateType": "plate_type",
+            "isOutsource": "is_outsource",
+            "outsourceAmount": "outsource_amount",
         }.get(field, field)
         setattr(booking, target_field, value)
+    if payload.isOutsource is False:
+        booking.is_outsource = False
+        booking.outsource_amount = None
 
     previous_worker_ids = {link.worker_id for link in booking.worker_links}
     if payload.workers is not None:
@@ -6152,6 +6167,7 @@ def update_booking(
     )
     if (booking_just_completed or payment_just_settled) and next_payment_settled:
         _process_piggy_bank_for_booking(db, booking)
+        _process_owner_profit_share(db, booking)
 
     db.commit()
     db.refresh(booking)
@@ -7108,6 +7124,38 @@ def get_piggy_bank(
         select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc())
     ).all()
 
+    # Owner profit shares
+    owner_ids_for_pb = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    all_owner_shares = db.scalars(
+        select(OwnerProfitShare).where(
+            OwnerProfitShare.owner_id.in_(owner_ids_for_pb),
+        ).order_by(OwnerProfitShare.created_at.desc())
+    ).all()
+    owner_share_items = []
+    owner_total_accrued = 0
+    owner_total_paid = 0
+    for s in all_owner_shares:
+        if not _in_range(s.date):
+            continue
+        b = db.get(Booking, s.booking_id)
+        owner_share_items.append(
+            OwnerProfitShareItem(
+                id=s.id,
+                bookingId=s.booking_id,
+                service=b.service if b else "",
+                clientName=b.client_name if b else "",
+                date=s.date,
+                price=b.price if b else 0,
+                amount=s.amount,
+                status=s.status,
+                createdAt=s.created_at,
+            )
+        )
+        if s.status == "pending":
+            owner_total_accrued += s.amount
+        else:
+            owner_total_paid += s.amount
+
     return PiggyBankResponse(
         balance=balance,
         transactions=transaction_payloads,
@@ -7154,6 +7202,10 @@ def get_piggy_bank(
             )
             for a in archives_db
         ],
+        ownerProfitShares=owner_share_items,
+        ownerProfitTotal=owner_total_accrued,
+        ownerProfitPaid=owner_total_paid,
+        ownerProfitBalance=owner_total_accrued - owner_total_paid,
     )
 
 
@@ -8598,6 +8650,207 @@ def owner_worker_pay_salary(
         payoutId=entry.id,
         newBalance=new_balance,
         expenseId=expense.id,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Owner Profit Share Endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/owner/owners/salary-detail", response_model=OwnerSalaryDetailResponse)
+def owner_salary_detail(
+    period: str = "month",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerSalaryDetailResponse:
+    _ensure_staff_role(session_data, {"owner"})
+
+    owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    owners = db.scalars(
+        select(StaffUser).where(StaffUser.id.in_(owner_ids))
+    ).all()
+    owner_map = {o.id: o.name for o in owners}
+
+    now_dt = _now()
+    if period == "day":
+        dt_from = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        dt_to = now_dt
+    elif period == "week":
+        dt_from = now_dt - timedelta(days=7)
+        dt_to = now_dt
+    elif period == "month":
+        dt_from = now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        dt_to = now_dt
+    else:
+        dt_from = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        dt_to = now_dt
+
+    all_shares = db.scalars(
+        select(OwnerProfitShare).where(
+            OwnerProfitShare.created_at >= dt_from,
+            OwnerProfitShare.created_at <= dt_to,
+        ).order_by(OwnerProfitShare.created_at.desc())
+    ).all()
+
+    total_accrued = 0
+    total_paid = 0
+    owner_data: dict[str, dict] = {}
+
+    for o in owners:
+        owner_data[o.id] = {"shares": [], "total_accrued": 0, "total_paid": 0}
+
+    for share in all_shares:
+        if share.owner_id not in owner_data:
+            continue
+        booking_obj = db.get(Booking, share.booking_id)
+        service = booking_obj.service if booking_obj else ""
+        client_name = booking_obj.client_name if booking_obj else ""
+        price = booking_obj.price if booking_obj else 0
+
+        item = OwnerProfitShareItem(
+            id=share.id,
+            bookingId=share.booking_id,
+            service=service,
+            clientName=client_name,
+            date=share.date,
+            price=price,
+            amount=share.amount,
+            status=share.status,
+            createdAt=share.created_at,
+        )
+        owner_data[share.owner_id]["shares"].append(item)
+        if share.status == "pending":
+            owner_data[share.owner_id]["total_accrued"] += share.amount
+            total_accrued += share.amount
+        else:
+            owner_data[share.owner_id]["total_paid"] += share.amount
+            total_paid += share.amount
+
+    summaries = []
+    for owner in owners:
+        d = owner_data[owner.id]
+        summaries.append(
+            OwnerProfitShareSummary(
+                ownerId=owner.id,
+                ownerName=owner.name,
+                totalAccrued=d["total_accrued"],
+                totalPaid=d["total_paid"],
+                balanceToPay=d["total_accrued"] - d["total_paid"],
+                shares=d["shares"],
+            )
+        )
+
+    total_balance = total_accrued - total_paid
+    return OwnerSalaryDetailResponse(
+        owners=summaries,
+        totalAccrued=total_accrued,
+        totalPaid=total_paid,
+        totalBalanceToPay=total_balance,
+    )
+
+
+@app.post("/api/owner/owners/pay-salary", response_model=PayOwnerSalaryResponse)
+def owner_pay_salary(
+    payload: PayOwnerSalaryRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> PayOwnerSalaryResponse:
+    _ensure_staff_role(session_data, {"owner"})
+
+    owner = db.get(StaffUser, payload.ownerId)
+    if owner is None or owner.role != "owner":
+        raise HTTPException(status_code=404, detail="Владелец не найден")
+
+    if payload.ownerId not in [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]:
+        raise HTTPException(status_code=403, detail="Нельзя выплатить ЗП этому владельцу")
+
+    amount = payload.amount
+
+    # Get pending shares up to the amount
+    pending_shares = db.scalars(
+        select(OwnerProfitShare).where(
+            OwnerProfitShare.owner_id == payload.ownerId,
+            OwnerProfitShare.status == "pending",
+        ).order_by(OwnerProfitShare.created_at.asc())
+    ).all()
+
+    pending_total = sum(s.amount for s in pending_shares)
+    if amount > pending_total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Нельзя выплатить больше, чем накоплено. Доступно: {pending_total} ₽",
+        )
+
+    # Mark shares as paid
+    to_pay = amount
+    for share in pending_shares:
+        if to_pay <= 0:
+            break
+        if share.amount <= to_pay:
+            share.status = "paid"
+            to_pay -= share.amount
+        else:
+            remaining = share.amount - to_pay
+            share.amount = to_pay
+            share.status = "paid"
+            db.add(
+                OwnerProfitShare(
+                    id=f"ops-{uuid4()}",
+                    booking_id=share.booking_id,
+                    owner_id=share.owner_id,
+                    amount=remaining,
+                    status="pending",
+                    date=share.date,
+                    created_at=_now(),
+                )
+            )
+            to_pay = 0
+
+    # Create PayrollEntry
+    entry = PayrollEntry(
+        id=f"pay-{uuid4()}",
+        worker_id=owner.id,
+        actor_id=session_data["actorId"],
+        actor_role=session_data["role"],
+        kind="payout",
+        amount=amount,
+        note=payload.note.strip() or f"Выплата ЗП владельцу {owner.name}",
+        created_at=_now(),
+    )
+    db.add(entry)
+
+    # Create Expense
+    today_str = date.today().strftime("%d.%m.%Y")
+    expense = Expense(
+        id=f"exp-{uuid4()}",
+        title=f"ЗП владельца: {owner.name}",
+        amount=amount,
+        category="Зарплата",
+        date=today_str,
+        note=payload.note.strip() or f"Выплата ЗП владельцу {owner.name}",
+        resource_group="detailing",
+        created_at=_now(),
+    )
+    db.add(expense)
+
+    owner.updated_at = _now()
+    db.commit()
+
+    new_balance = sum(
+        s.amount for s in db.scalars(
+            select(OwnerProfitShare).where(
+                OwnerProfitShare.owner_id == payload.ownerId,
+                OwnerProfitShare.status == "pending",
+            )
+        ).all()
+    )
+
+    return PayOwnerSalaryResponse(
+        message="Выплата проведена",
+        payoutId=entry.id,
+        expenseId=expense.id,
+        newBalance=new_balance,
     )
 
 

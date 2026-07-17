@@ -1362,6 +1362,10 @@ class PiggyBankResponse(BaseModel):
     detailingIncomes: int = 0
     remainingInPiggyBank: int = 0
     archives: list[WeeklyArchivePayload] = Field(default_factory=list)
+    ownerProfitShares: list[OwnerProfitShareItem] = Field(default_factory=list)
+    ownerProfitTotal: int = 0
+    ownerProfitPaid: int = 0
+    ownerProfitBalance: int = 0
 
 
 class WeeklyArchivePayload(BaseModel):
@@ -1390,3 +1394,47 @@ class WalletResponse(BaseModel):
     expenses: list[ExpensePayload] = Field(default_factory=list)
     piggyBankBalance: int = 0
     archives: list[WeeklyArchivePayload] = Field(default_factory=list)
+
+
+# --- Owner Profit Share schemas ---
+
+
+class OwnerProfitShareItem(BaseModel):
+    id: str
+    bookingId: str
+    service: str = ""
+    clientName: str = ""
+    date: str
+    price: int = 0
+    amount: int
+    status: str
+    createdAt: datetime
+
+
+class OwnerProfitShareSummary(BaseModel):
+    ownerId: str
+    ownerName: str
+    totalAccrued: int = 0
+    totalPaid: int = 0
+    balanceToPay: int = 0
+    shares: list[OwnerProfitShareItem] = Field(default_factory=list)
+
+
+class OwnerSalaryDetailResponse(BaseModel):
+    owners: list[OwnerProfitShareSummary] = Field(default_factory=list)
+    totalAccrued: int = 0
+    totalPaid: int = 0
+    totalBalanceToPay: int = 0
+
+
+class PayOwnerSalaryRequest(BaseModel):
+    ownerId: str
+    amount: int = Field(ge=1, le=10_000_000)
+    note: str = ""
+
+
+class PayOwnerSalaryResponse(BaseModel):
+    message: str
+    payoutId: str
+    expenseId: str
+    newBalance: int

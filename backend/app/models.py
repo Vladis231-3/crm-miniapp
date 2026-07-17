@@ -8,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
+OWNER_PROFIT_PENDING = "pending"
+OWNER_PROFIT_PAID = "paid"
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -402,6 +405,24 @@ class PiggyBankTransaction(Base):
     material_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
     date: Mapped[str] = mapped_column(String(16))
     resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
+class OwnerProfitShare(Base):
+    __tablename__ = "owner_profit_shares"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    booking_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("bookings.id", ondelete="CASCADE")
+    )
+    owner_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("staff_users.id", ondelete="CASCADE")
+    )
+    amount: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default=OWNER_PROFIT_PENDING)
+    date: Mapped[str] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
