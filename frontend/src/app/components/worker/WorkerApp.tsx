@@ -546,6 +546,28 @@ export function WorkerApp() {
                 <div className={`text-sm ${sub} mt-1`}>{selectedTask.date} в {selectedTask.time} · {selectedTask.duration} мин</div>
                 <div className={`text-sm ${sub}`}>{selectedTask.box}</div>
               </div>
+              {selectedTask.additionalServices && selectedTask.additionalServices.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div className={`text-xs font-medium ${sub} mb-2`}>ДОП. УСЛУГИ</div>
+                  {selectedTask.additionalServices.map(as => {
+                    const isMyService = as.workers.some(w => w.workerId === workerId);
+                    return (
+                      <div key={as.id} className={`py-1.5 ${!isMyService ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">{as.name}</span>
+                          <span className="text-sm font-semibold">{as.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                        {isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
+                          <div key={w.workerId} className="flex justify-between items-center mt-0.5">
+                            <span className={`text-xs ${sub}`}>Ваша доля: {w.percent}%</span>
+                            <span className="text-xs font-medium text-green-500">+{Math.round(as.price * w.percent / 100).toLocaleString('ru')} ₽</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {selectedTask.workers.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className={`text-xs font-medium ${sub} mb-2`}>КОЛЛЕГИ</div>

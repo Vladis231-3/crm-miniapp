@@ -270,6 +270,8 @@ export function AdminApp() {
     updateBooking,
     addBooking,
     addBookingService,
+    addBookingAdditionalService,
+    removeBookingAdditionalService,
     addNotification,
     notifications,
     markAllNotificationsRead,
@@ -951,24 +953,17 @@ export function AdminApp() {
     setAddServiceError(null);
     try {
       const svc = services.find(s => s.id === addServiceDraft.serviceId);
-      const updatedBooking = await addBookingService(addServiceTargetBooking.id, {
-        name: svc?.name || 'Доп. услуга',
+      const workersList = addServiceWorkers.map(w => {
+        const worker = masterWorkers.find(wk => wk.id === w.id);
+        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number };
+      });
+      const updatedBooking = await addBookingAdditionalService(addServiceTargetBooking.id, {
         serviceId: addServiceDraft.serviceId,
+        name: svc?.name || 'Доп. услуга',
         price: addServiceDraft.price,
         duration: addServiceDraft.duration,
+        workers: workersList,
       });
-      if (addServiceWorkers.length > 0) {
-        const currentWorkers = addServiceTargetBooking.workers.map(w => ({ workerId: w.workerId, workerName: w.workerName, percent: w.percent }));
-        const newWorkerIds = new Set(addServiceWorkers.map(w => w.id));
-        const mergedWorkers = [
-          ...currentWorkers.filter(w => !newWorkerIds.has(w.workerId)),
-          ...addServiceWorkers.map(w => {
-            const worker = masterWorkers.find(wk => wk.id === w.id);
-            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent };
-          }),
-        ];
-        await updateBooking(addServiceTargetBooking.id, { workers: mergedWorkers });
-      }
       setSelectedBooking(updatedBooking);
       setShowAddServiceModal(false);
       setAddServiceTargetBooking(null);
@@ -2496,6 +2491,28 @@ export function AdminApp() {
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} mb-2`}>УСЛУГИ</div>
                   <div className="font-semibold">{selectedBooking.service}</div>
+                  {selectedBooking.additionalServices && selectedBooking.additionalServices.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {selectedBooking.additionalServices.map(as => (
+                        <div key={as.id} className="rounded-xl px-3 py-2" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{as.name}</span>
+                            <span className="font-semibold">{as.price.toLocaleString('ru')} ₽</span>
+                          </div>
+                          {as.workers.map(w => {
+                            const earned = Math.round(as.price * w.percent / 100);
+                            return (
+                              <div key={w.workerId} className="flex justify-between items-center mt-1">
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
+                              </div>
+                            );
+                          })}
+                          <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">Удалить</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {selectedBooking.services && selectedBooking.services.length > 0 && (
                     <div className="space-y-2 mt-2">
                       {selectedBooking.services.map((svc, idx) => (

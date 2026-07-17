@@ -162,6 +162,10 @@ class Booking(Base):
         back_populates="booking",
         cascade="all, delete-orphan",
     )
+    additional_services: Mapped[list["BookingAdditionalService"]] = relationship(
+        back_populates="booking",
+        cascade="all, delete-orphan",
+    )
 
 
 class BookingWorker(Base):
@@ -175,6 +179,42 @@ class BookingWorker(Base):
 
     booking: Mapped[Booking] = relationship(back_populates="worker_links")
     worker: Mapped[StaffUser] = relationship(back_populates="assignments")
+
+
+class BookingAdditionalService(Base):
+    __tablename__ = "booking_additional_services"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    booking_id: Mapped[str] = mapped_column(String(64), ForeignKey("bookings.id", ondelete="CASCADE"))
+    service_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    name: Mapped[str] = mapped_column(String(120))
+    price: Mapped[int] = mapped_column(Integer)
+    duration: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+    booking: Mapped[Booking] = relationship(back_populates="additional_services")
+    worker_links: Mapped[list["AdditionalServiceWorker"]] = relationship(
+        back_populates="additional_service",
+        cascade="all, delete-orphan",
+    )
+
+
+class AdditionalServiceWorker(Base):
+    __tablename__ = "additional_service_workers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    additional_service_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("booking_additional_services.id", ondelete="CASCADE")
+    )
+    worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id", ondelete="CASCADE"))
+    worker_name: Mapped[str] = mapped_column(String(120))
+    percent: Mapped[int] = mapped_column(Integer)
+
+    additional_service: Mapped[BookingAdditionalService] = relationship(back_populates="worker_links")
+    worker: Mapped[StaffUser] = relationship()
 
 
 class Notification(Base):

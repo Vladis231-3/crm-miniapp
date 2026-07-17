@@ -39,8 +39,10 @@ from .exports import (
     build_owner_summary_report,
 )
 from .models import (
+    AdditionalServiceWorker,
     AppSetting,
     Booking,
+    BookingAdditionalService,
     BookingWorker,
     Box,
     Client,
@@ -60,6 +62,9 @@ from .models import (
     WeeklyArchive,
 )
 from .schemas import (
+    AdditionalServicePayload,
+    AdditionalServiceWorkerPayload,
+    AddAdditionalServiceRequest,
     AdminNotificationSettings,
     AdminShiftInspectionPayload,
     AdminShiftInspectionReviewRequest,
@@ -1851,6 +1856,26 @@ def _booking_payload(
         )
         for s in svc_list
     ]
+    additional_services = [
+        AdditionalServicePayload(
+            id=asvc.id,
+            serviceId=asvc.service_id,
+            name=asvc.name,
+            price=asvc.price,
+            duration=asvc.duration,
+            status=asvc.status,
+            createdAt=asvc.created_at,
+            workers=[
+                AdditionalServiceWorkerPayload(
+                    workerId=w.worker_id,
+                    workerName=w.worker_name,
+                    percent=w.percent,
+                )
+                for w in asvc.worker_links
+            ],
+        )
+        for asvc in booking.additional_services
+    ]
     return BookingPayload(
         id=booking.id,
         clientId=booking.client_id,
@@ -1885,6 +1910,7 @@ def _booking_payload(
         car=booking.car,
         plate=booking.plate,
         services=booking_services,
+        additionalServices=additional_services,
     )
 
 
@@ -2247,7 +2273,10 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
     bookings_query = (
         select(Booking)
-        .options(joinedload(Booking.worker_links))
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
         .where(Booking.deleted_at.is_(None))
         .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
     )
@@ -6172,6 +6201,97 @@ def add_booking_service(
     return _booking_payload_for_response(db, booking)
 
 
+@app.post(
+    "/api/bookings/{booking_id}/additional-services",
+    response_model=BookingPayload,
+)
+def add_booking_additional_service(
+    booking_id: str,
+    payload: AddAdditionalServiceRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingPayload:
+    if session_data["role"] not in {"admin", "owner", "accountant"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    booking = db.scalar(
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
+        .where(Booking.id == booking_id)
+    )
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
+        )
+    asvc = BookingAdditionalService(
+        id=str(uuid4()),
+        booking_id=booking_id,
+        service_id=payload.serviceId,
+        name=payload.name,
+        price=payload.price,
+        duration=payload.duration,
+        status="pending",
+        created_at=_now(),
+    )
+    for w in payload.workers:
+        asvc.worker_links.append(
+            AdditionalServiceWorker(
+                worker_id=w.workerId,
+                worker_name=w.workerName,
+                percent=clamp_worker_percent(w.percent),
+            )
+        )
+    db.add(asvc)
+    booking.price = (booking.price or 0) + payload.price
+    booking.duration = (booking.duration or 0) + payload.duration
+    if booking.status in BOOKING_ACTIVE_STATUSES and booking.date and booking.time:
+        _ensure_booking_within_schedule(db, booking.date, booking.time, booking.duration)
+    db.commit()
+    db.refresh(booking)
+    return _booking_payload_for_response(db, booking)
+
+
+@app.delete(
+    "/api/bookings/{booking_id}/additional-services/{additional_service_id}",
+    response_model=BookingPayload,
+)
+def remove_booking_additional_service(
+    booking_id: str,
+    additional_service_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingPayload:
+    if session_data["role"] not in {"admin", "owner", "accountant"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    booking = db.scalar(
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
+        .where(Booking.id == booking_id)
+    )
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
+        )
+    asvc = db.get(BookingAdditionalService, additional_service_id)
+    if asvc is None or asvc.booking_id != booking_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Additional service not found"
+        )
+    booking.price = max(0, (booking.price or 0) - asvc.price)
+    booking.duration = max(0, (booking.duration or 0) - asvc.duration)
+    db.delete(asvc)
+    if booking.status in BOOKING_ACTIVE_STATUSES and booking.date and booking.time:
+        _ensure_booking_within_schedule(db, booking.date, booking.time, booking.duration)
+    db.commit()
+    db.refresh(booking)
+    return _booking_payload_for_response(db, booking)
+
+
 @app.post("/api/notifications", response_model=NotificationPayload)
 def create_notification(
     payload: NotificationCreateRequest,
@@ -8009,7 +8129,10 @@ def owner_worker_salary_detail(
     )
     bookings_query = (
         select(Booking)
-        .options(joinedload(Booking.worker_links))
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
         .join(BookingWorker)
         .where(
             BookingWorker.worker_id == worker_id,
@@ -8044,7 +8167,17 @@ def owner_worker_salary_detail(
         rg = _resource_group_for_service(db, b.service_id)
         if segment != "all" and rg != segment:
             continue
-        earned = round(b.price * percent / 100)
+        # Main service contribution
+        additional_total = sum(asvc.price for asvc in (b.additional_services or []))
+        main_price = max(0, b.price - additional_total)
+        main_earned = round(main_price * percent / 100)
+        # Additional services contribution
+        additional_earned = 0
+        for asvc in (b.additional_services or []):
+            for alink in asvc.worker_links:
+                if alink.worker_id == worker_id:
+                    additional_earned += round(asvc.price * alink.percent / 100)
+        earned = main_earned + additional_earned
         total_earned += earned
         shift_dates.add(b.date)
         booking_items.append(
@@ -8169,7 +8302,10 @@ def worker_my_salary_detail(
     )
     bookings_query = (
         select(Booking)
-        .options(joinedload(Booking.worker_links))
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
         .join(BookingWorker)
         .where(
             BookingWorker.worker_id == worker_id,
@@ -8202,7 +8338,15 @@ def worker_my_salary_detail(
         rg = _resource_group_for_service(db, b.service_id)
         if segment != "all" and rg != segment:
             continue
-        earned = round(b.price * percent / 100)
+        additional_total = sum(asvc.price for asvc in (b.additional_services or []))
+        main_price = max(0, b.price - additional_total)
+        main_earned = round(main_price * percent / 100)
+        additional_earned = 0
+        for asvc in (b.additional_services or []):
+            for alink in asvc.worker_links:
+                if alink.worker_id == worker_id:
+                    additional_earned += round(asvc.price * alink.percent / 100)
+        earned = main_earned + additional_earned
         total_earned += earned
         shift_dates.add(b.date)
         booking_items.append(

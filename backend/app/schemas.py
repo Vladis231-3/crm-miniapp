@@ -364,6 +364,31 @@ class BookingServiceItem(BaseModel):
     duration: int = Field(gt=0)
 
 
+class AdditionalServiceWorkerPayload(BaseModel):
+    workerId: str
+    workerName: str
+    percent: int = Field(ge=0, le=100, default=0)
+
+
+class AdditionalServicePayload(BaseModel):
+    id: str
+    serviceId: str | None = None
+    name: str
+    price: int
+    duration: int
+    status: str = "pending"
+    createdAt: datetime
+    workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
+
+
+class AddAdditionalServiceRequest(BaseModel):
+    serviceId: str | None = None
+    name: str
+    price: int = Field(ge=0)
+    duration: int = Field(gt=0)
+    workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
+
+
 class BookingPayload(BaseModel):
     id: str
     clientId: str
@@ -385,6 +410,7 @@ class BookingPayload(BaseModel):
     car: str | None = None
     plate: str | None = None
     services: list[BookingServiceItem] = Field(default_factory=list)
+    additionalServices: list[AdditionalServicePayload] = Field(default_factory=list)
 
 
 class BookingAvailabilitySlotPayload(BaseModel):

@@ -121,6 +121,31 @@ export interface BookingServiceItem {
   duration: number;
 }
 
+export interface AdditionalServiceWorker {
+  workerId: string;
+  workerName: string;
+  percent: number;
+}
+
+export interface AdditionalService {
+  id: string;
+  serviceId: string | null;
+  name: string;
+  price: number;
+  duration: number;
+  status: string;
+  createdAt: Date;
+  workers: AdditionalServiceWorker[];
+}
+
+export interface AddAdditionalServiceInput {
+  serviceId?: string | null;
+  name: string;
+  price: number;
+  duration: number;
+  workers: AdditionalServiceWorker[];
+}
+
 export interface Booking {
   id: string;
   clientId: string;
@@ -142,6 +167,7 @@ export interface Booking {
   car?: string;
   plate?: string;
   services: BookingServiceItem[];
+  additionalServices: AdditionalService[];
 }
 
 export interface BookingSlotAvailability {
@@ -568,6 +594,8 @@ interface AppContextType {
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
   addBookingService: (bookingId: string, service: Omit<BookingServiceItem, 'serviceId'> & { serviceId: string }) => Promise<Booking>;
+  addBookingAdditionalService: (bookingId: string, service: AddAdditionalServiceInput) => Promise<Booking>;
+  removeBookingAdditionalService: (bookingId: string, additionalServiceId: string) => Promise<Booking>;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: (role: Role) => Promise<void>;
@@ -705,7 +733,14 @@ function normalizeWorker(worker: Worker) {
 function normalizeBootstrap(bootstrap: BootstrapPayload) {
   return {
     ...bootstrap,
-    bookings: bootstrap.bookings.map((booking) => ({ ...booking, createdAt: new Date(booking.createdAt) })),
+    bookings: bootstrap.bookings.map((booking) => ({
+      ...booking,
+      createdAt: new Date(booking.createdAt),
+      additionalServices: (booking.additionalServices || []).map((as) => ({
+        ...as,
+        createdAt: new Date(as.createdAt),
+      })),
+    })),
     notifications: bootstrap.notifications.map((notification) => ({ ...notification, createdAt: new Date(notification.createdAt) })),
     penalties: bootstrap.penalties.map((penalty) => ({
       ...penalty,
@@ -1015,6 +1050,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       staffProfile,
       clients: [],
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/services`, { method: 'POST', body: service })],
+      notifications: [],
+      stockItems: [],
+      expenses: [],
+      penalties: [],
+      workers: [],
+      services: [],
+      boxes: [],
+      schedule: [],
+      settings,
+    }).bookings[0];
+    setBookings((current) => current.map((booking) => (booking.id === bookingId ? updated : booking)));
+    return updated;
+  }
+
+  async function addBookingAdditionalService(bookingId: string, service: AddAdditionalServiceInput) {
+    const updated = normalizeBootstrap({
+      session: session as SessionInfo,
+      clientProfile,
+      staffProfile,
+      clients: [],
+      bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services`, { method: 'POST', body: service })],
+      notifications: [],
+      stockItems: [],
+      expenses: [],
+      penalties: [],
+      workers: [],
+      services: [],
+      boxes: [],
+      schedule: [],
+      settings,
+    }).bookings[0];
+    setBookings((current) => current.map((booking) => (booking.id === bookingId ? updated : booking)));
+    return updated;
+  }
+
+  async function removeBookingAdditionalService(bookingId: string, additionalServiceId: string) {
+    const updated = normalizeBootstrap({
+      session: session as SessionInfo,
+      clientProfile,
+      staffProfile,
+      clients: [],
+      bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services/${additionalServiceId}`, { method: 'DELETE' })],
       notifications: [],
       stockItems: [],
       expenses: [],
@@ -1484,6 +1561,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateBooking,
       deleteBooking,
       addBookingService,
+      addBookingAdditionalService,
+      removeBookingAdditionalService,
       addNotification,
       markNotificationRead,
       markAllNotificationsRead,

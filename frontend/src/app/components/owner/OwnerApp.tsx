@@ -347,6 +347,8 @@ export function OwnerApp() {
     updateBooking,
     deleteBooking,
     addBookingService,
+    addBookingAdditionalService,
+    removeBookingAdditionalService,
     addClient,
     deleteClient,
     addNotification,    penalties,
@@ -2106,24 +2108,17 @@ export function OwnerApp() {
     setOwnerAddServiceError(null);
     try {
       const svc = liveServices.find(s => s.id === ownerAddServiceDraft.serviceId);
-      const updatedBooking = await addBookingService(selectedBooking.id, {
-        name: svc?.name || 'Доп. услуга',
+      const workersList = ownerAddServiceWorkers.map(w => {
+        const worker = workers.find(wk => wk.id === w.id);
+        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number };
+      });
+      const updatedBooking = await addBookingAdditionalService(selectedBooking.id, {
         serviceId: ownerAddServiceDraft.serviceId,
+        name: svc?.name || 'Доп. услуга',
         price: ownerAddServiceDraft.price,
         duration: ownerAddServiceDraft.duration,
+        workers: workersList,
       });
-      if (ownerAddServiceWorkers.length > 0) {
-        const currentWorkers = selectedBooking.workers.map(w => ({ workerId: w.workerId, workerName: w.workerName, percent: w.percent }));
-        const newWorkerIds = new Set(ownerAddServiceWorkers.map(w => w.id));
-        const mergedWorkers = [
-          ...currentWorkers.filter(w => !newWorkerIds.has(w.workerId)),
-          ...ownerAddServiceWorkers.map(w => {
-            const worker = workers.find(wk => wk.id === w.id);
-            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent };
-          }),
-        ];
-        await updateBooking(selectedBooking.id, { workers: mergedWorkers });
-      }
       setSelectedBooking(updatedBooking);
       setShowOwnerAddService(false);
     } catch (err: any) {
@@ -6623,11 +6618,31 @@ export function OwnerApp() {
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
                   </div>
-                  {selectedBooking.services && selectedBooking.services.length > 0 && (
+                  {((selectedBooking.services && selectedBooking.services.length > 0) || (selectedBooking.additionalServices && selectedBooking.additionalServices.length > 0)) && (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
                       <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>ДОП. УСЛУГИ</div>
-                      {selectedBooking.services.map((s, i) => (
-                        <div key={i} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      {selectedBooking.additionalServices && selectedBooking.additionalServices.map(as => (
+                        <div key={as.id} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium">{as.name}</span>
+                            <span className="font-semibold">{as.price.toLocaleString('ru')} ₽</span>
+                          </div>
+                          {as.workers.map(w => {
+                            const earned = Math.round(as.price * w.percent / 100);
+                            return (
+                              <div key={w.workerId} className="flex justify-between items-center mt-1">
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
+                              </div>
+                            );
+                          })}
+                          <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">
+                            Удалить
+                          </button>
+                        </div>
+                      ))}
+                      {selectedBooking.services && selectedBooking.services.filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
+                        <div key={`legacy-${i}`} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{s.name}</span>
                             <span className="font-semibold">{s.price.toLocaleString('ru')} ₽</span>
