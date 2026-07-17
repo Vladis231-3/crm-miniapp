@@ -816,7 +816,7 @@ export function OwnerApp() {
   const ownerNotifications = notifications.filter((notification) => notification.recipientRole === financeNotificationRole);
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
-  const todayBookings = bookings.filter(b => b.date === todayLabel);
+  const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   const latestShiftChecklists = shiftChecklists.slice(0, 10);
   const latestAdminShiftInspections = adminShiftInspections.slice(0, 8);
   const latestAdminShiftInspectionKey = latestAdminShiftInspections.map((inspection) => `${inspection.id}:${inspection.floorPhotoUrl}`).join('|');
