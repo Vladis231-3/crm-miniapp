@@ -25,20 +25,24 @@ export function isFixedMasterService(
   serviceName: string | undefined | null,
 ): boolean {
   const norm = (v: string | undefined | null) => (v ? v.trim().toLowerCase() : "");
-  const isKnownName = (name: string) => norm(name) === FIXED_MASTER_SERVICE_NAME;
+  const isKnownName = (name: string | undefined | null) => norm(name) === FIXED_MASTER_SERVICE_NAME;
 
-  let found: { id: string; name: string; isFixedMaster?: boolean } | undefined;
+  let name: string | undefined | null = serviceName;
   if (services && services.length) {
-    found = serviceId ? services.find((s) => s.id === serviceId) : undefined;
-    if (!found && serviceName) {
-      found = services.find((s) => norm(s.name) === norm(serviceName));
+    const byId = serviceId ? services.find((s) => s.id === serviceId) : undefined;
+    if (byId) {
+      // из ID резолвим имя услуги (в формах service часто хранится как ID)
+      name = byId.name ?? name;
+      if (byId.isFixedMaster === false && isKnownName(byId.name)) return false;
+      if (Boolean(byId.isFixedMaster)) return true;
+    } else if (serviceName) {
+      const byName = services.find((s) => norm(s.name) === norm(serviceName));
+      if (byName) {
+        if (byName.isFixedMaster === false && isKnownName(byName.name)) return false;
+        if (Boolean(byName.isFixedMaster)) return true;
+      }
     }
   }
-  if (found) {
-    // явно выключенный флаг у известной услуги отменяет фикс
-    if (found.isFixedMaster === false && isKnownName(found.name)) return false;
-    if (Boolean(found.isFixedMaster)) return true;
-  }
-  // fallback: по имени (работает даже без флага в БД)
-  return Boolean(serviceName) && isKnownName(serviceName!);
+  // fallback: по имени (работает даже без флага в БД и при передаче ID как имени)
+  return isKnownName(name);
 }
