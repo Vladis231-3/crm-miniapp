@@ -898,6 +898,7 @@ class BookingUpdateRequest(BaseModel):
     plate: str | None = None
     plateType: str | None = None
     notifyWorkers: bool | None = None
+    isOutsource: bool | None = None
 
     @field_validator("clientName")
     @classmethod
