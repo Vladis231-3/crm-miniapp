@@ -700,6 +700,11 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
                 "ALTER TABLE clients ADD COLUMN referral_source VARCHAR(64) DEFAULT ''"
             )
+    if "plate_type" not in client_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE clients ADD COLUMN plate_type VARCHAR(16) NOT NULL DEFAULT 'russian'"
+            )
     if "clients" in inspector.get_table_names():
         ensure_postgres_varchar_length("clients", "id", 64)
     columns = {column["name"] for column in inspector.get_columns("staff_users")}
@@ -822,6 +827,11 @@ def _apply_runtime_migrations() -> None:
         with engine.begin() as connection:
             connection.exec_driver_sql(
                 "ALTER TABLE bookings ADD COLUMN services TEXT DEFAULT '[]'"
+            )
+    if "plate_type" not in booking_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE bookings ADD COLUMN plate_type VARCHAR(16) DEFAULT NULL"
             )
     if "booking_workers" in inspector.get_table_names():
         ensure_postgres_varchar_length("booking_workers", "booking_id", 64)

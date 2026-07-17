@@ -1133,6 +1133,8 @@ export function AdminApp() {
         box: newBookingForm.box.trim() || 'По согласованию',
         paymentType: newBookingForm.paymentType,
         paymentSettled: newBookingForm.paymentSettled,
+        isOutsource: newBookingForm.isOutsource,
+        outsourceAmount: newBookingForm.outsourceAmount,
         car: normalizedCar,
         plate: normalizedPlate,
         plateType: newBookingForm.plateType,
