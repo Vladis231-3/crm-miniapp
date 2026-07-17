@@ -25,6 +25,7 @@ import {
   validateVehicleName,
   type PlateType,
 } from '../../utils/validation';
+import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новая заявка',
@@ -602,6 +603,7 @@ export function AdminApp() {
     tasks: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).length,
     earned: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).reduce((s, b) => {
       const bw = b.workers.find(bwk => bwk.workerId === w.id);
+      if (isFixedMasterService(services, b.serviceId, b.service)) return s + FIXED_MASTER_EARNED;
       return s + Math.round(b.price * (bw?.percent || 0) / 100);
     }, 0),
   }));
@@ -1343,7 +1345,10 @@ export function AdminApp() {
                           <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
                         </div>
                         {booking.workers.length > 0 && (
-                          <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => `${w.workerName} ${w.percent}%`).join(', ')}</div>
+                          <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
+                            const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
+                            return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` ${w.percent}%`}`;
+                          }).join(', ')}</div>
                         )}
                       </div>
                     </div>
@@ -1827,6 +1832,14 @@ export function AdminApp() {
                       <input className={inputCls} type="number" placeholder="0" value={numberInputValue(svc.materialConsumption ?? 0)}
                         onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, materialConsumption: e.target.value ? numberFromInput(e.target.value) : null } : s))} />
                     </div>
+                    <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 mt-2`}>
+                      <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(svc.isFixedMaster)}
+                        onChange={(event) => setServicesState(p => p.map((s, j) => j === i ? { ...s, isFixedMaster: event.target.checked } : s))}
+                      />
+                    </label>
                   </div>
                 </div>
               ))}
@@ -2746,8 +2759,8 @@ export function AdminApp() {
                       </div>
                       {assigned && (
                         <div className="flex items-center gap-2 mt-1">
-                          {selectedBooking?.service === "подготовка к полировке" ? (
-                            <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                          {isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) ? (
+                            <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                           ) : (
                             <>
                               <span className={`text-xs ${sub}`}>%</span>
@@ -2763,7 +2776,7 @@ export function AdminApp() {
                   );
                 })}
               </div>
-              {selectedBooking?.service !== "подготовка к полировке" && totalPercent > 100 && (
+              {!isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) && totalPercent > 100 && (
                 <div className="flex items-center gap-2 text-red-500 text-xs mb-3"><AlertCircle size={14} />Сумма процентов превышает 100%</div>
               )}
               <button onClick={() => { void handleAssignWorkers(true); }} className="w-full py-3 rounded-xl text-sm text-white font-medium mb-2" style={{ background: primary }}>Назначить и уведомить</button>
@@ -3300,12 +3313,12 @@ export function AdminApp() {
                 <div>
                   {(() => {
                     const _svc = services.find(s => s.id === newBookingForm.serviceId);
-                    const _isFixed = _svc?.name === "подготовка к полировке";
+                    const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                     return (
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                      <span className={`text-xs ${sub}`}>{_isFixed ? 'Фикс 1 200 ₽' : `Сумма: ${totalNewBookingPercent}%`}</span>
+                      <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Сумма: ${totalNewBookingPercent}%`}</span>
                     </div>
                     <div className="space-y-2">
                       {masterWorkers.filter(worker => worker.active).map(worker => {
@@ -3333,7 +3346,7 @@ export function AdminApp() {
                             {assigned && (
                               <div className="flex items-center gap-2 mt-2">
                                 {_isFixed ? (
-                                  <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                                  <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                                 ) : (
                                   <>
                                     <span className={`text-xs ${sub}`}>%</span>

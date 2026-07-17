@@ -7,6 +7,7 @@ import {
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp
 } from 'lucide-react';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
+import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { apiRequest } from '../../api';
@@ -225,6 +226,7 @@ export function WorkerApp() {
     saveWorkerNotificationSettings,
     createTelegramLinkCode,
     stockItems,
+    services,
     listShiftChecklists,
     submitShiftChecklist,
     changePassword,
@@ -334,7 +336,10 @@ export function WorkerApp() {
     .filter(b => b.status === 'completed' && b.workers.some(w => w.workerId === workerId))
     .map(b => {
       const w = b.workers.find(wk => wk.workerId === workerId);
-      return { ...b, earned: Math.round(b.price * (w?.percent || 0) / 100) };
+      const earned = isFixedMasterService(services, b.serviceId, b.service)
+        ? FIXED_MASTER_EARNED
+        : Math.round(b.price * (w?.percent || 0) / 100);
+      return { ...b, earned };
     });
   const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
   const payrollSummary = staffProfile?.payrollSummary;
@@ -1130,7 +1135,9 @@ export function WorkerApp() {
                 </div>
               ) : allMyTasks.map(task => {
                 const w = task.workers.find(wk => wk.workerId === workerId);
-                const earned = task.status === 'completed' ? Math.round(task.price * (w?.percent || 0) / 100) : 0;
+                const earned = task.status === 'completed'
+                  ? (isFixedMasterService(services, task.serviceId, task.service) ? FIXED_MASTER_EARNED : Math.round(task.price * (w?.percent || 0) / 100))
+                  : 0;
                 const paymentLabel = task.paymentType === 'cash' ? 'Наличные' : task.paymentType === 'transfer' ? 'Перевод' : task.paymentType === 'invoice' ? 'По счёту' : '';
                 return (
                   <div key={task.id} className={`${glass} rounded-xl p-3 mb-2 cursor-pointer`} onClick={() => setSelectedCompletedOrder({ service: task.service, car: task.car, plate: task.plate, date: task.date, time: task.time, box: task.box, price: task.price, paymentType: task.paymentType, paymentSettled: task.paymentSettled, earned, percent: w?.percent, notes: task.notes })}>
@@ -1435,7 +1442,9 @@ export function WorkerApp() {
                     <div className={`text-xs ${sub} mb-1`}>Мой заработок</div>
                     <div className="flex items-center justify-between">
                       <div className="font-semibold text-lg" style={{ color: primary }}>+{selectedCompletedOrder.earned?.toLocaleString('ru')} ₽</div>
-                      {selectedCompletedOrder.percent != null && <div className={`text-sm ${sub}`}>{selectedCompletedOrder.percent}%</div>}
+                      {isFixedMasterService(services, selectedCompletedOrder.serviceId, selectedCompletedOrder.service)
+                        ? <div className={`text-sm ${sub}`}>фикс {formatFixedMasterAmount()}</div>
+                        : selectedCompletedOrder.percent != null && <div className={`text-sm ${sub}`}>{selectedCompletedOrder.percent}%</div>}
                     </div>
                   </div>
                 )}

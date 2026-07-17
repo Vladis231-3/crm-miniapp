@@ -109,6 +109,7 @@ class Service(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     material_consumption: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_fixed_master: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Box(Base):

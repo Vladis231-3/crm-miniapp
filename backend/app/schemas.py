@@ -588,6 +588,7 @@ class ServicePayload(BaseModel):
     desc: str = Field(default="")
     active: bool = True
     materialConsumption: int | None = None
+    isFixedMaster: bool = False
 
 
 class DetailingRequestCreateRequest(BaseModel):

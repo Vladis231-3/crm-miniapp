@@ -27,6 +27,7 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
+import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
 type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
@@ -1031,6 +1032,8 @@ export function OwnerApp() {
         duration: 30,
         desc: '',
         active: true,
+        materialConsumption: null,
+        isFixedMaster: false,
       },
     ]);
   };
@@ -1970,7 +1973,7 @@ export function OwnerApp() {
     }
     if (!ownerNewBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
+    if (!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, ownerNewBookingForm.service) && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setOwnerNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -5188,6 +5191,14 @@ export function OwnerApp() {
                     <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
                     <input className={inputCls} type="number" placeholder="0" value={numberInputValue(service.materialConsumption ?? 0)} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, materialConsumption: e.target.value ? numberFromInput(e.target.value) : null } : item))} />
                   </div>
+                  <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 mt-2`}>
+                    <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(service.isFixedMaster)}
+                      onChange={(event) => setServicesState(p => p.map((item, j) => j === i ? { ...item, isFixedMaster: event.target.checked } : item))}
+                    />
+                  </label>
                   <div className="mt-2">
                     <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                     <input className={inputCls} value={service.desc} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, desc: e.target.value } : item))} />
@@ -6552,12 +6563,12 @@ export function OwnerApp() {
                 )}
                 {!bookingForm.isOutsource && (() => {
                   const _svc = services.find(s => s.id === bookingForm.service);
-                  const _isFixed = _svc?.name === "подготовка к полировке";
+                  const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                   return (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                    <span className={`text-xs ${sub}`}>{_isFixed ? 'Фикс 1 200 ₽' : `Выбрано: ${bookingWorkers.length}`}</span>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Выбрано: ${bookingWorkers.length}`}</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto">
                     {workers.filter(worker => worker.role === 'worker').map(worker => {
@@ -6582,7 +6593,7 @@ export function OwnerApp() {
                           {assigned && (
                             <div className="flex items-center gap-2 mt-2">
                               {_isFixed ? (
-                                <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                                <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                               ) : (
                                 <>
                                   <span className={`text-xs ${sub}`}>%</span>
@@ -6657,7 +6668,10 @@ export function OwnerApp() {
                   <div className="mt-2 space-y-1 text-xs">
                     <div className={sub}>Бокс: {selectedBooking.box || 'Не выбран'}</div>
                     <div className={sub}>Длительность: {selectedBooking.duration} мин</div>
-                    <div className={sub}>Мастера: {selectedBooking.workers.length ? selectedBooking.workers.map(w => `${w.workerName} ${w.percent}%`).join(', ') : 'Не назначены'}</div>
+                    <div className={sub}>Мастера: {selectedBooking.workers.length ? selectedBooking.workers.map(w => {
+                      const _fixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
+                      return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` ${w.percent}%`}`;
+                    }).join(', ') : 'Не назначены'}</div>
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
                   </div>
@@ -6796,10 +6810,10 @@ export function OwnerApp() {
                 )}
 
                 {ownerBookingEditMode === 'workers' && (() => {
-                  const _isFixed = selectedBooking?.service === "подготовка к полировке";
+                  const _isFixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
                   return (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров {_isFixed ? '(фикс 1 200 ₽)' : ''}</div>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров {_isFixed ? `(фикс ${formatFixedMasterAmount()})` : ''}</div>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {workers.filter(w => w.role === 'worker' && w.active).map(worker => {
                         const assigned = ownerBookingEditWorkers.find(item => item.id === worker.id);
@@ -6820,7 +6834,7 @@ export function OwnerApp() {
                             {assigned && (
                               <div className="flex items-center gap-2 mt-2">
                                 {_isFixed ? (
-                                  <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                                <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                                 ) : (
                                   <>
                                     <span className={`text-xs ${sub}`}>%</span>
@@ -7076,10 +7090,12 @@ export function OwnerApp() {
                       const w = workers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
                       const earned = Math.round(ownerAddServiceDraft.price * pct / 100);
+                      const _svc = services.find(s => s.id === ownerAddServiceDraft.serviceId);
+                      const _fixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                       return (
                         <div key={item.id} className="flex justify-between items-center">
-                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'} · {pct}%</span>
-                          <span className="text-sm font-medium text-green-500">{earned.toLocaleString('ru')} ₽</span>
+                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'}{_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` · ${pct}%`}</span>
+                          <span className="text-sm font-medium text-green-500">{_fixed ? formatFixedMasterAmount() : `${earned.toLocaleString('ru')} ₽`}</span>
                         </div>
                       );
                     })}
@@ -7293,12 +7309,13 @@ export function OwnerApp() {
                   </div>
                 )}
                 {!ownerNewBookingForm.isOutsource && (() => {
-                  const _isFixed = ownerNewBookingForm.service === "подготовка к полировке";
+                  const _svc = services.find(s => s.id === ownerNewBookingForm.service);
+                  const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                   return (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                    <span className={`text-xs ${sub}`}>{_isFixed ? 'Фикс 1 200 ₽' : `Сумма: ${totalOwnerNewBookingPercent}%`}</span>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Сумма: ${totalOwnerNewBookingPercent}%`}</span>
                   </div>
                   <div className="space-y-2">
                     {ownerNewBookingMasterWorkers.map(worker => {
@@ -7326,7 +7343,7 @@ export function OwnerApp() {
                           {assigned && (
                             <div className="flex items-center gap-2 mt-2">
                               {_isFixed ? (
-                                <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                                <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                               ) : (
                                 <>
                                   <span className={`text-xs ${sub}`}>%</span>
@@ -7351,7 +7368,7 @@ export function OwnerApp() {
                 </div>
                   );
                 })()}
-                {!ownerNewBookingForm.isOutsource && ownerNewBookingForm.service !== "подготовка к полировке" && totalOwnerNewBookingPercent > 100 && (
+                {!ownerNewBookingForm.isOutsource && !_isFixed && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (

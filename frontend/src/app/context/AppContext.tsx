@@ -365,6 +365,7 @@ export interface Service {
   desc: string;
   active: boolean;
   materialConsumption: number | null;
+  isFixedMaster: boolean;
 }
 
 export interface Box {
