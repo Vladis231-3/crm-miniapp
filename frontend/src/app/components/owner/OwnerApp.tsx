@@ -1973,7 +1973,7 @@ export function OwnerApp() {
     }
     if (!ownerNewBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, ownerNewBookingForm.service) && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
+    if (!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setOwnerNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -7368,7 +7368,7 @@ export function OwnerApp() {
                 </div>
                   );
                 })()}
-                {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, ownerNewBookingForm.service) && totalOwnerNewBookingPercent > 100 && (
+                {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (

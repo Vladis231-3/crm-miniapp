@@ -16514,15 +16514,18 @@ def is_fixed_master_service(name: str | None) -> bool:
 
 
 def _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool:
-    """Определяет, оплачивается ли услуга мастеру фиксированно (по флагу is_fixed_master).
+    """Определяет, оплачивается ли услуга мастеру фиксированно.
 
-    Приоритет: флаг услуги из БД. Если услуга не найдена по id — запасное сравнение имени
-    с FIXED_MASTER_SERVICE_NAME для совместимости со старыми записями.
+    Привязка СТРОГО ПО НАЗВАНИЮ: услуга "подготовка к полировке" всегда фиксированная
+    (независимо от флага в БД). Флаг is_fixed_master у услуги позволяет включить фикс
+    для любой ДРУГОЙ услуги.
     """
+    if is_fixed_master_service(service_name):
+        return True
     svc = db.get(Service, service_id) if service_id else None
     if svc is not None:
         return bool(svc.is_fixed_master)
-    return is_fixed_master_service(service_name)
+    return False
 
 
 def _resource_group_for_service(db: Session, service_id: str) -> str:

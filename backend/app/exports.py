@@ -1703,9 +1703,12 @@ def _build_export_data(
         service_fixed_map[_svc.name.strip().lower()] = bool(_svc.is_fixed_master)
 
     def _is_fixed_booking(booking: Booking) -> bool:
+        # привязка строго по названию — "подготовка к полировке" всегда фиксированная
+        if is_fixed_master_service(booking.service):
+            return True
         if booking.service_id in service_fixed_map:
             return service_fixed_map[booking.service_id]
-        return is_fixed_master_service(booking.service)
+        return False
 
     service_rollup: dict[str, dict[str, Any]] = {}
 

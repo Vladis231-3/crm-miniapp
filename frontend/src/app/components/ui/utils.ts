@@ -13,10 +13,9 @@ export function formatFixedMasterAmount(): string {
   return FIXED_MASTER_EARNED.toLocaleString("ru-RU").replace(/,/g, " ") + " ₽";
 }
 
-// Определяет, оплачивается ли услуга мастеру фиксированно, по списку услуг из контекста.
-// Надёжный детект: услуга "подготовка к полировке" всегда фиксированная (по имени),
-// плюс любая другая услуга с флагом isFixedMaster. Флаг имеет приоритет над именем
-// для возможности отключить фикс у "подготовка к полировке" через редактор услуг.
+// Детект строго ПО НАЗВАНИЮ услуги "подготовка к полировке".
+// Флаг isFixedMaster у услуги работает как дополнительный способ включить
+// фикс для ДРУГИХ услуг; для "подготовка к полировке" фикс гарантирован по имени.
 const FIXED_MASTER_SERVICE_NAME = "подготовка к полировке";
 
 export function isFixedMasterService(
@@ -24,25 +23,30 @@ export function isFixedMasterService(
   serviceId: string | undefined | null,
   serviceName: string | undefined | null,
 ): boolean {
-  const norm = (v: string | undefined | null) => (v ? v.trim().toLowerCase() : "");
-  const isKnownName = (name: string | undefined | null) => norm(name) === FIXED_MASTER_SERVICE_NAME;
+  const norm = (v: string | undefined | null) => (v ? String(v).trim().toLowerCase() : "");
+  const KNOWN = FIXED_MASTER_SERVICE_NAME;
 
-  let name: string | undefined | null = serviceName;
+  // 1) прямое совпадение по имени (работает даже если serviceName — это просто строка названия)
+  if (serviceName && norm(serviceName) === KNOWN) return true;
+
   if (services && services.length) {
-    const byId = serviceId ? services.find((s) => s.id === serviceId) : undefined;
-    if (byId) {
-      // из ID резолвим имя услуги (в формах service часто хранится как ID)
-      name = byId.name ?? name;
-      if (byId.isFixedMaster === false && isKnownName(byId.name)) return false;
-      if (Boolean(byId.isFixedMaster)) return true;
-    } else if (serviceName) {
+    // 2) резолвим имя по id из списка услуг (в формах service часто хранится как id)
+    if (serviceId) {
+      const byId = services.find((s) => s.id === serviceId);
+      if (byId) {
+        if (byId.isFixedMaster === false && norm(byId.name) === KNOWN) return false; // явно выключено
+        if (norm(byId.name) === KNOWN) return true;
+        if (Boolean(byId.isFixedMaster)) return true;
+      }
+    }
+    // 3) совпадение по имени из списка (если serviceName — это имя, а не id)
+    if (serviceName) {
       const byName = services.find((s) => norm(s.name) === norm(serviceName));
       if (byName) {
-        if (byName.isFixedMaster === false && isKnownName(byName.name)) return false;
+        if (byName.isFixedMaster === false && norm(byName.name) === KNOWN) return false;
         if (Boolean(byName.isFixedMaster)) return true;
       }
     }
   }
-  // fallback: по имени (работает даже без флага в БД и при передаче ID как имени)
-  return isKnownName(name);
+  return false;
 }
