@@ -3358,6 +3358,7 @@ export function AdminApp() {
                   </div>
                   );
                   })()}
+                </div>
                 {totalNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
