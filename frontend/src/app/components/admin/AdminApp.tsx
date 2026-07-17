@@ -882,7 +882,7 @@ export function AdminApp() {
     }
     if (!newBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !newBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (totalNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
+    if (!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && totalNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -3372,7 +3372,7 @@ export function AdminApp() {
                   );
                   })()}
                 </div>
-                {totalNewBookingPercent > 100 && (
+                {!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && totalNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {newBookingErrors.general && (

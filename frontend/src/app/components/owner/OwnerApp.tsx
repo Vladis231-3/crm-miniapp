@@ -7309,7 +7309,7 @@ export function OwnerApp() {
                   </div>
                 )}
                 {!ownerNewBookingForm.isOutsource && (() => {
-                  const _svc = services.find(s => s.id === ownerNewBookingForm.service);
+                  const _svc = services.find(s => s.id === ownerNewBookingForm.serviceId);
                   const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                   return (
                 <div>
