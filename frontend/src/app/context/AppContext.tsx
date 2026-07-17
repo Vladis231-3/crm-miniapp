@@ -4,7 +4,7 @@ import { getScheduleDayIndex, getUpcomingDates, isPastTimeSlot, parseFlexibleDat
 
 export type Role = 'client' | 'admin' | 'worker' | 'owner' | 'accountant';
 export type BookingStatus = 'new' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'no_show' | 'cancelled' | 'admin_review';
-export type PaymentType = 'cash' | 'card' | 'online';
+export type PaymentType = 'cash' | 'transfer' | 'invoice';
 
 export interface SessionInfo {
   role: Role;

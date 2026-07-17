@@ -34,8 +34,8 @@ STATUS_LABELS = {
 }
 PAYMENT_LABELS = {
     "cash": "Наличные",
-    "card": "Карта",
-    "online": "Онлайн",
+    "transfer": "Перевод",
+    "invoice": "По счёту",
 }
 
 

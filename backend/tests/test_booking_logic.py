@@ -809,7 +809,7 @@ class BookingLogicTests(unittest.TestCase):
         complete_response = self.client.patch(
             f"/api/bookings/{booking_id}",
             headers=self.auth_headers(admin_token),
-            json={"status": "completed", "paymentType": "card"},
+            json={"status": "completed", "paymentType": "transfer"},
         )
         self.assertEqual(complete_response.status_code, 200, complete_response.text)
         self.assertEqual(complete_response.json()["status"], "completed")
@@ -1117,7 +1117,7 @@ class BookingLogicTests(unittest.TestCase):
                 price=3500,
                 status="completed",
                 box="Бокс 2",
-                payment_type="card",
+                payment_type="transfer",
                 notes="Не должно попасть в мойку",
                 car="Lada Vesta",
                 plate="A123BC",
@@ -2573,7 +2573,7 @@ class BookingLogicTests(unittest.TestCase):
                 "status": "scheduled",
                 "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
                 "box": "Бокс 1",
-                "paymentType": "card",
+                "paymentType": "transfer",
                 "car": "Lada Vesta",
                 "plate": "A123BC",
                 "notifyWorkers": False,
@@ -2601,7 +2601,7 @@ class BookingLogicTests(unittest.TestCase):
                 json={
                     "status": "completed",
                     "paymentSettled": True,
-                    "paymentType": "card",
+                    "paymentType": "transfer",
                     "notes": "Сделали полную уборку салона",
                 },
             )
@@ -3663,7 +3663,7 @@ class BookingLogicTests(unittest.TestCase):
                 "clientPhone": "8 (999) 444-55-66",
                 "service": "Spoofed update",
                 "serviceId": "s5",
-                "paymentType": "card",
+                "paymentType": "transfer",
                 "car": "Kia Rio",
                 "plate": "B222BB",
             },
@@ -3676,7 +3676,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertNotEqual(payload["service"], "Spoofed update")
         self.assertEqual(payload["duration"], 90)
         self.assertEqual(payload["price"], 4200)
-        self.assertEqual(payload["paymentType"], "card")
+        self.assertEqual(payload["paymentType"], "transfer")
         self.assertEqual(payload["car"], "Kia Rio")
         self.assertEqual(payload["plate"], "B222BB")
 

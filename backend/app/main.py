@@ -3955,8 +3955,8 @@ def _box_hourly_price(db: Session, box_name: str, fallback_price: int) -> int:
 def _payment_type_label(payment_type: str) -> str:
     return {
         "cash": "Наличные",
-        "card": "Карта",
-        "online": "Онлайн",
+        "transfer": "Перевод",
+        "invoice": "По счёту",
     }.get(payment_type, payment_type)
 
 

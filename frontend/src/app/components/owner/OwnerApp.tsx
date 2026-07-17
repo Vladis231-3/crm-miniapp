@@ -289,10 +289,10 @@ function numberInputValue(value: number) {
   return value === 0 ? '' : String(value);
 }
 
-function ownerPaymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
+function ownerPaymentLabel(paymentType: 'cash' | 'transfer' | 'invoice', paymentSettled: boolean) {
   if (!paymentSettled) return 'Не оплачено';
-  if (paymentType === 'card') return 'Карта';
-  if (paymentType === 'online') return 'Онлайн';
+  if (paymentType === 'transfer') return 'Перевод';
+  if (paymentType === 'invoice') return 'По счёту';
   return 'Наличные';
 }
 
@@ -484,6 +484,7 @@ export function OwnerApp() {
     time: '10:00',
     box: liveBoxes[0]?.name || 'Бокс 1',
     status: 'scheduled' as BookingStatus,
+    paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
     price: 0,
     duration: 30,
@@ -586,6 +587,7 @@ export function OwnerApp() {
     plate: '',
     notes: '',
     status: 'scheduled' as BookingStatus,
+    paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
   });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
@@ -613,7 +615,7 @@ export function OwnerApp() {
     plate: '',
     clientName: '',
     clientPhone: '',
-    paymentType: 'cash' as 'cash' | 'card' | 'online',
+    paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
   });
 
@@ -1721,6 +1723,7 @@ export function OwnerApp() {
       time: '10:00',
       box: '',
       status: 'scheduled',
+      paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
       price: 0,
       duration: 30,
@@ -1745,6 +1748,7 @@ export function OwnerApp() {
       time: '10:00',
       box: status !== 'completed' ? defaultBox : '',
       status,
+      paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
       price: 0,
       duration: 30,
@@ -1854,7 +1858,7 @@ export function OwnerApp() {
         status: bookingForm.status,
         workers: selectedWorkers,
         box: bookingForm.box.trim(),
-        paymentType: 'cash',
+        paymentType: bookingForm.paymentType,
         paymentSettled: bookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
@@ -1906,6 +1910,8 @@ export function OwnerApp() {
       plate: '',
       notes: '',
       status: 'scheduled',
+      paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
+      paymentSettled: false,
     });
   };
 
@@ -1993,7 +1999,7 @@ export function OwnerApp() {
         status: ownerNewBookingForm.status,
         workers: createdWorkers,
         box: ownerNewBookingForm.box.trim() || 'По согласованию',
-        paymentType: 'cash',
+        paymentType: ownerNewBookingForm.paymentType,
         paymentSettled: ownerNewBookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
@@ -6498,6 +6504,14 @@ export function OwnerApp() {
                 <div><label className={`text-xs ${sub} block mb-1`}>Время</label><select className={selectCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))}><option value="">--:--</option>{TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}</select></div>
 
                 <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
+                  <select className={selectCls} value={bookingForm.paymentType} onChange={e => setBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
+                    <option value="cash">Наличные</option>
+                    <option value="transfer">Перевод</option>
+                    <option value="invoice">По счёту</option>
+                  </select>
+                </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                   <span>Оплачено</span>
                   <input
@@ -6587,7 +6601,7 @@ export function OwnerApp() {
                     </div>
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
                       <div className={`text-[11px] ${sub}`}>Оплата</div>
-                      <div>{selectedBooking.paymentSettled ? (selectedBooking.paymentType === 'cash' ? 'Наличные' : selectedBooking.paymentType === 'card' ? 'Карта' : 'Онлайн') : 'Не оплачено'}</div>
+                      <div>{selectedBooking.paymentSettled ? (selectedBooking.paymentType === 'cash' ? 'Наличные' : selectedBooking.paymentType === 'transfer' ? 'Перевод' : 'По счёту') : 'Не оплачено'}</div>
                     </div>
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
                       <div className={`text-[11px] ${sub}`}>Авто</div>
@@ -6849,10 +6863,10 @@ export function OwnerApp() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className={`text-xs ${sub} block mb-1`}>Тип оплаты</label>
-                          <select className={selectCls} value={ownerBookingEditFull.paymentType} onChange={e => setOwnerBookingEditFull(p => ({ ...p, paymentType: e.target.value as 'cash' | 'card' | 'online' }))}>
+                          <select className={selectCls} value={ownerBookingEditFull.paymentType} onChange={e => setOwnerBookingEditFull(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
                             <option value="cash">Наличные</option>
-                            <option value="card">Карта</option>
-                            <option value="online">Онлайн</option>
+                            <option value="transfer">Перевод</option>
+                            <option value="invoice">По счёту</option>
                           </select>
                         </div>
                         <div>
@@ -7245,6 +7259,14 @@ export function OwnerApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Доп. информация..." value={ownerNewBookingForm.notes} onChange={e => setOwnerNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
+                  <select className={selectCls} value={ownerNewBookingForm.paymentType} onChange={e => setOwnerNewBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
+                    <option value="cash">Наличные</option>
+                    <option value="transfer">Перевод</option>
+                    <option value="invoice">По счёту</option>
+                  </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                   <span>Оплачено</span>

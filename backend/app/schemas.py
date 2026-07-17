@@ -20,7 +20,7 @@ BookingStatus = Literal[
     "cancelled",
     "admin_review",
 ]
-PaymentType = Literal["cash", "card", "online"]
+PaymentType = Literal["cash", "transfer", "invoice"]
 PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]
 
 NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{1,59}$")

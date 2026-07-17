@@ -792,7 +792,7 @@ export function WorkerApp() {
                                 <div>
                                   <div className="text-sm font-medium">{b.time} · {b.service}</div>
                                   {b.car && <div className={`text-xs ${sub}`}>{b.car}{b.plate ? ` (${b.plate})` : ''}</div>}
-                                  <div className={`text-xs ${sub}`}>{b.box} · {b.price?.toLocaleString('ru')} ₽{b.paymentType ? ` · ${b.paymentType === 'cash' ? 'Наличные' : b.paymentType === 'card' ? 'Карта' : 'Онлайн'}` : ''}</div>
+                                  <div className={`text-xs ${sub}`}>{b.box} · {b.price?.toLocaleString('ru')} ₽{b.paymentType ? ` · ${b.paymentType === 'cash' ? 'Наличные' : b.paymentType === 'transfer' ? 'Перевод' : 'По счёту'}` : ''}</div>
                                 </div>
                                 <div className="text-right">
                                   <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
@@ -1109,7 +1109,7 @@ export function WorkerApp() {
               ) : allMyTasks.map(task => {
                 const w = task.workers.find(wk => wk.workerId === workerId);
                 const earned = task.status === 'completed' ? Math.round(task.price * (w?.percent || 0) / 100) : 0;
-                const paymentLabel = task.paymentType === 'cash' ? 'Наличные' : task.paymentType === 'card' ? 'Карта' : task.paymentType === 'online' ? 'Онлайн' : '';
+                const paymentLabel = task.paymentType === 'cash' ? 'Наличные' : task.paymentType === 'transfer' ? 'Перевод' : task.paymentType === 'invoice' ? 'По счёту' : '';
                 return (
                   <div key={task.id} className={`${glass} rounded-xl p-3 mb-2 cursor-pointer`} onClick={() => setSelectedCompletedOrder({ service: task.service, car: task.car, plate: task.plate, date: task.date, time: task.time, box: task.box, price: task.price, paymentType: task.paymentType, paymentSettled: task.paymentSettled, earned, percent: w?.percent, notes: task.notes })}>
                     <div className="flex justify-between items-start">
@@ -1298,8 +1298,8 @@ export function WorkerApp() {
                       onChange={e => { setFinishError(null); setFinishPaymentType(e.target.value as PaymentType); }}
                     >
                       <option value="cash">Наличные</option>
-                      <option value="card">Карта</option>
-                      <option value="online">Онлайн</option>
+                      <option value="transfer">Перевод</option>
+                      <option value="invoice">По счёту</option>
                     </select>
                   </div>
                 )}
@@ -1402,7 +1402,7 @@ export function WorkerApp() {
                   </div>
                   {selectedCompletedOrder.paymentType && (
                     <div className={`text-sm ${sub} mt-1`}>
-                      Способ: {selectedCompletedOrder.paymentType === 'cash' ? 'Наличные' : selectedCompletedOrder.paymentType === 'card' ? 'Карта' : 'Онлайн'}
+                      Способ: {selectedCompletedOrder.paymentType === 'cash' ? 'Наличные' : selectedCompletedOrder.paymentType === 'transfer' ? 'Перевод' : 'По счёту'}
                     </div>
                   )}
                 </div>

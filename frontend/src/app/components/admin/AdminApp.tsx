@@ -175,12 +175,12 @@ function pickDefaultBookingBox(
   return candidates.find((box) => !bookings.some((booking) => bookingBlocksBox(booking, date, time, duration, box.name)))?.name || candidates[0]?.name || '';
 }
 
-function paymentLabel(paymentType: 'cash' | 'card' | 'online', paymentSettled: boolean) {
+function paymentLabel(paymentType: 'cash' | 'transfer' | 'invoice', paymentSettled: boolean) {
   if (!paymentSettled) return 'Не оплачено';
   return {
     cash: 'Наличные',
-    card: 'Карта',
-    online: 'Онлайн',
+    transfer: 'Перевод',
+    invoice: 'По счёту',
   }[paymentType];
 }
 
@@ -321,6 +321,7 @@ export function AdminApp() {
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', notes: '', status: 'admin_review' as BookingStatus,
+    paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -349,7 +350,7 @@ export function AdminApp() {
   const [securityError, setSecurityError] = useState<string | null>(null);
   const [telegramLinkCode, setTelegramLinkCode] = useState<{ code: string; expiresAt: Date; linked: boolean } | null>(null);
   const [completeAmount, setCompleteAmount] = useState('');
-  const [completePaymentType, setCompletePaymentType] = useState<'cash' | 'card' | 'online'>('cash');
+  const [completePaymentType, setCompletePaymentType] = useState<'cash' | 'transfer' | 'invoice'>('cash');
   const [completeNote, setCompleteNote] = useState('');
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
@@ -586,8 +587,8 @@ export function AdminApp() {
 
   const byPayment = [
     { name: 'Наличные', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'cash').length, color: accent },
-    { name: 'Карта', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'card').length, color: primary },
-    { name: 'Онлайн', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'online').length, color: '#A855F7' },
+    { name: 'Перевод', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'transfer').length, color: primary },
+    { name: 'По счёту', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'invoice').length, color: '#A855F7' },
     { name: 'Не оплачено', value: bookings.filter(b => !b.paymentSettled).length, color: '#EF4444' },
   ].filter(p => p.value > 0);
 
@@ -898,6 +899,7 @@ export function AdminApp() {
       plate: '',
       notes: '',
       status: 'admin_review',
+      paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
     });
   };
@@ -1125,7 +1127,7 @@ export function AdminApp() {
         status: !newBookingForm.clientPhone.trim() ? 'admin_review' : newBookingForm.status,
         workers: createdWorkers,
         box: newBookingForm.box.trim() || 'По согласованию',
-        paymentType: 'cash',
+        paymentType: newBookingForm.paymentType,
         paymentSettled: newBookingForm.paymentSettled,
         car: normalizedCar,
         plate: normalizedPlate,
@@ -2775,12 +2777,12 @@ export function AdminApp() {
                       value={completePaymentType}
                       onChange={e => {
                         setCompleteError(null);
-                        setCompletePaymentType(e.target.value as 'cash' | 'card' | 'online');
+                        setCompletePaymentType(e.target.value as 'cash' | 'transfer' | 'invoice');
                       }}
                     >
                       <option value="cash">Наличные</option>
-                      <option value="card">Карта</option>
-                      <option value="online">Онлайн</option>
+                      <option value="transfer">Перевод</option>
+                      <option value="invoice">По счёту</option>
                     </select>
                   </div>
                   {completeError && <div className="text-xs text-red-500">{completeError}</div>}
@@ -3252,6 +3254,14 @@ export function AdminApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Доп. информация..." value={newBookingForm.notes} onChange={e => setNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
+                  <select className={selectCls} value={newBookingForm.paymentType} onChange={e => setNewBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
+                    <option value="cash">Наличные</option>
+                    <option value="transfer">Перевод</option>
+                    <option value="invoice">По счёту</option>
+                  </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
                   <span>Оплачено</span>
