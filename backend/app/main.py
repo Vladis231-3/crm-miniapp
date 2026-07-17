@@ -6307,9 +6307,6 @@ def add_booking_service(
     booking.services = svc_list
     booking.price = (booking.price or 0) + payload.price
     booking.duration = (booking.duration or 0) + payload.duration
-    # Re-validate schedule after extending duration
-    if booking.status in BOOKING_ACTIVE_STATUSES and booking.date and booking.time:
-        _ensure_booking_within_schedule(db, booking.date, booking.time, booking.duration)
     db.commit()
     db.refresh(booking)
     return _booking_payload_for_response(db, booking)
@@ -6360,8 +6357,6 @@ def add_booking_additional_service(
     db.add(asvc)
     booking.price = (booking.price or 0) + payload.price
     booking.duration = (booking.duration or 0) + payload.duration
-    if booking.status in BOOKING_ACTIVE_STATUSES and booking.date and booking.time:
-        _ensure_booking_within_schedule(db, booking.date, booking.time, booking.duration)
     db.commit()
     db.refresh(booking)
     return _booking_payload_for_response(db, booking)
@@ -6399,8 +6394,6 @@ def remove_booking_additional_service(
     booking.price = max(0, (booking.price or 0) - asvc.price)
     booking.duration = max(0, (booking.duration or 0) - asvc.duration)
     db.delete(asvc)
-    if booking.status in BOOKING_ACTIVE_STATUSES and booking.date and booking.time:
-        _ensure_booking_within_schedule(db, booking.date, booking.time, booking.duration)
     db.commit()
     db.refresh(booking)
     return _booking_payload_for_response(db, booking)
