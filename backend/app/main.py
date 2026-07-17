@@ -937,6 +937,11 @@ def _apply_runtime_migrations() -> None:
                 connection.exec_driver_sql(
                     "UPDATE services SET wash_type = 'classic' WHERE category = 'Мойка' AND wash_type = ''"
                 )
+        if "material_consumption" not in service_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE services ADD COLUMN material_consumption INTEGER"
+                )
 
 
 def _repair_text_value(value: str) -> str:
@@ -1944,6 +1949,7 @@ def _service_payload(service: Service) -> ServicePayload:
         washType=service.wash_type or "",
         desc=service.description,
         active=service.active,
+        materialConsumption=service.material_consumption,
     )
 
 
@@ -7521,6 +7527,7 @@ def save_services(
         service.wash_type = item.washType or ""
         service.description = item.desc
         service.active = item.active
+        service.material_consumption = item.materialConsumption
     for service_id, service in existing.items():
         if service_id not in submitted_ids:
             db.delete(service)

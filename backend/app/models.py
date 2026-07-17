@@ -104,6 +104,7 @@ class Service(Base):
     wash_type: Mapped[str] = mapped_column(String(32), default="")
     description: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    material_consumption: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class Box(Base):

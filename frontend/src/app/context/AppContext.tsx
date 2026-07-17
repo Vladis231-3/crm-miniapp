@@ -332,6 +332,7 @@ export interface Service {
   washType: string;
   desc: string;
   active: boolean;
+  materialConsumption: number | null;
 }
 
 export interface Box {

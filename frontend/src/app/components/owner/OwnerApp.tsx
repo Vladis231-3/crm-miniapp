@@ -5178,6 +5178,10 @@ export function OwnerApp() {
                     </div>
                   </div>
                   <div className="mt-2">
+                    <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
+                    <input className={inputCls} type="number" placeholder="0" value={numberInputValue(service.materialConsumption ?? 0)} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, materialConsumption: e.target.value ? numberFromInput(e.target.value) : null } : item))} />
+                  </div>
+                  <div className="mt-2">
                     <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                     <input className={inputCls} value={service.desc} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, desc: e.target.value } : item))} />
                   </div>

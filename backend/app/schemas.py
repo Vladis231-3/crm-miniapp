@@ -541,6 +541,7 @@ class ServicePayload(BaseModel):
     washType: str = ""
     desc: str = Field(default="")
     active: bool = True
+    materialConsumption: int | None = None
 
 
 class DetailingRequestCreateRequest(BaseModel):

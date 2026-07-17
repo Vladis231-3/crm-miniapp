@@ -1815,6 +1815,11 @@ export function AdminApp() {
                           onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, duration: numberFromInput(e.target.value) } : s))} />
                       </div>
                     </div>
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
+                      <input className={inputCls} type="number" placeholder="0" value={numberInputValue(svc.materialConsumption ?? 0)}
+                        onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, materialConsumption: e.target.value ? numberFromInput(e.target.value) : null } : s))} />
+                    </div>
                   </div>
                 </div>
               ))}
