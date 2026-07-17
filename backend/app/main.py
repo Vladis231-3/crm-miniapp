@@ -1873,7 +1873,7 @@ def _booking_payload(
             for link in booking.worker_links
         ],
         box=booking.box,
-        paymentType=booking.payment_type,
+        paymentType={"card": "transfer", "online": "invoice"}.get(booking.payment_type, booking.payment_type),
         paymentSettled=booking.payment_settled,
         createdAt=booking.created_at,
         notes=booking.notes,
