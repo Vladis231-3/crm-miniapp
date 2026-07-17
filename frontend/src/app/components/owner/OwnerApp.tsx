@@ -588,10 +588,13 @@ export function OwnerApp() {
     duration: 30,
     car: '',
     plate: '',
+    plateType: 'russian' as PlateType,
     notes: '',
     status: 'scheduled' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
+    isOutsource: false,
+    outsourceAmount: 0,
   });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
@@ -1730,6 +1733,8 @@ export function OwnerApp() {
       paymentSettled: false,
       price: 0,
       duration: 30,
+      isOutsource: false,
+      outsourceAmount: 0,
     });
   };
 
@@ -1863,9 +1868,11 @@ export function OwnerApp() {
         box: bookingForm.box.trim(),
         paymentType: bookingForm.paymentType,
         paymentSettled: bookingForm.paymentSettled,
+        isOutsource: bookingForm.isOutsource,
+        outsourceAmount: bookingForm.outsourceAmount,
         car: normalizedCar,
         plate: normalizedPlate,
-        notifyWorkers: selectedWorkers.length > 0 && bookingForm.status !== 'completed',
+        notifyWorkers: !bookingForm.isOutsource && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
         await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc.name} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
@@ -1915,6 +1922,8 @@ export function OwnerApp() {
       status: 'scheduled',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
+      isOutsource: false,
+      outsourceAmount: 0,
     });
   };
 
@@ -1961,7 +1970,7 @@ export function OwnerApp() {
     }
     if (!ownerNewBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
+    if (!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setOwnerNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -2004,6 +2013,8 @@ export function OwnerApp() {
         box: ownerNewBookingForm.box.trim() || 'По согласованию',
         paymentType: ownerNewBookingForm.paymentType,
         paymentSettled: ownerNewBookingForm.paymentSettled,
+        isOutsource: ownerNewBookingForm.isOutsource,
+        outsourceAmount: ownerNewBookingForm.outsourceAmount,
         car: normalizedCar,
         plate: normalizedPlate,
         notes: ownerNewBookingForm.notes,
@@ -6520,6 +6531,26 @@ export function OwnerApp() {
                     onChange={(event) => setBookingForm((current) => ({ ...current, paymentSettled: event.target.checked }))}
                   />
                 </label>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Аутсорс</span>
+                  <input
+                    type="checkbox"
+                    checked={bookingForm.isOutsource}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setBookingForm(p => ({ ...p, isOutsource: checked }));
+                      if (checked) setBookingWorkers([]);
+                    }}
+                  />
+                </label>
+                {bookingForm.isOutsource && (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(bookingForm.outsourceAmount)}
+                      onChange={e => setBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
+                  </div>
+                )}
+                {!bookingForm.isOutsource && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
@@ -6565,6 +6596,7 @@ export function OwnerApp() {
                     })}
                   </div>
                 </div>
+                )}
               </div>
               <button onClick={handleCreateBooking} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>
                 {bookingForm.status === 'completed' ? 'Добавить в историю' : 'Создать запись'}
@@ -7222,6 +7254,26 @@ export function OwnerApp() {
                     <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
                   </div>
                 )}
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Аутсорс</span>
+                  <input
+                    type="checkbox"
+                    checked={ownerNewBookingForm.isOutsource}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setOwnerNewBookingForm(p => ({ ...p, isOutsource: checked }));
+                      if (checked) setOwnerNewBookingWorkers([]);
+                    }}
+                  />
+                </label>
+                {ownerNewBookingForm.isOutsource && (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
+                    <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.outsourceAmount)}
+                      onChange={e => setOwnerNewBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
+                  </div>
+                )}
+                {!ownerNewBookingForm.isOutsource && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
@@ -7270,7 +7322,8 @@ export function OwnerApp() {
                     })}
                   </div>
                 </div>
-                {totalOwnerNewBookingPercent > 100 && (
+                )}
+                {!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (
@@ -7298,10 +7351,10 @@ export function OwnerApp() {
                 </label>
               </div>
               <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || totalOwnerNewBookingPercent > 100 || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
+                <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
                   {ownerNewBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || totalOwnerNewBookingPercent > 100 || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
+                <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>

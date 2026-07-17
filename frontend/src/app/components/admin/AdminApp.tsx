@@ -1133,7 +1133,7 @@ export function AdminApp() {
         plate: normalizedPlate,
         plateType: newBookingForm.plateType,
         notes: newBookingForm.notes,
-        notifyWorkers: notify,
+        notifyWorkers: !newBookingForm.isOutsource && notify,
       });
       const requestScheduleLabel = hasDateTime
         ? `${normalizedDate} ${newBookingForm.time.trim()}`
@@ -3361,10 +3361,10 @@ export function AdminApp() {
                 </label>
               </div>
               <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
+                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
                   {newBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || totalNewBookingPercent > 100 || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
+                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && totalNewBookingPercent > 100) || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>

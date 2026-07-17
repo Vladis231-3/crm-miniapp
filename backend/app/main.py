@@ -5818,6 +5818,76 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
             )
 
 
+def _process_owner_profit_share(db: Session, booking: Booking) -> None:
+    """For detailing bookings, calculate owner profit share (remaining after master & piggy) and split 50/50 between two permanent owners."""
+    service = db.get(Service, booking.service_id) if booking.service_id else None
+    rg = _service_resource_group(service)
+    if rg != "detailing":
+        return
+
+    owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    owners = db.scalars(
+        select(StaffUser).where(StaffUser.id.in_(owner_ids), StaffUser.active.is_(True))
+    ).all()
+    if len(owners) < 2:
+        return
+
+    # Calculate master's total accrual from booking workers
+    total_master = 0
+    for link in booking.worker_links:
+        worker = db.get(StaffUser, link.worker_id)
+        if worker and worker.role in ("worker", "admin"):
+            all_penalties = _load_penalties(db)
+            complaints_by_worker = _complaints_by_worker(all_penalties)
+            worker_complaints = complaints_by_worker.get(link.worker_id, [])
+            percent = adjusted_booking_percent(
+                link.percent,
+                worker_complaints,
+                date_value=booking.date,
+                time_value=booking.time,
+                fallback=booking.created_at,
+            )
+            total_master += round(booking.price * percent / 100)
+
+    piggy_deposit = round(booking.price * 24 / 100)
+    remaining = booking.price - total_master - piggy_deposit
+    if remaining <= 0:
+        return
+
+    # Check if already processed
+    existing = db.scalars(
+        select(OwnerProfitShare).where(
+            OwnerProfitShare.booking_id == booking.id,
+        )
+    ).all()
+    if existing:
+        return
+
+    # Split 50/50 between two owners
+    half = round(remaining / 2)
+    owner1_amount = half
+    owner2_amount = remaining - half
+
+    owners_sorted = sorted(owners, key=lambda o: o.id)
+    amounts = [owner1_amount, owner2_amount]
+
+    for i, owner in enumerate(owners_sorted):
+        amt = amounts[i]
+        if amt <= 0:
+            continue
+        db.add(
+            OwnerProfitShare(
+                id=f"ops-{uuid4()}",
+                booking_id=booking.id,
+                owner_id=owner.id,
+                amount=amt,
+                status="pending",
+                date=booking.date,
+                created_at=_now(),
+            )
+        )
+
+
 @app.patch("/api/bookings/{booking_id}", response_model=BookingPayload)
 def update_booking(
     booking_id: str,
