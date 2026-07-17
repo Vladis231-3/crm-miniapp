@@ -6550,11 +6550,14 @@ export function OwnerApp() {
                       onChange={e => setBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
                   </div>
                 )}
-                {!bookingForm.isOutsource && (
+                {!bookingForm.isOutsource && (() => {
+                  const _svc = services.find(s => s.id === bookingForm.service);
+                  const _isFixed = _svc?.name === "подготовка к полировке";
+                  return (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                    <span className={`text-xs ${sub}`}>Выбрано: {bookingWorkers.length}</span>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? 'Фикс 1 200 ₽' : `Выбрано: ${bookingWorkers.length}`}</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto">
                     {workers.filter(worker => worker.role === 'worker').map(worker => {
@@ -6578,17 +6581,23 @@ export function OwnerApp() {
                           </div>
                           {assigned && (
                             <div className="flex items-center gap-2 mt-2">
-                              <span className={`text-xs ${sub}`}>%</span>
-                              <input
-                                type="number"
-                                step="0.00001"
-                                min={0}
-                                max={40}
-                                value={assigned.percent === '' ? '' : assigned.percent}
-                                onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
-                                onBlur={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                className={`flex-1 ${inputCls} py-1.5`}
-                              />
+                              {_isFixed ? (
+                                <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                              ) : (
+                                <>
+                                  <span className={`text-xs ${sub}`}>%</span>
+                                  <input
+                                    type="number"
+                                    step="0.00001"
+                                    min={0}
+                                    max={40}
+                                    value={assigned.percent === '' ? '' : assigned.percent}
+                                    onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                    onBlur={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                    className={`flex-1 ${inputCls} py-1.5`}
+                                  />
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
@@ -6596,7 +6605,8 @@ export function OwnerApp() {
                     })}
                   </div>
                 </div>
-                )}
+                  );
+                })()}
               </div>
               <button onClick={handleCreateBooking} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>
                 {bookingForm.status === 'completed' ? 'Добавить в историю' : 'Создать запись'}
@@ -6785,9 +6795,11 @@ export function OwnerApp() {
                   </div>
                 )}
 
-                {ownerBookingEditMode === 'workers' && (
+                {ownerBookingEditMode === 'workers' && (() => {
+                  const _isFixed = selectedBooking?.service === "подготовка к полировке";
+                  return (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров</div>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров {_isFixed ? '(фикс 1 200 ₽)' : ''}</div>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {workers.filter(w => w.role === 'worker' && w.active).map(worker => {
                         const assigned = ownerBookingEditWorkers.find(item => item.id === worker.id);
@@ -6807,11 +6819,17 @@ export function OwnerApp() {
                             </div>
                             {assigned && (
                               <div className="flex items-center gap-2 mt-2">
-                                <span className={`text-xs ${sub}`}>%</span>
-                                <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
-                                  onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
-                                  onBlur={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                  className={`flex-1 ${inputCls} py-1.5`} />
+                                {_isFixed ? (
+                                  <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                                ) : (
+                                  <>
+                                    <span className={`text-xs ${sub}`}>%</span>
+                                    <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
+                                      onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                      onBlur={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                      className={`flex-1 ${inputCls} py-1.5`} />
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>
@@ -6825,7 +6843,8 @@ export function OwnerApp() {
                       </button>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
                 {ownerBookingEditMode === 'datetime' && (
                   <div className={`${glass} rounded-2xl p-4`}>
@@ -7273,11 +7292,13 @@ export function OwnerApp() {
                       onChange={e => setOwnerNewBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
                   </div>
                 )}
-                {!ownerNewBookingForm.isOutsource && (
+                {!ownerNewBookingForm.isOutsource && (() => {
+                  const _isFixed = ownerNewBookingForm.service === "подготовка к полировке";
+                  return (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                    <span className={`text-xs ${sub}`}>Сумма: {totalOwnerNewBookingPercent}%</span>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? 'Фикс 1 200 ₽' : `Сумма: ${totalOwnerNewBookingPercent}%`}</span>
                   </div>
                   <div className="space-y-2">
                     {ownerNewBookingMasterWorkers.map(worker => {
@@ -7304,17 +7325,23 @@ export function OwnerApp() {
                           </div>
                           {assigned && (
                             <div className="flex items-center gap-2 mt-2">
-                              <span className={`text-xs ${sub}`}>%</span>
-                              <input
-                                type="number"
-                                step="0.00001"
-                                min={0}
-                                max={40}
-                                value={assigned.percent === '' ? '' : assigned.percent}
-                                onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
-                                onBlur={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                className={`flex-1 ${inputCls} py-1.5`}
-                              />
+                              {_isFixed ? (
+                                <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                              ) : (
+                                <>
+                                  <span className={`text-xs ${sub}`}>%</span>
+                                  <input
+                                    type="number"
+                                    step="0.00001"
+                                    min={0}
+                                    max={40}
+                                    value={assigned.percent === '' ? '' : assigned.percent}
+                                    onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                    onBlur={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                    className={`flex-1 ${inputCls} py-1.5`}
+                                  />
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
@@ -7322,8 +7349,9 @@ export function OwnerApp() {
                     })}
                   </div>
                 </div>
-                )}
-                {!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100 && (
+                  );
+                })()}
+                {!ownerNewBookingForm.isOutsource && ownerNewBookingForm.service !== "подготовка к полировке" && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (

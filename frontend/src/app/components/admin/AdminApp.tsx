@@ -2746,18 +2746,24 @@ export function AdminApp() {
                       </div>
                       {assigned && (
                         <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs ${sub}`}>%</span>
-                          <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
-                            onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: '' } : aw)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(40, Math.max(0, n)) } : aw)); } }}
-                            onBlur={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: aw.percent === '' ? 0 : aw.percent } : aw))}
-                            className={`flex-1 ${inputCls} py-1.5`} />
+                          {selectedBooking?.service === "подготовка к полировке" ? (
+                            <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                          ) : (
+                            <>
+                              <span className={`text-xs ${sub}`}>%</span>
+                              <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
+                                onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: '' } : aw)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(40, Math.max(0, n)) } : aw)); } }}
+                                onBlur={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: aw.percent === '' ? 0 : aw.percent } : aw))}
+                                className={`flex-1 ${inputCls} py-1.5`} />
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-              {totalPercent > 100 && (
+              {selectedBooking?.service !== "подготовка к полировке" && totalPercent > 100 && (
                 <div className="flex items-center gap-2 text-red-500 text-xs mb-3"><AlertCircle size={14} />Сумма процентов превышает 100%</div>
               )}
               <button onClick={() => { void handleAssignWorkers(true); }} className="w-full py-3 rounded-xl text-sm text-white font-medium mb-2" style={{ background: primary }}>Назначить и уведомить</button>
@@ -3292,53 +3298,66 @@ export function AdminApp() {
                   </div>
                 )}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                    <span className={`text-xs ${sub}`}>Сумма: {totalNewBookingPercent}%</span>
-                  </div>
-                  <div className="space-y-2">
-                    {masterWorkers.filter(worker => worker.active).map(worker => {
-                      const assigned = newBookingWorkers.find(item => item.id === worker.id);
-                      return (
-                        <div key={worker.id} className={`${glass} rounded-xl p-3`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                <span className="text-sm font-medium">{worker.name}</span>
+                  {(() => {
+                    const _svc = services.find(s => s.id === newBookingForm.serviceId);
+                    const _isFixed = _svc?.name === "подготовка к полировке";
+                    return (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
+                      <span className={`text-xs ${sub}`}>{_isFixed ? 'Фикс 1 200 ₽' : `Сумма: ${totalNewBookingPercent}%`}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {masterWorkers.filter(worker => worker.active).map(worker => {
+                        const assigned = newBookingWorkers.find(item => item.id === worker.id);
+                        return (
+                          <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                  <span className="text-sm font-medium">{worker.name}</span>
+                                </div>
+                                <div className={`text-xs ${sub} mt-1 truncate`}>{worker.specialty || worker.experience}</div>
                               </div>
-                              <div className={`text-xs ${sub} mt-1 truncate`}>{worker.specialty || worker.experience}</div>
+                              <button
+                                onClick={() => assigned
+                                  ? setNewBookingWorkers(current => current.filter(item => item.id !== worker.id))
+                                  : setNewBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                                className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
+                                style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                              >
+                                {assigned ? 'Выбран' : 'Выбрать'}
+                              </button>
                             </div>
-                            <button
-                              onClick={() => assigned
-                                ? setNewBookingWorkers(current => current.filter(item => item.id !== worker.id))
-                                : setNewBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
-                              className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
-                              style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
-                            >
-                              {assigned ? 'Выбран' : 'Выбрать'}
-                            </button>
+                            {assigned && (
+                              <div className="flex items-center gap-2 mt-2">
+                                {_isFixed ? (
+                                  <span className={`text-xs font-medium ${sub}`}>1 200 ₽</span>
+                                ) : (
+                                  <>
+                                    <span className={`text-xs ${sub}`}>%</span>
+                                    <input
+                                      type="number"
+                                      step="0.00001"
+                                      min={0}
+                                      max={40}
+                                      value={assigned.percent === '' ? '' : assigned.percent}
+                                      onChange={e => { const r = e.target.value; if (r === '') { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                      onBlur={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                      className={`flex-1 ${inputCls} py-1.5`}
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          {assigned && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className={`text-xs ${sub}`}>%</span>
-                              <input
-                                type="number"
-                                step="0.00001"
-                                min={0}
-                                max={40}
-                                value={assigned.percent === '' ? '' : assigned.percent}
-                                onChange={e => { const r = e.target.value; if (r === '') { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
-                                onBlur={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                className={`flex-1 ${inputCls} py-1.5`}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                  );
+                  })()}
                 {totalNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
