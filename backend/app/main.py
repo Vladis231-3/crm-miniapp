@@ -16037,7 +16037,7 @@ def get_admin_workers_payroll(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[WorkerPayload]:
-    _ensure_staff_role(session_data, {"admin", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "accountant", "owner"})
     valid_periods = {"day", "week", "month", "all", "custom"}
     if period not in valid_periods:
         raise HTTPException(status_code=400, detail="Invalid period")
