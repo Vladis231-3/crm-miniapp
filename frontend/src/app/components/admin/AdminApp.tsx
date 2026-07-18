@@ -2627,7 +2627,11 @@ export function AdminApp() {
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
                         <span className="text-sm">{w.workerName}</span>
                       </div>
-                      <span className={`text-sm ${sub}`}>{w.percent}%</span>
+                      <span className={`text-sm ${sub}`}>
+                        {isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service)
+                          ? `фикс ${formatFixedMasterAmount()}`
+                          : `${w.percent}%`}
+                      </span>
                     </div>
                   )) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
                 </div>

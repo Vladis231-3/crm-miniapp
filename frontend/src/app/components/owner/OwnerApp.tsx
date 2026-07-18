@@ -2670,7 +2670,10 @@ export function OwnerApp() {
                             <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {booking.workers.length > 0 && (
-                            <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => `${w.workerName} ${w.percent}%`).join(', ')}</div>
+                            <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
+                              const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
+                              return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` ${w.percent}%`}`;
+                            }).join(', ')}</div>
                           )}
                         </div>
                       </div>

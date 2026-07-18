@@ -823,7 +823,9 @@ export function WorkerApp() {
                                 </div>
                                 <div className="text-right">
                                   <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
-                                  <div className={`text-xs ${sub}`}>{b.percent}%</div>
+                                  {isFixedMasterService(services, b.serviceId, b.service)
+                                    ? <div className={`text-xs ${sub}`}>фикс {formatFixedMasterAmount()}</div>
+                                    : <div className={`text-xs ${sub}`}>{b.percent}%</div>}
                                 </div>
                               </div>
                             </div>

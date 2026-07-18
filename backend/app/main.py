@@ -11548,9 +11548,9 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
 
-    # 2. Deposit 24% of booking price (only for detailing)
+    # 2. Deposit 24% of booking price (only for detailing & wash)
 
-    if rg == "detailing":
+    if rg in ("detailing", "wash"):
 
         deposit_amount = round(booking.price * 24 / 100)
 
@@ -11596,7 +11596,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     rg = _service_resource_group(service)
 
-    if rg != "detailing":
+    if rg not in ("detailing", "wash"):
 
         return
 
@@ -11646,7 +11646,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
             )
 
-            total_master += round(booking.price * percent / 100)
+            total_master += FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100)
 
 
 
