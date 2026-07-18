@@ -2254,11 +2254,23 @@ export function AdminApp() {
                 ))}
               </div>
               {payrollPeriod === 'custom' && (
-                <div className="flex gap-2 mb-4">
-                  <input type="date" value={payrollDateFrom} onChange={(e) => setPayrollDateFrom(e.target.value)}
-                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
-                  <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)}
-                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                <div className={`${glass} rounded-xl p-3 mb-4`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar size={14} className={sub} />
+                    <span className={`text-xs ${sub}`}>Выберите период</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className={`text-[11px] ${sub} block mb-1`}>От</label>
+                      <input type="date" value={payrollDateFrom} onChange={(e) => setPayrollDateFrom(e.target.value)}
+                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                    <div className="flex-1">
+                      <label className={`text-[11px] ${sub} block mb-1`}>До</label>
+                      <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)}
+                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                  </div>
                 </div>
               )}
               {payrollSettings.map((worker, index) => {
