@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type Worker } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type Worker, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -326,6 +326,67 @@ const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
 
 type PercentValue = number | '';
 
+function dateStringToKey(dateStr: string) {
+  return dateStr.slice(6, 10) + dateStr.slice(3, 5) + dateStr.slice(0, 2);
+}
+
+function filterPayrollByPeriod<T extends { payrollSummary?: WorkerPayrollSummary }>(
+  worker: T,
+  period: 'day' | 'week' | 'month' | 'all' | 'custom',
+  dateFrom: string,
+  dateTo: string,
+): T {
+  if (!worker.payrollSummary || period === 'all') return worker;
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, '0');
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const todayKey = `${yyyy}${mm}${dd}`;
+
+  let fromKey: string;
+  let toKey: string;
+
+  if (period === 'custom') {
+    if (!dateFrom || !dateTo) return worker;
+    fromKey = dateFrom.replace(/-/g, '');
+    toKey = dateTo.replace(/-/g, '');
+  } else if (period === 'day') {
+    fromKey = toKey = todayKey;
+  } else if (period === 'week') {
+    const sat = new Date(today);
+    sat.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 6));
+    const fri = new Date(sat);
+    fri.setDate(sat.getDate() + 6);
+    fromKey = `${sat.getFullYear()}${String(sat.getMonth() + 1).padStart(2, '0')}${String(sat.getDate()).padStart(2, '0')}`;
+    toKey = `${fri.getFullYear()}${String(fri.getMonth() + 1).padStart(2, '0')}${String(fri.getDate()).padStart(2, '0')}`;
+  } else {
+    fromKey = `${yyyy}${mm}01`;
+    const lastDay = new Date(yyyy, today.getMonth() + 1, 0).getDate();
+    toKey = `${yyyy}${mm}${String(lastDay).padStart(2, '0')}`;
+  }
+
+  const filtered = worker.payrollSummary.bookingItems.filter((item) => {
+    const itemKey = dateStringToKey(item.date);
+    return itemKey >= fromKey && itemKey <= toKey;
+  });
+
+  const earned = filtered.reduce((s, i) => s + i.earned, 0);
+  const revenue = filtered.reduce((s, i) => s + i.price, 0);
+  const completedBookings = filtered.length;
+
+  return {
+    ...worker,
+    payrollSummary: {
+      ...worker.payrollSummary,
+      completedBookings,
+      completedRevenue: revenue,
+      accruedFromBookings: earned,
+      totalAccrued: earned + worker.payrollSummary.baseSalary + (worker.payrollSummary.shiftPayTotal || 0) + worker.payrollSummary.bonusTotal + Math.max(worker.payrollSummary.adjustmentTotal || 0, 0),
+      bookingItems: filtered,
+    },
+  };
+}
+
 export function OwnerApp() {
   const {
     session,
@@ -515,7 +576,6 @@ export function OwnerApp() {
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
-  const [payrollWorkers, setPayrollWorkers] = useState<Worker[]>([]);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -701,28 +761,6 @@ export function OwnerApp() {
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
   }, [selectedSalaryWorkerId, salaryPeriod, salarySegment]);
-  useEffect(() => {
-    if (page === 'payroll' && !selectedSalaryWorkerId) {
-      let url = `/api/admin/workers/payroll?period=${payrollPeriod}`;
-      if (payrollPeriod === 'custom') {
-        if (!payrollDateFrom || !payrollDateTo) return;
-        url += `&date_from=${payrollDateFrom}&date_to=${payrollDateTo}`;
-      }
-      apiRequest<Worker[]>(url)
-        .then((data) => setPayrollWorkers(data.map((w) => ({
-          ...w,
-          payrollSummary: w.payrollSummary ? {
-            ...w.payrollSummary,
-            bookingItems: w.payrollSummary.bookingItems || [],
-            entries: (w.payrollSummary.entries || []).map((entry) => ({
-              ...entry,
-              createdAt: new Date(entry.createdAt),
-            })),
-          } : undefined,
-        }))))
-        .catch(() => setPayrollWorkers([]));
-    }
-  }, [page, selectedSalaryWorkerId, payrollPeriod, payrollDateFrom, payrollDateTo]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
@@ -988,12 +1026,13 @@ export function OwnerApp() {
     if (cat === 'detailing') return 'Детейлинг';
     return 'Общее';
   };
-  const payrollRows = (payrollWorkers.length > 0 ? payrollWorkers : workers).map(worker => {
+  const payrollRows = workers.map(worker => {
+    const filteredWorker = filterPayrollByPeriod(worker, payrollPeriod, payrollDateFrom, payrollDateTo);
     const workerPenalties = penalties.filter((penalty) => penalty.workerId === worker.id && isComplaintActive(penalty));
     const complaintState = getComplaintPenaltyState(worker.defaultPercent, workerPenalties);
     return {
-      worker,
-      payrollSummary: worker.payrollSummary,
+      worker: filteredWorker,
+      payrollSummary: filteredWorker.payrollSummary,
       complaintState,
       recentPenalties: workerPenalties.slice(0, 3),
     };

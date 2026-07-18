@@ -12,8 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type Worker } from '../../context/AppContext';
-import { apiRequest } from '../../api';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from './ContentEditor';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
@@ -197,6 +196,67 @@ function bookingStatusRequiresScheduledSlot(status: BookingStatus) {
 
 function numberInputValue(value: number) {
   return value === 0 ? '' : String(value);
+}
+
+function dateStringToKey(dateStr: string) {
+  return dateStr.slice(6, 10) + dateStr.slice(3, 5) + dateStr.slice(0, 2);
+}
+
+function filterPayrollByPeriod<T extends { payrollSummary?: WorkerPayrollSummary }>(
+  worker: T,
+  period: 'day' | 'week' | 'month' | 'all' | 'custom',
+  dateFrom: string,
+  dateTo: string,
+): T {
+  if (!worker.payrollSummary || period === 'all') return worker;
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, '0');
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const todayKey = `${yyyy}${mm}${dd}`;
+
+  let fromKey: string;
+  let toKey: string;
+
+  if (period === 'custom') {
+    if (!dateFrom || !dateTo) return worker;
+    fromKey = dateFrom.replace(/-/g, '');
+    toKey = dateTo.replace(/-/g, '');
+  } else if (period === 'day') {
+    fromKey = toKey = todayKey;
+  } else if (period === 'week') {
+    const sat = new Date(today);
+    sat.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 6));
+    const fri = new Date(sat);
+    fri.setDate(sat.getDate() + 6);
+    fromKey = `${sat.getFullYear()}${String(sat.getMonth() + 1).padStart(2, '0')}${String(sat.getDate()).padStart(2, '0')}`;
+    toKey = `${fri.getFullYear()}${String(fri.getMonth() + 1).padStart(2, '0')}${String(fri.getDate()).padStart(2, '0')}`;
+  } else {
+    fromKey = `${yyyy}${mm}01`;
+    const lastDay = new Date(yyyy, today.getMonth() + 1, 0).getDate();
+    toKey = `${yyyy}${mm}${String(lastDay).padStart(2, '0')}`;
+  }
+
+  const filtered = worker.payrollSummary.bookingItems.filter((item) => {
+    const itemKey = dateStringToKey(item.date);
+    return itemKey >= fromKey && itemKey <= toKey;
+  });
+
+  const earned = filtered.reduce((s, i) => s + i.earned, 0);
+  const revenue = filtered.reduce((s, i) => s + i.price, 0);
+  const completedBookings = filtered.length;
+
+  return {
+    ...worker,
+    payrollSummary: {
+      ...worker.payrollSummary,
+      completedBookings,
+      completedRevenue: revenue,
+      accruedFromBookings: earned,
+      totalAccrued: earned + worker.payrollSummary.baseSalary + (worker.payrollSummary.shiftPayTotal || 0) + worker.payrollSummary.bonusTotal + Math.max(worker.payrollSummary.adjustmentTotal || 0, 0),
+      bookingItems: filtered,
+    },
+  };
 }
 
 function numberFromInput(value: string) {
@@ -383,7 +443,6 @@ export function AdminApp() {
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
-  const [payrollWorkers, setPayrollWorkers] = useState<Worker[]>([]);
   const selectableBookingDates = Array.from(new Set([
     todayLabel,
     tomorrowLabel,
@@ -523,28 +582,6 @@ export function AdminApp() {
   useEffect(() => {
     setPayrollError(null);
   }, [settingsSection]);
-  useEffect(() => {
-    if (page === 'settings' && settingsSection === 'payroll') {
-      let url = `/api/admin/workers/payroll?period=${payrollPeriod}`;
-      if (payrollPeriod === 'custom') {
-        if (!payrollDateFrom || !payrollDateTo) return;
-        url += `&date_from=${payrollDateFrom}&date_to=${payrollDateTo}`;
-      }
-      apiRequest<Worker[]>(url)
-        .then((data) => setPayrollWorkers(data.map((w) => ({
-          ...w,
-          payrollSummary: w.payrollSummary ? {
-            ...w.payrollSummary,
-            bookingItems: w.payrollSummary.bookingItems || [],
-            entries: (w.payrollSummary.entries || []).map((entry) => ({
-              ...entry,
-              createdAt: new Date(entry.createdAt),
-            })),
-          } : undefined,
-        }))))
-        .catch(() => setPayrollWorkers([]));
-    }
-  }, [page, settingsSection, payrollPeriod, payrollDateFrom, payrollDateTo]);
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'security') {
       void refreshActiveSessions();
@@ -2274,7 +2311,7 @@ export function AdminApp() {
                 </div>
               )}
               {payrollSettings.map((worker, index) => {
-                const liveWorker = (payrollWorkers.length > 0 ? payrollWorkers : workers).find((item) => item.id === worker.id);
+                const liveWorker = filterPayrollByPeriod(workers.find((item) => item.id === worker.id)!, payrollPeriod, payrollDateFrom, payrollDateTo);
                 const payrollSummary = liveWorker?.payrollSummary;
                 return (
                   <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
