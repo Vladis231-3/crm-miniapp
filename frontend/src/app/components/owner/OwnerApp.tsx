@@ -5,14 +5,14 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type Worker } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -36,6 +36,7 @@ type OwnerExportKind = 'report' | 'pdf';
 interface SalaryBookingItem {
   id: string; date: string; time: string; service: string; box: string;
   price: number; earned: number; percent: number; resourceGroup: string;
+  car?: string; plate?: string;
 }
 interface SalaryPayoutItem {
   id: string; amount: number; note: string; createdAt: string; createdBy: string;
@@ -511,6 +512,10 @@ export function OwnerApp() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
+  const [payrollDateFrom, setPayrollDateFrom] = useState('');
+  const [payrollDateTo, setPayrollDateTo] = useState('');
+  const [payrollWorkers, setPayrollWorkers] = useState<Worker[]>([]);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -696,6 +701,28 @@ export function OwnerApp() {
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
   }, [selectedSalaryWorkerId, salaryPeriod, salarySegment]);
+  useEffect(() => {
+    if (page === 'payroll' && !selectedSalaryWorkerId) {
+      let url = `/api/admin/workers/payroll?period=${payrollPeriod}`;
+      if (payrollPeriod === 'custom') {
+        if (!payrollDateFrom || !payrollDateTo) return;
+        url += `&date_from=${payrollDateFrom}&date_to=${payrollDateTo}`;
+      }
+      apiRequest<Worker[]>(url)
+        .then((data) => setPayrollWorkers(data.map((w) => ({
+          ...w,
+          payrollSummary: w.payrollSummary ? {
+            ...w.payrollSummary,
+            bookingItems: w.payrollSummary.bookingItems || [],
+            entries: (w.payrollSummary.entries || []).map((entry) => ({
+              ...entry,
+              createdAt: new Date(entry.createdAt),
+            })),
+          } : undefined,
+        }))))
+        .catch(() => setPayrollWorkers([]));
+    }
+  }, [page, selectedSalaryWorkerId, payrollPeriod, payrollDateFrom, payrollDateTo]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
@@ -961,7 +988,7 @@ export function OwnerApp() {
     if (cat === 'detailing') return 'Детейлинг';
     return 'Общее';
   };
-  const payrollRows = workers.map(worker => {
+  const payrollRows = (payrollWorkers.length > 0 ? payrollWorkers : workers).map(worker => {
     const workerPenalties = penalties.filter((penalty) => penalty.workerId === worker.id && isComplaintActive(penalty));
     const complaintState = getComplaintPenaltyState(worker.defaultPercent, workerPenalties);
     return {
@@ -2986,7 +3013,36 @@ export function OwnerApp() {
           {/* ── PAYROLL ── */}
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">Зарплаты сотрудников</h2>
+              <h2 className="font-semibold mb-2">Зарплаты сотрудников</h2>
+              <div className="flex gap-1.5 mb-2">
+                {(['day', 'week', 'month', 'all', 'custom'] as const).map((p) => (
+                  <button key={p} onClick={() => setPayrollPeriod(p)}
+                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
+                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Свой'}
+                  </button>
+                ))}
+              </div>
+              {payrollPeriod === 'custom' && (
+                <div className={`${glass} rounded-xl p-3 mb-3`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar size={14} className={sub} />
+                    <span className={`text-xs ${sub}`}>Выберите период</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className={`text-[11px] ${sub} block mb-1`}>От</label>
+                      <input type="date" value={payrollDateFrom} onChange={(e) => setPayrollDateFrom(e.target.value)}
+                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                    <div className="flex-1">
+                      <label className={`text-[11px] ${sub} block mb-1`}>До</label>
+                      <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)}
+                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                  </div>
+                </div>
+              )}
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
@@ -3164,6 +3220,11 @@ export function OwnerApp() {
                             <div className="min-w-0">
                               <div className="text-sm font-medium truncate">{item.service}</div>
                               <div className={`text-[11px] ${sub}`}>{item.date} · {item.time} · {item.price.toLocaleString('ru')} ₽</div>
+                              {(item.car || item.plate) && (
+                                <div className={`text-[11px] ${sub} mt-0.5`}>
+                                  {[item.car, item.plate].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
                             </div>
                             <div className="text-right shrink-0">
                               <div className="text-sm font-semibold">+{item.earned.toLocaleString('ru')} ₽</div>
@@ -3289,6 +3350,11 @@ export function OwnerApp() {
                           <div className="flex-1 min-w-0 mr-2">
                             <div className="text-xs font-medium truncate">{b.date} {b.time} · {b.service}</div>
                             <div className={`text-[10px] ${sub}`}>{b.box} · {b.percent}%</div>
+                            {(b.car || b.plate) && (
+                              <div className={`text-[10px] ${sub} mt-0.5`}>
+                                {[b.car, b.plate].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
                           </div>
                           <div className="text-right shrink-0">
                             <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} ₽</div>
