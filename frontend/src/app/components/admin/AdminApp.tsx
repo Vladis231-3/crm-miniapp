@@ -380,7 +380,9 @@ export function AdminApp() {
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState<string | null>(null);
-  const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
+  const [payrollDateFrom, setPayrollDateFrom] = useState('');
+  const [payrollDateTo, setPayrollDateTo] = useState('');
   const [payrollWorkers, setPayrollWorkers] = useState<Worker[]>([]);
   const selectableBookingDates = Array.from(new Set([
     todayLabel,
@@ -523,7 +525,12 @@ export function AdminApp() {
   }, [settingsSection]);
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'payroll') {
-      apiRequest<Worker[]>(`/api/admin/workers/payroll?period=${payrollPeriod}`)
+      let url = `/api/admin/workers/payroll?period=${payrollPeriod}`;
+      if (payrollPeriod === 'custom') {
+        if (!payrollDateFrom || !payrollDateTo) return;
+        url += `&date_from=${payrollDateFrom}&date_to=${payrollDateTo}`;
+      }
+      apiRequest<Worker[]>(url)
         .then((data) => setPayrollWorkers(data.map((w) => ({
           ...w,
           payrollSummary: w.payrollSummary ? {
@@ -537,7 +544,7 @@ export function AdminApp() {
         }))))
         .catch(() => setPayrollWorkers([]));
     }
-  }, [page, settingsSection, payrollPeriod]);
+  }, [page, settingsSection, payrollPeriod, payrollDateFrom, payrollDateTo]);
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'security') {
       void refreshActiveSessions();
@@ -2237,15 +2244,23 @@ export function AdminApp() {
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-1">Контроль зарплат мастеров</h2>
               <p className={`text-xs ${sub} mb-2`}>Администратор может менять процент, оклад, активность и вести операции по зарплате мастеров с примечанием</p>
-              <div className="flex gap-1.5 mb-4">
-                {(['day', 'week', 'month', 'all'] as const).map((p) => (
+              <div className="flex gap-1.5 mb-2">
+                {(['day', 'week', 'month', 'all', 'custom'] as const).map((p) => (
                   <button key={p} onClick={() => setPayrollPeriod(p)}
                     className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                     style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
-                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
+                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Свой'}
                   </button>
                 ))}
               </div>
+              {payrollPeriod === 'custom' && (
+                <div className="flex gap-2 mb-4">
+                  <input type="date" value={payrollDateFrom} onChange={(e) => setPayrollDateFrom(e.target.value)}
+                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)}
+                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                </div>
+              )}
               {payrollSettings.map((worker, index) => {
                 const liveWorker = (payrollWorkers.length > 0 ? payrollWorkers : workers).find((item) => item.id === worker.id);
                 const payrollSummary = liveWorker?.payrollSummary;
