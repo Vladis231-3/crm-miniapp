@@ -285,6 +285,8 @@ class WorkerPayrollBookingPayload(BaseModel):
     price: int
     percent: float
     earned: int
+    car: str | None = None
+    plate: str | None = None
 
 
 class WorkerPayrollSummaryPayload(BaseModel):

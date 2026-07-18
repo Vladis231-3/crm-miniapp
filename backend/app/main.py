@@ -3474,269 +3474,146 @@ def _worker_payroll_summaries(
 ) -> dict[str, WorkerPayrollSummaryPayload]:
 
     if not workers:
-
         return {}
-
-
-
     worker_ids = [worker.id for worker in workers]
-
     completed_bookings = (
-
         db.scalars(
-
             select(Booking)
-
             .options(joinedload(Booking.worker_links))
-
             .join(Booking.worker_links)
-
             .where(
-
                 Booking.status == "completed",
-
                 BookingWorker.worker_id.in_(worker_ids),
-
             )
-
             .order_by(
-
                 Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
-
             )
-
         )
-
         .unique()
-
         .all()
-
     )
-
     entries = db.scalars(
-
         select(PayrollEntry)
-
         .where(PayrollEntry.worker_id.in_(worker_ids))
-
         .order_by(PayrollEntry.created_at.desc())
-
     ).all()
-
-    actors = (
-
-        {
-
-            item.id: item.name
-
-            for item in db.scalars(
-
-                select(StaffUser).where(
-
-                    StaffUser.id.in_({entry.actor_id for entry in entries})
-
-                )
-
-            ).all()
-
-        }
-
-        if entries
-
-        else {}
-
+    return _worker_payroll_summaries_from_data(
+        db, workers, completed_bookings, entries, complaints_by_worker
     )
 
 
-
-    booking_items_by_worker: dict[str, list[WorkerPayrollBookingPayload]] = {
-
-        worker_id: [] for worker_id in worker_ids
-
-    }
-
-    for booking in completed_bookings:
-
-        for link in booking.worker_links:
-
-            if link.worker_id not in booking_items_by_worker:
-
-                continue
-
-            percent = adjusted_booking_percent(
-
-                link.percent,
-
-                complaints_by_worker.get(link.worker_id, []),
-
-                date_value=booking.date,
-
-                time_value=booking.time,
-
-                fallback=booking.created_at,
-
-            )
-
-            booking_items_by_worker[link.worker_id].append(
-
-                WorkerPayrollBookingPayload(
-
-                    bookingId=booking.id,
-
-                    service=booking.service,
-
-                    date=booking.date,
-
-                    time=booking.time,
-
-                    price=booking.price,
-
-                    percent=percent,
-
-                    earned=FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100),
-
+def _worker_payroll_summaries_from_data(
+    db: Session,
+    workers: list[StaffUser],
+    completed_bookings: list[Booking],
+    entries: list[PayrollEntry],
+    complaints_by_worker: dict[str, list[Penalty]],
+) -> dict[str, WorkerPayrollSummaryPayload]:
+    if not workers:
+        return {}
+    worker_ids = [worker.id for worker in workers]
+    actors = (
+        {
+            item.id: item.name
+            for item in db.scalars(
+                select(StaffUser).where(
+                    StaffUser.id.in_({entry.actor_id for entry in entries})
                 )
-
-            )
-
-
-
-    entry_payloads_by_worker: dict[str, list[PayrollEntryPayload]] = {
-
+            ).all()
+        }
+        if entries
+        else {}
+    )
+    booking_items_by_worker: dict[str, list[WorkerPayrollBookingPayload]] = {
         worker_id: [] for worker_id in worker_ids
-
     }
-
+    for booking in completed_bookings:
+        for link in booking.worker_links:
+            if link.worker_id not in booking_items_by_worker:
+                continue
+            percent = adjusted_booking_percent(
+                link.percent,
+                complaints_by_worker.get(link.worker_id, []),
+                date_value=booking.date,
+                time_value=booking.time,
+                fallback=booking.created_at,
+            )
+            booking_items_by_worker[link.worker_id].append(
+                WorkerPayrollBookingPayload(
+                    bookingId=booking.id,
+                    service=booking.service,
+                    date=booking.date,
+                    time=booking.time,
+                    price=booking.price,
+                    percent=percent,
+                    earned=FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100),
+                    car=booking.car,
+                    plate=booking.plate,
+                )
+            )
+    entry_payloads_by_worker: dict[str, list[PayrollEntryPayload]] = {
+        worker_id: [] for worker_id in worker_ids
+    }
     for entry in entries:
-
         entry_payloads_by_worker.setdefault(entry.worker_id, []).append(
-
             _payroll_entry_payload(entry, actors.get(entry.actor_id, "Сотрудник"))
-
         )
-
-
-
     result: dict[str, WorkerPayrollSummaryPayload] = {}
-
     for worker in workers:
-
         booking_items = booking_items_by_worker.get(worker.id, [])
-
         payroll_entries = entry_payloads_by_worker.get(worker.id, [])
-
         bonus_total = sum(
-
             item.amount for item in payroll_entries if item.kind == "bonus"
-
         )
-
         advance_total = sum(
-
             item.amount for item in payroll_entries if item.kind == "advance"
-
         )
-
         deduction_total = sum(
-
             item.amount for item in payroll_entries if item.kind == "deduction"
-
         )
-
         payout_total = sum(
-
             item.amount for item in payroll_entries if item.kind == "payout"
-
         )
-
         adjustment_total = sum(
-
             item.amount for item in payroll_entries if item.kind == "adjustment"
-
         )
-
         accrued_from_bookings = sum(item.earned for item in booking_items)
-
         completed_revenue = sum(item.price for item in booking_items)
-
-
-
-        # Считаем количество смен за всё время для salary_per_shift
-
-        # (согласовано с accrued_from_bookings и salary_base — оба за всё время)
-
         from datetime import date as _date
-
         inspections = _admin_shift_inspections_state(db)
-
         shift_count, _shift_dates = _compute_shift_attendance(
-
             inspections, worker.id, _date(2000, 1, 1), _date.today()
-
         )
-
         salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
-
         shift_pay_total = shift_count * salary_per_shift
-
-
-
         total_accrued = (
-
             accrued_from_bookings
-
             + worker.salary_base
-
             + shift_pay_total
-
             + bonus_total
-
             + max(adjustment_total, 0)
-
         )
-
         total_deducted = (
-
             advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
-
         )
-
         result[worker.id] = WorkerPayrollSummaryPayload(
-
             completedBookings=len(booking_items),
-
             completedRevenue=completed_revenue,
-
             accruedFromBookings=accrued_from_bookings,
-
             baseSalary=worker.salary_base,
-
             shiftPayTotal=shift_pay_total,
-
             shiftCount=shift_count,
-
             bonusTotal=bonus_total,
-
             adjustmentTotal=adjustment_total,
-
             advanceTotal=advance_total,
-
             deductionTotal=deduction_total,
-
             payoutTotal=payout_total,
-
             totalAccrued=total_accrued,
-
             totalDeducted=total_deducted,
-
             balance=total_accrued - total_deducted,
-
             bookingItems=booking_items[:12],
-
             entries=payroll_entries[:20],
-
         )
-
     return result
 
 
@@ -16149,6 +16026,69 @@ def save_worker_settings(
 
 
 
+
+
+
+@app.get("/api/admin/workers/payroll", response_model=list[WorkerPayload])
+def get_admin_workers_payroll(
+    period: str = "month",
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[WorkerPayload]:
+    _ensure_staff_role(session_data, {"admin", "accountant"})
+    if period not in ("day", "week", "month", "all"):
+        raise HTTPException(status_code=400, detail="Invalid period")
+    date_from, date_to = _salary_date_range(period)
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    workers_list = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role == "worker")
+        .order_by(StaffUser.name.asc())
+    ).all()
+    worker_ids = [w.id for w in workers_list]
+    if period == "all":
+        completed_bookings = db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .join(Booking.worker_links)
+            .where(
+                Booking.status == "completed",
+                BookingWorker.worker_id.in_(worker_ids),
+            )
+            .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+        ).unique().all()
+    else:
+        date_col_key = (
+            func.substr(Booking.date, 7, 4).concat(
+                func.substr(Booking.date, 4, 2)
+            ).concat(
+                func.substr(Booking.date, 1, 2)
+            )
+        )
+        completed_bookings = db.scalars(
+            select(Booking)
+            .options(joinedload(Booking.worker_links))
+            .join(Booking.worker_links)
+            .where(
+                Booking.status == "completed",
+                BookingWorker.worker_id.in_(worker_ids),
+                date_col_key >= date_from_key,
+                date_col_key <= date_to_key,
+            )
+            .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+        ).unique().all()
+    entries = db.scalars(
+        select(PayrollEntry)
+        .where(PayrollEntry.worker_id.in_(worker_ids))
+        .order_by(PayrollEntry.created_at.desc())
+    ).all()
+    payroll_summaries = _worker_payroll_summaries_from_data(
+        db, workers_list, completed_bookings, entries, _complaints_by_worker(_load_penalties(db))
+    )
+    return [
+        _worker_payload_with_payroll(w, payroll_summaries) for w in workers_list
+    ]
 
 
 @app.put("/api/admin/workers/payroll", response_model=list[WorkerPayload])

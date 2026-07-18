@@ -12,7 +12,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type Worker } from '../../context/AppContext';
+import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
@@ -379,6 +380,8 @@ export function AdminApp() {
   const [shiftSubmitting, setShiftSubmitting] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState<string | null>(null);
+  const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [payrollWorkers, setPayrollWorkers] = useState<Worker[]>([]);
   const selectableBookingDates = Array.from(new Set([
     todayLabel,
     tomorrowLabel,
@@ -518,6 +521,23 @@ export function AdminApp() {
   useEffect(() => {
     setPayrollError(null);
   }, [settingsSection]);
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'payroll') {
+      apiRequest<Worker[]>(`/api/admin/workers/payroll?period=${payrollPeriod}`)
+        .then((data) => setPayrollWorkers(data.map((w) => ({
+          ...w,
+          payrollSummary: w.payrollSummary ? {
+            ...w.payrollSummary,
+            bookingItems: w.payrollSummary.bookingItems || [],
+            entries: (w.payrollSummary.entries || []).map((entry) => ({
+              ...entry,
+              createdAt: new Date(entry.createdAt),
+            })),
+          } : undefined,
+        }))))
+        .catch(() => setPayrollWorkers([]));
+    }
+  }, [page, settingsSection, payrollPeriod]);
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'security') {
       void refreshActiveSessions();
@@ -2216,9 +2236,18 @@ export function AdminApp() {
             <motion.div key="settings-payroll" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-1">Контроль зарплат мастеров</h2>
-              <p className={`text-xs ${sub} mb-4`}>Администратор может менять процент, оклад, активность и вести операции по зарплате мастеров с примечанием</p>
+              <p className={`text-xs ${sub} mb-2`}>Администратор может менять процент, оклад, активность и вести операции по зарплате мастеров с примечанием</p>
+              <div className="flex gap-1.5 mb-4">
+                {(['day', 'week', 'month', 'all'] as const).map((p) => (
+                  <button key={p} onClick={() => setPayrollPeriod(p)}
+                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
+                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
+                  </button>
+                ))}
+              </div>
               {payrollSettings.map((worker, index) => {
-                const liveWorker = workers.find((item) => item.id === worker.id);
+                const liveWorker = (payrollWorkers.length > 0 ? payrollWorkers : workers).find((item) => item.id === worker.id);
                 const payrollSummary = liveWorker?.payrollSummary;
                 return (
                   <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
@@ -2337,6 +2366,11 @@ export function AdminApp() {
                             <div className="min-w-0">
                               <div className="text-sm font-medium truncate">{item.service}</div>
                               <div className={`text-[11px] ${sub}`}>{item.date} · {item.time}</div>
+                              {(item.car || item.plate) && (
+                                <div className={`text-[11px] ${sub} mt-0.5`}>
+                                  {[item.car, item.plate].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
                             </div>
                             <div className="text-right shrink-0">
                               <div className="text-sm font-semibold">+{item.earned.toLocaleString('ru')} ₽</div>

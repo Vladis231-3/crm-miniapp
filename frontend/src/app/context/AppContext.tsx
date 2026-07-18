@@ -98,6 +98,8 @@ export interface WorkerPayrollBooking {
   time: string;
   price: number;
   percent: number | '';
+  car?: string;
+  plate?: string;
 }
 
 export interface WorkerPayrollSummary {
