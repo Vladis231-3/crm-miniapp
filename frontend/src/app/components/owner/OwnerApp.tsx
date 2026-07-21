@@ -575,7 +575,7 @@ export function OwnerApp() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
-  const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
+  const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
 
@@ -3072,34 +3072,14 @@ export function OwnerApp() {
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-2">Зарплаты сотрудников</h2>
               <div className="flex gap-1.5 mb-2">
-                {(['day', 'week', 'month', 'all', 'custom'] as const).map((p) => (
+                {(['day', 'week', 'month', 'all'] as const).map((p) => (
                   <button key={p} onClick={() => setPayrollPeriod(p)}
                     className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                     style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
-                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Свой'}
+                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
                   </button>
                 ))}
               </div>
-              {payrollPeriod === 'custom' && (
-                <div className={`${glass} rounded-xl p-3 mb-3`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar size={14} className={sub} />
-                    <span className={`text-xs ${sub}`}>Выберите период</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className={`text-[11px] ${sub} block mb-1`}>От</label>
-                      <input type="date" value={payrollDateFrom} onChange={(e) => setPayrollDateFrom(e.target.value)}
-                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
-                    </div>
-                    <div className="flex-1">
-                      <label className={`text-[11px] ${sub} block mb-1`}>До</label>
-                      <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)}
-                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
-                    </div>
-                  </div>
-                </div>
-              )}
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
