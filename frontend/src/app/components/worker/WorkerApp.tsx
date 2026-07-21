@@ -319,9 +319,14 @@ export function WorkerApp() {
 
   useEffect(() => {
     if (tab !== 'earnings') return;
+    if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
+      setSalaryDetail(null);
+      setSalaryLoading(false);
+      return;
+    }
     setSalaryLoading(true);
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
-    if (salaryPeriod === 'custom' && salaryDateFrom && salaryDateTo) {
+    if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
       params.set('date_to', salaryDateTo);
     }

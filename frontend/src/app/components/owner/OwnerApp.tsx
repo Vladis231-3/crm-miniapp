@@ -757,9 +757,14 @@ export function OwnerApp() {
   }, [workers]);
   useEffect(() => {
     if (!selectedSalaryWorkerId) { setSalaryDetail(null); return; }
+    if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
+      setSalaryDetail(null);
+      setSalaryLoading(false);
+      return;
+    }
     setSalaryLoading(true);
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
-    if (salaryPeriod === 'custom' && salaryDateFrom && salaryDateTo) {
+    if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
       params.set('date_to', salaryDateTo);
     }
@@ -1606,9 +1611,10 @@ export function OwnerApp() {
 
   const refreshSalaryDetail = () => {
     if (!selectedSalaryWorkerId) return;
+    if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) return;
     setSalaryLoading(true);
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
-    if (salaryPeriod === 'custom' && salaryDateFrom && salaryDateTo) {
+    if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
       params.set('date_to', salaryDateTo);
     }
@@ -3130,13 +3136,16 @@ export function OwnerApp() {
                       <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} заказов · {complaintState.activeCount} активных жалоб</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedSalaryWorkerId(worker.id);
-                      setSalaryDetail(null);
-                      setSalaryLoading(true);
-                      setPage('salary-detail');
-                    }}
+                    <button
+                      onClick={() => {
+                        setSelectedSalaryWorkerId(worker.id);
+                        setSalaryPeriod('month');
+                        setSalaryDateFrom('');
+                        setSalaryDateTo('');
+                        setSalaryDetail(null);
+                        setSalaryLoading(true);
+                        setPage('salary-detail');
+                      }}
                     className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
                     style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}
                   >
