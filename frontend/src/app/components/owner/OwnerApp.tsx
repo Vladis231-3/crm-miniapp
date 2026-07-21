@@ -3071,15 +3071,7 @@ export function OwnerApp() {
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-2">Зарплаты сотрудников</h2>
-              <div className="flex gap-1.5 mb-2">
-                {(['day', 'week', 'month', 'all'] as const).map((p) => (
-                  <button key={p} onClick={() => setPayrollPeriod(p)}
-                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
-                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
-                  </button>
-                ))}
-              </div>
+
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
