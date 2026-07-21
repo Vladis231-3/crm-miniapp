@@ -3336,16 +3336,10 @@ export function OwnerApp() {
                 <ArrowLeft size={16} />Назад к зарплатам
               </button>
 
-              {!salaryLoading && !salaryDetail && (
-                <div className={`text-sm ${sub} py-10 text-center`}>Выберите мастера из списка зарплат</div>
-              )}
-              {salaryLoading && (
-                <div className={`text-sm ${sub} py-10 text-center`}>Загрузка...</div>
-              )}
-              {salaryDetail && (
-                <>
-                  {/* Worker header */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+              {/* Filter bar — always visible when worker is selected */}
+              {selectedSalaryWorkerId && (
+                <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  {salaryDetail && (
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
                         {salaryDetail.workerName.charAt(0)}
@@ -3357,44 +3351,53 @@ export function OwnerApp() {
                         </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* Period toggles */}
-                    <div className="flex gap-1.5 mb-2">
-                      {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
-                        <button key={p} onClick={() => setSalaryPeriod(p)}
-                          className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                          style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
-                          {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Segment toggles */}
-                    <div className="flex gap-1.5">
-                      {(['all', 'wash', 'detailing'] as const).map(s => (
-                        <button key={s} onClick={() => setSalarySegment(s)}
-                          className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                          style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
-                          {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
-                        </button>
-                      ))}
-                    </div>
-                    {salaryPeriod === 'custom' && (
-                      <div className={`${glass} rounded-xl p-3 mt-3`}>
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <label className={`text-[11px] ${sub} block mb-1`}>От</label>
-                            <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryDateFrom(e.target.value); }}
-                              className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
-                          </div>
-                          <div className="flex-1">
-                            <label className={`text-[11px] ${sub} block mb-1`}>До</label>
-                            <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryDateTo(e.target.value); }}
-                              className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  {/* Period toggles */}
+                  <div className="flex gap-1.5 mb-2">
+                    {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
+                      <button key={p} onClick={() => setSalaryPeriod(p)}
+                        className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                        style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
+                        {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
+                      </button>
+                    ))}
                   </div>
+                  {/* Segment toggles */}
+                  <div className="flex gap-1.5">
+                    {(['all', 'wash', 'detailing'] as const).map(s => (
+                      <button key={s} onClick={() => setSalarySegment(s)}
+                        className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                        style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
+                        {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
+                      </button>
+                    ))}
+                  </div>
+                  {salaryPeriod === 'custom' && (
+                    <div className="flex gap-2 mt-3">
+                      <div className="flex-1">
+                        <label className={`text-[11px] ${sub} block mb-1`}>От</label>
+                        <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryDateFrom(e.target.value); }}
+                          className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      </div>
+                      <div className="flex-1">
+                        <label className={`text-[11px] ${sub} block mb-1`}>До</label>
+                        <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryDateTo(e.target.value); }}
+                          className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!salaryLoading && !salaryDetail && selectedSalaryWorkerId && (
+                <div className={`text-sm ${sub} py-10 text-center`}>Выберите период для просмотра</div>
+              )}
+              {salaryLoading && (
+                <div className={`text-sm ${sub} py-10 text-center`}>Загрузка...</div>
+              )}
+              {salaryDetail && (
+                <>
 
                   {/* Aggregate cards */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
