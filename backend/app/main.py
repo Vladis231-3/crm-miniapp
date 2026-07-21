@@ -16048,7 +16048,7 @@ def get_admin_workers_payroll(
         date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
         date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
     else:
-    date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
+        date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
     date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
     date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
     workers_list = db.scalars(
