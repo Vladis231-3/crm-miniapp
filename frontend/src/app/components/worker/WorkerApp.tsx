@@ -264,8 +264,10 @@ export function WorkerApp() {
   const [submittingShiftPhase, setSubmittingShiftPhase] = useState<'start' | 'end' | null>(null);
 
   // Earnings state
-  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [salaryDateFrom, setSalaryDateFrom] = useState('');
+  const [salaryDateTo, setSalaryDateTo] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<any>(null);
   const [salaryLoading, setSalaryLoading] = useState(false);
   const [earningsViewMode, setEarningsViewMode] = useState<'calendar' | 'list'>('calendar');
@@ -318,11 +320,16 @@ export function WorkerApp() {
   useEffect(() => {
     if (tab !== 'earnings') return;
     setSalaryLoading(true);
-    apiRequest<any>(`/api/worker/salary-detail?period=${salaryPeriod}&segment=${salarySegment}`)
+    const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
+    if (salaryPeriod === 'custom' && salaryDateFrom && salaryDateTo) {
+      params.set('date_from', salaryDateFrom);
+      params.set('date_to', salaryDateTo);
+    }
+    apiRequest<any>(`/api/worker/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
-  }, [tab, salaryPeriod, salarySegment]);
+  }, [tab, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
 
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
@@ -684,11 +691,11 @@ export function WorkerApp() {
               {/* Period + Segment filters */}
               <div className={`${glass} rounded-2xl p-3 mb-3`}>
                 <div className="flex gap-1.5 mb-1.5">
-                  {(['day', 'week', 'month', 'all'] as const).map(p => (
+                  {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                     <button key={p} onClick={() => setSalaryPeriod(p)}
                       className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                       style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
-                      {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
+                      {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                     </button>
                   ))}
                 </div>
@@ -701,6 +708,20 @@ export function WorkerApp() {
                     </button>
                   ))}
                 </div>
+                {salaryPeriod === 'custom' && (
+                  <div className="flex gap-2 mt-3">
+                    <div className="flex-1">
+                      <label className={`text-[11px] ${sub} block mb-1`}>От</label>
+                      <input type="date" value={salaryDateFrom} onChange={(e) => setSalaryDateFrom(e.target.value)}
+                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                    <div className="flex-1">
+                      <label className={`text-[11px] ${sub} block mb-1`}>До</label>
+                      <input type="date" value={salaryDateTo} onChange={(e) => setSalaryDateTo(e.target.value)}
+                        className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {salaryLoading ? (

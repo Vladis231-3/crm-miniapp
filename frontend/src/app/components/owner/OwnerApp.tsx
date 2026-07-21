@@ -560,8 +560,10 @@ export function OwnerApp() {
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
   const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
   const [selectedSalaryWorkerId, setSelectedSalaryWorkerId] = useState<string | null>(null);
-  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [salaryDateFrom, setSalaryDateFrom] = useState('');
+  const [salaryDateTo, setSalaryDateTo] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<SalaryDetailResponse | null>(null);
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
@@ -756,11 +758,16 @@ export function OwnerApp() {
   useEffect(() => {
     if (!selectedSalaryWorkerId) { setSalaryDetail(null); return; }
     setSalaryLoading(true);
-    apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?period=${salaryPeriod}&segment=${salarySegment}`)
+    const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
+    if (salaryPeriod === 'custom' && salaryDateFrom && salaryDateTo) {
+      params.set('date_from', salaryDateFrom);
+      params.set('date_to', salaryDateTo);
+    }
+    apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
-  }, [selectedSalaryWorkerId, salaryPeriod, salarySegment]);
+  }, [selectedSalaryWorkerId, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
@@ -1600,7 +1607,12 @@ export function OwnerApp() {
   const refreshSalaryDetail = () => {
     if (!selectedSalaryWorkerId) return;
     setSalaryLoading(true);
-    apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?period=${salaryPeriod}&segment=${salarySegment}`)
+    const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
+    if (salaryPeriod === 'custom' && salaryDateFrom && salaryDateTo) {
+      params.set('date_from', salaryDateFrom);
+      params.set('date_to', salaryDateTo);
+    }
+    apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
@@ -3339,11 +3351,11 @@ export function OwnerApp() {
 
                     {/* Period toggles */}
                     <div className="flex gap-1.5 mb-2">
-                      {(['day', 'week', 'month', 'all'] as const).map(p => (
+                      {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                         <button key={p} onClick={() => setSalaryPeriod(p)}
                           className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                           style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
-                          {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Всё'}
+                          {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                         </button>
                       ))}
                     </div>
@@ -3357,6 +3369,22 @@ export function OwnerApp() {
                         </button>
                       ))}
                     </div>
+                    {salaryPeriod === 'custom' && (
+                      <div className={`${glass} rounded-xl p-3 mt-3`}>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className={`text-[11px] ${sub} block mb-1`}>От</label>
+                            <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryDateFrom(e.target.value); }}
+                              className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                          </div>
+                          <div className="flex-1">
+                            <label className={`text-[11px] ${sub} block mb-1`}>До</label>
+                            <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryDateTo(e.target.value); }}
+                              className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Aggregate cards */}
@@ -3450,6 +3478,7 @@ export function OwnerApp() {
                         if (!amount || amount < 1) return;
                         setSalaryLoading(true);
                         try {
+                          const periodLabel = salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : salaryPeriod === 'custom' ? 'выбранный период' : 'весь период';
                           await apiRequest<{ message: string; payoutId: string; newBalance: number; expenseId: string }>(
                             `/api/owner/workers/${selectedSalaryWorkerId}/pay-salary`, {
                             method: 'POST',
@@ -3457,7 +3486,8 @@ export function OwnerApp() {
                               period: salaryPeriod,
                               segment: salarySegment,
                               amount: Math.round(amount),
-                              note: salaryPayNote.trim() || `Выплата за ${salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : 'весь период'}`,
+                              note: salaryPayNote.trim() || `Выплата за ${periodLabel}`,
+                              ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
                             },
                           });
                           setSalaryPayAmount('');

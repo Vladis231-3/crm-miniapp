@@ -16048,7 +16048,7 @@ def get_admin_workers_payroll(
         date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
         date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
     else:
-        date_from, date_to = _salary_date_range(period)
+    date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
     date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
     date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
     workers_list = db.scalars(
@@ -16407,7 +16407,7 @@ def update_payroll_entry(
 
 
 
-def _salary_date_range(period: str, ref: date | None = None) -> tuple[str, str]:
+def _salary_date_range(period: str, ref: date | None = None, custom_from: str | None = None, custom_to: str | None = None) -> tuple[str, str]:
 
     """Возвращает (date_from, date_to) в формате DD.MM.YYYY."""
 
@@ -16438,6 +16438,14 @@ def _salary_date_range(period: str, ref: date | None = None) -> tuple[str, str]:
             last = ref.replace(month=ref.month + 1, day=1) - timedelta(days=1)
 
         return first.strftime("%d.%m.%Y"), last.strftime("%d.%m.%Y")
+
+    elif period == "custom":
+
+        cf = custom_from or ref.strftime("%d.%m.%Y")
+
+        ct = custom_to or ref.strftime("%d.%m.%Y")
+
+        return cf, ct
 
     else:  # all
 
@@ -16504,6 +16512,10 @@ def owner_worker_salary_detail(
 
     segment: str = "all",
 
+    date_from: str | None = None,
+
+    date_to: str | None = None,
+
     session_data: dict = Depends(_require_session),
 
     db: Session = Depends(get_db),
@@ -16514,13 +16526,31 @@ def owner_worker_salary_detail(
 
 
 
-    if period not in ("day", "week", "month", "all"):
+    if period not in ("day", "week", "month", "all", "custom"):
 
         raise HTTPException(status_code=400, detail="Invalid period")
 
     if segment not in ("all", "wash", "detailing"):
 
         raise HTTPException(status_code=400, detail="Invalid segment")
+
+
+
+    if period == "custom":
+
+        if not date_from or not date_to:
+
+            raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
+
+        date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
+
+        date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
+
+    else:
+
+        date_from = date_to = None
+
+    df, dt = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
 
 
 
@@ -16532,13 +16562,9 @@ def owner_worker_salary_detail(
 
 
 
-    date_from, date_to = _salary_date_range(period)
+    date_from_key = df[6:10] + df[3:5] + df[0:2]  # DD.MM.YYYY → YYYYMMDD
 
-
-
-    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]  # DD.MM.YYYY → YYYYMMDD
-
-    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    date_to_key = dt[6:10] + dt[3:5] + dt[0:2]
 
 
 
@@ -16850,6 +16876,10 @@ def worker_my_salary_detail(
 
     segment: str = "all",
 
+    date_from: str | None = None,
+
+    date_to: str | None = None,
+
     session_data: dict = Depends(_require_session),
 
     db: Session = Depends(get_db),
@@ -16862,13 +16892,31 @@ def worker_my_salary_detail(
 
 
 
-    if period not in ("day", "week", "month", "all"):
+    if period not in ("day", "week", "month", "all", "custom"):
 
         raise HTTPException(status_code=400, detail="Invalid period")
 
     if segment not in ("all", "wash", "detailing"):
 
         raise HTTPException(status_code=400, detail="Invalid segment")
+
+
+
+    if period == "custom":
+
+        if not date_from or not date_to:
+
+            raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
+
+        date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
+
+        date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
+
+    else:
+
+        date_from = date_to = None
+
+    df, dt = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
 
 
 
@@ -16880,13 +16928,9 @@ def worker_my_salary_detail(
 
 
 
-    date_from, date_to = _salary_date_range(period)
+    date_from_key = df[6:10] + df[3:5] + df[0:2]
 
-
-
-    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
-
-    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    date_to_key = dt[6:10] + dt[3:5] + dt[0:2]
 
 
 

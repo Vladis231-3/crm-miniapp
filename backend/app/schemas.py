@@ -312,7 +312,7 @@ class WorkerPayrollSummaryPayload(BaseModel):
 
 # --- Salary detail schemas ---
 
-SalaryPeriod = Literal["day", "week", "month", "all"]
+SalaryPeriod = Literal["day", "week", "month", "all", "custom"]
 SalarySegment = Literal["all", "wash", "detailing"]
 
 
