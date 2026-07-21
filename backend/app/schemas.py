@@ -193,6 +193,8 @@ class ClientProfileInput(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
+        if not value.strip():
+            return ""
         return normalize_phone(value)
 
     @model_validator(mode="after")
@@ -954,7 +956,7 @@ class ClientCardUpdateRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str | None) -> str | None:
-        if value is None:
+        if value is None or not value.strip():
             return None
         return normalize_phone(value)
 
