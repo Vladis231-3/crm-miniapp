@@ -16726,8 +16726,6 @@ def owner_worker_salary_detail(
 
         )
 
-
-
     # ── Payroll entries within date range ──
 
     all_entries = db.scalars(
@@ -16736,9 +16734,9 @@ def owner_worker_salary_detail(
 
             PayrollEntry.worker_id == worker_id,
 
-            PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at >= datetime.strptime(df, "%d.%m.%Y").replace(tzinfo=timezone.utc),
 
-            PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+            PayrollEntry.created_at <= datetime.strptime(dt, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
 
         )
 
@@ -16749,6 +16747,8 @@ def owner_worker_salary_detail(
 
 
     actors = {}
+
+
 
     if all_entries:
 
@@ -16816,9 +16816,9 @@ def owner_worker_salary_detail(
 
     else:
 
-        d_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        d_from = datetime.strptime(df, "%d.%m.%Y").date()
 
-        d_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+        d_to = datetime.strptime(dt, "%d.%m.%Y").date()
 
         inspections = _admin_shift_inspections_state(db)
 
@@ -17082,17 +17082,15 @@ def worker_my_salary_detail(
 
         )
 
-
-
     all_entries = db.scalars(
 
         select(PayrollEntry).where(
 
             PayrollEntry.worker_id == worker_id,
 
-            PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at >= datetime.strptime(df, "%d.%m.%Y").replace(tzinfo=timezone.utc),
 
-            PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+            PayrollEntry.created_at <= datetime.strptime(dt, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
 
         )
 
@@ -17103,6 +17101,8 @@ def worker_my_salary_detail(
 
 
     actors = {}
+
+
 
     if all_entries:
 
@@ -17168,9 +17168,9 @@ def worker_my_salary_detail(
 
     else:
 
-        d_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        d_from = datetime.strptime(df, "%d.%m.%Y").date()
 
-        d_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+        d_to = datetime.strptime(dt, "%d.%m.%Y").date()
 
         inspections = _admin_shift_inspections_state(db)
 
