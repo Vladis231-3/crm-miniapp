@@ -9504,7 +9504,18 @@ def _create_weekly_archive(db: Session) -> str | None:
 
     db.commit()
 
+    expense_ids = [e.id for e in week_expenses]
+    income_ids = [i.id for i in week_incomes]
 
+    if expense_ids:
+        db.query(Expense).filter(Expense.id.in_(expense_ids)).delete(
+            synchronize_session=False
+        )
+    if income_ids:
+        db.query(Income).filter(Income.id.in_(income_ids)).delete(
+            synchronize_session=False
+        )
+    db.commit()
 
     return (
 
