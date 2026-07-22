@@ -422,7 +422,7 @@ export function AdminApp() {
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
   const [newBookingErrors, setNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
-  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', plateType: 'russian' as PlateType, clientName: '', clientPhone: '' });
+  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', plateType: 'russian' as PlateType, clientName: '', clientPhone: '', serviceId: '', price: 0, duration: 30 });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
@@ -538,10 +538,10 @@ export function AdminApp() {
   const settingsBoxes = boxes.filter((box) => box.resourceGroup === 'wash');
   const bookingFormBoxes = bookingBoxesForService(newBookingForm.serviceId, services, boxes);
   const editBookingBoxes = selectedBooking
-    ? bookingBoxesForService(selectedBooking.serviceId, services, boxes)
-    : settingsBoxes.filter((box) => box.active);
+    ? bookingBoxesForService(editBookingDraft.serviceId || selectedBooking.serviceId, services, boxes)
+    : []
   const newBookingLocationLabel = bookingLocationLabel(newBookingForm.serviceId, services);
-  const editBookingLocationLabel = selectedBooking ? bookingLocationLabel(selectedBooking.serviceId, services) : 'Бокс мойки';
+  const editBookingLocationLabel = selectedBooking ? bookingLocationLabel(editBookingDraft.serviceId || selectedBooking.serviceId, services) : 'Бокс мойки';
   useEffect(() => setNotifSettings(settings.adminNotificationSettings), [settings.adminNotificationSettings]);
   useEffect(() => setProfile(settings.adminProfile), [settings.adminProfile]);
   useEffect(() => {
@@ -1068,6 +1068,9 @@ export function AdminApp() {
       plateType: (booking as any).plateType || 'russian',
       clientName: booking.clientName || '',
       clientPhone: booking.clientPhone || '',
+      serviceId: booking.serviceId || '',
+      price: booking.price,
+      duration: booking.duration,
     });
     setEditBookingError(null);
     setEditBookingSaving(false);
@@ -1077,7 +1080,8 @@ export function AdminApp() {
 
   const handleSaveEditedBooking = async () => {
     if (!selectedBooking) return;
-    const detailingBooking = isDetailingService(selectedBooking.serviceId, services);
+    const editServiceId = editBookingDraft.serviceId || selectedBooking.serviceId;
+    const detailingBooking = isDetailingService(editServiceId, services);
     const requiresScheduledSlot = !detailingBooking || editBookingDraft.status !== 'admin_review';
     if (requiresScheduledSlot) {
       const dateChanged = editBookingDraft.date !== selectedBooking.date;
@@ -1109,6 +1113,7 @@ export function AdminApp() {
         plateType: editBookingDraft.plateType,
         clientName: editBookingDraft.clientName.trim() || undefined,
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
+        serviceId: editBookingDraft.serviceId || undefined,
       });
       setSelectedBooking((current) => (current ? {
         ...current,
@@ -1122,6 +1127,10 @@ export function AdminApp() {
         plateType: editBookingDraft.plateType,
         clientName: editBookingDraft.clientName.trim(),
         clientPhone: editBookingDraft.clientPhone.trim(),
+        serviceId: editBookingDraft.serviceId,
+        service: liveServices.find(s => s.id === editBookingDraft.serviceId)?.name || current.service,
+        price: editBookingDraft.price,
+        duration: editBookingDraft.duration,
       } : null));
       setShowEditModal(false);
     } catch (error) {
@@ -2986,7 +2995,23 @@ export function AdminApp() {
                     <option value="cancelled">Отменено</option>
                   </select>
                 </div>
-                {(editBookingDraft.status !== 'admin_review' || !isDetailingService(selectedBooking.serviceId, services)) && (
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
+                  <select className={selectCls} value={editBookingDraft.serviceId} onChange={e => {
+                    const svc = liveServices.find(s => s.id === e.target.value);
+                    setEditBookingDraft((current) => ({
+                      ...current,
+                      serviceId: e.target.value,
+                      price: svc?.price || 0,
+                      duration: svc?.duration || 30,
+                    }));
+                    setEditBookingError(null);
+                  }}>
+                    <option value="">Выберите услугу</option>
+                    {liveServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                {(editBookingDraft.status !== 'admin_review' || !isDetailingService(editBookingDraft.serviceId || selectedBooking.serviceId, services)) && (
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -3030,7 +3055,7 @@ export function AdminApp() {
                     </div>
                   </>
                 )}
-                {editBookingDraft.status === 'admin_review' && isDetailingService(selectedBooking.serviceId, services) && (
+                {editBookingDraft.status === 'admin_review' && isDetailingService(editBookingDraft.serviceId || selectedBooking.serviceId, services) && (
                   <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
                     Это заявка на детейлинг без фиксированного времени. Оставьте статус "На уточнении", если нужно сначала созвониться с клиентом.
                   </div>

@@ -691,6 +691,9 @@ export function OwnerApp() {
     clientPhone: '',
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
+    serviceId: '',
+    price: 0,
+    duration: 30,
   });
 
   // Add additional service state
@@ -2132,7 +2135,8 @@ export function OwnerApp() {
     try {
       let patch: Record<string, unknown> = {};
       if (ownerBookingEditMode === 'full') {
-        const svc = services.find(s => s.id === selectedBooking.serviceId);
+        const editServiceId = ownerBookingEditFull.serviceId || selectedBooking.serviceId;
+        const svc = services.find(s => s.id === editServiceId);
         const isDetailing = svc?.category === 'Детейлинг';
         const requiresScheduledSlot = !isDetailing || ownerBookingEditFull.status !== 'admin_review';
         patch = {
@@ -2147,6 +2151,7 @@ export function OwnerApp() {
           clientPhone: ownerBookingEditFull.clientPhone.trim() || undefined,
           paymentType: ownerBookingEditFull.paymentType,
           paymentSettled: ownerBookingEditFull.paymentSettled,
+          serviceId: ownerBookingEditFull.serviceId || undefined,
         };
       } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus };
@@ -2172,7 +2177,13 @@ export function OwnerApp() {
         patch = { date: ownerBookingEditDate, time: ownerBookingEditTime };
       }
       await updateBooking(selectedBooking.id, patch);
-      setSelectedBooking(prev => prev ? { ...prev, ...patch } as typeof prev : null);
+      setSelectedBooking(prev => prev ? {
+        ...prev,
+        ...patch,
+        service: patch.serviceId ? (services.find(s => s.id === patch.serviceId)?.name || prev.service) : prev.service,
+        price: patch.serviceId ? (ownerBookingEditFull.price || prev.price) : prev.price,
+        duration: patch.serviceId ? (ownerBookingEditFull.duration || prev.duration) : prev.duration,
+      } as typeof prev : null);
       setOwnerBookingEditMode(null);
     } catch (error) {
       setOwnerBookingEditError(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
@@ -6870,6 +6881,9 @@ export function OwnerApp() {
                               clientPhone: selectedBooking.clientPhone || '',
                               paymentType: selectedBooking.paymentType || 'cash',
                               paymentSettled: selectedBooking.paymentSettled ?? false,
+                              serviceId: selectedBooking.serviceId || '',
+                              price: selectedBooking.price,
+                              duration: selectedBooking.duration,
                             });
                           }
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
@@ -7020,6 +7034,22 @@ export function OwnerApp() {
                           <option value="in_progress">В работе</option>
                           <option value="no_show">Не приехал</option>
                           <option value="cancelled">Отменено</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
+                        <select className={selectCls} value={ownerBookingEditFull.serviceId} onChange={e => {
+                          const svc = services.find(s => s.id === e.target.value);
+                          setOwnerBookingEditFull(p => ({
+                            ...p,
+                            serviceId: e.target.value,
+                            price: svc?.price || 0,
+                            duration: svc?.duration || 30,
+                          }));
+                          setOwnerBookingEditError(null);
+                        }}>
+                          <option value="">Выберите услугу</option>
+                          {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
