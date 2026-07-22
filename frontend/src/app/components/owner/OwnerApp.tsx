@@ -4811,7 +4811,7 @@ export function OwnerApp() {
                                   ...current,
                                   [selectedSettingsClient.id]: {
                                     ...current[selectedSettingsClient.id],
-                                    plate: event.target.value,
+                                    plate: normalizePlateInput(event.target.value),
                                   },
                                 }))}
                               />
@@ -7060,7 +7060,7 @@ export function OwnerApp() {
                         </div>
                         <div>
                           <label className={`text-xs ${sub} block mb-1`}>Номер</label>
-                          <input className={inputCls} placeholder="А123БВ77" value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: e.target.value }))} />
+                          <input className={inputCls} placeholder="А123БВ77" value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value) }))} />
                         </div>
                       </div>
                       <div>
