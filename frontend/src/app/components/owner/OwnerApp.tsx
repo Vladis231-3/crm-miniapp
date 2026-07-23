@@ -533,6 +533,8 @@ export function OwnerApp() {
   const [piggyDateFrom, setPiggyDateFrom] = useState('');
   const [piggyDateTo, setPiggyDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
+  const [showArchivesModal, setShowArchivesModal] = useState(false);
+  const [selectedArchive, setSelectedArchive] = useState<WeeklyArchiveInfo | null>(null);
 
   // Report date range state (defaults to current week)
   const __nowRpt = new Date();
@@ -4409,41 +4411,16 @@ export function OwnerApp() {
                 );
               })()}
 
-              {/* Archives */}
+              {/* Archives — collapsed by default */}
               {piggyBank?.archives && piggyBank.archives.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4 mt-4`}>
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Архив недель</div>
-                  <div className="space-y-2">
-                    {piggyBank.archives.map(a => (
-                      <div key={a.id} className={`${glass} rounded-xl p-3`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="text-sm font-medium">
-                            {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
-                          </div>
-                          <div className="font-semibold text-sm" style={{ color: a.piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
-                            {a.piggyBankBalance >= 0 ? '+' : ''}{a.piggyBankBalance.toLocaleString('ru')} ₽
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div>
-                            <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>Выручка</div>
-                          </div>
-                          <div>
-                            <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>Доходы</div>
-                          </div>
-                          <div>
-                            <div className="text-[11px]" style={{ color: '#FF6B6B' }}>−{a.totalExpense.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>Расходы</div>
-                          </div>
-                        </div>
-                        <div className={`text-[10px] ${sub} mt-2 text-center`}>
-                          {a.bookingCount} записей · {a.incomeCount} доходов · {a.expenseCount} расходов · Копилка: {a.piggyBankBalance.toLocaleString('ru')} ₽
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <button onClick={() => setShowArchivesModal(true)} className="w-full flex items-center justify-between">
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Архив недель</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] ${sub}`}>{piggyBank.archives.length} шт.</span>
+                      <ChevronRight size={14} className={sub} />
+                    </div>
+                  </button>
                 </div>
               )}
             </motion.div>
@@ -6580,6 +6557,124 @@ export function OwnerApp() {
               </button>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── ARCHIVES MODAL ── */}
+      <AnimatePresence>
+        {showArchivesModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} />
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+                <h3 className="font-semibold mt-2">Архив недель</h3>
+                <button onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="p-4 space-y-3">
+                {selectedArchive ? (
+                  /* Expanded week detail */
+                  <div>
+                    <button onClick={() => setSelectedArchive(null)} className="flex items-center gap-1 text-sm mb-4" style={{ color: primary }}>
+                      <ChevronLeft size={16} /> Назад к списку
+                    </button>
+                    <div className={`${glass} rounded-2xl p-4`}>
+                      <div className="text-sm font-medium mb-3">
+                        {selectedArchive.weekStart.split('-').reverse().join('.')} – {selectedArchive.weekEnd.split('-').reverse().join('.')}
+                      </div>
+                      <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Выручка</span>
+                        <span className="font-semibold" style={{ color: accent }}>+{selectedArchive.totalRevenue.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Доп. доходы</span>
+                        <span className="font-semibold" style={{ color: primary }}>+{selectedArchive.totalIncome.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Расходы</span>
+                        <span className="font-semibold" style={{ color: '#FF6B6B' }}>−{selectedArchive.totalExpense.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Чистая прибыль</span>
+                        <span className="font-semibold" style={{ color: (selectedArchive.totalRevenue + selectedArchive.totalIncome - selectedArchive.totalExpense) >= 0 ? accent : '#FF6B6B' }}>
+                          {(selectedArchive.totalRevenue + selectedArchive.totalIncome - selectedArchive.totalExpense).toLocaleString('ru')} ₽
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <span className={sub}>Баланс копилки</span>
+                        <span className="font-semibold" style={{ color: selectedArchive.piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
+                          {selectedArchive.piggyBankBalance >= 0 ? '+' : ''}{selectedArchive.piggyBankBalance.toLocaleString('ru')} ₽
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mt-4 text-center">
+                        <div className={`${glass} rounded-xl p-3`}>
+                          <div className="font-bold text-lg" style={{ color: accent }}>{selectedArchive.bookingCount}</div>
+                          <div className={`text-[10px] ${sub}`}>Записей</div>
+                        </div>
+                        <div className={`${glass} rounded-xl p-3`}>
+                          <div className="font-bold text-lg" style={{ color: primary }}>{selectedArchive.incomeCount}</div>
+                          <div className={`text-[10px] ${sub}`}>Доходов</div>
+                        </div>
+                        <div className={`${glass} rounded-xl p-3`}>
+                          <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{selectedArchive.expenseCount}</div>
+                          <div className={`text-[10px] ${sub}`}>Расходов</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Week list */
+                  <div className="space-y-2">
+                    {piggyBank?.archives && piggyBank.archives.length > 0 ? (
+                      [...piggyBank.archives].reverse().map(a => {
+                        const profit = a.totalRevenue + a.totalIncome - a.totalExpense;
+                        return (
+                          <button key={a.id} onClick={() => setSelectedArchive(a)}
+                            className={`${glass} rounded-xl p-3 w-full text-left transition active:scale-[0.98] hover:brightness-110`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="text-sm font-medium">
+                                {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
+                              </div>
+                              <ChevronRight size={14} className={sub} />
+                            </div>
+                            <div className="grid grid-cols-4 gap-1 text-center mb-2">
+                              <div>
+                                <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')}</div>
+                                <div className={`text-[9px] ${sub}`}>Выручка</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')}</div>
+                                <div className={`text-[9px] ${sub}`}>Доходы</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px]" style={{ color: '#FF6B6B' }}>−{a.totalExpense.toLocaleString('ru')}</div>
+                                <div className={`text-[9px] ${sub}`}>Расходы</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px]" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>{profit >= 0 ? '+' : ''}{profit.toLocaleString('ru')}</div>
+                                <div className={`text-[9px] ${sub}`}>Итог</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className={`text-[10px] ${sub}`}>
+                                {a.bookingCount} зап. · {a.incomeCount} доходов · {a.expenseCount} расх.
+                              </div>
+                              <div className="text-[11px] font-semibold" style={{ color: a.piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
+                                🏦 {a.piggyBankBalance.toLocaleString('ru')} ₽
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className={`text-center py-8 text-sm ${sub}`}>Нет архивных записей</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
