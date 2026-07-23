@@ -1264,7 +1264,7 @@ export function OwnerApp() {
     }
 
     if (settingsSection === 'company') await saveOwnerCompany(company);
-    if (settingsSection === 'mode') await saveOwnerCompany(company);
+    if (settingsSection === 'schedule') await saveSchedule(scheduleState);
     if (settingsSection === 'boxes') await saveBoxes(boxes);
     if (settingsSection === 'services') await saveServices(services);
     if (settingsSection === 'employees') await saveWorkerSettings(employeeSettings);
