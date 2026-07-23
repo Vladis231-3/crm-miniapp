@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import re
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -218,6 +219,7 @@ class ClientSummaryPayload(BaseModel):
     adminRating: int = Field(default=0, ge=0, le=5)
     adminNote: str = ""
     referralSource: str = ""
+    createdAt: datetime
 
 
 class ClientCreateRequest(BaseModel):
@@ -671,6 +673,11 @@ class WorkerProfilePayload(BaseModel):
     percent: float = Field(ge=0, le=100, default=0)
 
 
+class OperatingMode(str, Enum):
+    open = "open"
+    closed = "closed"
+    maintenance = "maintenance"
+
 class OwnerCompanyPayload(BaseModel):
     name: str
     legalName: str
@@ -678,6 +685,7 @@ class OwnerCompanyPayload(BaseModel):
     address: str
     phone: str
     email: str
+    operatingMode: OperatingMode = OperatingMode.open
 
 
 class OwnerNotificationSettings(BaseModel):

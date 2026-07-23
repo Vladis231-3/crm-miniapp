@@ -2528,6 +2528,7 @@ def _client_summary_payload(
         adminNote=client.admin_note or "",
 
         referralSource=client.referral_source or "",
+        createdAt=client.created_at,
 
     )
 
@@ -4051,6 +4052,8 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
         "phone": "",
 
         "email": "",
+
+        "operatingMode": "open",
 
     }
 

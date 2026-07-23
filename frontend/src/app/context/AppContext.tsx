@@ -46,6 +46,7 @@ export interface RegisteredClient {
   adminRating: number;
   adminNote: string;
   referralSource: string;
+  createdAt: Date;
 }
 
 export interface ClientCreateInput {
@@ -421,6 +422,8 @@ export interface WorkerProfile {
   percent: number | '';
 }
 
+export type OperatingMode = 'open' | 'closed' | 'maintenance';
+
 export interface OwnerCompany {
   name: string;
   legalName: string;
@@ -428,6 +431,7 @@ export interface OwnerCompany {
   address: string;
   phone: string;
   email: string;
+  operatingMode: OperatingMode;
 }
 
 export interface OwnerNotificationSettings {
@@ -551,7 +555,7 @@ interface BootstrapPayload {
   session: SessionInfo;
   clientProfile: ClientProfile | null;
   staffProfile: Worker | null;
-  clients: RegisteredClient[];
+  clients: Array<Omit<RegisteredClient, 'createdAt'> & { createdAt: string }>;
   bookings: Array<Omit<Booking, 'createdAt'> & { createdAt: string }>;
   notifications: Array<Omit<Notification, 'createdAt'> & { createdAt: string }>;
   stockItems: StockItem[];
@@ -668,7 +672,7 @@ const EMPTY_WORKER_NOTIFICATIONS: WorkerNotificationSettings = { newTask: true, 
 const EMPTY_SETTINGS: SettingsBundle = {
   adminProfile: { name: 'Администратор', email: '', phone: '', telegramChatId: '' },
   adminNotificationSettings: { newBooking: true, cancelled: true, paymentDue: false, workerAssigned: true, reminders: true },
-  ownerCompany: { name: 'ATMOSFERA', legalName: '', inn: '', address: '', phone: '', email: '' },
+  ownerCompany: { name: 'ATMOSFERA', legalName: '', inn: '', address: '', phone: '', email: '', operatingMode: 'open' },
   ownerNotificationSettings: { telegramBot: true, emailReports: true, smsReminders: false, lowStock: true, dailyReport: true, weeklyReport: false, bookingReminders: true },
   ownerIntegrations: { telegram: true, yookassa: false, amoCrm: false, googleCalendar: false },
   ownerSecurity: { twoFactor: false },
@@ -742,6 +746,7 @@ function normalizeWorker(worker: Worker) {
 function normalizeBootstrap(bootstrap: BootstrapPayload) {
   return {
     ...bootstrap,
+    clients: bootstrap.clients.map((client) => ({ ...client, createdAt: new Date(client.createdAt) })),
     bookings: bootstrap.bookings.map((booking) => ({
       ...booking,
       createdAt: new Date(booking.createdAt),
@@ -963,14 +968,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
   async function addClient(client: ClientCreateInput) {
-    const created = await apiRequest<RegisteredClient>('/api/clients', { method: 'POST', body: client });
-    setClients((current) => [created, ...current]);
-    return created;
+    const created = await apiRequest<Omit<RegisteredClient, 'createdAt'> & { createdAt: string }>('/api/clients', { method: 'POST', body: client });
+    const normalized = { ...created, createdAt: new Date(created.createdAt) };
+    setClients((current) => [normalized, ...current]);
+    return normalized;
   }
 
   async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string }> }>) {
-    const saved = await apiRequest<RegisteredClient>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
-    setClients((current) => current.map((client) => (client.id === clientId ? saved : client)));
+    const saved = await apiRequest<Omit<RegisteredClient, 'createdAt'> & { createdAt: string }>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
+    const normalized = { ...saved, createdAt: new Date(saved.createdAt) };
+    setClients((current) => current.map((client) => (client.id === clientId ? normalized : client)));
   }
 
   async function deleteClient(clientId: string) {
@@ -1011,6 +1018,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           debtBalance: existingClient?.debtBalance || 0,
           adminRating: existingClient?.adminRating || 0,
           adminNote: existingClient?.adminNote || '',
+          referralSource: existingClient?.referralSource || '',
+          createdAt: existingClient?.createdAt || new Date(),
         };
         if (current.some((client) => client.id === created.clientId)) {
           return current.map((client) => (client.id === created.clientId ? { ...client, ...nextClient } : client));

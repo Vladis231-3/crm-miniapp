@@ -17,6 +17,7 @@ import { ContentEditor } from '../admin/ContentEditor';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
+  isClientCardIncomplete,
   normalizePersonName,
   normalizePlateInput,
   normalizeVehicleInput,
@@ -4827,6 +4828,35 @@ export function OwnerApp() {
                   </div>
                 ))}
               </div>
+
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <label className={`text-xs ${sub} block mb-2`}>Режим работы</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'open' as const, label: 'Открыто', color: '#22C55E' },
+                    { value: 'closed' as const, label: 'Закрыто', color: '#EF4444' },
+                    { value: 'maintenance' as const, label: 'Тех. работы', color: '#F59E0B' },
+                  ].map(option => (
+                    <motion.button
+                      key={option.value}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setCompany(p => ({...p, operatingMode: option.value}))}
+                      className={`flex-1 p-3 rounded-2xl border-[0.5px] text-left transition-all duration-200 ${
+                        company.operatingMode === option.value
+                          ? 'border-blue-500 bg-blue-500/15'
+                          : isDark ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ background: option.color }} />
+                        <span className="text-xs font-semibold">{option.label}</span>
+                      </div>
+                      {company.operatingMode === option.value && <div className={`text-[10px] ${sub} mt-0.5`}>Текущий режим</div>}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
