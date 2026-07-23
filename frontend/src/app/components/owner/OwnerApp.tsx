@@ -4185,8 +4185,8 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4 mb-4`}>
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Общий баланс копилки</span>
-                      <span className="font-bold text-lg" style={{ color: (piggyBank.combinedBalance ?? piggyBankBalance) >= 0 ? accent : '#FF6B6B' }}>
-                        {(piggyBank.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
+                      <span className="font-bold text-lg" style={{ color: (piggyBank?.combinedBalance ?? piggyBankBalance) >= 0 ? accent : '#FF6B6B' }}>
+                        {(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </div>
