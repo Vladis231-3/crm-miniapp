@@ -9417,6 +9417,10 @@ def run_reports_cron(
 
 
 
+def _dmy_to_date(d: str) -> date:
+    parts = d.split(".")
+    return date(int(parts[2]), int(parts[1]), int(parts[0]))
+
 def _create_weekly_archive(db: Session) -> str | None:
 
     today = date.today()
@@ -9445,35 +9449,18 @@ def _create_weekly_archive(db: Session) -> str | None:
 
         return None
 
-
-
-    week_incomes = db.scalars(
-
-        select(Income).where(Income.date >= week_start_str, Income.date <= week_end_str)
-
-    ).all()
-
-    week_expenses = db.scalars(
-
-        select(Expense).where(Expense.date >= week_start_str, Expense.date <= week_end_str)
-
-    ).all()
-
-    week_bookings = db.scalars(
-
+    all_incomes = db.scalars(select(Income)).all()
+    all_expenses = db.scalars(select(Expense)).all()
+    all_bookings = db.scalars(
         select(Booking).where(
-
             Booking.status == "completed",
-
             Booking.deleted_at.is_(None),
-
-            Booking.date >= week_start_str,
-
-            Booking.date <= week_end_str,
-
         )
-
     ).all()
+
+    week_incomes = [i for i in all_incomes if _dmy_to_date(i.date) >= last_saturday and _dmy_to_date(i.date) <= last_friday]
+    week_expenses = [e for e in all_expenses if _dmy_to_date(e.date) >= last_saturday and _dmy_to_date(e.date) <= last_friday]
+    week_bookings = [b for b in all_bookings if _dmy_to_date(b.date) >= last_saturday and _dmy_to_date(b.date) <= last_friday]
 
     all_piggy = db.scalars(select(PiggyBankTransaction)).all()
 
@@ -14548,49 +14535,24 @@ def get_wallet(
 
     week_end_iso = friday.isoformat()
 
-
-
-    # Filter incomes for current week
-
-    incomes = db.scalars(
-
-        select(Income).where(Income.date >= week_start_str, Income.date <= week_end_str)
-
-        .order_by(Income.date.desc(), Income.created_at.desc())
-
-    ).all()
-
-
+    # Filter incomes for current week — proper date comparison
+    all_incomes_wallet = db.scalars(select(Income)).all()
+    incomes = [i for i in all_incomes_wallet if _dmy_to_date(i.date) >= saturday and _dmy_to_date(i.date) <= friday]
+    incomes.sort(key=lambda i: (i.date, i.created_at), reverse=True)
 
     # Filter expenses for current week
-
-    expenses = db.scalars(
-
-        select(Expense).where(Expense.date >= week_start_str, Expense.date <= week_end_str)
-
-        .order_by(Expense.date.desc(), Expense.created_at.desc())
-
-    ).all()
-
-
+    all_expenses_wallet = db.scalars(select(Expense)).all()
+    expenses = [e for e in all_expenses_wallet if _dmy_to_date(e.date) >= saturday and _dmy_to_date(e.date) <= friday]
+    expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
 
     # Completed bookings for current week
-
-    completed_bookings = db.scalars(
-
+    all_bookings_wallet = db.scalars(
         select(Booking).where(
-
             Booking.status == "completed",
-
             Booking.deleted_at.is_(None),
-
-            Booking.date >= week_start_str,
-
-            Booking.date <= week_end_str,
-
         )
-
     ).all()
+    completed_bookings = [b for b in all_bookings_wallet if _dmy_to_date(b.date) >= saturday and _dmy_to_date(b.date) <= friday]
 
 
 
