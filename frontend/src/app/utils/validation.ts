@@ -133,29 +133,29 @@ export function validatePlateValue(value: string, plateType: PlateType = 'russia
 
 function hasEmptyVehicles(vehicles?: Array<{ car: string; plate: string }>): boolean {
   if (!vehicles || vehicles.length === 0) return true;
-  return vehicles.every((v) => !v.car.trim() && !v.plate.trim());
+  return vehicles.every((v) => !v.car?.trim() && !v.plate?.trim());
 }
 
 export function isClientCardIncomplete(client: {
-  phone: string;
-  car: string;
-  plate: string;
-  adminNote: string;
-  adminRating: number;
-  referralSource: string;
+  phone?: string;
+  car?: string;
+  plate?: string;
+  adminNote?: string;
+  adminRating?: number;
+  referralSource?: string;
   vehicles?: Array<{ car: string; plate: string }>;
   createdAt?: Date;
 }): boolean {
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weekAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const created = client.createdAt?.getTime() ?? Date.now();
   if (created < weekAgo) return false;
 
-  if (!client.phone.trim()) return true;
-  if (!client.car.trim()) return true;
-  if (!client.plate.trim()) return true;
-  if (!client.adminNote.trim()) return true;
-  if (client.adminRating === 0) return true;
-  if (!client.referralSource.trim()) return true;
+  if (!client.phone?.trim()) return true;
+  if (!client.car?.trim()) return true;
+  if (!client.plate?.trim()) return true;
+  if (!client.adminNote?.trim()) return true;
+  if (!client.adminRating || client.adminRating === 0) return true;
+  if (!client.referralSource?.trim()) return true;
   if (hasEmptyVehicles(client.vehicles)) return true;
 
   return false;
