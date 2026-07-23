@@ -11577,7 +11577,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
                     date=date_str,
 
-                    resource_group="detailing",
+                    resource_group=rg,
 
                     created_at=_now(),
 
@@ -14163,11 +14163,11 @@ def get_piggy_bank(
 
 
 
-    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent")
+    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing")
 
-    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0)
+    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "detailing")
 
-    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment")
+    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing")
 
     net_piggy = deposits_24 + repayments - withdrawals
 

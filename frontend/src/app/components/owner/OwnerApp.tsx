@@ -4166,6 +4166,16 @@ export function OwnerApp() {
                     </div>
                   )}
 
+                  {/* Total balance */}
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Общий баланс копилки</span>
+                      <span className="font-bold text-lg" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
+                        {piggyBankBalance.toLocaleString('ru')} ₽
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Withdraw button */}
                   <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mb-4" style={{ background: accent }}>
                     <Plus size={16} className="inline mr-1.5" />Снять на материалы
