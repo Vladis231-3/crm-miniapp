@@ -1325,6 +1325,14 @@ class PiggyBankTransactionPayload(BaseModel):
     resourceGroup: str = "detailing"
     createdAt: datetime
     bookingInfo: str | None = None
+    bookingClientName: str | None = None
+    bookingService: str | None = None
+    bookingDate: str | None = None
+    bookingTime: str | None = None
+    bookingCar: str | None = None
+    bookingPlate: str | None = None
+    bookingPrice: int | None = None
+    bookingStatus: str | None = None
 
 
 class PiggyBankWithdrawRequest(BaseModel):

@@ -14009,6 +14009,22 @@ def get_piggy_bank(
 
                 bookingInfo=booking_info,
 
+                bookingClientName=b.client_name if b else None,
+
+                bookingService=b.service if b else None,
+
+                bookingDate=b.date if b else None,
+
+                bookingTime=b.time if b else None,
+
+                bookingCar=b.car if b else None,
+
+                bookingPlate=b.plate if b else None,
+
+                bookingPrice=b.price if b else None,
+
+                bookingStatus=b.status if b else None,
+
             )
 
         )
@@ -14456,6 +14472,22 @@ def piggy_bank_withdraw(
         createdAt=transaction.created_at,
 
         bookingInfo=booking_info,
+
+        bookingClientName=booking.client_name,
+
+        bookingService=booking.service,
+
+        bookingDate=booking.date,
+
+        bookingTime=booking.time,
+
+        bookingCar=booking.car,
+
+        bookingPlate=booking.plate,
+
+        bookingPrice=booking.price,
+
+        bookingStatus=booking.status,
 
     )
 

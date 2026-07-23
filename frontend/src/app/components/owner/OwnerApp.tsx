@@ -520,6 +520,10 @@ export function OwnerApp() {
     id: string; bookingId: string | null; amount: number; transactionType: string;
     purpose: string; materialName: string | null; materialCost: number | null;
     date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
+    bookingClientName?: string | null; bookingService?: string | null;
+    bookingDate?: string | null; bookingTime?: string | null;
+    bookingCar?: string | null; bookingPlate?: string | null;
+    bookingPrice?: number | null; bookingStatus?: string | null;
   }
   const [piggyBankBalance, setPiggyBankBalance] = useState(0);
   const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
@@ -4120,27 +4124,36 @@ export function OwnerApp() {
               {/* ── TAB: ALL ── */}
               {piggyTab === 'all' && (
                 <>
-                  {/* Quick summary */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className={`${glass} rounded-2xl p-4`}>
-                      <div className={`text-xs ${sub} mb-1`}>Выручка</div>
-                      <div className="font-bold text-lg" style={{ color: accent }}>{totalRevenue.toLocaleString('ru')} ₽</div>
-                    </div>
-                    <div className={`${glass} rounded-2xl p-4`}>
-                      <div className={`text-xs ${sub} mb-1`}>Расходы</div>
-                      <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{totalExpenses.toLocaleString('ru')} ₽</div>
-                    </div>
-                    <div className={`${glass} rounded-2xl p-4`}>
-                      <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
-                      <div className="font-bold text-lg" style={{ color: primary }}>{totalIncomes.toLocaleString('ru')} ₽</div>
-                    </div>
-                    <div className={`${glass} rounded-2xl p-4`}>
-                      <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
-                      <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
-                        {Math.abs(profit).toLocaleString('ru')} ₽{profit < 0 ? ' (убыток)' : ''}
+                  {/* Quick summary — from filtered piggy bank data */}
+                  {(() => {
+                    const pb = piggyBank;
+                    const pbRevenue = (pb?.wash?.totalRevenue ?? 0) + (pb?.detailing?.detailingRevenue ?? 0);
+                    const pbExpenses = (pb?.washExpenses ?? 0) + (pb?.detailingExpenses ?? 0);
+                    const pbIncomes = (pb?.washIncomes ?? 0) + (pb?.detailingIncomes ?? 0);
+                    const pbProfit = pbRevenue + pbIncomes - pbExpenses;
+                    return (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className={`${glass} rounded-2xl p-4`}>
+                        <div className={`text-xs ${sub} mb-1`}>Выручка</div>
+                        <div className="font-bold text-lg" style={{ color: accent }}>{pbRevenue.toLocaleString('ru')} ₽</div>
+                      </div>
+                      <div className={`${glass} rounded-2xl p-4`}>
+                        <div className={`text-xs ${sub} mb-1`}>Расходы</div>
+                        <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{pbExpenses.toLocaleString('ru')} ₽</div>
+                      </div>
+                      <div className={`${glass} rounded-2xl p-4`}>
+                        <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
+                        <div className="font-bold text-lg" style={{ color: primary }}>{pbIncomes.toLocaleString('ru')} ₽</div>
+                      </div>
+                      <div className={`${glass} rounded-2xl p-4`}>
+                        <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
+                        <div className="font-bold text-lg" style={{ color: pbProfit >= 0 ? accent : '#FF6B6B' }}>
+                          {Math.abs(pbProfit).toLocaleString('ru')} ₽{pbProfit < 0 ? ' (убыток)' : ''}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                    );
+                  })()}
 
               {/* Wash mini */}
               {piggyBank?.wash && (() => {
@@ -4304,6 +4317,7 @@ export function OwnerApp() {
                 if (filteredTxs.length === 0) {
                   return <div className={`text-center py-8 text-sm ${sub}`}>Пока нет операций</div>;
                 }
+                let runningBalance = piggyBankBalance;
                 return (
                   <div className="space-y-2">
                     {filteredTxs.map(tx => {
@@ -4312,27 +4326,83 @@ export function OwnerApp() {
                         : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
                         : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
                         : 'Корректировка';
+                      const booking = tx.bookingId ? bookings.find(b => b.id === tx.bookingId) : null;
+                      const handleClick = () => {
+                        if (booking) {
+                          setSelectedBooking(booking);
+                          setShowBookingDetail(true);
+                        } else if (tx.bookingId) {
+                          setBottomToast('Заказ не найден (возможно, удалён)');
+                          setTimeout(() => setBottomToast(null), 3000);
+                        }
+                      };
+                      const Wrapper = tx.bookingId ? 'button' : 'div';
+                      const txRunningBalance = runningBalance;
+                      runningBalance -= tx.amount;
                       return (
-                        <div key={tx.id} className={`${glass} rounded-xl p-3`}>
-                          <div className="flex justify-between items-start">
+                        <Wrapper key={tx.id} onClick={handleClick} className={`${glass} rounded-xl p-3 w-full text-left transition active:scale-[0.98] ${tx.bookingId ? 'cursor-pointer hover:brightness-110' : ''}`}>
+                          <div className="flex justify-between items-start gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <div className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-green-500' : 'bg-red-500'}`} />
                                 <span className="text-sm font-medium">{txLabel}</span>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
                                   {tx.resourceGroup === 'detailing' ? '✨' : '🚗'}
                                 </span>
+                                {booking && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${ownerStatusBadge(booking.status)}`}>
+                                    {booking.status === 'completed' ? 'Выполнен' : booking.status === 'cancelled' ? 'Отменён' : booking.status === 'no_show' ? 'Не пришёл' : booking.status === 'new' ? 'Новый' : booking.status === 'confirmed' ? 'Подтверждён' : booking.status === 'in_progress' ? 'В работе' : booking.status}
+                                  </span>
+                                )}
                               </div>
-                              <div className={`text-xs ${sub} mt-0.5`}>{tx.date}</div>
-                              {tx.materialName && <div className="text-xs mt-1"><span className={sub}>Материал:</span> {tx.materialName} ({(tx.materialCost ?? 0).toLocaleString('ru')} ₽)</div>}
-                              {tx.bookingInfo && <div className="text-xs mt-0.5"><span className={sub}>Заказ:</span> {tx.bookingInfo}</div>}
-                              <div className="text-xs mt-0.5">{tx.purpose}</div>
+                              <div className={`text-[11px] ${sub} mt-0.5`}>{tx.date}</div>
+                              {booking && (
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs">
+                                  <span style={{ color: accent }}>{booking.clientName}</span>
+                                  <span className={sub}>{booking.service}</span>
+                                  <span className={sub}>{booking.date} {booking.time}</span>
+                                </div>
+                              )}
+                              {!booking && tx.bookingInfo && (
+                                <div className="text-xs mt-0.5"><span className={sub}>Заказ:</span> {tx.bookingInfo}</div>
+                              )}
+                              {booking && (booking.car || booking.plate) && (
+                                <div className="text-[11px] mt-0.5">
+                                  <span className={sub}>{booking.car || ''}{booking.car && booking.plate ? ' · ' : ''}{booking.plate || ''}</span>
+                                </div>
+                              )}
+                              {tx.materialName && (
+                                <div className="flex items-center gap-1 text-[11px] mt-1">
+                                  <span className={sub}>🧴</span>
+                                  <span>{tx.materialName}</span>
+                                  <span className={sub}>({(tx.materialCost ?? 0).toLocaleString('ru')} ₽)</span>
+                                </div>
+                              )}
+                              {tx.purpose && !tx.materialName && (
+                                <div className="text-[11px] mt-0.5 opacity-70">{tx.purpose}</div>
+                              )}
+                              {tx.bookingId && !booking && (
+                                <div className="text-[11px] mt-0.5 opacity-50 italic">Заказ удалён</div>
+                              )}
                             </div>
-                            <div className={`font-bold text-sm ml-3 ${isDeposit ? 'text-green-500' : 'text-red-500'}`}>
-                              {isDeposit ? '+' : ''}{tx.amount.toLocaleString('ru')} ₽
+                            <div className="flex flex-col items-end shrink-0">
+                              <div className={`font-bold text-sm ${isDeposit ? 'text-green-500' : 'text-red-500'}`}>
+                                {isDeposit ? '+' : ''}{tx.amount.toLocaleString('ru')} ₽
+                              </div>
+                              {booking && (
+                                <div className={`text-[10px] ${sub}`}>
+                                  {booking.price.toLocaleString('ru')} ₽
+                                </div>
+                              )}
+                              <div className={`text-[10px] mt-1 ${sub}`}>
+                                = {txRunningBalance.toLocaleString('ru')} ₽
+                              </div>
+                              {tx.bookingId && (
+                                <ChevronRight size={12} className={`mt-0.5 ${sub}`} />
+                              )}
                             </div>
                           </div>
-                        </div>
+                        </Wrapper>
                       );
                     })}
                   </div>
