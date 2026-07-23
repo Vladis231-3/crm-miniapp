@@ -146,5 +146,17 @@ export function isClientCardIncomplete(client: {
   vehicles?: Array<{ car: string; plate: string }>;
   createdAt?: Date;
 }): boolean {
-  return true; // TODO: вернуть логику после проверки
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const created = client.createdAt?.getTime() ?? Date.now();
+  if (created < weekAgo) return false;
+
+  if (!client.phone?.trim()) return true;
+  if (!client.car?.trim()) return true;
+  if (!client.plate?.trim()) return true;
+  if (!client.adminNote?.trim()) return true;
+  if (!client.adminRating || client.adminRating === 0) return true;
+  if (!client.referralSource?.trim()) return true;
+  if (hasEmptyVehicles(client.vehicles)) return true;
+
+  return false;
 }
