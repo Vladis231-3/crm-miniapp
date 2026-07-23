@@ -1057,6 +1057,7 @@ export function OwnerApp() {
     return d ? d >= weekSaturday && d <= weekFriday : false;
   };
   const weeklyCompletedBookings = completedBookings.filter((b) => isDateInWeek(b.date));
+  const weeklyBookings = bookings.filter((b) => isDateInWeek(b.date));
   const weeklyExpenses = expenses.filter((e) => isDateInWeek(e.date));
   const weeklyIncomes = incomes.filter((i) => isDateInWeek(i.date));
   const totalRevenue = weeklyCompletedBookings.reduce((s, b) => s + b.price, 0);
@@ -1064,13 +1065,13 @@ export function OwnerApp() {
   const totalIncomes = weeklyIncomes.reduce((s, i) => s + i.amount, 0);
   const profit = totalRevenue + totalIncomes - totalExpenses;
   const averageCheck = weeklyCompletedBookings.length > 0 ? Math.round(totalRevenue / weeklyCompletedBookings.length) : 0;
-  const activeBookings = bookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
+  const activeBookings = weeklyBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
   const pipelineCounts = {
-    new: bookings.filter((booking) => booking.status === 'new').length,
-    confirmed: bookings.filter((booking) => booking.status === 'confirmed').length,
-    scheduled: bookings.filter((booking) => booking.status === 'scheduled').length,
-    inProgress: bookings.filter((booking) => booking.status === 'in_progress').length,
-    noShow: bookings.filter((booking) => booking.status === 'no_show').length,
+    new: weeklyBookings.filter((booking) => booking.status === 'new').length,
+    confirmed: weeklyBookings.filter((booking) => booking.status === 'confirmed').length,
+    scheduled: weeklyBookings.filter((booking) => booking.status === 'scheduled').length,
+    inProgress: weeklyBookings.filter((booking) => booking.status === 'in_progress').length,
+    noShow: weeklyBookings.filter((booking) => booking.status === 'no_show').length,
   };
   const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
 
@@ -2308,7 +2309,7 @@ export function OwnerApp() {
     { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
     { label: 'Расходы за неделю', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
     { label: 'Прибыль за неделю', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
-    { label: 'Записей за неделю', value: bookings.length, icon: Users, color: '#A855F7' },
+    { label: 'Записей за неделю', value: weeklyBookings.length, icon: Users, color: '#A855F7' },
   ];
 
   const byService = services
@@ -2328,12 +2329,12 @@ export function OwnerApp() {
   });
 
   const statusData = [
-    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
-    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
-    { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
-    { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
-    { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
-    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Новые', value: weeklyBookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Запланировано', value: weeklyBookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
+    { name: 'В работе', value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
+    { name: 'Завершено', value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'Не приехал', value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
   const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
   const selectableCalendarDates = Array.from(new Set([todayLabel, tomorrowLabel, ...upcomingDates.slice(0, 5), ...bookings.map((booking) => booking.date).filter(Boolean)])).slice(0, 8);
@@ -2390,17 +2391,17 @@ export function OwnerApp() {
   const boxLoadData = boxes
     .filter((box) => box.active)
     .map((box) => {
-      const boxBookings = completedBookings.filter((booking) => booking.box === box.name);
+      const weeklyBoxBookings = weeklyCompletedBookings.filter((booking) => booking.box === box.name);
       return {
         name: box.name,
-        count: bookings.filter((booking) => booking.box === box.name).length,
-        revenue: boxBookings.reduce((sum, booking) => sum + booking.price, 0),
+        count: weeklyBoxBookings.length,
+        revenue: weeklyBoxBookings.reduce((sum, booking) => sum + booking.price, 0),
       };
       });
   const workerEfficiencyData = workers
     .filter((worker) => worker.active)
     .map((worker) => {
-      const workerBookings = completedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
+      const workerBookings = weeklyCompletedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
       const workerRevenue = workerBookings.reduce((sum, booking) => sum + booking.price, 0);
       return {
         id: worker.id,
