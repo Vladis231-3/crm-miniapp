@@ -889,13 +889,14 @@ export function OwnerApp() {
       setShowPiggyWithdraw(false);
       setPiggyWithdrawForm({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
       await loadPiggyBank();
+      await loadWallet();
     } catch (e: unknown) {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка');
     }
   }
 
   useEffect(() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }, [page, piggyDateFrom, piggyDateTo]);
-  useEffect(() => { if (page === 'wallet') { void loadWallet(); } }, [page]);
+  useEffect(() => { if (page === 'wallet' || (page === 'settings' && settingsSection === 'wallet')) { void loadWallet(); } }, [page, settingsSection]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -3952,7 +3953,7 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4 mb-4 flex justify-between items-center`}>
                     <div>
                       <div className={`text-xs ${sub}`}>Баланс копилки</div>
-                      <div className="font-semibold" style={{ color: accent }}>{walletData.piggyBankBalance.toLocaleString('ru')} ₽</div>
+                      <div className="font-semibold" style={{ color: accent }}>{(piggyBank?.combinedBalance ?? piggyBankBalance ?? walletData.piggyBankBalance).toLocaleString('ru')} ₽</div>
                     </div>
                     <button onClick={() => setPage('piggy-bank')} className={`text-xs font-medium px-3 py-1.5 rounded-xl`} style={{ background: `${primary}20`, color: primary }}>
                       Подробнее
@@ -4003,12 +4004,12 @@ export function OwnerApp() {
                       <p className={`text-sm ${sub} text-center py-4`}>Нет расходов за эту неделю</p>
                     ) : (
                       <div className="space-y-2">
-                        {walletData.expenses.map(e => (
-                          <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium truncate">{e.title}</div>
-                              <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
-                            </div>
+                         {walletData.expenses.map(e => (
+                           <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                             <div className="flex-1 min-w-0">
+                               <div className="text-sm font-medium truncate">{e.title}</div>
+                               <div className={`text-xs ${sub}`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
+                             </div>
                             <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                               <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                               {(session?.role === 'owner' || session?.role === 'accountant') && (
@@ -6487,6 +6488,9 @@ export function OwnerApp() {
                     <option value="wash">Автомойка</option>
                     <option value="detailing">Детейлинг</option>
                   </select>
+                  {expenseForm.resourceGroup && (
+                    <p className="text-[11px] mt-1.5" style={{ color: accent }}>Списание из копилки {expenseForm.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}</p>
+                  )}
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Дата</label>
@@ -8127,6 +8131,9 @@ export function OwnerApp() {
                     <option value="wash">Автомойка</option>
                     <option value="detailing">Детейлинг</option>
                   </select>
+                  {editExpenseForm.resourceGroup && (
+                    <p className="text-[11px] mt-1.5" style={{ color: accent }}>Списание из копилки {editExpenseForm.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}</p>
+                  )}
                 </div>
               </div>
               {editFinanceError && (

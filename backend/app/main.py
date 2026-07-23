@@ -13614,6 +13614,36 @@ def create_expense(
 
     db.add(expense)
 
+    # Если расход относится к мойке или детейлингу — списываем из копилки
+
+    if payload.resourceGroup in ("wash", "detailing"):
+
+        pb_tx = PiggyBankTransaction(
+
+            id=f"pb-{uuid4()}",
+
+            booking_id=None,
+
+            amount=-payload.amount,
+
+            transaction_type="expense",
+
+            purpose=f"Расход: {payload.title}",
+
+            material_name=None,
+
+            material_cost=None,
+
+            date=payload.date,
+
+            resource_group=payload.resourceGroup,
+
+            created_at=_now(),
+
+        )
+
+        db.add(pb_tx)
+
     db.commit()
 
     db.refresh(expense)
