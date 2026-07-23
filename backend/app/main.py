@@ -17394,9 +17394,7 @@ def owner_salary_detail(
 
 ) -> OwnerSalaryDetailResponse:
 
-    _ensure_staff_role(session_data, {"owner"})
-
-
+    _ensure_staff_role(session_data, {"owner", "admin"})
 
     owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
 
@@ -17578,7 +17576,7 @@ def owner_pay_salary(
 
 ) -> PayOwnerSalaryResponse:
 
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "admin"})
 
 
 

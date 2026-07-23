@@ -3384,7 +3384,8 @@ export function OwnerApp() {
                   </div>
                   {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Загрузка...</div>}
                   {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => {
-                    const ownerDisplayName = owner.ownerId === '476719812' ? 'Юра' : owner.ownerId === '1768985608' ? 'Максим' : owner.ownerName;
+                    const rawId = owner.ownerId.replace('owner-tg-', '');
+                    const ownerDisplayName = rawId === '476719812' ? 'Юра' : rawId === '1768985608' ? 'Максим' : owner.ownerName;
                     return (
                     <div key={owner.ownerId} className={`${glass} rounded-2xl p-4 mb-3`}>
                       <div className="flex items-center gap-3 mb-3">
