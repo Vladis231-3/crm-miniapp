@@ -559,6 +559,7 @@ export function OwnerApp() {
     clientPhone: '',
     car: '',
     plate: '',
+    plateType: 'russian' as PlateType,
     service: liveServices[0]?.id || '',
     date: todayLabel,
     time: '10:00',
@@ -572,7 +573,7 @@ export function OwnerApp() {
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
-  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
+  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '', referralSource: '' });
   const [selectedSalaryWorkerId, setSelectedSalaryWorkerId] = useState<string | null>(null);
   const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
@@ -649,7 +650,7 @@ export function OwnerApp() {
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
   const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
-  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [newVehicleCar, setNewVehicleCar] = useState('');
   const [newVehiclePlate, setNewVehiclePlate] = useState('');
@@ -707,6 +708,7 @@ export function OwnerApp() {
     notes: '',
     car: '',
     plate: '',
+    plateType: 'russian' as PlateType,
     clientName: '',
     clientPhone: '',
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
@@ -889,6 +891,7 @@ export function OwnerApp() {
             phone: client.phone || '',
             car: client.car || '',
             plate: client.plate || '',
+            plateType: client.plateType || 'russian',
             notes: client.notes || '',
             debtBalance: String(client.debtBalance || 0),
             referralSource: client.referralSource || '',
@@ -1622,7 +1625,8 @@ export function OwnerApp() {
           name: draft.name,
           phone: draft.phone,
           car: draft.car,
-          plate: draft.plate,
+          plate: normalizePlateInput(draft.plate, draft.plateType as PlateType),
+          plateType: draft.plateType,
           notes: draft.notes,
           debtBalance: Number(draft.debtBalance || 0),
           adminRating: draft.adminRating,
@@ -1890,6 +1894,7 @@ export function OwnerApp() {
       clientPhone: client.phone,
       car: client.car || '',
       plate: client.plate || '',
+      plateType: (client.plateType as PlateType) || 'russian',
       service: firstServiceId,
       date: status === 'completed' ? formatDate(historyDate) : todayLabel,
       time: '10:00',
@@ -1916,8 +1921,8 @@ export function OwnerApp() {
       const carError = validateVehicleName(createClientForm.car);
       if (carError) nextErrors.car = carError;
     }
-    if (normalizePlateInput(createClientForm.plate)) {
-      const plateError = validatePlateValue(createClientForm.plate);
+    if (normalizePlateInput(createClientForm.plate, createClientForm.plateType)) {
+      const plateError = validatePlateValue(createClientForm.plate, createClientForm.plateType);
       if (plateError) nextErrors.plate = plateError;
     }
     setCreateClientErrors(nextErrors);
@@ -1929,11 +1934,12 @@ export function OwnerApp() {
         name: normalizePersonName(createClientForm.name),
         phone: createClientForm.phone.trim(),
         car: normalizeVehicleInput(createClientForm.car),
-        plate: normalizePlateInput(createClientForm.plate),
+        plate: normalizePlateInput(createClientForm.plate, createClientForm.plateType),
+        plateType: createClientForm.plateType,
         notes: createClientForm.notes.trim(),
         referralSource: createClientForm.referralSource,
       });
-      setCreateClientForm({ name: '', phone: '', car: '', plate: '', notes: '', referralSource: '' });
+      setCreateClientForm({ name: '', phone: '', car: '', plate: '', plateType: 'russian', notes: '', referralSource: '' });
       setCreateClientErrors({});
       setShowCreateClient(false);
       setBottomToast('Клиент создан. Можно добавить прошлую запись в его историю.');
@@ -1953,7 +1959,7 @@ export function OwnerApp() {
     const clientName = normalizePersonName(bookingForm.clientName);
     const clientPhone = bookingForm.clientPhone.trim();
     const normalizedCar = normalizeVehicleInput(bookingForm.car);
-    const normalizedPlate = normalizePlateInput(bookingForm.plate);
+    const normalizedPlate = normalizePlateInput(bookingForm.plate, bookingForm.plateType);
     if (!svc) {
       setBottomToast('Выберите услугу');
       setTimeout(() => setBottomToast(null), 3000);
@@ -2011,6 +2017,7 @@ export function OwnerApp() {
         outsourceAmount: bookingForm.outsourceAmount,
         car: normalizedCar,
         plate: normalizedPlate,
+        plateType: bookingForm.plateType,
         notifyWorkers: !bookingForm.isOutsource && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
@@ -2057,6 +2064,7 @@ export function OwnerApp() {
       duration: 30,
       car: '',
       plate: '',
+      plateType: 'russian' as PlateType,
       notes: '',
       status: 'scheduled',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
@@ -2085,8 +2093,8 @@ export function OwnerApp() {
       const carError = validateVehicleName(ownerNewBookingForm.car);
       if (carError) nextErrors.car = carError;
     }
-    if (normalizePlateInput(ownerNewBookingForm.plate)) {
-      const plateError = validatePlateValue(ownerNewBookingForm.plate);
+    if (normalizePlateInput(ownerNewBookingForm.plate, ownerNewBookingForm.plateType)) {
+      const plateError = validatePlateValue(ownerNewBookingForm.plate, ownerNewBookingForm.plateType);
       if (plateError) nextErrors.plate = plateError;
     }
     const hasDate = Boolean(ownerNewBookingForm.date.trim());
@@ -2121,7 +2129,7 @@ export function OwnerApp() {
     const svc = services.find((s) => s.id === ownerNewBookingForm.serviceId);
     const normalizedClientName = normalizePersonName(ownerNewBookingForm.clientName);
     const normalizedCar = normalizeVehicleInput(ownerNewBookingForm.car);
-    const normalizedPlate = normalizePlateInput(ownerNewBookingForm.plate);
+    const normalizedPlate = normalizePlateInput(ownerNewBookingForm.plate, ownerNewBookingForm.plateType);
     const hasDateTime = Boolean(ownerNewBookingForm.date.trim() && ownerNewBookingForm.time.trim());
     const parsedDate = hasDateTime ? parseFlexibleDate(ownerNewBookingForm.date.trim()) : null;
     if (hasDateTime && !parsedDate) {
@@ -2156,6 +2164,7 @@ export function OwnerApp() {
         outsourceAmount: ownerNewBookingForm.outsourceAmount,
         car: normalizedCar,
         plate: normalizedPlate,
+        plateType: ownerNewBookingForm.plateType,
         notes: ownerNewBookingForm.notes,
         notifyWorkers: !ownerNewBookingForm.isOutsource && notify,
       });
@@ -2195,7 +2204,8 @@ export function OwnerApp() {
           box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : 'По согласованию',
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
-          plate: ownerBookingEditFull.plate.trim() || undefined,
+          plate: normalizePlateInput(ownerBookingEditFull.plate, ownerBookingEditFull.plateType) || undefined,
+          plateType: ownerBookingEditFull.plateType,
           clientName: ownerBookingEditFull.clientName.trim() || undefined,
           clientPhone: ownerBookingEditFull.clientPhone.trim() || undefined,
           paymentType: ownerBookingEditFull.paymentType,
@@ -3373,17 +3383,17 @@ export function OwnerApp() {
                     ))}
                   </div>
                   {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Загрузка...</div>}
-                  {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => (
+                  {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => {
+                    const ownerDisplayName = owner.ownerId === '476719812' ? 'Юра' : owner.ownerId === '1768985608' ? 'Максим' : owner.ownerName;
+                    return (
                     <div key={owner.ownerId} className={`${glass} rounded-2xl p-4 mb-3`}>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
-                          {owner.ownerName.charAt(0)}
+                          {ownerDisplayName.charAt(0)}
                         </div>
                         <div className="flex-1">
-                          <div className="font-semibold">{owner.ownerName}</div>
-                          <div className={`text-xs ${sub}`}>
-                            {owner.ownerId === '476719812' ? 'Юра' : owner.ownerId === '1768985608' ? 'Максим' : owner.ownerName}
-                          </div>
+                          <div className="font-semibold">{ownerDisplayName}</div>
+                          <div className={`text-xs ${sub}`}>Владелец</div>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 mb-3">
@@ -3437,7 +3447,8 @@ export function OwnerApp() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
@@ -4932,7 +4943,7 @@ export function OwnerApp() {
                                 },
                               }))}
                             />
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-2">
                               <input
                                 className={inputCls}
                                 placeholder="Автомобиль"
@@ -4945,18 +4956,41 @@ export function OwnerApp() {
                                   },
                                 }))}
                               />
-                              <input
-                                className={inputCls}
-                                placeholder="Госномер"
-                                value={clientCardDrafts[selectedSettingsClient.id]?.plate ?? selectedSettingsClient.plate}
-                                onChange={(event) => setClientCardDrafts((current) => ({
-                                  ...current,
-                                  [selectedSettingsClient.id]: {
-                                    ...current[selectedSettingsClient.id],
-                                    plate: normalizePlateInput(event.target.value),
-                                  },
-                                }))}
-                              />
+                              <div className="flex gap-1.5">
+                                <div className="flex flex-col gap-1 shrink-0">
+                                  {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => {
+                                    const pt = (clientCardDrafts[selectedSettingsClient.id]?.plateType as PlateType) || selectedSettingsClient.plateType || 'russian';
+                                    return (
+                                      <button key={t} type="button"
+                                        className={`text-[10px] px-1.5 py-0.5 rounded ${pt === t ? 'text-white font-medium' : `${sub}`}`}
+                                        style={pt === t ? { background: primary } : {}}
+                                        onClick={() => setClientCardDrafts((current) => ({
+                                          ...current,
+                                          [selectedSettingsClient.id]: {
+                                            ...current[selectedSettingsClient.id],
+                                            plateType: t,
+                                          },
+                                        }))}
+                                      >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                                    );
+                                  })}
+                                </div>
+                                <input
+                                  className={`${inputCls} flex-1`}
+                                  placeholder="Госномер"
+                                  value={clientCardDrafts[selectedSettingsClient.id]?.plate ?? selectedSettingsClient.plate}
+                                  onChange={(event) => {
+                                    const pt = (clientCardDrafts[selectedSettingsClient.id]?.plateType as PlateType) || selectedSettingsClient.plateType || 'russian';
+                                    setClientCardDrafts((current) => ({
+                                      ...current,
+                                      [selectedSettingsClient.id]: {
+                                        ...current[selectedSettingsClient.id],
+                                        plate: normalizePlateInput(event.target.value, pt),
+                                      },
+                                    }));
+                                  }}
+                                />
+                              </div>
                             </div>
                             <input
                               className={inputCls}
@@ -6675,18 +6709,43 @@ export function OwnerApp() {
                 ].map((field) => (
                   <div key={field.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
-                    <input
-                      className={`${inputCls} ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
-                      type={field.type}
-                      placeholder={field.placeholder}
-                      maxLength={field.key === 'plate' ? 9 : undefined}
-                      value={(createClientForm as any)[field.key]}
-                      onChange={(event) => {
-                        const nextValue = field.key === 'plate' ? normalizePlateInput(event.target.value) : event.target.value;
-                        setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
-                        setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
-                      }}
-                    />
+                    {field.key === 'plate' ? (
+                      <div className="flex gap-1.5">
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                            <button key={t} type="button"
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${createClientForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                              style={createClientForm.plateType === t ? { background: primary } : {}}
+                              onClick={() => setCreateClientForm(p => ({ ...p, plateType: t }))}
+                            >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                          ))}
+                        </div>
+                        <input
+                          className={`${inputCls} flex-1 ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
+                          type={field.type}
+                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234ab77' : createClientForm.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'}
+                          maxLength={createClientForm.plateType === 'foreign' ? 15 : 9}
+                          value={(createClientForm as any)[field.key]}
+                          onChange={(event) => {
+                            const nextValue = field.key === 'plate' ? normalizePlateInput(event.target.value, createClientForm.plateType) : event.target.value;
+                            setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
+                            setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        className={`${inputCls} ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
+                        type={field.type}
+                        placeholder={field.placeholder}
+                        value={(createClientForm as any)[field.key]}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setCreateClientForm((current) => ({ ...current, [field.key]: nextValue }));
+                          setCreateClientErrors((current) => ({ ...current, [field.key]: undefined, general: undefined }));
+                        }}
+                      />
+                    )}
                     {(field.key === 'name' && createClientErrors.name) && <div className="mt-1 text-xs text-red-500">{createClientErrors.name}</div>}
                     {(field.key === 'phone' && createClientErrors.phone) && <div className="mt-1 text-xs text-red-500">{createClientErrors.phone}</div>}
                     {(field.key === 'car' && createClientErrors.car) && <div className="mt-1 text-xs text-red-500">{createClientErrors.car}</div>}
@@ -6756,7 +6815,21 @@ export function OwnerApp() {
                 <div><label className={`text-xs ${sub} block mb-1`}>Телефон (необязательно)</label><input className={inputCls} type="tel" placeholder="+7 (___) ___-__-__" value={bookingForm.clientPhone} onChange={e => setBookingForm(p => ({ ...p, clientPhone: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className={`text-xs ${sub} block mb-1`}>Автомобиль</label><input className={inputCls} placeholder="Lada Vesta" value={bookingForm.car} onChange={e => setBookingForm(p => ({ ...p, car: e.target.value }))} /></div>
-                  <div><label className={`text-xs ${sub} block mb-1`}>Госномер</label><input className={inputCls} maxLength={9} placeholder="A123BC777" value={bookingForm.plate} onChange={e => setBookingForm(p => ({ ...p, plate: normalizePlateInput(e.target.value) }))} /></div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Госномер</label>
+                    <div className="flex gap-1.5">
+                      <div className="flex flex-col gap-1 shrink-0">
+                        {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                          <button key={t} type="button"
+                            className={`text-[10px] px-1.5 py-0.5 rounded ${bookingForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                            style={bookingForm.plateType === t ? { background: primary } : {}}
+                            onClick={() => setBookingForm(p => ({ ...p, plateType: t }))}
+                          >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                        ))}
+                      </div>
+                      <input className={`${inputCls} flex-1`} maxLength={bookingForm.plateType === 'foreign' ? 15 : 9} placeholder={bookingForm.plateType === 'motorcycle' ? '1234ab77' : bookingForm.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'} value={bookingForm.plate} onChange={e => setBookingForm(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
+                    </div>
+                  </div>
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Услуга</label><select className={selectCls} value={bookingForm.service} onChange={e => {
                   const svc = services.find(s => s.id === e.target.value);
@@ -7008,6 +7081,7 @@ export function OwnerApp() {
                               notes: selectedBooking.notes || '',
                               car: selectedBooking.car || '',
                               plate: selectedBooking.plate || '',
+                              plateType: (selectedBooking.plateType as PlateType) || 'russian',
                               clientName: selectedBooking.clientName || '',
                               clientPhone: selectedBooking.clientPhone || '',
                               paymentType: selectedBooking.paymentType || 'cash',
@@ -7221,7 +7295,18 @@ export function OwnerApp() {
                         </div>
                         <div>
                           <label className={`text-xs ${sub} block mb-1`}>Номер</label>
-                          <input className={inputCls} placeholder="А123БВ77" value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value) }))} />
+                          <div className="flex gap-1.5">
+                            <div className="flex flex-col gap-1 shrink-0">
+                              {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                                <button key={t} type="button"
+                                  className={`text-[10px] px-1.5 py-0.5 rounded ${ownerBookingEditFull.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                                  style={ownerBookingEditFull.plateType === t ? { background: primary } : {}}
+                                  onClick={() => setOwnerBookingEditFull(p => ({ ...p, plateType: t }))}
+                                >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                              ))}
+                            </div>
+                            <input className={`${inputCls} flex-1`} maxLength={ownerBookingEditFull.plateType === 'foreign' ? 15 : 9} placeholder={ownerBookingEditFull.plateType === 'motorcycle' ? '1234ab77' : ownerBookingEditFull.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'} value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
+                          </div>
                         </div>
                       </div>
                       <div>
@@ -7440,19 +7525,42 @@ export function OwnerApp() {
                   { label: 'Клиент (необязательно)', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
                   { label: 'Телефон (необязательно)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль (необязательно)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'A123BC777', type: 'text' },
+                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'a123bc777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
-                    <input className={`${inputCls} ${ownerNewBookingErrors[f.key as keyof typeof ownerNewBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
-                      maxLength={f.key === 'plate' ? 9 : undefined}
-                      value={(ownerNewBookingForm as any)[f.key]} onChange={e => {
-                        const nextValue = f.key === 'plate' ? normalizePlateInput(e.target.value) : e.target.value;
-                        setOwnerNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
-                        if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
-                          setOwnerNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
-                        }
-                      }} />
+                    {f.key === 'plate' ? (
+                      <div className="flex gap-1.5">
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                            <button key={t} type="button"
+                              className={`text-[10px] px-1.5 py-0.5 rounded ${ownerNewBookingForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
+                              style={ownerNewBookingForm.plateType === t ? { background: primary } : {}}
+                              onClick={() => setOwnerNewBookingForm(p => ({ ...p, plateType: t }))}
+                            >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
+                          ))}
+                        </div>
+                        <input className={`${inputCls} flex-1 ${ownerNewBookingErrors[f.key as keyof typeof ownerNewBookingErrors] ? 'border-red-400' : ''}`} type={f.type}
+                          placeholder={ownerNewBookingForm.plateType === 'motorcycle' ? '1234ab77' : ownerNewBookingForm.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'}
+                          maxLength={ownerNewBookingForm.plateType === 'foreign' ? 15 : 9}
+                          value={(ownerNewBookingForm as any)[f.key]} onChange={e => {
+                            const nextValue = normalizePlateInput(e.target.value, ownerNewBookingForm.plateType);
+                            setOwnerNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
+                            if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
+                              setOwnerNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
+                            }
+                          }} />
+                      </div>
+                    ) : (
+                      <input className={`${inputCls} ${ownerNewBookingErrors[f.key as keyof typeof ownerNewBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
+                        value={(ownerNewBookingForm as any)[f.key]} onChange={e => {
+                          const nextValue = e.target.value;
+                          setOwnerNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
+                          if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car') {
+                            setOwnerNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
+                          }
+                        }} />
+                    )}
                     {(f.key === 'clientName' && ownerNewBookingErrors.clientName) && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.clientName}</div>}
                     {(f.key === 'clientPhone' && ownerNewBookingErrors.clientPhone) && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.clientPhone}</div>}
                     {(f.key === 'car' && ownerNewBookingErrors.car) && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.car}</div>}
