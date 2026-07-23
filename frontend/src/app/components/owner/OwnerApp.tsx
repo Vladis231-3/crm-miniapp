@@ -50,6 +50,20 @@ interface SalaryDetailResponse {
   entries: PayrollEntry[];
 }
 
+interface OwnerProfitShareItem {
+  id: string; bookingId: string; service: string; clientName: string;
+  date: string; price: number; amount: number; status: string; createdAt: string;
+}
+interface OwnerProfitSummary {
+  ownerId: string; ownerName: string;
+  totalAccrued: number; totalPaid: number; balanceToPay: number;
+  shares: OwnerProfitShareItem[];
+}
+interface OwnerSalaryData {
+  owners: OwnerProfitSummary[];
+  totalAccrued: number; totalPaid: number; totalBalanceToPay: number;
+}
+
 interface PiggyBankWashBreakdown {
   selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
   classicRevenue: number; classicMaster: number; classicPiggy: number;
@@ -578,6 +592,12 @@ export function OwnerApp() {
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
+  const [ownerSalaryData, setOwnerSalaryData] = useState<OwnerSalaryData | null>(null);
+  const [ownerSalaryPeriod, setOwnerSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [ownerSalaryLoading, setOwnerSalaryLoading] = useState(false);
+  const [ownerPayTarget, setOwnerPayTarget] = useState<string | null>(null);
+  const [ownerPayAmount, setOwnerPayAmount] = useState('');
+  const [ownerPayNote, setOwnerPayNote] = useState('');
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -779,6 +799,35 @@ export function OwnerApp() {
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
   useEffect(() => setIntegrations(settings.ownerIntegrations), [settings.ownerIntegrations]);
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
+  useEffect(() => {
+    setOwnerSalaryLoading(true);
+    apiRequest<OwnerSalaryData>(`/api/owner/owners/salary-detail?period=${ownerSalaryPeriod}`)
+      .then(setOwnerSalaryData)
+      .catch(() => setOwnerSalaryData(null))
+      .finally(() => setOwnerSalaryLoading(false));
+  }, [ownerSalaryPeriod]);
+
+  const handlePayOwnerSalary = async (ownerId: string) => {
+    const amount = parseInt(ownerPayAmount);
+    if (!amount || amount < 1) return;
+    try {
+      setOwnerSalaryLoading(true);
+      const res = await apiRequest<{ newBalance: number }>('/api/owner/owners/pay-salary', {
+        method: 'POST',
+        body: { ownerId, amount, note: ownerPayNote.trim() || 'Выплата дохода владельцу' },
+      });
+      setOwnerPayAmount('');
+      setOwnerPayNote('');
+      setOwnerPayTarget(null);
+      setBottomToast(`Выплата ${amount.toLocaleString('ru')} ₽ владельцу проведена`);
+      setTimeout(() => setBottomToast(null), 3000);
+      const updated = await apiRequest<OwnerSalaryData>(`/api/owner/owners/salary-detail?period=${ownerSalaryPeriod}`);
+      setOwnerSalaryData(updated);
+    } catch (e) {
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка выплаты');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally { setOwnerSalaryLoading(false); }
+  };
 
   const loadPiggyBank = useCallback(async (dateFrom?: string, dateTo?: string) => {
     setPiggyBankLoading(true);
@@ -3309,6 +3358,88 @@ export function OwnerApp() {
                   )}
                 </div>
               ))}
+
+              {/* ── ДОХОДЫ ВЛАДЕЛЬЦЕВ ── */}
+              {!isAccountant && (
+                <div className="mt-6">
+                  <h2 className="font-semibold mb-3">Доходы владельцев</h2>
+                  <div className="flex gap-1 mb-3">
+                    {(['day', 'week', 'month', 'all'] as const).map(p => (
+                      <button key={p} onClick={() => setOwnerSalaryPeriod(p)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{ background: ownerSalaryPeriod === p ? primary : 'transparent', color: ownerSalaryPeriod === p ? '#fff' : sub }}>
+                        {{ day: 'День', week: 'Неделя', month: 'Месяц', all: 'Всё' }[p]}
+                      </button>
+                    ))}
+                  </div>
+                  {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Загрузка...</div>}
+                  {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => (
+                    <div key={owner.ownerId} className={`${glass} rounded-2xl p-4 mb-3`}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
+                          {owner.ownerName.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold">{owner.ownerName}</div>
+                          <div className={`text-xs ${sub}`}>
+                            {owner.ownerId === '476719812' ? 'Юра' : owner.ownerId === '1768985608' ? 'Максим' : owner.ownerName}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className={`${glass} rounded-xl p-3 text-center`}>
+                          <div className="text-sm font-semibold" style={{ color: accent }}>{owner.totalAccrued.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>Начислено</div>
+                        </div>
+                        <div className={`${glass} rounded-xl p-3 text-center`}>
+                          <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{owner.totalPaid.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>Выплачено</div>
+                        </div>
+                        <div className={`${glass} rounded-xl p-3 text-center`}>
+                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>Остаток</div>
+                        </div>
+                      </div>
+                      {owner.shares.length > 0 && (
+                        <div className="mb-3">
+                          <div className={`text-xs ${sub} mb-2`}>Последние начисления</div>
+                          {owner.shares.slice(0, 5).map(share => (
+                            <div key={share.id} className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                              <div className="min-w-0">
+                                <div className="text-xs font-medium truncate">{share.service || 'Заказ'}</div>
+                                {share.clientName && <div className={`text-[10px] ${sub}`}>{share.clientName}</div>}
+                              </div>
+                              <div className="text-xs font-semibold shrink-0 ml-2">+{share.amount.toLocaleString('ru')} ₽</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setOwnerPayTarget(ownerPayTarget === owner.ownerId ? null : owner.ownerId)}
+                        className="w-full py-2.5 rounded-xl text-sm font-medium mb-2"
+                        style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)', border: `1px solid ${primary}33` }}>
+                        Выплатить
+                      </button>
+                      {ownerPayTarget === owner.ownerId && (
+                        <div className={`${glass} rounded-xl p-3 mt-2`}>
+                          <div className="flex gap-2 mb-2">
+                            <input type="number" min={1} placeholder="Сумма" value={ownerPayAmount}
+                              onChange={e => setOwnerPayAmount(e.target.value)}
+                              className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
+                            <button onClick={() => handlePayOwnerSalary(owner.ownerId)}
+                              className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: primary }}>
+                              {ownerSalaryLoading ? '...' : 'Выплатить'}
+                            </button>
+                          </div>
+                          <input type="text" placeholder="Примечание (необязательно)" value={ownerPayNote}
+                            onChange={e => setOwnerPayNote(e.target.value)}
+                            className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 
