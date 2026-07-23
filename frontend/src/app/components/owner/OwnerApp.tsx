@@ -3953,7 +3953,7 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4 mb-4 flex justify-between items-center`}>
                     <div>
                       <div className={`text-xs ${sub}`}>Баланс копилки</div>
-                      <div className="font-semibold" style={{ color: accent }}>{(piggyBank?.combinedBalance ?? walletData.piggyBankBalance ?? piggyBankBalance).toLocaleString('ru')} ₽</div>
+                      <div className="font-semibold" style={{ color: accent }}>{(piggyBank?.balance ?? walletData.piggyBankBalance).toLocaleString('ru')} ₽</div>
                     </div>
                     <button onClick={() => setPage('piggy-bank')} className={`text-xs font-medium px-3 py-1.5 rounded-xl`} style={{ background: `${primary}20`, color: primary }}>
                       Подробнее
