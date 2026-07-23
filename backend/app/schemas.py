@@ -255,7 +255,7 @@ class WorkerPayload(BaseModel):
     role: StaffRole
     name: str
     experience: str
-    defaultPercent: float = Field(ge=0, le=40, default=0)
+    defaultPercent: float = Field(ge=0, le=100, default=0)
     salaryBase: int = 0
     salaryPerShift: int = 0
     available: bool
@@ -378,7 +378,7 @@ class PaySalaryResponse(BaseModel):
 class BookingWorkerPayload(BaseModel):
     workerId: str
     workerName: str
-    percent: float = Field(ge=0, le=40, default=0)
+    percent: float = Field(ge=0, le=100, default=0)
 
 
 class BookingServiceItem(BaseModel):
@@ -668,7 +668,7 @@ class WorkerProfilePayload(BaseModel):
     experience: str
     specialty: str
     about: str
-    percent: float = Field(ge=0, le=40, default=0)
+    percent: float = Field(ge=0, le=100, default=0)
 
 
 class OwnerCompanyPayload(BaseModel):
@@ -714,7 +714,7 @@ class EmployeeSettingPayload(BaseModel):
     id: str
     role: EmployeeRole = "worker"
     name: str
-    percent: float = Field(ge=0, le=40, default=0)
+    percent: float = Field(ge=0, le=100, default=0)
     salaryBase: int
     salaryPerShift: int = 0
     active: bool
@@ -726,7 +726,7 @@ class WorkerCreateRequest(BaseModel):
     name: str
     login: str
     password: str = Field(max_length=128)
-    percent: float = Field(default=0, ge=0, le=40)
+    percent: float = Field(default=0, ge=0, le=100)
     salaryBase: int = 0
     phone: str = ""
     email: str = ""
@@ -1411,11 +1411,16 @@ class OwnerProfitShareItem(BaseModel):
     bookingId: str
     service: str = ""
     clientName: str = ""
+    clientPhone: str = ""
     date: str
+    time: str = ""
     price: int = 0
     amount: int
     status: str
     createdAt: datetime
+    workerName: str = ""
+    car: str = ""
+    plate: str = ""
 
 
 class OwnerProfitShareSummary(BaseModel):

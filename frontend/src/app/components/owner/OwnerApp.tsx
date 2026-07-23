@@ -51,8 +51,9 @@ interface SalaryDetailResponse {
 }
 
 interface OwnerProfitShareItem {
-  id: string; bookingId: string; service: string; clientName: string;
-  date: string; price: number; amount: number; status: string; createdAt: string;
+  id: string; bookingId: string; service: string; clientName: string; clientPhone: string;
+  date: string; time: string; price: number; amount: number; status: string;
+  workerName: string; car: string; plate: string;
 }
 interface OwnerProfitSummary {
   ownerId: string; ownerName: string;
@@ -599,6 +600,7 @@ export function OwnerApp() {
   const [ownerPayTarget, setOwnerPayTarget] = useState<string | null>(null);
   const [ownerPayAmount, setOwnerPayAmount] = useState('');
   const [ownerPayNote, setOwnerPayNote] = useState('');
+  const [selectedShareDetail, setSelectedShareDetail] = useState<OwnerProfitShareItem | null>(null);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -1206,7 +1208,7 @@ export function OwnerApp() {
         name: '',
         login: '',
         password: '',
-        percent: 40,
+        percent: 50,
         salaryBase: 0,
         phone: '',
         email: '',
@@ -3152,7 +3154,7 @@ export function OwnerApp() {
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-2`}>Жалобы мастерам</div>
                 <div className={`text-xs ${sub} mb-3`}>
-                  3 активные жалобы снижают процент мастера на 10 п.п. на неделю. Базовый процент не может быть выше 40%.
+                  3 активные жалобы снижают процент мастера на 10 п.п. на неделю.
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <select className={selectCls} value={penaltyForm.workerId} onChange={e => setPenaltyForm(p => ({ ...p, workerId: e.target.value }))}>
@@ -3235,7 +3237,7 @@ export function OwnerApp() {
                         <div className="grid grid-cols-2 gap-2 mb-3">
                           <div>
                             <label className={`text-[11px] ${sub} block mb-1`}>Процент</label>
-                            <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={payrollDraft.percent === '' ? '' : payrollDraft.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }} onBlur={() => setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))} />
+                            <input className={inputCls} type="number" step="0.00001" min={0} max={100} value={payrollDraft.percent === '' ? '' : payrollDraft.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }} onBlur={() => setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))} />
                           </div>
                           <div>
                             <label className={`text-[11px] ${sub} block mb-1`}>Оклад</label>
@@ -3415,7 +3417,7 @@ export function OwnerApp() {
                         <div className="mb-3">
                           <div className={`text-xs ${sub} mb-2`}>Последние начисления</div>
                           {owner.shares.slice(0, 5).map(share => (
-                            <div key={share.id} className="flex items-center justify-between py-1.5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                            <div key={share.id} onClick={() => setSelectedShareDetail(share)} className="flex items-center justify-between py-1.5 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                               <div className="min-w-0">
                                 <div className="text-xs font-medium truncate">{share.service || 'Заказ'}</div>
                                 {share.clientName && <div className={`text-[10px] ${sub}`}>{share.clientName}</div>}
@@ -4168,7 +4170,7 @@ export function OwnerApp() {
                         <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>ЗП мастеров (40%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
+                        <span className={sub}>ЗП мастеров</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>Начислено 24%</span><span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
@@ -4203,7 +4205,7 @@ export function OwnerApp() {
                       <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-1.5 text-sm">
-                      <span className={sub}>ЗП мастера (10%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
+                      <span className={sub}>ЗП мастера</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                       <span className={sub}>В копилку (90%)</span><span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} ₽</span>
@@ -4216,10 +4218,10 @@ export function OwnerApp() {
                       <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.wash.classicRevenue.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-1.5 text-sm">
-                      <span className={sub}>ЗП мастера (40%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
+                      <span className={sub}>ЗП мастера</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={sub}>В копилку (60%)</span><span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} ₽</span>
+                      <span className={sub}>В копилку</span><span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} ₽</span>
                     </div>
                   </div>
                   {/* Totals */}
@@ -4258,7 +4260,7 @@ export function OwnerApp() {
                     <span className={sub}>Выручка</span><span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
                   </div>
                   <div className="flex justify-between py-2 text-sm">
-                    <span className={sub}>ЗП мастеров (40%)</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
+                    <span className={sub}>ЗП мастеров</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
                   </div>
                   <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className={sub}>Начислено 24%</span><span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
@@ -5564,7 +5566,7 @@ export function OwnerApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>% от выручки</label>
-                    <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={newEmployee.percent === '' ? '' : newEmployee.percent} onChange={e => { const r = e.target.value; if (r === '') { setNewEmployee(p => ({ ...p, percent: '' })); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewEmployee(p => ({ ...p, percent: Math.min(40, Math.max(0, n)) })); } }} onBlur={() => setNewEmployee(p => ({ ...p, percent: p.percent === '' ? 0 : p.percent }))} />
+                    <input className={inputCls} type="number" step="0.00001" min={0} max={100} value={newEmployee.percent === '' ? '' : newEmployee.percent} onChange={e => { const r = e.target.value; if (r === '') { setNewEmployee(p => ({ ...p, percent: '' })); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewEmployee(p => ({ ...p, percent: Math.min(100, Math.max(0, n)) })); } }} onBlur={() => setNewEmployee(p => ({ ...p, percent: p.percent === '' ? 0 : p.percent }))} />
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
@@ -5610,8 +5612,8 @@ export function OwnerApp() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>% от выручки (до 40)</label>
-                      <input className={inputCls} type="number" step="0.00001" min={0} max={40} value={emp.percent === '' ? '' : emp.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: '' } : em)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: Math.min(40, Math.max(0, n)) } : em)); } }} onBlur={() => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: em.percent === '' ? 0 : em.percent } : em))} />
+                      <label className={`text-xs ${sub} block mb-1`}>% от выручки</label>
+                      <input className={inputCls} type="number" step="0.00001" min={0} max={100} value={emp.percent === '' ? '' : emp.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: '' } : em)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: Math.min(100, Math.max(0, n)) } : em)); } }} onBlur={() => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: em.percent === '' ? 0 : em.percent } : em))} />
                     </div>
                     <div>
                       <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
@@ -6001,7 +6003,7 @@ export function OwnerApp() {
                         <span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm">
-                        <span className={sub}>ЗП мастера (10%)</span>
+                        <span className={sub}>ЗП мастера</span>
                         <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -6017,11 +6019,11 @@ export function OwnerApp() {
                         <span className="font-semibold">{piggyBank.wash.classicRevenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm">
-                        <span className={sub}>ЗП мастера (40%)</span>
+                        <span className={sub}>ЗП мастера</span>
                         <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>В копилку (60%)</span>
+                        <span className={sub}>В копилку</span>
                         <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} ₽</span>
                       </div>
                     </div>
@@ -6074,7 +6076,7 @@ export function OwnerApp() {
                       <span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>ЗП мастеров (40%)</span>
+                      <span className={sub}>ЗП мастеров</span>
                       <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -6939,9 +6941,9 @@ export function OwnerApp() {
                                     type="number"
                                     step="0.00001"
                                     min={0}
-                                    max={40}
+                                    max={100}
                                     value={assigned.percent === '' ? '' : assigned.percent}
-                                    onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                    onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
                                     onBlur={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                     className={`flex-1 ${inputCls} py-1.5`}
                                   />
@@ -7180,8 +7182,8 @@ export function OwnerApp() {
                                 ) : (
                                   <>
                                     <span className={`text-xs ${sub}`}>%</span>
-                                    <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
-                                      onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                    <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                      onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
                                       onBlur={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                       className={`flex-1 ${inputCls} py-1.5`} />
                                   </>
@@ -7433,8 +7435,8 @@ export function OwnerApp() {
                         {assigned && (
                           <div className="flex items-center gap-2 mt-2">
                             <span className={`text-xs ${sub}`}>%</span>
-                            <input type="number" step="0.00001" min={0} max={40} value={assigned.percent === '' ? '' : assigned.percent}
-                              onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                            <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                              onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
                               onBlur={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                               className={`flex-1 ${inputCls} py-1.5`} />
                           </div>
@@ -7743,9 +7745,9 @@ export function OwnerApp() {
                                     type="number"
                                     step="0.00001"
                                     min={0}
-                                    max={40}
+                                    max={100}
                                     value={assigned.percent === '' ? '' : assigned.percent}
-                                    onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(40, Math.max(0, n)) } : item)); } }}
+                                    onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
                                     onBlur={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
                                     className={`flex-1 ${inputCls} py-1.5`}
                                   />

@@ -17476,7 +17476,29 @@ def owner_salary_detail(
 
         client_name = booking_obj.client_name if booking_obj else ""
 
+        client_phone = booking_obj.client_phone if booking_obj else ""
+
         price = booking_obj.price if booking_obj else 0
+
+        time_val = booking_obj.time if booking_obj else ""
+
+        car = booking_obj.car if booking_obj and booking_obj.car else ""
+
+        plate = booking_obj.plate if booking_obj and booking_obj.plate else ""
+
+        worker_name = ""
+
+        if booking_obj:
+
+            worker_links = db.scalars(
+
+                select(BookingWorker).where(BookingWorker.booking_id == booking_obj.id)
+
+            ).all()
+
+            if worker_links:
+
+                worker_name = ", ".join(wl.worker_name for wl in worker_links)
 
 
 
@@ -17490,7 +17512,11 @@ def owner_salary_detail(
 
             clientName=client_name,
 
+            clientPhone=client_phone,
+
             date=share.date,
+
+            time=time_val,
 
             price=price,
 
@@ -17499,6 +17525,12 @@ def owner_salary_detail(
             status=share.status,
 
             createdAt=share.created_at,
+
+            workerName=worker_name,
+
+            car=car,
+
+            plate=plate,
 
         )
 

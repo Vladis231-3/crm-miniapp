@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 
-WORKER_MAX_PERCENT = 40
+WORKER_MAX_PERCENT = 100
 COMPLAINT_THRESHOLD = 3
 COMPLAINT_PERCENT_DEDUCTION = 10
 COMPLAINT_DURATION_DAYS = 7
