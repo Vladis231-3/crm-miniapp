@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Power
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -31,7 +31,7 @@ import { useVisualViewport } from '../../utils/useVisualViewport';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'mode' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -440,6 +440,7 @@ export function OwnerApp() {
     boxes: liveBoxes,
     settings,
     saveOwnerCompany,
+    saveSchedule,
     saveBoxes,
     saveServices,
     saveWorkerSettings,
@@ -607,6 +608,7 @@ export function OwnerApp() {
   const [company, setCompany] = useState(settings.ownerCompany);
   const [boxes, setBoxes] = useState(liveBoxes);
   const [services, setServicesState] = useState(liveServices);
+  const [scheduleState, setScheduleState] = useState(schedule);
   const [employeeSettings, setEmployeeSettings] = useState<EmployeeSetting[]>(
     workers.map(worker => ({
       id: worker.id,
@@ -756,6 +758,7 @@ export function OwnerApp() {
   useEffect(() => setCompany(settings.ownerCompany), [settings.ownerCompany]);
   useEffect(() => setBoxes(liveBoxes), [liveBoxes]);
   useEffect(() => setServicesState(liveServices), [liveServices]);
+  useEffect(() => setScheduleState(schedule), [schedule]);
   useEffect(() => {
     if (!bookingForm.service) return;
     const nextBoxes = ownerBookingBoxes(bookingForm.service, liveServices, liveBoxes);
@@ -4716,7 +4719,7 @@ export function OwnerApp() {
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
                 { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
-                { id: 'mode', icon: Power, label: 'Режим работы', desc: company.operatingMode === 'open' ? 'Открыто' : company.operatingMode === 'closed' ? 'Закрыто' : 'Тех. работы', color: '#22C55E' },
+                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' · ') || 'График не задан', color: '#F59E0B' },
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
                 { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
@@ -4778,33 +4781,34 @@ export function OwnerApp() {
             </motion.div>
           )}
 
-          {/* ── SETTINGS: MODE ── */}
-          {!isAccountant && page === 'settings' && settingsSection === 'mode' && (
-            <motion.div key="s-mode" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+          {/* ── SETTINGS: SCHEDULE ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'schedule' && (
+            <motion.div key="s-schedule" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
-              <h2 className="font-semibold mb-4">Режим работы</h2>
-              <div className="space-y-3">
-                {[
-                  { value: 'open' as const, label: '🟢 Открыто', desc: 'Принимаем заказы и клиентов' },
-                  { value: 'closed' as const, label: '🔴 Закрыто', desc: 'Не работаем, записи не принимаются' },
-                  { value: 'maintenance' as const, label: '🟡 Тех. работы', desc: 'Временно недоступно' },
-                ].map(option => (
-                  <motion.button
-                    key={option.value}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setCompany(p => ({...p, operatingMode: option.value}))}
-                    className={`w-full p-4 rounded-2xl border-[0.5px] text-left transition-all duration-200 ${
-                      company.operatingMode === option.value
-                        ? 'border-blue-500 bg-blue-500/15'
-                        : isDark ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white'
-                    }`}
-                  >
-                    <div className="text-sm font-semibold">{option.label}</div>
-                    <div className={`text-xs ${sub} mt-0.5`}>{option.desc}</div>
-                  </motion.button>
-                ))}
-              </div>
-              <p className={`text-xs ${sub} mt-4 text-center`}>Текущий режим: {company.operatingMode === 'open' ? 'Открыто' : company.operatingMode === 'closed' ? 'Закрыто' : 'Тех. работы'}</p>
+              <h2 className="font-semibold mb-4">Расписание работы</h2>
+              {scheduleState.map((day, i) => (
+                <div key={day.day} className={`${glass} rounded-2xl p-4 mb-2`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{day.day}</span>
+                    <button onClick={() => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, active: !d.active } : d))}
+                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: day.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${day.active ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  {day.active && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Открытие</label>
+                        <input className={inputCls} type="time" value={day.open} onChange={e => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, open: e.target.value } : d))} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Закрытие</label>
+                        <input className={inputCls} type="time" value={day.close} onChange={e => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, close: e.target.value } : d))} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
