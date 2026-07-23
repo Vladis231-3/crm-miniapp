@@ -4082,23 +4082,10 @@ export function OwnerApp() {
             <motion.div key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold">Финансы</h2>
+                <h2 className="font-semibold">Копилка</h2>
                 <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
                   <RefreshCw size={16} className={piggyBankLoading ? 'animate-spin' : ''} />
                 </button>
-              </div>
-
-              {/* Date filter */}
-              <div className="flex items-center gap-2 mb-4">
-                <input type="date" value={toISODate(piggyDateFrom)} onChange={e => {
-                  const val = parseFlexibleDate(e.target.value);
-                  setPiggyDateFrom(val ? formatDate(val) : '');
-                }} className={`${inputCls} flex-1 text-xs`} />
-                <span className={`text-xs ${sub}`}>—</span>
-                <input type="date" value={toISODate(piggyDateTo)} onChange={e => {
-                  const val = parseFlexibleDate(e.target.value);
-                  setPiggyDateTo(val ? formatDate(val) : '');
-                }} className={`${inputCls} flex-1 text-xs`} />
               </div>
 
               {/* Balance card */}
@@ -4127,36 +4114,6 @@ export function OwnerApp() {
               {/* ── TAB: ALL ── */}
               {piggyTab === 'all' && (
                 <>
-                  {/* Quick summary — from filtered piggy bank data */}
-                  {(() => {
-                    const pb = piggyBank;
-                    const pbRevenue = (pb?.wash?.totalRevenue ?? 0) + (pb?.detailing?.detailingRevenue ?? 0);
-                    const pbExpenses = (pb?.washExpenses ?? 0) + (pb?.detailingExpenses ?? 0);
-                    const pbIncomes = (pb?.washIncomes ?? 0) + (pb?.detailingIncomes ?? 0);
-                    const pbProfit = pbRevenue + pbIncomes - pbExpenses;
-                    return (
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className={`${glass} rounded-2xl p-4`}>
-                        <div className={`text-xs ${sub} mb-1`}>Выручка</div>
-                        <div className="font-bold text-lg" style={{ color: accent }}>{pbRevenue.toLocaleString('ru')} ₽</div>
-                      </div>
-                      <div className={`${glass} rounded-2xl p-4`}>
-                        <div className={`text-xs ${sub} mb-1`}>Расходы</div>
-                        <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{pbExpenses.toLocaleString('ru')} ₽</div>
-                      </div>
-                      <div className={`${glass} rounded-2xl p-4`}>
-                        <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
-                        <div className="font-bold text-lg" style={{ color: primary }}>{pbIncomes.toLocaleString('ru')} ₽</div>
-                      </div>
-                      <div className={`${glass} rounded-2xl p-4`}>
-                        <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
-                        <div className="font-bold text-lg" style={{ color: pbProfit >= 0 ? accent : '#FF6B6B' }}>
-                          {Math.abs(pbProfit).toLocaleString('ru')} ₽{pbProfit < 0 ? ' (убыток)' : ''}
-                        </div>
-                      </div>
-                    </div>
-                    );
-                  })()}
 
               {/* Wash mini */}
               {piggyBank?.wash && (() => {
