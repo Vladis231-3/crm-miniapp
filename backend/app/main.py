@@ -9504,27 +9504,6 @@ def _create_weekly_archive(db: Session) -> str | None:
 
     db.commit()
 
-    expense_ids = [e.id for e in week_expenses]
-    income_ids = [i.id for i in week_incomes]
-    booking_ids = [b.id for b in week_bookings]
-
-    if expense_ids:
-        db.query(Expense).filter(Expense.id.in_(expense_ids)).delete(
-            synchronize_session=False
-        )
-    if income_ids:
-        db.query(Income).filter(Income.id.in_(income_ids)).delete(
-            synchronize_session=False
-        )
-    if booking_ids:
-        db.query(OwnerProfitShare).filter(
-            OwnerProfitShare.booking_id.in_(booking_ids)
-        ).delete(synchronize_session=False)
-        db.query(Booking).filter(Booking.id.in_(booking_ids)).delete(
-            synchronize_session=False
-        )
-    db.commit()
-
     return (
 
         f"Архив за неделю {week_start_str} — {week_end_str} создан: "
