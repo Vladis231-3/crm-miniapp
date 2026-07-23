@@ -4093,6 +4093,12 @@ export function OwnerApp() {
                 </button>
               </div>
 
+              {!piggyBank && piggyBankLoading ? (
+                <div className="text-center py-12">
+                  <div className={`text-sm ${sub}`}>Загрузка...</div>
+                </div>
+              ) : (
+              <>
               {/* Balance card */}
               {(function() {
                 const tabBalance = piggyTab === 'all' ? (piggyBank?.combinedBalance ?? piggyBankBalance)
@@ -4414,7 +4420,9 @@ export function OwnerApp() {
                   </button>
                 </div>
               )}
-            </motion.div>
+              </>
+              )}
+              </motion.div>
           )}
 
           {/* ── REPORTS ── */}
