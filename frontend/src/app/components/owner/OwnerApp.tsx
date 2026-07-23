@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Power
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -31,7 +31,7 @@ import { useVisualViewport } from '../../utils/useVisualViewport';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
+type SettingsSection = null | 'company' | 'mode' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -1261,6 +1261,7 @@ export function OwnerApp() {
     }
 
     if (settingsSection === 'company') await saveOwnerCompany(company);
+    if (settingsSection === 'mode') await saveOwnerCompany(company);
     if (settingsSection === 'boxes') await saveBoxes(boxes);
     if (settingsSection === 'services') await saveServices(services);
     if (settingsSection === 'employees') await saveWorkerSettings(employeeSettings);
@@ -3458,65 +3459,6 @@ export function OwnerApp() {
             </motion.div>
           )}
 
-          {/* ── MODAL: Detail Share ── */}
-          {selectedShareDetail && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
-              onClick={() => setSelectedShareDetail(null)}>
-              <motion.div initial={{ y: 400 }} animate={{ y: 0 }} exit={{ y: 400 }}
-                className="w-full max-w-md rounded-t-3xl p-5 pb-8"
-                style={{ background: isDark ? '#1a1d23' : '#fff' }}
-                onClick={e => e.stopPropagation()}>
-                <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }} />
-                <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'Услуга'}</h3>
-                <div className={`text-xs ${sub} mb-4`}>{selectedShareDetail.date}{selectedShareDetail.time ? ` · ${selectedShareDetail.time}` : ''}</div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className={`text-sm ${sub}`}>Стоимость</span>
-                    <span className="text-sm font-semibold">{selectedShareDetail.price.toLocaleString('ru')} ₽</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className={`text-sm ${sub}`}>Доля владельца</span>
-                    <span className="text-sm font-semibold" style={{ color: accent }}>+{selectedShareDetail.amount.toLocaleString('ru')} ₽</span>
-                  </div>
-                  {selectedShareDetail.workerName && (
-                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={`text-sm ${sub}`}>Мастер</span>
-                      <span className="text-sm font-semibold">{selectedShareDetail.workerName}</span>
-                    </div>
-                  )}
-                  {selectedShareDetail.clientName && (
-                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={`text-sm ${sub}`}>Клиент</span>
-                      <span className="text-sm font-semibold">{selectedShareDetail.clientName}</span>
-                    </div>
-                  )}
-                  {selectedShareDetail.clientPhone && (
-                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={`text-sm ${sub}`}>Телефон</span>
-                      <a href={`tel:${selectedShareDetail.clientPhone}`} className="text-sm font-semibold" style={{ color: primary }}>{selectedShareDetail.clientPhone}</a>
-                    </div>
-                  )}
-                  {selectedShareDetail.car && (
-                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={`text-sm ${sub}`}>Автомобиль</span>
-                      <span className="text-sm font-semibold">{selectedShareDetail.car}</span>
-                    </div>
-                  )}
-                  {selectedShareDetail.plate && (
-                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={`text-sm ${sub}`}>Гос. номер</span>
-                      <span className="text-sm font-semibold">{selectedShareDetail.plate}</span>
-                    </div>
-                  )}
-                </div>
-                <button onClick={() => setSelectedShareDetail(null)} className="w-full mt-5 py-3 rounded-2xl text-sm font-semibold" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }}>
-                  Закрыть
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-
           {/* ── SALARY DETAIL ── */}
           {page === 'salary-detail' && (
             <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
@@ -4774,6 +4716,7 @@ export function OwnerApp() {
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
                 { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
+                { id: 'mode', icon: Power, label: 'Режим работы', desc: company.operatingMode === 'open' ? 'Открыто' : company.operatingMode === 'closed' ? 'Закрыто' : 'Тех. работы', color: '#22C55E' },
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
                 { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
@@ -4829,34 +4772,39 @@ export function OwnerApp() {
                 ))}
               </div>
 
-              <div className="mt-6 pt-6 border-t border-white/10">
-                <label className={`text-xs ${sub} block mb-2`}>Режим работы</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'open' as const, label: 'Открыто', color: '#22C55E' },
-                    { value: 'closed' as const, label: 'Закрыто', color: '#EF4444' },
-                    { value: 'maintenance' as const, label: 'Тех. работы', color: '#F59E0B' },
-                  ].map(option => (
-                    <motion.button
-                      key={option.value}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => setCompany(p => ({...p, operatingMode: option.value}))}
-                      className={`flex-1 p-3 rounded-2xl border-[0.5px] text-left transition-all duration-200 ${
-                        company.operatingMode === option.value
-                          ? 'border-blue-500 bg-blue-500/15'
-                          : isDark ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full" style={{ background: option.color }} />
-                        <span className="text-xs font-semibold">{option.label}</span>
-                      </div>
-                      {company.operatingMode === option.value && <div className={`text-[10px] ${sub} mt-0.5`}>Текущий режим</div>}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
+              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
+                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+              </button>
+            </motion.div>
+          )}
 
+          {/* ── SETTINGS: MODE ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'mode' && (
+            <motion.div key="s-mode" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">Режим работы</h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'open' as const, label: '🟢 Открыто', desc: 'Принимаем заказы и клиентов' },
+                  { value: 'closed' as const, label: '🔴 Закрыто', desc: 'Не работаем, записи не принимаются' },
+                  { value: 'maintenance' as const, label: '🟡 Тех. работы', desc: 'Временно недоступно' },
+                ].map(option => (
+                  <motion.button
+                    key={option.value}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setCompany(p => ({...p, operatingMode: option.value}))}
+                    className={`w-full p-4 rounded-2xl border-[0.5px] text-left transition-all duration-200 ${
+                      company.operatingMode === option.value
+                        ? 'border-blue-500 bg-blue-500/15'
+                        : isDark ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white'
+                    }`}
+                  >
+                    <div className="text-sm font-semibold">{option.label}</div>
+                    <div className={`text-xs ${sub} mt-0.5`}>{option.desc}</div>
+                  </motion.button>
+                ))}
+              </div>
+              <p className={`text-xs ${sub} mt-4 text-center`}>Текущий режим: {company.operatingMode === 'open' ? 'Открыто' : company.operatingMode === 'closed' ? 'Закрыто' : 'Тех. работы'}</p>
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
@@ -6267,6 +6215,63 @@ export function OwnerApp() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── MODAL: Detail Share (outside AnimatePresence) ── */}
+      {selectedShareDetail && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setSelectedShareDetail(null)}>
+          <div className="w-full max-w-md rounded-t-3xl p-5 pb-8"
+            style={{ background: isDark ? '#1a1d23' : '#fff' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }} />
+            <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'Услуга'}</h3>
+            <div className={`text-xs ${sub} mb-4`}>{selectedShareDetail.date}{selectedShareDetail.time ? ` · ${selectedShareDetail.time}` : ''}</div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                <span className={`text-sm ${sub}`}>Стоимость</span>
+                <span className="text-sm font-semibold">{selectedShareDetail.price.toLocaleString('ru')} ₽</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                <span className={`text-sm ${sub}`}>Доля владельца</span>
+                <span className="text-sm font-semibold" style={{ color: accent }}>+{selectedShareDetail.amount.toLocaleString('ru')} ₽</span>
+              </div>
+              {selectedShareDetail.workerName && (
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                  <span className={`text-sm ${sub}`}>Мастер</span>
+                  <span className="text-sm font-semibold">{selectedShareDetail.workerName}</span>
+                </div>
+              )}
+              {selectedShareDetail.clientName && (
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                  <span className={`text-sm ${sub}`}>Клиент</span>
+                  <span className="text-sm font-semibold">{selectedShareDetail.clientName}</span>
+                </div>
+              )}
+              {selectedShareDetail.clientPhone && (
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                  <span className={`text-sm ${sub}`}>Телефон</span>
+                  <a href={`tel:${selectedShareDetail.clientPhone}`} className="text-sm font-semibold" style={{ color: primary }}>{selectedShareDetail.clientPhone}</a>
+                </div>
+              )}
+              {selectedShareDetail.car && (
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                  <span className={`text-sm ${sub}`}>Автомобиль</span>
+                  <span className="text-sm font-semibold">{selectedShareDetail.car}</span>
+                </div>
+              )}
+              {selectedShareDetail.plate && (
+                <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                  <span className={`text-sm ${sub}`}>Гос. номер</span>
+                  <span className="text-sm font-semibold">{selectedShareDetail.plate}</span>
+                </div>
+              )}
+            </div>
+            <button onClick={() => setSelectedShareDetail(null)} className="w-full mt-5 py-3 rounded-2xl text-sm font-semibold" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }}>
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Nav */}
       <div className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
