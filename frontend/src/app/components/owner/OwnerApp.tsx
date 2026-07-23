@@ -4828,7 +4828,7 @@ export function OwnerApp() {
                   <input
                     className={inputCls}
                     type={settingsClientSearchMode === 'phone' ? 'tel' : 'text'}
-                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : settingsClientSearchMode === 'plate' ? 'A123BC777' : 'Иван'}
+                    placeholder={settingsClientSearchMode === 'phone' ? '+7 (___) ___-__-__' : settingsClientSearchMode === 'plate' ? 'а123вс777' : 'Иван'}
                     value={settingsClientSearchQuery}
                     onChange={(event) => setSettingsClientSearchQuery(event.target.value)}
                   />
@@ -6705,7 +6705,7 @@ export function OwnerApp() {
                   { label: 'Имя', key: 'name', placeholder: 'Иван Иванов', type: 'text' },
                   { label: 'Телефон (необязательно)', key: 'phone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Госномер', key: 'plate', placeholder: 'A123BC777', type: 'text' },
+                  { label: 'Госномер', key: 'plate', placeholder: 'а123вс777', type: 'text' },
                 ].map((field) => (
                   <div key={field.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
@@ -6723,7 +6723,7 @@ export function OwnerApp() {
                         <input
                           className={`${inputCls} flex-1 ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
                           type={field.type}
-                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234ab77' : createClientForm.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'}
+                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234ав77' : createClientForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                           maxLength={createClientForm.plateType === 'foreign' ? 15 : 9}
                           value={(createClientForm as any)[field.key]}
                           onChange={(event) => {
@@ -6827,7 +6827,7 @@ export function OwnerApp() {
                           >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
                         ))}
                       </div>
-                      <input className={`${inputCls} flex-1`} maxLength={bookingForm.plateType === 'foreign' ? 15 : 9} placeholder={bookingForm.plateType === 'motorcycle' ? '1234ab77' : bookingForm.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'} value={bookingForm.plate} onChange={e => setBookingForm(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
+                      <input className={`${inputCls} flex-1`} maxLength={bookingForm.plateType === 'foreign' ? 15 : 9} placeholder={bookingForm.plateType === 'motorcycle' ? '1234ав77' : bookingForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'} value={bookingForm.plate} onChange={e => setBookingForm(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
                     </div>
                   </div>
                 </div>
@@ -7305,7 +7305,7 @@ export function OwnerApp() {
                                 >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
                               ))}
                             </div>
-                            <input className={`${inputCls} flex-1`} maxLength={ownerBookingEditFull.plateType === 'foreign' ? 15 : 9} placeholder={ownerBookingEditFull.plateType === 'motorcycle' ? '1234ab77' : ownerBookingEditFull.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'} value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
+                            <input className={`${inputCls} flex-1`} maxLength={ownerBookingEditFull.plateType === 'foreign' ? 15 : 9} placeholder={ownerBookingEditFull.plateType === 'motorcycle' ? '1234ав77' : ownerBookingEditFull.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'} value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
                           </div>
                         </div>
                       </div>
@@ -7525,7 +7525,7 @@ export function OwnerApp() {
                   { label: 'Клиент (необязательно)', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
                   { label: 'Телефон (необязательно)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль (необязательно)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'a123bc777', type: 'text' },
+                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'а123вс777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
@@ -7541,7 +7541,7 @@ export function OwnerApp() {
                           ))}
                         </div>
                         <input className={`${inputCls} flex-1 ${ownerNewBookingErrors[f.key as keyof typeof ownerNewBookingErrors] ? 'border-red-400' : ''}`} type={f.type}
-                          placeholder={ownerNewBookingForm.plateType === 'motorcycle' ? '1234ab77' : ownerNewBookingForm.plateType === 'foreign' ? 'xyz1234' : 'a123bc777'}
+                          placeholder={ownerNewBookingForm.plateType === 'motorcycle' ? '1234ав77' : ownerNewBookingForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                           maxLength={ownerNewBookingForm.plateType === 'foreign' ? 15 : 9}
                           value={(ownerNewBookingForm as any)[f.key]} onChange={e => {
                             const nextValue = normalizePlateInput(e.target.value, ownerNewBookingForm.plateType);

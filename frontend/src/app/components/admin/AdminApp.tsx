@@ -1534,7 +1534,7 @@ export function AdminApp() {
                   <input
                     className={inputCls}
                     type={clientSearchMode === 'phone' ? 'tel' : 'text'}
-                    placeholder={clientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'A123BC777'}
+                    placeholder={clientSearchMode === 'phone' ? '+7 (___) ___-__-__' : 'а123вс777'}
                     value={clientSearchQuery}
                     onChange={(event) => setClientSearchQuery(event.target.value)}
                   />
@@ -3116,7 +3116,7 @@ export function AdminApp() {
                       </div>
                       <input
                         className={`${inputCls} flex-1`}
-                        placeholder={editBookingDraft.plateType === 'motorcycle' ? '1234AB77' : editBookingDraft.plateType === 'foreign' ? 'XYZ1234' : 'A123BC777'}
+                        placeholder={editBookingDraft.plateType === 'motorcycle' ? '1234ав77' : editBookingDraft.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                         maxLength={editBookingDraft.plateType === 'foreign' ? 15 : 9}
                         value={editBookingDraft.plate}
                         onChange={e => setEditBookingDraft((current) => ({ ...current, plate: normalizePlateInput(e.target.value, current.plateType) }))}
@@ -3167,7 +3167,7 @@ export function AdminApp() {
                   { label: 'Имя', key: 'name', placeholder: 'Иван Иванов', type: 'text' },
                   { label: 'Телефон (необязательно)', key: 'phone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Госномер', key: 'plate', placeholder: 'A123BC777', type: 'text' },
+                  { label: 'Госномер', key: 'plate', placeholder: 'а123вс777', type: 'text' },
                 ].map((field) => (
                   <div key={field.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
@@ -3185,7 +3185,7 @@ export function AdminApp() {
                         <input
                           className={`${inputCls} flex-1 ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
                           type={field.type}
-                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234AB77' : createClientForm.plateType === 'foreign' ? 'XYZ1234' : 'A123BC777'}
+                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234ав77' : createClientForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                           maxLength={createClientForm.plateType === 'foreign' ? 15 : 9}
                           value={(createClientForm as any)[field.key]}
                           onChange={(event) => {
@@ -3282,7 +3282,7 @@ export function AdminApp() {
                   { label: 'Клиент (необязательно)', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
                   { label: 'Телефон (необязательно)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль (необязательно)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'A123BC777', type: 'text' },
+                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'а123вс777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
@@ -3298,7 +3298,7 @@ export function AdminApp() {
                           ))}
                         </div>
                         <input className={`${inputCls} flex-1 ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type}
-                          placeholder={newBookingForm.plateType === 'motorcycle' ? '1234AB77' : newBookingForm.plateType === 'foreign' ? 'XYZ1234' : 'A123BC777'}
+                          placeholder={newBookingForm.plateType === 'motorcycle' ? '1234ав77' : newBookingForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                           maxLength={newBookingForm.plateType === 'foreign' ? 15 : 9}
                           value={(newBookingForm as any)[f.key]} onChange={e => {
                             const nextValue = normalizePlateInput(e.target.value, newBookingForm.plateType);

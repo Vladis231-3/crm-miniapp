@@ -493,7 +493,7 @@ function WelcomeScreen() {
                     <Hash size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input
                       className={`${inputCls} pl-11 uppercase ${formErrors.plate ? 'border-red-400' : ''}`}
-                      placeholder="Гос. номер (A123BC777)"
+                      placeholder="Гос. номер (а123вс777)"
                       maxLength={9}
                       value={form.plate}
                       onChange={(e) => {

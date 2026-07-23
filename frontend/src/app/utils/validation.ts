@@ -4,37 +4,37 @@ const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{0,5
 const REPEATED_LETTERS_PATTERN = /([A-Za-zА-Яа-яЁё])\1{3,}/i;
 const VEHICLE_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$/;
 const REPEATED_VEHICLE_PATTERN = /([A-Za-zА-Яа-яЁё0-9])\1{3,}/i;
-const PLATE_ALLOWED_LETTERS = new Set(["a", "b", "e", "k", "m", "h", "o", "p", "c", "t", "y", "x"]);
+const PLATE_ALLOWED_LETTERS = new Set(["а", "в", "е", "к", "м", "н", "о", "р", "с", "т", "у", "х"]);
 
 const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
-  A: 'a', a: 'a',
-  B: 'b', b: 'b',
-  C: 'c', c: 'c',
-  E: 'e', e: 'e',
-  H: 'h', h: 'h',
-  K: 'k', k: 'k',
-  M: 'm', m: 'm',
-  O: 'o', o: 'o',
-  P: 'p', p: 'p',
-  T: 't', t: 't',
-  X: 'x', x: 'x',
-  Y: 'y', y: 'y',
-  А: 'a', а: 'a',
-  В: 'b', в: 'b',
-  С: 'c', с: 'c',
-  Е: 'e', е: 'e',
-  Ё: 'e', ё: 'e',
-  Н: 'h', н: 'h',
-  К: 'k', к: 'k',
-  М: 'm', м: 'm',
-  О: 'o', о: 'o',
-  Р: 'p', р: 'p',
-  Т: 't', т: 't',
-  Х: 'x', х: 'x',
-  У: 'y', у: 'y',
+  A: 'а', a: 'а',
+  B: 'в', b: 'в',
+  C: 'с', c: 'с',
+  E: 'е', e: 'е',
+  H: 'н', h: 'н',
+  K: 'к', k: 'к',
+  M: 'м', m: 'м',
+  O: 'о', o: 'о',
+  P: 'р', p: 'р',
+  T: 'т', t: 'т',
+  X: 'х', x: 'х',
+  Y: 'у', y: 'у',
+  А: 'а', а: 'а',
+  В: 'в', в: 'в',
+  С: 'с', с: 'с',
+  Е: 'е', е: 'е',
+  Ё: 'е', ё: 'е',
+  Н: 'н', н: 'н',
+  К: 'к', к: 'к',
+  М: 'м', м: 'м',
+  О: 'о', о: 'о',
+  Р: 'р', р: 'р',
+  Т: 'т', т: 'т',
+  Х: 'х', х: 'х',
+  У: 'у', у: 'у',
 };
-const PLATE_PATTERN = /^[abekmhopctyx]\d{3}[abekmhopctyx]{2}\d{2,3}$/;
-const MOTORCYCLE_PLATE_PATTERN = /^\d{4}[abekmhopctyx]{2}\d{2,3}$/;
+const PLATE_PATTERN = /^[авекмнорстух]\d{3}[авекмнорстух]{2}\d{2,3}$/;
+const MOTORCYCLE_PLATE_PATTERN = /^\d{4}[авекмнорстух]{2}\d{2,3}$/;
 
 export function normalizePersonName(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -124,9 +124,9 @@ export function validatePlateValue(value: string, plateType: PlateType = 'russia
   const normalized = normalizePlateInput(value, plateType);
   if (!normalized) return 'Введите госномер';
   if (plateType === 'russian') {
-    if (!PLATE_PATTERN.test(normalized)) return 'Введите номер в формате a123bc77 или a123bc777';
+    if (!PLATE_PATTERN.test(normalized)) return 'Введите номер в формате а123вс77 или а123вс777';
   } else if (plateType === 'motorcycle') {
-    if (!MOTORCYCLE_PLATE_PATTERN.test(normalized)) return 'Введите номер в формате 1234ab77';
+    if (!MOTORCYCLE_PLATE_PATTERN.test(normalized)) return 'Введите номер в формате 1234ав77';
   }
   return null;
 }

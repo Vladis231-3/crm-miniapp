@@ -29,18 +29,18 @@ REPEATED_LETTERS_PATTERN = re.compile(r"([A-Za-zА-Яа-яЁё])\1{3,}")
 VEHICLE_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$")
 REPEATED_VEHICLE_PATTERN = re.compile(r"([A-Za-zА-Яа-яЁё0-9])\1{3,}")
 PLATE_LATIN_TO_CYRILLIC = {
-    "a": "А",
-    "b": "В",
-    "c": "С",
-    "e": "Е",
-    "h": "Н",
-    "k": "К",
-    "m": "М",
-    "o": "О",
-    "p": "Р",
-    "t": "Т",
-    "x": "Х",
-    "y": "У",
+    "a": "а",
+    "b": "в",
+    "c": "с",
+    "e": "е",
+    "h": "н",
+    "k": "к",
+    "m": "м",
+    "o": "о",
+    "p": "р",
+    "t": "т",
+    "x": "х",
+    "y": "у",
 }
 PLATE_PATTERN = re.compile(r"^[авекмнорстух]\d{3}[авекмнорстух]{2}$")
 MOTORCYCLE_PLATE_PATTERN = re.compile(r"^\d{4}[авекмнорстух]{2}\d{2,3}$")
@@ -100,37 +100,37 @@ def normalize_plate(value: str, plate_type: str = "russian") -> str:
 
     cleaned = re.sub(r"\s+", "", value).lower()
     latin_map = {
-        "a": "a",
-        "b": "b",
-        "c": "c",
-        "e": "e",
-        "h": "h",
-        "k": "k",
-        "m": "m",
-        "o": "o",
-        "p": "p",
-        "t": "t",
-        "x": "x",
-        "y": "y",
-        "а": "a",
-        "в": "b",
-        "с": "c",
-        "е": "e",
-        "н": "h",
-        "к": "k",
-        "м": "m",
-        "о": "o",
-        "р": "p",
-        "т": "t",
-        "х": "x",
-        "у": "y",
-        "ё": "e",
+        "a": "а",
+        "b": "в",
+        "c": "с",
+        "e": "е",
+        "h": "н",
+        "k": "к",
+        "m": "м",
+        "o": "о",
+        "p": "р",
+        "t": "т",
+        "x": "х",
+        "y": "у",
+        "а": "а",
+        "в": "в",
+        "с": "с",
+        "е": "е",
+        "н": "н",
+        "к": "к",
+        "м": "м",
+        "о": "о",
+        "р": "р",
+        "т": "т",
+        "х": "х",
+        "у": "у",
+        "ё": "е",
     }
     normalized_chars: list[str] = []
     for char in cleaned:
         if char in latin_map:
             normalized_chars.append(latin_map[char])
-        elif char.isdigit() or ("a" <= char <= "z"):
+        elif char.isdigit():
             normalized_chars.append(char)
     normalized = "".join(normalized_chars)
     if not normalized:
@@ -139,14 +139,14 @@ def normalize_plate(value: str, plate_type: str = "russian") -> str:
         raise ValueError("Номерной знак слишком длинный (максимум 9 символов)")
     if plate_type == "russian":
         if not re.fullmatch(
-            r"^[abekmhopctyx]\d{3}[abekmhopctyx]{2}(?:\d{2,3})?$", normalized
+            r"^[авекмнорстух]\d{3}[авекмнорстух]{2}(?:\d{2,3})?$", normalized
         ):
-            raise ValueError("Enter plate as a123bc77 or a123bc777")
+            raise ValueError("Enter plate as а123вс77 or а123вс777")
     elif plate_type == "motorcycle":
         if not re.fullmatch(
-            r"^\d{4}[abekmhopctyx]{2}\d{2,3}$", normalized
+            r"^\d{4}[авекмнорстух]{2}\d{2,3}$", normalized
         ):
-            raise ValueError("Enter plate as 1234ab77")
+            raise ValueError("Enter plate as 1234ав77")
     else:
         raise ValueError(f"Unknown plate type: {plate_type}")
     return normalized

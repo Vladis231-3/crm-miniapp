@@ -1005,7 +1005,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="A123BC777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
                       const nextPlate = normalizePlateInput(e.target.value);
                       setProfileForm((current) => {
                         const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
