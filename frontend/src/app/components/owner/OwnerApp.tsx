@@ -746,6 +746,8 @@ export function OwnerApp() {
   // Edit income state (tasks 6.1–6.3)
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [editIncomeForm, setEditIncomeForm] = useState({ amount: '', source: '', note: '', date: '', resourceGroup: '' as '' | 'wash' | 'detailing' });
+  const [editFinanceLoading, setEditFinanceLoading] = useState(false);
+  const [editFinanceError, setEditFinanceError] = useState<string | null>(null);
 
   const clearOwnerResetFlow = () => {
     setResetPassword('');
@@ -3953,7 +3955,7 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4 mb-4 flex justify-between items-center`}>
                     <div>
                       <div className={`text-xs ${sub}`}>Баланс копилки</div>
-                      <div className="font-semibold" style={{ color: accent }}>{walletData.piggyBankBalance.toLocaleString('ru')} ₽</div>
+                      <div className="font-semibold" style={{ color: accent }}>{piggyBankBalance.toLocaleString('ru')} ₽</div>
                     </div>
                     <button onClick={() => setPage('piggy-bank')} className={`text-xs font-medium px-3 py-1.5 rounded-xl`} style={{ background: `${primary}20`, color: primary }}>
                       Подробнее
