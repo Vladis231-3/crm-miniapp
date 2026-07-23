@@ -9427,17 +9427,17 @@ def _create_weekly_archive(db: Session) -> str | None:
 
     last_friday = last_saturday + timedelta(days=6)
 
+    week_start_iso = last_saturday.isoformat()
 
+    week_end_iso = last_friday.isoformat()
 
-    week_start_str = last_saturday.isoformat()
+    week_start_str = _dmy(last_saturday)
 
-    week_end_str = last_friday.isoformat()
-
-
+    week_end_str = _dmy(last_friday)
 
     existing = db.scalars(
 
-        select(WeeklyArchive).where(WeeklyArchive.week_start == week_start_str)
+        select(WeeklyArchive).where(WeeklyArchive.week_start == week_start_iso)
 
     ).first()
 
@@ -9483,9 +9483,9 @@ def _create_weekly_archive(db: Session) -> str | None:
 
     archive = WeeklyArchive(
 
-        week_start=week_start_str,
+        week_start=week_start_iso,
 
-        week_end=week_end_str,
+        week_end=week_end_iso,
 
         total_revenue=sum(b.price for b in week_bookings),
 
@@ -9633,7 +9633,7 @@ def run_weekly_archive_cron(
 
         last_saturday = today - timedelta(days=((today.weekday() - 5) % 7) + 7)
 
-        return GenericMessage(message=f"Архив за неделю {last_saturday.isoformat()} уже существует")
+        return GenericMessage(message=f"Архив за неделю {_dmy(last_saturday)} — {_dmy(last_friday)} уже существует")
 
     return GenericMessage(message=msg)
 
@@ -14484,6 +14484,11 @@ def _week_bounds() -> tuple[date, date]:
     return saturday, friday
 
 
+def _dmy(d: date) -> str:
+
+    return f"{d.day:02d}.{d.month:02d}.{d.year}"
+
+
 
 
 
@@ -14503,9 +14508,13 @@ def get_wallet(
 
     saturday, friday = _week_bounds()
 
-    week_start_str = saturday.isoformat()
+    week_start_str = _dmy(saturday)
 
-    week_end_str = friday.isoformat()
+    week_end_str = _dmy(friday)
+
+    week_start_iso = saturday.isoformat()
+
+    week_end_iso = friday.isoformat()
 
 
 
