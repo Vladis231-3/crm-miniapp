@@ -14170,7 +14170,7 @@ def get_piggy_bank(
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
-    combined_balance = wash_net_piggy + net_piggy
+    combined_balance = remaining + net_piggy
 
     # Weekly archives
 
