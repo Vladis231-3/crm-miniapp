@@ -4958,7 +4958,16 @@ export function OwnerApp() {
                     }}
                   >
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: primary }}>{clientDisplayName.charAt(0).toUpperCase() || '?'}</div>
+                      <div className="relative shrink-0">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ background: primary }}>{clientDisplayName.charAt(0).toUpperCase() || '?'}</div>
+                        {isClientCardIncomplete(client) && (
+                          <motion.span
+                            className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-900"
+                            animate={{ opacity: [1, 0.3, 1] }}
+                            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                          />
+                        )}
+                      </div>
                       <div className="flex-1">
                         <div className="font-semibold">{clientDisplayName}</div>
                         <div className={`text-xs ${sub}`}>{client.car || 'Автомобиль не указан'}</div>
@@ -5017,8 +5026,17 @@ export function OwnerApp() {
                 <div className="space-y-3">
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="flex items-start gap-3 mb-4">
-                      <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ background: primary }}>
-                        {(selectedSettingsClient.name.trim() || 'К').charAt(0).toUpperCase()}
+                      <div className="relative shrink-0">
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold" style={{ background: primary }}>
+                          {(selectedSettingsClient.name.trim() || 'К').charAt(0).toUpperCase()}
+                        </div>
+                        {isClientCardIncomplete(selectedSettingsClient) && (
+                          <motion.span
+                            className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-900"
+                            animate={{ opacity: [1, 0.3, 1] }}
+                            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                          />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         {editingSettingsClientCard ? (
