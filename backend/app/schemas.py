@@ -1360,6 +1360,7 @@ class PiggyBankWashBreakdown(BaseModel):
     totalRevenue: int = 0
     totalMaster: int = 0
     totalPiggy: int = 0
+    washNetPiggy: int = 0
 
 
 class PiggyBankDetailingBreakdown(BaseModel):
@@ -1384,6 +1385,7 @@ class PiggyBankResponse(BaseModel):
     detailingExpenses: int = 0
     detailingIncomes: int = 0
     remainingInPiggyBank: int = 0
+    combinedBalance: int = 0
     archives: list[WeeklyArchivePayload] = Field(default_factory=list)
     ownerProfitShares: list[OwnerProfitShareItem] = Field(default_factory=list)
     ownerProfitTotal: int = 0

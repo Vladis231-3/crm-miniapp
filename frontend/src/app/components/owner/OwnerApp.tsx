@@ -70,6 +70,7 @@ interface PiggyBankWashBreakdown {
   selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
   classicRevenue: number; classicMaster: number; classicPiggy: number;
   totalRevenue: number; totalMaster: number; totalPiggy: number;
+  washNetPiggy: number;
 }
 interface PiggyBankDetailingBreakdown {
   detailingRevenue: number; detailingMaster: number;
@@ -88,6 +89,7 @@ interface PiggyBankData {
   detailingExpenses: number;
   detailingIncomes: number;
   remainingInPiggyBank: number;
+  combinedBalance: number;
 }
 
 interface WeeklyArchiveInfo {
@@ -4089,12 +4091,22 @@ export function OwnerApp() {
               </div>
 
               {/* Balance card */}
-              <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
-                <div className={`text-xs ${sub} mb-1`}>Баланс копилки</div>
-                <div className="font-bold text-3xl" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
-                  {piggyBankBalance.toLocaleString('ru')} ₽
+              {(function() {
+                const tabBalance = piggyTab === 'all' ? (piggyBank?.combinedBalance ?? piggyBankBalance)
+                  : piggyTab === 'wash' ? (piggyBank?.remainingInPiggyBank ?? 0)
+                  : (piggyBank?.detailing?.netPiggy ?? 0);
+                const tabLabel = piggyTab === 'all' ? 'Баланс копилки'
+                  : piggyTab === 'wash' ? 'Баланс · Мойка'
+                  : 'Баланс · Детейлинг';
+                return (
+                <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
+                  <div className={`text-xs ${sub} mb-1`}>{tabLabel}</div>
+                  <div className="font-bold text-3xl" style={{ color: tabBalance >= 0 ? accent : '#FF6B6B' }}>
+                    {tabBalance.toLocaleString('ru')} ₽
+                  </div>
                 </div>
-              </div>
+                );
+              })()}
 
               {/* Tabs */}
               <div className="flex gap-1 mb-4 bg-white/5 rounded-xl p-1">
@@ -4170,8 +4182,8 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4 mb-4`}>
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Общий баланс копилки</span>
-                      <span className="font-bold text-lg" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
-                        {piggyBankBalance.toLocaleString('ru')} ₽
+                      <span className="font-bold text-lg" style={{ color: (piggyBank.combinedBalance ?? piggyBankBalance) >= 0 ? accent : '#FF6B6B' }}>
+                        {(piggyBank.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </div>

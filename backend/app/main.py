@@ -14164,7 +14164,13 @@ def get_piggy_bank(
 
     net_piggy = deposits_24 + repayments - withdrawals
 
+    # Wash net piggy (from actual transactions, same methodology)
+    wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash")
+    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "wash")
+    wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
+    wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
+    combined_balance = wash_net_piggy + net_piggy
 
     # Weekly archives
 
@@ -14266,6 +14272,8 @@ def get_piggy_bank(
 
             totalPiggy=total_piggy,
 
+            washNetPiggy=wash_net_piggy,
+
         ),
 
         detailing=PiggyBankDetailingBreakdown(
@@ -14299,6 +14307,8 @@ def get_piggy_bank(
         detailingIncomes=detailing_incomes,
 
         remainingInPiggyBank=remaining,
+
+        combinedBalance=combined_balance,
 
         archives=[
 
