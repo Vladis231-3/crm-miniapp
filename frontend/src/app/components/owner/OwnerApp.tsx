@@ -529,6 +529,7 @@ export function OwnerApp() {
   const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
   const [piggyBankLoading, setPiggyBankLoading] = useState(false);
   const [piggyBank, setPiggyBank] = useState(null);
+  const [piggyTxExpanded, setPiggyTxExpanded] = useState(false);
   const [piggyTab, setPiggyTab] = useState<'all' | 'wash' | 'detailing'>('all');
   const [piggyDateFrom, setPiggyDateFrom] = useState('');
   const [piggyDateTo, setPiggyDateTo] = useState('');
@@ -4311,8 +4312,16 @@ export function OwnerApp() {
               )}
 
               {/* Transaction history */}
-              <h3 className={`text-xs font-medium ${sub} mb-3 uppercase tracking-wider`}>История операций</h3>
-              {(() => {
+              <button onClick={() => setPiggyTxExpanded(v => !v)} className="w-full flex items-center justify-between mb-3">
+                <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider`}>История операций</h3>
+                <div className="flex items-center gap-2">
+                  {!piggyTxExpanded && (
+                    <span className={`text-[11px] ${sub}`}>{piggyBankTxs.length} операций</span>
+                  )}
+                  <ChevronRight size={14} className={`${sub} transition-transform ${piggyTxExpanded ? 'rotate-90' : ''}`} />
+                </div>
+              </button>
+              {piggyTxExpanded && (() => {
                 const filteredTxs = piggyTab === 'all' ? piggyBankTxs
                   : piggyTab === 'wash' ? piggyBankTxs.filter(tx => tx.resourceGroup === 'wash')
                   : piggyBankTxs.filter(tx => tx.resourceGroup === 'detailing');
