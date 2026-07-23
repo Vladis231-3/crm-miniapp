@@ -3457,6 +3457,65 @@ export function OwnerApp() {
             </motion.div>
           )}
 
+          {/* ── MODAL: Detail Share ── */}
+          {selectedShareDetail && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
+              onClick={() => setSelectedShareDetail(null)}>
+              <motion.div initial={{ y: 400 }} animate={{ y: 0 }} exit={{ y: 400 }}
+                className="w-full max-w-md rounded-t-3xl p-5 pb-8"
+                style={{ background: isDark ? '#1a1d23' : '#fff' }}
+                onClick={e => e.stopPropagation()}>
+                <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }} />
+                <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'Услуга'}</h3>
+                <div className={`text-xs ${sub} mb-4`}>{selectedShareDetail.date}{selectedShareDetail.time ? ` · ${selectedShareDetail.time}` : ''}</div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={`text-sm ${sub}`}>Стоимость</span>
+                    <span className="text-sm font-semibold">{selectedShareDetail.price.toLocaleString('ru')} ₽</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    <span className={`text-sm ${sub}`}>Доля владельца</span>
+                    <span className="text-sm font-semibold" style={{ color: accent }}>+{selectedShareDetail.amount.toLocaleString('ru')} ₽</span>
+                  </div>
+                  {selectedShareDetail.workerName && (
+                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={`text-sm ${sub}`}>Мастер</span>
+                      <span className="text-sm font-semibold">{selectedShareDetail.workerName}</span>
+                    </div>
+                  )}
+                  {selectedShareDetail.clientName && (
+                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={`text-sm ${sub}`}>Клиент</span>
+                      <span className="text-sm font-semibold">{selectedShareDetail.clientName}</span>
+                    </div>
+                  )}
+                  {selectedShareDetail.clientPhone && (
+                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={`text-sm ${sub}`}>Телефон</span>
+                      <a href={`tel:${selectedShareDetail.clientPhone}`} className="text-sm font-semibold" style={{ color: primary }}>{selectedShareDetail.clientPhone}</a>
+                    </div>
+                  )}
+                  {selectedShareDetail.car && (
+                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={`text-sm ${sub}`}>Автомобиль</span>
+                      <span className="text-sm font-semibold">{selectedShareDetail.car}</span>
+                    </div>
+                  )}
+                  {selectedShareDetail.plate && (
+                    <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                      <span className={`text-sm ${sub}`}>Гос. номер</span>
+                      <span className="text-sm font-semibold">{selectedShareDetail.plate}</span>
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setSelectedShareDetail(null)} className="w-full mt-5 py-3 rounded-2xl text-sm font-semibold" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }}>
+                  Закрыть
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+
           {/* ── SALARY DETAIL ── */}
           {page === 'salary-detail' && (
             <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
