@@ -3617,6 +3617,7 @@ def _worker_payroll_summaries_from_data(
         worker_id: [] for worker_id in worker_ids
     }
     for booking in completed_bookings:
+        svc = db.get(Service, booking.service_id) if booking.service_id else None
         for link in booking.worker_links:
             if link.worker_id not in booking_items_by_worker:
                 continue
@@ -3627,6 +3628,16 @@ def _worker_payroll_summaries_from_data(
                 time_value=booking.time,
                 fallback=booking.created_at,
             )
+            if link.pay_type == "fixed":
+                earned = link.fixed_amount
+            elif svc and svc.master_pay_type == "fixed":
+                earned = svc.master_pay_value
+            elif svc and svc.master_pay_type == "percent":
+                earned = round(booking.price * svc.master_pay_value / 100)
+            elif _is_fixed_master_service_db(db, booking.service_id, booking.service):
+                earned = FIXED_MASTER_EARNED
+            else:
+                earned = round(booking.price * percent / 100)
             booking_items_by_worker[link.worker_id].append(
                 WorkerPayrollBookingPayload(
                     bookingId=booking.id,
@@ -3635,7 +3646,7 @@ def _worker_payroll_summaries_from_data(
                     time=booking.time,
                     price=booking.price,
                     percent=percent,
-                    earned=link.fixed_amount if link.pay_type == "fixed" else (FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100)),
+                    earned=earned,
                     car=booking.car,
                     plate=booking.plate,
                 )
@@ -16920,7 +16931,13 @@ def owner_worker_salary_detail(
 
         main_price = max(0, b.price - additional_total)
 
-        main_earned = FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, b.service_id, b.service) else round(main_price * percent / 100)
+        svc = db.get(Service, b.service_id) if b.service_id else None
+        if svc and svc.master_pay_type == "fixed":
+            main_earned = svc.master_pay_value
+        elif svc and svc.master_pay_type == "percent":
+            main_earned = round(main_price * svc.master_pay_value / 100)
+        else:
+            main_earned = FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, b.service_id, b.service) else round(main_price * percent / 100)
 
         # Additional services contribution
 
@@ -17278,7 +17295,13 @@ def worker_my_salary_detail(
 
         main_price = max(0, b.price - additional_total)
 
-        main_earned = FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, b.service_id, b.service) else round(main_price * percent / 100)
+        svc = db.get(Service, b.service_id) if b.service_id else None
+        if svc and svc.master_pay_type == "fixed":
+            main_earned = svc.master_pay_value
+        elif svc and svc.master_pay_type == "percent":
+            main_earned = round(main_price * svc.master_pay_value / 100)
+        else:
+            main_earned = FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, b.service_id, b.service) else round(main_price * percent / 100)
 
         additional_earned = 0
 
