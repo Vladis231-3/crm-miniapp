@@ -11676,35 +11676,51 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
         deposit_amount = round(booking.price * 24 / 100)
 
-        if deposit_amount > 0:
+    else:
 
-            db.add(
+        deposit_amount = 0
 
-                PiggyBankTransaction(
+    if deposit_amount > 0:
 
-                    id=f"pb-{uuid4()}",
+        if piggy_type == "fixed":
 
-                    booking_id=booking.id,
+            purpose = f"Фикс {piggy_val}₽ в копилку: {booking.service} ({booking.client_name})"
 
-                    amount=deposit_amount,
+        elif piggy_type == "percent":
 
-                    transaction_type="deposit_24percent",
+            purpose = f"{piggy_val}% от заказа в копилку: {booking.service} ({booking.client_name})"
 
-                    purpose=f"24% от заказа {booking.service} ({booking.client_name})",
+        else:
 
-                    material_name=None,
+            purpose = f"24% от заказа {booking.service} ({booking.client_name})"
 
-                    material_cost=None,
+        db.add(
 
-                    date=date_str,
+            PiggyBankTransaction(
 
-                    resource_group=rg,
+                id=f"pb-{uuid4()}",
 
-                    created_at=_now(),
+                booking_id=booking.id,
 
-                )
+                amount=deposit_amount,
+
+                transaction_type="deposit_24percent",
+
+                purpose=purpose,
+
+                material_name=None,
+
+                material_cost=None,
+
+                date=date_str,
+
+                resource_group=rg,
+
+                created_at=_now(),
 
             )
+
+        )
 
 
 
@@ -11771,6 +11787,10 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
             if master_pay_type == "fixed":
 
                 total_master += master_pay_val
+
+            elif master_pay_type == "percent":
+
+                total_master += round(booking.price * master_pay_val / 100)
 
             elif link.pay_type == "fixed":
                 total_master += (link.fixed_amount or 0)
