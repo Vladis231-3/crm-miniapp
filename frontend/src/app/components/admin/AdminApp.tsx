@@ -383,8 +383,8 @@ export function AdminApp() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [editModalMode, setEditModalMode] = useState<EditModalMode>('edit');
   const [saveSuccess, setSaveSuccess] = useState<'notify' | 'silent' | null>(null);
-  const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
-  const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', plateType: 'russian' as PlateType, notes: '', status: 'admin_review' as BookingStatus,
@@ -397,7 +397,7 @@ export function AdminApp() {
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
   const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
-  const [addServiceWorkers, setAddServiceWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [addServiceWorkers, setAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [addServiceSaving, setAddServiceSaving] = useState(false);
   const [addServiceError, setAddServiceError] = useState<string | null>(null);
   const [showCreateClient, setShowCreateClient] = useState(false);
@@ -1032,7 +1032,7 @@ export function AdminApp() {
       const svc = services.find(s => s.id === addServiceDraft.serviceId);
       const workersList = addServiceWorkers.map(w => {
         const worker = masterWorkers.find(wk => wk.id === w.id);
-        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number };
+        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
       });
       const updatedBooking = await addBookingAdditionalService(addServiceTargetBooking.id, {
         serviceId: addServiceDraft.serviceId,
@@ -1158,7 +1158,7 @@ export function AdminApp() {
     if (!selectedBooking) return;
     const updatedWorkers = assignedWorkers.map(aw => {
       const w = masterWorkers.find(wk => wk.id === aw.id);
-      return { workerId: aw.id, workerName: w?.name || '', percent: aw.percent === '' ? 0 : aw.percent };
+      return { workerId: aw.id, workerName: w?.name || '', percent: aw.percent === '' ? 0 : aw.percent, payType: aw.payType || 'percent', fixedAmount: aw.fixedAmount };
     });
     await updateBooking(selectedBooking.id, { workers: updatedWorkers, notifyWorkers: notify });
     setSelectedBooking(prev => prev ? { ...prev, workers: updatedWorkers } : null);
@@ -1193,6 +1193,8 @@ export function AdminApp() {
         workerId: item.id,
         workerName: worker?.name || '',
         percent: item.percent === '' ? 0 : item.percent,
+        payType: item.payType || 'percent',
+        fixedAmount: item.fixedAmount,
       };
     });
     const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
@@ -2713,7 +2715,7 @@ export function AdminApp() {
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-center mb-2">
                     <div className={`text-xs font-medium ${sub}`}>МАСТЕРА</div>
-                    <button onClick={() => { setAssignedWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent }))); setShowAssignModal(true); }}
+                    <button onClick={() => { setAssignedWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount }))); setShowAssignModal(true); }}
                       className="text-xs px-2 py-1 rounded-lg" style={{ color: primary, background: `${primary}15` }}>Назначить</button>
                   </div>
                   {selectedBooking.workers.length > 0 ? selectedBooking.workers.map(w => (
@@ -2819,7 +2821,7 @@ export function AdminApp() {
                           <button
                             onClick={() => assigned
                               ? setAddServiceWorkers(current => current.filter(item => item.id !== worker.id))
-                              : setAddServiceWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                              : setAddServiceWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                             className="px-3 py-1 rounded-lg text-xs shrink-0"
                             style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                           >
@@ -2828,11 +2830,23 @@ export function AdminApp() {
                         </div>
                         {assigned && (
                           <div className="flex items-center gap-2 mt-2">
-                            <span className={`text-xs ${sub}`}>%</span>
-                            <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
-                              onChange={e => { const r = e.target.value; if (r === '') { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
-                              onBlur={() => setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                              className={`flex-1 ${inputCls} py-1.5`} />
+                            <button onClick={() => setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: item.payType === 'fixed' ? 'percent' : 'fixed', percent: item.payType === 'fixed' ? item.percent : 0, fixedAmount: item.payType === 'fixed' ? item.fixedAmount : 0 } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                            <button onClick={() => setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: item.payType === 'percent' ? 'fixed' : 'percent', percent: item.payType === 'percent' ? item.percent : 0, fixedAmount: item.payType === 'percent' ? item.fixedAmount : 0 } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                            {assigned.payType === 'fixed' ? (
+                              <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                onChange={e => { const r = e.target.value; if (r === '') { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                            ) : (
+                              <>
+                                <span className={`text-xs ${sub}`}>%</span>
+                                <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                  onChange={e => { const r = e.target.value; if (r === '') { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                  onBlur={() => setAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                  className={`flex-1 ${inputCls} py-1.5`} />
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2854,10 +2868,10 @@ export function AdminApp() {
                     {addServiceWorkers.length > 0 && addServiceWorkers.map(item => {
                       const w = masterWorkers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
-                      const earned = Math.round(addServiceDraft.price * pct / 100);
+                      const earned = item.payType === 'fixed' ? (item.fixedAmount || 0) : Math.round(addServiceDraft.price * pct / 100);
                       return (
                         <div key={item.id} className="flex justify-between items-center">
-                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'} · {pct}%</span>
+                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'} · {item.payType === 'fixed' ? `фикс ${item.fixedAmount || 0}₽` : `${pct}%`}</span>
                           <span className="text-sm font-medium text-green-500">{earned.toLocaleString('ru')} ₽</span>
                         </div>
                       );

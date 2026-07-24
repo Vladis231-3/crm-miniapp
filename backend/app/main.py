@@ -1678,6 +1678,26 @@ def _apply_runtime_migrations() -> None:
 
         ensure_postgres_varchar_length("booking_workers", "worker_id", 64)
 
+        bw_cols = {col["name"] for col in inspector.get_columns("booking_workers")}
+
+        if "pay_type" not in bw_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE booking_workers ADD COLUMN pay_type VARCHAR(16) NOT NULL DEFAULT 'percent'"
+                    )
+                )
+                conn.commit()
+
+        if "fixed_amount" not in bw_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE booking_workers ADD COLUMN fixed_amount INTEGER DEFAULT NULL"
+                    )
+                )
+                conn.commit()
+
     if "notifications" in inspector.get_table_names():
 
         ensure_postgres_varchar_length("notifications", "id", 64)
@@ -3593,7 +3613,7 @@ def _worker_payroll_summaries_from_data(
                     time=booking.time,
                     price=booking.price,
                     percent=percent,
-                    earned=FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100),
+                    earned=link.fixed_amount if link.pay_type == "fixed" else (FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100)),
                     car=booking.car,
                     plate=booking.plate,
                 )
@@ -3744,6 +3764,8 @@ def _booking_payload(
                     workerName=w.worker_name,
 
                     percent=w.percent,
+                    payType=w.pay_type or "percent",
+                    fixedAmount=w.fixed_amount,
 
                 )
 
@@ -11728,6 +11750,9 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
                 total_master += master_pay_val
 
+            elif link.pay_type == "fixed":
+                total_master += (link.fixed_amount or 0)
+
             else:
 
                 all_penalties = _load_penalties(db)
@@ -12095,6 +12120,8 @@ def update_booking(
                 workerName=link.worker_name,
 
                 percent=link.percent,
+                payType=link.pay_type or "percent",
+                fixedAmount=link.fixed_amount,
 
             )
 

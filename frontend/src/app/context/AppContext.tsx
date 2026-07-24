@@ -164,7 +164,7 @@ export interface Booking {
   duration: number;
   price: number;
   status: BookingStatus;
-  workers: { workerId: string; workerName: string; percent: number | '' }[];
+  workers: { workerId: string; workerName: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[];
   box: string;
   paymentType: PaymentType;
   paymentSettled: boolean;
