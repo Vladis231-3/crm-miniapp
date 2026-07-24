@@ -11583,7 +11583,14 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any service."""
 
+    print(f"[PIGGY_DEBUG] booking.id={booking.id} booking.service_id={booking.service_id!r} booking.status={booking.status} booking.payment_settled={booking.payment_settled}")
+
     service = db.get(Service, booking.service_id) if booking.service_id else None
+
+    if service is None:
+        print(f"[PIGGY_DEBUG] service is None — no service with id={booking.service_id!r}")
+    else:
+        print(f"[PIGGY_DEBUG] service.id={service.id} service.name={service.name!r} piggy_pay_type={service.piggy_pay_type!r} piggy_pay_value={service.piggy_pay_value} master_pay_type={service.master_pay_type!r} master_pay_value={service.master_pay_value} owner_split_enabled={service.owner_split_enabled}")
 
     rg = _service_resource_group(service)
 
@@ -11671,6 +11678,8 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     piggy_val = svc_for_piggy.piggy_pay_value if svc_for_piggy else 0
 
+    print(f"[PIGGY_DEBUG] piggy_type={piggy_type!r} piggy_val={piggy_val} rg={rg!r}")
+
     if piggy_type == "fixed":
 
         deposit_amount = piggy_val
@@ -11691,6 +11700,8 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
         deposit_amount = 0
 
+    print(f"[PIGGY_DEBUG] deposit_amount={deposit_amount} booking.price={booking.price}")
+
     if deposit_amount > 0:
 
         if piggy_type == "fixed":
@@ -11704,6 +11715,8 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
         else:
 
             purpose = f"24% от заказа {booking.service} ({booking.client_name})"
+
+        print(f"[PIGGY_DEBUG] ADDING deposit amount={deposit_amount} purpose={purpose!r}")
 
         db.add(
 
@@ -11753,14 +11766,14 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     owner_split = svc_ops.owner_split_enabled if svc_ops else True
 
-
+    print(f"[PROFIT_DEBUG] booking.id={booking.id} svc_ops={'None' if svc_ops is None else 'ok'} rg={rg!r} piggy_type={piggy_type!r} piggy_val={piggy_val} master_pay_type={master_pay_type!r} master_pay_val={master_pay_val} owner_split={owner_split}")
 
     # Only process for detailing/wash or services with custom piggy/master settings
 
     has_custom = bool(piggy_type) or bool(master_pay_type)
 
     if rg not in ("detailing", "wash") and not has_custom:
-
+        print(f"[PROFIT_DEBUG] early return: rg={rg!r} has_custom={has_custom}")
         return
 
 
@@ -11777,7 +11790,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
         return
 
-
+    print(f"[PROFIT_DEBUG] owners count={len(owners)} owner_ids={owner_ids}")
 
     # Calculate master's total accrual from booking workers
 
@@ -11854,6 +11867,8 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     remaining = booking.price - total_master - piggy_deposit
 
+    print(f"[PROFIT_DEBUG] total_master={total_master} piggy_deposit={piggy_deposit} remaining={remaining} owner_split={owner_split} booking.price={booking.price}")
+
     if remaining <= 0 or not owner_split:
 
         return
@@ -11873,7 +11888,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
     ).all()
 
     if existing:
-
+        print(f"[PROFIT_DEBUG] already processed: {len(existing)} existing records")
         return
 
 
@@ -11901,6 +11916,8 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
         if amt <= 0:
 
             continue
+
+        print(f"[PROFIT_DEBUG] creating OwnerProfitShare owner_id={owner.id} amount={amt}")
 
         db.add(
 
@@ -12465,6 +12482,8 @@ def update_booking(
     )
 
     if (booking_just_completed or payment_just_settled) and next_payment_settled:
+
+        print(f"[PROFIT_DEBUG] === CONDITION MET === booking_just_completed={booking_just_completed} payment_just_settled={payment_just_settled} next_payment_settled={next_payment_settled}")
 
         _process_piggy_bank_for_booking(db, booking)
 
