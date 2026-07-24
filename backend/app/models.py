@@ -187,6 +187,8 @@ class BookingWorker(Base):
     worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id", ondelete="CASCADE"))
     worker_name: Mapped[str] = mapped_column(String(120))
     percent: Mapped[int] = mapped_column(Integer)
+    pay_type: Mapped[str] = mapped_column(String(16), default="percent")
+    fixed_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     booking: Mapped[Booking] = relationship(back_populates="worker_links")
     worker: Mapped[StaffUser] = relationship(back_populates="assignments")
@@ -223,6 +225,8 @@ class AdditionalServiceWorker(Base):
     worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id", ondelete="CASCADE"))
     worker_name: Mapped[str] = mapped_column(String(120))
     percent: Mapped[int] = mapped_column(Integer)
+    pay_type: Mapped[str] = mapped_column(String(16), default="percent")
+    fixed_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     additional_service: Mapped[BookingAdditionalService] = relationship(back_populates="worker_links")
     worker: Mapped[StaffUser] = relationship()

@@ -381,6 +381,8 @@ class BookingWorkerPayload(BaseModel):
     workerId: str
     workerName: str
     percent: float = Field(ge=0, le=100, default=0)
+    payType: str = "percent"
+    fixedAmount: int | None = None
 
 
 class BookingServiceItem(BaseModel):
@@ -394,6 +396,8 @@ class AdditionalServiceWorkerPayload(BaseModel):
     workerId: str
     workerName: str
     percent: int = Field(ge=0, le=100, default=0)
+    payType: str = "percent"
+    fixedAmount: int | None = None
 
 
 class AdditionalServicePayload(BaseModel):

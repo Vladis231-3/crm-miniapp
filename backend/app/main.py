@@ -1967,37 +1967,43 @@ def _apply_runtime_migrations() -> None:
 
     # Миграция: поля настраиваемого расчёта для услуг
 
-    for col, col_type, col_default in [
+    if "services" in inspector.get_table_names():
 
-        ("master_pay_type", "VARCHAR(16)", "''"),
+        svc_cols = {col["name"] for col in inspector.get_columns("services")}
 
-        ("master_pay_value", "INTEGER", "0"),
+        for col, col_type, col_default in [
 
-        ("piggy_pay_type", "VARCHAR(16)", "''"),
+            ("master_pay_type", "VARCHAR(16)", "''"),
 
-        ("piggy_pay_value", "INTEGER", "0"),
+            ("master_pay_value", "INTEGER", "0"),
 
-        ("owner_split_enabled", "BOOLEAN", "TRUE"),
+            ("piggy_pay_type", "VARCHAR(16)", "''"),
 
-    ]:
+            ("piggy_pay_value", "INTEGER", "0"),
 
-        if col not in service_cols:
+            ("owner_split_enabled", "BOOLEAN", "TRUE"),
 
-            try:
+        ]:
 
-                connection.exec_driver_sql(
+            if col not in svc_cols:
 
-                    f"ALTER TABLE services ADD COLUMN {col} {col_type} NOT NULL DEFAULT {col_default}"
+                with engine.begin() as connection:
 
-                )
+                    try:
 
-            except Exception:
+                        connection.exec_driver_sql(
 
-                connection.exec_driver_sql(
+                            f"ALTER TABLE services ADD COLUMN {col} {col_type} NOT NULL DEFAULT {col_default}"
 
-                    f"ALTER TABLE services ADD COLUMN {col} {col_type} NOT NULL DEFAULT 1"
+                        )
 
-                )
+                    except Exception:
+
+                        connection.exec_driver_sql(
+
+                            f"ALTER TABLE services ADD COLUMN {col} {col_type} NOT NULL DEFAULT 1"
+
+                        )
 
 
 
@@ -3796,6 +3802,8 @@ def _booking_payload(
                     fallback=booking.created_at,
 
                 ),
+                payType=link.pay_type or "percent",
+                fixedAmount=link.fixed_amount,
 
             )
 
@@ -5034,6 +5042,8 @@ def _validated_booking_workers(
                 workerName=worker.name,
 
                 percent=clamp_worker_percent(worker_input.percent),
+                payType=worker_input.payType or "percent",
+                fixedAmount=worker_input.fixedAmount,
 
             )
 
@@ -5076,6 +5086,8 @@ def _sync_booking_workers(
                 worker_name=worker.workerName,
 
                 percent=clamp_worker_percent(worker.percent),
+                pay_type=worker.payType or "percent",
+                fixed_amount=worker.fixedAmount,
 
             )
 
@@ -12725,6 +12737,8 @@ def add_booking_additional_service(
                 worker_name=w.workerName,
 
                 percent=clamp_worker_percent(w.percent),
+                pay_type=w.payType or "percent",
+                fixed_amount=w.fixedAmount,
 
             )
 
