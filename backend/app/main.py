@@ -7698,10 +7698,6 @@ def _resource_group_for_service_category(category: str | None) -> str:
 
         return DETAILING_RESOURCE_GROUP
 
-    if category_key == "обучение":
-
-        return TRAINING_RESOURCE_GROUP
-
     return WASH_RESOURCE_GROUP
 
 
@@ -11595,7 +11591,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
             )
 
-    elif rg == TRAINING_RESOURCE_GROUP:
+    elif is_training_service(booking.service):
 
         fixed = 5000
 
@@ -11611,7 +11607,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
                     amount=fixed,
 
-                    transaction_type="deposit_24percent",
+                    transaction_type="deposit_training",
 
                     purpose=f"5000₽ фикс от заказа {booking.service} ({booking.client_name})",
 
@@ -11641,7 +11637,9 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     rg = _service_resource_group(service)
 
-    if rg not in ("detailing", "wash", TRAINING_RESOURCE_GROUP):
+    is_training = is_training_service(booking.service)
+
+    if rg not in ("detailing", "wash") and not is_training:
 
         return
 
@@ -11695,7 +11693,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
 
 
-    if rg == TRAINING_RESOURCE_GROUP:
+    if is_training:
         piggy_deposit = 5000
     else:
         piggy_deposit = round(booking.price * 24 / 100)
@@ -14189,24 +14187,6 @@ def get_piggy_bank(
     detailing_master = round(detailing_revenue * 40 / 100)
 
 
-    # === Training breakdown ===
-
-    training_revenue = 0
-
-    for booking in all_completed_bookings:
-
-        if not _in_range(booking.date):
-
-            continue
-
-        svc = services_map.get(booking.service_id)
-
-        if svc and svc.resource_group == TRAINING_RESOURCE_GROUP:
-
-            training_revenue += booking.price
-
-
-
     # Master daily outputs (use date range if provided)
 
     inspections = _admin_shift_inspections_state(db)
@@ -14251,10 +14231,6 @@ def get_piggy_bank(
 
     detailing_incomes = sum(i.amount for i in all_incomes if i.resource_group == "detailing" and _in_range(i.date))
 
-    training_expenses = sum(e.amount for e in all_expenses if e.resource_group == TRAINING_RESOURCE_GROUP and _in_range(e.date))
-
-    training_incomes = sum(i.amount for i in all_incomes if i.resource_group == TRAINING_RESOURCE_GROUP and _in_range(i.date))
-
 
 
     remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
@@ -14275,13 +14251,7 @@ def get_piggy_bank(
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
-    # Training net piggy (from actual transactions, same methodology)
-    training_deposits = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == TRAINING_RESOURCE_GROUP)
-    training_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == TRAINING_RESOURCE_GROUP)
-    training_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == TRAINING_RESOURCE_GROUP)
-    training_net_piggy = training_deposits + training_repayments - training_withdrawals
-
-    combined_balance = remaining + net_piggy + training_net_piggy
+    combined_balance = remaining + net_piggy
 
     # Weekly archives
 
@@ -16586,7 +16556,7 @@ def _salary_date_range(period: str, ref: date | None = None, custom_from: str | 
 
 
 
-TRAINING_RESOURCE_GROUP = "training"
+TRAINING_SERVICE_NAME = "обучение ремонту стекла"
 
 FIXED_MASTER_SERVICE_NAME = "подготовка к полировке"
 
@@ -16600,6 +16570,10 @@ def is_fixed_master_service(name: str | None) -> bool:
 
     return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME
 
+
+def is_training_service(name: str | None) -> bool:
+
+    return bool(name) and name.strip().lower() == TRAINING_SERVICE_NAME
 
 
 

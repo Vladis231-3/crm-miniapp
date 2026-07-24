@@ -110,7 +110,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
             Service(id="s4", name="Аренда бокса", category="Аренда бокса", price=600, duration=60, description="Аренда бокса с подъемником и инструментами.", active=True),
             Service(id="s5", name="Мойка + полировка", category="Детейлинг", price=4200, duration=90, description="Комплекс: ручная мойка, полировка кузова и стекол.", active=True),
             Service(id="s6", name="Химчистка салона", category="Детейлинг", price=5500, duration=120, description="Глубокая чистка всех поверхностей салона.", active=False),
-            Service(id="s7", name="Обучение", category="Обучение", price=10000, duration=480, description="Индивидуальное обучение навыкам.", active=True),
+            Service(id="s7", name="Обучение ремонту стекла", category="Детейлинг", price=10000, duration=480, description="Обучение ремонту автомобильных стекол.", active=True),
         ]
         db.add_all(services)
 

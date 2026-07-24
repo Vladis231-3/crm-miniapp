@@ -127,7 +127,6 @@ const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
   { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
   { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
-  { value: 'Обучение', label: 'Обучение', resourceGroup: 'training' },
 ] as const;
 const OWNER_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string }> = [
   { value: 'confirmed', label: 'Подтверждена' },

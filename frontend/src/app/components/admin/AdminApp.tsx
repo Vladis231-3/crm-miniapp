@@ -64,7 +64,6 @@ const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
   { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
   { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
-  { value: 'Обучение', label: 'Обучение', resourceGroup: 'training' },
 ] as const;
 
 function adminServiceResourceGroupForCategory(category: string) {
