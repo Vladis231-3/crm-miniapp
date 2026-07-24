@@ -11557,41 +11557,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     # 2. Deposit into piggy bank
 
-    if rg in ("detailing", "wash"):
-
-        deposit_amount = round(booking.price * 24 / 100)
-
-        if deposit_amount > 0:
-
-            db.add(
-
-                PiggyBankTransaction(
-
-                    id=f"pb-{uuid4()}",
-
-                    booking_id=booking.id,
-
-                    amount=deposit_amount,
-
-                    transaction_type="deposit_24percent",
-
-                    purpose=f"24% от заказа {booking.service} ({booking.client_name})",
-
-                    material_name=None,
-
-                    material_cost=None,
-
-                    date=date_str,
-
-                    resource_group=rg,
-
-                    created_at=_now(),
-
-                )
-
-            )
-
-    elif is_training_service(booking.service):
+    if is_training_service(booking.service):
 
         fixed = 5000
 
@@ -11625,7 +11591,39 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
             )
 
+    elif rg in ("detailing", "wash"):
 
+        deposit_amount = round(booking.price * 24 / 100)
+
+        if deposit_amount > 0:
+
+            db.add(
+
+                PiggyBankTransaction(
+
+                    id=f"pb-{uuid4()}",
+
+                    booking_id=booking.id,
+
+                    amount=deposit_amount,
+
+                    transaction_type="deposit_24percent",
+
+                    purpose=f"24% от заказа {booking.service} ({booking.client_name})",
+
+                    material_name=None,
+
+                    material_cost=None,
+
+                    date=date_str,
+
+                    resource_group=rg,
+
+                    created_at=_now(),
+
+                )
+
+            )
 
 
 
@@ -11667,7 +11665,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
         worker = db.get(StaffUser, link.worker_id)
 
-        if worker and worker.role in ("worker", "admin"):
+        if worker and (is_training or worker.role in ("worker", "admin")):
 
             all_penalties = _load_penalties(db)
 
