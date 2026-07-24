@@ -1698,6 +1698,28 @@ def _apply_runtime_migrations() -> None:
                 )
                 conn.commit()
 
+    if "additional_service_workers" in inspector.get_table_names():
+
+        asw_cols = {col["name"] for col in inspector.get_columns("additional_service_workers")}
+
+        if "pay_type" not in asw_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE additional_service_workers ADD COLUMN pay_type VARCHAR(16) NOT NULL DEFAULT 'percent'"
+                    )
+                )
+                conn.commit()
+
+        if "fixed_amount" not in asw_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE additional_service_workers ADD COLUMN fixed_amount INTEGER DEFAULT NULL"
+                    )
+                )
+                conn.commit()
+
     if "notifications" in inspector.get_table_names():
 
         ensure_postgres_varchar_length("notifications", "id", 64)

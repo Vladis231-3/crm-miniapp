@@ -2021,9 +2021,9 @@ export function OwnerApp() {
     const selectedWorkers = bookingWorkers
       .map((item) => {
         const worker = workers.find((candidate) => candidate.id === item.id);
-        return worker ? { workerId: worker.id, workerName: worker.name, percent: item.percent === '' ? 0 : item.percent } : null;
+        return worker ? { workerId: worker.id, workerName: worker.name, percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount } : null;
       })
-      .filter((item): item is { workerId: string; workerName: string; percent: number } => Boolean(item));
+      .filter((item): item is { workerId: string; workerName: string; percent: number; payType?: string; fixedAmount?: number } => Boolean(item));
 
     try {
       const booking = await addBooking({
@@ -2170,7 +2170,7 @@ export function OwnerApp() {
     const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
     const createdWorkers = ownerNewBookingWorkers.map((item) => {
       const worker = ownerNewBookingMasterWorkers.find((candidate) => candidate.id === item.id);
-      return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent };
+      return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount };
     });
     const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
     try {
@@ -2256,7 +2256,7 @@ export function OwnerApp() {
         patch = {
           workers: ownerBookingEditWorkers.map(w => {
             const worker = workers.find(wk => wk.id === w.id);
-            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent };
+            return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
           }),
         };
       } else if (ownerBookingEditMode === 'datetime') {
@@ -2310,7 +2310,7 @@ export function OwnerApp() {
       const svc = liveServices.find(s => s.id === ownerAddServiceDraft.serviceId);
       const workersList = ownerAddServiceWorkers.map(w => {
         const worker = workers.find(wk => wk.id === w.id);
-        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number };
+        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
       });
       const updatedBooking = await addBookingAdditionalService(selectedBooking.id, {
         serviceId: ownerAddServiceDraft.serviceId,
@@ -2857,7 +2857,7 @@ export function OwnerApp() {
                           {booking.workers.length > 0 && (
                             <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
                               const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
-                              return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` ${w.percent}%`}`;
+                              return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
                             }).join(', ')}</div>
                           )}
                         </div>
@@ -7253,7 +7253,7 @@ export function OwnerApp() {
                             <button
                               onClick={() => assigned
                                 ? setBookingWorkers(current => current.filter(item => item.id !== worker.id))
-                                : setBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                                : setBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                               className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
                               style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                             >
@@ -7266,17 +7266,29 @@ export function OwnerApp() {
                                 <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                               ) : (
                                 <>
-                                  <span className={`text-xs ${sub}`}>%</span>
-                                  <input
-                                    type="number"
-                                    step="0.00001"
-                                    min={0}
-                                    max={100}
-                                    value={assigned.percent === '' ? '' : assigned.percent}
-                                    onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
-                                    onBlur={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                    className={`flex-1 ${inputCls} py-1.5`}
-                                  />
+                                  <button onClick={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                                  <button onClick={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                                  {assigned.payType === 'fixed' ? (
+                                    <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                      onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                      className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                                  ) : (
+                                    <>
+                                      <span className={`text-xs ${sub}`}>%</span>
+                                      <input
+                                        type="number"
+                                        step="0.00001"
+                                        min={0}
+                                        max={100}
+                                        value={assigned.percent === '' ? '' : assigned.percent}
+                                        onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                        onBlur={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                        className={`flex-1 ${inputCls} py-1.5`}
+                                      />
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -7347,7 +7359,7 @@ export function OwnerApp() {
                     <div className={sub}>Длительность: {selectedBooking.duration} мин</div>
                     <div className={sub}>Мастера: {selectedBooking.workers.length ? selectedBooking.workers.map(w => {
                       const _fixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
-                      return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` ${w.percent}%`}`;
+                      return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
                     }).join(', ') : 'Не назначены'}</div>
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
@@ -7362,10 +7374,10 @@ export function OwnerApp() {
                             <span className="font-semibold">{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.workers.map(w => {
-                            const earned = Math.round(as.price * w.percent / 100);
+                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
                                 <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
                               </div>
                             );
@@ -7382,10 +7394,10 @@ export function OwnerApp() {
                             <span className="font-semibold">{s.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {selectedBooking.workers.length > 0 && selectedBooking.workers.map(w => {
-                            const earned = Math.round(s.price * (w.percent || 0) / 100);
+                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(s.price * (w.percent || 0) / 100);
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
                                 <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
                               </div>
                             );
@@ -7440,7 +7452,7 @@ export function OwnerApp() {
                           }
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
                           if (mode === 'price') setOwnerBookingEditPrice(String(selectedBooking.price));
-                          if (mode === 'workers') setOwnerBookingEditWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent })));
+                          if (mode === 'workers') setOwnerBookingEditWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
                           if (mode === 'datetime') {
                             setOwnerBookingEditDate(selectedBooking.date);
                             setOwnerBookingEditTime(selectedBooking.time);
@@ -7512,7 +7524,7 @@ export function OwnerApp() {
                               <button
                                 onClick={() => assigned
                                   ? setOwnerBookingEditWorkers(current => current.filter(item => item.id !== worker.id))
-                                  : setOwnerBookingEditWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                                  : setOwnerBookingEditWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                                 className="px-3 py-1 rounded-lg text-xs shrink-0"
                                 style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                               >
@@ -7525,11 +7537,23 @@ export function OwnerApp() {
                                 <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                                 ) : (
                                   <>
-                                    <span className={`text-xs ${sub}`}>%</span>
-                                    <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
-                                      onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
-                                      onBlur={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                      className={`flex-1 ${inputCls} py-1.5`} />
+                                    <button onClick={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                                      className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                                    <button onClick={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                                      className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                                    {assigned.payType === 'fixed' ? (
+                                      <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                        onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                        className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                                    ) : (
+                                      <>
+                                        <span className={`text-xs ${sub}`}>%</span>
+                                        <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                          onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                          onBlur={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                          className={`flex-1 ${inputCls} py-1.5`} />
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </div>
@@ -7769,7 +7793,7 @@ export function OwnerApp() {
                           <button
                             onClick={() => assigned
                               ? setOwnerAddServiceWorkers(current => current.filter(item => item.id !== worker.id))
-                              : setOwnerAddServiceWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                              : setOwnerAddServiceWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                             className="px-3 py-1 rounded-lg text-xs shrink-0"
                             style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                           >
@@ -7778,11 +7802,23 @@ export function OwnerApp() {
                         </div>
                         {assigned && (
                           <div className="flex items-center gap-2 mt-2">
-                            <span className={`text-xs ${sub}`}>%</span>
-                            <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
-                              onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
-                              onBlur={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                              className={`flex-1 ${inputCls} py-1.5`} />
+                            <button onClick={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                            <button onClick={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                            {assigned.payType === 'fixed' ? (
+                              <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                            ) : (
+                              <>
+                                <span className={`text-xs ${sub}`}>%</span>
+                                <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                  onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                  onBlur={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                  className={`flex-1 ${inputCls} py-1.5`} />
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -7804,12 +7840,12 @@ export function OwnerApp() {
                     {ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
                       const w = workers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
-                      const earned = Math.round(ownerAddServiceDraft.price * pct / 100);
+                      const earned = item.payType === 'fixed' ? (item.fixedAmount || 0) : Math.round(ownerAddServiceDraft.price * pct / 100);
                       const _svc = services.find(s => s.id === ownerAddServiceDraft.serviceId);
                       const _fixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                       return (
                         <div key={item.id} className="flex justify-between items-center">
-                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'}{_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` · ${pct}%`}</span>
+                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'}{_fixed ? ` · фикс ${formatFixedMasterAmount()}` : item.payType === 'fixed' ? ` · ${(item.fixedAmount || 0).toLocaleString('ru')} ₽` : ` · ${pct}%`}</span>
                           <span className="text-sm font-medium text-green-500">{_fixed ? formatFixedMasterAmount() : `${earned.toLocaleString('ru')} ₽`}</span>
                         </div>
                       );
@@ -8071,7 +8107,7 @@ export function OwnerApp() {
                             <button
                               onClick={() => assigned
                                 ? setOwnerNewBookingWorkers(current => current.filter(item => item.id !== worker.id))
-                                : setOwnerNewBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                                : setOwnerNewBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                               className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
                               style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                             >
@@ -8084,17 +8120,29 @@ export function OwnerApp() {
                                 <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                               ) : (
                                 <>
-                                  <span className={`text-xs ${sub}`}>%</span>
-                                  <input
-                                    type="number"
-                                    step="0.00001"
-                                    min={0}
-                                    max={100}
-                                    value={assigned.percent === '' ? '' : assigned.percent}
-                                    onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
-                                    onBlur={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                    className={`flex-1 ${inputCls} py-1.5`}
-                                  />
+                                  <button onClick={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                                  <button onClick={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                                  {assigned.payType === 'fixed' ? (
+                                    <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                      onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                      className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                                  ) : (
+                                    <>
+                                      <span className={`text-xs ${sub}`}>%</span>
+                                      <input
+                                        type="number"
+                                        step="0.00001"
+                                        min={0}
+                                        max={100}
+                                        value={assigned.percent === '' ? '' : assigned.percent}
+                                        onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                        onBlur={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                        className={`flex-1 ${inputCls} py-1.5`}
+                                      />
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>
