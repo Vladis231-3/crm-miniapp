@@ -402,7 +402,7 @@ export function AdminApp() {
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
-  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '' });
+  const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '', referralSource: '' });
 
   // Settings state
   const [boxes, setBoxes] = useState(liveBoxes);

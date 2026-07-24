@@ -11099,6 +11099,7 @@ def create_booking(
                 plate=payload.plate or "",
 
                 plate_type=payload.plateType,
+                referral_source=payload.referralSource or "",
 
                 registered=True,
 
@@ -11125,6 +11126,9 @@ def create_booking(
                 client.plate = payload.plate
 
                 client.plate_type = payload.plateType
+
+            if payload.referralSource:
+                client.referral_source = payload.referralSource
 
             client.registered = True
 

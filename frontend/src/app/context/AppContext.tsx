@@ -189,6 +189,7 @@ export interface BookingSlotAvailability {
 export type BookingCreateInput = Omit<Booking, 'id' | 'createdAt'> & {
   notifyWorkers?: boolean;
   services?: BookingServiceItem[];
+  referralSource?: string;
 };
 
 export type BookingUpdateInput = Partial<Booking> & {
@@ -1018,7 +1019,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           debtBalance: existingClient?.debtBalance || 0,
           adminRating: existingClient?.adminRating || 0,
           adminNote: existingClient?.adminNote || '',
-          referralSource: existingClient?.referralSource || '',
+          referralSource: booking.referralSource || existingClient?.referralSource || '',
           createdAt: existingClient?.createdAt || new Date(),
         };
         if (current.some((client) => client.id === created.clientId)) {

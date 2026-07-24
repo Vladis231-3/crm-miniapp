@@ -861,6 +861,7 @@ class BookingCreateRequest(BaseModel):
     car: str | None = None
     plate: str | None = None
     plateType: str = "russian"
+    referralSource: str = ""
     notifyWorkers: bool = False
 
     @field_validator("clientName")
