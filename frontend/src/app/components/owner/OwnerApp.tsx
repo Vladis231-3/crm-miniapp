@@ -2147,7 +2147,7 @@ export function OwnerApp() {
     }
     if (!ownerNewBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
+    if (!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setOwnerNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -8089,7 +8089,7 @@ export function OwnerApp() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                    <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Сумма: ${totalOwnerNewBookingPercent}%`}</span>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : ownerNewBookingWorkers.some(w => w.payType === 'fixed') ? `Выбрано: ${ownerNewBookingWorkers.length}` : `Сумма: ${totalOwnerNewBookingPercent}%`}</span>
                   </div>
                   <div className="space-y-2">
                     {ownerNewBookingMasterWorkers.map(worker => {
@@ -8154,7 +8154,7 @@ export function OwnerApp() {
                 </div>
                   );
                 })()}
-                {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && totalOwnerNewBookingPercent > 100 && (
+                {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (
@@ -8190,10 +8190,10 @@ export function OwnerApp() {
                 </label>
               </div>
               <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
+                <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
                   {ownerNewBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
+                <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>

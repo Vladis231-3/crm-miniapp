@@ -670,6 +670,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     tasks: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).length,
     earned: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).reduce((s, b) => {
       const bw = b.workers.find(bwk => bwk.workerId === w.id);
+      if (bw?.payType === 'fixed') return s + (bw.fixedAmount || 0);
       if (isFixedMasterService(services, b.serviceId, b.service)) return s + FIXED_MASTER_EARNED;
       return s + Math.round(b.price * (bw?.percent || 0) / 100);
     }, 0),
@@ -951,7 +952,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     }
     if (!newBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !newBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && totalNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
+    if (!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -3628,10 +3629,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </label>
               </div>
               <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
+                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
                   {newBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
-                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && totalNewBookingPercent > 100) || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
+                <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>
