@@ -131,6 +131,8 @@ export interface AdditionalServiceWorker {
   workerId: string;
   workerName: string;
   percent: number;
+  payType?: 'percent' | 'fixed';
+  fixedAmount?: number;
 }
 
 export interface AdditionalService {

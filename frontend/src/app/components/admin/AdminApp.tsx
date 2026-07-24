@@ -1428,7 +1428,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                         {booking.workers.length > 0 && (
                           <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
                             const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
-                            return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : ` ${w.percent}%`}`;
+                            return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
                           }).join(', ')}</div>
                         )}
                       </div>
@@ -2668,10 +2668,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                             <span className="font-semibold">{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.workers.map(w => {
-                            const earned = Math.round(as.price * w.percent / 100);
+                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
                                 <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
                               </div>
                             );
@@ -2690,10 +2690,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                             <span className="font-semibold">{svc.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {selectedBooking.workers.length > 0 && selectedBooking.workers.map(w => {
-                            const earned = Math.round(svc.price * (w.percent || 0) / 100);
+                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(svc.price * (w.percent || 0) / 100);
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.percent}%</span>
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
                                 <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
                               </div>
                             );
@@ -2727,7 +2727,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       <span className={`text-sm ${sub}`}>
                         {isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service)
                           ? `фикс ${formatFixedMasterAmount()}`
-                          : `${w.percent}%`}
+                          : w.payType === 'fixed'
+                            ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽`
+                            : `${w.percent}%`}
                       </span>
                     </div>
                   )) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
@@ -2913,7 +2915,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                           <span className="text-sm font-medium">{worker.name}</span>
                           <span className={`text-xs ${sub}`}>{worker.experience}</span>
                         </div>
-                        <button onClick={() => assigned ? setAssignedWorkers(p => p.filter(aw => aw.id !== worker.id)) : setAssignedWorkers(p => [...p, { id: worker.id, percent: worker.defaultPercent }])}
+                        <button onClick={() => assigned ? setAssignedWorkers(p => p.filter(aw => aw.id !== worker.id)) : setAssignedWorkers(p => [...p, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                           className="px-3 py-1 rounded-lg text-xs transition-all"
                           style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}>
                           {assigned ? 'Выбран' : 'Выбрать'}
@@ -2925,11 +2927,23 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                             <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                           ) : (
                             <>
-                              <span className={`text-xs ${sub}`}>%</span>
-                              <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
-                                onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: '' } : aw)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(100, Math.max(0, n)) } : aw)); } }}
-                                onBlur={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: aw.percent === '' ? 0 : aw.percent } : aw))}
-                                className={`flex-1 ${inputCls} py-1.5`} />
+                              <button onClick={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, payType: 'fixed', fixedAmount: 0 } : aw))}
+                                className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                              <button onClick={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, payType: 'percent', fixedAmount: undefined } : aw))}
+                                className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                              {assigned.payType === 'fixed' ? (
+                                <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                  onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, fixedAmount: undefined } : aw)); return; } const n = parseInt(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, fixedAmount: Math.max(0, n) } : aw)); } }}
+                                  className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                              ) : (
+                                <>
+                                  <span className={`text-xs ${sub}`}>%</span>
+                                  <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                    onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: '' } : aw)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(100, Math.max(0, n)) } : aw)); } }}
+                                    onBlur={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: aw.percent === '' ? 0 : aw.percent } : aw))}
+                                    className={`flex-1 ${inputCls} py-1.5`} />
+                                </>
+                              )}
                             </>
                           )}
                         </div>
@@ -2938,7 +2952,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   );
                 })}
               </div>
-              {!isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) && totalPercent > 100 && (
+              {!isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) && assignedWorkers.some(aw => aw.payType !== 'fixed') && totalPercent > 100 && (
                 <div className="flex items-center gap-2 text-red-500 text-xs mb-3"><AlertCircle size={14} />Сумма процентов превышает 100%</div>
               )}
               <button onClick={() => { void handleAssignWorkers(true); }} className="w-full py-3 rounded-xl text-sm text-white font-medium mb-2" style={{ background: primary }}>Назначить и уведомить</button>
@@ -3508,7 +3522,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
-                      <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Сумма: ${totalNewBookingPercent}%`}</span>
+                      <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : newBookingWorkers.some(w => w.payType === 'fixed') ? `Выбрано: ${newBookingWorkers.length}` : `Сумма: ${totalNewBookingPercent}%`}</span>
                     </div>
                     <div className="space-y-2">
                       {masterWorkers.filter(worker => worker.active).map(worker => {
@@ -3526,7 +3540,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                               <button
                                 onClick={() => assigned
                                   ? setNewBookingWorkers(current => current.filter(item => item.id !== worker.id))
-                                  : setNewBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent }])}
+                                  : setNewBookingWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
                                 className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
                                 style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                               >
@@ -3539,17 +3553,29 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                                   <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
                                 ) : (
                                   <>
-                                    <span className={`text-xs ${sub}`}>%</span>
-                                    <input
-                                      type="number"
-                                      step="0.00001"
-                                      min={0}
-                                      max={100}
-                                      value={assigned.percent === '' ? '' : assigned.percent}
-                                      onChange={e => { const r = e.target.value; if (r === '') { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
-                                      onBlur={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
-                                      className={`flex-1 ${inputCls} py-1.5`}
-                                    />
+                                    <button onClick={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                                      className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                                    <button onClick={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                                      className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                                    {assigned.payType === 'fixed' ? (
+                                      <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                        onChange={e => { const r = e.target.value; if (r === '') { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                        className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                                    ) : (
+                                      <>
+                                        <span className={`text-xs ${sub}`}>%</span>
+                                        <input
+                                          type="number"
+                                          step="0.00001"
+                                          min={0}
+                                          max={100}
+                                          value={assigned.percent === '' ? '' : assigned.percent}
+                                          onChange={e => { const r = e.target.value; if (r === '') { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                          onBlur={() => setNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                          className={`flex-1 ${inputCls} py-1.5`}
+                                        />
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </div>
@@ -3562,7 +3588,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   );
                   })()}
                 </div>
-                {!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && totalNewBookingPercent > 100 && (
+                {!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {newBookingErrors.general && (

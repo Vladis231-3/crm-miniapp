@@ -1256,6 +1256,8 @@ def _device_label(user_agent: str) -> str:
 
 def _apply_runtime_migrations() -> None:
 
+    from sqlalchemy import text
+
     def boolean_default_sql(value: bool) -> str:
 
         if engine.dialect.name == "postgresql":
@@ -1571,8 +1573,6 @@ def _apply_runtime_migrations() -> None:
                 sched_columns = {col["name"] for col in inspector.get_columns("schedule_entries")}
 
                 if "day_index" in sched_columns:
-
-                    from sqlalchemy import text
 
                     with engine.begin() as connection:
 

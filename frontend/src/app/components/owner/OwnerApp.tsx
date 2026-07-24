@@ -584,7 +584,7 @@ export function OwnerApp() {
     duration: 30,
     referralSource: '',
   });
-  const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
   const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '', referralSource: '' });
@@ -702,7 +702,7 @@ export function OwnerApp() {
       outsourceAmount: 0,
       referralSource: '',
     });
-  const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
   const [ownerNewBookingSaving, setOwnerNewBookingSaving] = useState(false);
   const [ownerNewBookingErrors, setOwnerNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
@@ -714,7 +714,7 @@ export function OwnerApp() {
   const [ownerBookingEditPrice, setOwnerBookingEditPrice] = useState('');
   const [ownerBookingEditDate, setOwnerBookingEditDate] = useState('');
   const [ownerBookingEditTime, setOwnerBookingEditTime] = useState('');
-  const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerBookingEditSaving, setOwnerBookingEditSaving] = useState(false);
   const [ownerBookingEditError, setOwnerBookingEditError] = useState<string | null>(null);
   const [ownerBookingEditFull, setOwnerBookingEditFull] = useState({
@@ -738,7 +738,7 @@ export function OwnerApp() {
   // Add additional service state
   const [showOwnerAddService, setShowOwnerAddService] = useState(false);
   const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
-  const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
+  const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerAddServiceSaving, setOwnerAddServiceSaving] = useState(false);
   const [ownerAddServiceError, setOwnerAddServiceError] = useState<string | null>(null);
 
