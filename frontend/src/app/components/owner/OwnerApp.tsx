@@ -1189,6 +1189,11 @@ export function OwnerApp() {
         active: true,
         materialConsumption: null,
         isFixedMaster: false,
+        masterPayType: '',
+        masterPayValue: 0,
+        piggyPayType: '',
+        piggyPayValue: 0,
+        ownerSplitEnabled: true,
       },
     ]);
   };
@@ -5599,6 +5604,49 @@ export function OwnerApp() {
                       onChange={(event) => setServicesState(p => p.map((item, j) => j === i ? { ...item, isFixedMaster: event.target.checked } : item))}
                     />
                   </label>
+                  <div className={`${glass} rounded-2xl p-3 mt-2 space-y-2`}>
+                    <div className="text-xs font-medium mb-1">Настройки расчёта</div>
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
+                      <select className={selectCls} value={service.masterPayType || ''}
+                        onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayType: e.target.value } : item))}>
+                        <option value="">% от цены (из брони)</option>
+                        <option value="fixed">Фиксированная сумма</option>
+                      </select>
+                    </div>
+                    {service.masterPayType === 'fixed' && (
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Сумма мастеру (₽)</label>
+                        <input className={inputCls} type="number" value={numberInputValue(service.masterPayValue ?? 0)}
+                          onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayValue: numberFromInput(e.target.value) } : item))} />
+                      </div>
+                    )}
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>В копилку</label>
+                      <select className={selectCls} value={service.piggyPayType || ''}
+                        onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, piggyPayType: e.target.value } : item))}>
+                        <option value="">Стандарт (24%)</option>
+                        <option value="fixed">Фиксированная сумма</option>
+                        <option value="percent">% от цены</option>
+                        <option value="none">Нет</option>
+                      </select>
+                    </div>
+                    {service.piggyPayType && service.piggyPayType !== 'none' && service.piggyPayType !== '' && (
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Значение ({service.piggyPayType === 'fixed' ? '₽' : '%'})</label>
+                        <input className={inputCls} type="number" value={numberInputValue(service.piggyPayValue ?? 0)}
+                          onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, piggyPayValue: numberFromInput(e.target.value) } : item))} />
+                      </div>
+                    )}
+                    <label className="flex items-center justify-between gap-3 text-sm">
+                      <span>Владельцы получают остаток (50/50)</span>
+                      <input
+                        type="checkbox"
+                        checked={service.ownerSplitEnabled !== false}
+                        onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, ownerSplitEnabled: e.target.checked } : item))}
+                      />
+                    </label>
+                  </div>
                   <div className="mt-2">
                     <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                     <input className={inputCls} value={service.desc} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, desc: e.target.value } : item))} />

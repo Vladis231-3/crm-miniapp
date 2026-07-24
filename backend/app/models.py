@@ -110,6 +110,11 @@ class Service(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     material_consumption: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_fixed_master: Mapped[bool] = mapped_column(Boolean, default=False)
+    master_pay_type: Mapped[str] = mapped_column(String(16), default="")
+    master_pay_value: Mapped[int] = mapped_column(Integer, default=0)
+    piggy_pay_type: Mapped[str] = mapped_column(String(16), default="")
+    piggy_pay_value: Mapped[int] = mapped_column(Integer, default=0)
+    owner_split_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Box(Base):

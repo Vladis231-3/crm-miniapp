@@ -1965,6 +1965,42 @@ def _apply_runtime_migrations() -> None:
 
 
 
+    # Миграция: поля настраиваемого расчёта для услуг
+
+    for col, col_type, col_default in [
+
+        ("master_pay_type", "VARCHAR(16)", "''"),
+
+        ("master_pay_value", "INTEGER", "0"),
+
+        ("piggy_pay_type", "VARCHAR(16)", "''"),
+
+        ("piggy_pay_value", "INTEGER", "0"),
+
+        ("owner_split_enabled", "BOOLEAN", "TRUE"),
+
+    ]:
+
+        if col not in service_cols:
+
+            try:
+
+                connection.exec_driver_sql(
+
+                    f"ALTER TABLE services ADD COLUMN {col} {col_type} NOT NULL DEFAULT {col_default}"
+
+                )
+
+            except Exception:
+
+                connection.exec_driver_sql(
+
+                    f"ALTER TABLE services ADD COLUMN {col} {col_type} NOT NULL DEFAULT 1"
+
+                )
+
+
+
     # Миграция: таблица долей прибыли владельцев
 
     if "owner_profit_shares" not in inspector.get_table_names():
@@ -3918,6 +3954,11 @@ def _service_payload(service: Service) -> ServicePayload:
         materialConsumption=service.material_consumption,
 
         isFixedMaster=service.is_fixed_master,
+        masterPayType=service.master_pay_type or "",
+        masterPayValue=service.master_pay_value or 0,
+        piggyPayType=service.piggy_pay_type or "",
+        piggyPayValue=service.piggy_pay_value or 0,
+        ownerSplitEnabled=service.owner_split_enabled if service.owner_split_enabled is not None else True,
 
     )
 
@@ -11555,41 +11596,25 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
 
-    # 2. Deposit into piggy bank
+    # 2. Deposit into piggy bank (based on service settings, or default 24% for detailing/wash)
 
-    if is_training_service(booking.service):
+    svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
 
-        fixed = 5000
+    piggy_type = svc_for_piggy.piggy_pay_type if svc_for_piggy else ""
 
-        if fixed > 0:
+    piggy_val = svc_for_piggy.piggy_pay_value if svc_for_piggy else 0
 
-            db.add(
+    if piggy_type == "fixed":
 
-                PiggyBankTransaction(
+        deposit_amount = piggy_val
 
-                    id=f"pb-{uuid4()}",
+    elif piggy_type == "percent":
 
-                    booking_id=booking.id,
+        deposit_amount = round(booking.price * piggy_val / 100)
 
-                    amount=fixed,
+    elif piggy_type == "none":
 
-                    transaction_type="deposit_training",
-
-                    purpose=f"5000₽ фикс от заказа {booking.service} ({booking.client_name})",
-
-                    material_name=None,
-
-                    material_cost=None,
-
-                    date=date_str,
-
-                    resource_group=rg,
-
-                    created_at=_now(),
-
-                )
-
-            )
+        deposit_amount = 0
 
     elif rg in ("detailing", "wash"):
 
@@ -11629,15 +11654,29 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
-    """For detailing/wash/training bookings, calculate owner profit share (remaining after master & piggy) and split 50/50 between two permanent owners."""
+    """Calculate profit share after master and piggy, split 50/50 between permanent owners."""
 
-    service = db.get(Service, booking.service_id) if booking.service_id else None
+    svc_ops = db.get(Service, booking.service_id) if booking.service_id else None
 
-    rg = _service_resource_group(service)
+    rg = _service_resource_group(svc_ops)
 
-    is_training = is_training_service(booking.service)
+    piggy_type = svc_ops.piggy_pay_type if svc_ops else ""
 
-    if rg not in ("detailing", "wash") and not is_training:
+    piggy_val = svc_ops.piggy_pay_value if svc_ops else 0
+
+    master_pay_type = svc_ops.master_pay_type if svc_ops else ""
+
+    master_pay_val = svc_ops.master_pay_value if svc_ops else 0
+
+    owner_split = svc_ops.owner_split_enabled if svc_ops else True
+
+
+
+    # Only process for detailing/wash or services with custom piggy/master settings
+
+    has_custom = bool(piggy_type) or bool(master_pay_type)
+
+    if rg not in ("detailing", "wash") and not has_custom:
 
         return
 
@@ -11665,40 +11704,67 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
         worker = db.get(StaffUser, link.worker_id)
 
-        if worker and (is_training or worker.role in ("worker", "admin")):
+        if worker:
 
-            all_penalties = _load_penalties(db)
+            # For custom services include all roles; otherwise only workers/admins
 
-            complaints_by_worker = _complaints_by_worker(all_penalties)
+            if not has_custom and worker.role not in ("worker", "admin"):
 
-            worker_complaints = complaints_by_worker.get(link.worker_id, [])
+                continue
 
-            percent = adjusted_booking_percent(
+            if master_pay_type == "fixed":
 
-                link.percent,
+                total_master += master_pay_val
 
-                worker_complaints,
+            else:
 
-                date_value=booking.date,
+                all_penalties = _load_penalties(db)
 
-                time_value=booking.time,
+                complaints_by_worker = _complaints_by_worker(all_penalties)
 
-                fallback=booking.created_at,
+                worker_complaints = complaints_by_worker.get(link.worker_id, [])
 
-            )
+                percent = adjusted_booking_percent(
 
-            total_master += FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100)
+                    link.percent,
+
+                    worker_complaints,
+
+                    date_value=booking.date,
+
+                    time_value=booking.time,
+
+                    fallback=booking.created_at,
+
+                )
+
+                total_master += FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100)
 
 
 
-    if is_training:
-        piggy_deposit = 5000
+    # Piggy deposit based on service settings
+
+    if piggy_type == "fixed":
+
+        piggy_deposit = piggy_val
+
+    elif piggy_type == "percent":
+
+        piggy_deposit = round(booking.price * piggy_val / 100)
+
+    elif piggy_type == "none":
+
+        piggy_deposit = 0
+
     else:
+
         piggy_deposit = round(booking.price * 24 / 100)
+
+
 
     remaining = booking.price - total_master - piggy_deposit
 
-    if remaining <= 0:
+    if remaining <= 0 or not owner_split:
 
         return
 
@@ -15594,6 +15660,11 @@ def save_services(
         service.material_consumption = item.materialConsumption
 
         service.is_fixed_master = item.isFixedMaster
+        service.master_pay_type = item.masterPayType
+        service.master_pay_value = item.masterPayValue
+        service.piggy_pay_type = item.piggyPayType
+        service.piggy_pay_value = item.piggyPayValue
+        service.owner_split_enabled = item.ownerSplitEnabled
 
     for service_id, service in existing.items():
 
@@ -16554,8 +16625,6 @@ def _salary_date_range(period: str, ref: date | None = None, custom_from: str | 
 
 
 
-TRAINING_SERVICE_NAME = "обучение ремонту стекла"
-
 FIXED_MASTER_SERVICE_NAME = "подготовка к полировке"
 
 FIXED_MASTER_EARNED = 1200
@@ -16567,13 +16636,6 @@ FIXED_MASTER_EARNED = 1200
 def is_fixed_master_service(name: str | None) -> bool:
 
     return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME
-
-
-def is_training_service(name: str | None) -> bool:
-
-    return bool(name) and name.strip().lower() == TRAINING_SERVICE_NAME
-
-
 
 
 def _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool:

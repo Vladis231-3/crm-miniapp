@@ -370,6 +370,11 @@ export interface Service {
   active: boolean;
   materialConsumption: number | null;
   isFixedMaster: boolean;
+  masterPayType?: string;
+  masterPayValue?: number;
+  piggyPayType?: string;
+  piggyPayValue?: number;
+  ownerSplitEnabled?: boolean;
 }
 
 export interface Box {

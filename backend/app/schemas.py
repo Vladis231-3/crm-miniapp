@@ -596,6 +596,11 @@ class ServicePayload(BaseModel):
     active: bool = True
     materialConsumption: int | None = None
     isFixedMaster: bool = False
+    masterPayType: str = ""
+    masterPayValue: int = 0
+    piggyPayType: str = ""
+    piggyPayValue: int = 0
+    ownerSplitEnabled: bool = True
 
 
 class DetailingRequestCreateRequest(BaseModel):
