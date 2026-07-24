@@ -4093,10 +4093,19 @@ export function OwnerApp() {
                 </button>
               </div>
 
-              {!piggyBank && piggyBankLoading ? (
-                <div className="text-center py-12">
-                  <div className={`text-sm ${sub}`}>Загрузка...</div>
-                </div>
+              {!piggyBank ? (
+                piggyBankLoading ? (
+                  <div className="text-center py-12">
+                    <div className={`text-sm ${sub}`}>Загрузка...</div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className={`text-sm ${sub} mb-3`}>Не удалось загрузить данные</div>
+                    <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: `${primary}20`, color: primary }}>
+                      Повторить
+                    </button>
+                  </div>
+                )
               ) : (
               <>
               {/* Balance card */}
