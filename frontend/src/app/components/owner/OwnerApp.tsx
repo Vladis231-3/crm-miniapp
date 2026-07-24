@@ -126,6 +126,7 @@ const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
   { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
   { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
+  { value: 'Обучение', label: 'Обучение', resourceGroup: 'training' },
 ] as const;
 const OWNER_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string }> = [
   { value: 'confirmed', label: 'Подтверждена' },
@@ -2055,7 +2056,7 @@ export function OwnerApp() {
   };
 
   // Quick booking modal helpers (task 9.1)
-  const ownerNewBookingMasterWorkers = workers.filter((worker) => worker.role === 'worker');
+  const ownerNewBookingMasterWorkers = workers.filter((worker) => worker.role === 'worker' || worker.role === 'owner');
   const ownerNewBookingSelectableDates = Array.from(new Set([
     todayLabel,
     tomorrowLabel,
@@ -7196,7 +7197,7 @@ export function OwnerApp() {
                     <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Выбрано: ${bookingWorkers.length}`}</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto">
-                    {workers.filter(worker => worker.role === 'worker').map(worker => {
+                    {workers.filter(worker => worker.role === 'worker' || worker.role === 'owner').map(worker => {
                       const assigned = bookingWorkers.find(item => item.id === worker.id);
                       return (
                         <div key={worker.id} className={`${glass} rounded-xl p-3`}>
@@ -7458,7 +7459,7 @@ export function OwnerApp() {
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров {_isFixed ? `(фикс ${formatFixedMasterAmount()})` : ''}</div>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {workers.filter(w => w.role === 'worker' && w.active).map(worker => {
+{workers.filter(w => (w.role === 'worker' || w.role === 'owner') && w.active).map(worker => {
                         const assigned = ownerBookingEditWorkers.find(item => item.id === worker.id);
                         return (
                           <div key={worker.id} className={`${glass} rounded-xl p-3`}>
@@ -7712,7 +7713,7 @@ export function OwnerApp() {
                   )}
                 </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {workers.filter(w => w.role === 'worker' && w.active).map(worker => {
+                      {workers.filter(w => (w.role === 'worker' || w.role === 'owner') && w.active).map(worker => {
                     const assigned = ownerAddServiceWorkers.find(item => item.id === worker.id);
                     return (
                       <div key={worker.id} className={`${glass} rounded-xl p-3`}>

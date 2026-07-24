@@ -4483,7 +4483,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
         select(StaffUser)
 
-        .where(StaffUser.role.in_(("admin", "worker", "accountant")))
+        .where(StaffUser.role.in_(("admin", "worker", "accountant", "owner")))
 
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
 
@@ -4963,7 +4963,7 @@ def _validated_booking_workers(
 
         worker = db_workers.get(worker_id)
 
-        if worker is None or worker.role != "worker" or not worker.active:
+        if worker is None or worker.role not in ("worker", "owner") or not worker.active:
 
             raise HTTPException(
 
@@ -7688,6 +7688,10 @@ def _resource_group_for_service_category(category: str | None) -> str:
     if category_key == "детейлинг":
 
         return DETAILING_RESOURCE_GROUP
+
+    if category_key == "обучение":
+
+        return TRAINING_RESOURCE_GROUP
 
     return WASH_RESOURCE_GROUP
 
@@ -11542,7 +11546,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
 
-    # 2. Deposit 24% of booking price (only for detailing & wash)
+    # 2. Deposit into piggy bank
 
     if rg in ("detailing", "wash"):
 
@@ -11578,19 +11582,53 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
             )
 
+    elif rg == TRAINING_RESOURCE_GROUP:
+
+        fixed = 5000
+
+        if fixed > 0:
+
+            db.add(
+
+                PiggyBankTransaction(
+
+                    id=f"pb-{uuid4()}",
+
+                    booking_id=booking.id,
+
+                    amount=fixed,
+
+                    transaction_type="deposit_24percent",
+
+                    purpose=f"5000₽ фикс от заказа {booking.service} ({booking.client_name})",
+
+                    material_name=None,
+
+                    material_cost=None,
+
+                    date=date_str,
+
+                    resource_group=rg,
+
+                    created_at=_now(),
+
+                )
+
+            )
+
 
 
 
 
 def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
-    """For detailing bookings, calculate owner profit share (remaining after master & piggy) and split 50/50 between two permanent owners."""
+    """For detailing/wash/training bookings, calculate owner profit share (remaining after master & piggy) and split 50/50 between two permanent owners."""
 
     service = db.get(Service, booking.service_id) if booking.service_id else None
 
     rg = _service_resource_group(service)
 
-    if rg not in ("detailing", "wash"):
+    if rg not in ("detailing", "wash", TRAINING_RESOURCE_GROUP):
 
         return
 
@@ -11644,7 +11682,10 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
 
 
-    piggy_deposit = round(booking.price * 24 / 100)
+    if rg == TRAINING_RESOURCE_GROUP:
+        piggy_deposit = 5000
+    else:
+        piggy_deposit = round(booking.price * 24 / 100)
 
     remaining = booking.price - total_master - piggy_deposit
 
@@ -14135,6 +14176,23 @@ def get_piggy_bank(
     detailing_master = round(detailing_revenue * 40 / 100)
 
 
+    # === Training breakdown ===
+
+    training_revenue = 0
+
+    for booking in all_completed_bookings:
+
+        if not _in_range(booking.date):
+
+            continue
+
+        svc = services_map.get(booking.service_id)
+
+        if svc and svc.resource_group == TRAINING_RESOURCE_GROUP:
+
+            training_revenue += booking.price
+
+
 
     # Master daily outputs (use date range if provided)
 
@@ -14180,6 +14238,10 @@ def get_piggy_bank(
 
     detailing_incomes = sum(i.amount for i in all_incomes if i.resource_group == "detailing" and _in_range(i.date))
 
+    training_expenses = sum(e.amount for e in all_expenses if e.resource_group == TRAINING_RESOURCE_GROUP and _in_range(e.date))
+
+    training_incomes = sum(i.amount for i in all_incomes if i.resource_group == TRAINING_RESOURCE_GROUP and _in_range(i.date))
+
 
 
     remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
@@ -14200,7 +14262,13 @@ def get_piggy_bank(
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
-    combined_balance = remaining + net_piggy
+    # Training net piggy (from actual transactions, same methodology)
+    training_deposits = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == TRAINING_RESOURCE_GROUP)
+    training_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == TRAINING_RESOURCE_GROUP)
+    training_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == TRAINING_RESOURCE_GROUP)
+    training_net_piggy = training_deposits + training_repayments - training_withdrawals
+
+    combined_balance = remaining + net_piggy + training_net_piggy
 
     # Weekly archives
 
@@ -16504,6 +16572,8 @@ def _salary_date_range(period: str, ref: date | None = None, custom_from: str | 
 
 
 
+
+TRAINING_RESOURCE_GROUP = "training"
 
 FIXED_MASTER_SERVICE_NAME = "подготовка к полировке"
 

@@ -63,6 +63,7 @@ const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
   { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
   { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
+  { value: 'Обучение', label: 'Обучение', resourceGroup: 'training' },
 ] as const;
 
 function adminServiceResourceGroupForCategory(category: string) {
@@ -450,7 +451,7 @@ export function AdminApp() {
     ...upcomingDates.slice(0, 7),
     ...bookings.map((booking) => booking.date).filter(Boolean),
   ])).slice(0, 10);
-  const masterWorkers = workers.filter((worker) => worker.role === 'worker');
+  const masterWorkers = workers.filter((worker) => worker.role === 'worker' || worker.role === 'owner');
   const selectedClient = registeredClients.find((client) => client.id === selectedClientId) ?? null;
   const normalizedClientSearchQuery = clientSearchMode === 'phone'
     ? normalizePhoneSearchValue(clientSearchQuery)
@@ -561,7 +562,7 @@ export function AdminApp() {
   useEffect(() => {
     setPayrollSettings(
       workers
-        .filter((worker) => worker.role === 'worker')
+        .filter((worker) => worker.role === 'worker' || worker.role === 'owner')
         .map((worker) => ({
           id: worker.id,
           role: 'worker',
@@ -575,7 +576,7 @@ export function AdminApp() {
     setPayrollDrafts((current) =>
       Object.fromEntries(
         workers
-          .filter((worker) => worker.role === 'worker')
+          .filter((worker) => worker.role === 'worker' || worker.role === 'owner')
           .map((worker) => [worker.id, current[worker.id] || { kind: 'advance', amount: '', note: '' }]),
       ),
     );
