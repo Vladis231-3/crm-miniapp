@@ -3958,17 +3958,6 @@ export function OwnerApp() {
                     </div>
                   </div>
 
-                  {/* Piggy bank balance */}
-                  <div className={`${glass} rounded-2xl p-4 mb-4 flex justify-between items-center`}>
-                    <div>
-                      <div className={`text-xs ${sub}`}>Баланс копилки</div>
-                      <div className="font-semibold" style={{ color: accent }}>{(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽</div>
-                    </div>
-                    <button onClick={() => setPage('piggy-bank')} className={`text-xs font-medium px-3 py-1.5 rounded-xl`} style={{ background: `${primary}20`, color: primary }}>
-                      Подробнее
-                    </button>
-                  </div>
-
                   {/* Incomes this week */}
                   <div className={`${glass} rounded-2xl p-4 mb-4`}>
                     <div className="flex justify-between items-center mb-3">
