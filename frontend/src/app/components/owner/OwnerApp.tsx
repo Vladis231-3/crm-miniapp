@@ -583,6 +583,7 @@ export function OwnerApp() {
     paymentSettled: false,
     price: 0,
     duration: 30,
+    referralSource: '',
   });
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [createClientSaving, setCreateClientSaving] = useState(false);
@@ -698,9 +699,10 @@ export function OwnerApp() {
     status: 'scheduled' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
-    isOutsource: false,
-    outsourceAmount: 0,
-  });
+      isOutsource: false,
+      outsourceAmount: 0,
+      referralSource: '',
+    });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | '' }[]>([]);
   const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
   const [ownerNewBookingSaving, setOwnerNewBookingSaving] = useState(false);
@@ -2040,6 +2042,7 @@ export function OwnerApp() {
         car: normalizedCar,
         plate: normalizedPlate,
         plateType: bookingForm.plateType,
+        referralSource: bookingForm.referralSource || undefined,
         notifyWorkers: !bookingForm.isOutsource && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
@@ -2093,6 +2096,7 @@ export function OwnerApp() {
       paymentSettled: false,
       isOutsource: false,
       outsourceAmount: 0,
+      referralSource: '',
     });
   };
 
@@ -2188,6 +2192,7 @@ export function OwnerApp() {
         plate: normalizedPlate,
         plateType: ownerNewBookingForm.plateType,
         notes: ownerNewBookingForm.notes,
+        referralSource: ownerNewBookingForm.referralSource || undefined,
         notifyWorkers: !ownerNewBookingForm.isOutsource && notify,
       });
       const requestScheduleLabel = hasDateTime
@@ -7148,6 +7153,14 @@ export function OwnerApp() {
 
                 <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
                 <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                  <select className={selectCls} value={bookingForm.referralSource} onChange={e => setBookingForm(p => ({ ...p, referralSource: e.target.value }))}>
+                    {REFERRAL_SOURCES.map((source) => (
+                      <option key={source.value} value={source.value}>{source.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
                   <select className={selectCls} value={bookingForm.paymentType} onChange={e => setBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
                     <option value="cash">Наличные</option>
@@ -8066,6 +8079,14 @@ export function OwnerApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Доп. информация..." value={ownerNewBookingForm.notes} onChange={e => setOwnerNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                  <select className={selectCls} value={ownerNewBookingForm.referralSource} onChange={e => setOwnerNewBookingForm(p => ({ ...p, referralSource: e.target.value }))}>
+                    {REFERRAL_SOURCES.map((source) => (
+                      <option key={source.value} value={source.value}>{source.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
