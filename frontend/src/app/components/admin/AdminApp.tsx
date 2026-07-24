@@ -2682,7 +2682,10 @@ export function AdminApp() {
                       ? 'Время и бокс будут назначены после согласования с клиентом'
                       : `${selectedBooking.date} в ${selectedBooking.time} · ${selectedBooking.duration} мин · ${selectedBooking.box}`}
                   </div>
-                  <div className="font-semibold mt-2">{selectedBooking.price.toLocaleString('ru')} ₽</div>
+                  <div className="flex justify-between items-center mt-3 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                    <span className="text-sm font-semibold">Итоговая сумма</span>
+                    <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} ₽</span>
+                  </div>
                 </div>
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-center mb-2">

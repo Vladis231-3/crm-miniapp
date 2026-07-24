@@ -7272,10 +7272,17 @@ export function OwnerApp() {
                     <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(selectedBooking.status)}`}>{ownerStatusLabel(selectedBooking.status)}</span>
                   </div>
                   <div className={`text-xs ${sub} mb-2`}>{selectedBooking.service} • {selectedBooking.date} • {selectedBooking.time}</div>
+                  {(() => {
+                    const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0);
+                    const legacyServicesTotal = (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0);
+                    const baseServicePrice = Math.max(0, selectedBooking.price - additionalTotal - legacyServicesTotal);
+                    return (
+                    <>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
-                      <div className={`text-[11px] ${sub}`}>Стоимость</div>
-                      <div>{selectedBooking.price.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Услуга</div>
+                      <div>{selectedBooking.service}</div>
+                      <div className="font-semibold">{baseServicePrice.toLocaleString('ru')} ₽</div>
                     </div>
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
                       <div className={`text-[11px] ${sub}`}>Оплата</div>
@@ -7340,8 +7347,15 @@ export function OwnerApp() {
                           })}
                         </div>
                       ))}
+                      <div className="flex justify-between items-center pt-3 mt-1 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                        <span className="text-sm font-semibold">Итоговая сумма</span>
+                        <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} ₽</span>
+                      </div>
                     </div>
                   )}
+                    </>
+                    );
+                  })()}
                 </div>
 
                 {/* Edit buttons */}
