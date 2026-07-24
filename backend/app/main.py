@@ -1014,7 +1014,7 @@ def _ensure_permanent_telegram_owners(db: Session) -> None:
 
         # 2) Upsert самой записи владельца.
 
-        owner_name = "Максим" if chat_id == "1768985608" else "Юра" if chat_id == "476719812" else "Владелец"
+        owner_name = "Максим М" if chat_id == "1768985608" else "Юра" if chat_id == "476719812" else "Владелец"
 
         owner = db.get(StaffUser, staff_id)
 
