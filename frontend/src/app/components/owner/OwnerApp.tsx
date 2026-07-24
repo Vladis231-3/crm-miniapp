@@ -29,6 +29,7 @@ import {
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
+import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
 type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
@@ -5287,12 +5288,9 @@ export function OwnerApp() {
                             },
                           }))}
                         >
-                          <option value="">Не указано</option>
-                          <option value="Авито">Авито</option>
-                          <option value="Яндекс карты">Яндекс карты</option>
-                          <option value="2ГИС">2ГИС</option>
-                          <option value="Яндекс бизнес">Яндекс бизнес</option>
-                          <option value="Рекомендации">Рекомендации</option>
+                          {REFERRAL_SOURCES.map((source) => (
+                            <option key={source.value} value={source.value}>{source.label}</option>
+                          ))}
                         </select>
                       </div>
                       <button
@@ -7057,12 +7055,9 @@ export function OwnerApp() {
                     value={createClientForm.referralSource}
                     onChange={(event) => setCreateClientForm((current) => ({ ...current, referralSource: event.target.value }))}
                   >
-                    <option value="">Не указано</option>
-                    <option value="Авито">Авито</option>
-                    <option value="Яндекс карты">Яндекс карты</option>
-                    <option value="2ГИС">2ГИС</option>
-                    <option value="Яндекс бизнес">Яндекс бизнес</option>
-                    <option value="Рекомендации">Рекомендации</option>
+                    {REFERRAL_SOURCES.map((source) => (
+                      <option key={source.value} value={source.value}>{source.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>

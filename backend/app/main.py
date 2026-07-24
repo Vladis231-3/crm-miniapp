@@ -4479,11 +4479,16 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
     schedule = db.scalars(select(ScheduleEntry).order_by(ScheduleEntry.day_index)).all()
 
+    owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+
     workers = db.scalars(
 
         select(StaffUser)
 
-        .where(StaffUser.role.in_(("admin", "worker", "accountant", "owner")))
+        .where(
+            StaffUser.role.in_(("admin", "worker", "accountant"))
+            | StaffUser.id.in_(owner_ids)
+        )
 
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
 

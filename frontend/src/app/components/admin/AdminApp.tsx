@@ -27,6 +27,7 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
+import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новая заявка',
@@ -392,6 +393,7 @@ export function AdminApp() {
     paymentSettled: false,
     isOutsource: false,
     outsourceAmount: 0,
+    referralSource: '',
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
@@ -427,7 +429,7 @@ export function AdminApp() {
   const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', plateType: 'russian' as PlateType, clientName: '', clientPhone: '', serviceId: '', price: 0, duration: 30 });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
-  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string }>>({});
+  const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clientSearchMode, setClientSearchMode] = useState<ClientSearchMode>('phone');
@@ -550,7 +552,7 @@ export function AdminApp() {
     setClientCardDrafts(
       Object.fromEntries(registeredClients.map((client) => [
         client.id,
-        { adminRating: client.adminRating || 0, adminNote: client.adminNote || '' },
+        { adminRating: client.adminRating || 0, adminNote: client.adminNote || '', referralSource: client.referralSource || '' },
       ])),
     );
   }, [registeredClients]);
@@ -728,8 +730,9 @@ export function AdminApp() {
         plate: normalizePlateInput(createClientForm.plate, createClientForm.plateType),
         plateType: createClientForm.plateType,
         notes: createClientForm.notes.trim(),
+        referralSource: createClientForm.referralSource || undefined,
       });
-      setCreateClientForm({ name: '', phone: '', car: '', plate: '', plateType: 'russian', notes: '' });
+      setCreateClientForm({ name: '', phone: '', car: '', plate: '', plateType: 'russian', notes: '', referralSource: '' });
       setCreateClientErrors({});
       setShowCreateClient(false);
       setSelectedClientId(created.id);
@@ -750,6 +753,7 @@ export function AdminApp() {
       await updateClientCard(clientId, {
         adminRating: draft.adminRating,
         adminNote: draft.adminNote,
+        referralSource: draft.referralSource,
       });
     } finally {
       setSavingClientId(null);
@@ -1216,6 +1220,7 @@ export function AdminApp() {
         plate: normalizedPlate,
         plateType: newBookingForm.plateType,
         notes: newBookingForm.notes,
+        referralSource: newBookingForm.referralSource || undefined,
         notifyWorkers: !newBookingForm.isOutsource && notify,
       });
       const requestScheduleLabel = hasDateTime
@@ -1726,8 +1731,8 @@ export function AdminApp() {
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
                             [selectedClient.id]: {
+                              ...current[selectedClient.id],
                               adminRating: Number(event.target.value),
-                              adminNote: current[selectedClient.id]?.adminNote ?? selectedClient.adminNote ?? '',
                             },
                           }))}
                         >
@@ -1745,11 +1750,29 @@ export function AdminApp() {
                           onChange={(event) => setClientCardDrafts((current) => ({
                             ...current,
                             [selectedClient.id]: {
-                              adminRating: current[selectedClient.id]?.adminRating ?? selectedClient.adminRating ?? 0,
+                              ...current[selectedClient.id],
                               adminNote: event.target.value,
                             },
                           }))}
                         />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                        <select
+                          className={selectCls}
+                          value={clientCardDrafts[selectedClient.id]?.referralSource ?? ''}
+                          onChange={(event) => setClientCardDrafts((current) => ({
+                            ...current,
+                            [selectedClient.id]: {
+                              ...current[selectedClient.id],
+                              referralSource: event.target.value,
+                            },
+                          }))}
+                        >
+                          {REFERRAL_SOURCES.map((source) => (
+                            <option key={source.value} value={source.value}>{source.label}</option>
+                          ))}
+                        </select>
                       </div>
                       <button
                         onClick={() => { void handleSaveClientCard(selectedClient.id); }}
@@ -3238,6 +3261,18 @@ export function AdminApp() {
                     onChange={(event) => setCreateClientForm((current) => ({ ...current, notes: event.target.value }))}
                   />
                 </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                  <select
+                    className={selectCls}
+                    value={createClientForm.referralSource}
+                    onChange={(event) => setCreateClientForm((current) => ({ ...current, referralSource: event.target.value }))}
+                  >
+                    {REFERRAL_SOURCES.map((source) => (
+                      <option key={source.value} value={source.value}>{source.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
                   Клиент сможет войти в Mini App по этому телефону и увидит записи, созданные для этой карточки.
                 </div>
@@ -3523,6 +3558,18 @@ export function AdminApp() {
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                   <input className={inputCls} placeholder="Доп. информация..." value={newBookingForm.notes} onChange={e => setNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
+                  <select
+                    className={selectCls}
+                    value={newBookingForm.referralSource}
+                    onChange={(event) => setNewBookingForm((current) => ({ ...current, referralSource: event.target.value }))}
+                  >
+                    {REFERRAL_SOURCES.map((source) => (
+                      <option key={source.value} value={source.value}>{source.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
