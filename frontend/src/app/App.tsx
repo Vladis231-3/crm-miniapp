@@ -658,17 +658,6 @@ function AppContent() {
 
   return (
     <div className={`${isDark ? 'dark' : ''} relative`}>
-      <div className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none">
-        <motion.button
-          initial={{ y: -40 }}
-          animate={{ y: 0 }}
-          transition={{ delay: 0.5, type: 'spring', stiffness: 300 }}
-          onClick={logout}
-          className="pointer-events-auto mt-1 px-3 py-1 rounded-full text-xs text-white/80 bg-black/30 backdrop-blur-sm"
-        >
-          ← {session.role === 'client' ? 'Сменить данные' : 'Выйти'}
-        </motion.button>
-      </div>
       <AnimatePresence mode="wait">
         {session.role === 'client' && (
           <motion.div key="client" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
