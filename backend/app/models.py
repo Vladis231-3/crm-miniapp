@@ -189,6 +189,7 @@ class BookingWorker(Base):
     percent: Mapped[int] = mapped_column(Integer)
     pay_type: Mapped[str] = mapped_column(String(16), default="percent")
     fixed_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    override_earned: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
 
     booking: Mapped[Booking] = relationship(back_populates="worker_links")
     worker: Mapped[StaffUser] = relationship(back_populates="assignments")

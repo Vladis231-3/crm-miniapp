@@ -290,6 +290,7 @@ class WorkerPayrollBookingPayload(BaseModel):
     price: int
     percent: float
     earned: int
+    overrideEarned: int | None = None
     car: str | None = None
     plate: str | None = None
 
@@ -328,6 +329,7 @@ class SalaryBookingItem(BaseModel):
     price: int
     earned: int
     percent: float
+    overrideEarned: int | None = None
     resourceGroup: str
     car: str | None = None
     plate: str | None = None

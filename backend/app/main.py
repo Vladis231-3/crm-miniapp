@@ -3638,6 +3638,8 @@ def _worker_payroll_summaries_from_data(
                 earned = FIXED_MASTER_EARNED
             else:
                 earned = round(booking.price * percent / 100)
+            if link.override_earned is not None:
+                earned = link.override_earned
             booking_items_by_worker[link.worker_id].append(
                 WorkerPayrollBookingPayload(
                     bookingId=booking.id,
@@ -3647,6 +3649,7 @@ def _worker_payroll_summaries_from_data(
                     price=booking.price,
                     percent=percent,
                     earned=earned,
+                    overrideEarned=link.override_earned,
                     car=booking.car,
                     plate=booking.plate,
                 )
@@ -11801,14 +11804,17 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
         worker = db.get(StaffUser, link.worker_id)
 
         if worker:
-
             # For custom services include all roles; otherwise only workers/admins
 
             if not has_custom and worker.role not in ("worker", "admin"):
 
                 continue
 
-            if master_pay_type == "fixed":
+            if link.override_earned is not None:
+
+                total_master += link.override_earned
+
+            elif master_pay_type == "fixed":
 
                 total_master += master_pay_val
 
@@ -11817,6 +11823,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
                 total_master += round(booking.price * master_pay_val / 100)
 
             elif link.pay_type == "fixed":
+
                 total_master += (link.fixed_amount or 0)
 
             else:
@@ -16918,15 +16925,17 @@ def owner_worker_salary_detail(
 
     for b in completed_bookings:
 
+        worker_link = next(
+            (link for link in b.worker_links if link.worker_id == worker_id),
+            None,
+        )
+
+        if worker_link is None:
+            continue
+
         percent = adjusted_booking_percent(
 
-            next(
-
-                (link.percent for link in b.worker_links if link.worker_id == worker_id),
-
-                worker.default_percent,
-
-            ),
+            worker_link.percent,
 
             worker_complaints,
 
@@ -16962,15 +16971,21 @@ def owner_worker_salary_detail(
 
         additional_earned = 0
 
-        for asvc in (b.additional_services or []):
+        if worker_link.override_earned is not None:
 
-            for alink in asvc.worker_links:
+            earned = worker_link.override_earned
 
-                if alink.worker_id == worker_id:
+        else:
 
-                    additional_earned += round(asvc.price * alink.percent / 100)
+            for asvc in (b.additional_services or []):
 
-        earned = main_earned + additional_earned
+                for alink in asvc.worker_links:
+
+                    if alink.worker_id == worker_id:
+
+                        additional_earned += round(asvc.price * alink.percent / 100)
+
+            earned = main_earned + additional_earned
 
         total_earned += earned
 
@@ -16995,6 +17010,8 @@ def owner_worker_salary_detail(
                 earned=earned,
 
                 percent=percent,
+
+                overrideEarned=worker_link.override_earned,
 
                 resourceGroup=rg,
 
@@ -17284,15 +17301,14 @@ def worker_my_salary_detail(
 
     for b in completed_bookings:
 
+        worker_link = next(
+            (link for link in b.worker_links if link.worker_id == worker_id),
+            None,
+        )
+
         percent = adjusted_booking_percent(
 
-            next(
-
-                (link.percent for link in b.worker_links if link.worker_id == worker_id),
-
-                worker.default_percent,
-
-            ),
+            worker_link.percent if worker_link else worker.default_percent,
 
             worker_complaints,
 
@@ -17324,15 +17340,21 @@ def worker_my_salary_detail(
 
         additional_earned = 0
 
-        for asvc in (b.additional_services or []):
+        if worker_link and worker_link.override_earned is not None:
 
-            for alink in asvc.worker_links:
+            earned = worker_link.override_earned
 
-                if alink.worker_id == worker_id:
+        else:
 
-                    additional_earned += round(asvc.price * alink.percent / 100)
+            for asvc in (b.additional_services or []):
 
-        earned = main_earned + additional_earned
+                for alink in asvc.worker_links:
+
+                    if alink.worker_id == worker_id:
+
+                        additional_earned += round(asvc.price * alink.percent / 100)
+
+            earned = main_earned + additional_earned
 
         total_earned += earned
 
@@ -17357,6 +17379,8 @@ def worker_my_salary_detail(
                 earned=earned,
 
                 percent=percent,
+
+                overrideEarned=worker_link.override_earned if worker_link else None,
 
                 resourceGroup=rg,
 
