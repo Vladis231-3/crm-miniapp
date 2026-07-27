@@ -331,6 +331,7 @@ class SalaryBookingItem(BaseModel):
     percent: float
     linkId: int | None = None
     overrideEarned: int | None = None
+    payType: str = "percent"
     resourceGroup: str
     car: str | None = None
     plate: str | None = None

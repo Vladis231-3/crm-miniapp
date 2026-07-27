@@ -38,7 +38,7 @@ type OwnerExportKind = 'report' | 'pdf';
 interface SalaryBookingItem {
   id: string; date: string; time: string; service: string; box: string;
   price: number; earned: number; percent: number; resourceGroup: string;
-  linkId?: number; overrideEarned?: number | null;
+  linkId?: number; overrideEarned?: number | null; payType?: string;
   car?: string; plate?: string;
 }
 interface SalaryPayoutItem {
@@ -3611,7 +3611,7 @@ export function OwnerApp() {
                         <div key={b.id} className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex-1 min-w-0 mr-2">
                             <div className="text-xs font-medium truncate">{b.date} {b.time} · {b.service}</div>
-                            <div className={`text-[10px] ${sub}`}>{b.box} · {b.percent}%</div>
+                            <div className={`text-[10px] ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${b.earned.toLocaleString('ru')} ₽` : `${b.percent}%`}</div>
                             {(b.car || b.plate) && (
                               <div className={`text-[10px] ${sub} mt-0.5`}>
                                 {[b.car, b.plate].filter(Boolean).join(' · ')}

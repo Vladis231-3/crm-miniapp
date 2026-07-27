@@ -17086,6 +17086,8 @@ def owner_worker_salary_detail(
 
                 linkId=worker_link.id,
 
+                payType=worker_link.pay_type or "percent",
+
                 resourceGroup=rg,
 
                 car=b.car,
@@ -17458,6 +17460,8 @@ def worker_my_salary_detail(
                 overrideEarned=worker_link.override_earned if worker_link else None,
 
                 linkId=worker_link.id if worker_link else None,
+
+                payType=worker_link.pay_type if worker_link else "percent",
 
                 resourceGroup=rg,
 
