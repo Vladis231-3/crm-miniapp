@@ -1698,6 +1698,15 @@ def _apply_runtime_migrations() -> None:
                 )
                 conn.commit()
 
+        if "override_earned" not in bw_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE booking_workers ADD COLUMN override_earned INTEGER DEFAULT NULL"
+                    )
+                )
+                conn.commit()
+
     if "additional_service_workers" in inspector.get_table_names():
 
         asw_cols = {col["name"] for col in inspector.get_columns("additional_service_workers")}
