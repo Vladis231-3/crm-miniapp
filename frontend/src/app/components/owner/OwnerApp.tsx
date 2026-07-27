@@ -38,6 +38,7 @@ type OwnerExportKind = 'report' | 'pdf';
 interface SalaryBookingItem {
   id: string; date: string; time: string; service: string; box: string;
   price: number; earned: number; percent: number; resourceGroup: string;
+  linkId?: number; overrideEarned?: number | null;
   car?: string; plate?: string;
 }
 interface SalaryPayoutItem {
@@ -597,6 +598,8 @@ export function OwnerApp() {
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
   const [salaryLoading, setSalaryLoading] = useState(false);
+  const [editingOverrideLinkId, setEditingOverrideLinkId] = useState<number | null>(null);
+  const [editingOverrideValue, setEditingOverrideValue] = useState('');
   const [bonusAmount, setBonusAmount] = useState('');
   const [bonusNote, setBonusNote] = useState('');
   const [fineAmount, setFineAmount] = useState('');
@@ -1706,6 +1709,29 @@ export function OwnerApp() {
       .then(setSalaryDetail)
       .catch(() => setSalaryDetail(null))
       .finally(() => setSalaryLoading(false));
+  };
+
+  const handleSaveOverrideEarned = async (linkId: number) => {
+    const value = editingOverrideValue.trim();
+    if (value === '') return;
+    const num = Math.round(Number(value));
+    if (isNaN(num) || num < 0) return;
+    try {
+      await apiRequest(`/api/payroll/booking-workers/${linkId}/override-earned`, {
+        method: 'PUT',
+        body: { overrideEarned: num },
+      });
+      setEditingOverrideLinkId(null);
+      setEditingOverrideValue('');
+      refreshSalaryDetail();
+    } catch {
+      setBottomToast('Ошибка при сохранении');
+    }
+  };
+
+  const handleCancelOverrideEarned = () => {
+    setEditingOverrideLinkId(null);
+    setEditingOverrideValue('');
   };
 
   const handleAddBonus = async () => {
@@ -3593,8 +3619,34 @@ export function OwnerApp() {
                             )}
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} ₽</div>
-                            <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг'}</div>
+                            {editingOverrideLinkId === b.linkId ? (
+                              <div className="flex items-center gap-1">
+                                <input type="number" value={editingOverrideValue}
+                                  onChange={e => setEditingOverrideValue(e.target.value)}
+                                  className={`w-20 text-right text-sm rounded-lg px-2 py-1 ${inputCls}`}
+                                  autoFocus onKeyDown={e => {
+                                    if (e.key === 'Enter') handleSaveOverrideEarned(b.linkId!);
+                                    if (e.key === 'Escape') handleCancelOverrideEarned();
+                                  }} />
+                                <button onClick={() => handleSaveOverrideEarned(b.linkId!)}
+                                  className="text-xs px-1.5 py-0.5 rounded" style={{ background: accent, color: '#fff' }}>✓</button>
+                                <button onClick={handleCancelOverrideEarned}
+                                  className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#666', color: '#fff' }}>✕</button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} ₽</div>
+                                  <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг'}</div>
+                                </div>
+                                {b.linkId && (
+                                  <button onClick={() => {
+                                    setEditingOverrideLinkId(b.linkId!);
+                                    setEditingOverrideValue(String(b.overrideEarned ?? b.earned));
+                                  }} className="text-xs opacity-50 hover:opacity-100 transition" title="Изменить заработок">✏️</button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))

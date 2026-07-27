@@ -344,6 +344,8 @@ from .schemas import (
 
     ResetPasswordRequest,
 
+    OverrideEarnedRequest,
+
     WalletResponse,
 
     WeeklyArchivePayload,
@@ -16724,6 +16726,40 @@ def update_payroll_entry(
 
 
 
+@app.put("/api/payroll/booking-workers/{link_id}/override-earned")
+
+def update_booking_worker_override_earned(
+
+    link_id: int,
+
+    payload: OverrideEarnedRequest,
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> dict:
+
+    _ensure_staff_role(session_data, {"admin", "owner"})
+
+    link = db.get(BookingWorker, link_id)
+
+    if link is None:
+
+        raise HTTPException(status_code=404, detail="Связь не найдена")
+
+    booking = db.get(Booking, link.booking_id)
+
+    if booking and booking.status not in ("completed", "confirmed"):
+
+        raise HTTPException(status_code=400, detail="Нельзя изменить заработок для незавершённой записи")
+
+    link.override_earned = payload.overrideEarned
+
+    db.commit()
+
+    return {"message": "Заработок обновлён", "overrideEarned": payload.overrideEarned}
+
 
 
 # ── Salary detail (owner) ─────────────────────────────────────────────────
@@ -17045,6 +17081,8 @@ def owner_worker_salary_detail(
                 percent=percent,
 
                 overrideEarned=worker_link.override_earned,
+
+                linkId=worker_link.id,
 
                 resourceGroup=rg,
 
@@ -17414,6 +17452,8 @@ def worker_my_salary_detail(
                 percent=percent,
 
                 overrideEarned=worker_link.override_earned if worker_link else None,
+
+                linkId=worker_link.id if worker_link else None,
 
                 resourceGroup=rg,
 

@@ -329,6 +329,7 @@ class SalaryBookingItem(BaseModel):
     price: int
     earned: int
     percent: float
+    linkId: int | None = None
     overrideEarned: int | None = None
     resourceGroup: str
     car: str | None = None
@@ -1480,3 +1481,7 @@ class PayOwnerSalaryResponse(BaseModel):
     payoutId: str
     expenseId: str
     newBalance: int
+
+
+class OverrideEarnedRequest(BaseModel):
+    overrideEarned: int | None = None
