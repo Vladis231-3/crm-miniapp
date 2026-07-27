@@ -3618,6 +3618,8 @@ def _worker_payroll_summaries_from_data(
     }
     for booking in completed_bookings:
         svc = db.get(Service, booking.service_id) if booking.service_id else None
+        additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
+        main_price = max(0, booking.price - additional_total)
         for link in booking.worker_links:
             if link.worker_id not in booking_items_by_worker:
                 continue
@@ -3633,11 +3635,11 @@ def _worker_payroll_summaries_from_data(
             elif svc and svc.master_pay_type == "fixed":
                 earned = svc.master_pay_value
             elif svc and svc.master_pay_type == "percent":
-                earned = round(booking.price * svc.master_pay_value / 100)
+                earned = round(main_price * svc.master_pay_value / 100)
             elif _is_fixed_master_service_db(db, booking.service_id, booking.service):
                 earned = FIXED_MASTER_EARNED
             else:
-                earned = round(booking.price * percent / 100)
+                earned = round(main_price * percent / 100)
             if link.override_earned is not None:
                 earned = link.override_earned
             booking_items_by_worker[link.worker_id].append(
@@ -11675,13 +11677,17 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     # 2. Deposit into piggy bank (based on service settings, or default 24% for detailing/wash)
 
+    additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
+
+    main_price = max(0, booking.price - additional_total)
+
     svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
 
     piggy_type = svc_for_piggy.piggy_pay_type if svc_for_piggy else ""
 
     piggy_val = svc_for_piggy.piggy_pay_value if svc_for_piggy else 0
 
-    print(f"[PIGGY_DEBUG] piggy_type={piggy_type!r} piggy_val={piggy_val} rg={rg!r}")
+    print(f"[PIGGY_DEBUG] piggy_type={piggy_type!r} piggy_val={piggy_val} rg={rg!r} main_price={main_price}")
 
     if piggy_type == "fixed":
 
@@ -11689,7 +11695,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     elif piggy_type == "percent":
 
-        deposit_amount = round(booking.price * piggy_val / 100)
+        deposit_amount = round(main_price * piggy_val / 100)
 
     elif piggy_type == "none":
 
@@ -11697,7 +11703,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     elif rg in ("detailing", "wash"):
 
-        deposit_amount = round(booking.price * 24 / 100)
+        deposit_amount = round(main_price * 24 / 100)
 
     else:
 
@@ -11795,7 +11801,13 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     print(f"[PROFIT_DEBUG] owners count={len(owners)} owner_ids={owner_ids}")
 
-    # Calculate master's total accrual from booking workers
+    # Use main service price (exclude additional services) for all percent calculations
+
+    additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
+
+    main_price = max(0, booking.price - additional_total)
+
+    # Calculate master's total accrual from booking workers (main service)
 
     total_master = 0
 
@@ -11820,7 +11832,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
             elif master_pay_type == "percent":
 
-                total_master += round(booking.price * master_pay_val / 100)
+                total_master += round(main_price * master_pay_val / 100)
 
             elif link.pay_type == "fixed":
 
@@ -11848,11 +11860,23 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
                 )
 
-                total_master += FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(booking.price * percent / 100)
+                total_master += FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(main_price * percent / 100)
 
+    # Additional service workers pay
 
+    for asvc in (booking.additional_services or []):
 
-    # Piggy deposit based on service settings
+        for alink in asvc.worker_links:
+
+            if alink.pay_type == "fixed":
+
+                total_master += (alink.fixed_amount or 0)
+
+            else:
+
+                total_master += round(asvc.price * alink.percent / 100)
+
+    # Piggy deposit based on service settings (from main price)
 
     if piggy_type == "fixed":
 
@@ -11860,7 +11884,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     elif piggy_type == "percent":
 
-        piggy_deposit = round(booking.price * piggy_val / 100)
+        piggy_deposit = round(main_price * piggy_val / 100)
 
     elif piggy_type == "none":
 
@@ -11868,7 +11892,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     else:
 
-        piggy_deposit = round(booking.price * 24 / 100)
+        piggy_deposit = round(main_price * 24 / 100)
 
 
 

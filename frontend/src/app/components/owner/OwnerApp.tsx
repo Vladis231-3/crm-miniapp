@@ -5610,13 +5610,21 @@ export function OwnerApp() {
                       <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
                       <select className={selectCls} value={service.masterPayType || ''}
                         onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayType: e.target.value } : item))}>
-                        <option value="">% от цены (из брони)</option>
+                        <option value="">% мастера (из профиля)</option>
+                        <option value="percent">% от цены услуги</option>
                         <option value="fixed">Фиксированная сумма</option>
                       </select>
                     </div>
                     {service.masterPayType === 'fixed' && (
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Сумма мастеру (₽)</label>
+                        <input className={inputCls} type="number" value={numberInputValue(service.masterPayValue ?? 0)}
+                          onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayValue: numberFromInput(e.target.value) } : item))} />
+                      </div>
+                    )}
+                    {service.masterPayType === 'percent' && (
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Процент мастеру (%)</label>
                         <input className={inputCls} type="number" value={numberInputValue(service.masterPayValue ?? 0)}
                           onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayValue: numberFromInput(e.target.value) } : item))} />
                       </div>
