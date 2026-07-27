@@ -11837,6 +11837,10 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
                 total_master += link.override_earned
 
+            elif link.pay_type == "fixed":
+
+                total_master += (link.fixed_amount or 0)
+
             elif master_pay_type == "fixed":
 
                 total_master += master_pay_val
@@ -11844,10 +11848,6 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
             elif master_pay_type == "percent":
 
                 total_master += round(main_price * master_pay_val / 100)
-
-            elif link.pay_type == "fixed":
-
-                total_master += (link.fixed_amount or 0)
 
             else:
 
@@ -17029,7 +17029,9 @@ def owner_worker_salary_detail(
         main_price = max(0, b.price - additional_total)
 
         svc = db.get(Service, b.service_id) if b.service_id else None
-        if svc and svc.master_pay_type == "fixed":
+        if worker_link.pay_type == "fixed":
+            main_earned = worker_link.fixed_amount or 0
+        elif svc and svc.master_pay_type == "fixed":
             main_earned = svc.master_pay_value
         elif svc and svc.master_pay_type == "percent":
             main_earned = round(main_price * svc.master_pay_value / 100)
@@ -17402,7 +17404,9 @@ def worker_my_salary_detail(
         main_price = max(0, b.price - additional_total)
 
         svc = db.get(Service, b.service_id) if b.service_id else None
-        if svc and svc.master_pay_type == "fixed":
+        if worker_link and worker_link.pay_type == "fixed":
+            main_earned = worker_link.fixed_amount or 0
+        elif svc and svc.master_pay_type == "fixed":
             main_earned = svc.master_pay_value
         elif svc and svc.master_pay_type == "percent":
             main_earned = round(main_price * svc.master_pay_value / 100)
