@@ -590,6 +590,7 @@ export function OwnerApp() {
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
   const [createClientForm, setCreateClientForm] = useState({ name: '', phone: '', car: '', plate: '', plateType: 'russian' as PlateType, notes: '', referralSource: '' });
   const [selectedSalaryWorkerId, setSelectedSalaryWorkerId] = useState<string | null>(null);
+  const [salaryWorkerSearch, setSalaryWorkerSearch] = useState('');
   const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
   const [salaryDateFrom, setSalaryDateFrom] = useState('');
@@ -3199,6 +3200,13 @@ export function OwnerApp() {
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-2">Зарплаты сотрудников</h2>
 
+              {/* Search */}
+              <div className="mb-3">
+                <input type="text" placeholder="Поиск мастера по имени..." value={salaryWorkerSearch}
+                  onChange={e => setSalaryWorkerSearch(e.target.value)}
+                  className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+              </div>
+
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
@@ -3222,7 +3230,7 @@ export function OwnerApp() {
                   Выдать жалобу
                 </button>
               </div>}
-              {payrollRows.map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
+              {payrollRows.filter(row => row.worker.name.toLowerCase().includes(salaryWorkerSearch.toLowerCase())).map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
                 <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
