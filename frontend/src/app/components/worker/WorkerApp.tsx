@@ -348,10 +348,12 @@ export function WorkerApp() {
     .filter(b => b.status === 'completed' && b.workers.some(w => w.workerId === workerId))
     .map(b => {
       const w = b.workers.find(wk => wk.workerId === workerId);
-      const earned = isFixedMasterService(services, b.serviceId, b.service)
-        ? FIXED_MASTER_EARNED
-        : Math.round(b.price * (w?.percent || 0) / 100);
-      return { ...b, earned };
+      const earned = w?.payType === 'fixed'
+        ? (w.fixedAmount || 0)
+        : isFixedMasterService(services, b.serviceId, b.service)
+          ? FIXED_MASTER_EARNED
+          : Math.round(b.price * (w?.percent || 0) / 100);
+      return { ...b, earned, payType: w?.payType, fixedAmount: w?.fixedAmount };
     });
   const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
   const payrollSummary = staffProfile?.payrollSummary;
@@ -576,8 +578,8 @@ export function WorkerApp() {
                         </div>
                         {isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
                           <div key={w.workerId} className="flex justify-between items-center mt-0.5">
-                            <span className={`text-xs ${sub}`}>Ваша доля: {w.percent}%</span>
-                            <span className="text-xs font-medium text-green-500">+{Math.round(as.price * w.percent / 100).toLocaleString('ru')} ₽</span>
+                            <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                            <span className="text-xs font-medium text-green-500">+{(w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)).toLocaleString('ru')} ₽</span>
                           </div>
                         ))}
                       </div>
@@ -594,7 +596,7 @@ export function WorkerApp() {
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
                         <span className="text-sm">{w.workerName}</span>
                       </div>
-                      <span className={`text-sm ${sub}`}>{w.percent}%</span>
+                      <span className={`text-sm ${sub}`}>{w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
                     </div>
                   ))}
                 </div>
@@ -851,7 +853,9 @@ export function WorkerApp() {
                                   <div className="font-semibold text-sm" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
                                   {isFixedMasterService(services, b.serviceId, b.service)
                                     ? <div className={`text-xs ${sub}`}>фикс {formatFixedMasterAmount()}</div>
-                                    : <div className={`text-xs ${sub}`}>{b.percent}%</div>}
+                                    : b.payType === 'fixed'
+                                      ? <div className={`text-xs ${sub}`}>{(b.fixedAmount || 0).toLocaleString('ru')} ₽</div>
+                                      : <div className={`text-xs ${sub}`}>{b.percent}%</div>}
                                 </div>
                               </div>
                             </div>
@@ -1164,11 +1168,11 @@ export function WorkerApp() {
               ) : allMyTasks.map(task => {
                 const w = task.workers.find(wk => wk.workerId === workerId);
                 const earned = task.status === 'completed'
-                  ? (isFixedMasterService(services, task.serviceId, task.service) ? FIXED_MASTER_EARNED : Math.round(task.price * (w?.percent || 0) / 100))
+                  ? (w?.payType === 'fixed' ? (w.fixedAmount || 0) : (isFixedMasterService(services, task.serviceId, task.service) ? FIXED_MASTER_EARNED : Math.round(task.price * (w?.percent || 0) / 100)))
                   : 0;
                 const paymentLabel = task.paymentType === 'cash' ? 'Наличные' : task.paymentType === 'transfer' ? 'Перевод' : task.paymentType === 'invoice' ? 'По счёту' : '';
                 return (
-                  <div key={task.id} className={`${glass} rounded-xl p-3 mb-2 cursor-pointer`} onClick={() => setSelectedCompletedOrder({ service: task.service, car: task.car, plate: task.plate, date: task.date, time: task.time, box: task.box, price: task.price, paymentType: task.paymentType, paymentSettled: task.paymentSettled, earned, percent: w?.percent, notes: task.notes })}>
+                  <div key={task.id} className={`${glass} rounded-xl p-3 mb-2 cursor-pointer`} onClick={() => setSelectedCompletedOrder({ service: task.service, car: task.car, plate: task.plate, date: task.date, time: task.time, box: task.box, price: task.price, paymentType: task.paymentType, paymentSettled: task.paymentSettled, earned, percent: w?.percent, payType: w?.payType, fixedAmount: w?.fixedAmount, notes: task.notes })}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="text-sm font-medium">{task.service}</div>
@@ -1472,7 +1476,9 @@ export function WorkerApp() {
                       <div className="font-semibold text-lg" style={{ color: primary }}>+{selectedCompletedOrder.earned?.toLocaleString('ru')} ₽</div>
                       {isFixedMasterService(services, selectedCompletedOrder.serviceId, selectedCompletedOrder.service)
                         ? <div className={`text-sm ${sub}`}>фикс {formatFixedMasterAmount()}</div>
-                        : selectedCompletedOrder.percent != null && <div className={`text-sm ${sub}`}>{selectedCompletedOrder.percent}%</div>}
+                        : selectedCompletedOrder.payType === 'fixed'
+                          ? <div className={`text-sm ${sub}`}>{(selectedCompletedOrder.fixedAmount || 0).toLocaleString('ru')} ₽</div>
+                          : selectedCompletedOrder.percent != null && <div className={`text-sm ${sub}`}>{selectedCompletedOrder.percent}%</div>}
                     </div>
                   </div>
                 )}
