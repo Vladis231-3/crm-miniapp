@@ -377,6 +377,7 @@ export function AdminApp() {
   const [showSlideOver, setShowSlideOver] = useState(false);
   const [showNewBooking, setShowNewBooking] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showClientSearch, setShowClientSearch] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -3387,14 +3388,23 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                           }} />
                         </div>
                     ) : (
-                      <input className={`${inputCls} ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
-                        value={(newBookingForm as any)[f.key]} onChange={e => {
-                          const nextValue = e.target.value;
-                          setNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
-                          if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
-                            setNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
-                          }
-                        }} />
+                      <div className="flex gap-1.5 items-center">
+                        <input className={`${inputCls} flex-1 ${newBookingErrors[f.key as keyof typeof newBookingErrors] ? 'border-red-400' : ''}`} type={f.type} placeholder={f.placeholder}
+                          value={(newBookingForm as any)[f.key]} onChange={e => {
+                            const nextValue = e.target.value;
+                            setNewBookingForm(p => ({ ...p, [f.key]: nextValue }));
+                            if (f.key === 'clientName' || f.key === 'clientPhone' || f.key === 'car' || f.key === 'plate') {
+                              setNewBookingErrors((current) => ({ ...current, [f.key]: undefined, general: undefined }));
+                            }
+                          }} />
+                        {f.key === 'clientName' && (
+                          <button type="button" onClick={() => setShowClientSearch(true)}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                            style={{ background: `${primary}20`, color: primary }}>
+                            ?
+                          </button>
+                        )}
+                      </div>
                     )}
                     {(f.key === 'clientName' && newBookingErrors.clientName) && <div className="mt-1 text-xs text-red-500">{newBookingErrors.clientName}</div>}
                     {(f.key === 'clientPhone' && newBookingErrors.clientPhone) && <div className="mt-1 text-xs text-red-500">{newBookingErrors.clientPhone}</div>}
@@ -3637,6 +3647,56 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </button>
               </div>
               </div>{/* end overflow-y-auto */}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CLIENT SEARCH MODAL */}
+      <AnimatePresence>
+        {showClientSearch && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold">Найденные клиенты</h3>
+                  <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                </div>
+                <div className="text-xs" style={{ color: sub }}>
+                  {(() => {
+                    const q = newBookingForm.clientName.trim().toLowerCase();
+                    const matches = q ? registeredClients.filter(c => c.name.toLowerCase().includes(q)) : [];
+                    return matches.length > 0 ? `Найдено ${matches.length} клиент${matches.length === 1 ? '' : 'ов'}` : 'Введите имя для поиска';
+                  })()}
+                </div>
+              </div>
+              <div className="overflow-y-auto p-4 space-y-2">
+                {(() => {
+                  const q = newBookingForm.clientName.trim().toLowerCase();
+                  const matches = q ? registeredClients.filter(c => c.name.toLowerCase().includes(q)) : [];
+                  return matches.length > 0 ? matches.map(client => (
+                    <button key={client.id} type="button" onClick={() => {
+                      setNewBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: client.car, plate: client.plate, plateType: (client.plateType as PlateType) || 'russian' }));
+                      setShowClientSearch(false);
+                    }}
+                      className={`w-full text-left ${glass} rounded-2xl p-4 transition hover:opacity-80`}>
+                      <div className="font-medium text-sm">{client.name}</div>
+                      <div className={`text-xs ${sub} mt-0.5`}>{client.phone}</div>
+                      {(client.car || client.plate) && (
+                        <div className={`text-xs ${sub} mt-0.5`}>
+                          {[client.car, client.plate].filter(Boolean).join(' • ')}
+                        </div>
+                      )}
+                    </button>
+                  )) : (
+                    <div className={`text-sm ${sub} text-center py-8`}>
+                      {q ? 'Ничего не найдено' : 'Начните вводить имя клиента'}
+                    </div>
+                  );
+                })()}
+              </div>
             </motion.div>
           </motion.div>
         )}

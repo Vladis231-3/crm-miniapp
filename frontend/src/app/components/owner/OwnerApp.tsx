@@ -492,6 +492,7 @@ export function OwnerApp() {
   const [showWriteOff, setShowWriteOff] = useState<string | null>(null);
   const [showAddStock, setShowAddStock] = useState(false);
   const [showCreateBooking, setShowCreateBooking] = useState(false);
+  const [showClientSearch, setShowClientSearch] = useState(false);
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetail, setShowBookingDetail] = useState(false);
@@ -7204,7 +7205,7 @@ export function OwnerApp() {
                 <button onClick={() => setShowCreateBooking(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
               </div>
               <div className="space-y-3 mb-4 pb-32">
-                <div><label className={`text-xs ${sub} block mb-1`}>Клиент</label><input className={inputCls} placeholder="Иван Иванов" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Клиент</label><div className="flex gap-1.5 items-center"><input className={`${inputCls} flex-1`} placeholder="Иван Иванов" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /><button type="button" onClick={() => setShowClientSearch(true)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ background: `${primary}20`, color: primary }}>?</button></div></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Телефон (необязательно)</label><input className={inputCls} type="tel" placeholder="+7 (___) ___-__-__" value={bookingForm.clientPhone} onChange={e => setBookingForm(p => ({ ...p, clientPhone: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className={`text-xs ${sub} block mb-1`}>Автомобиль</label><input className={inputCls} placeholder="Lada Vesta" value={bookingForm.car} onChange={e => setBookingForm(p => ({ ...p, car: e.target.value }))} /></div>
@@ -7376,6 +7377,56 @@ export function OwnerApp() {
           </>
         )}
 
+      </AnimatePresence>
+
+      {/* CLIENT SEARCH MODAL */}
+      <AnimatePresence>
+        {showClientSearch && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold">Найденные клиенты</h3>
+                  <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                </div>
+                <div className={`text-xs ${sub}`}>
+                  {(() => {
+                    const q = bookingForm.clientName.trim().toLowerCase();
+                    const matches = q ? clients.filter(c => c.name.toLowerCase().includes(q)) : [];
+                    return matches.length > 0 ? `Найдено ${matches.length} клиент${matches.length === 1 ? '' : 'ов'}` : 'Введите имя для поиска';
+                  })()}
+                </div>
+              </div>
+              <div className="overflow-y-auto p-4 space-y-2">
+                {(() => {
+                  const q = bookingForm.clientName.trim().toLowerCase();
+                  const matches = q ? clients.filter(c => c.name.toLowerCase().includes(q)) : [];
+                  return matches.length > 0 ? matches.map(client => (
+                    <button key={client.id} type="button" onClick={() => {
+                      setBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: client.car, plate: client.plate, plateType: (client.plateType as PlateType) || 'russian' }));
+                      setShowClientSearch(false);
+                    }}
+                      className={`w-full text-left ${glass} rounded-2xl p-4 transition hover:opacity-80`}>
+                      <div className="font-medium text-sm">{client.name}</div>
+                      <div className={`text-xs ${sub} mt-0.5`}>{client.phone}</div>
+                      {(client.car || client.plate) && (
+                        <div className={`text-xs ${sub} mt-0.5`}>
+                          {[client.car, client.plate].filter(Boolean).join(' • ')}
+                        </div>
+                      )}
+                    </button>
+                  )) : (
+                    <div className={`text-sm ${sub} text-center py-8`}>
+                      {q ? 'Ничего не найдено' : 'Начните вводить имя клиента'}
+                    </div>
+                  );
+                })()}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* BOOKING DETAIL MODAL */}
