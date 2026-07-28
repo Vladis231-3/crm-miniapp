@@ -71,7 +71,7 @@ function adminServiceResourceGroupForCategory(category: string) {
 }
 
 const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
-const STAFF_SCHEDULED_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled', 'in_progress'];
+const STAFF_SCHEDULED_STATUSES: BookingStatus[] = ['new', 'confirmed', 'in_progress'];
 const NEW_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string }> = [
   { value: 'admin_review', label: 'На уточнении' },
   { value: 'confirmed', label: 'Подтверждена' },

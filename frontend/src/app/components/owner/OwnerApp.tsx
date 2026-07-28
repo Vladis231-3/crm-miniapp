@@ -136,7 +136,7 @@ const OWNER_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string 
   { value: 'admin_review', label: 'На уточнении' },
 ];
 function ownerBookingStatusRequiresScheduledSlot(status: BookingStatus) {
-  return ['new', 'confirmed', 'scheduled', 'in_progress'].includes(status);
+  return ['new', 'confirmed', 'in_progress'].includes(status);
 }
 function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
   if (role === 'admin') return 'Администратор';
@@ -2156,7 +2156,7 @@ export function OwnerApp() {
     }
     const hasDate = Boolean(ownerNewBookingForm.date.trim());
     const hasTime = Boolean(ownerNewBookingForm.time.trim());
-    const requiresScheduledSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerNewBookingForm.status);
+    const requiresScheduledSlot = ['new', 'confirmed', 'in_progress'].includes(ownerNewBookingForm.status);
     if (requiresScheduledSlot || ownerNewBookingForm.status === 'completed') {
       if (!hasDate) nextErrors.date = 'Укажите дату записи';
       if (!hasTime) nextErrors.time = 'Укажите время записи';

@@ -11297,7 +11297,7 @@ def create_booking(
 
 
 
-    requires_scheduled_slot = _booking_requires_scheduled_slot(booking_status)
+    requires_scheduled_slot = _booking_requires_scheduled_slot(booking_status) and booking_status != "scheduled"
 
     if requires_scheduled_slot:
 
