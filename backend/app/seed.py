@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import AppSetting, Box, ScheduleEntry, Service, StaffUser
+from .models import AppSetting, Box, ScheduleEntry, Service, StaffUser, StockCategory
 from .security import hash_password
 
 
@@ -133,6 +133,32 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
             ScheduleEntry(day_index=6, day_label="Пт", open_time="09:00", close_time="22:00", active=True),
         ]
         db.add_all(schedule_entries)
+
+    if not db.scalar(select(StockCategory.id).limit(1)):
+        stock_categories = [
+            StockCategory(id="sc-film", name="Плёнка", parent_id=None),
+            StockCategory(id="sc-ppf", name="PPF", parent_id="sc-film"),
+            StockCategory(id="sc-vinyl", name="Винил", parent_id="sc-film"),
+            StockCategory(id="sc-antigrav", name="Антигравийная", parent_id="sc-film"),
+            StockCategory(id="sc-protective", name="Защитная", parent_id="sc-film"),
+            StockCategory(id="sc-toning", name="Тонировочная", parent_id="sc-film"),
+            StockCategory(id="sc-chemistry", name="Химия", parent_id=None),
+            StockCategory(id="sc-shampoo", name="Шампуни", parent_id="sc-chemistry"),
+            StockCategory(id="sc-polish", name="Полироли", parent_id="sc-chemistry"),
+            StockCategory(id="sc-cleaner", name="Очистители", parent_id="sc-chemistry"),
+            StockCategory(id="sc-hydrophob", name="Гидрофобные покрытия", parent_id="sc-chemistry"),
+            StockCategory(id="sc-consumables", name="Расходники", parent_id=None),
+            StockCategory(id="sc-napkins", name="Салфетки", parent_id="sc-consumables"),
+            StockCategory(id="sc-gloves", name="Перчатки", parent_id="sc-consumables"),
+            StockCategory(id="sc-tape", name="Скотч", parent_id="sc-consumables"),
+            StockCategory(id="sc-masks", name="Маски", parent_id="sc-consumables"),
+            StockCategory(id="sc-tools", name="Инструменты", parent_id=None),
+            StockCategory(id="sc-squeegee", name="Ракели", parent_id="sc-tools"),
+            StockCategory(id="sc-knives", name="Ножи", parent_id="sc-tools"),
+            StockCategory(id="sc-heatgun", name="Фены", parent_id="sc-tools"),
+            StockCategory(id="sc-lamps", name="Лампы", parent_id="sc-tools"),
+        ]
+        db.add_all(stock_categories)
 
     existing_settings = {row.key for row in db.scalars(select(AppSetting)).all()}
     worker_notification_settings = {

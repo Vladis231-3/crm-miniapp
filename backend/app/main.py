@@ -4790,7 +4790,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
 
 
-        if role in {"owner", "accountant"}:
+        if role in {"admin", "owner", "accountant"}:
 
             clients = [
 
@@ -9056,7 +9056,7 @@ def create_stock_category(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> StockCategoryPayload:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
     cat = StockCategory(
         id=f"sc-{uuid4()}",
         name=payload.name,
@@ -9075,7 +9075,7 @@ def update_stock_category(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> StockCategoryPayload:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
     cat = db.get(StockCategory, category_id)
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
@@ -9093,7 +9093,7 @@ def delete_stock_category(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> GenericMessage:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
     cat = db.get(StockCategory, category_id)
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
@@ -11303,7 +11303,7 @@ def create_stock_item(
 
 ) -> StockItemPayload:
 
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
 
     item = StockItem(
         id=f"st-{uuid4()}",
@@ -11341,7 +11341,7 @@ def update_stock_item(
 
 ) -> StockItemPayload:
 
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
 
     item = db.get(StockItem, item_id)
 
@@ -11389,7 +11389,7 @@ def write_off_stock(
 
 ) -> StockItemPayload:
 
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
 
     item = db.get(StockItem, item_id)
 
@@ -11425,7 +11425,7 @@ def delete_stock_item(
 
 ) -> GenericMessage:
 
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
 
     item = db.get(StockItem, item_id)
 

@@ -112,12 +112,13 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   adjustment: 'Корректировка',
 };
 
-type AdminPage = 'calendar' | 'stats' | 'clients' | 'settings';
+type AdminPage = 'calendar' | 'stats' | 'clients' | 'stock' | 'settings';
 
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance' | 'content';
 type EditModalMode = 'edit' | 'reschedule';
 type ClientSearchMode = 'phone' | 'plate';
 type ShiftPhotoCategoryId = typeof SHIFT_PHOTO_CATEGORIES[number]['id'];
+const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
   return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
 }
@@ -345,6 +346,12 @@ export function AdminApp() {
     workers,
     stockItems,
     stockCategories,
+    addStockItem,
+    deleteStockItem,
+    writeOffStock,
+    addStockCategory,
+    updateStockCategory,
+    deleteStockCategory,
     services: liveServices,
     boxes: liveBoxes,
     schedule: liveSchedule,
@@ -385,6 +392,13 @@ export function AdminApp() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [editModalMode, setEditModalMode] = useState<EditModalMode>('edit');
   const [saveSuccess, setSaveSuccess] = useState<'notify' | 'silent' | null>(null);
+  const [bottomToast, setBottomToast] = useState<string | null>(null);
+  const [showAddStock, setShowAddStock] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showWriteOff, setShowWriteOff] = useState<string | null>(null);
+  const [writeOffQty, setWriteOffQty] = useState('1');
+  const parentCategories = stockCategories.filter(c => !c.parentId);
+  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
 const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
 const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [newBookingMaterials, setNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number; unit: string; unitPrice: number }[]>([]);
@@ -1330,6 +1344,27 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     }
   };
 
+  const handleAddStock = () => {
+    if (!stockForm.name || !stockForm.qty) return;
+    const parentCats = stockCategories.filter(c => !c.parentId);
+    addStockItem({ name: stockForm.name, qty: Number(stockForm.qty), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice), category: stockForm.category, categoryId: stockForm.categoryId || undefined });
+    setShowAddStock(false);
+    setStockForm({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCats[0]?.name || 'Химия', categoryId: '' });
+    setBottomToast(`Товар "${stockForm.name}" добавлен на склад`);
+    setTimeout(() => setBottomToast(null), 3000);
+  };
+
+  const handleWriteOff = () => {
+    if (!showWriteOff) return;
+    const item = stockItems.find(s => s.id === showWriteOff);
+    if (!item) return;
+    writeOffStock(showWriteOff, Number(writeOffQty));
+    setShowWriteOff(null);
+    setWriteOffQty('1');
+    setBottomToast(`Списано: ${item.name} — ${writeOffQty} ${item.unit}`);
+    setTimeout(() => setBottomToast(null), 3000);
+  };
+
   const openCompleteModal = (booking: Booking) => {
     setSelectedBooking(booking);
     setCompleteAmount(String(booking.price));
@@ -1877,6 +1912,250 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   </div>
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {/* STOCK */}
+          {page === 'stock' && (
+            <motion.div key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-semibold">Склад</h2>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowAddStock(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
+                    <Plus size={14} />Добавить товар
+                  </button>
+                  <button onClick={() => setShowCategoryManager(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${glass}`}>
+                    <span>Категории</span>
+                  </button>
+                </div>
+              </div>
+              <div className={`${glass} rounded-2xl p-3 mb-4 flex justify-between items-center`}>
+                <div>
+                  <div className={`text-xs ${sub}`}>Стоимость склада</div>
+                  <div className="font-bold" style={{ color: accent }}>{stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0).toLocaleString('ru')} ₽</div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-xs ${sub}`}>Позиций</div>
+                  <div className="font-bold">{stockItems.length}</div>
+                </div>
+              </div>
+              {parentCategories.map(parent => {
+                const children = stockCategories.filter(c => c.parentId === parent.id);
+                const parentItems = stockItems.filter(item => {
+                  if (item.categoryId) {
+                    const itemCat = stockCategories.find(c => c.id === item.categoryId);
+                    return itemCat && (itemCat.id === parent.id || itemCat.parentId === parent.id);
+                  }
+                  return item.category === parent.name;
+                });
+                if (parentItems.length === 0) return null;
+                return (
+                  <div key={parent.id} className="mb-4">
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h3 className="font-medium text-sm">{parent.name}</h3>
+                      <span className={`text-xs ${sub}`}>{parentItems.length} шт · {parentItems.reduce((s, i) => s + i.qty * i.unitPrice, 0).toLocaleString('ru')} ₽</span>
+                    </div>
+                    <div className="space-y-2">
+                      {parentItems.map(item => (
+                        <div key={item.id} className={`${glass} rounded-xl p-4`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="font-medium text-sm">{item.name}</div>
+                              <div className={`text-xs ${sub}`}>
+                                {children.some(c => c.id === item.categoryId) ? stockCategories.find(c => c.id === item.categoryId)?.name + ' · ' : ''}
+                                {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`font-bold ${item.qty <= 5 ? 'text-red-500' : ''}`}>{item.qty} {item.unit}</div>
+                              <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} ₽</div>
+                            </div>
+                          </div>
+                          {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />Низкий остаток</div>}
+                          <div className="h-1.5 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (item.qty / 30) * 100)}%`, background: item.qty <= 5 ? '#EF4444' : primary }} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => { setShowWriteOff(item.id); setWriteOffQty('1'); }}
+                              className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
+                              style={{ borderColor: `${primary}30`, color: primary }}>
+                              <span>Списать</span>
+                            </button>
+                            <button onClick={async () => {
+                              if (!window.confirm(`Удалить «${item.name}» со склада?`)) return;
+                              try {
+                                await deleteStockItem(item.id);
+                                setBottomToast(`«${item.name}» удалён со склада`);
+                                setTimeout(() => setBottomToast(null), 3000);
+                              } catch {
+                                setBottomToast('Не удалось удалить');
+                                setTimeout(() => setBottomToast(null), 3000);
+                              }
+                            }}
+                              className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
+                              style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#EF4444' }}>
+                              <span>Удалить</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {stockItems.length === 0 && (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <Box size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className={sub}>Склад пуст. Добавьте первый товар.</p>
+                </div>
+              )}
+              {/* Stock modals */}
+              <AnimatePresence>
+                {showAddStock && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+                    <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                      className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+                      <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold">Добавить товар</h3>
+                        <button onClick={() => setShowAddStock(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                      </div>
+                      <div className="space-y-3 mb-4">
+                        <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Автошампунь..." value={stockForm.name} onChange={e => setStockForm(p => ({ ...p, name: e.target.value }))} /></div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="number" value={stockForm.qty} onChange={e => setStockForm(p => ({ ...p, qty: e.target.value }))} /></div>
+                          <div><label className={`text-xs ${sub} block mb-1`}>Единица</label><select className={selectCls} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))}>{STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+                        </div>
+                        <div><label className={`text-xs ${sub} block mb-1`}>Цена за ед. (₽)</label><input className={inputCls} type="number" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
+                        <div><label className={`text-xs ${sub} block mb-1`}>Категория</label>
+                          {(() => {
+                            const parentCats = stockCategories.filter(c => !c.parentId);
+                            const childCats = stockForm.categoryId
+                              ? stockCategories.filter(c => c.parentId === stockCategories.find(p => p.id === stockForm.categoryId)?.parentId)
+                              : stockCategories.filter(c => c.parentId === (parentCats.find(p => p.id === stockForm.categoryId)?.id || parentCats[0]?.id));
+                            return (
+                              <div className="flex gap-2">
+                                <select className={selectCls} style={{ flex: 1 }}
+                                  value={stockForm.categoryId ? (stockCategories.find(c => c.id === stockForm.categoryId)?.parentId || '') : ''}
+                                  onChange={e => {
+                                    const parentId = e.target.value;
+                                    const children = stockCategories.filter(c => c.parentId === parentId);
+                                    setStockForm(p => ({
+                                      ...p,
+                                      categoryId: children.length > 0 ? children[0].id : parentId,
+                                      category: stockCategories.find(c => c.id === (children.length > 0 ? children[0].id : parentId))?.name || p.category,
+                                    }));
+                                  }}>
+                                  {parentCats.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                                {parentCats.length > 0 && (() => {
+                                  const selectedParentId = stockForm.categoryId
+                                    ? (stockCategories.find(c => c.id === stockForm.categoryId)?.parentId || stockForm.categoryId)
+                                    : parentCats[0].id;
+                                  const children = stockCategories.filter(c => c.parentId === selectedParentId);
+                                  if (children.length === 0) return null;
+                                  return (
+                                    <select className={selectCls} style={{ flex: 1 }}
+                                      value={stockForm.categoryId && children.some(c => c.id === stockForm.categoryId) ? stockForm.categoryId : children[0].id}
+                                      onChange={e => {
+                                        const cat = stockCategories.find(c => c.id === e.target.value);
+                                        setStockForm(p => ({ ...p, categoryId: e.target.value, category: cat?.name || p.category }));
+                                      }}>
+                                      {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <button onClick={handleAddStock} disabled={!stockForm.name || !stockForm.qty} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: primary }}>Добавить на склад</button>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <AnimatePresence>
+                {showCategoryManager && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+                    <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                      className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+                      <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold">Категории склада</h3>
+                        <button onClick={() => setShowCategoryManager(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                      </div>
+                      <div className="space-y-3 mb-4">
+                        {stockCategories.filter(c => !c.parentId).map(parent => (
+                          <div key={parent.id} className={`${glass} rounded-xl p-3`}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{parent.name}</span>
+                              <div className="flex gap-1">
+                                <button onClick={() => {
+                                  const name = prompt('Новое название категории:', parent.name);
+                                  if (name && name.trim()) updateStockCategory(parent.id, { name: name.trim() });
+                                }} className={`text-xs px-2 py-1 rounded ${glass}`}>✎</button>
+                                <button onClick={async () => {
+                                  if (!window.confirm(`Удалить категорию «${parent.name}»?`)) return;
+                                  try { await deleteStockCategory(parent.id); setBottomToast(`Категория «${parent.name}» удалена`); setTimeout(() => setBottomToast(null), 3000); }
+                                  catch { setBottomToast('Не удалось удалить категорию'); setTimeout(() => setBottomToast(null), 3000); }
+                                }} className="text-xs px-2 py-1 rounded text-red-500">✕</button>
+                              </div>
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              {stockCategories.filter(c => c.parentId === parent.id).map(child => (
+                                <div key={child.id} className="flex items-center justify-between pl-4">
+                                  <span className={`text-sm ${sub}`}>— {child.name}</span>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => {
+                                      const name = prompt('Новое название подкатегории:', child.name);
+                                      if (name && name.trim()) updateStockCategory(child.id, { name: name.trim() });
+                                    }} className={`text-xs px-2 py-1 rounded ${glass}`}>✎</button>
+                                    <button onClick={async () => {
+                                      if (!window.confirm(`Удалить подкатегорию «${child.name}»?`)) return;
+                                      try { await deleteStockCategory(child.id); setBottomToast(`Подкатегория «${child.name}» удалена`); setTimeout(() => setBottomToast(null), 3000); }
+                                      catch { setBottomToast('Не удалось удалить подкатегорию'); setTimeout(() => setBottomToast(null), 3000); }
+                                    }} className="text-xs px-2 py-1 rounded text-red-500">✕</button>
+                                  </div>
+                                </div>
+                              ))}
+                              <button onClick={async () => {
+                                const name = prompt('Название новой подкатегории:');
+                                if (name && name.trim()) {
+                                  try { await addStockCategory({ name: name.trim(), parentId: parent.id }); setBottomToast(`Подкатегория «${name.trim()}» добавлена`); setTimeout(() => setBottomToast(null), 3000); }
+                                  catch { setBottomToast('Не удалось добавить подкатегорию'); setTimeout(() => setBottomToast(null), 3000); }
+                                }
+                              }} className="text-xs px-2 py-1 rounded mt-1" style={{ color: primary }}>+ Добавить подкатегорию</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={async () => {
+                        const name = prompt('Название новой категории:');
+                        if (name && name.trim()) {
+                          try { await addStockCategory({ name: name.trim() }); setBottomToast(`Категория «${name.trim()}» добавлена`); setTimeout(() => setBottomToast(null), 3000); }
+                          catch { setBottomToast('Не удалось добавить категорию'); setTimeout(() => setBottomToast(null), 3000); }
+                        }
+                      }} className="w-full py-3 rounded-2xl font-medium text-white" style={{ background: primary }}>+ Добавить категорию</button>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <AnimatePresence>
+                {showWriteOff && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+                      <h3 className="font-semibold mb-1">Списать товар</h3>
+                      <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
+                      <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="number" min={1} value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowWriteOff(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                        <button onClick={handleWriteOff} className="flex-1 py-2.5 rounded-xl text-sm text-white" style={{ background: '#FF6B6B' }}>Списать</button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
@@ -2536,6 +2815,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           { id: 'calendar', icon: Calendar, label: 'Календарь' },
           { id: 'stats', icon: BarChart3, label: 'Статистика' },
           { id: 'clients', icon: Users, label: 'Клиенты' },
+          { id: 'stock', icon: Box, label: 'Склад' },
           { id: 'payroll', icon: DollarSign, label: 'Зарплаты', action: () => { setPage('settings'); setSettingsSection('payroll'); } },
           { id: 'settings', icon: Settings, label: 'Настройки' },
         ].map(tab => {
@@ -2597,6 +2877,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   { icon: Plus, label: 'Новая запись', action: () => { openNewBookingModal(); setShowMenu(false); } },
                   { icon: Users, label: 'Клиенты', action: () => { setPage('clients'); setShowMenu(false); } },
                   { icon: BarChart3, label: 'Статистика', action: () => { setPage('stats'); setShowMenu(false); } },
+                  { icon: Box, label: 'Склад', action: () => { setPage('stock'); setShowMenu(false); } },
                   { icon: DollarSign, label: 'Зарплаты мастерам', action: () => { setPage('settings'); setSettingsSection('payroll'); setShowMenu(false); } },
                   { icon: Bell, label: 'Уведомления', action: () => { setShowNotifPanel(true); setShowMenu(false); } },
                   { icon: Box, label: 'Боксы', action: () => { setPage('settings'); setSettingsSection('boxes'); setShowMenu(false); } },
@@ -3818,6 +4099,19 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               <Check size={14} style={{ color: accent }} />
             </div>
             <span className="text-sm font-medium">Настройки сохранены</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom toast */}
+      <AnimatePresence>
+        {bottomToast && (
+          <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="fixed bottom-20 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
+            style={{ background: surface, border: `1px solid ${accent}40` }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} style={{ color: accent }} /></div>
+            <div className="flex-1 text-sm">{bottomToast}</div>
+            <button onClick={() => setBottomToast(null)}><X size={14} className={sub} /></button>
           </motion.div>
         )}
       </AnimatePresence>

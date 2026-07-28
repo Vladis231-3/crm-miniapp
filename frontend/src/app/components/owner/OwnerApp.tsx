@@ -3834,47 +3834,76 @@ setOwnerNewBookingWorkers([]);
                   <div className="font-bold">{stockItems.length}</div>
                 </div>
               </div>
-              {stockItems.map(item => (
-                <motion.div key={item.id} layout className={`${glass} rounded-xl p-4 mb-2`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <div className="font-medium text-sm">{item.name}</div>
-                      <div className={`text-xs ${sub}`}>{item.category} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
+              {parentCategories.map(parent => {
+                const children = stockCategories.filter(c => c.parentId === parent.id);
+                const parentItems = stockItems.filter(item => {
+                  if (item.categoryId) {
+                    const itemCat = stockCategories.find(c => c.id === item.categoryId);
+                    return itemCat && (itemCat.id === parent.id || itemCat.parentId === parent.id);
+                  }
+                  return item.category === parent.name;
+                });
+                if (parentItems.length === 0) return null;
+                return (
+                  <div key={parent.id} className="mb-4">
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h3 className="font-medium text-sm">{parent.name}</h3>
+                      <span className={`text-xs ${sub}`}>{parentItems.length} шт · {parentItems.reduce((s, i) => s + i.qty * i.unitPrice, 0).toLocaleString('ru')} ₽</span>
                     </div>
-                    <div className="text-right">
-                      <div className={`font-bold ${item.qty <= 5 ? 'text-red-500' : ''}`}>{item.qty} {item.unit}</div>
-                      <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} ₽</div>
+                    <div className="space-y-2">
+                      {parentItems.map(item => (
+                        <motion.div key={item.id} layout className={`${glass} rounded-xl p-4`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="font-medium text-sm">{item.name}</div>
+                              <div className={`text-xs ${sub}`}>
+                                {children.some(c => c.id === item.categoryId) ? stockCategories.find(c => c.id === item.categoryId)?.name + ' · ' : ''}
+                                {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`font-bold ${item.qty <= 5 ? 'text-red-500' : ''}`}>{item.qty} {item.unit}</div>
+                              <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} ₽</div>
+                            </div>
+                          </div>
+                          {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />Низкий остаток</div>}
+                          <div className="h-1.5 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (item.qty / 30) * 100)}%`, background: item.qty <= 5 ? '#EF4444' : primary }} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => { setShowWriteOff(item.id); setWriteOffQty('1'); }}
+                              className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
+                              style={{ borderColor: `${primary}30`, color: primary }}>
+                              <Package size={12} />Списать
+                            </button>
+                            <button onClick={async () => {
+                              if (!window.confirm(`Удалить «${item.name}» со склада?`)) return;
+                              try {
+                                await deleteStockItem(item.id);
+                                setBottomToast(`«${item.name}» удалён со склада`);
+                                setTimeout(() => setBottomToast(null), 3000);
+                              } catch (err) {
+                                setBottomToast(err instanceof Error ? err.message : 'Не удалось удалить');
+                                setTimeout(() => setBottomToast(null), 3000);
+                              }
+                            }}
+                              className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
+                              style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#EF4444' }}>
+                              <X size={12} />Удалить
+                            </button>
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
-                  {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />Низкий остаток</div>}
-                  {/* qty bar */}
-                  <div className="h-1.5 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
-                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (item.qty / 30) * 100)}%`, background: item.qty <= 5 ? '#EF4444' : primary }} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => { setShowWriteOff(item.id); setWriteOffQty('1'); }}
-                      className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
-                      style={{ borderColor: `${primary}30`, color: primary }}>
-                      <Package size={12} />Списать
-                    </button>
-                    <button onClick={async () => {
-                      if (!window.confirm(`Удалить «${item.name}» со склада?`)) return;
-                      try {
-                        await deleteStockItem(item.id);
-                        setBottomToast(`«${item.name}» удалён со склада`);
-                        setTimeout(() => setBottomToast(null), 3000);
-                      } catch (err) {
-                        setBottomToast(err instanceof Error ? err.message : 'Не удалось удалить');
-                        setTimeout(() => setBottomToast(null), 3000);
-                      }
-                    }}
-                      className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
-                      style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#EF4444' }}>
-                      <X size={12} />Удалить
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+                );
+              })}
+              {stockItems.length === 0 && (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <Box size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className={sub}>Склад пуст. Добавьте первый товар.</p>
+                </div>
+              )}
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mt-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
