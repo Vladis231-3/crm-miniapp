@@ -16679,6 +16679,66 @@ def fire_worker(
 
 
 
+@app.get("/api/auth/session", response_model=BootstrapPayload)
+def get_session_bootstrap(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    return _build_bootstrap(db, session_data)
+
+
+@app.get("/api/auth/consent/check", response_model=ConsentCheckResponse)
+def check_consent(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ConsentCheckResponse:
+    actor_id = session_data.get("actorId", "")
+    consent = db.scalar(
+        select(DataConsent).where(DataConsent.telegram_id == actor_id)
+    )
+    return ConsentCheckResponse(consented=consent is not None)
+
+
+@app.post("/api/auth/consent", response_model=ConsentRecordPayload)
+def record_consent(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ConsentRecordPayload:
+    actor_id = session_data.get("actorId", "")
+    existing = db.scalar(
+        select(DataConsent).where(DataConsent.telegram_id == actor_id)
+    )
+    if existing is not None:
+        return ConsentRecordPayload(
+            consented=True,
+            consentedAt=existing.consented_at.isoformat(),
+        )
+    consent = DataConsent(telegram_id=actor_id)
+    db.add(consent)
+    db.commit()
+    db.refresh(consent)
+    return ConsentRecordPayload(
+        consented=True,
+        consentedAt=consent.consented_at.isoformat(),
+    )
+
+
+@app.get("/api/auth/sessions", response_model=list[AuthSessionPayload])
+def get_active_sessions(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[AuthSessionPayload]:
+    return []
+
+
+@app.post("/api/auth/logout", response_model=GenericMessage)
+def logout(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    return GenericMessage(message="Выход выполнен")
+
+
 @app.post("/api/auth/change-password", response_model=GenericMessage)
 
 def change_password(
