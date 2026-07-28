@@ -6,7 +6,7 @@ import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
   Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
-  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText
+  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -344,6 +344,7 @@ export function AdminApp() {
     activeSessions,
     workers,
     stockItems,
+    stockCategories,
     services: liveServices,
     boxes: liveBoxes,
     schedule: liveSchedule,
@@ -386,6 +387,9 @@ export function AdminApp() {
   const [saveSuccess, setSaveSuccess] = useState<'notify' | 'silent' | null>(null);
 const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
 const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+  const [newBookingMaterials, setNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number; unit: string; unitPrice: number }[]>([]);
+  const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+  const [materialPickerCategory, setMaterialPickerCategory] = useState<string | null>(null);
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', plateType: 'russian' as PlateType, notes: '', status: 'admin_review' as BookingStatus,
@@ -415,6 +419,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
   const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
   const [securitySaved, setSecuritySaved] = useState(false);
@@ -963,6 +968,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     setNewBookingSaving(false);
     setNewBookingErrors({});
     setNewBookingWorkers([]);
+    setNewBookingMaterials([]);
     setNewBookingForm({
       clientId: '',
       clientName: '',
@@ -1225,6 +1231,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         notes: newBookingForm.notes,
         referralSource: newBookingForm.referralSource || undefined,
         notifyWorkers: !newBookingForm.isOutsource && notify,
+        materials: newBookingMaterials.map(m => ({
+          ...m,
+          id: '',
+        })),
       });
       const requestScheduleLabel = hasDateTime
         ? `${normalizedDate} ${newBookingForm.time.trim()}`
@@ -3599,6 +3609,102 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   );
                   })()}
                 </div>
+                {/* Materials section */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={`text-xs ${sub} block`}>Материалы</label>
+                    <button onClick={() => { setMaterialPickerCategory(null); setShowMaterialPicker(true); }}
+                      className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
+                      style={{ background: `${primary}15`, color: primary }}>+ Выбрать материал</button>
+                  </div>
+                  {newBookingMaterials.length > 0 && (
+                    <div className="space-y-2 mb-2">
+                      {newBookingMaterials.map((mat, idx) => (
+                        <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium">{mat.name}</div>
+                            <div className={`text-xs ${sub}`}>{mat.qty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(mat.qty * mat.unitPrice).toLocaleString('ru')} ₽</div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <input type="number" min={1} value={mat.qty}
+                              onChange={e => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val > 0) {
+                                  setNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: val } : m));
+                                }
+                              }}
+                              className="w-14 text-center text-xs py-1 rounded-lg" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                            <button onClick={() => setNewBookingMaterials(current => current.filter((_, i) => i !== idx))}
+                              className="p-1 rounded text-red-500"><X size={14} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {newBookingMaterials.length === 0 && (
+                    <div className={`text-xs ${sub} mb-2`}>Материалы не выбраны</div>
+                  )}
+                </div>
+                {/* Material picker modal */}
+                <AnimatePresence>
+                  {showMaterialPicker && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+                      onClick={() => setShowMaterialPicker(false)}>
+                      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-semibold">Выбрать материал</h3>
+                            <button onClick={() => setShowMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            <button onClick={() => setMaterialPickerCategory(null)}
+                              className={`text-xs px-2.5 py-1 rounded-full ${!materialPickerCategory ? 'text-white font-medium' : glass}`}
+                              style={!materialPickerCategory ? { background: primary } : {}}>Все</button>
+                            {stockCategories.filter(c => !c.parentId).map(cat => (
+                              <button key={cat.id} onClick={() => setMaterialPickerCategory(cat.id)}
+                                className={`text-xs px-2.5 py-1 rounded-full ${materialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
+                                style={materialPickerCategory === cat.id ? { background: primary } : {}}>{cat.name}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="overflow-y-auto p-4 space-y-2">
+                          {stockItems
+                            .filter(item => {
+                              if (!materialPickerCategory) return true;
+                              const catIds = [materialPickerCategory, ...stockCategories.filter(c => c.parentId === materialPickerCategory).map(c => c.id)];
+                              return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === materialPickerCategory)?.name;
+                            })
+                            .filter(item => item.qty > 0)
+                            .map(item => (
+                              <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-medium">{item.name}</div>
+                                  <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
+                                </div>
+                                <button onClick={() => {
+                                  if (!newBookingMaterials.find(m => m.stockItemId === item.id)) {
+                                    setNewBookingMaterials(current => [...current, { stockItemId: item.id, name: item.name, qty: 1, unit: item.unit, unitPrice: item.unitPrice }]);
+                                  }
+                                  setShowMaterialPicker(false);
+                                }}
+                                  className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
+                                  style={{ background: primary }}>Выбрать</button>
+                              </div>
+                            ))}
+                          {stockItems.filter(item => {
+                            if (!materialPickerCategory) return true;
+                            const catIds = [materialPickerCategory, ...stockCategories.filter(c => c.parentId === materialPickerCategory).map(c => c.id)];
+                            return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === materialPickerCategory)?.name;
+                          }).filter(item => item.qty > 0).length === 0 && (
+                            <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}

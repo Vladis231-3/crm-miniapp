@@ -446,6 +446,7 @@ class BookingPayload(BaseModel):
     plateType: str = "russian"
     services: list[BookingServiceItem] = Field(default_factory=list)
     additionalServices: list[AdditionalServicePayload] = Field(default_factory=list)
+    materials: list[BookingMaterialPayload] = Field(default_factory=list)
 
 
 class BookingAvailabilitySlotPayload(BaseModel):
@@ -470,6 +471,12 @@ class NotificationPayload(BaseModel):
     createdAt: datetime
 
 
+class StockCategoryPayload(BaseModel):
+    id: str
+    name: str
+    parentId: str | None = None
+
+
 class StockItemPayload(BaseModel):
     id: str
     name: str
@@ -477,6 +484,16 @@ class StockItemPayload(BaseModel):
     unit: str
     unitPrice: int
     category: str
+    categoryId: str | None = None
+
+
+class BookingMaterialPayload(BaseModel):
+    id: str
+    stockItemId: str | None = None
+    name: str
+    qty: int
+    unit: str
+    unitPrice: int
 
 
 class ShiftChecklistItemPayload(BaseModel):
@@ -802,6 +819,7 @@ class BootstrapPayload(BaseModel):
     bookings: list[BookingPayload]
     notifications: list[NotificationPayload]
     stockItems: list[StockItemPayload]
+    stockCategories: list[StockCategoryPayload]
     expenses: list[ExpensePayload]
     penalties: list[PenaltyPayload]
     workers: list[WorkerPayload]
@@ -876,6 +894,7 @@ class BookingCreateRequest(BaseModel):
     plateType: str = "russian"
     referralSource: str = ""
     notifyWorkers: bool = False
+    materials: list[BookingMaterialPayload] = Field(default_factory=list)
 
     @field_validator("clientName")
     @classmethod
@@ -927,6 +946,7 @@ class BookingUpdateRequest(BaseModel):
     plateType: str | None = None
     notifyWorkers: bool | None = None
     isOutsource: bool | None = None
+    materials: list[BookingMaterialPayload] | None = None
 
     @field_validator("clientName")
     @classmethod
@@ -1014,6 +1034,7 @@ class StockItemCreateRequest(BaseModel):
     unit: str
     unitPrice: int = Field(ge=0)
     category: str
+    categoryId: str | None = None
 
 
 class StockItemUpdateRequest(BaseModel):
@@ -1022,6 +1043,17 @@ class StockItemUpdateRequest(BaseModel):
     unit: str | None = None
     unitPrice: int | None = Field(default=None, ge=0)
     category: str | None = None
+    categoryId: str | None = None
+
+
+class StockCategoryCreateRequest(BaseModel):
+    name: str
+    parentId: str | None = None
+
+
+class StockCategoryUpdateRequest(BaseModel):
+    name: str | None = None
+    parentId: str | None = None
 
 
 class StockWriteOffRequest(BaseModel):

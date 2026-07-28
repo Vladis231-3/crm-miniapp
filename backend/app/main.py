@@ -118,6 +118,10 @@ from .models import (
 
     StockItem,
 
+    StockCategory,
+
+    BookingMaterial,
+
     TelegramLinkCode,
 
     UploadedFile,
@@ -281,6 +285,14 @@ from .schemas import (
     StockItemUpdateRequest,
 
     StockWriteOffRequest,
+
+    StockCategoryPayload,
+
+    StockCategoryCreateRequest,
+
+    StockCategoryUpdateRequest,
+
+    BookingMaterialPayload,
 
     normalize_plate,
 
@@ -2066,6 +2078,17 @@ def _apply_runtime_migrations() -> None:
 
         OwnerProfitShare.__table__.create(bind=engine)
 
+    if "stock_categories" not in inspector.get_table_names():
+        StockCategory.__table__.create(bind=engine)
+        stock_columns = {col["name"] for col in inspector.get_columns("stock_items")} if "stock_items" in inspector.get_table_names() else set()
+        if "category_id" not in stock_columns and "stock_items" in inspector.get_table_names():
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE stock_items ADD COLUMN category_id VARCHAR(64)"
+                )
+
+    if "booking_materials" not in inspector.get_table_names():
+        BookingMaterial.__table__.create(bind=engine)
 
 
 
@@ -3901,7 +3924,17 @@ def _booking_payload(
         services=booking_services,
 
         additionalServices=additional_services,
-
+        materials=[
+            BookingMaterialPayload(
+                id=mat.id,
+                stockItemId=mat.stock_item_id,
+                name=mat.name,
+                qty=mat.qty,
+                unit=mat.unit,
+                unitPrice=mat.unit_price,
+            )
+            for mat in booking.materials
+        ],
     )
 
 
@@ -3933,19 +3966,13 @@ def _notification_payload(notification: Notification) -> NotificationPayload:
 def _stock_payload(item: StockItem) -> StockItemPayload:
 
     return StockItemPayload(
-
         id=item.id,
-
         name=item.name,
-
         qty=item.qty,
-
         unit=item.unit,
-
         unitPrice=item.unit_price,
-
         category=item.category,
-
+        categoryId=item.category_id,
     )
 
 
@@ -4861,7 +4888,14 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
         notifications=notifications,
 
         stockItems=stock_items,
-
+        stockCategories=[
+            StockCategoryPayload(
+                id=cat.id,
+                name=cat.name,
+                parentId=cat.parent_id,
+            )
+            for cat in db.scalars(select(StockCategory).order_by(StockCategory.name)).all()
+        ],
         expenses=expenses,
 
         penalties=penalties,
@@ -5167,6 +5201,23 @@ def _sync_booking_workers(
     db.flush()
 
 
+
+def _sync_booking_materials(
+    db: Session, booking: Booking, materials: list[BookingMaterialPayload]
+) -> None:
+    booking.materials.clear()
+    for mat in materials:
+        booking.materials.append(
+            BookingMaterial(
+                id=f"bm-{uuid4()}",
+                stock_item_id=mat.stockItemId,
+                name=mat.name,
+                qty=mat.qty,
+                unit=mat.unit,
+                unit_price=mat.unitPrice,
+            )
+        )
+    db.flush()
 
 
 
@@ -8976,2068 +9027,87 @@ def resync_telegram_webhook(
 
     username = sync_telegram_webhook(drop_pending_updates=False)
 
-    return GenericMessage(message=f"Telegram webhook synced for @{username or 'bot'}")
+    return GenericMessage(message=f"Товар «{name}» удалён")
 
 
 
 
 
-@app.get("/api/owner/exports/{kind}")
+# ── Stock Categories CRUD ──
 
-def download_owner_export(
 
-    kind: str,
-
-    segment: str = Query("all"),
-
-    date_from: str = Query(None),
-
-    date_to: str = Query(None),
-
+@app.get("/api/stock-categories", response_model=list[StockCategoryPayload])
+def list_stock_categories(
     session_data: dict = Depends(_require_session),
-
     db: Session = Depends(get_db),
+) -> list[StockCategoryPayload]:
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant", "worker"})
+    categories = db.scalars(select(StockCategory).order_by(StockCategory.name)).all()
+    return [
+        StockCategoryPayload(id=cat.id, name=cat.name, parentId=cat.parent_id)
+        for cat in categories
+    ]
 
-) -> Response:
 
+@app.post("/api/stock-categories", response_model=StockCategoryPayload)
+def create_stock_category(
+    payload: StockCategoryCreateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> StockCategoryPayload:
     _ensure_staff_role(session_data, {"owner", "accountant"})
-
-    export_file = _owner_export_file(db, session_data["actorId"], kind, segment, date_from, date_to)
-
-    return _download_response(export_file)
-
-
-
-
-
-@app.post(
-
-    "/api/owner/exports/{kind}/telegram", response_model=OwnerExportDeliveryPayload
-
-)
-
-def send_owner_export_to_telegram(
-
-    kind: str,
-
-    segment: str = Query("all"),
-
-    date_from: str = Query(None),
-
-    date_to: str = Query(None),
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> Response:
-
-    _ensure_staff_role(session_data, {"owner", "accountant"})
-
-    export_file = _owner_export_file(db, session_data["actorId"], kind, segment, date_from, date_to)
-
-    try:
-
-        result = _send_export_to_telegram(db, session_data["actorId"], export_file)
-
-        db.commit()
-
-        return Response(
-
-            content=result.model_dump_json(),
-
-            status_code=status.HTTP_200_OK,
-
-            media_type="application/json",
-
-        )
-
-    except _PartialBroadcastError as exc:
-
-        db.commit()
-
-        return Response(
-
-            content=exc.payload.model_dump_json(),
-
-            status_code=status.HTTP_207_MULTI_STATUS,
-
-            media_type="application/json",
-
-        )
-
-
-
-
-
-@app.post(
-
-    "/api/owner/reports/{period}/{segment}/telegram", response_model=GenericMessage
-
-)
-
-def send_owner_summary_report_to_telegram(
-
-    period: str,
-
-    segment: str,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> Response:
-
-    _ensure_staff_role(session_data, {"owner", "accountant"})
-
-    report = _owner_summary_report(db, session_data["actorId"], period, segment)
-
-    export_file = _owner_summary_export_file(
-
-        db, session_data["actorId"], period, segment
-
-    )
-
-    return _send_owner_summary_report(db, session_data["actorId"], report, export_file)
-
-
-
-
-
-@app.post("/api/owner/reminders/dispatch", response_model=OwnerReminderDispatchPayload)
-
-def dispatch_owner_booking_reminders(
-
-    payload: OwnerReminderDispatchRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> OwnerReminderDispatchPayload:
-
-    _ensure_staff_role(session_data, {"owner"})
-
-    response = _dispatch_booking_reminders(
-
-        db, target_date=payload.targetDate, force=payload.force
-
-    )
-
-    return_visit_count = _dispatch_return_visit_reminders(db)
-
-    response.clientReminders += return_visit_count
-
-    if return_visit_count:
-
-        response.message = (
-
-            f"{response.message} Клиентов на возврат: {return_visit_count}."
-
-        )
-
-    db.commit()
-
-    return response
-
-
-
-
-
-@app.post("/api/owner/inactive-clients/remind-admin", response_model=GenericMessage)
-
-def remind_admin_about_inactive_clients(
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> GenericMessage:
-
-    _ensure_staff_role(session_data, {"owner"})
-
-    cutoff = datetime.now() - timedelta(days=5)
-
-    inactive: list[str] = []
-
-    clients = db.scalars(
-
-        select(Client).order_by(Client.updated_at.desc(), Client.created_at.desc())
-
-    ).all()
-
-    for client in clients:
-
-        bookings = db.scalars(
-
-            select(Booking)
-
-            .where(Booking.client_id == client.id, Booking.status == "completed")
-
-            .order_by(Booking.created_at.desc())
-
-        ).all()
-
-        if not bookings:
-
-            continue
-
-        last_booking = bookings[0]
-
-        last_visit = _parse_booking_datetime(
-
-            last_booking.date, last_booking.time
-
-        ) or _as_utc(last_booking.created_at).replace(tzinfo=None)
-
-        if last_visit <= cutoff:
-
-            inactive.append(
-
-                f"• {client.name} ({client.phone}) - последний визит {last_booking.date}"
-
-            )
-
-    if not inactive:
-
-        return GenericMessage(
-
-            message="Клиентов без визита более двух недель не найдено"
-
-        )
-
-    text = "Нужно обзвонить клиентов, которые не были более двух недель\n" + "\n".join(
-
-        inactive[:12]
-
-    )
-
-    admins = db.scalars(
-
-        select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))
-
-    ).all()
-
-    for admin in admins:
-
-        db.add(
-
-            Notification(
-
-                id=f"n-{uuid4()}",
-
-                recipient_role="admin",
-
-                recipient_id=admin.id,
-
-                message=text,
-
-                read=False,
-
-                created_at=_now(),
-
-            )
-
-        )
-
-        _send_telegram_safe(admin.telegram_chat_id, text)
-
-    db.commit()
-
-    return GenericMessage(
-
-        message=f"Админу отправлено напоминание по {len(inactive)} клиентам"
-
-    )
-
-
-
-
-
-@app.post("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
-
-def run_booking_reminders_cron(
-
-    request: Request,
-
-    authorization: str | None = Header(default=None),
-
-    db: Session = Depends(get_db),
-
-) -> OwnerReminderDispatchPayload:
-
-    if not settings.cron_secret:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-
-            detail="CRON_SECRET is not configured",
-
-        )
-
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
-
-        )
-
-    import ipaddress
-
-    client_ip = _request_ip(request)
-
-    if client_ip:
-
-        try:
-
-            ip = ipaddress.ip_address(client_ip)
-
-            if not (ip.is_loopback or ip.is_private):
-
-                raise HTTPException(
-
-                    status_code=status.HTTP_403_FORBIDDEN,
-
-                    detail="Cron endpoint not accessible from public networks",
-
-                )
-
-        except ValueError:
-
-            pass
-
-    response = _dispatch_booking_reminders(db)
-
-    return_visit_count = _dispatch_return_visit_reminders(db)
-
-    response.clientReminders += return_visit_count
-
-    if return_visit_count:
-
-        response.message = (
-
-            f"{response.message} Клиентов на возврат: {return_visit_count}."
-
-        )
-
-    db.commit()
-
-    return response
-
-
-
-
-
-@app.post("/api/cron/reports", response_model=GenericMessage)
-
-def run_reports_cron(
-
-    request: Request,
-
-    authorization: str | None = Header(default=None),
-
-    db: Session = Depends(get_db),
-
-) -> GenericMessage:
-
-    """Автоматическая отправка ежедневного и еженедельного отчётов владельцам."""
-
-    if not settings.cron_secret:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-
-            detail="CRON_SECRET is not configured",
-
-        )
-
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
-
-        )
-
-
-
-    owner_settings = _setting(
-
-        db,
-
-        "owner_notification_settings",
-
-        {
-
-            "telegramBot": True,
-
-            "emailReports": True,
-
-            "smsReminders": False,
-
-            "lowStock": True,
-
-            "dailyReport": True,
-
-            "weeklyReport": False,
-
-            "bookingReminders": True,
-
-        },
-
-    )
-
-
-
-    telegram_recipients = _all_owner_telegram_recipients(db)
-
-    all_owners = _all_active_owners(db)
-
-    if not telegram_recipients and not all_owners:
-
-        return GenericMessage(message="Нет получателей с привязанным Telegram")
-
-
-
-    sent: list[str] = []
-
-    today = datetime.now()
-
-    is_saturday = today.weekday() == 5
-
-    first_owner_id = (telegram_recipients[0] if telegram_recipients else all_owners[0]).id
-
-
-
-    for segment in ("wash", "detailing"):
-
-        if owner_settings.get("dailyReport", True):
-
-            try:
-
-                report = _owner_summary_report(db, first_owner_id, "daily", segment)
-
-                export_file = _owner_summary_export_file(db, first_owner_id, "daily", segment)
-
-                # Send Telegram to recipients who have chat_id
-
-                for recipient in telegram_recipients:
-
-                    try:
-
-                        send_telegram_document(
-
-                            recipient.telegram_chat_id,
-
-                            file_name=export_file.file_name,
-
-                            content=export_file.content,
-
-                            caption=export_file.telegram_caption,
-
-                            mime_type=export_file.media_type.split(";", 1)[0],
-
-                        )
-
-                        sent.append(f"daily/{segment}")
-
-                    except Exception:
-
-                        logger.exception("Cron: failed to send daily/%s to %s", segment, recipient.id)
-
-                # Create in-app notifications for ALL active owners
-
-                for owner in all_owners:
-
-                    db.add(
-
-                        Notification(
-
-                            id=f"n-{uuid4()}",
-
-                            recipient_role="owner",
-
-                            recipient_id=owner.id,
-
-                            message=report.message,
-
-                            read=False,
-
-                            created_at=_now(),
-
-                        )
-
-                    )
-
-            except Exception:
-
-                logger.exception("Cron: failed to build daily/%s report", segment)
-
-
-
-        if owner_settings.get("weeklyReport", False) and is_saturday:
-
-            try:
-
-                report = _owner_summary_report(db, first_owner_id, "weekly", segment)
-
-                export_file = _owner_summary_export_file(db, first_owner_id, "weekly", segment)
-
-                for recipient in telegram_recipients:
-
-                    try:
-
-                        send_telegram_document(
-
-                            recipient.telegram_chat_id,
-
-                            file_name=export_file.file_name,
-
-                            content=export_file.content,
-
-                            caption=export_file.telegram_caption,
-
-                            mime_type=export_file.media_type.split(";", 1)[0],
-
-                        )
-
-                        sent.append(f"weekly/{segment}")
-
-                    except Exception:
-
-                        logger.exception("Cron: failed to send weekly/%s to %s", segment, recipient.id)
-
-                for owner in all_owners:
-
-                    db.add(
-
-                        Notification(
-
-                            id=f"n-{uuid4()}",
-
-                            recipient_role="owner",
-
-                            recipient_id=owner.id,
-
-                            message=report.message,
-
-                            read=False,
-
-                            created_at=_now(),
-
-                        )
-
-                    )
-
-            except Exception:
-
-                logger.exception("Cron: failed to build weekly/%s report", segment)
-
-
-
-    db.commit()
-
-    if sent:
-
-        return GenericMessage(message=f"Отчёты отправлены: {', '.join(sent)}")
-
-    return GenericMessage(message="Нет отчётов для отправки")
-
-
-
-
-
-def _dmy_to_date(d: str) -> date:
-    parts = d.split(".")
-    return date(int(parts[2]), int(parts[1]), int(parts[0]))
-
-def _create_weekly_archive(db: Session) -> str | None:
-
-    today = date.today()
-
-    days_since_saturday = (today.weekday() - 5) % 7
-
-    last_saturday = today - timedelta(days=days_since_saturday + 7)
-
-    last_friday = last_saturday + timedelta(days=6)
-
-    week_start_iso = last_saturday.isoformat()
-
-    week_end_iso = last_friday.isoformat()
-
-    week_start_str = _dmy(last_saturday)
-
-    week_end_str = _dmy(last_friday)
-
-    all_incomes = db.scalars(select(Income)).all()
-    all_expenses = db.scalars(select(Expense)).all()
-    all_bookings = db.scalars(
-        select(Booking).where(
-            Booking.status == "completed",
-            Booking.deleted_at.is_(None),
-        )
-    ).all()
-
-    week_incomes = [i for i in all_incomes if i.date and _dmy_to_date(i.date) >= last_saturday and _dmy_to_date(i.date) <= last_friday]
-    week_expenses = [e for e in all_expenses if e.date and _dmy_to_date(e.date) >= last_saturday and _dmy_to_date(e.date) <= last_friday]
-    week_bookings = [b for b in all_bookings if b.date and _dmy_to_date(b.date) >= last_saturday and _dmy_to_date(b.date) <= last_friday]
-
-    all_piggy = db.scalars(select(PiggyBankTransaction)).all()
-
-    piggy_balance = sum(t.amount for t in all_piggy)
-
-    total_revenue = sum(b.price for b in week_bookings)
-    total_income = sum(i.amount for i in week_incomes)
-    total_expense = sum(e.amount for e in week_expenses)
-    booking_count = len(week_bookings)
-    income_count = len(week_incomes)
-    expense_count = len(week_expenses)
-
-    existing = db.scalars(
-        select(WeeklyArchive).where(WeeklyArchive.week_start == week_start_iso)
-    ).first()
-
-    if existing:
-        existing.total_revenue = total_revenue
-        existing.total_income = total_income
-        existing.total_expense = total_expense
-        existing.booking_count = booking_count
-        existing.income_count = income_count
-        existing.expense_count = expense_count
-        existing.piggy_bank_balance = piggy_balance
-        db.commit()
-        return (
-            f"Архив за неделю {week_start_str} — {week_end_str} обновлён: "
-            f"выручка {total_revenue}₽, "
-            f"доходы {total_income}₽, "
-            f"расходы {total_expense}₽, "
-            f"записей {booking_count}"
-        )
-
-    archive = WeeklyArchive(
-        week_start=week_start_iso,
-        week_end=week_end_iso,
-        total_revenue=total_revenue,
-        total_income=total_income,
-        total_expense=total_expense,
-        booking_count=booking_count,
-        income_count=income_count,
-        expense_count=expense_count,
-        piggy_bank_balance=piggy_balance,
-    )
-
-    db.add(archive)
-
-    db.commit()
-
-    return (
-
-        f"Архив за неделю {week_start_str} — {week_end_str} создан: "
-
-        f"выручка {archive.total_revenue}₽, "
-
-        f"доходы {archive.total_income}₽, "
-
-        f"расходы {archive.total_expense}₽, "
-
-        f"записей {archive.booking_count}"
-
-    )
-
-
-
-
-
-def _run_weekly_archive_scheduler() -> None:
-
-    while True:
-
-        try:
-
-            db = next(get_db())
-
-            try:
-
-                msg = _create_weekly_archive(db)
-
-                if msg:
-
-                    logger.info("Weekly archive: %s", msg)
-
-            finally:
-
-                db.close()
-
-        except Exception:
-
-            logger.exception("Weekly archive scheduler error")
-
-        time_module.sleep(3600)  # Check every hour
-
-
-
-
-
-@app.on_event("startup")
-
-def _start_weekly_archive_thread() -> None:
-
-    thread = Thread(target=_run_weekly_archive_scheduler, name="weekly-archive", daemon=True)
-
-    thread.start()
-
-
-
-
-
-@app.post("/api/cron/weekly-archive", response_model=GenericMessage)
-
-def run_weekly_archive_cron(
-
-    request: Request,
-
-    authorization: str | None = Header(default=None),
-
-    db: Session = Depends(get_db),
-
-) -> GenericMessage:
-
-    if not settings.cron_secret:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-
-            detail="CRON_SECRET is not configured",
-
-        )
-
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret"
-
-        )
-
-
-
-    import ipaddress
-
-    client_ip = _request_ip(request)
-
-    if client_ip:
-
-        try:
-
-            ip = ipaddress.ip_address(client_ip)
-
-            if not (ip.is_loopback or ip.is_private):
-
-                raise HTTPException(
-
-                    status_code=status.HTTP_403_FORBIDDEN,
-
-                    detail="Cron endpoint not accessible from public networks",
-
-                )
-
-        except ValueError:
-
-            pass
-
-
-
-    msg = _create_weekly_archive(db)
-
-    if msg is None:
-
-        today = date.today()
-
-        last_saturday = today - timedelta(days=((today.weekday() - 5) % 7) + 7)
-
-        return GenericMessage(message=f"Архив за неделю {_dmy(last_saturday)} — {_dmy(last_friday)} уже существует")
-
-    return GenericMessage(message=msg)
-
-
-
-
-
-@app.post(
-
-    "/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload
-
-)
-
-def start_owner_database_reset(
-
-    payload: OwnerDatabaseResetStartRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> OwnerDatabaseResetStartPayload:
-
-    _ensure_staff_role(session_data, {"owner"})
-
-    owner = db.get(StaffUser, session_data["actorId"])
-
-    if owner is None or owner.role != "owner":
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
-
-        )
-
-    if not verify_password(payload.password, owner.password_hash):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Текущий пароль неверный"
-
-        )
-
-
-
-    recipient_owner = _owner_two_factor_recipient(db)
-
-    generated_code = f"{secrets.randbelow(1_000_000):06d}"
-
-    expires_at = _now() + timedelta(minutes=OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES)
-
-    request_id = str(uuid4())
-
-    preview = _owner_database_reset_preview(
-
-        db, current_session_id=session_data.get("sessionId")
-
-    )
-
-    warnings = _owner_database_reset_warnings(preview)
-
-
-
-    _save_owner_database_reset_state(
-
-        db,
-
-        {
-
-            "requestId": request_id,
-
-            "requestedBy": owner.id,
-
-            "requestedByLogin": owner.login,
-
-            "requestedByName": owner.name,
-
-            "codeHash": hash_one_time_code(generated_code, settings.app_secret),
-
-            "codeExpiresAt": _serialize_state_datetime(expires_at),
-
-            "approvedAt": None,
-
-            "finalizeAfter": None,
-
-            "createdAt": _serialize_state_datetime(_now()),
-
-        },
-
-    )
-
-    try:
-
-        send_telegram_message(
-
-            recipient_owner.telegram_chat_id,
-
-            (
-
-                "Запрошена полная очистка CRM\n"
-
-                f"Инициатор: {owner.name} ({owner.login})\n"
-
-                f"Код подтверждения: {generated_code}\n"
-
-                "Код действует 10 минут.\n"
-
-                "Подтверждайте только если действительно хотите удалить клиентов, записи, склад, расходы, "
-
-                "жалобы, сотрудников и настройки CRM."
-
-            ),
-
-        )
-
-    except Exception as exc:
-
-        db.rollback()
-
-        raise HTTPException(
-
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-
-            detail="Не удалось отправить код создателю в Telegram. Проверьте доступность бота и Telegram создателя.",
-
-        ) from exc
-
-    db.commit()
-
-    return OwnerDatabaseResetStartPayload(
-
-        requestId=request_id,
-
-        creatorCodeExpiresAt=expires_at,
-
-        confirmationPhrase=OWNER_DATABASE_RESET_CONFIRMATION_PHRASE,
-
-        preview=preview,
-
-        warnings=warnings,
-
-        message="Код подтверждения отправлен создателю в Telegram. Проверьте список того, что будет удалено.",
-
-    )
-
-
-
-
-
-@app.post(
-
-    "/api/owner/database-reset/approve", response_model=OwnerDatabaseResetApprovePayload
-
-)
-
-def approve_owner_database_reset(
-
-    payload: OwnerDatabaseResetApproveRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> OwnerDatabaseResetApprovePayload:
-
-    _ensure_staff_role(session_data, {"owner"})
-
-    state = _owner_database_reset_state(db)
-
-    if state is None or state.get("requestId") != payload.requestId:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND,
-
-            detail="Запрос на очистку не найден. Начните заново.",
-
-        )
-
-    if state.get("requestedBy") != session_data["actorId"]:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_403_FORBIDDEN,
-
-            detail="Этот запрос на очистку создан другим владельцем.",
-
-        )
-
-
-
-    if (
-
-        _normalize_database_reset_phrase(payload.confirmationPhrase)
-
-        != OWNER_DATABASE_RESET_CONFIRMATION_PHRASE
-
-    ):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST,
-
-            detail=f"Введите фразу точно: {OWNER_DATABASE_RESET_CONFIRMATION_PHRASE}",
-
-        )
-
-
-
-    code_expires_at = _parse_state_datetime(state.get("codeExpiresAt"))
-
-    code_hash = str(state.get("codeHash") or "")
-
-    if not code_hash or code_expires_at is None or code_expires_at < _now():
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST,
-
-            detail="Код создателя истёк. Запросите новый.",
-
-        )
-
-    if not payload.creatorCode.strip().isdigit():
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST,
-
-            detail="Введите 6-значный код от создателя.",
-
-        )
-
-    if not verify_one_time_code(
-
-        payload.creatorCode.strip(), code_hash, settings.app_secret
-
-    ):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Код создателя неверный."
-
-        )
-
-
-
-    finalize_after = _now() + timedelta(seconds=OWNER_DATABASE_RESET_DELAY_SECONDS)
-
-    state["approvedAt"] = _serialize_state_datetime(_now())
-
-    state["finalizeAfter"] = _serialize_state_datetime(finalize_after)
-
-    state["codeHash"] = None
-
-    state["codeExpiresAt"] = None
-
-    _save_owner_database_reset_state(db, state)
-
-    preview = _owner_database_reset_preview(db)
-
-    warnings = _owner_database_reset_warnings(preview)
-
-    db.commit()
-
-    return OwnerDatabaseResetApprovePayload(
-
-        requestId=payload.requestId,
-
-        finalizeAfter=finalize_after,
-
-        preview=preview,
-
-        warnings=warnings,
-
-        message="Финальный шаг разблокируется через 10 секунд. Ещё раз проверьте, что именно будет удалено.",
-
-    )
-
-
-
-
-
-@app.post(
-
-    "/api/owner/database-reset/execute", response_model=OwnerDatabaseResetExecutePayload
-
-)
-
-def execute_owner_database_reset(
-
-    payload: OwnerDatabaseResetExecuteRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> OwnerDatabaseResetExecutePayload:
-
-    _ensure_staff_role(session_data, {"owner"})
-
-    state = _owner_database_reset_state(db)
-
-    if state is None or state.get("requestId") != payload.requestId:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND,
-
-            detail="Запрос на очистку не найден. Начните заново.",
-
-        )
-
-    if state.get("requestedBy") != session_data["actorId"]:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_403_FORBIDDEN,
-
-            detail="Этот запрос на очистку создан другим владельцем.",
-
-        )
-
-
-
-    finalize_after = _parse_state_datetime(state.get("finalizeAfter"))
-
-    if finalize_after is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_400_BAD_REQUEST,
-
-            detail="Сначала подтвердите пароль, код создателя и фразу.",
-
-        )
-
-    if finalize_after > _now():
-
-        seconds_left = max(1, int((finalize_after - _now()).total_seconds()) + 1)
-
-        raise HTTPException(
-
-            status_code=status.HTTP_409_CONFLICT,
-
-            detail=f"Финальная кнопка ещё заблокирована. Подождите {seconds_left} сек.",
-
-        )
-
-
-
-    preview = _owner_database_reset_preview(db)
-
-    _perform_owner_database_reset(db)
-
-    db.commit()
-
-    return OwnerDatabaseResetExecutePayload(
-
-        message="Полная очистка CRM завершена. Владельцы сохранены, остальные данные сброшены до стартового состояния.",
-
-        preview=preview,
-
-    )
-
-
-
-
-
-@app.post("/api/auth/client", response_model=BootstrapPayload)
-
-def register_or_login_client(
-
-    payload: ClientRegisterRequest,
-
-    request: Request,
-
-    db: Session = Depends(get_db),
-
-) -> BootstrapPayload:
-
-    authorization = request.headers.get("authorization", "")
-
-    if not authorization:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
-
-        )
-
-    try:
-
-        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
-
-    except ValueError as exc:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
-
-        )
-
-    telegram_user = validated.get("user") or {}
-
-    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
-
-    if not telegram_id:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
-
-        )
-
-    existing = db.scalar(
-
-        select(Client).where(
-
-            Client.telegram_id == telegram_id,
-
-            Client.deleted_at.is_(None),
-
-        )
-
-    )
-
-    if existing:
-
-        return _build_bootstrap(db, {
-
-            "role": "client",
-
-            "actorId": existing.id,
-
-            "displayName": existing.name,
-
-            "sessionId": "",
-
-        })
-
-    try:
-
-        normalized_car = normalize_vehicle_name(payload.car)
-
-        normalized_plate = normalize_plate(payload.plate)
-
-    except ValueError as exc:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-
-        )
-
-    client = Client(
-
-        id=f"c-{uuid4()}",
-
-        telegram_id=telegram_id,
-
+    cat = StockCategory(
+        id=f"sc-{uuid4()}",
         name=payload.name,
-
-        phone=payload.phone,
-
-        car=normalized_car,
-
-        plate=normalized_plate,
-
+        parent_id=payload.parentId,
     )
-
-    db.add(client)
-
+    db.add(cat)
     db.commit()
+    db.refresh(cat)
+    return StockCategoryPayload(id=cat.id, name=cat.name, parentId=cat.parent_id)
 
-    return _build_bootstrap(db, {
 
-        "role": "client",
-
-        "actorId": client.id,
-
-        "displayName": client.name,
-
-        "sessionId": "",
-
-    })
-
-
-
-
-
-@app.post("/api/auth/staff/link", response_model=BootstrapPayload)
-
-def link_staff_account(
-
-    payload: StaffLinkRequest,
-
-    request: Request,
-
-    db: Session = Depends(get_db),
-
-) -> BootstrapPayload:
-
-    authorization = request.headers.get("authorization", "")
-
-    if not authorization:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
-
-        )
-
-    try:
-
-        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
-
-    except ValueError as exc:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
-
-        )
-
-    telegram_user = validated.get("user") or {}
-
-    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
-
-    if not telegram_id:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
-
-        )
-
-    staff = db.scalar(
-
-        select(StaffUser).where(StaffUser.login == payload.login.strip().lower())
-
-    )
-
-    if staff is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
-
-        )
-
-    if not verify_password(payload.password, staff.password_hash):
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
-
-        )
-
-    if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён"
-
-        )
-
-    staff.telegram_chat_id = telegram_id
-
-    staff.updated_at = _now()
-
-    db.commit()
-
-    return _build_bootstrap(db, {
-
-        "role": staff.role,
-
-        "actorId": staff.id,
-
-        "login": staff.login,
-
-        "displayName": staff.name,
-
-        "sessionId": "",
-
-    })
-
-
-
-
-
-@app.post("/api/auth/telegram", response_model=BootstrapPayload)
-
-def authenticate_via_telegram(
-
-    request: Request,
-
-    db: Session = Depends(get_db),
-
-) -> BootstrapPayload:
-
-    authorization = request.headers.get("authorization", "")
-
-    session_data = _resolve_user_from_init_data(authorization, db)
-
-    if session_data is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED,
-
-            detail="Аккаунт для этого Telegram ещё не привязан. Сначала завершите регистрацию или привязку профиля.",
-
-        )
-
-    return _build_bootstrap(db, session_data)
-
-
-
-
-
-@app.post("/api/auth/telegram-owner", response_model=BootstrapPayload)
-
-def authenticate_primary_owner_via_telegram(
-
-    request: Request,
-
-    db: Session = Depends(get_db),
-
-) -> BootstrapPayload:
-
-    authorization = request.headers.get("authorization", "")
-
-    if not authorization:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
-
-        )
-
-    try:
-
-        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
-
-    except ValueError as exc:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
-
-        )
-
-    telegram_user = validated.get("user") or {}
-
-    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
-
-    if not telegram_id:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
-
-        )
-
-    owner = _primary_owner(db)
-
-    if owner is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Главный владелец не настроен"
-
-        )
-
-    current_chat_id = _safe_text(owner.telegram_chat_id).strip()
-
-    if not current_chat_id:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_409_CONFLICT,
-
-            detail="Telegram создателя ещё не привязан. Сначала войдите по логину и привяжите Telegram через CRM.",
-
-        )
-
-    if current_chat_id != telegram_id:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Этот Telegram не привязан к создателю"
-
-        )
-
-    if not owner.name.strip():
-
-        owner.name = _telegram_display_name(telegram_user, "Создатель")
-
-    return _build_bootstrap(db, {
-
-        "role": owner.role,
-
-        "actorId": owner.id,
-
-        "login": owner.login,
-
-        "displayName": owner.name,
-
-        "sessionId": "",
-
-    })
-
-
-
-
-
-def _extract_telegram_id_from_init_data(authorization: str) -> str:
-
-    if not authorization:
-
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData")
-
-    try:
-
-        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
-
-    except ValueError:
-
-        if settings.allow_insecure_client_auth:
-
-            try:
-
-                validated = validate_telegram_init_data(
-
-                    authorization, settings.telegram_bot_token, skip_validation=True
-
-                )
-
-            except ValueError as exc:
-
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
-
-        else:
-
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData")
-
-    telegram_user = validated.get("user") or {}
-
-    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
-
-    if not telegram_id:
-
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing")
-
-    return telegram_id
-
-
-
-
-
-@app.get("/api/auth/consent/check", response_model=ConsentCheckResponse)
-
-def check_data_consent(
-
-    request: Request,
-
-    db: Session = Depends(get_db),
-
-) -> ConsentCheckResponse:
-
-    authorization = request.headers.get("authorization", "")
-
-    telegram_id = _extract_telegram_id_from_init_data(authorization)
-
-    consent = db.scalar(select(DataConsent).where(DataConsent.telegram_id == telegram_id))
-
-    return ConsentCheckResponse(consented=consent is not None)
-
-
-
-
-
-@app.post("/api/auth/consent", response_model=ConsentRecordPayload)
-
-def record_data_consent(
-
-    request: Request,
-
-    db: Session = Depends(get_db),
-
-) -> ConsentRecordPayload:
-
-    authorization = request.headers.get("authorization", "")
-
-    telegram_id = _extract_telegram_id_from_init_data(authorization)
-
-    existing = db.scalar(select(DataConsent).where(DataConsent.telegram_id == telegram_id))
-
-    if existing is not None:
-
-        return ConsentRecordPayload(consented=True, consentedAt=existing.consented_at.isoformat())
-
-    consent = DataConsent(telegram_id=telegram_id)
-
-    db.add(consent)
-
-    db.commit()
-
-    return ConsentRecordPayload(consented=True, consentedAt=consent.consented_at.isoformat())
-
-
-
-
-
-@app.get("/api/auth/session", response_model=BootstrapPayload)
-
-def get_session_bootstrap(
-
-    session_data: dict = Depends(_require_session), db: Session = Depends(get_db)
-
-) -> BootstrapPayload:
-
-    return _build_bootstrap(db, session_data)
-
-
-
-
-
-@app.get("/api/auth/sessions", response_model=list[AuthSessionPayload])
-
-def get_active_sessions(
-
+@app.patch("/api/stock-categories/{category_id}", response_model=StockCategoryPayload)
+def update_stock_category(
+    category_id: str,
+    payload: StockCategoryUpdateRequest,
     session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> StockCategoryPayload:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    cat = db.get(StockCategory, category_id)
+    if cat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(cat, field, value)
+    db.commit()
+    db.refresh(cat)
+    return StockCategoryPayload(id=cat.id, name=cat.name, parentId=cat.parent_id)
 
-) -> list[AuthSessionPayload]:
 
-    return []
-
-
-
-
-
-@app.post("/api/auth/sessions/{session_id}/revoke", response_model=GenericMessage)
-
-def revoke_active_session(
-
-    session_id: str,
-
+@app.delete("/api/stock-categories/{category_id}", response_model=GenericMessage)
+def delete_stock_category(
+    category_id: str,
     session_data: dict = Depends(_require_session),
-
+    db: Session = Depends(get_db),
 ) -> GenericMessage:
-
-    return GenericMessage(message="Сессия завершена")
-
-
-
-
-
-@app.post("/api/auth/logout", response_model=GenericMessage)
-
-def logout(
-
-    session_data: dict = Depends(_require_session),
-
-) -> GenericMessage:
-
-    return GenericMessage(message="Выход выполнен")
-
-
-
-
-
-@app.post("/api/auth/switch-role", response_model=BootstrapPayload)
-
-def switch_role(
-
-    payload: SwitchRoleRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> BootstrapPayload:
-
-    current_role = session_data["role"]
-
-    if current_role not in {"owner", "admin", "worker", "accountant"}:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_403_FORBIDDEN, detail="Недоступно для этой роли"
-
-        )
-
-    staff = db.scalar(select(StaffUser).where(StaffUser.id == session_data["actorId"]))
-
-    if staff is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
-
-        )
-
-    allowed = {staff.role, *(staff.extra_roles or [])}
-
-    if payload.targetRole not in allowed:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_403_FORBIDDEN, detail="Роль недоступна"
-
-        )
-
-    return _build_bootstrap(db, {
-
-        "role": payload.targetRole,
-
-        "actorId": staff.id,
-
-        "login": staff.login,
-
-        "displayName": staff.name,
-
-        "sessionId": "",
-
-    })
-
-
-
-
-
-@app.patch("/api/clients/me", response_model=ClientProfilePayload)
-
-def update_client_profile(
-
-    payload: ClientProfileInput,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> ClientProfilePayload:
-
-    if session_data["role"] != "client":
-
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-    client = db.get(Client, session_data["actorId"])
-
-    if client is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
-
-        )
-
-    try:
-
-        normalized_car = normalize_vehicle_name(payload.car) if payload.car.strip() else ""
-
-        normalized_plate = normalize_plate(payload.plate, payload.plateType) if payload.plate.strip() else ""
-
-    except ValueError as exc:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-
-        ) from exc
-
-    vehicles = _normalize_client_vehicles(
-
-        payload.vehicles, fallback_car=normalized_car, fallback_plate=normalized_plate
-
-    )
-
-    primary_vehicle = (
-
-        vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
-
-    )
-
-    phone_client = _client_by_phone(db, payload.phone)
-
-    if phone_client is not None and phone_client.id != client.id:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_409_CONFLICT,
-
-            detail="Клиент с таким номером телефона уже зарегистрирован",
-
-        )
-
-    client.name = payload.name
-
-    client.phone = payload.phone
-
-    client.car = primary_vehicle.car
-
-    client.plate = primary_vehicle.plate
-
-    client.plate_type = primary_vehicle.plateType
-
-    client.registered = payload.registered
-
-    client.updated_at = _now()
-
-    _save_client_vehicles(db, client.id, vehicles)
-
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    cat = db.get(StockCategory, category_id)
+    if cat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    for item in db.scalars(select(StockItem).where(StockItem.category_id == category_id)).all():
+        item.category_id = None
+    name = cat.name
+    db.delete(cat)
     db.commit()
+    return GenericMessage(message=f"Категория «{name}» удалена")
 
-    db.refresh(client)
 
-    return _client_payload(client)  # type: ignore[return-value]
+# ── Shift Checklists ──
 
 
-
-
-
-@app.post("/api/clients", response_model=ClientSummaryPayload)
-
-def create_client(
-
-    payload: ClientCreateRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> ClientSummaryPayload:
-
-    _ensure_staff_role(session_data, {"admin", "owner"})
-
-    existing_client = _client_by_phone(db, payload.phone)
-
-    if existing_client is not None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_409_CONFLICT,
-
-            detail="Клиент с таким номером телефона уже зарегистрирован",
-
-        )
-
-
-
-    vehicles = _normalize_client_vehicles(
-
-        [{"car": payload.car, "plate": payload.plate, "plateType": payload.plateType}],
-
-        fallback_car=payload.car,
-
-        fallback_plate=payload.plate,
-
-    )
-
-    primary_vehicle = (
-
-        vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
-
-    )
-
-    client = Client(
-
-        id=f"c-{uuid4()}",
-
-        name=payload.name,
-
-        phone=payload.phone,
-
-        car=primary_vehicle.car,
-
-        plate=primary_vehicle.plate,
-
-        plate_type=primary_vehicle.plateType,
-
-        notes=payload.notes.strip(),
-
-        referral_source=payload.referralSource.strip(),
-
-        registered=True,
-
-    )
-
-    db.add(client)
-
-    db.flush()
-
-    _save_client_vehicles(db, client.id, vehicles)
-
-    db.commit()
-
-    db.refresh(client)
-
-    return _client_summary_payload(client, db)
-
-
-
-
-
-@app.patch("/api/clients/{client_id}/card", response_model=ClientSummaryPayload)
-
-def update_client_card(
-
-    client_id: str,
-
-    payload: ClientCardUpdateRequest,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> ClientSummaryPayload:
-
-    _ensure_staff_role(session_data, {"admin", "owner"})
-
-    client = db.get(Client, client_id)
-
-    if client is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден"
-
-        )
-
-    updates = payload.model_dump(exclude_unset=True)
-
-    if "notes" in updates and updates["notes"] is not None:
-
-        client.notes = updates["notes"].strip()
-
-    if "debtBalance" in updates and updates["debtBalance"] is not None:
-
-        client.debt_balance = int(updates["debtBalance"])
-
-    if "adminRating" in updates and updates["adminRating"] is not None:
-
-        client.admin_rating = max(0, min(5, int(updates["adminRating"])))
-
-    if "adminNote" in updates and updates["adminNote"] is not None:
-
-        client.admin_note = updates["adminNote"].strip()
-
-    if "referralSource" in updates and updates["referralSource"] is not None:
-
-        client.referral_source = updates["referralSource"].strip()
-
-    if "name" in updates and updates["name"] is not None:
-
-        client.name = updates["name"].strip()
-
-    if "phone" in updates and updates["phone"] is not None:
-
-        client.phone = updates["phone"].strip()
-
-    if "car" in updates and updates["car"] is not None:
-
-        client.car = updates["car"].strip()
-
-    if "plate" in updates and updates["plate"] is not None:
-
-        client.plate = updates["plate"].strip()
-
-    if "plateType" in updates and updates["plateType"] is not None:
-
-        client.plate_type = updates["plateType"]
-
-    if "vehicles" in updates and updates["vehicles"] is not None:
-
-        vehicles = _normalize_client_vehicles(
-
-            updates["vehicles"],
-
-            fallback_car=client.car or "",
-
-            fallback_plate=client.plate or "",
-
-        )
-
-        primary_vehicle = vehicles[0] if vehicles else ClientVehiclePayload(car="", plate="")
-
-        client.car = primary_vehicle.car
-
-        client.plate = primary_vehicle.plate
-
-        client.plate_type = primary_vehicle.plateType
-
-        _save_client_vehicles(db, client.id, vehicles)
-
-    client.updated_at = _now()
-
-    db.commit()
-
-    db.refresh(client)
-
-    return _client_summary_payload(client, db)
-
-
-
-
-
-@app.delete("/api/clients/{client_id}", response_model=GenericMessage)
-
-def delete_client(
-
-    client_id: str,
-
-    session_data: dict = Depends(_require_session),
-
-    db: Session = Depends(get_db),
-
-) -> GenericMessage:
-
-    _ensure_staff_role(session_data, {"admin", "owner"})
-
-    client = db.get(Client, client_id)
-
-    if client is None:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден"
-
-        )
-
-    db.execute(
-
-        sa_delete(Notification).where(
-
-            Notification.recipient_role == "client",
-
-            Notification.recipient_id == client_id,
-
-        )
-
-    )
-
-    client_bookings = (
-
-        db.scalars(
-
-            select(Booking)
-
-            .options(joinedload(Booking.worker_links))
-
-            .where(Booking.client_id == client_id)
-
-        )
-
-        .unique()
-
-        .all()
-
-    )
-
-    for booking in client_bookings:
-
-        booking.deleted_at = _now()
-
-    vehicles_map = _client_vehicles_map(db)
-
-    if client_id in vehicles_map:
-
-        vehicles_map.pop(client_id, None)
-
-        _upsert_setting(db, "client_vehicles", vehicles_map)
-
-    client.deleted_at = _now()
-
-    db.commit()
-
-    return GenericMessage(message="Клиент удалён")
+@app.get("/api/shift-checklists", response_model=list[ShiftChecklistPayload])
 
 
 
@@ -11470,6 +9540,9 @@ def create_booking(
     db.flush()
 
     _sync_booking_workers(db, booking, booking_workers)
+
+    if payload.materials:
+        _sync_booking_materials(db, booking, payload.materials)
 
     if session_data["role"] in {"admin", "owner"} and payload.notifyWorkers:
 
@@ -12023,7 +10096,7 @@ def update_booking(
 
 
 
-    updates = payload.model_dump(exclude_unset=True, exclude={"workers"})
+    updates = payload.model_dump(exclude_unset=True, exclude={"workers", "materials"})
 
     previous_date = booking.date
 
@@ -12413,6 +10486,24 @@ def update_booking(
 
         _sync_booking_workers(db, booking, next_workers)
 
+    next_materials = (
+        payload.materials
+        if payload.materials is not None
+        else [
+            BookingMaterialPayload(
+                id=mat.id,
+                stockItemId=mat.stock_item_id,
+                name=mat.name,
+                qty=mat.qty,
+                unit=mat.unit,
+                unitPrice=mat.unit_price,
+            )
+            for mat in booking.materials
+        ]
+    )
+
+    if payload.materials is not None:
+        _sync_booking_materials(db, booking, next_materials)
 
 
     client_notification_parts: list[str] = []
@@ -13214,19 +11305,13 @@ def create_stock_item(
     _ensure_staff_role(session_data, {"owner", "accountant"})
 
     item = StockItem(
-
         id=f"st-{uuid4()}",
-
         name=payload.name,
-
         qty=payload.qty,
-
         unit=payload.unit,
-
         unit_price=payload.unitPrice,
-
         category=payload.category,
-
+        category_id=payload.categoryId,
     )
 
     db.add(item)

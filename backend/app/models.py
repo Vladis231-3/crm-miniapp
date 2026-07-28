@@ -177,6 +177,10 @@ class Booking(Base):
         back_populates="booking",
         cascade="all, delete-orphan",
     )
+    materials: Mapped[list["BookingMaterial"]] = relationship(
+        back_populates="booking",
+        cascade="all, delete-orphan",
+    )
 
 
 class BookingWorker(Base):
@@ -216,6 +220,28 @@ class BookingAdditionalService(Base):
     )
 
 
+class BookingMaterial(Base):
+    __tablename__ = "booking_materials"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    booking_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("bookings.id", ondelete="CASCADE")
+    )
+    stock_item_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("stock_items.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    qty: Mapped[int] = mapped_column(Integer)
+    unit: Mapped[str] = mapped_column(String(16))
+    unit_price: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+    booking: Mapped[Booking] = relationship(back_populates="materials")
+    stock_item: Mapped[StockItem | None] = relationship()
+
+
 class AdditionalServiceWorker(Base):
     __tablename__ = "additional_service_workers"
 
@@ -246,6 +272,28 @@ class Notification(Base):
     )
 
 
+class StockCategory(Base):
+    __tablename__ = "stock_categories"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    parent_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("stock_categories.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+    children: Mapped[list["StockCategory"]] = relationship(
+        back_populates="parent",
+        cascade="all, delete-orphan",
+    )
+    parent: Mapped["StockCategory | None"] = relationship(
+        back_populates="children",
+        remote_side="StockCategory.id",
+    )
+
+
 class StockItem(Base):
     __tablename__ = "stock_items"
 
@@ -255,6 +303,9 @@ class StockItem(Base):
     unit: Mapped[str] = mapped_column(String(16))
     unit_price: Mapped[int] = mapped_column(Integer)
     category: Mapped[str] = mapped_column(String(120))
+    category_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("stock_categories.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

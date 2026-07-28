@@ -179,6 +179,7 @@ export interface Booking {
   plateType?: string;
   services: BookingServiceItem[];
   additionalServices: AdditionalService[];
+  materials: BookingMaterial[];
 }
 
 export interface BookingSlotAvailability {
@@ -215,6 +216,22 @@ export interface StockItem {
   unit: string;
   unitPrice: number;
   category: string;
+  categoryId?: string;
+}
+
+export interface StockCategory {
+  id: string;
+  name: string;
+  parentId?: string;
+}
+
+export interface BookingMaterial {
+  id: string;
+  stockItemId?: string;
+  name: string;
+  qty: number;
+  unit: string;
+  unitPrice: number;
 }
 
 export interface ShiftChecklistItem {
@@ -567,6 +584,7 @@ interface BootstrapPayload {
   bookings: Array<Omit<Booking, 'createdAt'> & { createdAt: string }>;
   notifications: Array<Omit<Notification, 'createdAt'> & { createdAt: string }>;
   stockItems: StockItem[];
+  stockCategories: StockCategory[];
   expenses: Expense[];
   penalties: Array<Omit<Penalty, 'createdAt' | 'activeUntil' | 'revokedAt'> & { createdAt: string; activeUntil: string; revokedAt?: string | null }>;
   workers: Worker[];
@@ -591,6 +609,7 @@ interface AppContextType {
   bookings: Booking[];
   notifications: Notification[];
   stockItems: StockItem[];
+  stockCategories: StockCategory[];
   expenses: Expense[];
   incomes: Income[];
   penalties: Penalty[];
@@ -624,6 +643,9 @@ interface AppContextType {
   updateStockItem: (id: string, updates: Partial<StockItem>) => Promise<void>;
   writeOffStock: (id: string, qty: number) => Promise<void>;
   deleteStockItem: (id: string) => Promise<void>;
+  addStockCategory: (category: Omit<StockCategory, 'id'>) => Promise<void>;
+  updateStockCategory: (id: string, updates: Partial<StockCategory>) => Promise<void>;
+  deleteStockCategory: (id: string) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   addIncome: (income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string }) => Promise<void>;
   updateExpense: (id: string, patch: { title?: string; amount?: number; category?: string; date?: string; note?: string | null }) => Promise<void>;
@@ -788,6 +810,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [stockCategories, setStockCategories] = useState<StockCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [penalties, setPenalties] = useState<Penalty[]>([]);
@@ -811,6 +834,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBookings(normalized.bookings);
     setNotifications(normalized.notifications);
     setStockItems(normalized.stockItems);
+    setStockCategories(normalized.stockCategories || []);
     setExpenses(normalized.expenses);
     setPenalties(normalized.penalties);
     setWorkers(normalized.workers);
@@ -1002,6 +1026,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>('/api/bookings', { method: 'POST', body: booking })],
       notifications: [],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],
@@ -1190,6 +1215,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function deleteStockItem(id: string) {
     await apiRequest<{ message: string }>(`/api/stock-items/${id}`, { method: 'DELETE' });
     setStockItems((current) => current.filter((item) => item.id !== id));
+  }
+
+  async function addStockCategory(category: Omit<StockCategory, 'id'>) {
+    const created = await apiRequest<StockCategory>('/api/stock-categories', { method: 'POST', body: category });
+    setStockCategories((current) => [...current, created]);
+  }
+
+  async function updateStockCategory(id: string, updates: Partial<StockCategory>) {
+    const updated = await apiRequest<StockCategory>(`/api/stock-categories/${id}`, { method: 'PATCH', body: updates });
+    setStockCategories((current) => current.map((cat) => (cat.id === id ? updated : cat)));
+  }
+
+  async function deleteStockCategory(id: string) {
+    await apiRequest<{ message: string }>(`/api/stock-categories/${id}`, { method: 'DELETE' });
+    setStockCategories((current) => current.filter((cat) => cat.id !== id));
+    // Also clear categoryId from stock items referencing this category
+    setStockItems((current) => current.map((item) =>
+      item.categoryId === id ? { ...item, categoryId: undefined } : item
+    ));
   }
 
   async function addExpense(expense: Omit<Expense, 'id'>) {
@@ -1564,6 +1608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings,
       notifications,
       stockItems,
+      stockCategories,
       expenses,
       incomes,
       penalties,      workers,
@@ -1597,6 +1642,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateStockItem,
       writeOffStock,
       deleteStockItem,
+      addStockCategory,
+      updateStockCategory,
+      deleteStockCategory,
       addExpense,
       addIncome,
       updateExpense,

@@ -5,8 +5,8 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock
-} from 'lucide-react';
+Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search
+ } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
@@ -122,7 +122,6 @@ interface WalletData {
 }
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
-const STOCK_CATEGORIES = ['Химия', 'Расходники', 'Оборудование'];
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
 const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
@@ -424,6 +423,10 @@ export function OwnerApp() {
     stockItems,    addStockItem,
     writeOffStock,
     deleteStockItem,
+    stockCategories,
+    addStockCategory,
+    updateStockCategory,
+    deleteStockCategory,
     notifications,
     markAllNotificationsRead,
     markNotificationRead,
@@ -491,6 +494,7 @@ export function OwnerApp() {
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [showWriteOff, setShowWriteOff] = useState<string | null>(null);
   const [showAddStock, setShowAddStock] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showCreateBooking, setShowCreateBooking] = useState(false);
   const [showClientSearch, setShowClientSearch] = useState(false);
   const [showCreateClient, setShowCreateClient] = useState(false);
@@ -567,7 +571,8 @@ export function OwnerApp() {
 
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
   const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' as '' | 'wash' | 'detailing' });
-  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: STOCK_CATEGORIES[0] });
+  const parentCategories = stockCategories.filter(c => !c.parentId);
+  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
   const [bookingForm, setBookingForm] = useState({
     clientId: '',
     clientName: '',
@@ -670,6 +675,7 @@ export function OwnerApp() {
   const [settingsClientId, setSettingsClientId] = useState<string | null>(null);
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
   const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
+  const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
@@ -709,6 +715,9 @@ export function OwnerApp() {
       referralSource: '',
     });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+  const [ownerNewBookingMaterials, setOwnerNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number; unit: string; unitPrice: number }[]>([]);
+  const [showOwnerMaterialPicker, setShowOwnerMaterialPicker] = useState(false);
+  const [ownerMaterialPickerCategory, setOwnerMaterialPickerCategory] = useState<string | null>(null);
   const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
   const [ownerNewBookingSaving, setOwnerNewBookingSaving] = useState(false);
   const [ownerNewBookingErrors, setOwnerNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
@@ -1182,7 +1191,6 @@ export function OwnerApp() {
 
   const handleAddServiceDraft = () => {
     setServicesState((current) => [
-      ...current,
       {
         id: createDraftId('service'),
         name: 'Новая услуга',
@@ -1201,6 +1209,7 @@ export function OwnerApp() {
         piggyPayValue: 0,
         ownerSplitEnabled: true,
       },
+      ...current,
     ]);
   };
 
@@ -1528,9 +1537,10 @@ export function OwnerApp() {
 
   const handleAddStock = () => {
     if (!stockForm.name || !stockForm.qty) return;
-    addStockItem({ name: stockForm.name, qty: Number(stockForm.qty), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice), category: stockForm.category });
+    const parentCats = stockCategories.filter(c => !c.parentId);
+    addStockItem({ name: stockForm.name, qty: Number(stockForm.qty), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice), category: stockForm.category, categoryId: stockForm.categoryId || undefined });
     setShowAddStock(false);
-    setStockForm({ name: '', qty: '', unit: '\u0448\u0442', unitPrice: '', category: STOCK_CATEGORIES[0] });
+    setStockForm({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCats[0]?.name || 'Химия', categoryId: '' });
     setBottomToast(`\u0422\u043e\u0432\u0430\u0440 "${stockForm.name}" \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u043d\u0430 \u0441\u043a\u043b\u0430\u0434`);
     setTimeout(() => setBottomToast(null), 3000);
   };
@@ -2108,7 +2118,8 @@ export function OwnerApp() {
     setOwnerNewBookingSaving(false);
     setOwnerNewBookingErrors({});
     setOwnerNewBookingError(null);
-    setOwnerNewBookingWorkers([]);
+setOwnerNewBookingWorkers([]);
+    setOwnerNewBookingMaterials([]);
     setOwnerNewBookingForm({
       clientId: '',
       clientName: '',
@@ -2227,6 +2238,10 @@ export function OwnerApp() {
         notes: ownerNewBookingForm.notes,
         referralSource: ownerNewBookingForm.referralSource || undefined,
         notifyWorkers: !ownerNewBookingForm.isOutsource && notify,
+        materials: ownerNewBookingMaterials.map(m => ({
+          ...m,
+          id: '',
+        })),
       });
       const requestScheduleLabel = hasDateTime
         ? `${normalizedDate} ${ownerNewBookingForm.time.trim()}`
@@ -3800,9 +3815,14 @@ export function OwnerApp() {
             <motion.div key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Склад</h2>
-                <button onClick={() => setShowAddStock(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
-                  <Plus size={14} />Добавить товар
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowAddStock(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
+                    <Plus size={14} />Добавить товар
+                  </button>
+                  <button onClick={() => setShowCategoryManager(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${glass}`}>
+                    <span>Категории</span>
+                  </button>
+                </div>
               </div>
               <div className={`${glass} rounded-2xl p-3 mb-4 flex justify-between items-center`}>
                 <div>
@@ -5595,12 +5615,20 @@ export function OwnerApp() {
                   Добавить услугу
                 </button>
               </div>
+              <div className="relative mb-3">
+                <Search size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={servicesSearchQuery} onChange={e => setServicesSearchQuery(e.target.value)} />
+              </div>
               {services.length === 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>
                   Услуг пока нет. Добавьте первую услугу и сохраните изменения.
                 </div>
               )}
-              {services.map((service, i) => (
+              {services.map((s, idx) => ({ s, idx })).filter(({ s }) => {
+                const q = servicesSearchQuery.trim().toLowerCase();
+                if (!q) return true;
+                return [s.name, s.category, s.desc].some((v) => v.toLowerCase().includes(q));
+              }).map(({ s: service, idx: i }) => (
                 <div key={service.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -7015,9 +7043,118 @@ export function OwnerApp() {
                   <div><label className={`text-xs ${sub} block mb-1`}>Единица</label><select className={selectCls} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))}>{STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Цена за ед. (₽)</label><input className={inputCls} type="number" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={stockForm.category} onChange={e => setStockForm(p => ({ ...p, category: e.target.value }))}>{STOCK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Категория</label>
+                  {(() => {
+                    const parentCats = stockCategories.filter(c => !c.parentId);
+                    const childCats = stockForm.categoryId
+                      ? stockCategories.filter(c => c.parentId === stockCategories.find(p => p.id === stockForm.categoryId)?.parentId)
+                      : stockCategories.filter(c => c.parentId === (parentCats.find(p => p.id === stockForm.categoryId)?.id || parentCats[0]?.id));
+                    return (
+                      <div className="flex gap-2">
+                        <select className={selectCls} style={{ flex: 1 }}
+                          value={stockForm.categoryId ? (stockCategories.find(c => c.id === stockForm.categoryId)?.parentId || '') : ''}
+                          onChange={e => {
+                            const parentId = e.target.value;
+                            const children = stockCategories.filter(c => c.parentId === parentId);
+                            setStockForm(p => ({
+                              ...p,
+                              categoryId: children.length > 0 ? children[0].id : parentId,
+                              category: stockCategories.find(c => c.id === (children.length > 0 ? children[0].id : parentId))?.name || p.category,
+                            }));
+                          }}>
+                          {parentCats.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                        {parentCats.length > 0 && (() => {
+                          const selectedParentId = stockForm.categoryId
+                            ? (stockCategories.find(c => c.id === stockForm.categoryId)?.parentId || stockForm.categoryId)
+                            : parentCats[0].id;
+                          const children = stockCategories.filter(c => c.parentId === selectedParentId);
+                          if (children.length === 0) return null;
+                          return (
+                            <select className={selectCls} style={{ flex: 1 }}
+                              value={stockForm.categoryId && children.some(c => c.id === stockForm.categoryId) ? stockForm.categoryId : children[0].id}
+                              onChange={e => {
+                                const cat = stockCategories.find(c => c.id === e.target.value);
+                                setStockForm(p => ({ ...p, categoryId: e.target.value, category: cat?.name || p.category }));
+                              }}>
+                              {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
               <button onClick={handleAddStock} disabled={!stockForm.name || !stockForm.qty} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: primary }}>Добавить на склад</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CATEGORY MANAGER ── */}
+      <AnimatePresence>
+        {showCategoryManager && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Категории склада</h3>
+                <button onClick={() => setShowCategoryManager(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className="space-y-3 mb-4">
+                {stockCategories.filter(c => !c.parentId).map(parent => (
+                  <div key={parent.id} className={`${glass} rounded-xl p-3`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{parent.name}</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => {
+                          const name = prompt('Новое название категории:', parent.name);
+                          if (name && name.trim()) updateStockCategory(parent.id, { name: name.trim() });
+                        }} className={`text-xs px-2 py-1 rounded ${glass}`}>✎</button>
+                        <button onClick={async () => {
+                          if (!window.confirm(`Удалить категорию «${parent.name}»?`)) return;
+                          try { await deleteStockCategory(parent.id); setBottomToast(`Категория «${parent.name}» удалена`); setTimeout(() => setBottomToast(null), 3000); }
+                          catch { setBottomToast('Не удалось удалить категорию'); setTimeout(() => setBottomToast(null), 3000); }
+                        }} className="text-xs px-2 py-1 rounded text-red-500">✕</button>
+                      </div>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {stockCategories.filter(c => c.parentId === parent.id).map(child => (
+                        <div key={child.id} className="flex items-center justify-between pl-4">
+                          <span className={`text-sm ${sub}`}>— {child.name}</span>
+                          <div className="flex gap-1">
+                            <button onClick={() => {
+                              const name = prompt('Новое название подкатегории:', child.name);
+                              if (name && name.trim()) updateStockCategory(child.id, { name: name.trim() });
+                            }} className={`text-xs px-2 py-1 rounded ${glass}`}>✎</button>
+                            <button onClick={async () => {
+                              if (!window.confirm(`Удалить подкатегорию «${child.name}»?`)) return;
+                              try { await deleteStockCategory(child.id); setBottomToast(`Подкатегория «${child.name}» удалена`); setTimeout(() => setBottomToast(null), 3000); }
+                              catch { setBottomToast('Не удалось удалить подкатегорию'); setTimeout(() => setBottomToast(null), 3000); }
+                            }} className="text-xs px-2 py-1 rounded text-red-500">✕</button>
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={async () => {
+                        const name = prompt('Название новой подкатегории:');
+                        if (name && name.trim()) {
+                          try { await addStockCategory({ name: name.trim(), parentId: parent.id }); setBottomToast(`Подкатегория «${name.trim()}» добавлена`); setTimeout(() => setBottomToast(null), 3000); }
+                          catch { setBottomToast('Не удалось добавить подкатегорию'); setTimeout(() => setBottomToast(null), 3000); }
+                        }
+                      }} className="text-xs px-2 py-1 rounded mt-1" style={{ color: primary }}>+ Добавить подкатегорию</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={async () => {
+                const name = prompt('Название новой категории:');
+                if (name && name.trim()) {
+                  try { await addStockCategory({ name: name.trim() }); setBottomToast(`Категория «${name.trim()}» добавлена`); setTimeout(() => setBottomToast(null), 3000); }
+                  catch { setBottomToast('Не удалось добавить категорию'); setTimeout(() => setBottomToast(null), 3000); }
+                }
+              }} className="w-full py-3 rounded-2xl font-medium text-white" style={{ background: primary }}>+ Добавить категорию</button>
             </motion.div>
           </motion.div>
         )}
@@ -8283,6 +8420,102 @@ export function OwnerApp() {
                 </div>
                   );
                 })()}
+                {/* Materials section */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={`text-xs ${sub} block`}>Материалы</label>
+                    <button onClick={() => { setOwnerMaterialPickerCategory(null); setShowOwnerMaterialPicker(true); }}
+                      className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
+                      style={{ background: `${primary}15`, color: primary }}>+ Выбрать материал</button>
+                  </div>
+                  {ownerNewBookingMaterials.length > 0 && (
+                    <div className="space-y-2 mb-2">
+                      {ownerNewBookingMaterials.map((mat, idx) => (
+                        <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium">{mat.name}</div>
+                            <div className={`text-xs ${sub}`}>{mat.qty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(mat.qty * mat.unitPrice).toLocaleString('ru')} ₽</div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <input type="number" min={1} value={mat.qty}
+                              onChange={e => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val > 0) {
+                                  setOwnerNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: val } : m));
+                                }
+                              }}
+                              className="w-14 text-center text-xs py-1 rounded-lg" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                            <button onClick={() => setOwnerNewBookingMaterials(current => current.filter((_, i) => i !== idx))}
+                              className="p-1 rounded text-red-500"><X size={14} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {ownerNewBookingMaterials.length === 0 && (
+                    <div className={`text-xs ${sub} mb-2`}>Материалы не выбраны</div>
+                  )}
+                </div>
+                {/* Material picker modal */}
+                <AnimatePresence>
+                  {showOwnerMaterialPicker && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+                      onClick={() => setShowOwnerMaterialPicker(false)}>
+                      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-semibold">Выбрать материал</h3>
+                            <button onClick={() => setShowOwnerMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            <button onClick={() => setOwnerMaterialPickerCategory(null)}
+                              className={`text-xs px-2.5 py-1 rounded-full ${!ownerMaterialPickerCategory ? 'text-white font-medium' : glass}`}
+                              style={!ownerMaterialPickerCategory ? { background: primary } : {}}>Все</button>
+                            {stockCategories.filter(c => !c.parentId).map(cat => (
+                              <button key={cat.id} onClick={() => setOwnerMaterialPickerCategory(cat.id)}
+                                className={`text-xs px-2.5 py-1 rounded-full ${ownerMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
+                                style={ownerMaterialPickerCategory === cat.id ? { background: primary } : {}}>{cat.name}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="overflow-y-auto p-4 space-y-2">
+                          {stockItems
+                            .filter(item => {
+                              if (!ownerMaterialPickerCategory) return true;
+                              const catIds = [ownerMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === ownerMaterialPickerCategory).map(c => c.id)];
+                              return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === ownerMaterialPickerCategory)?.name;
+                            })
+                            .filter(item => item.qty > 0)
+                            .map(item => (
+                              <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-medium">{item.name}</div>
+                                  <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
+                                </div>
+                                <button onClick={() => {
+                                  if (!ownerNewBookingMaterials.find(m => m.stockItemId === item.id)) {
+                                    setOwnerNewBookingMaterials(current => [...current, { stockItemId: item.id, name: item.name, qty: 1, unit: item.unit, unitPrice: item.unitPrice }]);
+                                  }
+                                  setShowOwnerMaterialPicker(false);
+                                }}
+                                  className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
+                                  style={{ background: primary }}>Выбрать</button>
+                              </div>
+                            ))}
+                          {stockItems.filter(item => {
+                            if (!ownerMaterialPickerCategory) return true;
+                            const catIds = [ownerMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === ownerMaterialPickerCategory).map(c => c.id)];
+                            return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === ownerMaterialPickerCategory)?.name;
+                          }).filter(item => item.qty > 0).length === 0 && (
+                            <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100 && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
                 )}
