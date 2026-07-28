@@ -2080,12 +2080,13 @@ def _apply_runtime_migrations() -> None:
 
     if "stock_categories" not in inspector.get_table_names():
         StockCategory.__table__.create(bind=engine)
-        stock_columns = {col["name"] for col in inspector.get_columns("stock_items")} if "stock_items" in inspector.get_table_names() else set()
-        if "category_id" not in stock_columns and "stock_items" in inspector.get_table_names():
-            with engine.begin() as connection:
-                connection.exec_driver_sql(
-                    "ALTER TABLE stock_items ADD COLUMN category_id VARCHAR(64)"
-                )
+
+    stock_columns = {col["name"] for col in inspector.get_columns("stock_items")} if "stock_items" in inspector.get_table_names() else set()
+    if "category_id" not in stock_columns and "stock_items" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE stock_items ADD COLUMN category_id VARCHAR(64)"
+            )
 
     if "booking_materials" not in inspector.get_table_names():
         BookingMaterial.__table__.create(bind=engine)
