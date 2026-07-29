@@ -180,6 +180,7 @@ export interface Booking {
   services: BookingServiceItem[];
   additionalServices: AdditionalService[];
   materials: BookingMaterial[];
+  materialsWrittenOff: boolean;
 }
 
 export interface BookingSlotAvailability {

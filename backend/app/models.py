@@ -167,6 +167,7 @@ class Booking(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
+    materials_written_off: Mapped[bool] = mapped_column(Boolean, default=False)
 
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(

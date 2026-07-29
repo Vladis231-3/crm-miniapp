@@ -3936,6 +3936,7 @@ def _booking_payload(
             )
             for mat in booking.materials
         ],
+        materialsWrittenOff=booking.materials_written_off,
     )
 
 
@@ -9669,6 +9670,43 @@ def create_booking(
 
 
 
+def _write_off_booking_materials(db: Session, booking: Booking) -> None:
+
+    if booking.materials_written_off:
+        return
+
+    service = db.get(Service, booking.service_id) if booking.service_id else None
+    rg = _service_resource_group(service)
+
+    total_cost = 0
+    material_details = []
+
+    for bm in booking.materials:
+        if bm.stock_item_id:
+            stock_item = db.get(StockItem, bm.stock_item_id)
+            if stock_item:
+                stock_item.qty = max(0, stock_item.qty - bm.qty)
+                total_cost += bm.qty * bm.unit_price
+                material_details.append(f"{bm.name} x{bm.qty} {bm.unit}")
+
+    if total_cost > 0 and material_details:
+        db.add(
+            Expense(
+                id=f"e-{uuid4()}",
+                title=f"Списание материалов: {booking.service} ({booking.client_name})",
+                amount=total_cost,
+                category="Расходные материалы",
+                date=booking.date,
+                note=", ".join(material_details),
+                resource_group=rg,
+                created_at=_now(),
+            )
+        )
+
+    booking.materials_written_off = True
+    db.flush()
+
+
 def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any service."""
@@ -10618,6 +10656,8 @@ def update_booking(
     if (booking_just_completed or payment_just_settled) and next_payment_settled:
 
         print(f"[PROFIT_DEBUG] === CONDITION MET === booking_just_completed={booking_just_completed} payment_just_settled={payment_just_settled} next_payment_settled={next_payment_settled}")
+
+        _write_off_booking_materials(db, booking)
 
         _process_piggy_bank_for_booking(db, booking)
 
