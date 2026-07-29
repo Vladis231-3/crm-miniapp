@@ -3800,7 +3800,7 @@ def _booking_payload(
 
             serviceId=s['serviceId'],
 
-            price=int(s.get('price', 0)),
+            price=float(s.get('price', 0)),
 
             duration=int(s.get('duration', 30)),
 
@@ -6301,11 +6301,14 @@ def _admin_shift_inspection_payload(
 
                 "unit": str(item.get("unit") or ""),
 
-                "qty": int(item.get("qty") or 0),
+                                "qty": float(item.get("qty") or 0),
 
                 "checked": bool(item.get("checked")),
 
             }
+
+
+        
 
             for item in entry.get("supplies", [])
 
@@ -11577,7 +11580,7 @@ def submit_shift_checklist(
 
     for stock_item in stock_items:
 
-        actual_qty = int(submitted_map.get(stock_item.id, stock_item.qty))
+        actual_qty = float(submitted_map.get(stock_item.id, stock_item.qty))
 
         checklist_items.append(
 
@@ -11835,7 +11838,7 @@ def submit_admin_shift_inspection(
 
             "unit": str(item.get("unit") or ""),
 
-            "qty": int(item.get("qty") or 0),
+            "qty": float(item.get("qty") or 0),
 
             "checked": bool(
 
@@ -14660,7 +14663,7 @@ def create_payroll_entry(
 
 
 
-    amount = int(payload.amount)
+    amount = float(payload.amount)
 
     if payload.kind == "adjustment":
 

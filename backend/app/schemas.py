@@ -392,7 +392,7 @@ class BookingWorkerPayload(BaseModel):
 class BookingServiceItem(BaseModel):
     name: str
     serviceId: str
-    price: int = Field(ge=0)
+    price: float = Field(ge=0)
     duration: int = Field(gt=0)
 
 
@@ -481,9 +481,9 @@ class StockCategoryPayload(BaseModel):
 class StockItemPayload(BaseModel):
     id: str
     name: str
-    qty: int
+    qty: float
     unit: str
-    unitPrice: int
+    unitPrice: float
     category: str
     categoryId: str | None = None
 
@@ -492,18 +492,18 @@ class BookingMaterialPayload(BaseModel):
     id: str
     stockItemId: str | None = None
     name: str
-    qty: int
+    qty: float
     unit: str
-    unitPrice: int
+    unitPrice: float
 
 
 class ShiftChecklistItemPayload(BaseModel):
     stockItemId: str
     name: str
     unit: str
-    startQty: int | None = None
-    endQty: int | None = None
-    actualQty: int = Field(ge=0)
+    startQty: float | None = None
+    endQty: float | None = None
+    actualQty: float = Field(ge=0)
 
 
 class ShiftChecklistPayload(BaseModel):
@@ -518,7 +518,7 @@ class ShiftChecklistPayload(BaseModel):
 
 class ShiftChecklistSubmitItem(BaseModel):
     stockItemId: str
-    actualQty: int = Field(ge=0)
+    actualQty: float = Field(ge=0)
 
 
 class ShiftChecklistSubmitRequest(BaseModel):
@@ -532,7 +532,7 @@ class AdminShiftInspectionSupplyPayload(BaseModel):
     name: str
     category: str
     unit: str
-    qty: int = Field(ge=0)
+    qty: float = Field(ge=0)
     checked: bool = False
 
 
@@ -585,7 +585,7 @@ class AdminShiftInspectionReviewRequest(BaseModel):
 class ExpensePayload(BaseModel):
     id: str
     title: str
-    amount: int
+    amount: float
     category: str
     date: str
     note: str | None = None
@@ -775,7 +775,7 @@ class WorkerCreateRequest(BaseModel):
 class PayrollEntryCreateRequest(BaseModel):
     workerId: str
     kind: PayrollEntryKind
-    amount: int
+    amount: float
     note: str = ""
 
     @field_validator("note")
@@ -1031,18 +1031,18 @@ class ReadAllNotificationsRequest(BaseModel):
 
 class StockItemCreateRequest(BaseModel):
     name: str
-    qty: int = Field(ge=0)
+    qty: float = Field(ge=0)
     unit: str
-    unitPrice: int = Field(ge=0)
+    unitPrice: float = Field(ge=0)
     category: str
     categoryId: str | None = None
 
 
 class StockItemUpdateRequest(BaseModel):
     name: str | None = None
-    qty: int | None = Field(default=None, ge=0)
+    qty: float | None = Field(default=None, ge=0)
     unit: str | None = None
-    unitPrice: int | None = Field(default=None, ge=0)
+    unitPrice: float | None = Field(default=None, ge=0)
     category: str | None = None
     categoryId: str | None = None
 
@@ -1058,7 +1058,7 @@ class StockCategoryUpdateRequest(BaseModel):
 
 
 class StockWriteOffRequest(BaseModel):
-    qty: int = Field(gt=0)
+    qty: float = Field(gt=0)
 
 
 class IncomeCreateRequest(BaseModel):
@@ -1086,7 +1086,7 @@ class IncomeCreateRequest(BaseModel):
 
 class IncomePayload(BaseModel):
     id: str
-    amount: int
+    amount: float
     source: str
     note: str | None
     createdById: str
@@ -1097,7 +1097,7 @@ class IncomePayload(BaseModel):
 
 class ExpenseCreateRequest(BaseModel):
     title: str
-    amount: int = Field(ge=1, le=10_000_000)
+    amount: float = Field(ge=1, le=10_000_000)
     category: str
     date: str
     note: str | None = None
@@ -1293,7 +1293,7 @@ JsonDict = dict[str, Any]
 
 class ExpenseUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
-    amount: int | None = Field(default=None, ge=1, le=10_000_000)
+    amount: float | None = Field(default=None, ge=1, le=10_000_000)
     category: str | None = Field(default=None, max_length=100)
     date: str | None = None  # DD.MM.YYYY
     note: str | None = Field(default=None, max_length=1000)
@@ -1326,7 +1326,7 @@ class ExpenseUpdateRequest(BaseModel):
 
 
 class IncomeUpdateRequest(BaseModel):
-    amount: int | None = Field(default=None, ge=1, le=10_000_000)
+    amount: float | None = Field(default=None, ge=1, le=10_000_000)
     source: str | None = Field(default=None, min_length=1, max_length=255)
     note: str | None = Field(default=None, max_length=1000)  # явный null очищает поле
     date: str | None = None  # DD.MM.YYYY
@@ -1363,11 +1363,11 @@ class IncomeUpdateRequest(BaseModel):
 class PiggyBankTransactionPayload(BaseModel):
     id: str
     bookingId: str | None = None
-    amount: int
+    amount: float
     transactionType: str
     purpose: str
     materialName: str | None = None
-    materialCost: int | None = None
+    materialCost: float | None = None
     date: str
     resourceGroup: str = "detailing"
     createdAt: datetime
@@ -1378,14 +1378,14 @@ class PiggyBankTransactionPayload(BaseModel):
     bookingTime: str | None = None
     bookingCar: str | None = None
     bookingPlate: str | None = None
-    bookingPrice: int | None = None
+    bookingPrice: float | None = None
     bookingStatus: str | None = None
 
 
 class PiggyBankWithdrawRequest(BaseModel):
     bookingId: str
     materialName: str = Field(min_length=1, max_length=255)
-    materialCost: int = Field(ge=1, le=10_000_000)
+    materialCost: float = Field(ge=1, le=10_000_000)
     purpose: str = ""
     date: str
 
@@ -1398,73 +1398,73 @@ class PiggyBankWithdrawRequest(BaseModel):
 
 
 class PiggyBankWashBreakdown(BaseModel):
-    selfServiceRevenue: int = 0
-    selfServiceMaster: int = 0
-    selfServicePiggy: int = 0
-    classicRevenue: int = 0
-    classicMaster: int = 0
-    classicPiggy: int = 0
-    totalRevenue: int = 0
-    totalMaster: int = 0
-    totalPiggy: int = 0
-    washNetPiggy: int = 0
+    selfServiceRevenue: float = 0
+    selfServiceMaster: float = 0
+    selfServicePiggy: float = 0
+    classicRevenue: float = 0
+    classicMaster: float = 0
+    classicPiggy: float = 0
+    totalRevenue: float = 0
+    totalMaster: float = 0
+    totalPiggy: float = 0
+    washNetPiggy: float = 0
 
 
 class PiggyBankDetailingBreakdown(BaseModel):
-    detailingRevenue: int = 0
-    detailingMaster: int = 0
-    deposits24Percent: int = 0
-    materialWithdrawals: int = 0
-    materialRepayments: int = 0
-    netPiggy: int = 0
-    detailingExpenses: int = 0
-    detailingIncomes: int = 0
+    detailingRevenue: float = 0
+    detailingMaster: float = 0
+    deposits24Percent: float = 0
+    materialWithdrawals: float = 0
+    materialRepayments: float = 0
+    netPiggy: float = 0
+    detailingExpenses: float = 0
+    detailingIncomes: float = 0
 
 
 class PiggyBankResponse(BaseModel):
-    balance: int = 0
+    balance: float = 0
     transactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
     wash: PiggyBankWashBreakdown | None = None
     detailing: PiggyBankDetailingBreakdown | None = None
-    masterDailyOutputs: int = 0
-    washExpenses: int = 0
-    washIncomes: int = 0
-    detailingExpenses: int = 0
-    detailingIncomes: int = 0
-    remainingInPiggyBank: int = 0
-    combinedBalance: int = 0
+    masterDailyOutputs: float = 0
+    washExpenses: float = 0
+    washIncomes: float = 0
+    detailingExpenses: float = 0
+    detailingIncomes: float = 0
+    remainingInPiggyBank: float = 0
+    combinedBalance: float = 0
     archives: list[WeeklyArchivePayload] = Field(default_factory=list)
     ownerProfitShares: list[OwnerProfitShareItem] = Field(default_factory=list)
-    ownerProfitTotal: int = 0
-    ownerProfitPaid: int = 0
-    ownerProfitBalance: int = 0
+    ownerProfitTotal: float = 0
+    ownerProfitPaid: float = 0
+    ownerProfitBalance: float = 0
 
 
 class WeeklyArchivePayload(BaseModel):
     id: int
     weekStart: str
     weekEnd: str
-    totalRevenue: int = 0
-    totalIncome: int = 0
-    totalExpense: int = 0
+    totalRevenue: float = 0
+    totalIncome: float = 0
+    totalExpense: float = 0
     bookingCount: int = 0
     incomeCount: int = 0
     expenseCount: int = 0
-    piggyBankBalance: int = 0
+    piggyBankBalance: float = 0
     createdAt: datetime
 
 
 class WalletResponse(BaseModel):
     weekStart: str
     weekEnd: str
-    revenue: int = 0
-    totalIncome: int = 0
-    totalExpense: int = 0
-    profit: int = 0
+    revenue: float = 0
+    totalIncome: float = 0
+    totalExpense: float = 0
+    profit: float = 0
     bookingCount: int = 0
     incomes: list[IncomePayload] = Field(default_factory=list)
     expenses: list[ExpensePayload] = Field(default_factory=list)
-    piggyBankBalance: int = 0
+    piggyBankBalance: float = 0
     archives: list[WeeklyArchivePayload] = Field(default_factory=list)
 
 
@@ -1479,8 +1479,8 @@ class OwnerProfitShareItem(BaseModel):
     clientPhone: str = ""
     date: str
     time: str = ""
-    price: int = 0
-    amount: int
+    price: float = 0
+    amount: float
     status: str
     createdAt: datetime
     workerName: str = ""
@@ -1491,22 +1491,22 @@ class OwnerProfitShareItem(BaseModel):
 class OwnerProfitShareSummary(BaseModel):
     ownerId: str
     ownerName: str
-    totalAccrued: int = 0
-    totalPaid: int = 0
-    balanceToPay: int = 0
+    totalAccrued: float = 0
+    totalPaid: float = 0
+    balanceToPay: float = 0
     shares: list[OwnerProfitShareItem] = Field(default_factory=list)
 
 
 class OwnerSalaryDetailResponse(BaseModel):
     owners: list[OwnerProfitShareSummary] = Field(default_factory=list)
-    totalAccrued: int = 0
-    totalPaid: int = 0
-    totalBalanceToPay: int = 0
+    totalAccrued: float = 0
+    totalPaid: float = 0
+    totalBalanceToPay: float = 0
 
 
 class PayOwnerSalaryRequest(BaseModel):
     ownerId: str
-    amount: int = Field(ge=1, le=10_000_000)
+    amount: float = Field(ge=1, le=10_000_000)
     note: str = ""
 
 
@@ -1514,7 +1514,7 @@ class PayOwnerSalaryResponse(BaseModel):
     message: str
     payoutId: str
     expenseId: str
-    newBalance: int
+    newBalance: float
 
 
 class OverrideEarnedRequest(BaseModel):

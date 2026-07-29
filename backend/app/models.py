@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -232,9 +232,9 @@ class BookingMaterial(Base):
         String(64), ForeignKey("stock_items.id", ondelete="SET NULL"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(120))
-    qty: Mapped[int] = mapped_column(Integer)
+    qty: Mapped[float] = mapped_column(Float)
     unit: Mapped[str] = mapped_column(String(16))
-    unit_price: Mapped[int] = mapped_column(Integer)
+    unit_price: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
@@ -300,9 +300,9 @@ class StockItem(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
-    qty: Mapped[int] = mapped_column(Integer)
+    qty: Mapped[float] = mapped_column(Float)
     unit: Mapped[str] = mapped_column(String(16))
-    unit_price: Mapped[int] = mapped_column(Integer)
+    unit_price: Mapped[float] = mapped_column(Float)
     category: Mapped[str] = mapped_column(String(120))
     category_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("stock_categories.id", ondelete="SET NULL"), nullable=True
@@ -320,7 +320,7 @@ class Expense(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
     category: Mapped[str] = mapped_column(String(120))
     date: Mapped[str] = mapped_column(String(16))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -365,7 +365,7 @@ class PayrollEntry(Base):
     actor_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
     actor_role: Mapped[str] = mapped_column(String(32))
     kind: Mapped[str] = mapped_column(String(32))
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
     note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
@@ -421,7 +421,7 @@ class Income(Base):
     __tablename__ = "incomes"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(255))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by_id: Mapped[str] = mapped_column(
@@ -461,11 +461,11 @@ class PiggyBankTransaction(Base):
     booking_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True
     )
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
     transaction_type: Mapped[str] = mapped_column(String(32))
     purpose: Mapped[str] = mapped_column(String(255))
     material_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    material_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    material_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
     date: Mapped[str] = mapped_column(String(16))
     resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
     created_at: Mapped[datetime] = mapped_column(
@@ -483,7 +483,7 @@ class OwnerProfitShare(Base):
     owner_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("staff_users.id", ondelete="CASCADE")
     )
-    amount: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[float] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(16), default=OWNER_PROFIT_PENDING)
     date: Mapped[str] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(

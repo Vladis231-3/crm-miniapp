@@ -845,7 +845,7 @@ export function OwnerApp() {
   }, [ownerSalaryPeriod]);
 
   const handlePayOwnerSalary = async (ownerId: string) => {
-    const amount = parseInt(ownerPayAmount);
+    const amount = parseFloat(ownerPayAmount.replace(',', '.'));
     if (!amount || amount < 1) return;
     try {
       setOwnerSalaryLoading(true);
@@ -1538,7 +1538,7 @@ export function OwnerApp() {
   const handleAddStock = () => {
     if (!stockForm.name || !stockForm.qty) return;
     const parentCats = stockCategories.filter(c => !c.parentId);
-    addStockItem({ name: stockForm.name, qty: Number(stockForm.qty), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice), category: stockForm.category, categoryId: stockForm.categoryId || undefined });
+    addStockItem({ name: stockForm.name, qty: Number(stockForm.qty.replace(',', '.')), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice.replace(',', '.')), category: stockForm.category, categoryId: stockForm.categoryId || undefined });
     setShowAddStock(false);
     setStockForm({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCats[0]?.name || 'Химия', categoryId: '' });
     setBottomToast(`\u0422\u043e\u0432\u0430\u0440 "${stockForm.name}" \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u043d\u0430 \u0441\u043a\u043b\u0430\u0434`);
@@ -1548,7 +1548,7 @@ export function OwnerApp() {
   const handleWriteOff = () => {
     if (!showWriteOff) return;
     const item = stockItems.find(s => s.id === showWriteOff);
-    writeOffStock(showWriteOff, Number(writeOffQty));
+    writeOffStock(showWriteOff, Number(writeOffQty.replace(',', '.')));
     setShowWriteOff(null);
     setWriteOffQty('1');
     if (item) {
@@ -7068,10 +7068,10 @@ setOwnerNewBookingWorkers([]);
               <div className="space-y-3 mb-4">
                 <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Автошампунь..." value={stockForm.name} onChange={e => setStockForm(p => ({ ...p, name: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="number" value={stockForm.qty} onChange={e => setStockForm(p => ({ ...p, qty: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={stockForm.qty} onChange={e => setStockForm(p => ({ ...p, qty: e.target.value }))} /></div>
                   <div><label className={`text-xs ${sub} block mb-1`}>Единица</label><select className={selectCls} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))}>{STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Цена за ед. (₽)</label><input className={inputCls} type="number" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Цена за ед. (₽)</label><input className={inputCls} type="text" inputMode="decimal" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Категория</label>
                   {(() => {
                     const parentCats = stockCategories.filter(c => !c.parentId);
@@ -7196,7 +7196,7 @@ setOwnerNewBookingWorkers([]);
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
               <h3 className="font-semibold mb-1">Списать товар</h3>
               <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
-              <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="number" min={1} value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
+              <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
               <div className="flex gap-2">
                 <button onClick={() => setShowWriteOff(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                 <button onClick={handleWriteOff} className="flex-1 py-2.5 rounded-xl text-sm text-white" style={{ background: '#FF6B6B' }}>Списать</button>
@@ -8466,9 +8466,9 @@ setOwnerNewBookingWorkers([]);
                             <div className={`text-xs ${sub}`}>{mat.qty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(mat.qty * mat.unitPrice).toLocaleString('ru')} ₽</div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            <input type="number" min={1} value={mat.qty}
+                            <input type="text" inputMode="decimal" value={mat.qty}
                               onChange={e => {
-                                const val = parseInt(e.target.value);
+                                const val = parseFloat(e.target.value.replace(',', '.'));
                                 if (!isNaN(val) && val > 0) {
                                   setOwnerNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: val } : m));
                                 }
