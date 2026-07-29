@@ -12953,6 +12953,11 @@ def _dmy(d: date) -> str:
     return f"{d.day:02d}.{d.month:02d}.{d.year}"
 
 
+def _dmy_to_date(s: str) -> date:
+
+    return datetime.strptime(s.strip(), "%d.%m.%Y").date()
+
+
 
 
 
