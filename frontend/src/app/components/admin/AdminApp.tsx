@@ -118,7 +118,7 @@ type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile'
 type EditModalMode = 'edit' | 'reschedule';
 type ClientSearchMode = 'phone' | 'plate';
 type ShiftPhotoCategoryId = typeof SHIFT_PHOTO_CATEGORIES[number]['id'];
-const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
+const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'п.м', 'уп'];
 function isDetailingService(serviceId: string, services: Array<{ id: string; category: string }>) {
   return services.some((service) => service.id === serviceId && service.category === 'Детейлинг');
 }

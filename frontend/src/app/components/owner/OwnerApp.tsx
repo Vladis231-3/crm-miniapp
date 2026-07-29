@@ -122,7 +122,7 @@ interface WalletData {
 }
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
-const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'уп'];
+const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'п.м', 'уп'];
 const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
   { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
