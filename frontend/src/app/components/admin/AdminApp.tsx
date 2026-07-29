@@ -398,7 +398,7 @@ export function AdminApp() {
   const [showWriteOff, setShowWriteOff] = useState<string | null>(null);
   const [writeOffQty, setWriteOffQty] = useState('1');
   const parentCategories = stockCategories.filter(c => !c.parentId);
-  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
+  const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', priceMode: 'unit' as 'unit' | 'total', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
 const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
 const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [newBookingMaterials, setNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number; unit: string; unitPrice: number }[]>([]);
@@ -1347,9 +1347,12 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const handleAddStock = () => {
     if (!stockForm.name || !stockForm.qty) return;
     const parentCats = stockCategories.filter(c => !c.parentId);
-    addStockItem({ name: stockForm.name, qty: Number(stockForm.qty.replace(',', '.')), unit: stockForm.unit, unitPrice: Number(stockForm.unitPrice.replace(',', '.')), category: stockForm.category, categoryId: stockForm.categoryId || undefined });
+    const qty = Number(stockForm.qty.replace(',', '.'));
+    const rawPrice = Number(stockForm.unitPrice.replace(',', '.'));
+    const unitPrice = stockForm.priceMode === 'total' && qty > 0 ? rawPrice / qty : rawPrice;
+    addStockItem({ name: stockForm.name, qty, unit: stockForm.unit, unitPrice, category: stockForm.category, categoryId: stockForm.categoryId || undefined });
     setShowAddStock(false);
-    setStockForm({ name: '', qty: '', unit: 'шт', unitPrice: '', category: parentCats[0]?.name || 'Химия', categoryId: '' });
+    setStockForm({ name: '', qty: '', unit: 'шт', unitPrice: '', priceMode: 'unit', category: parentCats[0]?.name || 'Химия', categoryId: '' });
     setBottomToast(`Товар "${stockForm.name}" добавлен на склад`);
     setTimeout(() => setBottomToast(null), 3000);
   };
@@ -2026,7 +2029,13 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                           <div><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={stockForm.qty} onChange={e => setStockForm(p => ({ ...p, qty: e.target.value }))} /></div>
                           <div><label className={`text-xs ${sub} block mb-1`}>Единица</label><select className={selectCls} value={stockForm.unit} onChange={e => setStockForm(p => ({ ...p, unit: e.target.value }))}>{STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
                         </div>
-                        <div><label className={`text-xs ${sub} block mb-1`}>Цена за ед. (₽)</label><input className={inputCls} type="text" inputMode="decimal" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} /></div>
+                        <div><label className={`text-xs ${sub} block mb-1`}>Цена {stockForm.priceMode === 'total' ? 'за все' : 'за ед.'} (₽)</label>
+                          <div className="flex gap-2">
+                            <input className={inputCls} style={{ flex: 1 }} type="text" inputMode="decimal" value={stockForm.unitPrice} onChange={e => setStockForm(p => ({ ...p, unitPrice: e.target.value }))} />
+                            <button type="button" onClick={() => setStockForm(p => ({ ...p, priceMode: p.priceMode === 'unit' ? 'total' : 'unit', unitPrice: '' }))}
+                              className="text-xs px-2.5 py-1.5 rounded-lg shrink-0" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)', color: accent }}>{stockForm.priceMode === 'unit' ? 'за всё' : 'за ед.'}</button>
+                          </div>
+                        </div>
                         <div><label className={`text-xs ${sub} block mb-1`}>Категория</label>
                           {(() => {
                             const parentCats = stockCategories.filter(c => !c.parentId);
