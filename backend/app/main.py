@@ -10283,8 +10283,6 @@ def update_booking(
 
         updates.setdefault("duration", service.duration)
 
-        updates.setdefault("price", service.price)
-
     else:
 
         service = db.get(Service, booking.service_id) if booking.service_id else None

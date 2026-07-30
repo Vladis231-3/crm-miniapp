@@ -2290,6 +2290,7 @@ setOwnerNewBookingWorkers([]);
           paymentType: ownerBookingEditFull.paymentType,
           paymentSettled: ownerBookingEditFull.paymentSettled,
           serviceId: ownerBookingEditFull.serviceId || undefined,
+          price: ownerBookingEditFull.price || 0,
         };
       } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus };

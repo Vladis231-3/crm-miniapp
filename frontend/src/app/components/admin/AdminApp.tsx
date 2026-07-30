@@ -1142,6 +1142,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         clientName: editBookingDraft.clientName.trim() || undefined,
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
         serviceId: editBookingDraft.serviceId || undefined,
+        price: editBookingDraft.price || 0,
       });
       setSelectedBooking((current) => (current ? {
         ...current,
