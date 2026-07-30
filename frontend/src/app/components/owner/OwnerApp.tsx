@@ -682,7 +682,7 @@ export function OwnerApp() {
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [newVehicleCar, setNewVehicleCar] = useState('');
   const [newVehiclePlate, setNewVehiclePlate] = useState('');
-  const [draftVehicles, setDraftVehicles] = useState<Record<string, Array<{ car: string; plate: string }>>>({});
+  const [draftVehicles, setDraftVehicles] = useState<Record<string, Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }>>>({});
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
   const [shiftChecklists, setShiftChecklists] = useState<ShiftChecklist[]>([]);
@@ -5425,36 +5425,73 @@ setOwnerNewBookingWorkers([]);
                       <div className={`text-sm ${sub} mb-3`}>Автомобили ещё не добавлены</div>
                     ) : (
                       <div className="space-y-2">
-                        {selectedSettingsClientVehicles.map((vehicle, index) => (
-                          <div key={`${vehicle.car}-${vehicle.plate}-${index}`} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3`}>
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm">{vehicle.car || 'Авто без названия'}</div>
-                              <div className={`text-xs ${sub}`}>{vehicle.plate || 'Номер не указан'}</div>
+                        {selectedSettingsClientVehicles.map((vehicle, index) => {
+                          const isMain = vehicle.isMain ?? index === 0;
+                          return (
+                            <div key={`${vehicle.car}-${vehicle.plate}-${index}`} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 flex items-center justify-between gap-3 ${isMain ? (isDark ? 'ring-1 ring-amber-500/30' : 'ring-1 ring-amber-300') : ''}`}>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-sm flex items-center gap-2">
+                                  {vehicle.car || 'Авто без названия'}
+                                  {isMain && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">Основное</span>}
+                                </div>
+                                <div className={`text-xs ${sub}`}>{vehicle.plate || 'Номер не указан'}</div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {!isMain && (
+                                  <button
+                                    type="button"
+                                    title="Сделать основным"
+                                    onClick={() => {
+                                      const client = selectedSettingsClient;
+                                      if (!client) return;
+                                      const current = [...(draftVehicles[client.id] ?? (client.vehicles?.length
+                                        ? client.vehicles
+                                        : [{ car: client.car || '', plate: client.plate || '' }]))];
+                                      setDraftVehicles((prev) => ({
+                                        ...prev,
+                                        [client.id]: current.map((v, i) => ({
+                                          ...v,
+                                          isMain: i === index,
+                                        })),
+                                      }));
+                                    }}
+                                    className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-white/10 text-white/30' : 'hover:bg-black/5 text-black/20'}`}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                    </svg>
+                                  </button>
+                                )}
+                                {isMain && (
+                                  <span className="p-1.5 text-amber-500">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                    </svg>
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const client = selectedSettingsClient;
+                                    if (!client) return;
+                                    const current = draftVehicles[client.id] ?? (client.vehicles?.length
+                                      ? client.vehicles
+                                      : [{ car: client.car || '', plate: client.plate || '' }]);
+                                    setDraftVehicles((prev) => ({
+                                      ...prev,
+                                      [client.id]: current.filter((_, i) => i !== index),
+                                    }));
+                                    setBottomToast('Авто удалено');
+                                    setTimeout(() => setBottomToast(null), 3000);
+                                  }}
+                                  className={`p-1.5 rounded-lg ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <div className={`text-[11px] ${sub}`}>{index === 0 ? 'Основное' : `Авто ${index + 1}`}</div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const client = selectedSettingsClient;
-                                  if (!client) return;
-                                  const current = draftVehicles[client.id] ?? (client.vehicles?.length
-                                    ? client.vehicles
-                                    : [{ car: client.car || '', plate: client.plate || '' }]);
-                                  setDraftVehicles((prev) => ({
-                                    ...prev,
-                                    [client.id]: current.filter((_, i) => i !== index),
-                                  }));
-                                  setBottomToast('Авто удалено');
-                                  setTimeout(() => setBottomToast(null), 3000);
-                                }}
-                                className={`p-1.5 rounded-lg ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                     {selectedSettingsClientVehicles.length < 10 && (

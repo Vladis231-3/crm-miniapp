@@ -40,7 +40,7 @@ export interface RegisteredClient {
   car: string;
   plate: string;
   plateType?: string;
-  vehicles?: Array<{ car: string; plate: string; plateType?: string }>;
+  vehicles?: Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }>;
   notes: string;
   debtBalance: number;
   adminRating: number;
@@ -1007,7 +1007,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return normalized;
   }
 
-  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string }> }>) {
+  async function updateClientCard(clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }> }>) {
     const saved = await apiRequest<Omit<RegisteredClient, 'createdAt'> & { createdAt: string }>(`/api/clients/${clientId}/card`, { method: 'PATCH', body: updates });
     const normalized = { ...saved, createdAt: new Date(saved.createdAt) };
     setClients((current) => current.map((client) => (client.id === clientId ? normalized : client)));

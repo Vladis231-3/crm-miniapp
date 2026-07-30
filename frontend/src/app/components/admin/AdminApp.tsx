@@ -1850,7 +1850,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                               <div className="font-medium text-sm">{vehicle.car || 'Авто без названия'}</div>
                               <div className={`text-xs ${sub}`}>{vehicle.plate || 'Номер не указан'}</div>
                             </div>
-                            <div className={`text-[11px] ${sub}`}>{index === 0 ? 'Основное' : `Авто ${index + 1}`}</div>
+                            <div className={`text-[11px] ${sub}`}>{vehicle.isMain ? 'Основное' : `Авто ${index + 1}`}</div>
                           </div>
                         ))}
                       </div>

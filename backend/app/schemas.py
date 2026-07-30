@@ -157,6 +157,7 @@ class ClientVehiclePayload(BaseModel):
     car: str = ""
     plate: str = ""
     plateType: str = "russian"
+    isMain: bool = False
 
     @model_validator(mode="after")
     def validate_vehicle(self) -> "ClientVehiclePayload":

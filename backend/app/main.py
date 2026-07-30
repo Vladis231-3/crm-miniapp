@@ -2408,6 +2408,8 @@ def _normalize_client_vehicles(
 
     normalized: list[ClientVehiclePayload] = []
 
+    has_main = False
+
     for item in vehicles or []:
 
         if isinstance(item, dict):
@@ -2418,6 +2420,8 @@ def _normalize_client_vehicles(
 
             plate_type = item.get("plateType", "russian")
 
+            is_main = item.get("isMain", False)
+
         else:
 
             car = item.car
@@ -2425,6 +2429,8 @@ def _normalize_client_vehicles(
             plate = item.plate
 
             plate_type = item.plateType
+
+            is_main = item.isMain
 
         car = normalize_vehicle_name(car) if car.strip() else ""
 
@@ -2434,7 +2440,15 @@ def _normalize_client_vehicles(
 
             continue
 
-        normalized.append(ClientVehiclePayload(car=car, plate=plate, plateType=plate_type))
+        if is_main and has_main:
+
+            is_main = False
+
+        if is_main:
+
+            has_main = True
+
+        normalized.append(ClientVehiclePayload(car=car, plate=plate, plateType=plate_type, isMain=is_main))
 
     if not normalized and (fallback_car.strip() or fallback_plate.strip()):
 
@@ -2443,6 +2457,8 @@ def _normalize_client_vehicles(
     deduped: list[ClientVehiclePayload] = []
 
     seen: set[tuple[str, str]] = set()
+
+    main_vehicle: ClientVehiclePayload | None = None
 
     for item in normalized:
 
@@ -2454,7 +2470,17 @@ def _normalize_client_vehicles(
 
         seen.add(key)
 
-        deduped.append(item)
+        if item.isMain:
+
+            main_vehicle = item
+
+        else:
+
+            deduped.append(item)
+
+    if main_vehicle:
+
+        deduped.insert(0, main_vehicle)
 
     return deduped[:5]
 
@@ -2492,7 +2518,9 @@ def _save_client_vehicles(
 
     current = _client_vehicles_map(db)
 
-    current[client_id] = [item.model_dump() for item in vehicles]
+    normalized = _normalize_client_vehicles(vehicles)
+
+    current[client_id] = [item.model_dump() for item in normalized]
 
     _upsert_setting(db, "client_vehicles", current)
 
@@ -8681,6 +8709,94 @@ def _notify_worker_about_payroll_entry(
 
 
 
+
+
+@app.patch("/api/clients/{client_id}/card", response_model=ClientSummaryPayload)
+
+def update_client_card(
+
+    client_id: str,
+    payload: ClientCardUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+
+) -> ClientSummaryPayload:
+
+    _ensure_staff_role(session_data, {"owner", "admin"})
+
+    client = db.get(Client, client_id)
+
+    if client is None:
+
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+    if payload.name is not None:
+
+        client.name = payload.name
+
+    if payload.phone is not None:
+
+        client.phone = payload.phone
+
+    if payload.car is not None:
+
+        client.car = payload.car
+
+    if payload.plate is not None:
+
+        client.plate = payload.plate
+
+    if payload.plateType is not None:
+
+        client.plate_type = payload.plateType
+
+    if payload.notes is not None:
+
+        client.notes = payload.notes
+
+    if payload.debtBalance is not None:
+
+        client.debt_balance = payload.debtBalance
+
+    if payload.adminRating is not None:
+
+        client.admin_rating = payload.adminRating
+
+    if payload.adminNote is not None:
+
+        client.admin_note = payload.adminNote
+
+    if payload.referralSource is not None:
+
+        client.referral_source = payload.referralSource
+
+    if payload.vehicles is not None:
+
+        _save_client_vehicles(db, client_id, payload.vehicles)
+
+        vehicles = _client_vehicles_payload(db, client)
+
+        if vehicles:
+
+            client.car = vehicles[0].car
+
+            client.plate = vehicles[0].plate
+
+            client.plate_type = vehicles[0].plateType or "russian"
+
+        else:
+
+            client.car = ""
+
+            client.plate = ""
+
+    client.updated_at = _now()
+
+    db.commit()
+
+    db.refresh(client)
+
+    return _client_summary_payload(client, db)
 
 
 @app.get("/api/health", response_model=GenericMessage)
