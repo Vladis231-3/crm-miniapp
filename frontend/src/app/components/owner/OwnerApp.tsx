@@ -14,6 +14,7 @@ import {
 import { apiBlobUrl, apiRequest } from '../../api';
 import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type Worker, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
+import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
@@ -7909,19 +7910,27 @@ setOwnerNewBookingWorkers([]);
                       </div>
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                        <select className={selectCls} value={ownerBookingEditFull.serviceId} onChange={e => {
-                          const svc = services.find(s => s.id === e.target.value);
-                          setOwnerBookingEditFull(p => ({
-                            ...p,
-                            serviceId: e.target.value,
-                            price: svc?.price || 0,
-                            duration: svc?.duration || 30,
-                          }));
-                          setOwnerBookingEditError(null);
-                        }}>
-                          <option value="">Выберите услугу</option>
-                          {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
+                        <ServiceSearchSelect
+                          value={ownerBookingEditFull.serviceId}
+                          services={services}
+                          selectCls={selectCls}
+                          inputCls={inputCls}
+                          glass={glass}
+                          text={text}
+                          sub={sub}
+                          primary={primary}
+                          isDark={isDark}
+                          onChange={serviceId => {
+                            const svc = services.find(s => s.id === serviceId);
+                            setOwnerBookingEditFull(p => ({
+                              ...p,
+                              serviceId,
+                              price: svc?.price || 0,
+                              duration: svc?.duration || 30,
+                            }));
+                            setOwnerBookingEditError(null);
+                          }}
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -8256,21 +8265,29 @@ setOwnerNewBookingWorkers([]);
                 ))}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                  <select className={selectCls} value={ownerNewBookingForm.serviceId} onChange={e => {
-                    const svc = services.find(s => s.id === e.target.value);
-                    setOwnerNewBookingForm(p => ({
-                      ...p,
-                      serviceId: e.target.value,
-                      service: svc?.name || '',
-                      price: svc?.price || 0,
-                      duration: svc?.duration || 30,
-                      box: ownerPickDefaultBookingBox(e.target.value, services, boxes, bookings, p.date, p.time, svc?.duration || 30),
-                    }));
-                    setOwnerNewBookingErrors((current) => ({ ...current, general: undefined }));
-                  }}>
-                    <option value="">Выберите услугу</option>
-                    {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <ServiceSearchSelect
+                    value={ownerNewBookingForm.serviceId}
+                    services={services}
+                    selectCls={selectCls}
+                    inputCls={inputCls}
+                    glass={glass}
+                    text={text}
+                    sub={sub}
+                    primary={primary}
+                    isDark={isDark}
+                    onChange={serviceId => {
+                      const svc = services.find(s => s.id === serviceId);
+                      setOwnerNewBookingForm(p => ({
+                        ...p,
+                        serviceId,
+                        service: svc?.name || '',
+                        price: svc?.price || 0,
+                        duration: svc?.duration || 30,
+                        box: ownerPickDefaultBookingBox(serviceId, services, boxes, bookings, p.date, p.time, svc?.duration || 30),
+                      }));
+                      setOwnerNewBookingErrors((current) => ({ ...current, general: undefined }));
+                    }}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

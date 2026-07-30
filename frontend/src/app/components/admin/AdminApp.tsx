@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from './ContentEditor';
+import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   isClientCardIncomplete,
@@ -433,7 +434,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [settingsSaved, setSettingsSaved] = useState(false);
-  const [servicesSearchQuery, setServicesSearchQuery] = useState('');
+
   const [payrollDrafts, setPayrollDrafts] = useState<Record<string, { kind: PayrollEntryKind; amount: string; note: string }>>({});
   const [payrollEntryLoading, setPayrollEntryLoading] = useState<string | null>(null);
   const [securitySaved, setSecuritySaved] = useState(false);
@@ -3074,18 +3075,26 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               {/* ── Услуга ── */}
               <div>
                 <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                <select className={selectCls} value={addServiceDraft.serviceId} onChange={e => {
-                  const svc = services.find(s => s.id === e.target.value);
-                  setAddServiceDraft({
-                    serviceId: e.target.value,
-                    price: svc?.price || 0,
-                    duration: svc?.duration || 30,
-                  });
-                  setAddServiceError(null);
-                }}>
-                  <option value="">Выберите услугу</option>
-                  {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <ServiceSearchSelect
+                  value={addServiceDraft.serviceId}
+                  services={services}
+                  selectCls={selectCls}
+                  inputCls={inputCls}
+                  glass={glass}
+                  text={text}
+                  sub={sub}
+                  primary={primary}
+                  isDark={isDark}
+                  onChange={serviceId => {
+                    const svc = services.find(s => s.id === serviceId);
+                    setAddServiceDraft({
+                      serviceId,
+                      price: svc?.price || 0,
+                      duration: svc?.duration || 30,
+                    });
+                    setAddServiceError(null);
+                  }}
+                />
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
@@ -3714,21 +3723,29 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 ))}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                  <select className={selectCls} value={newBookingForm.serviceId} onChange={e => {
-                    const svc = services.find(s => s.id === e.target.value);
-                    setNewBookingForm(p => ({
-                      ...p,
-                      serviceId: e.target.value,
-                      service: svc?.name || '',
-                      price: svc?.price || 0,
-                      duration: svc?.duration || 30,
-                      box: defaultBoxForService(e.target.value, services, boxes),
-                    }));
-                    setNewBookingErrors((current) => ({ ...current, general: undefined }));
-                  }}>
-                    <option value="">Выберите услугу</option>
-                    {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <ServiceSearchSelect
+                    value={newBookingForm.serviceId}
+                    services={services}
+                    selectCls={selectCls}
+                    inputCls={inputCls}
+                    glass={glass}
+                    text={text}
+                    sub={sub}
+                    primary={primary}
+                    isDark={isDark}
+                    onChange={serviceId => {
+                      const svc = services.find(s => s.id === serviceId);
+                      setNewBookingForm(p => ({
+                        ...p,
+                        serviceId,
+                        service: svc?.name || '',
+                        price: svc?.price || 0,
+                        duration: svc?.duration || 30,
+                        box: defaultBoxForService(serviceId, services, boxes),
+                      }));
+                      setNewBookingErrors((current) => ({ ...current, general: undefined }));
+                    }}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
