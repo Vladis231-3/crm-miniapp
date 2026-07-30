@@ -1958,14 +1958,18 @@ export function OwnerApp() {
     const firstServiceId = services[0]?.id || 's1';
     const availableBoxes = ownerBookingBoxes(firstServiceId, services, boxes);
     const defaultBox = availableBoxes[0]?.name || '';
+    const clientVehicles = draftVehicles[client.id] ?? (client.vehicles?.length
+      ? client.vehicles
+      : [{ car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian' }]);
+    const mainVehicle = clientVehicles.find((v) => v.isMain) ?? clientVehicles[0] ?? {};
     setBookingWorkers([]);
     setBookingForm({
       clientId: client.id,
       clientName: client.name,
       clientPhone: client.phone,
-      car: client.car || '',
-      plate: client.plate || '',
-      plateType: (client.plateType as PlateType) || 'russian',
+      car: mainVehicle.car || client.car || '',
+      plate: mainVehicle.plate || client.plate || '',
+      plateType: ((mainVehicle.plateType || client.plateType) as PlateType) || 'russian',
       service: firstServiceId,
       date: status === 'completed' ? formatDate(historyDate) : todayLabel,
       time: '10:00',
