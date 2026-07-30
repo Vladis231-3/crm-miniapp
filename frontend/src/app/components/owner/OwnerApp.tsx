@@ -2544,7 +2544,7 @@ setOwnerNewBookingWorkers([]);
   const selectedSettingsClientVehicles = selectedSettingsClient
     ? (draftVehicles[selectedSettingsClient.id] ?? (selectedSettingsClient.vehicles?.length
       ? selectedSettingsClient.vehicles
-      : [{ car: selectedSettingsClient.car, plate: selectedSettingsClient.plate }]))
+      : [{ car: selectedSettingsClient.car || '', plate: selectedSettingsClient.plate || '', plateType: selectedSettingsClient.plateType || 'russian' }]))
     : [];
   const selectedSettingsClientSpent = selectedSettingsClientBookings
     .filter((booking) => booking.status === 'completed')
@@ -5446,13 +5446,23 @@ setOwnerNewBookingWorkers([]);
                                       if (!client) return;
                                       const current = [...(draftVehicles[client.id] ?? (client.vehicles?.length
                                         ? client.vehicles
-                                        : [{ car: client.car || '', plate: client.plate || '' }]))];
+                                        : [{ car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian' }]))];
                                       setDraftVehicles((prev) => ({
                                         ...prev,
                                         [client.id]: current.map((v, i) => ({
                                           ...v,
                                           isMain: i === index,
                                         })),
+                                      }));
+                                      const selected = current[index];
+                                      setClientCardDrafts((prev) => ({
+                                        ...prev,
+                                        [client.id]: {
+                                          ...prev[client.id],
+                                          car: selected.car || '',
+                                          plate: selected.plate || '',
+                                          plateType: selected.plateType || 'russian',
+                                        },
                                       }));
                                     }}
                                     className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-white/10 text-white/30' : 'hover:bg-black/5 text-black/20'}`}
@@ -5476,7 +5486,7 @@ setOwnerNewBookingWorkers([]);
                                     if (!client) return;
                                     const current = draftVehicles[client.id] ?? (client.vehicles?.length
                                       ? client.vehicles
-                                      : [{ car: client.car || '', plate: client.plate || '' }]);
+                                      : [{ car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian' }]);
                                     setDraftVehicles((prev) => ({
                                       ...prev,
                                       [client.id]: current.filter((_, i) => i !== index),
@@ -5519,10 +5529,10 @@ setOwnerNewBookingWorkers([]);
                             if (!client) return;
                             const current = draftVehicles[client.id] ?? (client.vehicles?.length
                               ? client.vehicles
-                              : [{ car: client.car || '', plate: client.plate || '' }]);
+                              : [{ car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian' }]);
                             setDraftVehicles((prev) => ({
                               ...prev,
-                              [client.id]: [...current, { car: normalizeVehicleInput(newVehicleCar), plate: normalizePlateInput(newVehiclePlate) }],
+                              [client.id]: [...current, { car: normalizeVehicleInput(newVehicleCar), plate: normalizePlateInput(newVehiclePlate), plateType: 'russian' }],
                             }));
                             setNewVehicleCar('');
                             setNewVehiclePlate('');
