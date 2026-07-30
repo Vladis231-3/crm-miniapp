@@ -885,6 +885,14 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _format_moscow_dt(dt: datetime | None) -> str:
+
+    if dt is None:
+        return ""
+    msk = dt.astimezone(timezone(timedelta(hours=3)))
+    return msk.strftime("%H:%M %d.%m.%Y")
+
+
 
 
 
@@ -3937,6 +3945,8 @@ def _booking_payload(
             for mat in booking.materials
         ],
         materialsWrittenOff=booking.materials_written_off,
+        startedAt=booking.started_at,
+        completedAt=booking.completed_at,
     )
 
 
@@ -8210,7 +8220,9 @@ def _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -
 
         f"Сумма: {booking.price:,} ₽\n".replace(",", " ")
 
-        + f"Оплата: {_booking_payment_label(booking)}"
+        + f"Оплата: {_booking_payment_label(booking)}\n"
+
+        + (f"Завершение: {_format_moscow_dt(booking.completed_at)}\n" if booking.completed_at else "")
 
         + worker_line
 
@@ -8298,6 +8310,14 @@ def _notify_owner_about_worker_booking_event(
 
 ) -> None:
 
+    event_time = (
+        f"\nНачало: {_format_moscow_dt(booking.started_at)}"
+        if event_label == "начал" and booking.started_at
+        else f"\nЗавершение: {_format_moscow_dt(booking.completed_at)}"
+        if event_label == "завершил" and booking.completed_at
+        else ""
+    )
+
     _notify_owners(
 
         db,
@@ -8316,6 +8336,7 @@ def _notify_owner_about_worker_booking_event(
 
             f"Бокс: {booking.box}"
 
+            f"{event_time}"
         ),
 
     )
@@ -10740,6 +10761,8 @@ def update_booking(
 
         if booking.status == "in_progress":
 
+            booking.started_at = _now()
+
             _notify_owner_about_worker_booking_event(
 
                 db, booking, worker_name=worker.name, event_label="начал"
@@ -10749,6 +10772,8 @@ def update_booking(
             wrote_worker_notifications = True
 
         if booking.status == "completed":
+
+            booking.completed_at = _now()
 
             _notify_owner_about_worker_booking_event(
 

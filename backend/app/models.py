@@ -168,6 +168,8 @@ class Booking(Base):
         DateTime(timezone=True), nullable=True, default=None
     )
     materials_written_off: Mapped[bool] = mapped_column(Boolean, default=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
 
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(

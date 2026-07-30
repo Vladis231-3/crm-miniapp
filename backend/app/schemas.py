@@ -448,6 +448,8 @@ class BookingPayload(BaseModel):
     additionalServices: list[AdditionalServicePayload] = Field(default_factory=list)
     materials: list[BookingMaterialPayload] = Field(default_factory=list)
     materialsWrittenOff: bool = False
+    startedAt: datetime | None = None
+    completedAt: datetime | None = None
 
 
 class BookingAvailabilitySlotPayload(BaseModel):
