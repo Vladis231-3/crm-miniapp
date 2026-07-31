@@ -8749,7 +8749,18 @@ def update_client_me(
     db.commit()
     db.refresh(client)
 
-    return _client_payload(client)
+    vehicles = _client_vehicles_payload(db, client)
+    phone_verified = _client_phone_is_verified(db, client.telegram_id, client.phone)
+    return ClientProfilePayload(
+        name=client.name,
+        phone=client.phone,
+        car=client.car or "",
+        plate=client.plate or "",
+        plateType=client.plate_type or "russian",
+        vehicles=vehicles,
+        registered=client.registered,
+        phoneVerified=phone_verified,
+    )
 
 
 
@@ -9855,7 +9866,10 @@ def create_booking(
 def _write_off_booking_materials(db: Session, booking: Booking) -> None:
 
     if booking.materials_written_off:
+        print(f"[WRITE_OFF] skip booking {booking.id[:8]} — already written off")
         return
+
+    print(f"[WRITE_OFF] booking {booking.id[:8]} materials_written_off=False, {len(booking.materials)} materials")
 
     service = db.get(Service, booking.service_id) if booking.service_id else None
     rg = _service_resource_group(service)
@@ -9864,12 +9878,18 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
     material_details = []
 
     for bm in booking.materials:
+        print(f"[WRITE_OFF] material '{bm.name}' stock_item_id={bm.stock_item_id} qty={bm.qty} unit_price={bm.unit_price}")
         if bm.stock_item_id:
             stock_item = db.get(StockItem, bm.stock_item_id)
             if stock_item:
+                print(f"[WRITE_OFF] stock '{stock_item.name}' before={stock_item.qty}, deducting {bm.qty}")
                 stock_item.qty = max(0, stock_item.qty - bm.qty)
                 total_cost += bm.qty * bm.unit_price
                 material_details.append(f"{bm.name} x{bm.qty} {bm.unit}")
+            else:
+                print(f"[WRITE_OFF] stock_item {bm.stock_item_id} NOT FOUND")
+        else:
+            print(f"[WRITE_OFF] material '{bm.name}' has NO stock_item_id — skipped")
 
     if total_cost > 0 and material_details:
         db.add(
@@ -9884,9 +9904,13 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                 created_at=_now(),
             )
         )
+        print(f"[WRITE_OFF] expense created: {total_cost} ₽ ({', '.join(material_details)})")
+    else:
+        print(f"[WRITE_OFF] no expense — total_cost={total_cost}")
 
     booking.materials_written_off = True
     db.flush()
+    print(f"[WRITE_OFF] booking {booking.id[:8]} done, materials_written_off=True")
 
 
 def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
@@ -10833,7 +10857,7 @@ def update_booking(
 
     )
 
-    if (booking_just_completed or payment_just_settled) and next_payment_settled:
+    if booking_just_completed or payment_just_settled:
 
         print(f"[PROFIT_DEBUG] === CONDITION MET === booking_just_completed={booking_just_completed} payment_just_settled={payment_just_settled} next_payment_settled={next_payment_settled}")
 
