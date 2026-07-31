@@ -1075,6 +1075,9 @@ class StockWriteOffPayload(BaseModel):
     source: str
     bookingId: str | None = None
     bookingService: str | None = None
+    bookingClientName: str | None = None
+    bookingDate: str | None = None
+    bookingWorkerNames: str | None = None
     note: str | None = None
     createdAt: str
 

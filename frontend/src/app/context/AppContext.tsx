@@ -318,6 +318,9 @@ export interface StockWriteOff {
   source: string;
   bookingId?: string | null;
   bookingService?: string | null;
+  bookingClientName?: string | null;
+  bookingDate?: string | null;
+  bookingWorkerNames?: string | null;
   note?: string | null;
   createdAt: string;
 }

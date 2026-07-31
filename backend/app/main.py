@@ -9890,6 +9890,7 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                 stock_item.qty = max(0, stock_item.qty - bm.qty)
                 total_cost += bm.qty * bm.unit_price
                 material_details.append(f"{bm.name} x{bm.qty} {bm.unit}")
+                worker_names = ", ".join(w.worker_name for w in booking.worker_links) if booking.worker_links else None
                 db.add(StockWriteOff(
                     id=f"swo-{uuid4()}",
                     stock_item_id=bm.stock_item_id,
@@ -9901,6 +9902,9 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                     source="booking",
                     booking_id=booking.id,
                     booking_service=booking.service,
+                    booking_client_name=booking.client_name,
+                    booking_date=booking.date,
+                    booking_worker_names=worker_names,
                     created_at=_now(),
                 ))
             else:
@@ -11710,6 +11714,9 @@ def get_write_off_history(
             source=r.source,
             bookingId=r.booking_id,
             bookingService=r.booking_service,
+            bookingClientName=r.booking_client_name,
+            bookingDate=r.booking_date,
+            bookingWorkerNames=r.booking_worker_names,
             note=r.note,
             createdAt=r.created_at.isoformat() if r.created_at else "",
         )

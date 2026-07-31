@@ -2041,13 +2041,20 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     {writeOffHistory.map(w => (
                       <div key={w.id} className={`${glass} rounded-xl px-3 py-2`}>
                         <div className="flex justify-between items-start">
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium">{w.stockItemName}</div>
-                            <div className={`text-xs ${sub}`}>
-                              {w.source === 'booking' ? `Услуга: ${w.bookingService || '—'}` : 'Ручное списание'}
-                            </div>
+                            {w.source === 'booking' ? (
+                              <div className={`text-xs ${sub} space-y-0.5`}>
+                                {w.bookingClientName && <div>Клиент: {w.bookingClientName}</div>}
+                                {w.bookingService && <div>Услуга: {w.bookingService}</div>}
+                                {w.bookingDate && <div>Дата: {w.bookingDate}</div>}
+                                {w.bookingWorkerNames && <div>Мастер: {w.bookingWorkerNames}</div>}
+                              </div>
+                            ) : (
+                              <div className={`text-xs ${sub}`}>Ручное списание</div>
+                            )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right shrink-0 ml-2">
                             <div className="text-sm font-medium text-red-500">-{w.qty} {w.unit}</div>
                             <div className={`text-xs ${sub}`}>{w.totalCost.toLocaleString('ru')} ₽</div>
                           </div>
