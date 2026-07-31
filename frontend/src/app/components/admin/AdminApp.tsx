@@ -1395,6 +1395,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           price: nextPrice,
           paymentType: completePaymentType,
           notes: nextNote || selectedBooking.notes || '',
+          paymentSettled: true,
         });
         setSelectedBooking(prev => prev ? {
           ...prev,
@@ -1402,6 +1403,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           price: nextPrice,
           paymentType: completePaymentType,
           notes: nextNote || prev.notes,
+          paymentSettled: true,
         } : null);
       setShowCompleteModal(false);
     } catch (error) {

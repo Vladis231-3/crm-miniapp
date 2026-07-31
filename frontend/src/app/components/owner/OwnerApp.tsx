@@ -2298,7 +2298,7 @@ setOwnerNewBookingWorkers([]);
           price: ownerBookingEditFull.price || 0,
         };
       } else if (ownerBookingEditMode === 'status') {
-        patch = { status: ownerBookingEditStatus };
+        patch = { status: ownerBookingEditStatus, ...(ownerBookingEditStatus === 'completed' ? { paymentSettled: true } : {}) };
       } else if (ownerBookingEditMode === 'price') {
         const price = Number(ownerBookingEditPrice);
         if (isNaN(price) || price < 0) {
