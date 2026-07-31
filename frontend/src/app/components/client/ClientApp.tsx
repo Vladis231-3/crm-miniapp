@@ -180,9 +180,14 @@ export function ClientApp() {
   }, [boxRentalHours, getBookingAvailabilityForDate, page, selectedDate, selectedService]);
 
   useEffect(() => {
+    const raw = clientProfile.vehicles?.length
+      ? clientProfile.vehicles
+      : [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }];
+    const hasMain = raw.some((v) => v.isMain);
+    const vehicles = raw.map((v, i) => ({ ...v, isMain: hasMain ? v.isMain : i === 0 }));
     setProfileForm({
       ...clientProfile,
-      vehicles: clientProfile.vehicles?.length ? clientProfile.vehicles : [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }],
+      vehicles,
     });
     setProfileErrors({});
     setProfileError('');
@@ -240,7 +245,7 @@ export function ClientApp() {
 
   const profileVehicles = profileForm.vehicles?.length
     ? profileForm.vehicles
-    : [{ car: profileForm.car || '', plate: profileForm.plate || '' }];
+    : [{ car: profileForm.car || '', plate: profileForm.plate || '', isMain: true }];
   const primaryProfileVehicle = profileVehicles[0] || { car: '', plate: '' };
   const bookingVehicles = clientProfile.vehicles?.length
     ? clientProfile.vehicles.filter((vehicle) => vehicle.car || vehicle.plate)
@@ -323,19 +328,23 @@ export function ClientApp() {
     setProfileErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    const normalizedVehicles = (profileForm.vehicles || [])
+        .map((vehicle) => ({
+          car: normalizeVehicleInput(vehicle.car),
+          plate: normalizePlateInput(vehicle.plate),
+          isMain: vehicle.isMain,
+        }))
+        .filter((vehicle) => vehicle.car || vehicle.plate);
+    if (normalizedVehicles.length > 0 && !normalizedVehicles.some((v) => v.isMain)) {
+      normalizedVehicles[0] = { ...normalizedVehicles[0], isMain: true };
+    }
     const normalizedProfile = {
       ...profileForm,
       name: normalizePersonName(profileForm.name),
       phone: profileForm.phone.trim(),
       car: normalizeVehicleInput(primaryVehicle.car),
       plate: normalizePlateInput(primaryVehicle.plate),
-      vehicles: (profileForm.vehicles || [])
-        .map((vehicle) => ({
-          car: normalizeVehicleInput(vehicle.car),
-          plate: normalizePlateInput(vehicle.plate),
-          isMain: vehicle.isMain,
-        }))
-        .filter((vehicle) => vehicle.car || vehicle.plate),
+      vehicles: normalizedVehicles,
     };
     try {
       setProfileError('');
@@ -993,7 +1002,7 @@ export function ClientApp() {
                     <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
                       const nextCar = e.target.value;
                       setProfileForm((current) => {
-                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
                         return {
                           ...current,
                           car: nextCar,
@@ -1010,7 +1019,7 @@ export function ClientApp() {
                     <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
                       const nextPlate = normalizePlateInput(e.target.value);
                       setProfileForm((current) => {
-                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
                         return {
                           ...current,
                           plate: nextPlate,
@@ -1034,7 +1043,7 @@ export function ClientApp() {
                         style={{ color: primary }}
                         onClick={() => setProfileForm((current) => ({
                           ...current,
-                          vehicles: [...(current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }]), { car: '', plate: '' }],
+                          vehicles: [...(current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }]), { car: '', plate: '' }],
                         }))}
                       >
                         + {'\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0430\u0432\u0442\u043e'}
@@ -1050,7 +1059,7 @@ export function ClientApp() {
                             onChange={(e) => {
                               const nextCar = e.target.value;
                               setProfileForm((current) => {
-                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
                                 return {
                                   ...current,
                                   vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, car: nextCar } : item),
@@ -1067,7 +1076,7 @@ export function ClientApp() {
                             onChange={(e) => {
                               const nextPlate = normalizePlateInput(e.target.value);
                               setProfileForm((current) => {
-                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
                                 return {
                                   ...current,
                                   vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, plate: nextPlate } : item),
@@ -1080,7 +1089,7 @@ export function ClientApp() {
                             type="button"
                             className={`px-3 rounded-xl ${glass} text-red-500 text-xs`}
                             onClick={() => setProfileForm((current) => {
-                              const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '' }];
+                              const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
                               return {
                                 ...current,
                                 vehicles: baseVehicles.filter((_, vehicleIndex) => vehicleIndex !== index + 1),
