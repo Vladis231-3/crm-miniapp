@@ -402,7 +402,7 @@ export function AdminApp() {
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', priceMode: 'unit' as 'unit' | 'total', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
 const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
 const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
-  const [newBookingMaterials, setNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number; unit: string; unitPrice: number }[]>([]);
+  const [newBookingMaterials, setNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number | string; unit: string; unitPrice: number }[]>([]);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [materialPickerCategory, setMaterialPickerCategory] = useState<string | null>(null);
   const [newBookingForm, setNewBookingForm] = useState({
@@ -1249,6 +1249,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         notifyWorkers: !newBookingForm.isOutsource && notify,
         materials: newBookingMaterials.map(m => ({
           ...m,
+          qty: typeof m.qty === 'string' ? (parseFloat(m.qty) || 0) : m.qty,
           id: '',
         })),
       });
@@ -3927,26 +3928,40 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   </div>
                   {newBookingMaterials.length > 0 && (
                     <div className="space-y-2 mb-2">
-                      {newBookingMaterials.map((mat, idx) => (
+                      {newBookingMaterials.map((mat, idx) => {
+                        const parsedQty = typeof mat.qty === 'string' ? parseFloat(mat.qty) : mat.qty;
+                        const safeQty = (!isNaN(parsedQty) && parsedQty > 0) ? parsedQty : 0;
+                        return (
                         <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium">{mat.name}</div>
-                            <div className={`text-xs ${sub}`}>{mat.qty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(mat.qty * mat.unitPrice).toLocaleString('ru')} ₽</div>
+                            <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(safeQty * mat.unitPrice).toLocaleString('ru')} ₽</div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            <input type="text" inputMode="decimal" value={mat.qty}
+                            <input type="text" inputMode="decimal"
+                              value={typeof mat.qty === 'string' ? mat.qty : (mat.qty === 0 ? '' : String(mat.qty))}
                               onChange={e => {
-                                const val = parseFloat(e.target.value.replace(',', '.'));
-                                if (!isNaN(val) && val > 0) {
-                                  setNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: val } : m));
+                                const raw = e.target.value.replace(',', '.');
+                                setNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: raw } : m));
+                              }}
+                              onBlur={() => {
+                                if (typeof mat.qty === 'string') {
+                                  const val = parseFloat(mat.qty);
+                                  setNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: (!isNaN(val) && val > 0) ? val : 1 } : m));
                                 }
                               }}
                               className="w-14 text-center text-xs py-1 rounded-lg" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                            <select value={mat.unit}
+                              onChange={e => setNewBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, unit: e.target.value } : m))}
+                              className="text-xs py-1 rounded-lg px-1" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }}>
+                              {STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
                             <button onClick={() => setNewBookingMaterials(current => current.filter((_, i) => i !== idx))}
                               className="p-1 rounded text-red-500"><X size={14} /></button>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   {newBookingMaterials.length === 0 && (
@@ -3993,7 +4008,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                                 </div>
                                 <button onClick={() => {
                                   if (!newBookingMaterials.find(m => m.stockItemId === item.id)) {
-                                    setNewBookingMaterials(current => [...current, { stockItemId: item.id, name: item.name, qty: 1, unit: item.unit, unitPrice: item.unitPrice }]);
+                                    setNewBookingMaterials(current => [...current, { stockItemId: item.id, name: item.name, qty: '', unit: item.unit, unitPrice: item.unitPrice }]);
                                   }
                                   setShowMaterialPicker(false);
                                 }}
