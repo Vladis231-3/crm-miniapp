@@ -20,7 +20,7 @@ export interface ClientProfile {
   car: string;
   plate: string;
   plateType?: string;
-  vehicles?: Array<{ car: string; plate: string; plateType?: string }>;
+  vehicles?: Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }>;
   registered: boolean;
 }
 
@@ -629,7 +629,7 @@ interface AppContextType {
   switchRole: (targetRole: Role) => Promise<void>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
   addClient: (client: ClientCreateInput) => Promise<RegisteredClient>;
-  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string }> }>) => Promise<void>;
+  updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }> }>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;

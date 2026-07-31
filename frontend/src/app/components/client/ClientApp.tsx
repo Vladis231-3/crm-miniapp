@@ -304,6 +304,7 @@ export function ClientApp() {
       paymentSettled: false,
       car: primaryVehicle.car,
       plate: primaryVehicle.plate,
+      plateType: (primaryVehicle as any).plateType || 'russian',
       notes: detailingNote.trim() || undefined,
     });
     setConfirmedBookingId(booking.id);
@@ -332,6 +333,7 @@ export function ClientApp() {
         .map((vehicle) => ({
           car: normalizeVehicleInput(vehicle.car),
           plate: normalizePlateInput(vehicle.plate),
+          isMain: vehicle.isMain,
         }))
         .filter((vehicle) => vehicle.car || vehicle.plate),
     };

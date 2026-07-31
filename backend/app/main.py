@@ -8708,6 +8708,48 @@ def _notify_worker_about_payroll_entry(
     _send_telegram_safe(worker.telegram_chat_id, message)
 
 
+@app.patch("/api/clients/me", response_model=ClientProfilePayload)
+def update_client_me(
+    payload: ClientProfileInput,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ClientProfilePayload:
+    _ensure_staff_role(session_data, {"client"})
+
+    client = db.get(Client, session_data["actorId"])
+    if client is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+    if payload.name is not None:
+        client.name = payload.name
+    if payload.phone is not None:
+        client.phone = payload.phone
+
+    if payload.vehicles is not None:
+        _save_client_vehicles(db, client.id, payload.vehicles)
+
+        vehicles = _client_vehicles_payload(db, client)
+        if vehicles:
+            client.car = vehicles[0].car
+            client.plate = vehicles[0].plate
+            client.plate_type = vehicles[0].plateType or "russian"
+        else:
+            client.car = payload.car or ""
+            client.plate = payload.plate or ""
+            client.plate_type = payload.plateType or "russian"
+    else:
+        if payload.car is not None:
+            client.car = payload.car
+        if payload.plate is not None:
+            client.plate = payload.plate
+        if payload.plateType is not None:
+            client.plate_type = payload.plateType
+
+    client.updated_at = _now()
+    db.commit()
+    db.refresh(client)
+
+    return _client_payload(client)
 
 
 
@@ -9361,11 +9403,11 @@ def create_booking(
 
         booking_client_phone = client.phone
 
-        booking_car = client.car or ""
+        booking_car = payload.car or client.car or ""
 
-        booking_plate = client.plate or ""
+        booking_plate = payload.plate or client.plate or ""
 
-        booking_plate_type = client.plate_type or "russian"
+        booking_plate_type = payload.plateType or client.plate_type or "russian"
 
         booking_service = service.name
 
