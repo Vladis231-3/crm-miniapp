@@ -2524,9 +2524,11 @@ def _save_client_vehicles(
 
     normalized = _normalize_client_vehicles(vehicles)
 
-    current[client_id] = [item.model_dump() for item in normalized]
+    updated = {k: v for k, v in current.items()}
 
-    _upsert_setting(db, "client_vehicles", current)
+    updated[client_id] = [item.model_dump() for item in normalized]
+
+    _upsert_setting(db, "client_vehicles", updated)
 
 
 

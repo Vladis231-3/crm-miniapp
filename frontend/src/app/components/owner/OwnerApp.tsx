@@ -936,6 +936,8 @@ export function OwnerApp() {
             plateType: client.plateType || 'russian',
             notes: client.notes || '',
             debtBalance: String(client.debtBalance || 0),
+            adminRating: client.adminRating ?? 0,
+            adminNote: client.adminNote || '',
             referralSource: client.referralSource || '',
           },
         ]),
@@ -1677,7 +1679,9 @@ export function OwnerApp() {
     if (!draft) return;
     try {
       setSavingClientId(clientId);
-      let vehicles = draftVehicles[clientId];
+      let vehicles = draftVehicles[clientId] ?? (selectedSettingsClientVehicles.length > 0
+        ? selectedSettingsClientVehicles.map((v, i) => ({ ...v, isMain: v.isMain ?? i === 0 }))
+        : undefined);
       if (vehicles && vehicles.length > 0) {
         const mainIdx = vehicles.findIndex((v) => v.isMain);
         if (mainIdx >= 0) {
