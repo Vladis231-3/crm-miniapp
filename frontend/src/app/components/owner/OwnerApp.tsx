@@ -2535,6 +2535,7 @@ setOwnerNewBookingWorkers([]);
     return client.name.toLowerCase().includes(query);
   });
   const selectedSettingsClient = clients.find((client) => client.id === settingsClientId) ?? null;
+  const selectedSettingsClientCardDraft = selectedSettingsClient ? clientCardDrafts[selectedSettingsClient.id] : undefined;
   const selectedSettingsClientBookings = selectedSettingsClient
     ? bookings
       .filter((booking) => booking.clientId === selectedSettingsClient.id)
@@ -5237,19 +5238,19 @@ setOwnerNewBookingWorkers([]);
                           </div>
                         ) : (
                           <>
-                            <div className="font-semibold text-lg">{selectedSettingsClient.name.trim() || 'Клиент без имени'}</div>
+                            <div className="font-semibold text-lg">{(selectedSettingsClientCardDraft?.name ?? selectedSettingsClient.name).trim() || 'Клиент без имени'}</div>
                             <div className={`text-sm ${sub} mt-1`}>
-                              {selectedSettingsClient.car || 'Авто не указано'}{selectedSettingsClient.plate ? `, ${selectedSettingsClient.plate}` : ''}
+                              {(selectedSettingsClientCardDraft?.car ?? selectedSettingsClient.car) || 'Авто не указано'}{(selectedSettingsClientCardDraft?.plate ?? selectedSettingsClient.plate) ? `, ${selectedSettingsClientCardDraft?.plate ?? selectedSettingsClient.plate}` : ''}
                             </div>
-                            {selectedSettingsClient.phone.trim() ? (
-                              <a href={`tel:${selectedSettingsClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
-                                <Phone size={12} />{selectedSettingsClient.phone}
+                            {selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone ? (
+                              <a href={`tel:${selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
+                                <Phone size={12} />{selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone}
                               </a>
                             ) : (
                               <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
                             )}
                             <div className={`text-sm ${sub} mt-1`}>
-                              {selectedSettingsClient.referralSource ? `Узнал: ${selectedSettingsClient.referralSource}` : 'Откуда узнал: не указано'}
+                              {(selectedSettingsClientCardDraft?.referralSource ?? selectedSettingsClient.referralSource) ? `Узнал: ${selectedSettingsClientCardDraft?.referralSource ?? selectedSettingsClient.referralSource}` : 'Откуда узнал: не указано'}
                             </div>
                           </>
                         )}
@@ -5462,10 +5463,16 @@ setOwnerNewBookingWorkers([]);
                                       setClientCardDrafts((prev) => ({
                                         ...prev,
                                         [client.id]: {
-                                          ...prev[client.id],
+                                          name: prev[client.id]?.name ?? client.name,
+                                          phone: prev[client.id]?.phone ?? client.phone,
                                           car: selected.car || '',
                                           plate: selected.plate || '',
                                           plateType: selected.plateType || 'russian',
+                                          notes: prev[client.id]?.notes ?? client.notes ?? '',
+                                          debtBalance: prev[client.id]?.debtBalance ?? String(client.debtBalance || 0),
+                                          adminRating: prev[client.id]?.adminRating ?? client.adminRating,
+                                          adminNote: prev[client.id]?.adminNote ?? client.adminNote ?? '',
+                                          referralSource: prev[client.id]?.referralSource ?? client.referralSource ?? '',
                                         },
                                       }));
                                     }}
