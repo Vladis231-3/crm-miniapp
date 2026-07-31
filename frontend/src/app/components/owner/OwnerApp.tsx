@@ -1675,7 +1675,17 @@ export function OwnerApp() {
     if (!draft) return;
     try {
       setSavingClientId(clientId);
-      const vehicles = draftVehicles[clientId];
+      let vehicles = draftVehicles[clientId];
+      if (vehicles && vehicles.length > 0) {
+        const mainIdx = vehicles.findIndex((v) => v.isMain);
+        if (mainIdx >= 0) {
+          vehicles = vehicles.map((v, i) =>
+            i === mainIdx
+              ? { ...v, car: draft.car, plate: normalizePlateInput(draft.plate, draft.plateType as PlateType), plateType: draft.plateType }
+              : v,
+          );
+        }
+      }
       await updateClientCard(clientId, options?.adminOnly
         ? { adminRating: draft.adminRating, adminNote: draft.adminNote, referralSource: draft.referralSource }
         : {
