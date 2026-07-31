@@ -307,6 +307,21 @@ export interface Income {
   resourceGroup?: string;
 }
 
+export interface StockWriteOff {
+  id: string;
+  stockItemId?: string | null;
+  stockItemName: string;
+  qty: number;
+  unit: string;
+  unitPrice: number;
+  totalCost: number;
+  source: string;
+  bookingId?: string | null;
+  bookingService?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
 export interface Penalty {
   id: string;
   workerId: string;
@@ -644,6 +659,7 @@ interface AppContextType {
   updateStockItem: (id: string, updates: Partial<StockItem>) => Promise<void>;
   writeOffStock: (id: string, qty: number) => Promise<void>;
   deleteStockItem: (id: string) => Promise<void>;
+  getWriteOffHistory: () => Promise<StockWriteOff[]>;
   addStockCategory: (category: Omit<StockCategory, 'id'>) => Promise<void>;
   updateStockCategory: (id: string, updates: Partial<StockCategory>) => Promise<void>;
   deleteStockCategory: (id: string) => Promise<void>;
@@ -1213,6 +1229,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStockItems((current) => current.map((item) => (item.id === id ? updated : item)));
   }
 
+  async function getWriteOffHistory(): Promise<StockWriteOff[]> {
+    return apiRequest<StockWriteOff[]>('/api/stock/write-off-history');
+  }
+
   async function deleteStockItem(id: string) {
     await apiRequest<{ message: string }>(`/api/stock-items/${id}`, { method: 'DELETE' });
     setStockItems((current) => current.filter((item) => item.id !== id));
@@ -1643,6 +1663,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateStockItem,
       writeOffStock,
       deleteStockItem,
+      getWriteOffHistory,
       addStockCategory,
       updateStockCategory,
       deleteStockCategory,

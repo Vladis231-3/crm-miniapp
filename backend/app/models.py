@@ -332,6 +332,27 @@ class Expense(Base):
     )
 
 
+class StockWriteOff(Base):
+    __tablename__ = "stock_write_offs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    stock_item_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("stock_items.id", ondelete="SET NULL"), nullable=True
+    )
+    stock_item_name: Mapped[str] = mapped_column(String(120))
+    qty: Mapped[float] = mapped_column(Float)
+    unit: Mapped[str] = mapped_column(String(16))
+    unit_price: Mapped[float] = mapped_column(Float)
+    total_cost: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="manual")
+    booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    booking_service: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
 class Penalty(Base):
     __tablename__ = "penalties"
 

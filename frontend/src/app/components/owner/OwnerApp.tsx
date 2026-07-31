@@ -5,14 +5,14 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search
+Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search, History
  } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type Worker, type WorkerPayrollSummary } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
@@ -423,6 +423,7 @@ export function OwnerApp() {
     updateIncome,
     stockItems,    addStockItem,
     writeOffStock,
+    getWriteOffHistory,
     deleteStockItem,
     stockCategories,
     addStockCategory,
@@ -503,6 +504,8 @@ export function OwnerApp() {
   const [showBookingDetail, setShowBookingDetail] = useState(false);
   const [expenseAdded, setExpenseAdded] = useState(false);
   const [writeOffQty, setWriteOffQty] = useState('1');
+  const [writeOffHistory, setWriteOffHistory] = useState<StockWriteOff[]>([]);
+  const [showWriteOffHistory, setShowWriteOffHistory] = useState(false);
   const [exportSuccess, setExportSuccess] = useState<{ title: string; subtitle: string } | null>(null);
   const [exportingKind, setExportingKind] = useState<OwnerExportKind | null>(null);
   const [sendingSummaryReport, setSendingSummaryReport] = useState<string | null>(null);
@@ -1068,6 +1071,12 @@ export function OwnerApp() {
     vv.addEventListener('resize', handler);
     return () => vv.removeEventListener('resize', handler);
   }, []);
+
+  useEffect(() => {
+    if (page === 'stock' && showWriteOffHistory) {
+      getWriteOffHistory().then(setWriteOffHistory).catch(() => {});
+    }
+  }, [page, showWriteOffHistory]);
   const bookingFormBoxes = ownerBookingBoxes(bookingForm.service, services, boxes);
   const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
   const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
@@ -3915,6 +3924,38 @@ setOwnerNewBookingWorkers([]);
                   <p className={sub}>Склад пуст. Добавьте первый товар.</p>
                 </div>
               )}
+              {/* Write-off history */}
+              <div className="mt-4">
+                <button onClick={() => { setShowWriteOffHistory(!showWriteOffHistory); if (!showWriteOffHistory) getWriteOffHistory().then(setWriteOffHistory).catch(() => {}); }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${glass}`}>
+                  <span className="flex items-center gap-2">
+                    <History size={15} />История списаний
+                  </span>
+                  <span className={`text-xs ${sub}`}>{showWriteOffHistory ? '▲' : '▼'}</span>
+                </button>
+                {showWriteOffHistory && (
+                  <div className="mt-2 space-y-2">
+                    {writeOffHistory.length === 0 && <div className={`text-xs ${sub} text-center py-4`}>Нет списаний</div>}
+                    {writeOffHistory.map(w => (
+                      <div key={w.id} className={`${glass} rounded-xl px-3 py-2`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="text-sm font-medium">{w.stockItemName}</div>
+                            <div className={`text-xs ${sub}`}>
+                              {w.source === 'booking' ? `Услуга: ${w.bookingService || '—'}` : 'Ручное списание'}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-red-500">-{w.qty} {w.unit}</div>
+                            <div className={`text-xs ${sub}`}>{w.totalCost.toLocaleString('ru')} ₽</div>
+                          </div>
+                        </div>
+                        <div className={`text-[10px] ${sub} mt-1`}>{new Date(w.createdAt).toLocaleString('ru')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mt-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>

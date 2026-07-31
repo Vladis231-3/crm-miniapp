@@ -1064,6 +1064,21 @@ class StockWriteOffRequest(BaseModel):
     qty: float = Field(gt=0)
 
 
+class StockWriteOffPayload(BaseModel):
+    id: str
+    stockItemId: str | None = None
+    stockItemName: str
+    qty: float
+    unit: str
+    unitPrice: float
+    totalCost: float
+    source: str
+    bookingId: str | None = None
+    bookingService: str | None = None
+    note: str | None = None
+    createdAt: str
+
+
 class IncomeCreateRequest(BaseModel):
     amount: int = Field(ge=1, le=10_000_000)
     source: str = Field(min_length=1, max_length=255)

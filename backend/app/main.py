@@ -120,6 +120,8 @@ from .models import (
 
     StockCategory,
 
+    StockWriteOff,
+
     BookingMaterial,
 
     TelegramLinkCode,
@@ -285,6 +287,8 @@ from .schemas import (
     StockItemUpdateRequest,
 
     StockWriteOffRequest,
+
+    StockWriteOffPayload,
 
     StockCategoryPayload,
 
@@ -9886,6 +9890,19 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                 stock_item.qty = max(0, stock_item.qty - bm.qty)
                 total_cost += bm.qty * bm.unit_price
                 material_details.append(f"{bm.name} x{bm.qty} {bm.unit}")
+                db.add(StockWriteOff(
+                    id=f"swo-{uuid4()}",
+                    stock_item_id=bm.stock_item_id,
+                    stock_item_name=bm.name,
+                    qty=bm.qty,
+                    unit=bm.unit,
+                    unit_price=bm.unit_price,
+                    total_cost=bm.qty * bm.unit_price,
+                    source="booking",
+                    booking_id=booking.id,
+                    booking_service=booking.service,
+                    created_at=_now(),
+                ))
             else:
                 print(f"[WRITE_OFF] stock_item {bm.stock_item_id} NOT FOUND")
         else:
@@ -11651,6 +11668,20 @@ def write_off_stock(
 
     item.qty = max(0, item.qty - payload.qty)
 
+    total_cost = payload.qty * item.unit_price
+
+    db.add(StockWriteOff(
+        id=f"swo-{uuid4()}",
+        stock_item_id=item.id,
+        stock_item_name=item.name,
+        qty=payload.qty,
+        unit=item.unit,
+        unit_price=item.unit_price,
+        total_cost=total_cost,
+        source="manual",
+        created_at=_now(),
+    ))
+
     db.commit()
 
     db.refresh(item)
@@ -11658,7 +11689,32 @@ def write_off_stock(
     return _stock_payload(item)
 
 
-
+@app.get("/api/stock/write-off-history", response_model=list[StockWriteOffPayload])
+def get_write_off_history(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[StockWriteOffPayload]:
+    _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
+    rows = db.scalars(
+        select(StockWriteOff).order_by(StockWriteOff.created_at.desc()).limit(200)
+    ).all()
+    return [
+        StockWriteOffPayload(
+            id=r.id,
+            stockItemId=r.stock_item_id,
+            stockItemName=r.stock_item_name,
+            qty=r.qty,
+            unit=r.unit,
+            unitPrice=r.unit_price,
+            totalCost=r.total_cost,
+            source=r.source,
+            bookingId=r.booking_id,
+            bookingService=r.booking_service,
+            note=r.note,
+            createdAt=r.created_at.isoformat() if r.created_at else "",
+        )
+        for r in rows
+    ]
 
 
 @app.delete("/api/stock-items/{item_id}", response_model=GenericMessage)

@@ -6,13 +6,13 @@ import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
   Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
-  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search
+  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type WorkerPayrollSummary } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -350,6 +350,7 @@ export function AdminApp() {
     addStockItem,
     deleteStockItem,
     writeOffStock,
+    getWriteOffHistory,
     addStockCategory,
     updateStockCategory,
     deleteStockCategory,
@@ -398,6 +399,8 @@ export function AdminApp() {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showWriteOff, setShowWriteOff] = useState<string | null>(null);
   const [writeOffQty, setWriteOffQty] = useState('1');
+  const [writeOffHistory, setWriteOffHistory] = useState<StockWriteOff[]>([]);
+  const [showWriteOffHistory, setShowWriteOffHistory] = useState(false);
   const parentCategories = stockCategories.filter(c => !c.parentId);
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', priceMode: 'unit' as 'unit' | 'total', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
 const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
@@ -630,6 +633,12 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     vv.addEventListener('resize', handler);
     return () => vv.removeEventListener('resize', handler);
   }, []);
+
+  useEffect(() => {
+    if (page === 'stock' && showWriteOffHistory) {
+      getWriteOffHistory().then(setWriteOffHistory).catch(() => {});
+    }
+  }, [page, showWriteOffHistory]);
 
   const staffRoleTitle = session?.role === 'accountant' ? 'Бухгалтер' : 'Администратор';
   const staffNotificationsRole = session?.role === 'accountant' ? 'accountant' : 'admin';
@@ -2017,6 +2026,38 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <p className={sub}>Склад пуст. Добавьте первый товар.</p>
                 </div>
               )}
+              {/* Write-off history */}
+              <div className="mt-4">
+                <button onClick={() => { setShowWriteOffHistory(!showWriteOffHistory); if (!showWriteOffHistory) getWriteOffHistory().then(setWriteOffHistory).catch(() => {}); }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${glass}`}>
+                  <span className="flex items-center gap-2">
+                    <History size={15} />История списаний
+                  </span>
+                  <span className={`text-xs ${sub}`}>{showWriteOffHistory ? '▲' : '▼'}</span>
+                </button>
+                {showWriteOffHistory && (
+                  <div className="mt-2 space-y-2">
+                    {writeOffHistory.length === 0 && <div className={`text-xs ${sub} text-center py-4`}>Нет списаний</div>}
+                    {writeOffHistory.map(w => (
+                      <div key={w.id} className={`${glass} rounded-xl px-3 py-2`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="text-sm font-medium">{w.stockItemName}</div>
+                            <div className={`text-xs ${sub}`}>
+                              {w.source === 'booking' ? `Услуга: ${w.bookingService || '—'}` : 'Ручное списание'}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-red-500">-{w.qty} {w.unit}</div>
+                            <div className={`text-xs ${sub}`}>{w.totalCost.toLocaleString('ru')} ₽</div>
+                          </div>
+                        </div>
+                        <div className={`text-[10px] ${sub} mt-1`}>{new Date(w.createdAt).toLocaleString('ru')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {/* Stock modals */}
               <AnimatePresence>
                 {showAddStock && (
