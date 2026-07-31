@@ -15307,7 +15307,7 @@ def owner_worker_salary_detail(
 
     worker = db.get(StaffUser, worker_id)
 
-    if worker is None or worker.role != "worker":
+    if worker is None:
 
         raise HTTPException(status_code=404, detail="Мастер не найден")
 
@@ -15695,7 +15695,7 @@ def worker_my_salary_detail(
 
     worker = db.get(StaffUser, worker_id)
 
-    if worker is None or worker.role != "worker":
+    if worker is None:
 
         raise HTTPException(status_code=404, detail="Мастер не найден")
 

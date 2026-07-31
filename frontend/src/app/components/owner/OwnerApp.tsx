@@ -609,6 +609,7 @@ export function OwnerApp() {
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
   const [salaryLoading, setSalaryLoading] = useState(false);
+  const [salaryError, setSalaryError] = useState<string | null>(null);
   const [editingOverrideLinkId, setEditingOverrideLinkId] = useState<number | null>(null);
   const [editingOverrideValue, setEditingOverrideValue] = useState('');
   const [bonusAmount, setBonusAmount] = useState('');
@@ -820,13 +821,14 @@ export function OwnerApp() {
     }));
   }, [workers]);
   useEffect(() => {
-    if (!selectedSalaryWorkerId) { setSalaryDetail(null); return; }
+    if (!selectedSalaryWorkerId) { setSalaryDetail(null); setSalaryError(null); return; }
     if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
       setSalaryDetail(null);
       setSalaryLoading(false);
       return;
     }
     setSalaryLoading(true);
+    setSalaryError(null);
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
     if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
@@ -834,7 +836,7 @@ export function OwnerApp() {
     }
     apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
-      .catch(() => setSalaryDetail(null))
+      .catch(e => { console.error('salary-detail error:', e); setSalaryError(e?.message || 'Ошибка загрузки данных'); setSalaryDetail(null); })
       .finally(() => setSalaryLoading(false));
   }, [selectedSalaryWorkerId, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
@@ -1736,6 +1738,7 @@ export function OwnerApp() {
     if (!selectedSalaryWorkerId) return;
     if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) return;
     setSalaryLoading(true);
+    setSalaryError(null);
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
     if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
@@ -1743,7 +1746,7 @@ export function OwnerApp() {
     }
     apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
-      .catch(() => setSalaryDetail(null))
+      .catch(e => { console.error('salary-detail refresh error:', e); setSalaryError(e?.message || 'Ошибка загрузки данных'); setSalaryDetail(null); })
       .finally(() => setSalaryLoading(false));
   };
 
@@ -3297,6 +3300,7 @@ setOwnerNewBookingWorkers([]);
                         setSalaryDateFrom('');
                         setSalaryDateTo('');
                         setSalaryDetail(null);
+                        setSalaryError(null);
                         setSalaryLoading(true);
                         setPage('salary-detail');
                       }}
@@ -3628,7 +3632,14 @@ setOwnerNewBookingWorkers([]);
                 </div>
               )}
 
-              {!salaryLoading && !salaryDetail && selectedSalaryWorkerId && (
+              {!salaryLoading && !salaryDetail && selectedSalaryWorkerId && salaryError && (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <AlertCircle size={36} className={`mx-auto mb-3 text-red-400`} />
+                  <p className="text-sm text-red-400 mb-2">{salaryError}</p>
+                  <button onClick={refreshSalaryDetail} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: primary, color: '#fff' }}>Повторить</button>
+                </div>
+              )}
+              {!salaryLoading && !salaryDetail && selectedSalaryWorkerId && !salaryError && (
                 <div className={`text-sm ${sub} py-10 text-center`}>Выберите период для просмотра</div>
               )}
               {salaryLoading && (

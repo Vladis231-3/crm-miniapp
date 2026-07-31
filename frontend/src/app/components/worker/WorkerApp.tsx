@@ -270,6 +270,7 @@ export function WorkerApp() {
   const [salaryDateTo, setSalaryDateTo] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<any>(null);
   const [salaryLoading, setSalaryLoading] = useState(false);
+  const [salaryError, setSalaryError] = useState<string | null>(null);
   const [earningsViewMode, setEarningsViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedCalDate, setSelectedCalDate] = useState<string | null>(null);
   const [selectedCompletedOrder, setSelectedCompletedOrder] = useState<any>(null);
@@ -325,6 +326,7 @@ export function WorkerApp() {
       return;
     }
     setSalaryLoading(true);
+    setSalaryError(null);
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
     if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
@@ -332,7 +334,7 @@ export function WorkerApp() {
     }
     apiRequest<any>(`/api/worker/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
-      .catch(() => setSalaryDetail(null))
+      .catch(e => { console.error('worker salary-detail error:', e); setSalaryError(e?.message || 'Ошибка загрузки данных'); setSalaryDetail(null); })
       .finally(() => setSalaryLoading(false));
   }, [tab, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
 
@@ -734,6 +736,11 @@ export function WorkerApp() {
               {salaryLoading ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <div className={`text-sm ${sub}`}>Загрузка...</div>
+                </div>
+              ) : salaryError ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <AlertCircle size={36} className={`mx-auto mb-3 text-red-400`} />
+                  <p className="text-sm text-red-400 mb-2">{salaryError}</p>
                 </div>
               ) : !salaryDetail ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
