@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useVisualViewport } from '../../utils/useVisualViewport';
 import { AttendanceTable } from '../shared/AttendanceTable';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,7 +12,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type WorkerPayrollSummary } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
+import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
@@ -200,67 +201,6 @@ function bookingStatusRequiresScheduledSlot(status: BookingStatus) {
 
 function numberInputValue(value: number) {
   return value === 0 ? '' : String(value);
-}
-
-function dateStringToKey(dateStr: string) {
-  return dateStr.slice(6, 10) + dateStr.slice(3, 5) + dateStr.slice(0, 2);
-}
-
-function filterPayrollByPeriod<T extends { payrollSummary?: WorkerPayrollSummary }>(
-  worker: T,
-  period: 'day' | 'week' | 'month' | 'all' | 'custom',
-  dateFrom: string,
-  dateTo: string,
-): T {
-  if (!worker.payrollSummary || period === 'all') return worker;
-  const today = new Date();
-  const dd = String(today.getDate()).padStart(2, '0');
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const yyyy = today.getFullYear();
-  const todayKey = `${yyyy}${mm}${dd}`;
-
-  let fromKey: string;
-  let toKey: string;
-
-  if (period === 'custom') {
-    if (!dateFrom || !dateTo) return worker;
-    fromKey = dateFrom.replace(/-/g, '');
-    toKey = dateTo.replace(/-/g, '');
-  } else if (period === 'day') {
-    fromKey = toKey = todayKey;
-  } else if (period === 'week') {
-    const sat = new Date(today);
-    sat.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 6));
-    const fri = new Date(sat);
-    fri.setDate(sat.getDate() + 6);
-    fromKey = `${sat.getFullYear()}${String(sat.getMonth() + 1).padStart(2, '0')}${String(sat.getDate()).padStart(2, '0')}`;
-    toKey = `${fri.getFullYear()}${String(fri.getMonth() + 1).padStart(2, '0')}${String(fri.getDate()).padStart(2, '0')}`;
-  } else {
-    fromKey = `${yyyy}${mm}01`;
-    const lastDay = new Date(yyyy, today.getMonth() + 1, 0).getDate();
-    toKey = `${yyyy}${mm}${String(lastDay).padStart(2, '0')}`;
-  }
-
-  const filtered = worker.payrollSummary.bookingItems.filter((item) => {
-    const itemKey = dateStringToKey(item.date);
-    return itemKey >= fromKey && itemKey <= toKey;
-  });
-
-  const earned = filtered.reduce((s, i) => s + i.earned, 0);
-  const revenue = filtered.reduce((s, i) => s + i.price, 0);
-  const completedBookings = filtered.length;
-
-  return {
-    ...worker,
-    payrollSummary: {
-      ...worker.payrollSummary,
-      completedBookings,
-      completedRevenue: revenue,
-      accruedFromBookings: earned,
-      totalAccrued: earned + worker.payrollSummary.baseSalary + (worker.payrollSummary.shiftPayTotal || 0) + worker.payrollSummary.bonusTotal + Math.max(worker.payrollSummary.adjustmentTotal || 0, 0),
-      bookingItems: filtered,
-    },
-  };
 }
 
 function numberFromInput(value: string) {
@@ -470,6 +410,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
+  const [payrollData, setPayrollData] = useState<Worker[] | null>(null);
   const selectableBookingDates = Array.from(new Set([
     todayLabel,
     tomorrowLabel,
@@ -1279,6 +1220,24 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     }
   };
 
+  const loadPayrollData = useCallback(() => {
+    if (page !== 'settings' || settingsSection !== 'payroll') return;
+    if (payrollPeriod === 'custom' && (!payrollDateFrom || !payrollDateTo)) {
+      setPayrollData(null);
+      return;
+    }
+    const params = new URLSearchParams({ period: payrollPeriod });
+    if (payrollPeriod === 'custom') {
+      params.set('date_from', payrollDateFrom);
+      params.set('date_to', payrollDateTo);
+    }
+    apiRequest<Worker[]>(`/api/admin/workers/payroll?${params.toString()}`)
+      .then(setPayrollData)
+      .catch(() => setPayrollData(null));
+  }, [page, settingsSection, payrollPeriod, payrollDateFrom, payrollDateTo]);
+
+  useEffect(() => { loadPayrollData(); }, [loadPayrollData]);
+
   const handleSaveSettings = async () => {
     if (settingsSection === 'security') {
       setSecurityError(null);
@@ -1311,7 +1270,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     if (settingsSection === 'pricing') await saveServices(services);
     if (settingsSection === 'notifications') await saveAdminNotificationSettings(notifSettings);
     if (settingsSection === 'profile') await saveAdminProfile(profile);
-    if (settingsSection === 'payroll') await saveAdminWorkerPayroll(payrollSettings);
+    if (settingsSection === 'payroll') {
+      await saveAdminWorkerPayroll(payrollSettings);
+      loadPayrollData();
+    }
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
@@ -1343,6 +1305,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         amount: Math.round(amount),
         note: draft.note.trim(),
       });
+      loadPayrollData();
       setPayrollDrafts((current) => ({
         ...current,
         [workerId]: { kind: draft.kind, amount: '', note: '' },
@@ -2709,7 +2672,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
               )}
               {payrollSettings.map((worker, index) => {
-                const liveWorker = filterPayrollByPeriod(workers.find((item) => item.id === worker.id)!, payrollPeriod, payrollDateFrom, payrollDateTo);
+                const liveWorker = (payrollData ?? workers).find((item) => item.id === worker.id) ?? workers.find((item) => item.id === worker.id);
                 const payrollSummary = liveWorker?.payrollSummary;
                 return (
                   <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>

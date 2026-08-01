@@ -453,6 +453,21 @@ class BookingPayload(BaseModel):
     completedAt: datetime | None = None
 
 
+class WorkerCalendarBookingPayload(BaseModel):
+    id: str
+    clientName: str
+    service: str
+    serviceId: str
+    date: str
+    time: str
+    duration: int
+    status: BookingStatus
+    box: str
+    workers: list[BookingWorkerPayload]
+    car: str | None = None
+    plate: str | None = None
+
+
 class BookingAvailabilitySlotPayload(BaseModel):
     time: str
     available: bool

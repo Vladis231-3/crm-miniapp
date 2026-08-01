@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Bell, Sun, Moon, Calendar, DollarSign, User, Play,
+  Bell, Sun, Moon, Calendar, CalendarDays, DollarSign, User, Play,
   Info, ArrowLeft, Phone, X, Check, Clock, ChevronRight, ChevronLeft, AlertCircle,
   Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp
@@ -11,8 +11,9 @@ import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } fr
 import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { apiRequest } from '../../api';
+import { WorkerCalendar, type WorkerCalendarBooking } from './WorkerCalendar';
 
-type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
+type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile' | 'calendar';
 type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift' | 'attendance';
 
 const READY_TO_START_STATUSES: Booking['status'][] = ['new', 'confirmed', 'scheduled'];
@@ -234,6 +235,8 @@ export function WorkerApp() {
     revokeSession,
     todayLabel,
     upcomingDates,
+    workers,
+    schedule,
   } = useApp();
   const workerId = session?.actorId || 'w1';
   const [tab, setTab] = useState<WorkerTab>('today');
@@ -262,6 +265,10 @@ export function WorkerApp() {
   const [shiftChecklistDraft, setShiftChecklistDraft] = useState<Record<string, string>>({});
   const [shiftChecklistNote, setShiftChecklistNote] = useState('');
   const [submittingShiftPhase, setSubmittingShiftPhase] = useState<'start' | 'end' | null>(null);
+
+  // Calendar state
+  const [calendarBookings, setCalendarBookings] = useState<WorkerCalendarBooking[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
   // Earnings state
   const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
@@ -338,6 +345,19 @@ export function WorkerApp() {
       .finally(() => setSalaryLoading(false));
   }, [tab, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
 
+  const loadCalendar = () => {
+    setCalendarLoading(true);
+    apiRequest<WorkerCalendarBooking[]>('/api/worker/calendar')
+      .then(setCalendarBookings)
+      .catch(e => { console.error('worker calendar error:', e); setCalendarBookings([]); })
+      .finally(() => setCalendarLoading(false));
+  };
+
+  useEffect(() => {
+    if (tab !== 'calendar') return;
+    loadCalendar();
+  }, [tab]);
+
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
@@ -359,6 +379,7 @@ export function WorkerApp() {
     });
   const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
   const payrollSummary = staffProfile?.payrollSummary;
+  const earnedForDisplay = payrollSummary?.accruedFromBookings ?? totalEarned;
   const myPenalties = penalties.filter((penalty) => penalty.workerId === workerId && isComplaintActive(penalty));
   const complaintState = getComplaintPenaltyState(staffProfile?.defaultPercent || 0, myPenalties);
   const payoutAfterPenalties = payrollSummary?.balance ?? Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
@@ -510,6 +531,7 @@ export function WorkerApp() {
   const headerTitle = showDetail ? selectedTask?.service
     : tab === 'today' ? 'Сегодня'
     : tab === 'schedule' ? 'Расписание'
+    : tab === 'calendar' ? 'Календарь'
     : tab === 'earnings' ? 'Заработок'
     : profileSection === 'personal' ? 'Личные данные'
     : profileSection === 'shift' ? 'Чек-лист смены'
@@ -693,6 +715,24 @@ export function WorkerApp() {
                   </div>
                 );
               })}
+            </motion.div>
+
+          ) : tab === 'calendar' && !profileSection ? (
+            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <WorkerCalendar
+                bookings={calendarBookings}
+                loading={calendarLoading}
+                workers={workers}
+                schedule={schedule}
+                workerId={workerId}
+                todayLabel={todayLabel}
+                glass={glass}
+                isDark={isDark}
+                sub={sub}
+                primary={primary}
+                accent={accent}
+                onRefresh={loadCalendar}
+              />
             </motion.div>
 
           ) : tab === 'earnings' && !profileSection ? (
@@ -979,7 +1019,7 @@ export function WorkerApp() {
                   {[
                     { label: 'Задач', value: allMyTasks.length, icon: Star },
                     { label: 'Выполнено', value: completedCount, icon: Check },
-                    { label: 'Заработано', value: `${(totalEarned / 1000).toFixed(1)}к`, icon: TrendingUp },
+                    { label: 'Заработано', value: `${(earnedForDisplay / 1000).toFixed(1)}к`, icon: TrendingUp },
                   ].map(s => (
                     <div key={s.label} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-2.5 text-center`}>
                       <div className="font-bold text-sm" style={{ color: primary }}>{s.value}</div>
@@ -1269,6 +1309,7 @@ export function WorkerApp() {
         {[
           { id: 'today', icon: Clock, label: 'Сегодня' },
           { id: 'schedule', icon: Calendar, label: 'Расписание' },
+          { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
           { id: 'earnings', icon: DollarSign, label: 'Заработок' },
           { id: 'profile', icon: User, label: 'Профиль' },
         ].map(t => (

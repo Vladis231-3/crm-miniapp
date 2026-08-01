@@ -346,6 +346,8 @@ from .schemas import (
 
     WorkerProfilePayload,
 
+    WorkerCalendarBookingPayload,
+
     ContentPayload,
 
     ContentAboutPayload,
@@ -1841,6 +1843,30 @@ def _apply_runtime_migrations() -> None:
 
                 "ALTER TABLE staff_users ADD COLUMN salary_per_shift INTEGER DEFAULT 0"
 
+            )
+
+
+
+    payroll_columns = (
+        {column["name"] for column in inspector.get_columns("payroll_entries")}
+        if "payroll_entries" in inspector.get_table_names()
+        else set()
+    )
+
+    if "expense_id" not in payroll_columns and "payroll_entries" in inspector.get_table_names():
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+                "ALTER TABLE payroll_entries ADD COLUMN expense_id VARCHAR(64) DEFAULT NULL"
+            )
+
+    if "income_id" not in payroll_columns and "payroll_entries" in inspector.get_table_names():
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+                "ALTER TABLE payroll_entries ADD COLUMN income_id VARCHAR(64) DEFAULT NULL"
             )
 
 
@@ -3684,7 +3710,12 @@ def _worker_payroll_summaries_from_data(
     completed_bookings: list[Booking],
     entries: list[PayrollEntry],
     complaints_by_worker: dict[str, list[Penalty]],
+    shift_from: date | None = None,
+    shift_to: date | None = None,
 ) -> dict[str, WorkerPayrollSummaryPayload]:
+    if not workers:
+        return {}
+    workers = [worker for worker in workers if worker.role != "owner"]
     if not workers:
         return {}
     worker_ids = [worker.id for worker in workers]
@@ -3764,7 +3795,10 @@ def _worker_payroll_summaries_from_data(
         from datetime import date as _date
         inspections = _admin_shift_inspections_state(db)
         shift_count, _shift_dates = _compute_shift_attendance(
-            inspections, worker.id, _date(2000, 1, 1), _date.today()
+            inspections,
+            worker.id,
+            shift_from or _date(2000, 1, 1),
+            shift_to or _date.today(),
         )
         salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
         shift_pay_total = shift_count * salary_per_shift
@@ -10111,9 +10145,9 @@ def _booking_money_split(
             ).all()
             if len(owners) >= 2:
                 owners_sorted = sorted(owners, key=lambda owner: owner.id)
-                half = round(owners_total / 2)
-                owner_by_owner[owners_sorted[0].id] = owners_total - half
-                owner_by_owner[owners_sorted[1].id] = half
+                first_share = owners_total // 2
+                owner_by_owner[owners_sorted[0].id] = first_share
+                owner_by_owner[owners_sorted[1].id] = owners_total - first_share
         return owners_total, owner_by_owner
 
     if pipeline_mode:
@@ -13737,6 +13771,113 @@ def get_own_shift_attendance(
 
 
 
+@app.get(
+
+    "/api/worker/calendar",
+
+    response_model=list[WorkerCalendarBookingPayload],
+
+)
+
+def get_worker_calendar_bookings(
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> list[WorkerCalendarBookingPayload]:
+
+    if session_data.get("role") != "worker":
+
+        raise HTTPException(
+
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+
+        )
+
+
+
+    worker_id = session_data["actorId"]
+
+    worker = db.get(StaffUser, worker_id)
+
+    if worker is None or worker.role != "worker":
+
+        raise HTTPException(
+
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+
+        )
+
+
+
+    bookings = db.scalars(
+
+        select(Booking)
+
+        .options(joinedload(Booking.worker_links))
+
+        .where(
+
+            Booking.deleted_at.is_(None),
+
+            Booking.status != "cancelled",
+
+        )
+
+        .order_by(Booking.date.asc(), Booking.time.asc())
+
+    ).all()
+
+
+
+    return [
+
+        WorkerCalendarBookingPayload(
+
+            id=booking.id,
+
+            clientName=_safe_text(booking.client_name),
+
+            service=_safe_text(booking.service),
+
+            serviceId=booking.service_id or "",
+
+            date=_safe_text(booking.date),
+
+            time=_safe_text(booking.time),
+
+            duration=int(booking.duration or 0),
+
+            status=booking.status,
+
+            box=_safe_text(booking.box),
+
+            workers=[
+
+                BookingWorkerPayload(
+
+                    workerId=link.worker_id,
+
+                    workerName=_safe_text(link.worker_name),
+
+                )
+
+                for link in booking.worker_links
+
+            ],
+
+            car=_safe_text(booking.car) or None,
+
+            plate=_safe_text(booking.plate) or None,
+
+        )
+
+        for booking in bookings
+
+    ]
+
+
 
 
 @app.post("/api/penalties", response_model=PenaltyPayload)
@@ -14891,13 +15032,22 @@ def get_admin_workers_payroll(
             )
             .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
         ).unique().all()
-    entries = db.scalars(
-        select(PayrollEntry)
-        .where(PayrollEntry.worker_id.in_(worker_ids))
-        .order_by(PayrollEntry.created_at.desc())
-    ).all()
+    entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
+    if period != "all":
+        entries_query = entries_query.where(
+            PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+        )
+    entries = db.scalars(entries_query.order_by(PayrollEntry.created_at.desc())).all()
+    if period == "all":
+        shift_from: date | None = None
+        shift_to: date | None = None
+    else:
+        shift_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        shift_to = datetime.strptime(date_to, "%d.%m.%Y").date()
     payroll_summaries = _worker_payroll_summaries_from_data(
-        db, workers_list, completed_bookings, entries, _complaints_by_worker(_load_penalties(db))
+        db, workers_list, completed_bookings, entries, _complaints_by_worker(_load_penalties(db)),
+        shift_from=shift_from, shift_to=shift_to,
     )
     return [
         _worker_payload_with_payroll(w, payroll_summaries) for w in workers_list
@@ -15088,6 +15238,69 @@ def create_payroll_entry(
 
     db.add(entry)
 
+    # Budget integration: bonus/advance → expense, deduction → income, adjustment by sign
+    today_str = date.today().strftime("%d.%m.%Y")
+    created_expense_id = None
+    created_income_id = None
+    if payload.kind in ("bonus", "advance"):
+        expense = Expense(
+            id=f"exp-{uuid4()}",
+            title=f"{'Премия' if payload.kind == 'bonus' else 'Аванс'}: {worker.name}",
+            amount=amount,
+            category="Зарплата",
+            date=today_str,
+            note=payload.note.strip() or ("Премия" if payload.kind == "bonus" else "Аванс"),
+            resource_group="wash",
+            created_at=_now(),
+        )
+        db.add(expense)
+        created_expense_id = expense.id
+    elif payload.kind == "deduction":
+        income = Income(
+            id=str(uuid4()),
+            amount=amount,
+            source=f"Штраф: {worker.name}",
+            note=payload.note.strip() or "Штраф",
+            created_by_id=session_data["actorId"],
+            date=today_str,
+            resource_group="wash",
+            created_at=_now(),
+        )
+        db.add(income)
+        created_income_id = income.id
+    elif payload.kind == "adjustment":
+        if amount > 0:
+            expense = Expense(
+                id=f"exp-{uuid4()}",
+                title=f"Корректировка: {worker.name}",
+                amount=amount,
+                category="Зарплата",
+                date=today_str,
+                note=payload.note.strip() or "Корректировка",
+                resource_group="wash",
+                created_at=_now(),
+            )
+            db.add(expense)
+            created_expense_id = expense.id
+        elif amount < 0:
+            income = Income(
+                id=str(uuid4()),
+                amount=abs(amount),
+                source=f"Корректировка: {worker.name}",
+                note=payload.note.strip() or "Корректировка",
+                created_by_id=session_data["actorId"],
+                date=today_str,
+                resource_group="wash",
+                created_at=_now(),
+            )
+            db.add(income)
+            created_income_id = income.id
+
+    if created_expense_id is not None:
+        entry.expense_id = created_expense_id
+    if created_income_id is not None:
+        entry.income_id = created_income_id
+
     _notify_worker_about_payroll_entry(
 
         db,
@@ -15167,6 +15380,18 @@ def update_payroll_entry(
     entry.actor_id = session_data["actorId"]
 
     entry.actor_role = session_data["role"]
+
+    # Keep linked budget records in sync
+    if entry.expense_id:
+        linked_expense = db.get(Expense, entry.expense_id)
+        if linked_expense is not None:
+            linked_expense.amount = payload.amount
+            linked_expense.note = payload.note.strip() or linked_expense.note
+    if entry.income_id:
+        linked_income = db.get(Income, entry.income_id)
+        if linked_income is not None:
+            linked_income.amount = abs(payload.amount)
+            linked_income.note = payload.note.strip() or linked_income.note
 
     db.commit()
 
@@ -15658,6 +15883,32 @@ def owner_worker_salary_detail(
 
 
 
+    # ── Full balance: earned + base + shifts + bonuses − advances − deductions − payouts ──
+
+    bonus_total = sum(e.amount for e in all_entries if e.kind == "bonus")
+
+    advance_total = sum(e.amount for e in all_entries if e.kind == "advance")
+
+    deduction_total = sum(e.amount for e in all_entries if e.kind == "deduction")
+
+    adjustment_total = sum(e.amount for e in all_entries if e.kind == "adjustment")
+
+    shift_pay_total = shift_count * salary_per_shift
+
+    balance_to_pay = int(
+        total_earned
+        + worker.salary_base
+        + shift_pay_total
+        + bonus_total
+        + max(adjustment_total, 0)
+        - advance_total
+        - deduction_total
+        - total_paid
+        - max(-adjustment_total, 0)
+    )
+
+
+
     return SalaryDetailResponse(
 
         workerId=worker.id,
@@ -15676,7 +15927,7 @@ def owner_worker_salary_detail(
 
         totalPaid=total_paid,
 
-        balanceToPay=total_earned - total_paid,
+        balanceToPay=balance_to_pay,
 
         completedBookingsCount=len(booking_items),
 
@@ -16009,6 +16260,32 @@ def worker_my_salary_detail(
 
 
 
+    # ── Full balance: earned + base + shifts + bonuses − advances − deductions − payouts ──
+
+    bonus_total = sum(e.amount for e in all_entries if e.kind == "bonus")
+
+    advance_total = sum(e.amount for e in all_entries if e.kind == "advance")
+
+    deduction_total = sum(e.amount for e in all_entries if e.kind == "deduction")
+
+    adjustment_total = sum(e.amount for e in all_entries if e.kind == "adjustment")
+
+    shift_pay_total = shift_count * salary_per_shift
+
+    balance_to_pay = int(
+        total_earned
+        + worker.salary_base
+        + shift_pay_total
+        + bonus_total
+        + max(adjustment_total, 0)
+        - advance_total
+        - deduction_total
+        - total_paid
+        - max(-adjustment_total, 0)
+    )
+
+
+
     return SalaryDetailResponse(
 
         workerId=worker.id,
@@ -16027,7 +16304,7 @@ def worker_my_salary_detail(
 
         totalPaid=total_paid,
 
-        balanceToPay=total_earned - total_paid,
+        balanceToPay=balance_to_pay,
 
         completedBookingsCount=len(booking_items),
 
@@ -16145,7 +16422,7 @@ def owner_worker_pay_salary(
 
     db.add(expense)
 
-
+    entry.expense_id = expense.id
 
     _notify_worker_about_payroll_entry(
 
@@ -16251,9 +16528,15 @@ def owner_salary_detail(
 
     elif period == "week":
 
-        dt_from = now_dt - timedelta(days=7)
+        # Calendar week: Saturday → Friday (same as _salary_date_range)
 
-        dt_to = now_dt
+        saturday = now_dt.date() - timedelta(days=(now_dt.weekday() - 5) % 7)
+
+        friday = saturday + timedelta(days=6)
+
+        dt_from = datetime.combine(saturday, datetime.min.time(), tzinfo=timezone.utc)
+
+        dt_to = datetime.combine(friday, datetime.max.time(), tzinfo=timezone.utc)
 
     elif period == "month":
 
@@ -16594,6 +16877,8 @@ def owner_pay_salary(
     )
 
     db.add(expense)
+
+    entry.expense_id = expense.id
 
 
 
