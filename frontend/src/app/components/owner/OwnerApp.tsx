@@ -9174,9 +9174,9 @@ setOwnerNewBookingWorkers([]);
                                     {insufficient && <div className="text-xs text-red-500">На складе только {stockItem!.qty} {stockItem!.unit}</div>}
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <input className={`${inputCls} w-16 text-right`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
-                                    <span className={`text-xs ${sub}`}>{mat.unit}</span>
-                                    <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500"><X size={14} /></button>
+                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
+                                    <span className={`text-xs ${sub} shrink-0`}>{mat.unit}</span>
+                                    <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500 shrink-0"><X size={14} /></button>
                                   </div>
                                 </div>
                               );

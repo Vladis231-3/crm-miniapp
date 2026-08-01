@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-01 10:00 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-01 10:06 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -2367,7 +2367,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-01 13:00)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-01 13:06)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-01 12:57)
 - `backend/app/main.py` (2026-08-01 12:57)
 - `backend/app/schemas.py` (2026-08-01 12:57)
