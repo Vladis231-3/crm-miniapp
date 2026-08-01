@@ -632,6 +632,7 @@ class ServicePayload(BaseModel):
     ownerPayType: str = ""
     ownerPayValue: int = 0
     ownerSplitEnabled: bool = True
+    materials: list[dict] = Field(default_factory=list)
 
 
 class DetailingRequestCreateRequest(BaseModel):

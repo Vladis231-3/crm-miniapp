@@ -2064,6 +2064,8 @@ def _apply_runtime_migrations() -> None:
 
             ("owner_split_enabled", "BOOLEAN", "TRUE"),
 
+            ("materials", "JSON", "'[]'"),
+
         ]:
 
             if col not in svc_cols:
@@ -4107,6 +4109,7 @@ def _service_payload(service: Service) -> ServicePayload:
         ownerPayType=service.owner_pay_type or "",
         ownerPayValue=service.owner_pay_value or 0,
         ownerSplitEnabled=service.owner_split_enabled if service.owner_split_enabled is not None else True,
+        materials=service.materials or [],
 
     )
 
@@ -9876,6 +9879,25 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
     service = db.get(Service, booking.service_id) if booking.service_id else None
     rg = _service_resource_group(service)
 
+    if not booking.materials and service and (service.materials or []):
+        for mat in service.materials:
+            si = db.get(StockItem, mat.get("stockItemId")) if mat.get("stockItemId") else None
+            if not si:
+                print(f"[WRITE_OFF] service material '{mat.get('name')}' stock item NOT FOUND — skipped")
+                continue
+            booking.materials.append(
+                BookingMaterial(
+                    id=f"bm-{uuid4()}",
+                    stock_item_id=si.id,
+                    name=si.name,
+                    qty=float(mat.get("qty") or 0),
+                    unit=si.unit,
+                    unit_price=si.unit_price,
+                )
+            )
+        db.flush()
+        print(f"[WRITE_OFF] auto-filled {len(booking.materials)} materials from service '{service.name}'")
+
     total_cost = 0
     material_details = []
 
@@ -9933,14 +9955,22 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
 
 
 def _booking_materials_cost(db: Session, booking: Booking) -> int:
-    """Фактическая стоимость материалов по записи; fallback — материалопотребление услуги."""
+    """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада."""
     materials_cost = 0
     for bm in (booking.materials or []):
         materials_cost += int(round((bm.qty or 0) * (bm.unit_price or 0)))
     if materials_cost > 0:
         return materials_cost
     svc = db.get(Service, booking.service_id) if booking.service_id else None
-    return int(svc.material_consumption or 0) if svc else 0
+    if svc:
+        for mat in (svc.materials or []):
+            si = db.get(StockItem, mat.get("stockItemId")) if mat.get("stockItemId") else None
+            if si:
+                materials_cost += int(round((mat.get("qty") or 0) * (si.unit_price or 0)))
+        if materials_cost > 0:
+            return materials_cost
+        return int(svc.material_consumption or 0)
+    return 0
 
 
 def _booking_money_split(
@@ -14214,6 +14244,7 @@ def save_services(
         service.owner_pay_type = item.ownerPayType
         service.owner_pay_value = item.ownerPayValue
         service.owner_split_enabled = item.ownerSplitEnabled
+        service.materials = item.materials or []
 
     for service_id, service in existing.items():
 

@@ -5,9 +5,10 @@
 ## Карта проекта — читать сначала
 - `PROJECT_MAP.md` — ПОЛНАЯ карта: дерево, архитектура (Mermaid), все API-роуты и сигнатуры с `file:line`. **Читать её перед крупными правками.**
 - Генерируется автоматически, **вручную не редактировать**. Обновление:
-  - фоновый вотчер: `scripts\watch-project-map.bat` (лог: `scripts\project-map-watch.log`), или
-  - git pre-commit хук `.git/hooks/pre-commit` пересобирает карту при каждом коммите,
+  - фоновый вотчер **в автозагрузке Windows** (ярлык в `shell:startup` → `scripts\start-project-map-watch.vbs`, лог: `scripts\project-map-watch.log`) — сам стартует при входе в Windows,
+  - или git pre-commit хук `.git/hooks/pre-commit` пересобирает карту при каждом коммите,
   - вручную: `python scripts/generate_project_map.py`.
+  - защита от дублей: lock-файл `scripts\.project-map-watch.lock` (PID живого watcher'а).
 
 ## Краткая структура
 ```

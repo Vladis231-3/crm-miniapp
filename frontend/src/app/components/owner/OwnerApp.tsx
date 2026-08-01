@@ -317,6 +317,7 @@ type MoneyServiceDraft = {
   piggyPayType?: string; piggyPayValue?: number;
   ownerPayType?: string; ownerPayValue?: number;
   ownerSplitEnabled?: boolean;
+  materials?: Array<{ stockItemId: string; name: string; qty: number; unit: string }>;
 };
 
 function serviceMoneySummary(service: MoneyServiceDraft) {
@@ -763,6 +764,8 @@ export function OwnerApp() {
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [showServiceSettings, setShowServiceSettings] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [showServiceMaterialPicker, setShowServiceMaterialPicker] = useState(false);
+  const [serviceMaterialPickerCategory, setServiceMaterialPickerCategory] = useState<string | null>(null);
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
@@ -1306,6 +1309,7 @@ export function OwnerApp() {
         ownerPayType: '',
         ownerPayValue: 0,
         ownerSplitEnabled: true,
+        materials: [],
       },
       ...current,
     ]);
@@ -5885,6 +5889,13 @@ setOwnerNewBookingWorkers([]);
                 return [s.name, s.category, s.desc].some((v) => v.toLowerCase().includes(q));
               }).map(({ s: service, idx: i }) => {
                 const summary = serviceMoneySummary(service);
+                const cardMaterialsCost = (service.materials ?? []).reduce((sum, m) => {
+                  const stockItem = stockItems.find(s => s.id === m.stockItemId);
+                  return sum + (stockItem ? Number(m.qty || 0) * stockItem.unitPrice : 0);
+                }, 0);
+                const summaryLines = (service.materials ?? []).length > 0
+                  ? [`материалы: ${Math.round(cardMaterialsCost).toLocaleString('ru')} ₽`, ...summary]
+                  : summary;
                 return (
                 <div key={service.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center justify-between gap-2 mb-2">
@@ -5919,7 +5930,7 @@ setOwnerNewBookingWorkers([]);
                     </div>
                   </div>
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/5'} rounded-xl px-3 py-2 text-xs space-y-0.5`}>
-                    {summary.map((line, li) => (
+                    {summaryLines.map((line, li) => (
                       <div key={li} className={`flex items-center gap-2 ${sub}`}>
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: [accent, '#EAB308', primary][li % 3] }} />
                         {line}
@@ -9015,7 +9026,33 @@ setOwnerNewBookingWorkers([]);
             setServicesState((p) => p.map((item, j) => (j === svcIndex ? { ...item, ...partial } : item)));
           const samplePrice = svc.price > 0 ? svc.price : 1000;
           const samplePercent = Number(workers.find((w) => w.active)?.defaultPercent ?? 50) || 50;
-          const preview = previewServiceSplit(svc, samplePrice, samplePercent);
+          const svcMaterialsCost = (svc.materials ?? []).reduce((sum, m) => {
+            const stockItem = stockItems.find(s => s.id === m.stockItemId);
+            return sum + (stockItem ? Number(m.qty || 0) * stockItem.unitPrice : 0);
+          }, 0);
+          const applyMaterials = (list: Array<{ stockItemId: string; name: string; qty: number; unit: string }>) => {
+            const cost = list.reduce((sum, m) => {
+              const stockItem = stockItems.find(s => s.id === m.stockItemId);
+              return sum + (stockItem ? Number(m.qty || 0) * stockItem.unitPrice : 0);
+            }, 0);
+            patch({ materials: list, materialConsumption: list.length > 0 ? Math.round(cost) : null });
+          };
+          const patchMaterialQty = (index: number, qty: number) => {
+            const list = [...(svc.materials ?? [])];
+            if (index >= list.length) return;
+            list[index] = { ...list[index], qty };
+            applyMaterials(list);
+          };
+          const removeMaterial = (index: number) => {
+            const list = [...(svc.materials ?? [])];
+            list.splice(index, 1);
+            applyMaterials(list);
+          };
+          const preview = previewServiceSplit(
+            { ...svc, materialConsumption: (svc.materials ?? []).length > 0 ? Math.round(svcMaterialsCost) : (svc.materialConsumption ?? 0) },
+            samplePrice,
+            samplePercent,
+          );
           const total = Math.max(1, preview.materials + preview.master + preview.piggy + preview.owners);
           const distributed = Math.min(samplePrice, preview.materials + preview.master + preview.piggy + preview.owners);
           return (
@@ -9031,6 +9068,55 @@ setOwnerNewBookingWorkers([]);
                   <button onClick={() => setShowServiceSettings(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
                 </div>
                 <div className="space-y-4 mb-5">
+                  {showServiceMaterialPicker ? (
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Выбор материала со склада</div>
+                      <div className="overflow-x-auto pb-1 flex gap-1.5 mb-2">
+                        <button onClick={() => setServiceMaterialPickerCategory(null)}
+                          className={`text-xs px-2.5 py-1 rounded-full ${!serviceMaterialPickerCategory ? 'text-white font-medium' : glass}`}
+                          style={!serviceMaterialPickerCategory ? { background: primary } : {}}>Все</button>
+                        {stockCategories.filter(c => !c.parentId).map(cat => (
+                          <button key={cat.id} onClick={() => setServiceMaterialPickerCategory(cat.id)}
+                            className={`text-xs px-2.5 py-1 rounded-full ${serviceMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
+                            style={serviceMaterialPickerCategory === cat.id ? { background: primary } : {}}>{cat.name}</button>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        {stockItems
+                          .filter(item => {
+                            if (!serviceMaterialPickerCategory) return true;
+                            const catIds = [serviceMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === serviceMaterialPickerCategory).map(c => c.id)];
+                            return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === serviceMaterialPickerCategory)?.name;
+                          })
+                          .filter(item => item.qty > 0)
+                          .map(item => (
+                            <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium">{item.name}</div>
+                                <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
+                              </div>
+                              <button onClick={() => {
+                                if (!(svc.materials ?? []).some(m => m.stockItemId === item.id)) {
+                                  applyMaterials([...(svc.materials ?? []), { stockItemId: item.id, name: item.name, qty: 0, unit: item.unit }]);
+                                }
+                                setShowServiceMaterialPicker(false);
+                              }}
+                                className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
+                                style={{ background: primary }}>Выбрать</button>
+                            </div>
+                          ))}
+                        {stockItems.filter(item => {
+                          if (!serviceMaterialPickerCategory) return true;
+                          const catIds = [serviceMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === serviceMaterialPickerCategory).map(c => c.id)];
+                          return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === serviceMaterialPickerCategory)?.name;
+                        }).filter(item => item.qty > 0).length === 0 && (
+                          <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
+                        )}
+                      </div>
+                      <button onClick={() => setShowServiceMaterialPicker(false)} className={`mt-3 w-full py-2.5 rounded-xl text-sm ${glass}`}>Назад к настройкам</button>
+                    </div>
+                  ) : (
+                  <>
                   <div>
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Основное</div>
                     <div className="space-y-2">
@@ -9071,8 +9157,41 @@ setOwnerNewBookingWorkers([]);
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Распределение денег</div>
                     <div className="space-y-2">
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
-                        <input className={inputCls} type="number" placeholder="0" value={numberInputValue(svc.materialConsumption ?? 0)} onChange={e => patch({ materialConsumption: e.target.value ? numberFromInput(e.target.value) : null })} />
+                        <label className={`text-xs ${sub} block mb-1`}>Материалы со склада (списываются при завершении записи)</label>
+                        {(svc.materials ?? []).length > 0 && (
+                          <div className="space-y-1.5 mb-2">
+                            {svc.materials!.map((mat, mi) => {
+                              const stockItem = stockItems.find(s => s.id === mat.stockItemId);
+                              const rowCost = stockItem ? Number(mat.qty || 0) * stockItem.unitPrice : 0;
+                              const insufficient = !!stockItem && mat.qty > stockItem.qty;
+                              return (
+                                <div key={`${mat.stockItemId}-${mi}`} className={`${glass} rounded-xl px-3 py-2 flex items-center gap-2`}>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium truncate">{mat.name}</div>
+                                    <div className={`text-xs ${sub}`}>
+                                      {stockItem ? `В наличии: ${stockItem.qty} ${stockItem.unit} · ${stockItem.unitPrice.toLocaleString('ru')} ₽/${stockItem.unit}` : 'Позиция удалена со склада'}
+                                    </div>
+                                    {insufficient && <div className="text-xs text-red-500">На складе только {stockItem!.qty} {stockItem!.unit}</div>}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <input className={`${inputCls} w-16 text-right`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
+                                    <span className={`text-xs ${sub}`}>{mat.unit}</span>
+                                    <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500"><X size={14} /></button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <button onClick={() => setShowServiceMaterialPicker(true)} className={`w-full py-2 rounded-xl text-sm ${glass} flex items-center justify-center gap-1.5`} style={{ color: primary }}>
+                          <Plus size={14} /> Добавить материал
+                        </button>
+                        {svcMaterialsCost > 0 && (
+                          <div className={`text-xs mt-1.5 flex justify-between ${sub}`}>
+                            <span>Стоимость материалов (по ценам склада)</span>
+                            <span className="font-medium text-slate-400">{Math.round(svcMaterialsCost).toLocaleString('ru')} ₽</span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
@@ -9187,6 +9306,8 @@ setOwnerNewBookingWorkers([]);
                       Порядок: сначала материалы, потом мастера, копилка, остаток — владельцам. Если мастеров несколько, сумма мастера делится пропорционально их % из профиля.
                     </p>
                   </div>
+                  </>
+                  )}
                 </div>
                 <button onClick={() => setShowServiceSettings(false)} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>
                   Готово
