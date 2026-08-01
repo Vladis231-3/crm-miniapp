@@ -2058,6 +2058,10 @@ def _apply_runtime_migrations() -> None:
 
             ("piggy_pay_value", "INTEGER", "0"),
 
+            ("owner_pay_type", "VARCHAR(16)", "''"),
+
+            ("owner_pay_value", "INTEGER", "0"),
+
             ("owner_split_enabled", "BOOLEAN", "TRUE"),
 
         ]:
@@ -3694,9 +3698,8 @@ def _worker_payroll_summaries_from_data(
         worker_id: [] for worker_id in worker_ids
     }
     for booking in completed_bookings:
-        svc = db.get(Service, booking.service_id) if booking.service_id else None
-        additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
-        main_price = max(0, booking.price - additional_total)
+        split = _booking_money_split(db, booking, complaints_by_worker)
+        master_by_worker = split["master_by_worker"]
         for link in booking.worker_links:
             if link.worker_id not in booking_items_by_worker:
                 continue
@@ -3707,18 +3710,9 @@ def _worker_payroll_summaries_from_data(
                 time_value=booking.time,
                 fallback=booking.created_at,
             )
-            if link.pay_type == "fixed":
-                earned = link.fixed_amount
-            elif svc and svc.master_pay_type == "fixed":
-                earned = svc.master_pay_value
-            elif svc and svc.master_pay_type == "percent":
-                earned = round(main_price * svc.master_pay_value / 100)
-            elif _is_fixed_master_service_db(db, booking.service_id, booking.service):
-                earned = FIXED_MASTER_EARNED
-            else:
-                earned = round(main_price * percent / 100)
+            earned = master_by_worker.get(link.worker_id, 0)
             if link.override_earned is not None:
-                earned = link.override_earned
+                earned = int(link.override_earned)
             booking_items_by_worker[link.worker_id].append(
                 WorkerPayrollBookingPayload(
                     bookingId=booking.id,
@@ -4110,6 +4104,8 @@ def _service_payload(service: Service) -> ServicePayload:
         masterPayValue=service.master_pay_value or 0,
         piggyPayType=service.piggy_pay_type or "",
         piggyPayValue=service.piggy_pay_value or 0,
+        ownerPayType=service.owner_pay_type or "",
+        ownerPayValue=service.owner_pay_value or 0,
         ownerSplitEnabled=service.owner_split_enabled if service.owner_split_enabled is not None else True,
 
     )
@@ -9936,6 +9932,169 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
     print(f"[WRITE_OFF] booking {booking.id[:8]} done, materials_written_off=True")
 
 
+def _booking_materials_cost(db: Session, booking: Booking) -> int:
+    """Фактическая стоимость материалов по записи; fallback — материалопотребление услуги."""
+    materials_cost = 0
+    for bm in (booking.materials or []):
+        materials_cost += int(round((bm.qty or 0) * (bm.unit_price or 0)))
+    if materials_cost > 0:
+        return materials_cost
+    svc = db.get(Service, booking.service_id) if booking.service_id else None
+    return int(svc.material_consumption or 0) if svc else 0
+
+
+def _booking_money_split(
+    db: Session,
+    booking: Booking,
+    complaints_by_worker: dict[str, list] | None = None,
+) -> dict:
+    """Единая модель распределения денег по записи.
+
+    Порядок: цена → материалы → мастера → копилка → владельцы.
+    Фикс/процент мастера — общая сумма на услугу и делится между мастерами
+    пропорционально их процентам из профиля (новичок с меньшим % получает меньше).
+    """
+    svc = db.get(Service, booking.service_id) if booking.service_id else None
+    rg = _service_resource_group(svc)
+
+    additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
+    main_price = max(0, booking.price - additional_total)
+    materials_cost = _booking_materials_cost(db, booking)
+    net = max(0, main_price - materials_cost)
+
+    master_pay_type = svc.master_pay_type if svc else ""
+    master_pay_value = int(svc.master_pay_value or 0) if svc else 0
+    piggy_pay_type = svc.piggy_pay_type if svc else ""
+    piggy_pay_value = int(svc.piggy_pay_value or 0) if svc else 0
+    owner_pay_type = svc.owner_pay_type if svc else ""
+    owner_pay_value = int(svc.owner_pay_value or 0) if svc else 0
+    owner_split_enabled = svc.owner_split_enabled if svc else True
+
+    complaints_map = complaints_by_worker or {}
+
+    # 1. Мастера
+    master_by_worker: dict[str, int] = {}
+    weighted_workers: list[tuple[str, int]] = []
+    explicit_total = 0
+    has_service_master_mode = bool(master_pay_type)
+
+    for link in booking.worker_links:
+        if link.override_earned is not None:
+            amount = int(link.override_earned)
+            master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
+            explicit_total += amount
+        elif link.pay_type == "fixed":
+            amount = int(link.fixed_amount or 0)
+            master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
+            explicit_total += amount
+        elif has_service_master_mode:
+            weighted_workers.append((link.worker_id, max(0, int(link.percent or 0))))
+        else:
+            percent = adjusted_booking_percent(
+                link.percent,
+                complaints_map.get(link.worker_id, []),
+                date_value=booking.date,
+                time_value=booking.time,
+                fallback=booking.created_at,
+            )
+            if _is_fixed_master_service_db(db, booking.service_id, booking.service):
+                amount = FIXED_MASTER_EARNED
+            else:
+                amount = round(net * percent / 100)
+            master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
+            explicit_total += amount
+
+    if has_service_master_mode and weighted_workers:
+        if master_pay_type == "fixed":
+            total_master_pay = master_pay_value
+        elif master_pay_type == "percent":
+            total_master_pay = round(net * master_pay_value / 100)
+        else:
+            total_master_pay = 0
+        if total_master_pay > 0:
+            weight_sum = sum(weight for _, weight in weighted_workers)
+            if weight_sum <= 0:
+                share = total_master_pay // len(weighted_workers)
+                remainder = total_master_pay - share * len(weighted_workers)
+                for index, (worker_id, _weight) in enumerate(weighted_workers):
+                    amount = share + (1 if index < remainder else 0)
+                    master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
+                    explicit_total += amount
+            else:
+                allocated = 0
+                for index, (worker_id, weight) in enumerate(weighted_workers):
+                    if index == len(weighted_workers) - 1:
+                        amount = total_master_pay - allocated
+                    else:
+                        amount = round(total_master_pay * weight / weight_sum)
+                        allocated += amount
+                    master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
+                    explicit_total += amount
+
+    master_total = explicit_total
+
+    # Дополнительные услуги (оплата работникам)
+    for asvc in (booking.additional_services or []):
+        for alink in asvc.worker_links:
+            if alink.pay_type == "fixed":
+                amount = int(alink.fixed_amount or 0)
+            else:
+                amount = round(asvc.price * (alink.percent or 0) / 100)
+            master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
+            master_total += amount
+
+    # 2. Копилка
+    if piggy_pay_type == "fixed":
+        piggy_deposit = piggy_pay_value
+    elif piggy_pay_type == "percent":
+        piggy_deposit = round(net * piggy_pay_value / 100)
+    elif piggy_pay_type == "none":
+        piggy_deposit = 0
+    elif rg in ("detailing", "wash"):
+        piggy_deposit = round(net * 24 / 100)
+    else:
+        piggy_deposit = 0
+
+    # 3. Владельцы (остаток после мастера и копилки)
+    remaining = net - master_total - piggy_deposit
+    owners_total = 0
+    owner_by_owner: dict[str, int] = {}
+    if remaining > 0 and owner_split_enabled:
+        if owner_pay_type == "percent":
+            owners_total = round(remaining * owner_pay_value / 100)
+        else:
+            owners_total = remaining
+        owners_total = max(0, min(owners_total, remaining))
+        if owners_total > 0:
+            owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+            owners = db.scalars(
+                select(StaffUser).where(
+                    StaffUser.id.in_(owner_ids),
+                    StaffUser.active.is_(True),
+                )
+            ).all()
+            if len(owners) >= 2:
+                owners_sorted = sorted(owners, key=lambda owner: owner.id)
+                half = round(owners_total / 2)
+                owner_by_owner[owners_sorted[0].id] = owners_total - half
+                owner_by_owner[owners_sorted[1].id] = half
+
+    return {
+        "resource_group": rg,
+        "main_price": main_price,
+        "materials_cost": materials_cost,
+        "net": net,
+        "master_total": master_total,
+        "master_by_worker": master_by_worker,
+        "piggy_deposit": piggy_deposit,
+        "owners_total": owners_total,
+        "owner_by_owner": owner_by_owner,
+        "master_pay_type": master_pay_type,
+        "piggy_pay_type": piggy_pay_type,
+        "has_custom": bool(master_pay_type) or bool(piggy_pay_type),
+    }
+
+
 def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any service."""
@@ -10028,50 +10187,30 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
     # 2. Deposit into piggy bank (based on service settings, or default 24% for detailing/wash)
+    split = _booking_money_split(db, booking)
 
-    additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
+    piggy_type = split["piggy_pay_type"]
+    piggy_val = split["piggy_deposit"]
 
-    main_price = max(0, booking.price - additional_total)
+    print(f"[PIGGY_DEBUG] piggy_type={piggy_type!r} piggy_val={piggy_val} rg={rg!r} net={split['net']} materials_cost={split['materials_cost']}")
 
-    svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
-
-    piggy_type = svc_for_piggy.piggy_pay_type if svc_for_piggy else ""
-
-    piggy_val = svc_for_piggy.piggy_pay_value if svc_for_piggy else 0
-
-    print(f"[PIGGY_DEBUG] piggy_type={piggy_type!r} piggy_val={piggy_val} rg={rg!r} main_price={main_price}")
-
-    if piggy_type == "fixed":
-
-        deposit_amount = piggy_val
-
-    elif piggy_type == "percent":
-
-        deposit_amount = round(main_price * piggy_val / 100)
-
-    elif piggy_type == "none":
-
-        deposit_amount = 0
-
-    elif rg in ("detailing", "wash"):
-
-        deposit_amount = round(main_price * 24 / 100)
-
-    else:
-
-        deposit_amount = 0
+    deposit_amount = piggy_val
 
     print(f"[PIGGY_DEBUG] deposit_amount={deposit_amount} booking.price={booking.price}")
 
     if deposit_amount > 0:
 
-        if piggy_type == "fixed":
+        svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
+        piggy_percent_value = int(svc_for_piggy.piggy_pay_value or 0) if svc_for_piggy else 0
+        piggy_fixed_value = piggy_percent_value
 
-            purpose = f"Фикс {piggy_val}₽ в копилку: {booking.service} ({booking.client_name})"
+        if split["piggy_pay_type"] == "fixed":
 
-        elif piggy_type == "percent":
+            purpose = f"Фикс {piggy_fixed_value}₽ в копилку: {booking.service} ({booking.client_name})"
 
-            purpose = f"{piggy_val}% от заказа в копилку: {booking.service} ({booking.client_name})"
+        elif split["piggy_pay_type"] == "percent":
+
+            purpose = f"{piggy_percent_value}% от заказа в копилку: {booking.service} ({booking.client_name})"
 
         else:
 
@@ -10111,152 +10250,21 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
-    """Calculate profit share after master and piggy, split 50/50 between permanent owners."""
+    """Расчёт доли владельцев: цена → материалы → мастера → копилка → остаток владельцам (50/50)."""
 
-    svc_ops = db.get(Service, booking.service_id) if booking.service_id else None
+    split = _booking_money_split(db, booking)
 
-    rg = _service_resource_group(svc_ops)
-
-    piggy_type = svc_ops.piggy_pay_type if svc_ops else ""
-
-    piggy_val = svc_ops.piggy_pay_value if svc_ops else 0
-
-    master_pay_type = svc_ops.master_pay_type if svc_ops else ""
-
-    master_pay_val = svc_ops.master_pay_value if svc_ops else 0
-
-    owner_split = svc_ops.owner_split_enabled if svc_ops else True
-
-    print(f"[PROFIT_DEBUG] booking.id={booking.id} svc_ops={'None' if svc_ops is None else 'ok'} rg={rg!r} piggy_type={piggy_type!r} piggy_val={piggy_val} master_pay_type={master_pay_type!r} master_pay_val={master_pay_val} owner_split={owner_split}")
+    print(f"[PROFIT_DEBUG] booking.id={booking.id} rg={split['resource_group']} net={split['net']} materials_cost={split['materials_cost']} total_master={split['master_total']} piggy_deposit={split['piggy_deposit']} owners_total={split['owners_total']} owner_split={split['has_custom'] or split['resource_group'] in ('detailing', 'wash')}")
 
     # Only process for detailing/wash or services with custom piggy/master settings
 
-    has_custom = bool(piggy_type) or bool(master_pay_type)
-
-    if rg not in ("detailing", "wash") and not has_custom:
-        print(f"[PROFIT_DEBUG] early return: rg={rg!r} has_custom={has_custom}")
+    if split["resource_group"] not in ("detailing", "wash") and not split["has_custom"]:
+        print(f"[PROFIT_DEBUG] early return: rg={split['resource_group']} has_custom={split['has_custom']}")
         return
 
-
-
-    owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
-
-    owners = db.scalars(
-
-        select(StaffUser).where(StaffUser.id.in_(owner_ids), StaffUser.active.is_(True))
-
-    ).all()
-
-    if len(owners) < 2:
-
+    if split["owners_total"] <= 0:
+        print(f"[PROFIT_DEBUG] owners_total={split['owners_total']} — nothing to distribute")
         return
-
-    print(f"[PROFIT_DEBUG] owners count={len(owners)} owner_ids={owner_ids}")
-
-    # Use main service price (exclude additional services) for all percent calculations
-
-    additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
-
-    main_price = max(0, booking.price - additional_total)
-
-    # Calculate master's total accrual from booking workers (main service)
-
-    total_master = 0
-
-    for link in booking.worker_links:
-
-        worker = db.get(StaffUser, link.worker_id)
-
-        if worker:
-            # For custom services include all roles; otherwise only workers/admins
-
-            if not has_custom and worker.role not in ("worker", "admin"):
-
-                continue
-
-            if link.override_earned is not None:
-
-                total_master += link.override_earned
-
-            elif link.pay_type == "fixed":
-
-                total_master += (link.fixed_amount or 0)
-
-            elif master_pay_type == "fixed":
-
-                total_master += master_pay_val
-
-            elif master_pay_type == "percent":
-
-                total_master += round(main_price * master_pay_val / 100)
-
-            else:
-
-                all_penalties = _load_penalties(db)
-
-                complaints_by_worker = _complaints_by_worker(all_penalties)
-
-                worker_complaints = complaints_by_worker.get(link.worker_id, [])
-
-                percent = adjusted_booking_percent(
-
-                    link.percent,
-
-                    worker_complaints,
-
-                    date_value=booking.date,
-
-                    time_value=booking.time,
-
-                    fallback=booking.created_at,
-
-                )
-
-                total_master += FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, booking.service_id, booking.service) else round(main_price * percent / 100)
-
-    # Additional service workers pay
-
-    for asvc in (booking.additional_services or []):
-
-        for alink in asvc.worker_links:
-
-            if alink.pay_type == "fixed":
-
-                total_master += (alink.fixed_amount or 0)
-
-            else:
-
-                total_master += round(asvc.price * alink.percent / 100)
-
-    # Piggy deposit based on service settings (from main price)
-
-    if piggy_type == "fixed":
-
-        piggy_deposit = piggy_val
-
-    elif piggy_type == "percent":
-
-        piggy_deposit = round(main_price * piggy_val / 100)
-
-    elif piggy_type == "none":
-
-        piggy_deposit = 0
-
-    else:
-
-        piggy_deposit = round(main_price * 24 / 100)
-
-
-
-    remaining = booking.price - total_master - piggy_deposit
-
-    print(f"[PROFIT_DEBUG] total_master={total_master} piggy_deposit={piggy_deposit} remaining={remaining} owner_split={owner_split} booking.price={booking.price}")
-
-    if remaining <= 0 or not owner_split:
-
-        return
-
-
 
     # Check if already processed
 
@@ -10274,33 +10282,13 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
         print(f"[PROFIT_DEBUG] already processed: {len(existing)} existing records")
         return
 
-
-
-    # Split 50/50 between two owners
-
-    half = round(remaining / 2)
-
-    owner1_amount = half
-
-    owner2_amount = remaining - half
-
-
-
-    owners_sorted = sorted(owners, key=lambda o: o.id)
-
-    amounts = [owner1_amount, owner2_amount]
-
-
-
-    for i, owner in enumerate(owners_sorted):
-
-        amt = amounts[i]
+    for owner_id, amt in split["owner_by_owner"].items():
 
         if amt <= 0:
 
             continue
 
-        print(f"[PROFIT_DEBUG] creating OwnerProfitShare owner_id={owner.id} amount={amt}")
+        print(f"[PROFIT_DEBUG] creating OwnerProfitShare owner_id={owner_id} amount={amt}")
 
         db.add(
 
@@ -10310,7 +10298,7 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
                 booking_id=booking.id,
 
-                owner_id=owner.id,
+                owner_id=owner_id,
 
                 amount=amt,
 
@@ -14223,6 +14211,8 @@ def save_services(
         service.master_pay_value = item.masterPayValue
         service.piggy_pay_type = item.piggyPayType
         service.piggy_pay_value = item.piggyPayValue
+        service.owner_pay_type = item.ownerPayType
+        service.owner_pay_value = item.ownerPayValue
         service.owner_split_enabled = item.ownerSplitEnabled
 
     for service_id, service in existing.items():
@@ -15426,41 +15416,17 @@ def owner_worker_salary_detail(
 
             continue
 
-        # Main service contribution
+        # Main + additional services contribution (единая модель распределения)
 
-        additional_total = sum(asvc.price for asvc in (b.additional_services or []))
-
-        main_price = max(0, b.price - additional_total)
-
-        svc = db.get(Service, b.service_id) if b.service_id else None
-        if worker_link.pay_type == "fixed":
-            main_earned = worker_link.fixed_amount or 0
-        elif svc and svc.master_pay_type == "fixed":
-            main_earned = svc.master_pay_value
-        elif svc and svc.master_pay_type == "percent":
-            main_earned = round(main_price * svc.master_pay_value / 100)
-        else:
-            main_earned = FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, b.service_id, b.service) else round(main_price * percent / 100)
-
-        # Additional services contribution
-
-        additional_earned = 0
+        split = _booking_money_split(db, b, complaints_by_worker)
 
         if worker_link.override_earned is not None:
 
-            earned = worker_link.override_earned
+            earned = int(worker_link.override_earned)
 
         else:
 
-            for asvc in (b.additional_services or []):
-
-                for alink in asvc.worker_links:
-
-                    if alink.worker_id == worker_id:
-
-                        additional_earned += round(asvc.price * alink.percent / 100)
-
-            earned = main_earned + additional_earned
+            earned = split["master_by_worker"].get(worker_id, 0)
 
         total_earned += earned
 
@@ -15805,37 +15771,17 @@ def worker_my_salary_detail(
 
             continue
 
-        additional_total = sum(asvc.price for asvc in (b.additional_services or []))
+        # Main + additional services contribution (единая модель распределения)
 
-        main_price = max(0, b.price - additional_total)
-
-        svc = db.get(Service, b.service_id) if b.service_id else None
-        if worker_link and worker_link.pay_type == "fixed":
-            main_earned = worker_link.fixed_amount or 0
-        elif svc and svc.master_pay_type == "fixed":
-            main_earned = svc.master_pay_value
-        elif svc and svc.master_pay_type == "percent":
-            main_earned = round(main_price * svc.master_pay_value / 100)
-        else:
-            main_earned = FIXED_MASTER_EARNED if _is_fixed_master_service_db(db, b.service_id, b.service) else round(main_price * percent / 100)
-
-        additional_earned = 0
+        split = _booking_money_split(db, b, complaints_by_worker)
 
         if worker_link and worker_link.override_earned is not None:
 
-            earned = worker_link.override_earned
+            earned = int(worker_link.override_earned)
 
         else:
 
-            for asvc in (b.additional_services or []):
-
-                for alink in asvc.worker_links:
-
-                    if alink.worker_id == worker_id:
-
-                        additional_earned += round(asvc.price * alink.percent / 100)
-
-            earned = main_earned + additional_earned
+            earned = split["master_by_worker"].get(worker_id, 0)
 
         total_earned += earned
 

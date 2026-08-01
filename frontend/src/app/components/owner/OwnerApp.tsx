@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker, type WorkerPayrollSummary } from '../../context/AppContext';
+import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker, type WorkerPayrollSummary } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
@@ -310,6 +310,86 @@ function serviceResourceGroupForCategory(category: string) {
 
 function numberInputValue(value: number) {
   return value === 0 ? '' : String(value);
+}
+
+type MoneyServiceDraft = {
+  masterPayType?: string; masterPayValue?: number;
+  piggyPayType?: string; piggyPayValue?: number;
+  ownerPayType?: string; ownerPayValue?: number;
+  ownerSplitEnabled?: boolean;
+};
+
+function serviceMoneySummary(service: MoneyServiceDraft) {
+  const master = service.masterPayType === 'fixed'
+    ? `мастер: фикс ${service.masterPayValue ?? 0} ₽`
+    : service.masterPayType === 'percent'
+      ? `мастер: ${service.masterPayValue ?? 0}%`
+      : 'мастер: % из профиля';
+  const piggy = service.piggyPayType === 'fixed'
+    ? `копилка: ${service.piggyPayValue ?? 0} ₽`
+    : service.piggyPayType === 'percent'
+      ? `копилка: ${service.piggyPayValue ?? 0}%`
+      : service.piggyPayType === 'none'
+        ? 'копилка: нет'
+        : 'копилка: 24%';
+  const owners = service.ownerSplitEnabled === false
+    ? 'владельцы: нет'
+    : service.ownerPayType === 'percent'
+      ? `владельцы: ${service.ownerPayValue ?? 0}% остатка`
+      : 'владельцы: остаток';
+  return [master, piggy, owners];
+}
+
+function previewServiceSplit(
+  service: MoneyServiceDraft & { materialConsumption?: number | null },
+  samplePrice: number,
+  samplePercent: number,
+) {
+  const materials = Math.max(0, service.materialConsumption ?? 0);
+  const net = Math.max(0, samplePrice - materials);
+  let master: number;
+  let masterLabel: string;
+  if (service.masterPayType === 'fixed') {
+    master = service.masterPayValue ?? 0;
+    masterLabel = 'фикс';
+  } else if (service.masterPayType === 'percent') {
+    master = Math.round(net * (service.masterPayValue ?? 0) / 100);
+    masterLabel = `${service.masterPayValue ?? 0}%`;
+  } else {
+    master = Math.round(net * samplePercent / 100);
+    masterLabel = `${samplePercent}% (из профиля)`;
+  }
+  let piggy: number;
+  let piggyLabel: string;
+  if (service.piggyPayType === 'fixed') {
+    piggy = service.piggyPayValue ?? 0;
+    piggyLabel = 'фикс';
+  } else if (service.piggyPayType === 'percent') {
+    piggy = Math.round(net * (service.piggyPayValue ?? 0) / 100);
+    piggyLabel = `${service.piggyPayValue ?? 0}%`;
+  } else if (service.piggyPayType === 'none') {
+    piggy = 0;
+    piggyLabel = 'нет';
+  } else {
+    piggy = Math.round(net * 24 / 100);
+    piggyLabel = '24%';
+  }
+  const afterMasterPiggy = Math.max(0, net - master - piggy);
+  let owners: number;
+  let ownersLabel: string;
+  if (service.ownerSplitEnabled !== false && afterMasterPiggy > 0) {
+    if (service.ownerPayType === 'percent') {
+      owners = Math.round(afterMasterPiggy * (service.ownerPayValue ?? 0) / 100);
+      ownersLabel = `${service.ownerPayValue ?? 0}% остатка`;
+    } else {
+      owners = afterMasterPiggy;
+      ownersLabel = 'остаток';
+    }
+  } else {
+    owners = 0;
+    ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
+  }
+  return { materials, net, master, masterLabel, piggy, piggyLabel, owners, ownersLabel };
 }
 
 function ownerPaymentLabel(paymentType: 'cash' | 'transfer' | 'invoice', paymentSettled: boolean) {
@@ -681,6 +761,8 @@ export function OwnerApp() {
   const [settingsClientSearchMode, setSettingsClientSearchMode] = useState<OwnerClientSearchMode>('phone');
   const [settingsClientSearchQuery, setSettingsClientSearchQuery] = useState('');
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
+  const [showServiceSettings, setShowServiceSettings] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
@@ -1221,6 +1303,8 @@ export function OwnerApp() {
         masterPayValue: 0,
         piggyPayType: '',
         piggyPayValue: 0,
+        ownerPayType: '',
+        ownerPayValue: 0,
         ownerSplitEnabled: true,
       },
       ...current,
@@ -1313,15 +1397,20 @@ export function OwnerApp() {
       return;
     }
 
-    if (settingsSection === 'company') await saveOwnerCompany(company);
-    if (settingsSection === 'schedule') await saveSchedule(scheduleState);
-    if (settingsSection === 'boxes') await saveBoxes(boxes);
-    if (settingsSection === 'services') await saveServices(services);
-    if (settingsSection === 'employees') await saveWorkerSettings(employeeSettings);
-    if (settingsSection === 'notifications') await saveOwnerNotificationSettings(notifSettings);
-    if (settingsSection === 'integrations') await saveOwnerIntegrations(integrations);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2000);
+    try {
+      if (settingsSection === 'company') await saveOwnerCompany(company);
+      if (settingsSection === 'schedule') await saveSchedule(scheduleState);
+      if (settingsSection === 'boxes') await saveBoxes(boxes);
+      if (settingsSection === 'services') await saveServices(services);
+      if (settingsSection === 'employees') await saveWorkerSettings(employeeSettings);
+      if (settingsSection === 'notifications') await saveOwnerNotificationSettings(notifSettings);
+      if (settingsSection === 'integrations') await saveOwnerIntegrations(integrations);
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить настройки');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
   };
 
   const handleStartOwnerReset = async () => {
@@ -5794,16 +5883,31 @@ setOwnerNewBookingWorkers([]);
                 const q = servicesSearchQuery.trim().toLowerCase();
                 if (!q) return true;
                 return [s.name, s.category, s.desc].some((v) => v.toLowerCase().includes(q));
-              }).map(({ s: service, idx: i }) => (
+              }).map(({ s: service, idx: i }) => {
+                const summary = serviceMoneySummary(service);
+                return (
                 <div key={service.id} className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${primary}18` }}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${primary}18` }}>
                         <Sliders size={14} style={{ color: primary }} />
                       </div>
-                      <span className="font-medium">{service.name || `Услуга ${i + 1}`}</span>
+                      <div className="min-w-0">
+                        <div className="font-medium truncate text-sm">{service.name || `Услуга ${i + 1}`}</div>
+                        <div className={`text-xs ${sub} truncate`}>
+                          {service.category} · {service.price ? `${service.price.toLocaleString('ru')} ₽` : 'цена не указана'} · {service.duration} мин
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => { setEditingServiceId(service.id); setShowServiceSettings(true); }}
+                        title="Настроить услугу"
+                        className="p-2 rounded-xl"
+                        style={{ background: `${primary}14`, color: primary }}
+                      >
+                        <Settings size={15} />
+                      </button>
                       <button onClick={() => handleRemoveServiceDraft(service.id)} className={`p-2 rounded-xl ${glass} text-red-500`}>
                         <X size={14} />
                       </button>
@@ -5814,112 +5918,28 @@ setOwnerNewBookingWorkers([]);
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Название услуги</label>
-                      <input className={inputCls} value={service.name} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, name: e.target.value } : item))} />
-                    </div>
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
-                      <select
-                        className={selectCls}
-                        value={service.category}
-                        onChange={e => setServicesState(p => p.map((item, j) => j === i
-                          ? {
-                            ...item,
-                            category: e.target.value,
-                            resourceGroup: serviceResourceGroupForCategory(e.target.value),
-                          }
-                          : item))}
-                      >
-                        {SERVICE_TYPE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
-                      <input className={inputCls} type="number" value={numberInputValue(service.price)} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, price: numberFromInput(e.target.value) } : item))} />
-                    </div>
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
-                      <input className={inputCls} type="number" value={numberInputValue(service.duration)} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, duration: numberFromInput(e.target.value) } : item))} />
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
-                    <input className={inputCls} type="number" placeholder="0" value={numberInputValue(service.materialConsumption ?? 0)} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, materialConsumption: e.target.value ? numberFromInput(e.target.value) : null } : item))} />
-                  </div>
-                  <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 mt-2`}>
-                    <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(service.isFixedMaster)}
-                      onChange={(event) => setServicesState(p => p.map((item, j) => j === i ? { ...item, isFixedMaster: event.target.checked } : item))}
-                    />
-                  </label>
-                  <div className={`${glass} rounded-2xl p-3 mt-2 space-y-2`}>
-                    <div className="text-xs font-medium mb-1">Настройки расчёта</div>
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
-                      <select className={selectCls} value={service.masterPayType || ''}
-                        onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayType: e.target.value } : item))}>
-                        <option value="">% мастера (из профиля)</option>
-                        <option value="percent">% от цены услуги</option>
-                        <option value="fixed">Фиксированная сумма</option>
-                      </select>
-                    </div>
-                    {service.masterPayType === 'fixed' && (
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Сумма мастеру (₽)</label>
-                        <input className={inputCls} type="number" value={numberInputValue(service.masterPayValue ?? 0)}
-                          onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayValue: numberFromInput(e.target.value) } : item))} />
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/5'} rounded-xl px-3 py-2 text-xs space-y-0.5`}>
+                    {summary.map((line, li) => (
+                      <div key={li} className={`flex items-center gap-2 ${sub}`}>
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: [accent, '#EAB308', primary][li % 3] }} />
+                        {line}
                       </div>
-                    )}
-                    {service.masterPayType === 'percent' && (
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Процент мастеру (%)</label>
-                        <input className={inputCls} type="number" value={numberInputValue(service.masterPayValue ?? 0)}
-                          onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, masterPayValue: numberFromInput(e.target.value) } : item))} />
-                      </div>
-                    )}
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>В копилку</label>
-                      <select className={selectCls} value={service.piggyPayType || ''}
-                        onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, piggyPayType: e.target.value } : item))}>
-                        <option value="">Стандарт (24%)</option>
-                        <option value="fixed">Фиксированная сумма</option>
-                        <option value="percent">% от цены</option>
-                        <option value="none">Нет</option>
-                      </select>
-                    </div>
-                    {service.piggyPayType && service.piggyPayType !== 'none' && service.piggyPayType !== '' && (
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Значение ({service.piggyPayType === 'fixed' ? '₽' : '%'})</label>
-                        <input className={inputCls} type="number" value={numberInputValue(service.piggyPayValue ?? 0)}
-                          onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, piggyPayValue: numberFromInput(e.target.value) } : item))} />
-                      </div>
-                    )}
-                    <label className="flex items-center justify-between gap-3 text-sm">
-                      <span>Владельцы получают остаток (50/50)</span>
-                      <input
-                        type="checkbox"
-                        checked={service.ownerSplitEnabled !== false}
-                        onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, ownerSplitEnabled: e.target.checked } : item))}
-                      />
-                    </label>
-                  </div>
-                  <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>Описание</label>
-                    <input className={inputCls} value={service.desc} onChange={e => setServicesState(p => p.map((item, j) => j === i ? { ...item, desc: e.target.value } : item))} />
+                    ))}
+                    <button
+                      onClick={() => { setEditingServiceId(service.id); setShowServiceSettings(true); }}
+                      className="mt-1 text-xs font-medium flex items-center gap-1"
+                      style={{ color: primary }}
+                    >
+                      <Settings size={11} /> Тонкая настройка расчёта
+                    </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
+              <p className={`text-xs ${sub} text-center mt-2`}>Изменения применяются к новым завершённым записям</p>
             </motion.div>
           )}
 
@@ -8983,6 +9003,198 @@ setOwnerNewBookingWorkers([]);
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* ── MODAL: SERVICE SETTINGS ── */}
+      <AnimatePresence>
+        {showServiceSettings && editingServiceId && (() => {
+          const svcIndex = services.findIndex((s) => s.id === editingServiceId);
+          const svc = svcIndex >= 0 ? services[svcIndex] : null;
+          if (!svc) return null;
+          const patch = (partial: Partial<Service>) =>
+            setServicesState((p) => p.map((item, j) => (j === svcIndex ? { ...item, ...partial } : item)));
+          const samplePrice = svc.price > 0 ? svc.price : 1000;
+          const samplePercent = Number(workers.find((w) => w.active)?.defaultPercent ?? 50) || 50;
+          const preview = previewServiceSplit(svc, samplePrice, samplePercent);
+          const total = Math.max(1, preview.materials + preview.master + preview.piggy + preview.owners);
+          const distributed = Math.min(samplePrice, preview.materials + preview.master + preview.piggy + preview.owners);
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50" onClick={() => setShowServiceSettings(false)}>
+              <motion.div
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+              >
+                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold">Настройка услуги</h3>
+                  <button onClick={() => setShowServiceSettings(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                </div>
+                <div className="space-y-4 mb-5">
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Основное</div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Название</label>
+                        <input className={inputCls} value={svc.name} onChange={e => patch({ name: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
+                        <select
+                          className={selectCls}
+                          value={svc.category}
+                          onChange={e => patch({ category: e.target.value, resourceGroup: serviceResourceGroupForCategory(e.target.value) })}
+                        >
+                          {SERVICE_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                          <input className={inputCls} type="number" value={numberInputValue(svc.price)} onChange={e => patch({ price: numberFromInput(e.target.value) })} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
+                          <input className={inputCls} type="number" value={numberInputValue(svc.duration)} onChange={e => patch({ duration: numberFromInput(e.target.value) })} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Описание</label>
+                        <input className={inputCls} value={svc.desc} onChange={e => patch({ desc: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Распределение денег</div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
+                        <input className={inputCls} type="number" placeholder="0" value={numberInputValue(svc.materialConsumption ?? 0)} onChange={e => patch({ materialConsumption: e.target.value ? numberFromInput(e.target.value) : null })} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
+                        <select className={selectCls} value={svc.masterPayType || ''} onChange={e => patch({ masterPayType: e.target.value })}>
+                          <option value="">% из профиля (как сейчас)</option>
+                          <option value="percent">% от цены (общая, делится между мастерами)</option>
+                          <option value="fixed">Фиксированная сумма (общая)</option>
+                        </select>
+                      </div>
+                      {svc.masterPayType === 'fixed' && (
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Сумма мастеру (₽)</label>
+                          <input className={inputCls} type="number" value={numberInputValue(svc.masterPayValue ?? 0)} onChange={e => patch({ masterPayValue: numberFromInput(e.target.value) })} />
+                        </div>
+                      )}
+                      {svc.masterPayType === 'percent' && (
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Процент мастеру (%)</label>
+                          <input className={inputCls} type="number" value={numberInputValue(svc.masterPayValue ?? 0)} onChange={e => patch({ masterPayValue: numberFromInput(e.target.value) })} />
+                        </div>
+                      )}
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>В копилку</label>
+                        <select className={selectCls} value={svc.piggyPayType || ''} onChange={e => patch({ piggyPayType: e.target.value })}>
+                          <option value="">Стандарт (24%)</option>
+                          <option value="percent">% от цены</option>
+                          <option value="fixed">Фиксированная сумма</option>
+                          <option value="none">Нет</option>
+                        </select>
+                      </div>
+                      {svc.piggyPayType && svc.piggyPayType !== 'none' && svc.piggyPayType !== '' && (
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Значение ({svc.piggyPayType === 'fixed' ? '₽' : '%'})</label>
+                          <input className={inputCls} type="number" value={numberInputValue(svc.piggyPayValue ?? 0)} onChange={e => patch({ piggyPayValue: numberFromInput(e.target.value) })} />
+                        </div>
+                      )}
+                      <div className={`${glass} rounded-2xl p-3 space-y-2`}>
+                        <label className="flex items-center justify-between gap-3 text-sm">
+                          <span>Владельцы получают остаток</span>
+                          <input
+                            type="checkbox"
+                            checked={svc.ownerSplitEnabled !== false}
+                            onChange={e => patch({ ownerSplitEnabled: e.target.checked })}
+                          />
+                        </label>
+                        {svc.ownerSplitEnabled !== false && (
+                          <div>
+                            <label className={`text-xs ${sub} block mb-1`}>Доля владельцев</label>
+                            <select className={selectCls} value={svc.ownerPayType || ''} onChange={e => patch({ ownerPayType: e.target.value })}>
+                              <option value="">Весь остаток (50/50)</option>
+                              <option value="percent">Процент от остатка</option>
+                            </select>
+                          </div>
+                        )}
+                        {svc.ownerSplitEnabled !== false && svc.ownerPayType === 'percent' && (
+                          <div>
+                            <label className={`text-xs ${sub} block mb-1`}>Процент владельцам (%)</label>
+                            <input className={inputCls} type="number" value={numberInputValue(svc.ownerPayValue ?? 0)} onChange={e => patch({ ownerPayValue: numberFromInput(e.target.value) })} />
+                          </div>
+                        )}
+                      </div>
+                      <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                        <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(svc.isFixedMaster)}
+                          onChange={(event) => patch({ isFixedMaster: event.target.checked })}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Предпросмотр при цене {samplePrice.toLocaleString('ru')} ₽</div>
+                    <div className={`${glass} rounded-2xl p-3 space-y-2`}>
+                      <div className="h-2.5 rounded-full overflow-hidden flex">
+                        {preview.materials > 0 && <div style={{ width: `${(preview.materials / total) * 100}%`, background: '#64748B' }} />}
+                        {preview.master > 0 && <div style={{ width: `${(preview.master / total) * 100}%`, background: accent }} />}
+                        {preview.piggy > 0 && <div style={{ width: `${(preview.piggy / total) * 100}%`, background: '#EAB308' }} />}
+                        {preview.owners > 0 && <div style={{ width: `${(preview.owners / total) * 100}%`, background: primary }} />}
+                      </div>
+                      <div className="text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span className={sub}>Цена</span>
+                          <span>{samplePrice.toLocaleString('ru')} ₽</span>
+                        </div>
+                        {preview.materials > 0 && (
+                          <div className="flex justify-between">
+                            <span className={sub}>Материалы</span>
+                            <span className="text-slate-400">− {preview.materials.toLocaleString('ru')} ₽</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className={sub}>Мастера ({preview.masterLabel})</span>
+                          <span style={{ color: accent }}>{preview.master.toLocaleString('ru')} ₽</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className={sub}>Копилка ({preview.piggyLabel})</span>
+                          <span style={{ color: '#EAB308' }}>{preview.piggy.toLocaleString('ru')} ₽</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className={sub}>Владельцы ({preview.ownersLabel})</span>
+                          <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
+                        </div>
+                        <div className="border-t pt-1 flex justify-between" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+                          <span className={sub}>Итого распределено</span>
+                          <span className="font-medium">{distributed.toLocaleString('ru')} ₽</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className={`text-xs ${sub} mt-2`}>
+                      Порядок: сначала материалы, потом мастера, копилка, остаток — владельцам. Если мастеров несколько, сумма мастера делится пропорционально их % из профиля.
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowServiceSettings(false)} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>
+                  Готово
+                </button>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* ── BOTTOM TOAST ── */}

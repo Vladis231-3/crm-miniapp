@@ -629,6 +629,8 @@ class ServicePayload(BaseModel):
     masterPayValue: int = 0
     piggyPayType: str = ""
     piggyPayValue: int = 0
+    ownerPayType: str = ""
+    ownerPayValue: int = 0
     ownerSplitEnabled: bool = True
 
 

@@ -412,6 +412,8 @@ export interface Service {
   masterPayValue?: number;
   piggyPayType?: string;
   piggyPayValue?: number;
+  ownerPayType?: string;
+  ownerPayValue?: number;
   ownerSplitEnabled?: boolean;
 }
 

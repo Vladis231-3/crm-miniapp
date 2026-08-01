@@ -81,3 +81,4 @@ def validate_telegram_init_data(
     if "user" in validated:
         validated["user"] = json.loads(validated["user"])
     return validated
+
