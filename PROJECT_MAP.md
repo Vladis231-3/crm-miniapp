@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-01 10:15 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-01 10:17 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **238**
-- Строк кода: **68 669**
+- Строк кода: **68 694**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 34, `.ts`: 19, `.tsx`: 181
 
 ## Архитектура
@@ -1644,7 +1644,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (9501 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (9526 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 125) — локальный
 - `STOCK_UNITS` (стр. 126) — локальный
@@ -2370,7 +2370,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-01 13:15)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-01 13:17)
 - `backend/app/main.py` (2026-08-01 13:14)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-01 13:14)
 - `backend/app/schemas.py` (2026-08-01 13:11)

@@ -9375,10 +9375,35 @@ setOwnerNewBookingWorkers([]);
                           <span className={sub}>Копилка ({preview.piggyLabel})</span>
                           <span style={{ color: '#EAB308' }}>{preview.piggy.toLocaleString('ru')} ₽</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className={sub}>Владельцы ({preview.ownersLabel})</span>
-                          <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
-                        </div>
+                        {preview.owners > 0 ? (
+                          <>
+                            {(() => {
+                              const ownerHalf = Math.round(preview.owners / 2);
+                              const ownerFirst = preview.owners - ownerHalf;
+                              return (
+                                <>
+                                  <div className="flex justify-between">
+                                    <span className={sub}>Максим</span>
+                                    <span style={{ color: primary }}>{ownerFirst.toLocaleString('ru')} ₽</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className={sub}>Юра</span>
+                                    <span style={{ color: primary }}>{ownerHalf.toLocaleString('ru')} ₽</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className={sub}>Владельцы ({preview.ownersLabel})</span>
+                                    <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </>
+                        ) : (
+                          <div className="flex justify-between">
+                            <span className={sub}>Владельцы ({preview.ownersLabel})</span>
+                            <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
+                          </div>
+                        )}
                         <div className="border-t pt-1 flex justify-between" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
                           <span className={sub}>Итого распределено</span>
                           <span className="font-medium">{distributed.toLocaleString('ru')} ₽</span>
