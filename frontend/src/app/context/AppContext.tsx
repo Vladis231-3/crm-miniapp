@@ -416,6 +416,8 @@ export interface Service {
   ownerPayValue?: number;
   ownerSplitEnabled?: boolean;
   materials?: Array<{ stockItemId: string; name: string; qty: number; unit: string }>;
+  splitOrder?: string[];
+  piggyTarget?: string;
 }
 
 export interface Box {

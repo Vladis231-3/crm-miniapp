@@ -633,6 +633,8 @@ class ServicePayload(BaseModel):
     ownerPayValue: int = 0
     ownerSplitEnabled: bool = True
     materials: list[dict] = Field(default_factory=list)
+    splitOrder: list[str] = Field(default_factory=list)
+    piggyTarget: str = ""
 
 
 class DetailingRequestCreateRequest(BaseModel):

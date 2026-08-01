@@ -2066,6 +2066,10 @@ def _apply_runtime_migrations() -> None:
 
             ("materials", "JSON", "'[]'"),
 
+            ("split_order", "JSON", "'[]'"),
+
+            ("piggy_target", "VARCHAR(16)", "''"),
+
         ]:
 
             if col not in svc_cols:
@@ -4110,6 +4114,8 @@ def _service_payload(service: Service) -> ServicePayload:
         ownerPayValue=service.owner_pay_value or 0,
         ownerSplitEnabled=service.owner_split_enabled if service.owner_split_enabled is not None else True,
         materials=service.materials or [],
+        splitOrder=service.split_order or [],
+        piggyTarget=service.piggy_target or "",
 
     )
 
@@ -10002,99 +10008,99 @@ def _booking_money_split(
 
     complaints_map = complaints_by_worker or {}
 
-    # 1. Мастера
-    master_by_worker: dict[str, int] = {}
-    weighted_workers: list[tuple[str, int]] = []
-    explicit_total = 0
-    has_service_master_mode = bool(master_pay_type)
+    def _compute_master(base: int) -> tuple[dict[str, int], int]:
+        """Доля мастеров: явные суммы (override/fixed) + сервисный режим/проценты профиля от base."""
+        master_by_worker: dict[str, int] = {}
+        weighted_workers: list[tuple[str, int]] = []
+        explicit_total = 0
+        has_service_master_mode = bool(master_pay_type)
 
-    for link in booking.worker_links:
-        if link.override_earned is not None:
-            amount = int(link.override_earned)
-            master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
-            explicit_total += amount
-        elif link.pay_type == "fixed":
-            amount = int(link.fixed_amount or 0)
-            master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
-            explicit_total += amount
-        elif has_service_master_mode:
-            weighted_workers.append((link.worker_id, max(0, int(link.percent or 0))))
-        else:
-            percent = adjusted_booking_percent(
-                link.percent,
-                complaints_map.get(link.worker_id, []),
-                date_value=booking.date,
-                time_value=booking.time,
-                fallback=booking.created_at,
-            )
-            if _is_fixed_master_service_db(db, booking.service_id, booking.service):
-                amount = FIXED_MASTER_EARNED
+        for link in booking.worker_links:
+            if link.override_earned is not None:
+                amount = int(link.override_earned)
+                master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
+                explicit_total += amount
+            elif link.pay_type == "fixed":
+                amount = int(link.fixed_amount or 0)
+                master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
+                explicit_total += amount
+            elif has_service_master_mode:
+                weighted_workers.append((link.worker_id, max(0, int(link.percent or 0))))
             else:
-                amount = round(net * percent / 100)
-            master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
-            explicit_total += amount
+                percent = adjusted_booking_percent(
+                    link.percent,
+                    complaints_map.get(link.worker_id, []),
+                    date_value=booking.date,
+                    time_value=booking.time,
+                    fallback=booking.created_at,
+                )
+                if _is_fixed_master_service_db(db, booking.service_id, booking.service):
+                    amount = FIXED_MASTER_EARNED
+                else:
+                    amount = round(base * percent / 100)
+                master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
+                explicit_total += amount
 
-    if has_service_master_mode and weighted_workers:
-        if master_pay_type == "fixed":
-            total_master_pay = master_pay_value
-        elif master_pay_type == "percent":
-            total_master_pay = round(net * master_pay_value / 100)
-        else:
-            total_master_pay = 0
-        if total_master_pay > 0:
-            weight_sum = sum(weight for _, weight in weighted_workers)
-            if weight_sum <= 0:
-                share = total_master_pay // len(weighted_workers)
-                remainder = total_master_pay - share * len(weighted_workers)
-                for index, (worker_id, _weight) in enumerate(weighted_workers):
-                    amount = share + (1 if index < remainder else 0)
-                    master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
-                    explicit_total += amount
+        if has_service_master_mode and weighted_workers:
+            if master_pay_type == "fixed":
+                total_master_pay = master_pay_value
+            elif master_pay_type == "percent":
+                total_master_pay = round(base * master_pay_value / 100)
             else:
-                allocated = 0
-                for index, (worker_id, weight) in enumerate(weighted_workers):
-                    if index == len(weighted_workers) - 1:
-                        amount = total_master_pay - allocated
-                    else:
-                        amount = round(total_master_pay * weight / weight_sum)
-                        allocated += amount
-                    master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
-                    explicit_total += amount
+                total_master_pay = 0
+            if total_master_pay > 0:
+                weight_sum = sum(weight for _, weight in weighted_workers)
+                if weight_sum <= 0:
+                    share = total_master_pay // len(weighted_workers)
+                    remainder = total_master_pay - share * len(weighted_workers)
+                    for index, (worker_id, _weight) in enumerate(weighted_workers):
+                        amount = share + (1 if index < remainder else 0)
+                        master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
+                        explicit_total += amount
+                else:
+                    allocated = 0
+                    for index, (worker_id, weight) in enumerate(weighted_workers):
+                        if index == len(weighted_workers) - 1:
+                            amount = total_master_pay - allocated
+                        else:
+                            amount = round(total_master_pay * weight / weight_sum)
+                            allocated += amount
+                        master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
+                        explicit_total += amount
 
-    master_total = explicit_total
+        master_total = explicit_total
 
-    # Дополнительные услуги (оплата работникам)
-    for asvc in (booking.additional_services or []):
-        for alink in asvc.worker_links:
-            if alink.pay_type == "fixed":
-                amount = int(alink.fixed_amount or 0)
-            else:
-                amount = round(asvc.price * (alink.percent or 0) / 100)
-            master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
-            master_total += amount
+        # Дополнительные услуги (оплата работникам)
+        for asvc in (booking.additional_services or []):
+            for alink in asvc.worker_links:
+                if alink.pay_type == "fixed":
+                    amount = int(alink.fixed_amount or 0)
+                else:
+                    amount = round(asvc.price * (alink.percent or 0) / 100)
+                master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
+                master_total += amount
 
-    # 2. Копилка
-    if piggy_pay_type == "fixed":
-        piggy_deposit = piggy_pay_value
-    elif piggy_pay_type == "percent":
-        piggy_deposit = round(net * piggy_pay_value / 100)
-    elif piggy_pay_type == "none":
-        piggy_deposit = 0
-    elif rg in ("detailing", "wash"):
-        piggy_deposit = round(net * 24 / 100)
-    else:
-        piggy_deposit = 0
+        return master_by_worker, master_total
 
-    # 3. Владельцы (остаток после мастера и копилки)
-    remaining = net - master_total - piggy_deposit
-    owners_total = 0
-    owner_by_owner: dict[str, int] = {}
-    if remaining > 0 and owner_split_enabled:
-        if owner_pay_type == "percent":
-            owners_total = round(remaining * owner_pay_value / 100)
-        else:
-            owners_total = remaining
-        owners_total = max(0, min(owners_total, remaining))
+    split_order = [s for s in (svc.split_order or []) if s in ("materials", "master", "piggy", "owners")] if svc else []
+    pipeline_mode = bool(split_order) and split_order != ["materials", "master", "piggy", "owners"]
+
+    def _compute_piggy(base: int) -> int:
+        if piggy_pay_type == "fixed":
+            return piggy_pay_value
+        if piggy_pay_type == "percent":
+            return round(base * piggy_pay_value / 100)
+        if piggy_pay_type == "none":
+            return 0
+        if rg in ("detailing", "wash"):
+            return round(base * 24 / 100)
+        return 0
+
+    def _allocate_owners(claimed: int, limit: int) -> tuple[int, dict[str, int]]:
+        owner_by_owner: dict[str, int] = {}
+        if claimed <= 0 or not owner_split_enabled:
+            return 0, owner_by_owner
+        owners_total = max(0, min(claimed, limit))
         if owners_total > 0:
             owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
             owners = db.scalars(
@@ -10108,6 +10114,42 @@ def _booking_money_split(
                 half = round(owners_total / 2)
                 owner_by_owner[owners_sorted[0].id] = owners_total - half
                 owner_by_owner[owners_sorted[1].id] = half
+        return owners_total, owner_by_owner
+
+    if pipeline_mode:
+        # Конвейер: каждый шаг забирает свою сумму из текущего остатка
+        pool = main_price
+        master_by_worker: dict[str, int] = {}
+        master_total = 0
+        piggy_deposit = 0
+        owners_total = 0
+        owner_by_owner: dict[str, int] = {}
+        for index, step in enumerate(split_order):
+            if step == "materials":
+                pool = max(0, pool - materials_cost)
+            elif step == "master":
+                master_by_worker, master_total = _compute_master(pool)
+                pool = max(0, pool - master_total)
+            elif step == "piggy":
+                piggy_deposit = max(0, min(_compute_piggy(pool), pool))
+                pool = max(0, pool - piggy_deposit)
+            elif step == "owners":
+                is_last = index == len(split_order) - 1
+                if owner_pay_type == "percent":
+                    claimed = round(pool * owner_pay_value / 100)
+                elif is_last:
+                    claimed = pool
+                else:
+                    claimed = round(pool * 50 / 100)
+                owners_total, owner_by_owner = _allocate_owners(claimed, pool)
+                pool = max(0, pool - owners_total)
+    else:
+        # Классический порядок: материалы → мастера → копилка → владельцы
+        master_by_worker, master_total = _compute_master(net)
+        piggy_deposit = _compute_piggy(net)
+        remaining = net - master_total - piggy_deposit
+        claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
+        owners_total, owner_by_owner = _allocate_owners(claimed, remaining)
 
     return {
         "resource_group": rg,
@@ -10121,7 +10163,7 @@ def _booking_money_split(
         "owner_by_owner": owner_by_owner,
         "master_pay_type": master_pay_type,
         "piggy_pay_type": piggy_pay_type,
-        "has_custom": bool(master_pay_type) or bool(piggy_pay_type),
+        "has_custom": bool(master_pay_type) or bool(piggy_pay_type) or pipeline_mode,
     }
 
 
@@ -10233,6 +10275,9 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
         svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
         piggy_percent_value = int(svc_for_piggy.piggy_pay_value or 0) if svc_for_piggy else 0
         piggy_fixed_value = piggy_percent_value
+        piggy_target = (svc_for_piggy.piggy_target or "").strip() if svc_for_piggy else ""
+        if piggy_target not in ("detailing", "wash", "general"):
+            piggy_target = ""
 
         if split["piggy_pay_type"] == "fixed":
 
@@ -10246,7 +10291,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
             purpose = f"24% от заказа {booking.service} ({booking.client_name})"
 
-        print(f"[PIGGY_DEBUG] ADDING deposit amount={deposit_amount} purpose={purpose!r}")
+        print(f"[PIGGY_DEBUG] ADDING deposit amount={deposit_amount} purpose={purpose!r} target={piggy_target or rg}")
 
         db.add(
 
@@ -10268,7 +10313,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
                 date=date_str,
 
-                resource_group=rg,
+                resource_group=piggy_target or rg,
 
                 created_at=_now(),
 
@@ -12887,7 +12932,13 @@ def get_piggy_bank(
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
-    combined_balance = remaining + net_piggy
+    # General piggy bank (deposits targeted to "general")
+    general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general")
+    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "general")
+    general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general")
+    general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals
+
+    combined_balance = remaining + net_piggy + general_net_piggy
 
     # Weekly archives
 
@@ -14245,6 +14296,8 @@ def save_services(
         service.owner_pay_value = item.ownerPayValue
         service.owner_split_enabled = item.ownerSplitEnabled
         service.materials = item.materials or []
+        service.split_order = item.splitOrder or []
+        service.piggy_target = item.piggyTarget or ""
 
     for service_id, service in existing.items():
 

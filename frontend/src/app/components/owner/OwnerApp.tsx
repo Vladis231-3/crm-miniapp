@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search, History
+Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown
  } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -318,21 +318,34 @@ type MoneyServiceDraft = {
   ownerPayType?: string; ownerPayValue?: number;
   ownerSplitEnabled?: boolean;
   materials?: Array<{ stockItemId: string; name: string; qty: number; unit: string }>;
+  splitOrder?: string[];
+  piggyTarget?: string;
 };
 
+const ORDER_STEPS = [
+  { id: 'materials', label: 'Материалы' },
+  { id: 'master', label: 'Мастера' },
+  { id: 'piggy', label: 'Копилка' },
+  { id: 'owners', label: 'Владельцы' },
+];
+
 function serviceMoneySummary(service: MoneyServiceDraft) {
+  const piggyTargetLabel = service.piggyTarget === 'wash' ? ' → мойка'
+    : service.piggyTarget === 'detailing' ? ' → детейлинг'
+      : service.piggyTarget === 'general' ? ' → общая'
+        : '';
   const master = service.masterPayType === 'fixed'
     ? `мастер: фикс ${service.masterPayValue ?? 0} ₽`
     : service.masterPayType === 'percent'
       ? `мастер: ${service.masterPayValue ?? 0}%`
       : 'мастер: % из профиля';
   const piggy = service.piggyPayType === 'fixed'
-    ? `копилка: ${service.piggyPayValue ?? 0} ₽`
+    ? `копилка: ${service.piggyPayValue ?? 0} ₽${piggyTargetLabel}`
     : service.piggyPayType === 'percent'
-      ? `копилка: ${service.piggyPayValue ?? 0}%`
+      ? `копилка: ${service.piggyPayValue ?? 0}%${piggyTargetLabel}`
       : service.piggyPayType === 'none'
         ? 'копилка: нет'
-        : 'копилка: 24%';
+        : `копилка: 24%${piggyTargetLabel}`;
   const owners = service.ownerSplitEnabled === false
     ? 'владельцы: нет'
     : service.ownerPayType === 'percent'
@@ -348,47 +361,78 @@ function previewServiceSplit(
 ) {
   const materials = Math.max(0, service.materialConsumption ?? 0);
   const net = Math.max(0, samplePrice - materials);
-  let master: number;
+  const order = (service.splitOrder ?? []).filter(s => ['materials', 'master', 'piggy', 'owners'].includes(s));
+  const pipeline = order.length > 0 && order.join(',') !== 'materials,master,piggy,owners';
+  const piggyType = service.piggyPayType || '';
+  let master = 0;
   let masterLabel: string;
-  if (service.masterPayType === 'fixed') {
-    master = service.masterPayValue ?? 0;
-    masterLabel = 'фикс';
-  } else if (service.masterPayType === 'percent') {
-    master = Math.round(net * (service.masterPayValue ?? 0) / 100);
-    masterLabel = `${service.masterPayValue ?? 0}%`;
-  } else {
-    master = Math.round(net * samplePercent / 100);
-    masterLabel = `${samplePercent}% (из профиля)`;
-  }
-  let piggy: number;
+  let piggy = 0;
   let piggyLabel: string;
-  if (service.piggyPayType === 'fixed') {
-    piggy = service.piggyPayValue ?? 0;
-    piggyLabel = 'фикс';
-  } else if (service.piggyPayType === 'percent') {
-    piggy = Math.round(net * (service.piggyPayValue ?? 0) / 100);
-    piggyLabel = `${service.piggyPayValue ?? 0}%`;
-  } else if (service.piggyPayType === 'none') {
-    piggy = 0;
-    piggyLabel = 'нет';
-  } else {
-    piggy = Math.round(net * 24 / 100);
-    piggyLabel = '24%';
-  }
-  const afterMasterPiggy = Math.max(0, net - master - piggy);
-  let owners: number;
+  let owners = 0;
   let ownersLabel: string;
-  if (service.ownerSplitEnabled !== false && afterMasterPiggy > 0) {
-    if (service.ownerPayType === 'percent') {
-      owners = Math.round(afterMasterPiggy * (service.ownerPayValue ?? 0) / 100);
-      ownersLabel = `${service.ownerPayValue ?? 0}% остатка`;
+  const computeMaster = (base: number) => {
+    if (service.masterPayType === 'fixed') {
+      return { total: service.masterPayValue ?? 0, label: 'фикс' };
+    }
+    if (service.masterPayType === 'percent') {
+      return { total: Math.round(base * (service.masterPayValue ?? 0) / 100), label: `${service.masterPayValue ?? 0}%` };
+    }
+    return { total: Math.round(base * samplePercent / 100), label: `${samplePercent}% (из профиля)` };
+  };
+  const computePiggy = (base: number) => {
+    if (piggyType === 'fixed') return { total: service.piggyPayValue ?? 0, label: 'фикс' };
+    if (piggyType === 'percent') return { total: Math.round(base * (service.piggyPayValue ?? 0) / 100), label: `${service.piggyPayValue ?? 0}%` };
+    if (piggyType === 'none') return { total: 0, label: 'нет' };
+    return { total: Math.round(base * 24 / 100), label: '24%' };
+  };
+  if (!pipeline) {
+    const m = computeMaster(net);
+    master = m.total; masterLabel = m.label;
+    const p = computePiggy(net);
+    piggy = p.total; piggyLabel = p.label;
+    const afterMasterPiggy = Math.max(0, net - master - piggy);
+    if (service.ownerSplitEnabled !== false && afterMasterPiggy > 0) {
+      if (service.ownerPayType === 'percent') {
+        owners = Math.round(afterMasterPiggy * (service.ownerPayValue ?? 0) / 100);
+        ownersLabel = `${service.ownerPayValue ?? 0}% остатка`;
+      } else {
+        owners = afterMasterPiggy;
+        ownersLabel = 'остаток';
+      }
     } else {
-      owners = afterMasterPiggy;
-      ownersLabel = 'остаток';
+      owners = 0;
+      ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
     }
   } else {
-    owners = 0;
-    ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
+    let pool = samplePrice;
+    order.forEach((step, index) => {
+      if (step === 'materials') {
+        pool = Math.max(0, pool - materials);
+      } else if (step === 'master') {
+        const m = computeMaster(pool);
+        master = m.total; masterLabel = m.label;
+        pool = Math.max(0, pool - master);
+      } else if (step === 'piggy') {
+        const p = computePiggy(pool);
+        piggy = Math.min(p.total, pool); piggyLabel = p.label;
+        pool = Math.max(0, pool - piggy);
+      } else if (step === 'owners') {
+        const isLast = index === order.length - 1;
+        const claimed = service.ownerPayType === 'percent'
+          ? Math.round(pool * (service.ownerPayValue ?? 0) / 100)
+          : isLast ? pool : Math.round(pool * 50 / 100);
+        if (service.ownerSplitEnabled !== false && claimed > 0) {
+          owners = Math.min(claimed, pool);
+          ownersLabel = service.ownerPayType === 'percent'
+            ? `${service.ownerPayValue ?? 0}% остатка`
+            : isLast ? 'остаток' : '50% остатка';
+        } else {
+          owners = 0;
+          ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
+        }
+        pool = Math.max(0, pool - owners);
+      }
+    });
   }
   return { materials, net, master, masterLabel, piggy, piggyLabel, owners, ownersLabel };
 }
@@ -1310,6 +1354,8 @@ export function OwnerApp() {
         ownerPayValue: 0,
         ownerSplitEnabled: true,
         materials: [],
+        splitOrder: [],
+        piggyTarget: '',
       },
       ...current,
     ]);
@@ -9026,6 +9072,10 @@ setOwnerNewBookingWorkers([]);
             setServicesState((p) => p.map((item, j) => (j === svcIndex ? { ...item, ...partial } : item)));
           const samplePrice = svc.price > 0 ? svc.price : 1000;
           const samplePercent = Number(workers.find((w) => w.active)?.defaultPercent ?? 50) || 50;
+          const effectiveOrder = (() => {
+            const filtered = (svc.splitOrder ?? []).filter(s => ORDER_STEPS.some(o => o.id === s));
+            return filtered.length === ORDER_STEPS.length ? filtered : ORDER_STEPS.map(o => o.id);
+          })();
           const svcMaterialsCost = (svc.materials ?? []).reduce((sum, m) => {
             const stockItem = stockItems.find(s => s.id === m.stockItemId);
             return sum + (stockItem ? Number(m.qty || 0) * stockItem.unitPrice : 0);
@@ -9228,6 +9278,15 @@ setOwnerNewBookingWorkers([]);
                           <input className={inputCls} type="number" value={numberInputValue(svc.piggyPayValue ?? 0)} onChange={e => patch({ piggyPayValue: numberFromInput(e.target.value) })} />
                         </div>
                       )}
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Куда падает депозит</label>
+                        <select className={selectCls} value={svc.piggyTarget || ''} onChange={e => patch({ piggyTarget: e.target.value })}>
+                          <option value="">Авто (по типу услуги)</option>
+                          <option value="wash">Мойка</option>
+                          <option value="detailing">Детейлинг</option>
+                          <option value="general">Общая</option>
+                        </select>
+                      </div>
                       <div className={`${glass} rounded-2xl p-3 space-y-2`}>
                         <label className="flex items-center justify-between gap-3 text-sm">
                           <span>Владельцы получают остаток</span>
@@ -9262,6 +9321,30 @@ setOwnerNewBookingWorkers([]);
                         />
                       </label>
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Порядок расчёта</div>
+                    <div className={`${glass} rounded-2xl p-3 space-y-1`}>
+                      {effectiveOrder.map((stepId, si) => {
+                        const step = ORDER_STEPS.find(s => s.id === stepId)!;
+                        const move = (dir: -1 | 1) => {
+                          const list = [...effectiveOrder];
+                          const to = si + dir;
+                          if (to < 0 || to >= list.length) return;
+                          [list[si], list[to]] = [list[to], list[si]];
+                          patch({ splitOrder: list });
+                        };
+                        return (
+                          <div key={step.id} className="flex items-center gap-2">
+                            <button onClick={() => move(-1)} disabled={si === 0} className={`p-1 rounded-lg disabled:opacity-30 ${glass}`}><ChevronUp size={14} /></button>
+                            <button onClick={() => move(1)} disabled={si === effectiveOrder.length - 1} className={`p-1 rounded-lg disabled:opacity-30 ${glass}`}><ChevronDown size={14} /></button>
+                            <span className="flex-1 text-sm">{step.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className={`text-xs ${sub} mt-1.5`}>% и 24% считаются от текущего остатка в этом порядке. Владельцы забирают весь остаток, если стоят последними (иначе 50%).</p>
                   </div>
 
                   <div>

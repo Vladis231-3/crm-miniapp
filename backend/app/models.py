@@ -118,6 +118,8 @@ class Service(Base):
     owner_pay_value: Mapped[int] = mapped_column(Integer, default=0)
     owner_split_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     materials: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    split_order: Mapped[list[str]] = mapped_column(JSON, default=list)
+    piggy_target: Mapped[str] = mapped_column(String(16), default="")
 
 
 class Box(Base):
