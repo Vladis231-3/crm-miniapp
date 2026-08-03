@@ -750,6 +750,7 @@ export function OwnerApp() {
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [showServiceSettings, setShowServiceSettings] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceEditSearchQuery, setServiceEditSearchQuery] = useState('');
   const [showServiceMaterialPicker, setShowServiceMaterialPicker] = useState(false);
   const [serviceMaterialPickerCategory, setServiceMaterialPickerCategory] = useState<string | null>(null);
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
@@ -9404,6 +9405,44 @@ setOwnerNewBookingWorkers([]);
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold">Настройка услуги</h3>
                   <button onClick={() => setShowServiceSettings(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                </div>
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                    <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={serviceEditSearchQuery} onChange={e => { setServiceEditSearchQuery(e.target.value); setShowServiceMaterialPicker(false); }} />
+                  </div>
+                  {(() => {
+                    const q = serviceEditSearchQuery.trim().toLowerCase();
+                    const matches = q
+                      ? services.filter(s => [s.name, s.category, s.desc].some(v => v.toLowerCase().includes(q)))
+                      : [];
+                    if (!q) return null;
+                    return (
+                      <div className={`${isDark ? 'bg-[#0E1624] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
+                        {matches.length === 0 ? (
+                          <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>
+                        ) : (
+                          matches.map((m) => {
+                            const active = m.id === editingServiceId;
+                            return (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => { setEditingServiceId(m.id); setServiceEditSearchQuery(''); }}
+                                className={`w-full text-left px-4 py-3 text-sm transition-colors ${active ? 'font-medium' : 'hover:bg-black/5'}`}
+                                style={{ color: active ? primary : undefined }}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate">{m.name}</span>
+                                  <span className={`text-xs ${sub} shrink-0`}>{m.category}</span>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-4 mb-5">
                   {showServiceMaterialPicker ? (

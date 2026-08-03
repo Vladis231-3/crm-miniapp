@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-03 10:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-03 17:53 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **240**
-- Строк кода: **70 449**
+- Строк кода: **70 488**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 35, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -1670,7 +1670,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (9814 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (9853 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 125) — локальный
 - `STOCK_UNITS` (стр. 126) — локальный
@@ -1770,108 +1770,108 @@ concept1.0/
 - `__sunRpt` (стр. 623) — локальный
 - `parentCategories` (стр. 644) — локальный
 - `today` (стр. 742) — локальный
-- `adminShiftPhotoUrlsRef` (стр. 767) — локальный
-- `clearOwnerResetFlow` (стр. 854) — локальный
-- `nextBoxes` (стр. 877) — локальный
-- `params` (стр. 911) — локальный
-- `handlePayOwnerSalary` (стр. 932) — локальный
-- `amount` (стр. 933) — локальный
-- `res` (стр. 937) — локальный
-- `updated` (стр. 946) — локальный
-- `loadPiggyBank` (стр. 954) — локальный
-- `params` (стр. 958) — локальный
-- `qs` (стр. 961) — локальный
-- `data` (стр. 963) — локальный
-- `loadWallet` (стр. 971) — локальный
-- `data` (стр. 974) — локальный
-- `handlePiggyWithdraw` (стр. 980) — локальный
-- `f` (стр. 981) — локальный
-- `syncCountdown` (стр. 1047) — локальный
-- `diffMs` (стр. 1048) — локальный
-- `intervalId` (стр. 1053) — локальный
-- `ownerNotifications` (стр. 1078) — локальный
-- `unreadCount` (стр. 1079) — локальный
-- `completedBookings` (стр. 1080) — локальный
-- `todayBookings` (стр. 1081) — локальный
-- `latestShiftChecklists` (стр. 1082) — локальный
-- `latestAdminShiftInspections` (стр. 1083) — локальный
-- `latestAdminShiftInspectionKey` (стр. 1084) — локальный
-- `activeIds` (стр. 1100) — локальный
-- `currentPhotoUrls` (стр. 1113) — локальный
-- `missing` (стр. 1114) — локальный
-- `next` (стр. 1126) — локальный
-- `vv` (стр. 1148) — локальный
-- `handler` (стр. 1150) — локальный
-- `el` (стр. 1151) — локальный
-- `bookingFormBoxes` (стр. 1163) — локальный
-- `bookingFormLocationLabel` (стр. 1164) — локальный
-- `editBookingLocationLabel` (стр. 1165) — локальный
-- `todayRevenue` (стр. 1166) — локальный
-- `now` (стр. 1169) — локальный
-- `dayOfWeek` (стр. 1170) — локальный
-- `diffToSaturday` (стр. 1171) — локальный
-- `weekSaturday` (стр. 1172) — локальный
-- `weekFriday` (стр. 1175) — локальный
-- `isDateInWeek` (стр. 1178) — локальный
-- `d` (стр. 1179) — локальный
-- `weeklyCompletedBookings` (стр. 1182) — локальный
-- `weeklyBookings` (стр. 1183) — локальный
-- `weeklyExpenses` (стр. 1184) — локальный
-- `weeklyIncomes` (стр. 1185) — локальный
-- `totalRevenue` (стр. 1186) — локальный
-- `totalExpenses` (стр. 1187) — локальный
-- `totalIncomes` (стр. 1188) — локальный
-- `profit` (стр. 1189) — локальный
-- `averageCheck` (стр. 1190) — локальный
-- `activeBookings` (стр. 1191) — локальный
-- `pipelineCounts` (стр. 1192) — локальный
-- `totalStockValue` (стр. 1199) — локальный
-- `washRevenue` (стр. 1202) — локальный
-- `detailingRevenue` (стр. 1205) — локальный
-- `washExpenses` (стр. 1208) — локальный
-- `detailingExpenses` (стр. 1211) — локальный
-- `washIncomes` (стр. 1214) — локальный
-- `detailingIncomes` (стр. 1217) — локальный
-- `resourceGroupLabel` (стр. 1221) — локальный
-- `payrollRows` (стр. 1226) — локальный
-- `workerPenalties` (стр. 1227) — локальный
-- `complaintState` (стр. 1228) — локальный
-- `payrollTotal` (стр. 1236) — локальный
-- `formatComplaintDate` (стр. 1237) — локальный
-- `resetPreviewRows` (стр. 1238) — локальный
-- `resetExecuteLocked` (стр. 1252) — локальный
-- `glass` (стр. 1254) — локальный
-- `bg` (стр. 1255) — локальный
-- `text` (стр. 1256) — локальный
-- `sub` (стр. 1257) — локальный
-- `primary` (стр. 1258) — локальный
-- `accent` (стр. 1259) — локальный
-- `surface` (стр. 1260) — локальный
-- `inputCls` (стр. 1261) — локальный
-- `selectCls` (стр. 1262) — локальный
-- `tooltipStyle` (стр. 1263) — локальный
-- `createDraftId` (стр. 1264) — локальный
-- `handleAddBoxDraft` (стр. 1266) — локальный
-- `handleRemoveBoxDraft` (стр. 1280) — локальный
-- `handleAddServiceDraft` (стр. 1284) — локальный
-- `handleRemoveServiceDraft` (стр. 1313) — локальный
-- `handleHireWorker` (стр. 1317) — локальный
-- `name` (стр. 1318) — локальный
-- `login` (стр. 1319) — локальный
-- `password` (стр. 1320) — локальный
-- `employeeLabel` (стр. 1321) — локальный
-- `handleSaveSettings` (стр. 1364) — локальный
-- `wantsPasswordChange` (стр. 1366) — локальный
-- `handleStartOwnerReset` (стр. 1415) — локальный
-- `response` (стр. 1425) — локальный
-- `handleApproveOwnerReset` (стр. 1444) — локальный
-- `response` (стр. 1462) — локальный
-- `handleExecuteOwnerReset` (стр. 1477) — локальный
-- `response` (стр. 1486) — локальный
-- `handleAddExpense` (стр. 1497) — локальный
-- `dateValid` (стр. 1499) — локальный
-- `title` (стр. 1501) — локальный
-- `amount` (стр. 1502) — локальный
+- `adminShiftPhotoUrlsRef` (стр. 768) — локальный
+- `clearOwnerResetFlow` (стр. 855) — локальный
+- `nextBoxes` (стр. 878) — локальный
+- `params` (стр. 912) — локальный
+- `handlePayOwnerSalary` (стр. 933) — локальный
+- `amount` (стр. 934) — локальный
+- `res` (стр. 938) — локальный
+- `updated` (стр. 947) — локальный
+- `loadPiggyBank` (стр. 955) — локальный
+- `params` (стр. 959) — локальный
+- `qs` (стр. 962) — локальный
+- `data` (стр. 964) — локальный
+- `loadWallet` (стр. 972) — локальный
+- `data` (стр. 975) — локальный
+- `handlePiggyWithdraw` (стр. 981) — локальный
+- `f` (стр. 982) — локальный
+- `syncCountdown` (стр. 1048) — локальный
+- `diffMs` (стр. 1049) — локальный
+- `intervalId` (стр. 1054) — локальный
+- `ownerNotifications` (стр. 1079) — локальный
+- `unreadCount` (стр. 1080) — локальный
+- `completedBookings` (стр. 1081) — локальный
+- `todayBookings` (стр. 1082) — локальный
+- `latestShiftChecklists` (стр. 1083) — локальный
+- `latestAdminShiftInspections` (стр. 1084) — локальный
+- `latestAdminShiftInspectionKey` (стр. 1085) — локальный
+- `activeIds` (стр. 1101) — локальный
+- `currentPhotoUrls` (стр. 1114) — локальный
+- `missing` (стр. 1115) — локальный
+- `next` (стр. 1127) — локальный
+- `vv` (стр. 1149) — локальный
+- `handler` (стр. 1151) — локальный
+- `el` (стр. 1152) — локальный
+- `bookingFormBoxes` (стр. 1164) — локальный
+- `bookingFormLocationLabel` (стр. 1165) — локальный
+- `editBookingLocationLabel` (стр. 1166) — локальный
+- `todayRevenue` (стр. 1167) — локальный
+- `now` (стр. 1170) — локальный
+- `dayOfWeek` (стр. 1171) — локальный
+- `diffToSaturday` (стр. 1172) — локальный
+- `weekSaturday` (стр. 1173) — локальный
+- `weekFriday` (стр. 1176) — локальный
+- `isDateInWeek` (стр. 1179) — локальный
+- `d` (стр. 1180) — локальный
+- `weeklyCompletedBookings` (стр. 1183) — локальный
+- `weeklyBookings` (стр. 1184) — локальный
+- `weeklyExpenses` (стр. 1185) — локальный
+- `weeklyIncomes` (стр. 1186) — локальный
+- `totalRevenue` (стр. 1187) — локальный
+- `totalExpenses` (стр. 1188) — локальный
+- `totalIncomes` (стр. 1189) — локальный
+- `profit` (стр. 1190) — локальный
+- `averageCheck` (стр. 1191) — локальный
+- `activeBookings` (стр. 1192) — локальный
+- `pipelineCounts` (стр. 1193) — локальный
+- `totalStockValue` (стр. 1200) — локальный
+- `washRevenue` (стр. 1203) — локальный
+- `detailingRevenue` (стр. 1206) — локальный
+- `washExpenses` (стр. 1209) — локальный
+- `detailingExpenses` (стр. 1212) — локальный
+- `washIncomes` (стр. 1215) — локальный
+- `detailingIncomes` (стр. 1218) — локальный
+- `resourceGroupLabel` (стр. 1222) — локальный
+- `payrollRows` (стр. 1227) — локальный
+- `workerPenalties` (стр. 1228) — локальный
+- `complaintState` (стр. 1229) — локальный
+- `payrollTotal` (стр. 1237) — локальный
+- `formatComplaintDate` (стр. 1238) — локальный
+- `resetPreviewRows` (стр. 1239) — локальный
+- `resetExecuteLocked` (стр. 1253) — локальный
+- `glass` (стр. 1255) — локальный
+- `bg` (стр. 1256) — локальный
+- `text` (стр. 1257) — локальный
+- `sub` (стр. 1258) — локальный
+- `primary` (стр. 1259) — локальный
+- `accent` (стр. 1260) — локальный
+- `surface` (стр. 1261) — локальный
+- `inputCls` (стр. 1262) — локальный
+- `selectCls` (стр. 1263) — локальный
+- `tooltipStyle` (стр. 1264) — локальный
+- `createDraftId` (стр. 1265) — локальный
+- `handleAddBoxDraft` (стр. 1267) — локальный
+- `handleRemoveBoxDraft` (стр. 1281) — локальный
+- `handleAddServiceDraft` (стр. 1285) — локальный
+- `handleRemoveServiceDraft` (стр. 1314) — локальный
+- `handleHireWorker` (стр. 1318) — локальный
+- `name` (стр. 1319) — локальный
+- `login` (стр. 1320) — локальный
+- `password` (стр. 1321) — локальный
+- `employeeLabel` (стр. 1322) — локальный
+- `handleSaveSettings` (стр. 1365) — локальный
+- `wantsPasswordChange` (стр. 1367) — локальный
+- `handleStartOwnerReset` (стр. 1416) — локальный
+- `response` (стр. 1426) — локальный
+- `handleApproveOwnerReset` (стр. 1445) — локальный
+- `response` (стр. 1463) — локальный
+- `handleExecuteOwnerReset` (стр. 1478) — локальный
+- `response` (стр. 1487) — локальный
+- `handleAddExpense` (стр. 1498) — локальный
+- `dateValid` (стр. 1500) — локальный
+- `title` (стр. 1502) — локальный
+- `amount` (стр. 1503) — локальный
 
 ### frontend/src/app/components/shared/AttendanceTable.tsx (199 строк)
 
@@ -2463,8 +2463,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 20:53)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-03 13:47)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 13:46)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-03 13:36)
 - `backend/app/main.py` (2026-08-03 13:36)
 - `backend/app/schemas.py` (2026-08-03 13:36)
