@@ -1103,7 +1103,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       clientName: booking.clientName || '',
       clientPhone: booking.clientPhone || '',
       serviceId: booking.serviceId || '',
-      price: booking.price,
+      price: Math.max(0, booking.price - (booking.additionalServices || []).reduce((s, as) => s + as.price, 0) - (booking.services || []).reduce((s, svc) => s + svc.price, 0)),
       duration: booking.duration,
     });
     setEditBookingError(null);
@@ -1148,7 +1148,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         clientName: editBookingDraft.clientName.trim() || undefined,
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
         serviceId: editBookingDraft.serviceId || undefined,
-        price: editBookingDraft.price || 0,
+        price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
       });
       setSelectedBooking((current) => (current ? {
         ...current,
@@ -1164,7 +1164,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         clientPhone: editBookingDraft.clientPhone.trim(),
         serviceId: editBookingDraft.serviceId,
         service: liveServices.find(s => s.id === editBookingDraft.serviceId)?.name || current.service,
-        price: editBookingDraft.price,
+        price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         duration: editBookingDraft.duration,
       } : null));
       setShowEditModal(false);
@@ -3598,6 +3598,22 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <option value="">Выберите услугу</option>
                     {liveServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Стоимость (₽)</label>
+                    <input className={inputCls} type="number" min={0} value={editBookingDraft.price === 0 ? '' : String(editBookingDraft.price)} onChange={e => {
+                      const v = Number(e.target.value);
+                      setEditBookingDraft((current) => ({ ...current, price: isNaN(v) ? 0 : Math.max(0, v) }));
+                    }} />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
+                    <input className={inputCls} type="number" min={1} value={editBookingDraft.duration === 30 ? '' : String(editBookingDraft.duration)} onChange={e => {
+                      const v = Number(e.target.value);
+                      setEditBookingDraft((current) => ({ ...current, duration: isNaN(v) || v < 1 ? 30 : Math.round(v) }));
+                    }} />
+                  </div>
                 </div>
                 {(editBookingDraft.status !== 'admin_review' || !isDetailingService(editBookingDraft.serviceId || selectedBooking.serviceId, services)) && (
                   <>

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-03 10:36 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-03 10:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **240**
-- Строк кода: **70 423**
+- Строк кода: **70 449**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 35, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -1267,7 +1267,7 @@ concept1.0/
 - `App` (стр. 709)
 - `path` (стр. 710) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (4406 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (4422 строк)
 
 - `SERVICE_TYPE_OPTIONS` (стр. 65) — локальный
 - `adminServiceResourceGroupForCategory` (стр. 71) — локальный
@@ -1670,7 +1670,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (9804 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (9814 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 125) — локальный
 - `STOCK_UNITS` (стр. 126) — локальный
@@ -2463,9 +2463,9 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-03 13:47)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 13:46)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-03 13:36)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 13:36)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-03 13:36)
 - `backend/app/main.py` (2026-08-03 13:36)
 - `backend/app/schemas.py` (2026-08-03 13:36)
 - `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-03 12:03)

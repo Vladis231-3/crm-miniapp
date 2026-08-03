@@ -2440,7 +2440,7 @@ setOwnerNewBookingWorkers([]);
           paymentType: ownerBookingEditFull.paymentType,
           paymentSettled: ownerBookingEditFull.paymentSettled,
           serviceId: ownerBookingEditFull.serviceId || undefined,
-          price: ownerBookingEditFull.price || 0,
+          price: Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         };
       } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus, ...(ownerBookingEditStatus === 'completed' ? { paymentSettled: true } : {}) };
@@ -2470,7 +2470,7 @@ setOwnerNewBookingWorkers([]);
         ...prev,
         ...patch,
         service: patch.serviceId ? (services.find(s => s.id === patch.serviceId)?.name || prev.service) : prev.service,
-        price: patch.serviceId ? (ownerBookingEditFull.price || prev.price) : prev.price,
+        price: patch.serviceId ? Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)) : prev.price,
         duration: patch.serviceId ? (ownerBookingEditFull.duration || prev.duration) : prev.duration,
       } as typeof prev : null);
       setOwnerBookingEditMode(null);
@@ -8091,7 +8091,7 @@ setOwnerNewBookingWorkers([]);
                               paymentType: selectedBooking.paymentType || 'cash',
                               paymentSettled: selectedBooking.paymentSettled ?? false,
                               serviceId: selectedBooking.serviceId || '',
-                              price: selectedBooking.price,
+                              price: Math.max(0, selectedBooking.price - (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) - (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
                               duration: selectedBooking.duration,
                             });
                           }
@@ -8284,6 +8284,16 @@ setOwnerNewBookingWorkers([]);
                             setOwnerBookingEditError(null);
                           }}
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Стоимость (₽)</label>
+                          <input className={inputCls} type="number" min={0} value={numberInputValue(ownerBookingEditFull.price)} onChange={e => setOwnerBookingEditFull(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
+                          <input className={inputCls} type="number" min={1} value={numberInputValue(ownerBookingEditFull.duration)} onChange={e => setOwnerBookingEditFull(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
