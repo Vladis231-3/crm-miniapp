@@ -456,6 +456,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     ? (selectedClient.vehicles?.length ? selectedClient.vehicles : [{ car: selectedClient.car, plate: selectedClient.plate }])
       .filter((vehicle) => vehicle.car || vehicle.plate)
     : [];
+  const newBookingClientVehicles = newBookingForm.clientId
+    ? (() => {
+      const client = registeredClients.find((c) => c.id === newBookingForm.clientId);
+      if (!client) return [];
+      return (client.vehicles?.length ? client.vehicles : [{ car: client.car, plate: client.plate, plateType: client.plateType }])
+        .filter((vehicle) => vehicle.car || vehicle.plate);
+    })()
+    : [];
   const selectedClientSpent = selectedClientBookings
     .filter((booking) => booking.status === 'completed')
     .reduce((sum, booking) => sum + booking.price, 0);
@@ -981,13 +989,17 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     resetNewBookingDraft();
     const historyDate = new Date();
     historyDate.setDate(historyDate.getDate() - 1);
+    const clientVehicles = (client.vehicles?.length ? client.vehicles : [{ car: client.car, plate: client.plate, plateType: client.plateType }])
+      .filter((vehicle) => vehicle.car || vehicle.plate);
+    const mainVehicle = clientVehicles.find((vehicle) => (vehicle as any).isMain) ?? clientVehicles[0];
     setNewBookingForm((current) => ({
       ...current,
       clientId: client.id,
       clientName: client.name,
       clientPhone: client.phone,
-      car: client.car || '',
-      plate: client.plate || '',
+      car: mainVehicle?.car || client.car || '',
+      plate: mainVehicle?.plate || client.plate || '',
+      plateType: ((mainVehicle?.plateType || client.plateType) as PlateType) || 'russian',
       status,
       date: status === 'completed' ? formatDate(historyDate) : current.date,
       time: status === 'completed' ? '10:00' : current.time,
@@ -3765,6 +3777,27 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     {(f.key === 'plate' && newBookingErrors.plate) && <div className="mt-1 text-xs text-red-500">{newBookingErrors.plate}</div>}
                   </div>
                 ))}
+                {newBookingClientVehicles.length > 0 && (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Авто клиента</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {newBookingClientVehicles.map((vehicle, index) => {
+                        const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(newBookingForm.car)
+                          && normalizePlateInput(vehicle.plate || '', vehicle.plateType) === normalizePlateInput(newBookingForm.plate, newBookingForm.plateType);
+                        return (
+                          <button key={index} type="button" onClick={() => {
+                            setNewBookingForm(p => ({ ...p, car: vehicle.car || '', plate: vehicle.plate || '', plateType: (vehicle.plateType as PlateType) || 'russian' }));
+                            setNewBookingErrors((current) => ({ ...current, car: undefined, plate: undefined, general: undefined }));
+                          }}
+                            className={`text-xs px-2.5 py-1.5 rounded-xl border transition hover:opacity-80 ${isActive ? 'text-white font-medium' : `${sub}`}`}
+                            style={isActive ? { background: primary, borderColor: primary } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }}>
+                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' · ') || 'Авто'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <ServiceSearchSelect
@@ -4149,17 +4182,26 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   const matches = q ? registeredClients.filter(c => c.name.toLowerCase().includes(q)) : [];
                   return matches.length > 0 ? matches.map(client => (
                     <button key={client.id} type="button" onClick={() => {
-                      setNewBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: client.car, plate: client.plate, plateType: (client.plateType as PlateType) || 'russian' }));
+                      const clientVehicles = (client.vehicles?.length ? client.vehicles : [{ car: client.car, plate: client.plate, plateType: client.plateType }])
+                        .filter((vehicle) => vehicle.car || vehicle.plate);
+                      const mainVehicle = clientVehicles.find((vehicle) => (vehicle as any).isMain) ?? clientVehicles[0];
+                      setNewBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: mainVehicle?.car || client.car || '', plate: mainVehicle?.plate || client.plate || '', plateType: ((mainVehicle?.plateType || client.plateType) as PlateType) || 'russian' }));
                       setShowClientSearch(false);
                     }}
                       className={`w-full text-left ${glass} rounded-2xl p-4 transition hover:opacity-80`}>
                       <div className="font-medium text-sm">{client.name}</div>
                       <div className={`text-xs ${sub} mt-0.5`}>{client.phone}</div>
-                      {(client.car || client.plate) && (
-                        <div className={`text-xs ${sub} mt-0.5`}>
-                          {[client.car, client.plate].filter(Boolean).join(' • ')}
-                        </div>
-                      )}
+                      {(() => {
+                        const clientVehicles = (client.vehicles?.length ? client.vehicles : [{ car: client.car, plate: client.plate, plateType: client.plateType }])
+                          .filter((vehicle) => vehicle.car || vehicle.plate);
+                        return clientVehicles.length > 0 ? (
+                          <div className={`text-xs ${sub} mt-0.5`}>
+                            {clientVehicles.map((vehicle, vehicleIndex) => (
+                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' • ') || 'Авто'}</div>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </button>
                   )) : (
                     <div className={`text-sm ${sub} text-center py-8`}>

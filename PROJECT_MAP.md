@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-03 09:03 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-03 09:24 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **240**
-- Строк кода: **69 900**
+- Строк кода: **70 006**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 35, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -1265,7 +1265,7 @@ concept1.0/
 - `App` (стр. 709)
 - `path` (стр. 710) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (4204 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (4246 строк)
 
 - `SERVICE_TYPE_OPTIONS` (стр. 65) — локальный
 - `adminServiceResourceGroupForCategory` (стр. 71) — локальный
@@ -1333,140 +1333,140 @@ concept1.0/
 - `selectedClientFilteredBookings` (стр. 449) — локальный
 - `svc` (стр. 451) — локальный
 - `selectedClientVehicles` (стр. 455) — локальный
-- `selectedClientSpent` (стр. 459) — локальный
-- `selectedClientCompletedCount` (стр. 462) — локальный
-- `selectedClientUpcoming` (стр. 463) — локальный
-- `selectedClientLastVisit` (стр. 464) — локальный
-- `shiftSupplies` (стр. 465) — локальный
-- `uploadedShiftPhotos` (стр. 470) — локальный
-- `selectedService` (стр. 483) — локальный
-- `defaultBoxForService` (стр. 501) — локальный
-- `settingsBoxes` (стр. 513) — локальный
-- `bookingFormBoxes` (стр. 514) — локальный
-- `editBookingBoxes` (стр. 515) — локальный
-- `newBookingLocationLabel` (стр. 518) — локальный
-- `editBookingLocationLabel` (стр. 519) — локальный
-- `modalMaxHeight` (стр. 571) — локальный
-- `vv` (стр. 575) — локальный
-- `handler` (стр. 577) — локальный
-- `el` (стр. 578) — локальный
-- `staffRoleTitle` (стр. 591) — локальный
-- `staffNotificationsRole` (стр. 592) — локальный
-- `adminNotifications` (стр. 593) — локальный
-- `unreadCount` (стр. 598) — локальный
-- `todayBookings` (стр. 599) — локальный
-- `completedAll` (стр. 600) — локальный
-- `totalRevenue` (стр. 601) — локальный
-- `glass` (стр. 603) — локальный
-- `bg` (стр. 604) — локальный
-- `text` (стр. 605) — локальный
-- `sub` (стр. 606) — локальный
-- `primary` (стр. 607) — локальный
-- `accent` (стр. 608) — локальный
-- `surface` (стр. 609) — локальный
-- `inputCls` (стр. 610) — локальный
-- `selectCls` (стр. 611) — локальный
-- `timeToMinutes` (стр. 612) — локальный
-- `match` (стр. 613) — локальный
-- `hours` (стр. 615) — локальный
-- `minutes` (стр. 616) — локальный
-- `byService` (стр. 622) — локальный
-- `byStatus` (стр. 628) — локальный
-- `byPayment` (стр. 639) — локальный
-- `workerStats` (стр. 646) — локальный
-- `bw` (стр. 650) — локальный
-- `avgCheck` (стр. 657) — локальный
-- `conversionRate` (стр. 658) — локальный
-- `scheduleSummary` (стр. 659) — локальный
-- `revenueData` (стр. 660) — локальный
-- `formatted` (стр. 661) — локальный
-- `hourData` (стр. 667) — локальный
-- `handleStatusChange` (стр. 671) — локальный
-- `handleDeleteClient` (стр. 676) — локальный
-- `confirmed` (стр. 677) — локальный
-- `handleCreateClient` (стр. 682) — локальный
-- `nameError` (стр. 684) — локальный
-- `phoneError` (стр. 688) — локальный
-- `carError` (стр. 692) — локальный
-- `plateError` (стр. 696) — локальный
-- `created` (стр. 704) — локальный
-- `handleSaveClientCard` (стр. 726) — локальный
-- `draft` (стр. 727) — локальный
-- `handleShiftPhotoChange` (стр. 741) — локальный
-- `file` (стр. 742) — локальный
-- `dataUrl` (стр. 746) — локальный
-- `handleSubmitShiftInspection` (стр. 758) — локальный
-- `primaryPhoto` (стр. 762) — локальный
-- `uploadedCategoriesLabel` (стр. 769) — локальный
-- `composedNote` (стр. 770) — локальный
-- `saved` (стр. 774) — локальный
-- `validateClientName` (стр. 791) — локальный
-- `validateClientPhone` (стр. 795) — локальный
-- `validateBookingDate` (стр. 799) — локальный
-- `parsedDate` (стр. 801) — локальный
-- `scheduleDay` (стр. 806) — локальный
-- `normalizedTime` (стр. 811) — локальный
-- `slotStart` (стр. 812) — локальный
-- `openMinutes` (стр. 821) — локальный
-- `closeMinutes` (стр. 822) — локальный
-- `slotEnd` (стр. 823) — локальный
-- `validateBookingDateForEdit` (стр. 833) — локальный
-- `parsedDate` (стр. 835) — локальный
-- `scheduleDay` (стр. 840) — локальный
-- `normalizedTime` (стр. 845) — локальный
-- `slotStart` (стр. 846) — локальный
-- `openMinutes` (стр. 852) — локальный
-- `closeMinutes` (стр. 853) — локальный
-- `slotEnd` (стр. 854) — локальный
-- `validateBookingDateTimeFormat` (стр. 864) — локальный
-- `parsedDate` (стр. 866) — локальный
-- `validateNewBookingForm` (стр. 879) — локальный
-- `selectedService` (стр. 881) — локальный
-- `nameError` (стр. 883) — локальный
-- `phoneError` (стр. 887) — локальный
-- `carError` (стр. 891) — локальный
-- `plateError` (стр. 895) — локальный
-- `hasDate` (стр. 898) — локальный
-- `hasTime` (стр. 899) — локальный
-- `requiresScheduledSlot` (стр. 900) — локальный
-- `validation` (стр. 910) — локальный
-- `validation` (стр. 926) — локальный
-- `resetNewBookingDraft` (стр. 938) — локальный
-- `openNewBookingModal` (стр. 966) — локальный
-- `openAdditionalServiceModal` (стр. 971) — локальный
-- `openNewBookingForClient` (стр. 980) — локальный
-- `historyDate` (стр. 982) — локальный
-- `closeNewBookingModal` (стр. 998) — локальный
-- `handleAddService` (стр. 1003) — локальный
-- `svc` (стр. 1012) — локальный
-- `workersList` (стр. 1013) — локальный
-- `worker` (стр. 1014) — локальный
-- `updatedBooking` (стр. 1017) — локальный
-- `handleRemoveService` (стр. 1034) — локальный
-- `closeAddServiceModal` (стр. 1038) — локальный
-- `openEditModal` (стр. 1044) — локальный
-- `handleSaveEditedBooking` (стр. 1066) — локальный
-- `editServiceId` (стр. 1068) — локальный
-- `detailingBooking` (стр. 1069) — локальный
-- `requiresScheduledSlot` (стр. 1070) — локальный
-- `dateChanged` (стр. 1072) — локальный
-- `timeChanged` (стр. 1073) — локальный
-- `validationErrors` (стр. 1075) — локальный
-- `handleDeleteBooking` (стр. 1129) — локальный
-- `name` (стр. 1131) — локальный
-- `handleAssignWorkers` (стр. 1138) — локальный
-- `updatedWorkers` (стр. 1140) — локальный
-- `w` (стр. 1141) — локальный
-- `handleSaveNewBooking` (стр. 1149) — локальный
-- `effectiveStatus` (стр. 1152) — локальный
-- `svc` (стр. 1159) — локальный
-- `normalizedClientName` (стр. 1160) — локальный
-- `normalizedCar` (стр. 1161) — локальный
-- `normalizedPlate` (стр. 1162) — локальный
-- `hasDateTime` (стр. 1163) — локальный
-- `parsedDate` (стр. 1164) — локальный
-- `clientLabel` (стр. 1169) — локальный
-- `carLabel` (стр. 1170) — локальный
+- `newBookingClientVehicles` (стр. 459) — локальный
+- `client` (стр. 461) — локальный
+- `selectedClientSpent` (стр. 467) — локальный
+- `selectedClientCompletedCount` (стр. 470) — локальный
+- `selectedClientUpcoming` (стр. 471) — локальный
+- `selectedClientLastVisit` (стр. 472) — локальный
+- `shiftSupplies` (стр. 473) — локальный
+- `uploadedShiftPhotos` (стр. 478) — локальный
+- `selectedService` (стр. 491) — локальный
+- `defaultBoxForService` (стр. 509) — локальный
+- `settingsBoxes` (стр. 521) — локальный
+- `bookingFormBoxes` (стр. 522) — локальный
+- `editBookingBoxes` (стр. 523) — локальный
+- `newBookingLocationLabel` (стр. 526) — локальный
+- `editBookingLocationLabel` (стр. 527) — локальный
+- `modalMaxHeight` (стр. 579) — локальный
+- `vv` (стр. 583) — локальный
+- `handler` (стр. 585) — локальный
+- `el` (стр. 586) — локальный
+- `staffRoleTitle` (стр. 599) — локальный
+- `staffNotificationsRole` (стр. 600) — локальный
+- `adminNotifications` (стр. 601) — локальный
+- `unreadCount` (стр. 606) — локальный
+- `todayBookings` (стр. 607) — локальный
+- `completedAll` (стр. 608) — локальный
+- `totalRevenue` (стр. 609) — локальный
+- `glass` (стр. 611) — локальный
+- `bg` (стр. 612) — локальный
+- `text` (стр. 613) — локальный
+- `sub` (стр. 614) — локальный
+- `primary` (стр. 615) — локальный
+- `accent` (стр. 616) — локальный
+- `surface` (стр. 617) — локальный
+- `inputCls` (стр. 618) — локальный
+- `selectCls` (стр. 619) — локальный
+- `timeToMinutes` (стр. 620) — локальный
+- `match` (стр. 621) — локальный
+- `hours` (стр. 623) — локальный
+- `minutes` (стр. 624) — локальный
+- `byService` (стр. 630) — локальный
+- `byStatus` (стр. 636) — локальный
+- `byPayment` (стр. 647) — локальный
+- `workerStats` (стр. 654) — локальный
+- `bw` (стр. 658) — локальный
+- `avgCheck` (стр. 665) — локальный
+- `conversionRate` (стр. 666) — локальный
+- `scheduleSummary` (стр. 667) — локальный
+- `revenueData` (стр. 668) — локальный
+- `formatted` (стр. 669) — локальный
+- `hourData` (стр. 675) — локальный
+- `handleStatusChange` (стр. 679) — локальный
+- `handleDeleteClient` (стр. 684) — локальный
+- `confirmed` (стр. 685) — локальный
+- `handleCreateClient` (стр. 690) — локальный
+- `nameError` (стр. 692) — локальный
+- `phoneError` (стр. 696) — локальный
+- `carError` (стр. 700) — локальный
+- `plateError` (стр. 704) — локальный
+- `created` (стр. 712) — локальный
+- `handleSaveClientCard` (стр. 734) — локальный
+- `draft` (стр. 735) — локальный
+- `handleShiftPhotoChange` (стр. 749) — локальный
+- `file` (стр. 750) — локальный
+- `dataUrl` (стр. 754) — локальный
+- `handleSubmitShiftInspection` (стр. 766) — локальный
+- `primaryPhoto` (стр. 770) — локальный
+- `uploadedCategoriesLabel` (стр. 777) — локальный
+- `composedNote` (стр. 778) — локальный
+- `saved` (стр. 782) — локальный
+- `validateClientName` (стр. 799) — локальный
+- `validateClientPhone` (стр. 803) — локальный
+- `validateBookingDate` (стр. 807) — локальный
+- `parsedDate` (стр. 809) — локальный
+- `scheduleDay` (стр. 814) — локальный
+- `normalizedTime` (стр. 819) — локальный
+- `slotStart` (стр. 820) — локальный
+- `openMinutes` (стр. 829) — локальный
+- `closeMinutes` (стр. 830) — локальный
+- `slotEnd` (стр. 831) — локальный
+- `validateBookingDateForEdit` (стр. 841) — локальный
+- `parsedDate` (стр. 843) — локальный
+- `scheduleDay` (стр. 848) — локальный
+- `normalizedTime` (стр. 853) — локальный
+- `slotStart` (стр. 854) — локальный
+- `openMinutes` (стр. 860) — локальный
+- `closeMinutes` (стр. 861) — локальный
+- `slotEnd` (стр. 862) — локальный
+- `validateBookingDateTimeFormat` (стр. 872) — локальный
+- `parsedDate` (стр. 874) — локальный
+- `validateNewBookingForm` (стр. 887) — локальный
+- `selectedService` (стр. 889) — локальный
+- `nameError` (стр. 891) — локальный
+- `phoneError` (стр. 895) — локальный
+- `carError` (стр. 899) — локальный
+- `plateError` (стр. 903) — локальный
+- `hasDate` (стр. 906) — локальный
+- `hasTime` (стр. 907) — локальный
+- `requiresScheduledSlot` (стр. 908) — локальный
+- `validation` (стр. 918) — локальный
+- `validation` (стр. 934) — локальный
+- `resetNewBookingDraft` (стр. 946) — локальный
+- `openNewBookingModal` (стр. 974) — локальный
+- `openAdditionalServiceModal` (стр. 979) — локальный
+- `openNewBookingForClient` (стр. 988) — локальный
+- `historyDate` (стр. 990) — локальный
+- `clientVehicles` (стр. 992) — локальный
+- `mainVehicle` (стр. 994) — локальный
+- `closeNewBookingModal` (стр. 1010) — локальный
+- `handleAddService` (стр. 1015) — локальный
+- `svc` (стр. 1024) — локальный
+- `workersList` (стр. 1025) — локальный
+- `worker` (стр. 1026) — локальный
+- `updatedBooking` (стр. 1029) — локальный
+- `handleRemoveService` (стр. 1046) — локальный
+- `closeAddServiceModal` (стр. 1050) — локальный
+- `openEditModal` (стр. 1056) — локальный
+- `handleSaveEditedBooking` (стр. 1078) — локальный
+- `editServiceId` (стр. 1080) — локальный
+- `detailingBooking` (стр. 1081) — локальный
+- `requiresScheduledSlot` (стр. 1082) — локальный
+- `dateChanged` (стр. 1084) — локальный
+- `timeChanged` (стр. 1085) — локальный
+- `validationErrors` (стр. 1087) — локальный
+- `handleDeleteBooking` (стр. 1141) — локальный
+- `name` (стр. 1143) — локальный
+- `handleAssignWorkers` (стр. 1150) — локальный
+- `updatedWorkers` (стр. 1152) — локальный
+- `w` (стр. 1153) — локальный
+- `handleSaveNewBooking` (стр. 1161) — локальный
+- `effectiveStatus` (стр. 1164) — локальный
+- `svc` (стр. 1171) — локальный
+- `normalizedClientName` (стр. 1172) — локальный
+- `normalizedCar` (стр. 1173) — локальный
+- `normalizedPlate` (стр. 1174) — локальный
 
 ### frontend/src/app/components/admin/ContentEditor.tsx (418 строк)
 
@@ -1668,7 +1668,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (9574 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (9638 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 125) — локальный
 - `STOCK_UNITS` (стр. 126) — локальный
@@ -2459,9 +2459,9 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-03 12:24)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 12:22)
 - `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-03 12:03)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-03 11:47)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 11:46)
 - `scripts/.project-map-watch.lock` (2026-08-03 10:27)
 - `backend/tests/test_worker_calendar.py` (2026-08-01 22:48)
 - `backend/app/main.py` (2026-08-01 22:38)

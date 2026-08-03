@@ -2108,6 +2108,19 @@ export function OwnerApp() {
     setShowCreateBooking(true);
   };
 
+  const ownerClientVehicles = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return [];
+    const source = draftVehicles[client.id] ?? (client.vehicles?.length ? client.vehicles : [{ car: client.car, plate: client.plate, plateType: client.plateType }]);
+    return source.filter((vehicle) => vehicle.car || vehicle.plate);
+  };
+  const ownerClientMainVehicle = (clientId: string) => {
+    const vehicles = ownerClientVehicles(clientId);
+    return vehicles.find((vehicle) => vehicle.isMain) ?? vehicles[0];
+  };
+  const ownerNewBookingClientVehicles = ownerClientVehicles(ownerNewBookingForm.clientId);
+  const bookingFormClientVehicles = ownerClientVehicles(bookingForm.clientId);
+
   const handleCreateClient = async () => {
     const nextErrors: { name?: string; phone?: string; car?: string; plate?: string; general?: string } = {};
     const nameError = validatePersonName(createClientForm.name);
@@ -7642,6 +7655,24 @@ setOwnerNewBookingWorkers([]);
               <div className="space-y-3 mb-4 pb-32">
                 <div><label className={`text-xs ${sub} block mb-1`}>Клиент</label><div className="flex gap-1.5 items-center"><input className={`${inputCls} flex-1`} placeholder="Иван Иванов" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /><button type="button" onClick={() => setShowClientSearch(true)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ background: `${primary}20`, color: primary }}>?</button></div></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Телефон (необязательно)</label><input className={inputCls} type="tel" placeholder="+7 (___) ___-__-__" value={bookingForm.clientPhone} onChange={e => setBookingForm(p => ({ ...p, clientPhone: e.target.value }))} /></div>
+                {bookingFormClientVehicles.length > 0 && (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Авто клиента</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {bookingFormClientVehicles.map((vehicle, index) => {
+                        const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(bookingForm.car)
+                          && normalizePlateInput(vehicle.plate || '', vehicle.plateType) === normalizePlateInput(bookingForm.plate, bookingForm.plateType);
+                        return (
+                          <button key={index} type="button" onClick={() => setBookingForm(p => ({ ...p, car: vehicle.car || '', plate: vehicle.plate || '', plateType: (vehicle.plateType as PlateType) || 'russian' }))}
+                            className={`text-xs px-2.5 py-1.5 rounded-xl border transition hover:opacity-80 ${isActive ? 'text-white font-medium' : `${sub}`}`}
+                            style={isActive ? { background: primary, borderColor: primary } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }}>
+                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' · ') || 'Авто'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className={`text-xs ${sub} block mb-1`}>Автомобиль</label><input className={inputCls} placeholder="Lada Vesta" value={bookingForm.car} onChange={e => setBookingForm(p => ({ ...p, car: e.target.value }))} /></div>
                   <div>
@@ -7840,17 +7871,23 @@ setOwnerNewBookingWorkers([]);
                   const matches = q ? clients.filter(c => c.name.toLowerCase().includes(q)) : [];
                   return matches.length > 0 ? matches.map(client => (
                     <button key={client.id} type="button" onClick={() => {
-                      setBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: client.car, plate: client.plate, plateType: (client.plateType as PlateType) || 'russian' }));
+                      const mainVehicle = ownerClientMainVehicle(client.id);
+                      setBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: mainVehicle?.car || client.car || '', plate: mainVehicle?.plate || client.plate || '', plateType: ((mainVehicle?.plateType || client.plateType) as PlateType) || 'russian' }));
                       setShowClientSearch(false);
                     }}
                       className={`w-full text-left ${glass} rounded-2xl p-4 transition hover:opacity-80`}>
                       <div className="font-medium text-sm">{client.name}</div>
                       <div className={`text-xs ${sub} mt-0.5`}>{client.phone}</div>
-                      {(client.car || client.plate) && (
-                        <div className={`text-xs ${sub} mt-0.5`}>
-                          {[client.car, client.plate].filter(Boolean).join(' • ')}
-                        </div>
-                      )}
+                      {(() => {
+                        const clientVehicles = ownerClientVehicles(client.id);
+                        return clientVehicles.length > 0 ? (
+                          <div className={`text-xs ${sub} mt-0.5`}>
+                            {clientVehicles.map((vehicle, vehicleIndex) => (
+                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' • ') || 'Авто'}</div>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </button>
                   )) : (
                     <div className={`text-sm ${sub} text-center py-8`}>
@@ -8521,6 +8558,27 @@ setOwnerNewBookingWorkers([]);
                     {(f.key === 'plate' && ownerNewBookingErrors.plate) && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.plate}</div>}
                   </div>
                 ))}
+                {ownerNewBookingClientVehicles.length > 0 && (
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Авто клиента</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ownerNewBookingClientVehicles.map((vehicle, index) => {
+                        const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(ownerNewBookingForm.car)
+                          && normalizePlateInput(vehicle.plate || '', vehicle.plateType) === normalizePlateInput(ownerNewBookingForm.plate, ownerNewBookingForm.plateType);
+                        return (
+                          <button key={index} type="button" onClick={() => {
+                            setOwnerNewBookingForm(p => ({ ...p, car: vehicle.car || '', plate: vehicle.plate || '', plateType: (vehicle.plateType as PlateType) || 'russian' }));
+                            setOwnerNewBookingErrors((current) => ({ ...current, car: undefined, plate: undefined, general: undefined }));
+                          }}
+                            className={`text-xs px-2.5 py-1.5 rounded-xl border transition hover:opacity-80 ${isActive ? 'text-white font-medium' : `${sub}`}`}
+                            style={isActive ? { background: primary, borderColor: primary } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }}>
+                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' · ') || 'Авто'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <ServiceSearchSelect
@@ -8918,17 +8976,23 @@ setOwnerNewBookingWorkers([]);
                   const matches = q ? clients.filter(c => c.name.toLowerCase().includes(q)) : [];
                   return matches.length > 0 ? matches.map(client => (
                     <button key={client.id} type="button" onClick={() => {
-                      setOwnerNewBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: client.car, plate: client.plate, plateType: (client.plateType as PlateType) || 'russian' }));
+                      const mainVehicle = ownerClientMainVehicle(client.id);
+                      setOwnerNewBookingForm(p => ({ ...p, clientId: client.id, clientName: client.name, clientPhone: client.phone, car: mainVehicle?.car || client.car || '', plate: mainVehicle?.plate || client.plate || '', plateType: ((mainVehicle?.plateType || client.plateType) as PlateType) || 'russian' }));
                       setShowOwnerClientSearch(false);
                     }}
                       className={`w-full text-left ${glass} rounded-2xl p-4 transition hover:opacity-80`}>
                       <div className="font-medium text-sm">{client.name}</div>
                       <div className={`text-xs ${sub} mt-0.5`}>{client.phone}</div>
-                      {(client.car || client.plate) && (
-                        <div className={`text-xs ${sub} mt-0.5`}>
-                          {[client.car, client.plate].filter(Boolean).join(' • ')}
-                        </div>
-                      )}
+                      {(() => {
+                        const clientVehicles = ownerClientVehicles(client.id);
+                        return clientVehicles.length > 0 ? (
+                          <div className={`text-xs ${sub} mt-0.5`}>
+                            {clientVehicles.map((vehicle, vehicleIndex) => (
+                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' • ') || 'Авто'}</div>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </button>
                   )) : (
                     <div className={`text-sm ${sub} text-center py-8`}>
