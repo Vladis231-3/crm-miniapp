@@ -397,6 +397,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clientSearchMode, setClientSearchMode] = useState<ClientSearchMode>('phone');
   const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [clientHistoryServiceFilter, setClientHistoryServiceFilter] = useState<string>('');
   const [payrollSettings, setPayrollSettings] = useState<EmployeeSetting[]>([]);
   const [shiftInspections, setShiftInspections] = useState<AdminShiftInspection[]>([]);
   const [shiftDraft, setShiftDraft] = useState({
@@ -445,6 +446,12 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         return right.time.localeCompare(left.time);
       })
     : [];
+  const selectedClientFilteredBookings = selectedClientBookings.filter((booking) => {
+    if (!clientHistoryServiceFilter) return true;
+    const svc = services.find((s) => s.id === clientHistoryServiceFilter);
+    if (!svc) return true;
+    return booking.serviceId === svc.id || booking.service === svc.name;
+  });
   const selectedClientVehicles = selectedClient
     ? (selectedClient.vehicles?.length ? selectedClient.vehicles : [{ car: selectedClient.car, plate: selectedClient.plate }])
       .filter((vehicle) => vehicle.car || vehicle.plate)
@@ -1536,7 +1543,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   )}
                   {selectedClient && (
                     <button
-                      onClick={() => setSelectedClientId(null)}
+                      onClick={() => { setSelectedClientId(null); setClientHistoryServiceFilter(''); }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
                       <ArrowLeft size={14} />
@@ -1596,13 +1603,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <div
                     key={client.id}
                     className={`${glass} rounded-2xl p-4 mb-3 cursor-pointer transition-transform hover:-translate-y-0.5`}
-                    onClick={() => setSelectedClientId(client.id)}
+                    onClick={() => { setSelectedClientId(client.id); setClientHistoryServiceFilter(''); }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
                         setSelectedClientId(client.id);
+                        setClientHistoryServiceFilter('');
                       }
                     }}
                   >
@@ -1834,11 +1842,32 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="font-semibold mb-3">История услуг</div>
-                    {selectedClientBookings.length === 0 ? (
-                      <div className={`text-sm ${sub}`}>У клиента пока нет записей</div>
+                    {selectedClientBookings.length > 0 && (
+                      <div className="mb-3">
+                        <ServiceSearchSelect
+                          value={clientHistoryServiceFilter}
+                          services={services}
+                          selectCls={selectCls}
+                          inputCls={inputCls}
+                          glass={glass}
+                          text={text}
+                          sub={sub}
+                          primary={primary}
+                          isDark={isDark}
+                          placeholder="Поиск по услугам"
+                          onChange={setClientHistoryServiceFilter}
+                        />
+                      </div>
+                    )}
+                    {selectedClientFilteredBookings.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>
+                        {selectedClientBookings.length === 0
+                          ? 'У клиента пока нет записей'
+                          : 'По выбранной услуге записей нет'}
+                      </div>
                     ) : (
                       <div className="space-y-3">
-                        {selectedClientBookings.map((booking) => (
+                        {selectedClientFilteredBookings.map((booking) => (
                           <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
                             <div className="flex items-start justify-between gap-3 mb-2">
                               <div className="min-w-0">

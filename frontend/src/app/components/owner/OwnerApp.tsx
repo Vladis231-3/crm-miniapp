@@ -754,6 +754,7 @@ export function OwnerApp() {
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
+  const [clientHistoryServiceFilter, setClientHistoryServiceFilter] = useState<string>('');
   const [newVehicleCar, setNewVehicleCar] = useState('');
   const [newVehiclePlate, setNewVehiclePlate] = useState('');
   const [draftVehicles, setDraftVehicles] = useState<Record<string, Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }>>>({});
@@ -2671,6 +2672,12 @@ setOwnerNewBookingWorkers([]);
         return right.time.localeCompare(left.time);
       })
     : [];
+  const selectedSettingsClientFilteredBookings = selectedSettingsClientBookings.filter((booking) => {
+    if (!clientHistoryServiceFilter) return true;
+    const svc = services.find((s) => s.id === clientHistoryServiceFilter);
+    if (!svc) return true;
+    return booking.serviceId === svc.id || booking.service === svc.name;
+  });
   const selectedSettingsClientVehicles = selectedSettingsClient
     ? (draftVehicles[selectedSettingsClient.id] ?? (selectedSettingsClient.vehicles?.length
       ? selectedSettingsClient.vehicles
@@ -5247,7 +5254,7 @@ setOwnerNewBookingWorkers([]);
                   )}
                   {selectedSettingsClient && (
                     <button
-                      onClick={() => { setSettingsClientId(null); setNewVehicleCar(''); setNewVehiclePlate(''); }}
+                      onClick={() => { setSettingsClientId(null); setNewVehicleCar(''); setNewVehiclePlate(''); setClientHistoryServiceFilter(''); }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
                       <ArrowLeft size={14} />
@@ -5308,13 +5315,14 @@ setOwnerNewBookingWorkers([]);
                   <div
                     key={client.id}
                     className={`${glass} rounded-2xl p-4 mb-3 cursor-pointer transition-transform hover:-translate-y-0.5`}
-                    onClick={() => setSettingsClientId(client.id)}
+                    onClick={() => { setSettingsClientId(client.id); setClientHistoryServiceFilter(''); }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
                         setSettingsClientId(client.id);
+                        setClientHistoryServiceFilter('');
                       }
                     }}
                   >
@@ -5793,11 +5801,32 @@ setOwnerNewBookingWorkers([]);
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="font-semibold mb-3">История услуг</div>
-                    {selectedSettingsClientBookings.length === 0 ? (
-                      <div className={`text-sm ${sub}`}>У клиента пока нет записей</div>
+                    {selectedSettingsClientBookings.length > 0 && (
+                      <div className="mb-3">
+                        <ServiceSearchSelect
+                          value={clientHistoryServiceFilter}
+                          services={services}
+                          selectCls={selectCls}
+                          inputCls={inputCls}
+                          glass={glass}
+                          text={text}
+                          sub={sub}
+                          primary={primary}
+                          isDark={isDark}
+                          placeholder="Поиск по услугам"
+                          onChange={setClientHistoryServiceFilter}
+                        />
+                      </div>
+                    )}
+                    {selectedSettingsClientFilteredBookings.length === 0 ? (
+                      <div className={`text-sm ${sub}`}>
+                        {selectedSettingsClientBookings.length === 0
+                          ? 'У клиента пока нет записей'
+                          : 'По выбранной услуге записей нет'}
+                      </div>
                     ) : (
                       <div className="space-y-3">
-                        {selectedSettingsClientBookings.map((booking) => (
+                        {selectedSettingsClientFilteredBookings.map((booking) => (
                           <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
                             <div className="flex items-start justify-between gap-3 mb-2">
                               <div className="min-w-0">

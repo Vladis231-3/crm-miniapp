@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import delete as sa_delete, inspect, or_, select, func
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 import time as time_module
 
@@ -13815,7 +13815,7 @@ def get_worker_calendar_bookings(
 
         select(Booking)
 
-        .options(joinedload(Booking.worker_links))
+        .options(selectinload(Booking.worker_links))
 
         .where(
 
