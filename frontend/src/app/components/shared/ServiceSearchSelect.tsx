@@ -8,7 +8,6 @@ interface ServiceSearchSelectProps {
   services: Service[];
   selectCls?: string;
   inputCls?: string;
-  glass?: string;
   text?: string;
   sub?: string;
   primary?: string;
@@ -22,7 +21,6 @@ export function ServiceSearchSelect({
   services,
   selectCls = '',
   inputCls = '',
-  glass = '',
   text = '',
   sub = '',
   primary = '',
@@ -95,7 +93,7 @@ export function ServiceSearchSelect({
 
       {isOpen && (
         <div
-          className={`absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-2xl ${glass} ${isDark ? 'border border-white/10' : 'border border-black/5 shadow-sm'}`}
+          className={`absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'bg-[#0E1624] border border-white/10' : 'bg-white border border-black/5 shadow-sm'}`}
         >
           {filtered.length === 0 ? (
             <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>

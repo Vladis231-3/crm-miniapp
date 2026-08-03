@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-03 08:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-03 09:03 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **240**
-- Строк кода: **69 902**
+- Строк кода: **69 900**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 35, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -1878,18 +1878,18 @@ concept1.0/
 - `result` (стр. 52) — локальный
 - `result` (стр. 56) — локальный
 
-### frontend/src/app/components/shared/ServiceSearchSelect.tsx (130 строк)
+### frontend/src/app/components/shared/ServiceSearchSelect.tsx (128 строк)
 
-- `ServiceSearchSelect` (стр. 19)
-- `containerRef` (стр. 34) — локальный
-- `inputRef` (стр. 35) — локальный
-- `selectedService` (стр. 37) — локальный
-- `filtered` (стр. 39) — локальный
-- `handleClickOutside` (стр. 44) — локальный
-- `handleSelect` (стр. 53) — локальный
-- `handleInputChange` (стр. 59) — локальный
-- `handleInputFocus` (стр. 64) — локальный
-- `CheckIcon` (стр. 124) — локальный
+- `ServiceSearchSelect` (стр. 18)
+- `containerRef` (стр. 32) — локальный
+- `inputRef` (стр. 33) — локальный
+- `selectedService` (стр. 35) — локальный
+- `filtered` (стр. 37) — локальный
+- `handleClickOutside` (стр. 42) — локальный
+- `handleSelect` (стр. 51) — локальный
+- `handleInputChange` (стр. 57) — локальный
+- `handleInputFocus` (стр. 62) — локальный
+- `CheckIcon` (стр. 122) — локальный
 
 ### frontend/src/app/components/worker/WorkerApp.tsx (1560 строк)
 
@@ -2459,6 +2459,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-03 12:03)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-03 11:47)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-03 11:46)
 - `scripts/.project-map-watch.lock` (2026-08-03 10:27)
@@ -2473,4 +2474,3 @@ concept1.0/
 - `scripts/generate_project_map.py` (2026-08-01 12:50)
 - `.gitignore` (2026-08-01 12:49)
 - `scripts/start-project-map-watch.vbs` (2026-08-01 12:49)
-- `backend/app/security.py` (2026-08-01 12:45)
