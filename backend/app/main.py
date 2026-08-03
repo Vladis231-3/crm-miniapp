@@ -140,6 +140,8 @@ from .schemas import (
 
     AddAdditionalServiceRequest,
 
+    UpdateAdditionalServiceRequest,
+
     AdminNotificationSettings,
 
     AdminShiftInspectionPayload,
@@ -11432,7 +11434,66 @@ def remove_booking_additional_service(
     return _booking_payload_for_response(db, booking)
 
 
+@app.patch(
+    "/api/bookings/{booking_id}/additional-services/{additional_service_id}",
+    response_model=BookingPayload,
+)
 
+def update_booking_additional_service(
+    booking_id: str,
+    additional_service_id: str,
+    payload: UpdateAdditionalServiceRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingPayload:
+    if session_data["role"] not in {"admin", "owner", "accountant"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    booking = db.scalar(
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
+        .where(Booking.id == booking_id)
+    )
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
+        )
+
+    asvc = db.get(BookingAdditionalService, additional_service_id)
+    if asvc is None or asvc.booking_id != booking_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Additional service not found"
+        )
+
+    if payload.workers is not None:
+        asvc.worker_links.clear()
+        for w in payload.workers:
+            asvc.worker_links.append(
+                AdditionalServiceWorker(
+                    worker_id=w.workerId,
+                    worker_name=w.workerName,
+                    percent=clamp_worker_percent(w.percent),
+                    pay_type=w.payType or "percent",
+                    fixed_amount=w.fixedAmount,
+                )
+            )
+
+    if payload.name is not None:
+        asvc.name = payload.name
+    if payload.duration is not None:
+        booking.duration = max(0, (booking.duration or 0) - asvc.duration + payload.duration)
+        asvc.duration = payload.duration
+    if payload.price is not None:
+        booking.price = max(0, (booking.price or 0) - asvc.price + payload.price)
+        asvc.price = payload.price
+
+    db.commit()
+    db.refresh(booking)
+
+    return _booking_payload_for_response(db, booking)
 
 
 @app.post("/api/notifications", response_model=NotificationPayload)

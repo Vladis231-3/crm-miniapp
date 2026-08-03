@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
+import { useApp, type AdditionalService, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
@@ -502,6 +502,7 @@ export function OwnerApp() {
     deleteBooking,
     addBookingService,
     addBookingAdditionalService,
+    updateBookingAdditionalService,
     removeBookingAdditionalService,
     addClient,
     deleteClient,
@@ -832,6 +833,13 @@ export function OwnerApp() {
   const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerAddServiceSaving, setOwnerAddServiceSaving] = useState(false);
   const [ownerAddServiceError, setOwnerAddServiceError] = useState<string | null>(null);
+
+  // Edit additional service state
+  const [ownerEditAsvcId, setOwnerEditAsvcId] = useState<string | null>(null);
+  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30 });
+  const [ownerEditAsvcWorkers, setOwnerEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+  const [ownerEditAsvcSaving, setOwnerEditAsvcSaving] = useState(false);
+  const [ownerEditAsvcError, setOwnerEditAsvcError] = useState<string | null>(null);
 
   // Edit expense state (tasks 5.1–5.3)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -2057,23 +2065,22 @@ export function OwnerApp() {
 
   const resetBookingForm = () => {
     setBookingWorkers([]);
+    const firstSvc = services[0];
     setBookingForm({
       clientId: '',
       clientName: '',
       clientPhone: '',
       car: '',
       plate: '',
-      service: services[0]?.id || 's1',
+      service: firstSvc?.id || 's1',
       date: todayLabel,
       time: '10:00',
       box: '',
       status: 'scheduled',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
-      price: 0,
-      duration: 30,
-      isOutsource: false,
-      outsourceAmount: 0,
+      price: firstSvc?.price || 0,
+      duration: firstSvc?.duration || 30,
     });
   };
 
@@ -2081,6 +2088,7 @@ export function OwnerApp() {
     const historyDate = new Date();
     historyDate.setDate(historyDate.getDate() - 1);
     const firstServiceId = services[0]?.id || 's1';
+    const firstSvc = services[0];
     const availableBoxes = ownerBookingBoxes(firstServiceId, services, boxes);
     const defaultBox = availableBoxes[0]?.name || '';
     const clientVehicles = draftVehicles[client.id] ?? (client.vehicles?.length
@@ -2102,8 +2110,8 @@ export function OwnerApp() {
       status,
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
-      price: 0,
-      duration: 30,
+      price: firstSvc?.price || 0,
+      duration: firstSvc?.duration || 30,
     });
     setShowCreateBooking(true);
   };
@@ -2220,9 +2228,8 @@ export function OwnerApp() {
         date: bookingForm.date.trim(),
         time: bookingForm.time.trim(),
         duration: bookingForm.duration || svc.duration,
-        price: bookingForm.price || svc.price,
-        status: bookingForm.status,
-        workers: selectedWorkers,
+        price: bookingForm.price,
+        status: bookingForm.status,        workers: selectedWorkers,
         box: bookingForm.box.trim(),
         paymentType: bookingForm.paymentType,
         paymentSettled: bookingForm.paymentSettled,
@@ -2370,7 +2377,7 @@ setOwnerNewBookingWorkers([]);
         date: normalizedDate,
         time: ownerNewBookingForm.time.trim(),
         duration: ownerNewBookingForm.duration || svc?.duration || 30,
-        price: ownerNewBookingForm.price || svc?.price || 0,
+        price: ownerNewBookingForm.price,
         status: ownerNewBookingForm.status,
         workers: createdWorkers,
         box: ownerNewBookingForm.box.trim() || 'По согласованию',
@@ -2517,6 +2524,37 @@ setOwnerNewBookingWorkers([]);
       setOwnerAddServiceError(err?.detail || err?.message || 'Ошибка при добавлении услуги');
     } finally {
       setOwnerAddServiceSaving(false);
+    }
+  };
+
+  const handleOpenOwnerEditAsvc = (asvc: AdditionalService) => {
+    setOwnerEditAsvcId(asvc.id);
+    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration });
+    setOwnerEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
+    setOwnerEditAsvcError(null);
+    setOwnerEditAsvcSaving(false);
+  };
+
+  const handleSaveOwnerEditAsvc = async () => {
+    if (!selectedBooking || !ownerEditAsvcId) return;
+    setOwnerEditAsvcSaving(true);
+    setOwnerEditAsvcError(null);
+    try {
+      const workersList = ownerEditAsvcWorkers.map(w => {
+        const worker = workers.find(wk => wk.id === w.id);
+        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
+      });
+      const updatedBooking = await updateBookingAdditionalService(selectedBooking.id, ownerEditAsvcId, {
+        price: ownerEditAsvcDraft.price,
+        duration: ownerEditAsvcDraft.duration,
+        workers: workersList,
+      });
+      setSelectedBooking(updatedBooking);
+      setOwnerEditAsvcId(null);
+    } catch (err: any) {
+      setOwnerEditAsvcError(err?.detail || err?.message || 'Ошибка при сохранении услуги');
+    } finally {
+      setOwnerEditAsvcSaving(false);
     }
   };
 
@@ -7693,12 +7731,16 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Услуга</label><select className={selectCls} value={bookingForm.service} onChange={e => {
                   const svc = services.find(s => s.id === e.target.value);
-                  setBookingForm(p => ({
-                    ...p,
-                    service: e.target.value,
-                    price: svc?.price || 0,
-                    duration: svc?.duration || 30,
-                  }));
+                  setBookingForm(p => {
+                    const prevSvc = services.find(s => s.id === p.service);
+                    const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                    return {
+                      ...p,
+                      service: e.target.value,
+                      price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                      duration: svc?.duration || 30,
+                    };
+                  });
                 }}>
                   {services.map(service => (
                     <option key={service.id} value={service.id}>{service.name} — {service.price.toLocaleString('ru')} ₽</option>
@@ -7976,6 +8018,9 @@ setOwnerNewBookingWorkers([]);
                           <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">
                             Удалить
                           </button>
+                          <button onClick={() => handleOpenOwnerEditAsvc(as)} className="text-xs mt-1 ml-2" style={{ color: primary }}>
+                            Изменить
+                          </button>
                         </div>
                       ))}
                       {selectedBooking.services && selectedBooking.services.filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
@@ -7998,6 +8043,15 @@ setOwnerNewBookingWorkers([]);
                       <div className="flex justify-between items-center pt-3 mt-1 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
                         <span className="text-sm font-semibold">Итоговая сумма</span>
                         <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} ₽</span>
+                      </div>
+                      <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
+                        <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
+                        {(selectedBooking.additionalServices || []).map(as => (
+                          <div key={as.id} className="flex justify-between"><span>+ {as.name}</span><span>{as.price.toLocaleString('ru')} ₽</span></div>
+                        ))}
+                        {(selectedBooking.services || []).filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
+                          <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -8217,12 +8271,16 @@ setOwnerNewBookingWorkers([]);
                           isDark={isDark}
                           onChange={serviceId => {
                             const svc = services.find(s => s.id === serviceId);
-                            setOwnerBookingEditFull(p => ({
-                              ...p,
-                              serviceId,
-                              price: svc?.price || 0,
-                              duration: svc?.duration || 30,
-                            }));
+                            setOwnerBookingEditFull(p => {
+                              const prevSvc = services.find(s => s.id === p.serviceId);
+                              const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                              return {
+                                ...p,
+                                serviceId,
+                                price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                                duration: svc?.duration || 30,
+                              };
+                            });
                             setOwnerBookingEditError(null);
                           }}
                         />
@@ -8343,10 +8401,14 @@ setOwnerNewBookingWorkers([]);
                 <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                 <select className={selectCls} value={ownerAddServiceDraft.serviceId} onChange={e => {
                   const svc = liveServices.find(s => s.id === e.target.value);
-                  setOwnerAddServiceDraft({
-                    serviceId: e.target.value,
-                    price: svc?.price || 0,
-                    duration: svc?.duration || 30,
+                  setOwnerAddServiceDraft(p => {
+                    const prevSvc = liveServices.find(s => s.id === p.serviceId);
+                    const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                    return {
+                      serviceId: e.target.value,
+                      price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                      duration: svc?.duration || 30,
+                    };
                   });
                   setOwnerAddServiceError(null);
                 }}>
@@ -8463,6 +8525,106 @@ setOwnerNewBookingWorkers([]);
                 <button onClick={() => setShowOwnerAddService(false)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
                 <button onClick={() => void handleAddOwnerService()} disabled={!ownerAddServiceDraft.serviceId || ownerAddServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
                   {ownerAddServiceSaving ? 'Добавление...' : 'Добавить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT ADDITIONAL SERVICE MODAL */}
+      <AnimatePresence>
+        {ownerEditAsvcId && selectedBooking && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+            onClick={(e) => { if (e.target === e.currentTarget) setOwnerEditAsvcId(null); }}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Изменить доп. услугу</h3>
+                <button onClick={() => setOwnerEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
+
+              {/* ── Цена и длительность ── */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(ownerEditAsvcDraft.price)} onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(ownerEditAsvcDraft.duration)} onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Мастера ── */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Назначить мастеров</label>
+                  {ownerEditAsvcWorkers.length > 0 && (
+                    <span className={`text-xs ${sub}`}>Выбрано: {ownerEditAsvcWorkers.length}</span>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {workers.filter(w => (w.role === 'worker' || w.role === 'owner') && w.active).map(worker => {
+                    const assigned = ownerEditAsvcWorkers.find(item => item.id === worker.id);
+                    return (
+                      <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-sm font-medium">{worker.name}</span>
+                          </div>
+                          <button
+                            onClick={() => assigned
+                              ? setOwnerEditAsvcWorkers(current => current.filter(item => item.id !== worker.id))
+                              : setOwnerEditAsvcWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
+                            className="px-3 py-1 rounded-lg text-xs shrink-0"
+                            style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                          >
+                            {assigned ? 'Выбран' : 'Выбрать'}
+                          </button>
+                        </div>
+                        {assigned && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button onClick={() => setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                            <button onClick={() => setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                            {assigned.payType === 'fixed' ? (
+                              <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                onChange={e => { const r = e.target.value; if (r === '') { setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                            ) : (
+                              <>
+                                <span className={`text-xs ${sub}`}>%</span>
+                                <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                  onChange={e => { const r = e.target.value; if (r === '') { setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                  onBlur={() => setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                  className={`flex-1 ${inputCls} py-1.5`} />
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {ownerEditAsvcError && (
+                <div className="flex items-center gap-2 text-red-500 text-xs mt-2">
+                  <AlertCircle size={14} />{ownerEditAsvcError}
+                </div>
+              )}
+
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setOwnerEditAsvcId(null)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
+                <button onClick={() => void handleSaveOwnerEditAsvc()} disabled={ownerEditAsvcSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
+                  {ownerEditAsvcSaving ? 'Сохранение...' : 'Сохранить'}
                 </button>
               </div>
             </motion.div>
@@ -8593,14 +8755,18 @@ setOwnerNewBookingWorkers([]);
                     isDark={isDark}
                     onChange={serviceId => {
                       const svc = services.find(s => s.id === serviceId);
-                      setOwnerNewBookingForm(p => ({
-                        ...p,
-                        serviceId,
-                        service: svc?.name || '',
-                        price: svc?.price || 0,
-                        duration: svc?.duration || 30,
-                        box: ownerPickDefaultBookingBox(serviceId, services, boxes, bookings, p.date, p.time, svc?.duration || 30),
-                      }));
+                      setOwnerNewBookingForm(p => {
+                        const prevSvc = services.find(s => s.id === p.serviceId);
+                        const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                        return {
+                          ...p,
+                          serviceId,
+                          service: svc?.name || '',
+                          price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                          duration: svc?.duration || 30,
+                          box: ownerPickDefaultBookingBox(serviceId, services, boxes, bookings, p.date, p.time, svc?.duration || 30),
+                        };
+                      });
                       setOwnerNewBookingErrors((current) => ({ ...current, general: undefined }));
                     }}
                   />

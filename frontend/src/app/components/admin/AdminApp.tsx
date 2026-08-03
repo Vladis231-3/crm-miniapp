@@ -12,7 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
-import { useApp, Booking, BookingStatus, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
@@ -278,6 +278,7 @@ export function AdminApp() {
     addBooking,
     addBookingService,
     addBookingAdditionalService,
+    updateBookingAdditionalService,
     removeBookingAdditionalService,
     addNotification,
     notifications,
@@ -363,6 +364,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const [addServiceWorkers, setAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [addServiceSaving, setAddServiceSaving] = useState(false);
   const [addServiceError, setAddServiceError] = useState<string | null>(null);
+  const [editAsvcId, setEditAsvcId] = useState<string | null>(null);
+  const [editAsvcDraft, setEditAsvcDraft] = useState({ price: 0, duration: 30 });
+  const [editAsvcWorkers, setEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+  const [editAsvcSaving, setEditAsvcSaving] = useState(false);
+  const [editAsvcError, setEditAsvcError] = useState<string | null>(null);
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
@@ -1047,6 +1053,37 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     setServicesState((current) => current.filter((s) => s.id !== serviceId));
   };
 
+  const handleOpenEditAsvc = (asvc: AdditionalService) => {
+    setEditAsvcId(asvc.id);
+    setEditAsvcDraft({ price: asvc.price, duration: asvc.duration });
+    setEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
+    setEditAsvcError(null);
+    setEditAsvcSaving(false);
+  };
+
+  const handleSaveEditAsvc = async () => {
+    if (!selectedBooking || !editAsvcId) return;
+    setEditAsvcSaving(true);
+    setEditAsvcError(null);
+    try {
+      const workersList = editAsvcWorkers.map(w => {
+        const worker = masterWorkers.find(wk => wk.id === w.id);
+        return { workerId: w.id, workerName: worker?.name || '', percent: w.percent === '' ? 0 : w.percent as number, payType: w.payType || 'percent', fixedAmount: w.fixedAmount };
+      });
+      const updatedBooking = await updateBookingAdditionalService(selectedBooking.id, editAsvcId, {
+        price: editAsvcDraft.price,
+        duration: editAsvcDraft.duration,
+        workers: workersList,
+      });
+      setSelectedBooking(updatedBooking);
+      setEditAsvcId(null);
+    } catch (err: any) {
+      setEditAsvcError(err?.detail || err?.message || 'Ошибка при сохранении услуги');
+    } finally {
+      setEditAsvcSaving(false);
+    }
+  };
+
   const closeAddServiceModal = () => {
     setShowAddServiceModal(false);
     setAddServiceTargetBooking(null);
@@ -1202,7 +1239,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         date: normalizedDate,
         time: newBookingForm.time.trim(),
         duration: newBookingForm.duration || svc?.duration || 30,
-        price: newBookingForm.price || svc?.price || 0,
+        price: newBookingForm.price,
         status: !newBookingForm.clientPhone.trim() ? 'admin_review' : newBookingForm.status,
         workers: createdWorkers,
         box: newBookingForm.box.trim() || 'По согласованию',
@@ -3036,6 +3073,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                             );
                           })}
                           <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">Удалить</button>
+                          <button onClick={() => handleOpenEditAsvc(as)} className="text-xs mt-1 ml-2" style={{ color: primary }}>Изменить</button>
                         </div>
                       ))}
                     </div>
@@ -3070,6 +3108,22 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <span className="text-sm font-semibold">Итоговая сумма</span>
                     <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} ₽</span>
                   </div>
+                  {(() => {
+                    const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0);
+                    const legacyServicesTotal = (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0);
+                    const baseServicePrice = Math.max(0, selectedBooking.price - additionalTotal - legacyServicesTotal);
+                    return (
+                      <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
+                        <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
+                        {(selectedBooking.additionalServices || []).map(as => (
+                          <div key={as.id} className="flex justify-between"><span>+ {as.name}</span><span>{as.price.toLocaleString('ru')} ₽</span></div>
+                        ))}
+                        {(selectedBooking.services || []).map((s, i) => (
+                          <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-center mb-2">
@@ -3143,10 +3197,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   isDark={isDark}
                   onChange={serviceId => {
                     const svc = services.find(s => s.id === serviceId);
-                    setAddServiceDraft({
-                      serviceId,
-                      price: svc?.price || 0,
-                      duration: svc?.duration || 30,
+                    setAddServiceDraft((current) => {
+                      const prevSvc = services.find(s => s.id === current.serviceId);
+                      const wasDefaultPrice = current.price === 0 || (prevSvc && current.price === prevSvc.price);
+                      return {
+                        serviceId,
+                        price: wasDefaultPrice ? (svc?.price || 0) : current.price,
+                        duration: svc?.duration || 30,
+                      };
                     });
                     setAddServiceError(null);
                   }}
@@ -3255,6 +3313,100 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <button onClick={closeAddServiceModal} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
                 <button onClick={handleAddService} disabled={!addServiceDraft.serviceId || addServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
                   {addServiceSaving ? 'Сохранение...' : 'Добавить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT ADDITIONAL SERVICE MODAL */}
+      <AnimatePresence>
+        {editAsvcId && selectedBooking && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+            onClick={(e) => { if (e.target === e.currentTarget) setEditAsvcId(null); }}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Изменить доп. услугу</h3>
+                <button onClick={() => setEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(editAsvcDraft.price)} onChange={e => setEditAsvcDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(editAsvcDraft.duration)} onChange={e => setEditAsvcDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
+                </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Назначить мастеров</label>
+                  {editAsvcWorkers.length > 0 && (
+                    <span className={`text-xs ${sub}`}>Выбрано: {editAsvcWorkers.length}</span>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {masterWorkers.filter(w => w.role === 'worker' || w.role === 'owner').map(worker => {
+                    const assigned = editAsvcWorkers.find(item => item.id === worker.id);
+                    return (
+                      <div key={worker.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-sm font-medium">{worker.name}</span>
+                          </div>
+                          <button
+                            onClick={() => assigned
+                              ? setEditAsvcWorkers(current => current.filter(item => item.id !== worker.id))
+                              : setEditAsvcWorkers(current => [...current, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
+                            className="px-3 py-1 rounded-lg text-xs shrink-0"
+                            style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                          >
+                            {assigned ? 'Выбран' : 'Выбрать'}
+                          </button>
+                        </div>
+                        {assigned && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button onClick={() => setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-blue-500 text-white' : glass}`}>₽</button>
+                            <button onClick={() => setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-blue-500 text-white' : glass}`}>%</button>
+                            {assigned.payType === 'fixed' ? (
+                              <input type="number" min={0} value={assigned.fixedAmount ?? ''}
+                                onChange={e => { const r = e.target.value; if (r === '') { setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
+                                className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
+                            ) : (
+                              <>
+                                <span className={`text-xs ${sub}`}>%</span>
+                                <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
+                                  onChange={e => { const r = e.target.value; if (r === '') { setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }}
+                                  onBlur={() => setEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))}
+                                  className={`flex-1 ${inputCls} py-1.5`} />
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {editAsvcError && <div className="text-xs text-red-500 mt-2">{editAsvcError}</div>}
+
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setEditAsvcId(null)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
+                <button onClick={handleSaveEditAsvc} disabled={editAsvcSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
+                  {editAsvcSaving ? 'Сохранение...' : 'Сохранить'}
                 </button>
               </div>
             </motion.div>
@@ -3431,12 +3583,16 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <select className={selectCls} value={editBookingDraft.serviceId} onChange={e => {
                     const svc = liveServices.find(s => s.id === e.target.value);
-                    setEditBookingDraft((current) => ({
-                      ...current,
-                      serviceId: e.target.value,
-                      price: svc?.price || 0,
-                      duration: svc?.duration || 30,
-                    }));
+                    setEditBookingDraft((current) => {
+                      const prevSvc = liveServices.find(s => s.id === current.serviceId);
+                      const wasDefaultPrice = current.price === 0 || (prevSvc && current.price === prevSvc.price);
+                      return {
+                        ...current,
+                        serviceId: e.target.value,
+                        price: wasDefaultPrice ? (svc?.price || 0) : current.price,
+                        duration: svc?.duration || 30,
+                      };
+                    });
                     setEditBookingError(null);
                   }}>
                     <option value="">Выберите услугу</option>
@@ -3812,14 +3968,18 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     isDark={isDark}
                     onChange={serviceId => {
                       const svc = services.find(s => s.id === serviceId);
-                      setNewBookingForm(p => ({
-                        ...p,
-                        serviceId,
-                        service: svc?.name || '',
-                        price: svc?.price || 0,
-                        duration: svc?.duration || 30,
-                        box: defaultBoxForService(serviceId, services, boxes),
-                      }));
+                      setNewBookingForm(p => {
+                        const prevSvc = services.find(s => s.id === p.serviceId);
+                        const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                        return {
+                          ...p,
+                          serviceId,
+                          service: svc?.name || '',
+                          price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                          duration: svc?.duration || 30,
+                          box: defaultBoxForService(serviceId, services, boxes),
+                        };
+                      });
                       setNewBookingErrors((current) => ({ ...current, general: undefined }));
                     }}
                   />

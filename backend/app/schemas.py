@@ -424,6 +424,13 @@ class AddAdditionalServiceRequest(BaseModel):
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
 
+class UpdateAdditionalServiceRequest(BaseModel):
+    name: str | None = None
+    price: int | None = Field(default=None, ge=0)
+    duration: int | None = Field(default=None, gt=0)
+    workers: list[AdditionalServiceWorkerPayload] | None = None
+
+
 class BookingPayload(BaseModel):
     id: str
     clientId: str

@@ -659,6 +659,7 @@ interface AppContextType {
   deleteBooking: (id: string) => Promise<void>;
   addBookingService: (bookingId: string, service: Omit<BookingServiceItem, 'serviceId'> & { serviceId: string }) => Promise<Booking>;
   addBookingAdditionalService: (bookingId: string, service: AddAdditionalServiceInput) => Promise<Booking>;
+  updateBookingAdditionalService: (bookingId: string, additionalServiceId: string, updates: Partial<AddAdditionalServiceInput>) => Promise<Booking>;
   removeBookingAdditionalService: (bookingId: string, additionalServiceId: string) => Promise<Booking>;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
@@ -1148,6 +1149,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       staffProfile,
       clients: [],
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services`, { method: 'POST', body: service })],
+      notifications: [],
+      stockItems: [],
+      expenses: [],
+      penalties: [],
+      workers: [],
+      services: [],
+      boxes: [],
+      schedule: [],
+      settings,
+    }).bookings[0];
+    setBookings((current) => current.map((booking) => (booking.id === bookingId ? updated : booking)));
+    return updated;
+  }
+
+  async function updateBookingAdditionalService(bookingId: string, additionalServiceId: string, updates: Partial<AddAdditionalServiceInput>) {
+    const updated = normalizeBootstrap({
+      session: session as SessionInfo,
+      clientProfile,
+      staffProfile,
+      clients: [],
+      bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services/${additionalServiceId}`, { method: 'PATCH', body: updates })],
       notifications: [],
       stockItems: [],
       expenses: [],
@@ -1663,6 +1685,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteBooking,
       addBookingService,
       addBookingAdditionalService,
+      updateBookingAdditionalService,
       removeBookingAdditionalService,
       addNotification,
       markNotificationRead,
