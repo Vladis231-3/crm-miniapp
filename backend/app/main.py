@@ -15574,7 +15574,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     piggy_svc = db.get(Service, booking.service_id) if booking.service_id else None
     piggy_target = (piggy_svc.piggy_target or "").strip() if piggy_svc else ""
     if piggy_target not in ("detailing", "wash", "general"):
-        piggy_target = ""
+        piggy_target = split["resource_group"]
 
     add_services = sorted(
         (booking.additional_services or []),

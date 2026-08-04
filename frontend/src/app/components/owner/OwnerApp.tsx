@@ -2976,8 +2976,9 @@ setOwnerNewBookingWorkers([]);
   const piggyBankLabel = (key: string) => ({
     wash: 'копилка мойки',
     detailing: 'копилка детейлинга',
+    self_service: 'копилка самообслуживания',
     general: 'общая копилка',
-  }[key] || (key || 'копилка'));
+  }[key] || (key ? `копилка «${key}»` : 'копилка'));
 
   const SwitchToggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-all shrink-0"
