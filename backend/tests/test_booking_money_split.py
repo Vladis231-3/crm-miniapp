@@ -463,6 +463,77 @@ class BookingMoneySplitTests(unittest.TestCase):
         self.assertEqual(len(by_owner), 2)
         self.assertTrue(all(abs(v - 4560) < 1 for v in by_owner.values()), by_owner)
 
+    def test_money_split_subtract_other_master_paid_included_in_total(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s2")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "percent"
+            svc.master_pay_value = 40
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 24
+            svc.split_order = ["master", "piggy", "owners"]
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "OtherMaster Client",
+                "clientPhone": "+7 (999) 555-66-77",
+                "service": "Полировка стекла",
+                "serviceId": "s2",
+                "date": booking_date,
+                "time": "15:00",
+                "duration": 90,
+                "price": 25000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Детейлинг зона",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        add_response = self.client.post(
+            f"/api/bookings/{booking['id']}/additional-services",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "serviceId": "s1",
+                "name": "Подготовка к полировке",
+                "price": 5000,
+                "duration": 30,
+                "priceMode": "subtract",
+                "workers": [{"workerId": "w2", "workerName": "Пётр", "payType": "fixed", "fixedAmount": 1200}],
+            },
+        )
+        self.assertEqual(add_response.status_code, 200, add_response.text)
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        split = self.get_split(booking["id"], self.owner_token)
+
+        self.assertEqual(split["masterTotal"], 9200, "мастер доп. услуги (другой человек) входит в итог мастерам")
+        self.assertEqual(split["asvcMasterPayTotal"], 1200)
+        by_worker = {w["workerId"]: w["earned"] for w in split["workers"]}
+        self.assertEqual(by_worker, {"w1": 8000})
+
+        asvc_by_worker = {w["workerId"]: w["earned"] for w in split["asvcWorkers"]}
+        self.assertEqual(asvc_by_worker, {"w2": 1200})
+
     def test_money_split_pipeline_with_materials_not_in_order(self) -> None:
         from app.database import SessionLocal
         from app.models import Service

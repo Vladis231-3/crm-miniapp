@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-04 10:58 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-04 11:53 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **241**
-- Строк кода: **72 685**
+- Строк кода: **72 761**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 36, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -322,7 +322,7 @@ concept1.0/
 - `_format_moneydef _format_money(value: int) -> str: return f"{value:,.0f}".replace(",", " ") + " руб."` (стр. 2891)
 - `_escapedef _escape(value: str) -> str: return escape(value).replace("\n", "<br/>")` (стр. 2899)
 
-### backend/app/main.py (17997 строк)
+### backend/app/main.py (18002 строк)
 
 Роуты (87):
 
@@ -396,24 +396,24 @@ concept1.0/
   `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 15174)
   `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 15381)
   `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 15477)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 15693)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 15761)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 15898)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 15912)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 16123)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 16513)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 16890)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 17060)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 17280)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 17490)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 17626)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 17686)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 17880)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 17888)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 17900)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 17924)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 17932)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 17940)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 15698)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 15766)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 15903)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 15917)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 16128)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 16518)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 16895)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 17065)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 17285)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 17495)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 17631)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 17691)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 17885)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 17893)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 17905)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 17929)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 17937)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 17945)
 ```
 
 Классы и функции (189):
@@ -602,11 +602,11 @@ concept1.0/
 - `_upsert_settingdef _upsert_setting(db: Session, key: str, value: dict) -> dict: row = db.get(AppSetting, key) if row is None: row = AppSetting(key=key, value=value) db.add(row) else: row.value = ` (стр. 14398)
 - `_parse_booking_date_paramdef _parse_booking_date_param(value: str) -> str: """Принимает YYYY-MM-DD или DD.MM.YYYY, возвращает DD.MM.YYYY.""" if value and len(value) == 10 and value[2] == ".": return value ` (стр. 15517)
 - `_booking_money_split_detaildef _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySplitDetail: """Полная деталь распределения денег по записи: авто-расчёт + фактические значения.""" pe` (стр. 15529)
-- `_PartialBroadcastError._apply_main_depositdef _apply_main_deposit(amount: int) -> None: if main_txs: if amount > 0: main_txs[0].amount = amount for extra in main_txs[1:]: db.delete(extra) else: for tx in main_txs: db.delet` (стр. 15959)
-- `_salary_date_rangedef _salary_date_range(period: str, ref: date | None = None, custom_from: str | None = None, custom_to: str | None = None) -> tuple[str, str]: """Возвращает (date_from, date_to) в ` (стр. 16037)
-- `is_fixed_master_servicedef is_fixed_master_service(name: str | None) -> bool: return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME` (стр. 16093)
-- `_is_fixed_master_service_dbdef _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool: """Определяет, оплачивается ли услуга мастеру фиксированно. Привязка СТРОГО ` (стр. 16098)
-- `_resource_group_for_servicedef _resource_group_for_service(db: Session, service_id: str) -> str: svc = db.get(Service, service_id) return svc.resource_group if svc else "wash"` (стр. 16113)
+- `_PartialBroadcastError._apply_main_depositdef _apply_main_deposit(amount: int) -> None: if main_txs: if amount > 0: main_txs[0].amount = amount for extra in main_txs[1:]: db.delete(extra) else: for tx in main_txs: db.delet` (стр. 15964)
+- `_salary_date_rangedef _salary_date_range(period: str, ref: date | None = None, custom_from: str | None = None, custom_to: str | None = None) -> tuple[str, str]: """Возвращает (date_from, date_to) в ` (стр. 16042)
+- `is_fixed_master_servicedef is_fixed_master_service(name: str | None) -> bool: return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME` (стр. 16098)
+- `_is_fixed_master_service_dbdef _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool: """Определяет, оплачивается ли услуга мастеру фиксированно. Привязка СТРОГО ` (стр. 16103)
+- `_resource_group_for_servicedef _resource_group_for_service(db: Session, service_id: str) -> str: svc = db.get(Service, service_id) return svc.resource_group if svc else "wash"` (стр. 16118)
 
 ### backend/app/models.py (527 строк)
 
@@ -1120,9 +1120,9 @@ concept1.0/
 - `FakeSession.adddef add(self, _item: object) -> None: return None` (стр. 4050)
 - `FakeSession.flushdef flush(self) -> None: self.flushed = True` (стр. 4053)
 
-### backend/tests/test_booking_money_split.py (692 строк)
+### backend/tests/test_booking_money_split.py (763 строк)
 
-Классы и функции (24):
+Классы и функции (25):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 16)
 - `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": tel` (стр. 28)
@@ -1145,9 +1145,10 @@ concept1.0/
 - `BookingMoneySplitTests.test_money_split_requires_owner_roledef test_money_split_requires_owner_role(self) -> None: booking = self.create_booking(status="completed") get_response = self.client.get( f"/api/owner/bookings/{booking['id']}/mone` (стр. 347)
 - `BookingMoneySplitTests.test_money_split_missing_booking_returns_404def test_money_split_missing_booking_returns_404(self) -> None: response = self.client.get( f"/api/owner/bookings/{uuid4().hex}/money-split", headers=self.auth_headers(self.owner_t` (стр. 363)
 - `BookingMoneySplitTests.test_money_split_subtract_additional_service_pipelinedef test_money_split_subtract_additional_service_pipeline(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = db.ge` (стр. 370)
-- `BookingMoneySplitTests.test_money_split_pipeline_with_materials_not_in_orderdef test_money_split_pipeline_with_materials_not_in_order(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = db.ge` (стр. 466)
-- `BookingMoneySplitTests.test_money_split_pipeline_materials_step_lastdef test_money_split_pipeline_materials_step_last(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = db.get(Servic` (стр. 541)
-- `BookingMoneySplitTests.test_money_split_classic_with_subtract_additional_servicedef test_money_split_classic_with_subtract_additional_service(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = d` (стр. 615)
+- `BookingMoneySplitTests.test_money_split_subtract_other_master_paid_included_in_totaldef test_money_split_subtract_other_master_paid_included_in_total(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc` (стр. 466)
+- `BookingMoneySplitTests.test_money_split_pipeline_with_materials_not_in_orderdef test_money_split_pipeline_with_materials_not_in_order(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = db.ge` (стр. 537)
+- `BookingMoneySplitTests.test_money_split_pipeline_materials_step_lastdef test_money_split_pipeline_materials_step_last(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = db.get(Servic` (стр. 612)
+- `BookingMoneySplitTests.test_money_split_classic_with_subtract_additional_servicedef test_money_split_classic_with_subtract_additional_service(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = d` (стр. 686)
 
 ### backend/tests/test_broadcast_edge_cases.py (178 строк)
 
@@ -2516,9 +2517,9 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/tests/test_booking_money_split.py` (2026-08-04 13:58)
+- `backend/tests/test_booking_money_split.py` (2026-08-04 14:53)
+- `backend/app/main.py` (2026-08-04 14:53)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-04 13:55)
-- `backend/app/main.py` (2026-08-04 13:54)
 - `backend/app/schemas.py` (2026-08-04 13:54)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-04 12:06)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-04 11:36)

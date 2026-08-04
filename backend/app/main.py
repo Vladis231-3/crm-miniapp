@@ -15616,6 +15616,11 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     main_price = max(0, int(booking.price) - additional_total)
     split_base = int(split.get("split_base", max(0, split["net"] - subtract_total)))
 
+    link_worker_ids = {link.worker_id for link in booking.worker_links}
+    master_effective_total += sum(
+        w.earned for w in asvc_workers if w.workerId not in link_worker_ids
+    )
+
     return BookingMoneySplitDetail(
         id=booking.id,
         clientName=booking.client_name,
