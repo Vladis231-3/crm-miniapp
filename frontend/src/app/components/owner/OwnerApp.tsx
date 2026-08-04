@@ -879,14 +879,14 @@ export function OwnerApp() {
 
   // Add additional service state
   const [showOwnerAddService, setShowOwnerAddService] = useState(false);
-  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
+  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract' });
   const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerAddServiceSaving, setOwnerAddServiceSaving] = useState(false);
   const [ownerAddServiceError, setOwnerAddServiceError] = useState<string | null>(null);
 
   // Edit additional service state
   const [ownerEditAsvcId, setOwnerEditAsvcId] = useState<string | null>(null);
-  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30 });
+  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract' });
   const [ownerEditAsvcWorkers, setOwnerEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerEditAsvcSaving, setOwnerEditAsvcSaving] = useState(false);
   const [ownerEditAsvcError, setOwnerEditAsvcError] = useState<string | null>(null);
@@ -2675,7 +2675,7 @@ setOwnerNewBookingWorkers([]);
   };
 
   const handleOpenOwnerAddService = () => {
-    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30 });
+    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add' });
     setOwnerAddServiceWorkers([]);
     setOwnerAddServiceError(null);
     setOwnerAddServiceSaving(false);
@@ -2700,6 +2700,7 @@ setOwnerNewBookingWorkers([]);
         name: svc?.name || 'Доп. услуга',
         price: ownerAddServiceDraft.price,
         duration: ownerAddServiceDraft.duration,
+        priceMode: ownerAddServiceDraft.priceMode,
         workers: workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -2713,7 +2714,7 @@ setOwnerNewBookingWorkers([]);
 
   const handleOpenOwnerEditAsvc = (asvc: AdditionalService) => {
     setOwnerEditAsvcId(asvc.id);
-    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration });
+    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add' });
     setOwnerEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
     setOwnerEditAsvcError(null);
     setOwnerEditAsvcSaving(false);
@@ -2731,6 +2732,7 @@ setOwnerNewBookingWorkers([]);
       const updatedBooking = await updateBookingAdditionalService(selectedBooking.id, ownerEditAsvcId, {
         price: ownerEditAsvcDraft.price,
         duration: ownerEditAsvcDraft.duration,
+        priceMode: ownerEditAsvcDraft.priceMode,
         workers: workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -8499,7 +8501,7 @@ setOwnerNewBookingWorkers([]);
                         <div key={as.id} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{as.name}</span>
-                            <span className="font-semibold">{as.price.toLocaleString('ru')} ₽</span>
+                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.workers.map(w => {
                             const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
@@ -8542,7 +8544,7 @@ setOwnerNewBookingWorkers([]);
                       <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                         <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
                         {(selectedBooking.additionalServices || []).map(as => (
-                          <div key={as.id} className="flex justify-between"><span>+ {as.name}</span><span>{as.price.toLocaleString('ru')} ₽</span></div>
+                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                         {(selectedBooking.services || []).filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
                           <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
@@ -8913,6 +8915,7 @@ setOwnerNewBookingWorkers([]);
                       serviceId: e.target.value,
                       price: wasDefaultPrice ? (svc?.price || 0) : p.price,
                       duration: svc?.duration || 30,
+                      priceMode: p.priceMode,
                     };
                   });
                   setOwnerAddServiceError(null);
@@ -8934,6 +8937,32 @@ setOwnerNewBookingWorkers([]);
                   <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                   <input className={inputCls} type="number" value={numberInputValue(ownerAddServiceDraft.duration)} onChange={e => setOwnerAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                 </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Режим применения цены ── */}
+              <div>
+                <label className={`text-xs ${sub} block mb-1`}>Применить к основной услуге</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setOwnerAddServiceDraft(p => ({ ...p, priceMode: 'add' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={ownerAddServiceDraft.priceMode === 'add' ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                  >
+                    + Плюс
+                  </button>
+                  <button
+                    onClick={() => setOwnerAddServiceDraft(p => ({ ...p, priceMode: 'subtract' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={ownerAddServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
+                  >
+                    − Минус
+                  </button>
+                </div>
+                {ownerAddServiceDraft.priceMode === 'subtract' && (
+                  <p className={`text-xs ${sub} mt-1.5`}>Клиент платит как обычно, но сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                )}
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
@@ -9001,8 +9030,14 @@ setOwnerNewBookingWorkers([]);
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Итого</div>
                     <div className="flex justify-between items-center">
                       <span className={`text-sm ${sub}`}>Клиент заплатит</span>
-                      <span className="text-sm font-semibold">{ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
+                      <span className={`text-sm font-semibold ${ownerAddServiceDraft.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{ownerAddServiceDraft.priceMode === 'subtract' ? '− ' : '+ '}{ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
                     </div>
+                    {ownerAddServiceDraft.priceMode === 'subtract' && (
+                      <div className="flex justify-between items-center">
+                        <span className={`text-sm ${sub}`}>База зп мастеров основной услуги</span>
+                        <span className="text-sm font-semibold text-red-500">− {ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
+                      </div>
+                    )}
                     {ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
                       const w = workers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
@@ -9061,6 +9096,32 @@ setOwnerNewBookingWorkers([]);
                   <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                   <input className={inputCls} type="number" value={numberInputValue(ownerEditAsvcDraft.duration)} onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                 </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Режим применения цены ── */}
+              <div>
+                <label className={`text-xs ${sub} block mb-1`}>Применить к основной услуге</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setOwnerEditAsvcDraft(p => ({ ...p, priceMode: 'add' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={ownerEditAsvcDraft.priceMode === 'add' ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                  >
+                    + Плюс
+                  </button>
+                  <button
+                    onClick={() => setOwnerEditAsvcDraft(p => ({ ...p, priceMode: 'subtract' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={ownerEditAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
+                  >
+                    − Минус
+                  </button>
+                </div>
+                {ownerEditAsvcDraft.priceMode === 'subtract' && (
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                )}
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />

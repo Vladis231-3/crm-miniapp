@@ -598,7 +598,7 @@ export function WorkerApp() {
                       <div key={as.id} className={`py-1.5 ${!isMyService ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium">{as.name}</span>
-                          <span className="text-sm font-semibold">{as.price.toLocaleString('ru')} ₽</span>
+                          <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                         </div>
                         {isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
                           <div key={w.workerId} className="flex justify-between items-center mt-0.5">

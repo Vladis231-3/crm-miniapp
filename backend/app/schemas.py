@@ -412,6 +412,7 @@ class AdditionalServicePayload(BaseModel):
     price: int
     duration: int
     status: str = "pending"
+    priceMode: str = "add"
     createdAt: datetime
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
@@ -421,6 +422,7 @@ class AddAdditionalServiceRequest(BaseModel):
     name: str
     price: int = Field(ge=0)
     duration: int = Field(gt=0)
+    priceMode: str = "add"
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
 
@@ -428,6 +430,7 @@ class UpdateAdditionalServiceRequest(BaseModel):
     name: str | None = None
     price: int | None = Field(default=None, ge=0)
     duration: int | None = Field(default=None, gt=0)
+    priceMode: str | None = None
     workers: list[AdditionalServiceWorkerPayload] | None = None
 
 

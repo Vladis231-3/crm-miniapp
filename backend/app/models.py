@@ -218,6 +218,7 @@ class BookingAdditionalService(Base):
     price: Mapped[int] = mapped_column(Integer)
     duration: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(32), default="pending")
+    price_mode: Mapped[str] = mapped_column(String(8), default="add")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

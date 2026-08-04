@@ -1752,7 +1752,6 @@ def _apply_runtime_migrations() -> None:
     if "additional_service_workers" in inspector.get_table_names():
 
         asw_cols = {col["name"] for col in inspector.get_columns("additional_service_workers")}
-
         if "pay_type" not in asw_cols:
             with engine.connect() as conn:
                 conn.execute(
@@ -1767,6 +1766,17 @@ def _apply_runtime_migrations() -> None:
                 conn.execute(
                     text(
                         "ALTER TABLE additional_service_workers ADD COLUMN fixed_amount INTEGER DEFAULT NULL"
+                    )
+                )
+                conn.commit()
+
+    if "booking_additional_services" in inspector.get_table_names():
+        bas_cols = {col["name"] for col in inspector.get_columns("booking_additional_services")}
+        if "price_mode" not in bas_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE booking_additional_services ADD COLUMN price_mode VARCHAR(8) NOT NULL DEFAULT 'add'"
                     )
                 )
                 conn.commit()
@@ -3772,6 +3782,8 @@ def _booking_payload(
             duration=asvc.duration,
 
             status=asvc.status,
+
+            priceMode=asvc.price_mode or "add",
 
             createdAt=asvc.created_at,
 
@@ -9895,6 +9907,13 @@ def _booking_money_split(
     main_price = max(0, booking.price - additional_total)
     materials_cost = _booking_materials_cost(db, booking)
     net = max(0, main_price - materials_cost)
+    # Вычитаемые доп услуги уменьшают базу расчёта зп мастера/копилки/владельцев
+    subtract_total = sum(
+        asvc.price
+        for asvc in (booking.additional_services or [])
+        if asvc.price_mode == "subtract"
+    )
+    split_base = max(0, net - subtract_total)
 
     master_pay_type = svc.master_pay_type if svc else ""
     master_pay_value = int(svc.master_pay_value or 0) if svc else 0
@@ -10016,7 +10035,7 @@ def _booking_money_split(
 
     if pipeline_mode:
         # Конвейер: каждый шаг забирает свою сумму из текущего остатка
-        pool = main_price
+        pool = max(0, main_price - subtract_total)
         master_by_worker: dict[str, int] = {}
         master_total = 0
         piggy_deposit = 0
@@ -10043,9 +10062,9 @@ def _booking_money_split(
                 pool = max(0, pool - owners_total)
     else:
         # Классический порядок: материалы → мастера → копилка → владельцы
-        master_by_worker, master_total = _compute_master(net)
-        piggy_deposit = _compute_piggy(net)
-        remaining = net - master_total - piggy_deposit
+        master_by_worker, master_total = _compute_master(split_base)
+        piggy_deposit = _compute_piggy(split_base)
+        remaining = split_base - master_total - piggy_deposit
         claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
         owners_total, owner_by_owner = _allocate_owners(claimed, remaining)
 
@@ -11175,6 +11194,8 @@ def add_booking_additional_service(
 
         status="pending",
 
+        price_mode=payload.priceMode or "add",
+
         created_at=_now(),
 
     )
@@ -11339,6 +11360,8 @@ def update_booking_additional_service(
     if payload.price is not None:
         booking.price = max(0, (booking.price or 0) - asvc.price + payload.price)
         asvc.price = payload.price
+    if payload.priceMode is not None:
+        asvc.price_mode = payload.priceMode
 
     db.commit()
     db.refresh(booking)

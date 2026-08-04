@@ -360,12 +360,12 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
-  const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30 });
+  const [addServiceDraft, setAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract' });
   const [addServiceWorkers, setAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [addServiceSaving, setAddServiceSaving] = useState(false);
   const [addServiceError, setAddServiceError] = useState<string | null>(null);
   const [editAsvcId, setEditAsvcId] = useState<string | null>(null);
-  const [editAsvcDraft, setEditAsvcDraft] = useState({ price: 0, duration: 30 });
+  const [editAsvcDraft, setEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract' });
   const [editAsvcWorkers, setEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [editAsvcSaving, setEditAsvcSaving] = useState(false);
   const [editAsvcError, setEditAsvcError] = useState<string | null>(null);
@@ -984,7 +984,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
   const openAdditionalServiceModal = (booking: Booking) => {
     setAddServiceTargetBooking(booking);
-    setAddServiceDraft({ serviceId: '', price: 0, duration: 30 });
+    setAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add' });
     setAddServiceWorkers([]);
     setAddServiceError(null);
     setAddServiceSaving(false);
@@ -1037,6 +1037,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         name: svc?.name || 'Доп. услуга',
         price: addServiceDraft.price,
         duration: addServiceDraft.duration,
+        priceMode: addServiceDraft.priceMode,
         workers: workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -1055,7 +1056,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
   const handleOpenEditAsvc = (asvc: AdditionalService) => {
     setEditAsvcId(asvc.id);
-    setEditAsvcDraft({ price: asvc.price, duration: asvc.duration });
+    setEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add' });
     setEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
     setEditAsvcError(null);
     setEditAsvcSaving(false);
@@ -1073,6 +1074,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       const updatedBooking = await updateBookingAdditionalService(selectedBooking.id, editAsvcId, {
         price: editAsvcDraft.price,
         duration: editAsvcDraft.duration,
+        priceMode: editAsvcDraft.priceMode,
         workers: workersList,
       });
       setSelectedBooking(updatedBooking);
@@ -3061,7 +3063,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                         <div key={as.id} className="rounded-xl px-3 py-2" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{as.name}</span>
-                            <span className="font-semibold">{as.price.toLocaleString('ru')} ₽</span>
+                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.workers.map(w => {
                             const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
@@ -3116,7 +3118,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                         <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
                         {(selectedBooking.additionalServices || []).map(as => (
-                          <div key={as.id} className="flex justify-between"><span>+ {as.name}</span><span>{as.price.toLocaleString('ru')} ₽</span></div>
+                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                         {(selectedBooking.services || []).map((s, i) => (
                           <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
@@ -3204,6 +3206,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                         serviceId,
                         price: wasDefaultPrice ? (svc?.price || 0) : current.price,
                         duration: svc?.duration || 30,
+                        priceMode: current.priceMode,
                       };
                     });
                     setAddServiceError(null);
@@ -3223,6 +3226,32 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                   <input className={inputCls} type="number" value={numberInputValue(addServiceDraft.duration)} onChange={e => setAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                 </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Режим применения цены ── */}
+              <div>
+                <label className={`text-xs ${sub} block mb-1`}>Применить к основной услуге</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setAddServiceDraft(p => ({ ...p, priceMode: 'add' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={addServiceDraft.priceMode === 'add' ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                  >
+                    + Плюс
+                  </button>
+                  <button
+                    onClick={() => setAddServiceDraft(p => ({ ...p, priceMode: 'subtract' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={addServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
+                  >
+                    − Минус
+                  </button>
+                </div>
+                {addServiceDraft.priceMode === 'subtract' && (
+                  <p className={`text-xs ${sub} mt-1.5`}>Клиент платит как обычно, но сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                )}
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
@@ -3290,8 +3319,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Итого</div>
                     <div className="flex justify-between items-center">
                       <span className={`text-sm ${sub}`}>Клиент заплатит</span>
-                      <span className="text-sm font-semibold">{addServiceDraft.price.toLocaleString('ru')} ₽</span>
+                      <span className={`text-sm font-semibold ${addServiceDraft.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{addServiceDraft.priceMode === 'subtract' ? '− ' : '+ '}{addServiceDraft.price.toLocaleString('ru')} ₽</span>
                     </div>
+                    {addServiceDraft.priceMode === 'subtract' && (
+                      <div className="flex justify-between items-center">
+                        <span className={`text-sm ${sub}`}>База зп мастеров основной услуги</span>
+                        <span className="text-sm font-semibold text-red-500">− {addServiceDraft.price.toLocaleString('ru')} ₽</span>
+                      </div>
+                    )}
                     {addServiceWorkers.length > 0 && addServiceWorkers.map(item => {
                       const w = masterWorkers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
@@ -3343,6 +3378,32 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                   <input className={inputCls} type="number" value={numberInputValue(editAsvcDraft.duration)} onChange={e => setEditAsvcDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                 </div>
+              </div>
+
+              <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
+
+              {/* ── Режим применения цены ── */}
+              <div>
+                <label className={`text-xs ${sub} block mb-1`}>Применить к основной услуге</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setEditAsvcDraft(p => ({ ...p, priceMode: 'add' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={editAsvcDraft.priceMode === 'add' ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
+                  >
+                    + Плюс
+                  </button>
+                  <button
+                    onClick={() => setEditAsvcDraft(p => ({ ...p, priceMode: 'subtract' }))}
+                    className="py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={editAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
+                  >
+                    − Минус
+                  </button>
+                </div>
+                {editAsvcDraft.priceMode === 'subtract' && (
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                )}
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />

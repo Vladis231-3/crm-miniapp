@@ -142,6 +142,7 @@ export interface AdditionalService {
   price: number;
   duration: number;
   status: string;
+  priceMode?: 'add' | 'subtract';
   createdAt: Date;
   workers: AdditionalServiceWorker[];
 }
@@ -151,6 +152,7 @@ export interface AddAdditionalServiceInput {
   name: string;
   price: number;
   duration: number;
+  priceMode?: 'add' | 'subtract';
   workers: AdditionalServiceWorker[];
 }
 
