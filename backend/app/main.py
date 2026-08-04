@@ -300,6 +300,18 @@ from .schemas import (
 
     BookingMaterialPayload,
 
+    BookingHistoryItem,
+
+    BookingMoneySplitDetail,
+
+    BookingMoneySplitOwnerItem,
+
+    BookingMoneySplitUpdateRequest,
+
+    BookingMoneySplitWorkerItem,
+
+    BookingPiggyTxItem,
+
     normalize_plate,
 
     normalize_phone,
@@ -2141,6 +2153,29 @@ def _apply_runtime_migrations() -> None:
     if "booking_materials" not in inspector.get_table_names():
         BookingMaterial.__table__.create(bind=engine)
 
+    # Миграция: override распределения денег по записи (JSON: {materialsCost})
+    if "bookings" in inspector.get_table_names():
+        booking_columns = {col["name"] for col in inspector.get_columns("bookings")}
+        if "money_split_overrides" not in booking_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN money_split_overrides TEXT DEFAULT NULL"
+                )
+
+    # Миграция: привязка расхода к записи (списание материалов)
+    if "expenses" in inspector.get_table_names():
+        expense_columns = {col["name"] for col in inspector.get_columns("expenses")}
+        if "booking_id" not in expense_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE expenses ADD COLUMN booking_id VARCHAR(64) DEFAULT NULL"
+                )
+                connection.exec_driver_sql(
+                    "UPDATE expenses SET booking_id = ("
+                    "SELECT b.id FROM bookings b WHERE b.deleted_at IS NULL"
+                    " AND expenses.title = 'Списание материалов: ' || b.service || ' (' || b.client_name || ')'"
+                    " LIMIT 1) WHERE expenses.category = 'Расходные материалы'"
+                )
 
 
 
@@ -9802,6 +9837,7 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                 date=booking.date,
                 note=", ".join(material_details),
                 resource_group=rg,
+                booking_id=booking.id,
                 created_at=_now(),
             )
         )
@@ -9815,6 +9851,14 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
 
 
 def _booking_materials_cost(db: Session, booking: Booking) -> int:
+    """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада."""
+    override = (booking.money_split_overrides or {}).get("materialsCost")
+    if override is not None:
+        return max(0, int(override))
+    return _booking_materials_cost_actual(db, booking)
+
+
+def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
     """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада."""
     materials_cost = 0
     for bm in (booking.materials or []):
@@ -15329,6 +15373,319 @@ def update_booking_worker_override_earned(
     db.commit()
 
     return {"message": "Заработок обновлён", "overrideEarned": payload.overrideEarned}
+
+
+
+# ── Booking money split (owner, история записей) ─────────────────────────
+
+
+
+def _parse_booking_date_param(value: str) -> str:
+    """Принимает YYYY-MM-DD или DD.MM.YYYY, возвращает DD.MM.YYYY."""
+    if value and len(value) == 10 and value[2] == ".":
+        return value
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Дата должна быть в формате YYYY-MM-DD")
+    return parsed.strftime("%d.%m.%Y")
+
+
+
+def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySplitDetail:
+    """Полная деталь распределения денег по записи: авто-расчёт + фактические значения."""
+    penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(penalties)
+    split = _booking_money_split(db, booking, complaints_by_worker)
+
+    overrides = booking.money_split_overrides or {}
+    materials_auto = _booking_materials_cost_actual(db, booking)
+
+    workers: list[BookingMoneySplitWorkerItem] = []
+    master_effective_total = 0
+    master_by_worker_auto = split["master_by_worker"]
+    for link in booking.worker_links:
+        earned_auto = master_by_worker_auto.get(link.worker_id, 0)
+        earned = int(link.override_earned) if link.override_earned is not None else earned_auto
+        master_effective_total += earned
+        workers.append(
+            BookingMoneySplitWorkerItem(
+                linkId=link.id,
+                workerId=link.worker_id,
+                workerName=link.worker_name,
+                percent=float(link.percent or 0),
+                payType=link.pay_type or "percent",
+                fixedAmount=link.fixed_amount,
+                earned=earned,
+                overrideEarned=link.override_earned,
+            )
+        )
+
+    all_txs = db.scalars(
+        select(PiggyBankTransaction)
+        .where(PiggyBankTransaction.booking_id == booking.id)
+        .order_by(PiggyBankTransaction.created_at.asc())
+    ).all()
+    deposit_txs = [t for t in all_txs if t.transaction_type == "deposit_24percent"]
+    piggy_effective = int(sum(t.amount for t in deposit_txs)) if deposit_txs else split["piggy_deposit"]
+
+    owner_shares: list[BookingMoneySplitOwnerItem] = []
+    owner_by_owner_effective: dict[str, int] = {}
+    shares = db.scalars(
+        select(OwnerProfitShare)
+        .where(OwnerProfitShare.booking_id == booking.id)
+        .order_by(OwnerProfitShare.created_at.asc())
+    ).all()
+    for share in shares:
+        owner = db.get(StaffUser, share.owner_id) if share.owner_id else None
+        owner_shares.append(
+            BookingMoneySplitOwnerItem(
+                ownerId=share.owner_id,
+                ownerName=owner.name if owner else "Владелец",
+                amount=int(share.amount),
+                status=share.status,
+            )
+        )
+        owner_by_owner_effective[share.owner_id] = owner_by_owner_effective.get(share.owner_id, 0) + int(share.amount)
+    owners_effective = sum(owner_by_owner_effective.values()) if owner_shares else split["owners_total"]
+
+    return BookingMoneySplitDetail(
+        id=booking.id,
+        clientName=booking.client_name,
+        clientPhone=booking.client_phone,
+        service=booking.service,
+        serviceId=booking.service_id,
+        date=booking.date,
+        time=booking.time,
+        box=booking.box,
+        price=int(booking.price),
+        status=booking.status,
+        paymentType=booking.payment_type,
+        paymentSettled=booking.payment_settled,
+        resourceGroup=split["resource_group"],
+        mainPrice=split["main_price"],
+        materialsCost=split["materials_cost"],
+        materialsCostAuto=materials_auto,
+        materialsCostOverride=overrides.get("materialsCost"),
+        net=split["net"],
+        masterTotal=master_effective_total,
+        masterTotalAuto=split["master_total"],
+        masterByWorker=master_by_worker_auto,
+        piggyDeposit=piggy_effective,
+        piggyDepositAuto=split["piggy_deposit"],
+        ownersTotal=owners_effective,
+        ownersTotalAuto=split["owners_total"],
+        ownerByOwner=owner_by_owner_effective,
+        ownerByOwnerAuto=split["owner_by_owner"],
+        masterPayType=split["master_pay_type"],
+        piggyPayType=split["piggy_pay_type"],
+        hasCustom=split["has_custom"],
+        workers=workers,
+        piggyTransactions=[
+            BookingPiggyTxItem(id=t.id, amount=t.amount, transactionType=t.transaction_type, purpose=t.purpose)
+            for t in all_txs
+        ],
+        ownerShares=owner_shares,
+        canEdit=booking.status in ("completed", "confirmed"),
+    )
+
+
+
+@app.get("/api/owner/bookings-history", response_model=list[BookingHistoryItem])
+def get_owner_bookings_history(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    status: str | None = None,
+    q: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[BookingHistoryItem]:
+    _ensure_staff_role(session_data, {"owner"})
+
+    query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(Booking.deleted_at.is_(None))
+        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    )
+
+    if date_from:
+        query = query.where(Booking.date >= _parse_booking_date_param(date_from))
+    if date_to:
+        query = query.where(Booking.date <= _parse_booking_date_param(date_to))
+    if status:
+        query = query.where(Booking.status == status)
+    if q and q.strip():
+        needle = q.strip().lower()
+        query = query.where(
+            or_(
+                func.lower(Booking.client_name).like(f"%{needle}%"),
+                func.lower(Booking.client_phone).like(f"%{needle}%"),
+                func.lower(Booking.service).like(f"%{needle}%"),
+                func.lower(Booking.car).like(f"%{needle}%"),
+                func.lower(Booking.plate).like(f"%{needle}%"),
+            )
+        )
+
+    bookings = db.scalars(query).unique().all()
+
+    return [
+        BookingHistoryItem(
+            id=b.id,
+            date=b.date,
+            time=b.time,
+            service=b.service,
+            clientName=b.client_name,
+            car=b.car,
+            plate=b.plate,
+            box=b.box,
+            price=int(b.price),
+            status=b.status,
+            paymentType=b.payment_type,
+            paymentSettled=b.payment_settled,
+            workers=[
+                BookingWorkerPayload(
+                    workerId=w.worker_id,
+                    workerName=w.worker_name,
+                    percent=float(w.percent or 0),
+                    payType=w.pay_type or "percent",
+                    fixedAmount=w.fixed_amount,
+                )
+                for w in b.worker_links
+            ],
+            createdAt=b.created_at,
+        )
+        for b in bookings
+    ]
+
+
+
+@app.get("/api/owner/bookings/{booking_id}/money-split", response_model=BookingMoneySplitDetail)
+def get_owner_booking_money_split(
+    booking_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingMoneySplitDetail:
+    _ensure_staff_role(session_data, {"owner"})
+    booking = db.get(Booking, booking_id)
+    if booking is None or booking.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    return _booking_money_split_detail(db, booking)
+
+
+
+@app.put("/api/owner/bookings/{booking_id}/money-split", response_model=BookingMoneySplitDetail)
+def update_owner_booking_money_split(
+    booking_id: str,
+    payload: BookingMoneySplitUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingMoneySplitDetail:
+    _ensure_staff_role(session_data, {"owner"})
+    booking = db.get(Booking, booking_id)
+    if booking is None or booking.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    if booking.status not in ("completed", "confirmed"):
+        raise HTTPException(status_code=400, detail="Нельзя менять распределение для незавершённой записи")
+
+    for worker_update in payload.workers:
+        link = db.get(BookingWorker, worker_update.linkId)
+        if link is None or link.booking_id != booking.id:
+            raise HTTPException(status_code=400, detail=f"Мастер не найден (linkId={worker_update.linkId})")
+        link.override_earned = worker_update.overrideEarned
+
+    overrides = dict(booking.money_split_overrides or {})
+    if payload.materialsCost is not None:
+        overrides["materialsCost"] = int(payload.materialsCost)
+    else:
+        overrides.pop("materialsCost", None)
+    booking.money_split_overrides = overrides or None
+
+    target_materials = int(payload.materialsCost) if payload.materialsCost is not None else _booking_materials_cost_actual(db, booking)
+    for write_off in db.scalars(select(StockWriteOff).where(StockWriteOff.booking_id == booking.id)).all():
+        write_off.total_cost = target_materials
+    for expense in db.scalars(select(Expense).where(Expense.booking_id == booking.id)).all():
+        expense.amount = target_materials
+
+    deposit_txs = db.scalars(
+        select(PiggyBankTransaction).where(
+            PiggyBankTransaction.booking_id == booking.id,
+            PiggyBankTransaction.transaction_type == "deposit_24percent",
+        )
+    ).all()
+    split = _booking_money_split(db, booking)
+    if payload.piggyDeposit is not None:
+        amount = int(payload.piggyDeposit)
+        if deposit_txs:
+            deposit_txs[0].amount = amount
+            for extra in deposit_txs[1:]:
+                db.delete(extra)
+        elif amount > 0:
+            db.add(
+                PiggyBankTransaction(
+                    id=f"pb-{uuid4()}",
+                    booking_id=booking.id,
+                    amount=amount,
+                    transaction_type="deposit_24percent",
+                    purpose=f"Скорректированное распределение по записи {booking.service} ({booking.client_name})",
+                    material_name=None,
+                    material_cost=None,
+                    date=booking.date,
+                    resource_group=split["resource_group"],
+                    created_at=_now(),
+                )
+            )
+    else:
+        auto_deposit = int(split["piggy_deposit"])
+        if deposit_txs:
+            if auto_deposit > 0:
+                deposit_txs[0].amount = auto_deposit
+                for extra in deposit_txs[1:]:
+                    db.delete(extra)
+            else:
+                for tx in deposit_txs:
+                    db.delete(tx)
+
+    if payload.owners:
+        existing_shares = {
+            share.owner_id: share
+            for share in db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
+            ).all()
+        }
+        seen_owner_ids: set[str] = set()
+        for owner_update in payload.owners:
+            if owner_update.ownerId in seen_owner_ids:
+                continue
+            seen_owner_ids.add(owner_update.ownerId)
+            share = existing_shares.get(owner_update.ownerId)
+            amount = round(owner_update.amount)
+            if share is not None and share.status == "paid":
+                raise HTTPException(status_code=400, detail="Нельзя изменить уже выплаченную долю владельца")
+            if share is not None:
+                if amount > 0:
+                    share.amount = amount
+                else:
+                    db.delete(share)
+            elif amount > 0:
+                owner = db.get(StaffUser, owner_update.ownerId)
+                if owner is None or owner.role != "owner":
+                    raise HTTPException(status_code=400, detail="Владелец не найден")
+                db.add(
+                    OwnerProfitShare(
+                        id=f"ops-{uuid4()}",
+                        booking_id=booking.id,
+                        owner_id=owner_update.ownerId,
+                        amount=amount,
+                        status="pending",
+                        date=booking.date,
+                        created_at=_now(),
+                    )
+                )
+
+    db.commit()
+    db.refresh(booking)
+    return _booking_money_split_detail(db, booking)
 
 
 

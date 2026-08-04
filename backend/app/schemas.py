@@ -1567,3 +1567,99 @@ class PayOwnerSalaryResponse(BaseModel):
 
 class OverrideEarnedRequest(BaseModel):
     overrideEarned: int | None = None
+
+
+class BookingHistoryItem(BaseModel):
+    id: str
+    date: str
+    time: str
+    service: str
+    clientName: str
+    car: str | None = None
+    plate: str | None = None
+    box: str
+    price: int
+    status: BookingStatus
+    paymentType: PaymentType
+    paymentSettled: bool = False
+    workers: list[BookingWorkerPayload] = Field(default_factory=list)
+    createdAt: datetime
+
+
+class BookingMoneySplitWorkerItem(BaseModel):
+    linkId: int
+    workerId: str
+    workerName: str
+    percent: float = 0
+    payType: str = "percent"
+    fixedAmount: int | None = None
+    earned: int = 0
+    overrideEarned: int | None = None
+
+
+class BookingMoneySplitOwnerItem(BaseModel):
+    ownerId: str
+    ownerName: str
+    amount: float = 0
+    status: str = "pending"
+
+
+class BookingPiggyTxItem(BaseModel):
+    id: str
+    amount: float
+    transactionType: str
+    purpose: str
+
+
+class BookingMoneySplitDetail(BaseModel):
+    id: str
+    clientName: str
+    clientPhone: str
+    service: str
+    serviceId: str
+    date: str
+    time: str
+    box: str
+    price: int
+    status: BookingStatus
+    paymentType: PaymentType
+    paymentSettled: bool = False
+    resourceGroup: str = ""
+    mainPrice: int = 0
+    materialsCost: int = 0
+    materialsCostAuto: int = 0
+    materialsCostOverride: int | None = None
+    net: int = 0
+    masterTotal: int = 0
+    masterTotalAuto: int = 0
+    masterByWorker: dict[str, int] = Field(default_factory=dict)
+    piggyDeposit: int = 0
+    piggyDepositAuto: int = 0
+    ownersTotal: int = 0
+    ownersTotalAuto: int = 0
+    ownerByOwner: dict[str, int] = Field(default_factory=dict)
+    ownerByOwnerAuto: dict[str, int] = Field(default_factory=dict)
+    masterPayType: str = ""
+    piggyPayType: str = ""
+    hasCustom: bool = False
+    workers: list[BookingMoneySplitWorkerItem] = Field(default_factory=list)
+    piggyTransactions: list[BookingPiggyTxItem] = Field(default_factory=list)
+    ownerShares: list[BookingMoneySplitOwnerItem] = Field(default_factory=list)
+    canEdit: bool = True
+
+
+class BookingWorkerEarnedUpdate(BaseModel):
+    linkId: int
+    overrideEarned: int | None = Field(default=None, ge=0, le=10_000_000)
+
+
+class BookingMoneySplitOwnerUpdate(BaseModel):
+    ownerId: str
+    amount: float = Field(ge=0, le=10_000_000)
+
+
+class BookingMoneySplitUpdateRequest(BaseModel):
+    workers: list[BookingWorkerEarnedUpdate] = Field(default_factory=list)
+    materialsCost: int | None = Field(default=None, ge=0, le=10_000_000)
+    piggyDeposit: int | None = Field(default=None, ge=0, le=10_000_000)
+    owners: list[BookingMoneySplitOwnerUpdate] = Field(default_factory=list)

@@ -175,6 +175,7 @@ class Booking(Base):
     materials_written_off: Mapped[bool] = mapped_column(Boolean, default=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    money_split_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
 
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(
@@ -332,6 +333,7 @@ class Expense(Base):
     date: Mapped[str] = mapped_column(String(16))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     resource_group: Mapped[str] = mapped_column(String(64), default="wash")
+    booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

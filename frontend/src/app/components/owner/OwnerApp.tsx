@@ -33,7 +33,7 @@ import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } fr
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -52,6 +52,36 @@ interface SalaryDetailResponse {
   completedBookingsCount: number; shiftCount: number;
   bookings: SalaryBookingItem[]; payouts: SalaryPayoutItem[];
   entries: PayrollEntry[];
+}
+
+interface BookingHistoryWorkerItem {
+  workerId: string; workerName: string; percent: number; payType: string; fixedAmount?: number | null;
+}
+interface BookingHistoryItem {
+  id: string; date: string; time: string; service: string; clientName: string;
+  car?: string | null; plate?: string | null; box: string; price: number;
+  status: string; paymentType: string; paymentSettled?: boolean;
+  workers: BookingHistoryWorkerItem[]; createdAt: string;
+}
+interface MoneySplitWorkerItem {
+  linkId: number; workerId: string; workerName: string; percent: number;
+  payType: string; fixedAmount?: number | null; earned: number; overrideEarned?: number | null;
+}
+interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; }
+interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; }
+interface MoneySplitDetail {
+  id: string; clientName: string; clientPhone: string; service: string; serviceId: string;
+  date: string; time: string; box: string; price: number; status: string;
+  paymentType: string; paymentSettled?: boolean; resourceGroup: string;
+  mainPrice: number; materialsCost: number; materialsCostAuto: number; materialsCostOverride?: number | null;
+  net: number; masterTotal: number; masterTotalAuto: number;
+  masterByWorker: Record<string, number>;
+  piggyDeposit: number; piggyDepositAuto: number;
+  ownersTotal: number; ownersTotalAuto: number;
+  ownerByOwner: Record<string, number>; ownerByOwnerAuto: Record<string, number>;
+  masterPayType: string; piggyPayType: string; hasCustom: boolean;
+  workers: MoneySplitWorkerItem[]; piggyTransactions: PiggyTxItem[];
+  ownerShares: MoneySplitOwnerItem[]; canEdit: boolean;
 }
 
 interface OwnerProfitShareItem {
@@ -697,6 +727,24 @@ export function OwnerApp() {
   const [ownerPayAmount, setOwnerPayAmount] = useState('');
   const [ownerPayNote, setOwnerPayNote] = useState('');
   const [selectedShareDetail, setSelectedShareDetail] = useState<OwnerProfitShareItem | null>(null);
+
+  // Bookings history state
+  const [historyItems, setHistoryItems] = useState<BookingHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPeriod, setHistoryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('');
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historySearchInput, setHistorySearchInput] = useState('');
+  const [selectedHistoryBookingId, setSelectedHistoryBookingId] = useState<string | null>(null);
+  const [splitDetail, setSplitDetail] = useState<MoneySplitDetail | null>(null);
+  const [splitLoading, setSplitLoading] = useState(false);
+  const [splitSaving, setSplitSaving] = useState(false);
+  const [splitWorkersDraft, setSplitWorkersDraft] = useState<MoneySplitWorkerItem[]>([]);
+  const [splitMaterialsDraft, setSplitMaterialsDraft] = useState('');
+  const [splitPiggyDraft, setSplitPiggyDraft] = useState('');
+  const [splitOwnersDraft, setSplitOwnersDraft] = useState<MoneySplitOwnerItem[]>([]);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -1411,6 +1459,138 @@ export function OwnerApp() {
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить настройки');
       setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  const historyPeriodDates = () => {
+    const today = new Date();
+    if (historyPeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
+    if (historyPeriod === 'week') {
+      const from = new Date(today);
+      const offset = (today.getDay() + 6) % 7;
+      from.setDate(today.getDate() - offset);
+      return { dateFrom: formatDate(from), dateTo: formatDate(today) };
+    }
+    if (historyPeriod === 'month') {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { dateFrom: formatDate(from), dateTo: formatDate(today) };
+    }
+    if (historyPeriod === 'custom') return { dateFrom: historyDateFrom, dateTo: historyDateTo };
+    return { dateFrom: '', dateTo: '' };
+  };
+
+  const fetchBookingsHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const params = new URLSearchParams();
+      const { dateFrom, dateTo } = historyPeriodDates();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      if (historyStatusFilter) params.set('status', historyStatusFilter);
+      if (historyQuery.trim()) params.set('q', historyQuery.trim());
+      const items = await apiRequest<BookingHistoryItem[]>(`/api/owner/bookings-history?${params.toString()}`);
+      setHistoryItems(items);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить историю записей');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setHistoryLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyPeriod, historyDateFrom, historyDateTo, historyStatusFilter, historyQuery]);
+
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'bookings-history' && !selectedHistoryBookingId) {
+      void fetchBookingsHistory();
+    }
+  }, [page, settingsSection, selectedHistoryBookingId, fetchBookingsHistory]);
+
+  const loadSplitDetail = useCallback(async (bookingId: string) => {
+    setSplitLoading(true);
+    try {
+      const detail = await apiRequest<MoneySplitDetail>(`/api/owner/bookings/${bookingId}/money-split`);
+      setSplitDetail(detail);
+      setSplitWorkersDraft(detail.workers.map(w => ({ ...w, overrideEarned: w.overrideEarned ?? null })));
+      setSplitMaterialsDraft(detail.materialsCostOverride !== null && detail.materialsCostOverride !== undefined
+        ? String(detail.materialsCostOverride)
+        : '');
+      setSplitPiggyDraft(detail.piggyDeposit > 0 ? String(detail.piggyDeposit) : '');
+      setSplitOwnersDraft(detail.ownerShares.map(o => ({ ...o })));
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить распределение');
+      setTimeout(() => setBottomToast(null), 4000);
+      setSelectedHistoryBookingId(null);
+    } finally {
+      setSplitLoading(false);
+    }
+  }, []);
+
+  const openHistoryBooking = (bookingId: string) => {
+    setSelectedHistoryBookingId(bookingId);
+    setSplitDetail(null);
+    void loadSplitDetail(bookingId);
+  };
+
+  const closeHistoryBooking = () => {
+    setSelectedHistoryBookingId(null);
+    setSplitDetail(null);
+  };
+
+  const handleSaveMoneySplit = async () => {
+    if (!splitDetail) return;
+    setSplitSaving(true);
+    try {
+      const updated = await apiRequest<MoneySplitDetail>(`/api/owner/bookings/${splitDetail.id}/money-split`, {
+        method: 'PUT',
+        body: {
+          workers: splitWorkersDraft.map(w => ({
+            linkId: w.linkId,
+            overrideEarned: w.overrideEarned !== null && w.overrideEarned !== undefined ? Math.round(w.overrideEarned) : null,
+          })),
+          materialsCost: splitMaterialsDraft.trim() === '' ? null : Math.round(Number(splitMaterialsDraft) || 0),
+          piggyDeposit: splitPiggyDraft.trim() === '' ? null : Math.round(Number(splitPiggyDraft) || 0),
+          owners: splitOwnersDraft.map(o => ({ ownerId: o.ownerId, amount: Math.round(o.amount) })),
+        },
+      });
+      setSplitDetail(updated);
+      setSplitWorkersDraft(updated.workers.map(w => ({ ...w, overrideEarned: w.overrideEarned ?? null })));
+      setSplitMaterialsDraft(updated.materialsCostOverride !== null && updated.materialsCostOverride !== undefined
+        ? String(updated.materialsCostOverride)
+        : '');
+      setSplitPiggyDraft(updated.piggyDeposit > 0 ? String(updated.piggyDeposit) : '');
+      setSplitOwnersDraft(updated.ownerShares.map(o => ({ ...o })));
+      setBottomToast('Распределение сохранено');
+      setTimeout(() => setBottomToast(null), 3000);
+      void fetchBookingsHistory();
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить распределение');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setSplitSaving(false);
+    }
+  };
+
+  const handleResetMoneySplit = async () => {
+    if (!splitDetail) return;
+    setSplitSaving(true);
+    try {
+      const updated = await apiRequest<MoneySplitDetail>(`/api/owner/bookings/${splitDetail.id}/money-split`, {
+        method: 'PUT',
+        body: { workers: [], materialsCost: null, piggyDeposit: null, owners: [] },
+      });
+      setSplitDetail(updated);
+      setSplitWorkersDraft(updated.workers.map(w => ({ ...w, overrideEarned: null })));
+      setSplitMaterialsDraft('');
+      setSplitPiggyDraft('');
+      setSplitOwnersDraft(updated.ownerShares.map(o => ({ ...o })));
+      setBottomToast('Сброшено к автоматическому расчёту');
+      setTimeout(() => setBottomToast(null), 3000);
+      void fetchBookingsHistory();
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сбросить распределение');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setSplitSaving(false);
     }
   };
 
@@ -5197,6 +5377,7 @@ setOwnerNewBookingWorkers([]);
                 { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
+                { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
@@ -5219,6 +5400,286 @@ setOwnerNewBookingWorkers([]);
                   <ChevronRight size={16} className={sub} />
                 </motion.button>
               ))}
+            </motion.div>
+          )}
+
+          {/* ── SETTINGS: BOOKINGS HISTORY ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'bookings-history' && !selectedHistoryBookingId && (
+            <motion.div key="s-bookings-history" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-4">История записей</h2>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  { id: 'day', label: 'День' },
+                  { id: 'week', label: 'Неделя' },
+                  { id: 'month', label: 'Месяц' },
+                  { id: 'all', label: 'Всё' },
+                  { id: 'custom', label: 'Свои' },
+                ].map(option => (
+                  <button key={option.id}
+                    onClick={() => setHistoryPeriod(option.id as typeof historyPeriod)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${historyPeriod === option.id ? 'text-white' : `${glass} ${sub}`}`}
+                    style={historyPeriod === option.id ? { background: primary } : undefined}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {historyPeriod === 'custom' && (
+                <div className="flex gap-2 mb-3">
+                  <input type="date" value={historyDateFrom}
+                    onChange={e => setHistoryDateFrom(e.target.value)}
+                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  <input type="date" value={historyDateTo}
+                    onChange={e => setHistoryDateTo(e.target.value)}
+                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  { id: '', label: 'Все' },
+                  { id: 'completed', label: 'Завершено' },
+                  { id: 'in_progress', label: 'В работе' },
+                  { id: 'cancelled', label: 'Отменено' },
+                  { id: 'no_show', label: 'Не приехал' },
+                ].map(option => (
+                  <button key={option.id || 'all'}
+                    onClick={() => setHistoryStatusFilter(option.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${historyStatusFilter === option.id ? 'text-white' : `${glass} ${sub}`}`}
+                    style={historyStatusFilter === option.id ? { background: '#6366F1' } : undefined}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                <div className={`relative flex-1 ${glass} rounded-xl`}>
+                  <Search size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                  <input
+                    className="w-full bg-transparent outline-none pl-9 pr-3 py-2.5 text-sm"
+                    placeholder="Клиент, телефон, услуга, авто..."
+                    value={historySearchInput}
+                    onChange={e => setHistorySearchInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') setHistoryQuery(historySearchInput.trim()); }}
+                  />
+                </div>
+                <button onClick={() => setHistoryQuery(historySearchInput.trim())}
+                  className="px-4 rounded-xl text-sm font-semibold text-white shrink-0" style={{ background: '#6366F1' }}>
+                  Найти
+                </button>
+              </div>
+
+              {historyLoading && historyItems.length === 0 ? (
+                <div className={`text-center py-10 text-sm ${sub}`}>Загрузка...</div>
+              ) : historyItems.length === 0 ? (
+                <div className={`text-center py-10 text-sm ${sub}`}>Записей не найдено</div>
+              ) : (
+                (() => {
+                  const grouped = historyItems.reduce<Record<string, BookingHistoryItem[]>>((acc, item) => {
+                    (acc[item.date] = acc[item.date] || []).push(item);
+                    return acc;
+                  }, {});
+                  return Object.entries(grouped).map(([date, items]) => (
+                    <div key={date} className="mb-4">
+                      <div className={`text-xs font-semibold ${sub} mb-2 uppercase tracking-wide`}>{date}</div>
+                      {items.map(item => (
+                        <motion.button key={item.id} whileTap={{ scale: 0.98 }}
+                          onClick={() => openHistoryBooking(item.id)}
+                          className={`${glass} rounded-2xl p-3.5 w-full text-left mb-2`}>
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-bold" style={{ background: '#6366F1' }}>
+                              {item.time}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-sm font-semibold truncate">{item.service}</div>
+                                <div className="text-sm font-bold shrink-0">{item.price.toLocaleString('ru')} ₽</div>
+                              </div>
+                              <div className={`text-xs ${sub} mt-0.5 truncate`}>
+                                {item.clientName}{item.car ? ` · ${item.car}` : ''}{item.plate ? `, ${item.plate}` : ''}
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-1.5">
+                                <div className={`text-[11px] ${sub}`}>
+                                  {item.box}{item.workers.length > 0 ? ` · ${item.workers.map(w => w.workerName).join(', ')}` : ''}
+                                </div>
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ownerStatusBadge(item.status)}`}>
+                                  {ownerStatusLabel(item.status)}
+                                </span>
+                              </div>
+                            </div>
+                            <ChevronRight size={15} className={`mt-1 shrink-0 ${sub}`} />
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  ));
+                })()
+              )}
+            </motion.div>
+          )}
+
+          {/* ── SETTINGS: BOOKINGS HISTORY DETAIL ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'bookings-history' && selectedHistoryBookingId && (
+            <motion.div key="s-booking-split" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+
+              {splitLoading || !splitDetail ? (
+                <div className={`text-center py-10 text-sm ${sub}`}>Загрузка...</div>
+              ) : (
+                <>
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="text-base font-bold truncate">{splitDetail.clientName}</div>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(splitDetail.status)}`}>
+                        {ownerStatusLabel(splitDetail.status)}
+                      </span>
+                    </div>
+                    <div className="text-sm font-medium">{splitDetail.service}</div>
+                    <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
+                      <div>{splitDetail.date} · {splitDetail.time} · {splitDetail.box}</div>
+                      {splitDetail.clientPhone && <div>{splitDetail.clientPhone}</div>}
+                      <div className="flex items-center gap-2">
+                        <span>Оплата: {splitDetail.paymentType === 'cash' ? 'наличные' : splitDetail.paymentType === 'card' ? 'карта' : 'счёт'}</span>
+                        {splitDetail.paymentSettled && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-600">Оплачена</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
+                      <div className={`text-xs ${sub}`}>Итоговая цена</div>
+                      <div className="text-lg font-bold" style={{ color: primary }}>{splitDetail.price.toLocaleString('ru')} ₽</div>
+                    </div>
+                  </div>
+
+                  {!splitDetail.canEdit && (
+                    <div className="rounded-2xl p-3 mb-3 text-xs font-medium bg-amber-500/10 text-amber-600">
+                      Распределение можно редактировать только для завершённых записей.
+                    </div>
+                  )}
+
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <h3 className="font-semibold text-sm mb-3">Распределение денег</h3>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">Материалы</div>
+                          <div className={`text-[11px] ${sub}`}>авто: {splitDetail.materialsCostAuto.toLocaleString('ru')} ₽</div>
+                        </div>
+                        <input
+                          type="number" inputMode="numeric" min={0}
+                          disabled={!splitDetail.canEdit}
+                          placeholder={String(splitDetail.materialsCostAuto)}
+                          value={splitMaterialsDraft}
+                          onChange={e => setSplitMaterialsDraft(e.target.value)}
+                          className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm`}
+                        />
+                      </div>
+
+                      <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
+
+                      {splitWorkersDraft.map(w => {
+                        const auto = splitDetail.masterByWorker[w.workerId] ?? w.earned;
+                        const hasOverride = w.overrideEarned !== null && w.overrideEarned !== undefined;
+                        return (
+                          <div key={w.linkId} className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{w.workerName}</div>
+                              <div className={`text-[11px] ${sub}`}>
+                                {w.payType === 'fixed'
+                                  ? `Фикс: ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽`
+                                  : `${w.percent}%`}
+                                {hasOverride ? ` · авто: ${auto.toLocaleString('ru')} ₽` : ''}
+                              </div>
+                            </div>
+                            <input
+                              type="number" inputMode="numeric" min={0}
+                              disabled={!splitDetail.canEdit}
+                              placeholder={String(auto)}
+                              value={w.overrideEarned !== null && w.overrideEarned !== undefined ? String(Math.round(w.overrideEarned)) : ''}
+                              onChange={e => {
+                                const raw = e.target.value;
+                                const value = raw === '' ? null : Math.max(0, Number(raw) || 0);
+                                setSplitWorkersDraft(cur => cur.map(x => x.linkId === w.linkId ? { ...x, overrideEarned: value } : x));
+                              }}
+                              className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm`}
+                            />
+                          </div>
+                        );
+                      })}
+
+                      <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">Копилка</div>
+                          <div className={`text-[11px] ${sub}`}>авто: {splitDetail.piggyDepositAuto.toLocaleString('ru')} ₽</div>
+                        </div>
+                        <input
+                          type="number" inputMode="numeric" min={0}
+                          disabled={!splitDetail.canEdit}
+                          placeholder={String(splitDetail.piggyDepositAuto)}
+                          value={splitPiggyDraft}
+                          onChange={e => setSplitPiggyDraft(e.target.value)}
+                          className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm`}
+                        />
+                      </div>
+
+                      <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
+
+                      {splitOwnersDraft.map(o => {
+                        const paid = o.status === 'paid';
+                        const auto = splitDetail.ownerByOwnerAuto[o.ownerId] ?? 0;
+                        return (
+                          <div key={o.ownerId} className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{o.ownerName}</div>
+                              <div className={`text-[11px] ${sub}`}>
+                                {paid ? 'Выплачено' : `авто: ${auto.toLocaleString('ru')} ₽`}
+                              </div>
+                            </div>
+                            <input
+                              type="number" inputMode="numeric" min={0}
+                              disabled={!splitDetail.canEdit || paid}
+                              placeholder={String(auto)}
+                              value={o.amount > 0 ? String(Math.round(o.amount)) : ''}
+                              onChange={e => setSplitOwnersDraft(cur => cur.map(x => x.ownerId === o.ownerId ? { ...x, amount: Math.max(0, Number(e.target.value) || 0) } : x))}
+                              className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm ${paid ? 'opacity-50' : ''}`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/10 space-y-1.5">
+                      <div className="flex justify-between text-sm"><span className={sub}>Выручка (цена − материалы)</span><span className="font-semibold">{splitDetail.net.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-sm"><span className={sub}>Мастера</span><span className="font-semibold">{splitDetail.masterTotal.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-sm"><span className={sub}>Материалы</span><span className="font-semibold">{splitDetail.materialsCost.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-sm"><span className={sub}>Копилка</span><span className="font-semibold">{splitDetail.piggyDeposit.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-sm"><span className={sub}>Владельцы</span><span className="font-semibold">{splitDetail.ownersTotal.toLocaleString('ru')} ₽</span></div>
+                    </div>
+                  </div>
+
+                  {splitDetail.canEdit && (
+                    <>
+                      <button onClick={() => void handleSaveMoneySplit()}
+                        disabled={splitSaving}
+                        className="w-full py-3.5 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-3 disabled:opacity-60"
+                        style={{ background: primary }}>
+                        <Save size={16} />{splitSaving ? 'Сохраняем...' : 'Сохранить изменения'}
+                      </button>
+                      {splitDetail.hasCustom && (
+                        <button onClick={() => void handleResetMoneySplit()}
+                          disabled={splitSaving}
+                          className="w-full py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60 mb-4"
+                          style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          <RefreshCw size={15} />Сбросить к автоматическому расчёту
+                        </button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
             </motion.div>
           )}
 
