@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-04 10:22 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-04 10:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **241**
-- Строк кода: **72 552**
+- Строк кода: **72 564**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 36, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -1721,7 +1721,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (10601 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (10613 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 173) — локальный
 - `STOCK_UNITS` (стр. 174) — локальный
@@ -2514,7 +2514,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-04 13:22)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-04 13:47)
 - `backend/app/main.py` (2026-08-04 13:20)
 - `backend/app/schemas.py` (2026-08-04 13:20)
 - `backend/tests/test_booking_money_split.py` (2026-08-04 13:19)

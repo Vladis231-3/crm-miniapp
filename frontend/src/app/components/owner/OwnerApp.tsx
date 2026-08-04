@@ -10401,6 +10401,18 @@ setOwnerNewBookingWorkers([]);
                   <div>
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Порядок расчёта</div>
                     <div className={`${glass} rounded-2xl p-3 space-y-1`}>
+                      {(() => {
+                        const pipelineActive = effectiveOrder.join(',') !== ORDER_STEPS.map(o => o.id).join(',');
+                        return pipelineActive ? (
+                          <div className="text-[11px] font-medium px-2 py-1 rounded-lg mb-1 bg-emerald-500/10 text-emerald-600">
+                            ✓ Конвейер: % считаются от текущего остатка по шагам
+                          </div>
+                        ) : (
+                          <div className="text-[11px] font-medium px-2 py-1 rounded-lg mb-1 bg-amber-500/10 text-amber-600">
+                            Классический режим: % от полной базы (материалы → мастера → копилка → владельцы). Переставьте шаги — включится конвейер.
+                          </div>
+                        );
+                      })()}
                       {effectiveOrder.map((stepId, si) => {
                         const step = ORDER_STEPS.find(s => s.id === stepId)!;
                         const move = (dir: -1 | 1) => {
