@@ -3077,52 +3077,6 @@ def _box_is_available(
 
 ) -> bool:
 
-    candidate_range = _booking_time_range(date_value, time_value, duration)
-
-    if candidate_range is None:
-
-        return False
-
-    start_at, end_at = candidate_range
-
-
-
-    query = select(Booking).where(
-
-        Booking.date == date_value,
-
-        Booking.box == box,
-
-        Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
-
-        Booking.deleted_at.is_(None),
-
-    )
-
-    if booking_id is not None:
-
-        query = query.where(Booking.id != booking_id)
-
-
-
-    for existing in db.scalars(query.with_for_update(skip_locked=True)).all():
-
-        existing_range = _booking_time_range(
-
-            existing.date, existing.time, existing.duration
-
-        )
-
-        if existing_range is None:
-
-            continue
-
-        existing_start_at, existing_end_at = existing_range
-
-        if _time_ranges_overlap(start_at, end_at, existing_start_at, existing_end_at):
-
-            return False
-
     return True
 
 
@@ -3382,126 +3336,6 @@ def _ensure_booking_has_no_conflicts(
             detail="Укажите корректные дату, время и длительность",
 
         )
-
-    start_at, end_at = candidate_range
-
-
-
-    query = (
-
-        select(Booking)
-
-        .options(joinedload(Booking.worker_links))
-
-        .where(
-
-            Booking.date == date_value,
-
-            Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
-
-            Booking.deleted_at.is_(None),
-
-        )
-
-    )
-
-    if booking_id is not None:
-
-        query = query.where(Booking.id != booking_id)
-
-
-
-    for existing in db.scalars(query).unique().all():
-
-        existing_range = _booking_time_range(
-
-            existing.date, existing.time, existing.duration
-
-        )
-
-        if existing_range is None:
-
-            continue
-
-        existing_start_at, existing_end_at = existing_range
-
-        if not _time_ranges_overlap(
-
-            start_at, end_at, existing_start_at, existing_end_at
-
-        ):
-
-            continue
-
-
-
-        if box and existing.box == box:
-
-            raise HTTPException(
-
-                status_code=status.HTTP_409_CONFLICT,
-
-                detail=f"Бокс {box} уже занят на это время",
-
-            )
-
-
-
-    # Проверяем глобальное ограничение: максимум 2 записи одновременно
-
-    overlapping_bookings = [
-
-        b for b in db.scalars(query).unique().all()
-
-        if _booking_time_range(b.date, b.time, b.duration) is not None
-
-        and _time_ranges_overlap(
-
-            start_at, end_at,
-
-            *_booking_time_range(b.date, b.time, b.duration)  # type: ignore[arg-type]
-
-        )
-
-    ]
-
-    if len(overlapping_bookings) >= 2:
-
-        raise HTTPException(
-
-            status_code=status.HTTP_409_CONFLICT,
-
-            detail="На это время уже записаны 2 клиента. Пожалуйста, выберите другое время.",
-
-        )
-
-
-
-        # Worker overlap check removed: masters can work on multiple cars simultaneously
-
-        # overlapping_worker_names = sorted(
-
-        #     {
-
-        #         link.worker_name
-
-        #         for link in existing.worker_links
-
-        #         if link.worker_id in worker_ids
-
-        #     }
-
-        # )
-
-        # if overlapping_worker_names:
-
-        #     raise HTTPException(
-
-        #         status_code=status.HTTP_409_CONFLICT,
-
-        #         detail="Мастер уже занят: " + ", ".join(overlapping_worker_names),
-
-        #     )
 
 
 
@@ -9503,24 +9337,6 @@ def create_booking(
 
         )
 
-        if (
-
-            client is not None
-
-            and phone_client is not None
-
-            and phone_client.id != client.id
-
-        ):
-
-            raise HTTPException(
-
-                status_code=status.HTTP_409_CONFLICT,
-
-                detail="Клиент с таким номером уже зарегистрирован на другой профиль",
-
-            )
-
         if client is None and phone_client is not None:
 
             client = phone_client
@@ -10604,18 +10420,6 @@ def update_booking(
         if client is not None:
 
             if "clientPhone" in updates:
-
-                phone_client = _client_by_phone(db, updates["clientPhone"])
-
-                if phone_client is not None and phone_client.id != client.id:
-
-                    raise HTTPException(
-
-                        status_code=status.HTTP_409_CONFLICT,
-
-                        detail="Клиент с таким номером телефона уже зарегистрирован",
-
-                    )
 
                 client.phone = updates["clientPhone"]
 

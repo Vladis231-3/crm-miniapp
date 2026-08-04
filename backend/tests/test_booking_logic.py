@@ -605,7 +605,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(payload["bootstrap"]["settings"]["ownerNotificationSettings"]["bookingReminders"], False)
         self.assertEqual(payload["bootstrap"]["settings"]["workerNotificationSettings"], {})
 
-    def test_client_booking_uses_other_active_box_when_first_is_busy(self) -> None:
+    def test_client_booking_can_share_busy_box(self) -> None:
         admin_token = self.login_staff("admin", "admin")
         booking_date = self.next_active_date()
         admin_response = self.client.post(
@@ -655,7 +655,7 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(client_response.status_code, 200, client_response.text)
         payload = client_response.json()
-        self.assertNotEqual(payload["box"], "Бокс 1")
+        self.assertEqual(payload["box"], "Бокс 1")
 
     def test_detailing_booking_uses_detailing_room_and_keeps_slots_separate(self) -> None:
         admin_token = self.login_staff("admin", "admin")
@@ -741,8 +741,9 @@ class BookingLogicTests(unittest.TestCase):
             "car": "Lada Vesta",
             "plate": "A123BC",
         }
-        # Детейлинг-услуга использует 3 бокса — занимаем все три,
-        # после чего 4-я перекрывающаяся запись должна дать 409.
+        # Детейлинг-услуга использует 3 бокса — все три заняты,
+        # но ограничения на перекрытие записей сняты:
+        # 4-я перекрывающаяся запись должна пройти успешно.
         for slot in ("10:00", "10:30", "11:00"):
             resp = self.client.post(
                 "/api/bookings",
@@ -756,7 +757,7 @@ class BookingLogicTests(unittest.TestCase):
             headers=self.auth_headers(token),
             json={**common, "time": "10:15"},
         )
-        self.assertEqual(overflow.status_code, 409, overflow.text)
+        self.assertEqual(overflow.status_code, 200, overflow.text)
 
     def test_admin_can_edit_and_complete_existing_booking_on_inactive_day(self) -> None:
         from app.database import SessionLocal
@@ -862,7 +863,7 @@ class BookingLogicTests(unittest.TestCase):
             },
         )
         self.assertEqual(second_response.status_code, 200, second_response.text)
-        self.assertEqual(second_response.json()["box"], "Бокс 2")
+        self.assertEqual(second_response.json()["box"], "Бокс 1")
 
     def test_admin_can_start_booking_that_ends_exactly_at_closing_time(self) -> None:
         from app.database import SessionLocal
