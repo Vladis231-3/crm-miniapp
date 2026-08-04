@@ -5146,15 +5146,17 @@ def _send_telegram_safe(chat_id: str | None, text: str) -> None:
 
     if not chat_id:
 
+        logger.warning("Пропущена отправка Telegram-уведомления: у получателя нет chat_id")
+
         return
 
     try:
 
         send_telegram_message(chat_id, text)
 
-    except Exception:
+    except Exception as exc:
 
-        pass
+        logger.warning("Ошибка отправки Telegram-уведомления (chat_id=%s): %s", chat_id, exc)
 
 
 

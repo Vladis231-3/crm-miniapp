@@ -661,6 +661,7 @@ export function OwnerApp() {
     duration: 30,
     referralSource: '',
   });
+  const [notifyBookingWorkers, setNotifyBookingWorkers] = useState(true);
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [createClientSaving, setCreateClientSaving] = useState(false);
   const [createClientErrors, setCreateClientErrors] = useState<{ name?: string; phone?: string; car?: string; plate?: string; general?: string }>({});
@@ -2066,6 +2067,7 @@ export function OwnerApp() {
 
   const resetBookingForm = () => {
     setBookingWorkers([]);
+    setNotifyBookingWorkers(true);
     const firstSvc = services[0];
     setBookingForm({
       clientId: '',
@@ -2097,6 +2099,7 @@ export function OwnerApp() {
       : [{ car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian' }]);
     const mainVehicle = clientVehicles.find((v) => v.isMain) ?? clientVehicles[0] ?? {};
     setBookingWorkers([]);
+    setNotifyBookingWorkers(true);
     setBookingForm({
       clientId: client.id,
       clientName: client.name,
@@ -2240,7 +2243,7 @@ export function OwnerApp() {
         plate: normalizedPlate,
         plateType: bookingForm.plateType,
         referralSource: bookingForm.referralSource || undefined,
-        notifyWorkers: !bookingForm.isOutsource && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
+        notifyWorkers: !bookingForm.isOutsource && notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
         await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc.name} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
@@ -7813,6 +7816,7 @@ setOwnerNewBookingWorkers([]);
                   const _svc = services.find(s => s.id === bookingForm.service);
                   const _isFixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                   return (
+                <>
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
@@ -7876,6 +7880,19 @@ setOwnerNewBookingWorkers([]);
                     })}
                   </div>
                 </div>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 ${bookingForm.status === 'completed' ? 'opacity-60' : ''}`}>
+                  <span>Уведомить мастеров</span>
+                  <input
+                    type="checkbox"
+                    checked={notifyBookingWorkers && bookingForm.status !== 'completed'}
+                    disabled={bookingForm.status === 'completed'}
+                    onChange={(event) => setNotifyBookingWorkers(event.target.checked)}
+                  />
+                </label>
+                {bookingForm.status === 'completed' && (
+                  <div className={`text-xs ${sub} rounded-xl px-3 py-2`}>Для прошлых записей уведомления мастерам не отправляются.</div>
+                )}
+                </>
                   );
                 })()}
               </div>
