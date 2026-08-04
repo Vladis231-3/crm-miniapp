@@ -69,17 +69,22 @@ interface MoneySplitWorkerItem {
 }
 interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; }
 interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; }
+interface AdditionalServiceItem { name: string; price: number; priceMode: string; duration: number; }
 interface MoneySplitDetail {
   id: string; clientName: string; clientPhone: string; service: string; serviceId: string;
   date: string; time: string; box: string; price: number; status: string;
   paymentType: string; paymentSettled?: boolean; resourceGroup: string;
-  mainPrice: number; materialsCost: number; materialsCostAuto: number; materialsCostOverride?: number | null;
+  mainPrice: number; additionalServices: AdditionalServiceItem[];
+  additionalTotal: number; subtractTotal: number; splitBase: number;
+  materialsCost: number; materialsCostAuto: number; materialsCostOverride?: number | null;
   net: number; masterTotal: number; masterTotalAuto: number;
   masterByWorker: Record<string, number>;
   piggyDeposit: number; piggyDepositAuto: number;
   ownersTotal: number; ownersTotalAuto: number;
   ownerByOwner: Record<string, number>; ownerByOwnerAuto: Record<string, number>;
-  masterPayType: string; piggyPayType: string; piggyTarget: string; hasCustom: boolean;
+  masterPayType: string; masterPayValue: number;
+  piggyPayType: string; piggyPayValue: number;
+  piggyTarget: string; hasCustom: boolean;
   workers: MoneySplitWorkerItem[]; piggyTransactions: PiggyTxItem[];
   ownerShares: MoneySplitOwnerItem[]; canEdit: boolean;
 }
@@ -5554,6 +5559,18 @@ setOwnerNewBookingWorkers([]);
                       <div className={`text-xs ${sub}`}>Итоговая цена</div>
                       <div className="text-lg font-bold" style={{ color: primary }}>{splitDetail.price.toLocaleString('ru')} ₽</div>
                     </div>
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className={sub}>{splitDetail.service}</span>
+                        <span className="font-medium">{splitDetail.mainPrice.toLocaleString('ru')} ₽</span>
+                      </div>
+                      {splitDetail.additionalServices.map(a => (
+                        <div key={`${a.name}-${a.price}`} className="flex justify-between text-xs">
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}</span>
+                          <span className="font-medium">{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {!splitDetail.canEdit && (
@@ -5564,6 +5581,30 @@ setOwnerNewBookingWorkers([]);
 
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
                     <h3 className="font-semibold text-sm mb-3">Распределение денег</h3>
+
+                    <div className="mb-4 rounded-xl p-3 space-y-1.5" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                      <div className="flex justify-between text-xs"><span className={sub}>Цена записи</span><span className="font-semibold">{splitDetail.price.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Основная услуга</span><span>{splitDetail.mainPrice.toLocaleString('ru')} ₽</span></div>
+                      {splitDetail.additionalServices.map(a => (
+                        <div key={`calc-${a.name}-${a.price}`} className="flex justify-between text-xs">
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}</span>
+                          <span>{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-xs"><span className={sub}>− Материалы</span><span>−{splitDetail.materialsCost.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Выручка (нетто)</span><span className="font-semibold">{splitDetail.net.toLocaleString('ru')} ₽</span></div>
+                      {splitDetail.subtractTotal > 0 && (
+                        <div className="flex justify-between text-xs"><span className={sub}>− Доп. услуги (вычет)</span><span>−{splitDetail.subtractTotal.toLocaleString('ru')} ₽</span></div>
+                      )}
+                      <div className="flex justify-between text-xs border-t border-white/10 pt-1"><span className={sub}>База расчёта</span><span className="font-semibold">{splitDetail.splitBase.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Мастера{splitDetail.masterPayValue > 0 ? ` (${splitDetail.masterPayValue}% от базы)` : ''}</span><span className="font-medium">{splitDetail.masterTotal.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Копилка{splitDetail.piggyPayValue > 0 ? ` (${splitDetail.piggyPayValue}% от базы)` : ''}</span><span className="font-medium">{splitDetail.piggyDeposit.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Владельцы</span><span className="font-medium">{splitDetail.ownersTotal.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs border-t border-white/10 pt-1">
+                        <span className={sub}>Итого распределено</span>
+                        <span className="font-semibold">{(splitDetail.masterTotal + splitDetail.piggyDeposit + splitDetail.ownersTotal).toLocaleString('ru')} ₽</span>
+                      </div>
+                    </div>
 
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
@@ -5667,14 +5708,6 @@ setOwnerNewBookingWorkers([]);
                           </div>
                         );
                       })}
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-white/10 space-y-1.5">
-                      <div className="flex justify-between text-sm"><span className={sub}>Выручка (цена − материалы)</span><span className="font-semibold">{splitDetail.net.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-sm"><span className={sub}>Мастера</span><span className="font-semibold">{splitDetail.masterTotal.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-sm"><span className={sub}>Материалы</span><span className="font-semibold">{splitDetail.materialsCost.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-sm"><span className={sub}>Копилка</span><span className="font-semibold">{splitDetail.piggyDeposit.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-sm"><span className={sub}>Владельцы</span><span className="font-semibold">{splitDetail.ownersTotal.toLocaleString('ru')} ₽</span></div>
                     </div>
                   </div>
 

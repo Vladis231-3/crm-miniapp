@@ -1614,6 +1614,13 @@ class BookingPiggyTxItem(BaseModel):
     purpose: str
 
 
+class BookingAdditionalServiceItem(BaseModel):
+    name: str
+    price: int
+    priceMode: str = "add"
+    duration: int = 0
+
+
 class BookingMoneySplitDetail(BaseModel):
     id: str
     clientName: str
@@ -1629,6 +1636,10 @@ class BookingMoneySplitDetail(BaseModel):
     paymentSettled: bool = False
     resourceGroup: str = ""
     mainPrice: int = 0
+    additionalServices: list[BookingAdditionalServiceItem] = Field(default_factory=list)
+    additionalTotal: int = 0
+    subtractTotal: int = 0
+    splitBase: int = 0
     materialsCost: int = 0
     materialsCostAuto: int = 0
     materialsCostOverride: int | None = None
@@ -1643,7 +1654,9 @@ class BookingMoneySplitDetail(BaseModel):
     ownerByOwner: dict[str, int] = Field(default_factory=dict)
     ownerByOwnerAuto: dict[str, int] = Field(default_factory=dict)
     masterPayType: str = ""
+    masterPayValue: int = 0
     piggyPayType: str = ""
+    piggyPayValue: int = 0
     piggyTarget: str = ""
     hasCustom: bool = False
     workers: list[BookingMoneySplitWorkerItem] = Field(default_factory=list)

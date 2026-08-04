@@ -15488,6 +15488,15 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     if piggy_target not in ("detailing", "wash", "general"):
         piggy_target = ""
 
+    add_services = sorted(
+        (booking.additional_services or []),
+        key=lambda a: a.created_at or datetime.min,
+    )
+    additional_total = sum(a.price for a in add_services if a.price_mode != "subtract")
+    subtract_total = sum(a.price for a in add_services if a.price_mode == "subtract")
+    main_price = max(0, int(booking.price) - additional_total)
+    split_base = max(0, split["net"] - subtract_total)
+
     return BookingMoneySplitDetail(
         id=booking.id,
         clientName=booking.client_name,
@@ -15502,7 +15511,19 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         paymentType=booking.payment_type,
         paymentSettled=booking.payment_settled,
         resourceGroup=split["resource_group"],
-        mainPrice=split["main_price"],
+        mainPrice=main_price,
+        additionalServices=[
+            BookingAdditionalServiceItem(
+                name=a.name,
+                price=int(a.price),
+                priceMode=a.price_mode or "add",
+                duration=a.duration or 0,
+            )
+            for a in add_services
+        ],
+        additionalTotal=additional_total,
+        subtractTotal=subtract_total,
+        splitBase=split_base,
         materialsCost=split["materials_cost"],
         materialsCostAuto=materials_auto,
         materialsCostOverride=overrides.get("materialsCost"),
@@ -15517,7 +15538,9 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         ownerByOwner=owner_by_owner_effective,
         ownerByOwnerAuto=split["owner_by_owner"],
         masterPayType=split["master_pay_type"],
+        masterPayValue=int(piggy_svc.master_pay_value or 0) if piggy_svc else 0,
         piggyPayType=split["piggy_pay_type"],
+        piggyPayValue=int(piggy_svc.piggy_pay_value or 0) if piggy_svc else 0,
         piggyTarget=piggy_target,
         hasCustom=split["has_custom"],
         workers=workers,
