@@ -550,7 +550,7 @@ class BookingMoneySplitTests(unittest.TestCase):
             svc.master_pay_value = 40
             svc.piggy_pay_type = "percent"
             svc.piggy_pay_value = 24
-            svc.split_order = ["master", "piggy", "owners", "materials"]
+            svc.split_order = ["master", "piggy", "materials", "owners"]
             svc.material_consumption = 2400
             db.commit()
 
@@ -602,15 +602,15 @@ class BookingMoneySplitTests(unittest.TestCase):
 
         split = self.get_split(booking["id"], self.owner_token)
 
-        self.assertEqual(split["splitBase"], 20000, "материалы последним шагом — пул исчерпан владельцами, база без вычета")
+        self.assertEqual(split["splitBase"], 17600, "материалы до владельцев — база с вычетом")
         self.assertEqual(split["masterTotal"], 9200)
         self.assertEqual(split["piggyDeposit"], 6680)
-        self.assertEqual(split["ownersTotal"], 9120)
+        self.assertEqual(split["ownersTotal"], 6720)
 
         asvcPiggyTotal = sum(d["amount"] for d in split["asvcPiggyDeposits"])
         totalDistributed = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
         expectedTotal = split["splitBase"] + split["asvcMasterPayTotal"] + asvcPiggyTotal
-        self.assertEqual(totalDistributed, expectedTotal, "сверка сходится при материалах последним шагом")
+        self.assertEqual(totalDistributed, expectedTotal, "сверка сходится при материалах до владельцев")
 
     def test_money_split_classic_with_subtract_additional_service(self) -> None:
         from app.database import SessionLocal
