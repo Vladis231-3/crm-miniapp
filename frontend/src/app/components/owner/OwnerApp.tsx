@@ -68,8 +68,13 @@ interface MoneySplitWorkerItem {
   payType: string; fixedAmount?: number | null; earned: number; overrideEarned?: number | null;
 }
 interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; }
-interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; }
+interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; resourceGroup: string; date: string; }
 interface AdditionalServiceItem { name: string; price: number; priceMode: string; duration: number; }
+interface AsvcPiggyItem { name: string; resourceGroup: string; amount: number; }
+interface AsvcWorkerItem {
+  linkId: number; workerId: string; workerName: string; percent: number;
+  payType: string; fixedAmount?: number | null; earned: number; additionalServiceName: string;
+}
 interface MoneySplitDetail {
   id: string; clientName: string; clientPhone: string; service: string; serviceId: string;
   date: string; time: string; box: string; price: number; status: string;
@@ -79,6 +84,9 @@ interface MoneySplitDetail {
   materialsCost: number; materialsCostAuto: number; materialsCostOverride?: number | null;
   net: number; masterTotal: number; masterTotalAuto: number;
   masterByWorker: Record<string, number>;
+  asvcMasterPayTotal: number;
+  asvcPiggyDeposits: AsvcPiggyItem[];
+  asvcWorkers: AsvcWorkerItem[];
   piggyDeposit: number; piggyDepositAuto: number;
   ownersTotal: number; ownersTotalAuto: number;
   ownerByOwner: Record<string, number>; ownerByOwnerAuto: Record<string, number>;
@@ -2965,6 +2973,12 @@ setOwnerNewBookingWorkers([]);
     cancelled: 'bg-red-500',
   }[status] || 'bg-slate-500');
 
+  const piggyBankLabel = (key: string) => ({
+    wash: 'копилка мойки',
+    detailing: 'копилка детейлинга',
+    general: 'общая копилка',
+  }[key] || (key || 'копилка'));
+
   const SwitchToggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-all shrink-0"
       style={{ background: value ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
@@ -5597,13 +5611,89 @@ setOwnerNewBookingWorkers([]);
                         <div className="flex justify-between text-xs"><span className={sub}>− Доп. услуги (вычет)</span><span>−{splitDetail.subtractTotal.toLocaleString('ru')} ₽</span></div>
                       )}
                       <div className="flex justify-between text-xs border-t border-white/10 pt-1"><span className={sub}>База расчёта</span><span className="font-semibold">{splitDetail.splitBase.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-xs"><span className={sub}>Мастера{splitDetail.masterPayValue > 0 ? ` (${splitDetail.masterPayValue}% от базы)` : ''}</span><span className="font-medium">{splitDetail.masterTotal.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-xs"><span className={sub}>Копилка{splitDetail.piggyPayValue > 0 ? ` (${splitDetail.piggyPayValue}% от базы)` : ''}</span><span className="font-medium">{splitDetail.piggyDeposit.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-xs"><span className={sub}>Владельцы</span><span className="font-medium">{splitDetail.ownersTotal.toLocaleString('ru')} ₽</span></div>
-                      <div className="flex justify-between text-xs border-t border-white/10 pt-1">
-                        <span className={sub}>Итого распределено</span>
-                        <span className="font-semibold">{(splitDetail.masterTotal + splitDetail.piggyDeposit + splitDetail.ownersTotal).toLocaleString('ru')} ₽</span>
-                      </div>
+
+                      <div className={`text-[10px] font-semibold uppercase tracking-wide pt-2 ${sub}`}>Кому и куда пошло</div>
+
+                      {splitDetail.workers.map(w => {
+                        const how = w.overrideEarned !== null && w.overrideEarned !== undefined
+                          ? 'вручную'
+                          : w.payType === 'fixed'
+                            ? `фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽`
+                            : `${w.percent}% от базы`;
+                        return (
+                          <div key={`ledger-w-${w.linkId}`} className="flex justify-between text-xs">
+                            <span className={`${sub} truncate`} title={`Мастер: ${w.workerName}`}>· {w.workerName} ({how})</span>
+                            <span className="font-medium">{w.earned.toLocaleString('ru')} ₽</span>
+                          </div>
+                        );
+                      })}
+
+                      {splitDetail.asvcWorkers.map(w => (
+                        <div key={`ledger-aw-${w.linkId}`} className="flex justify-between text-xs">
+                          <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName} — ${w.additionalServiceName}`}>
+                            · {w.workerName} — «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
+                          </span>
+                          <span className="font-medium">{w.earned.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+
+                      {(() => {
+                        const asvcPiggyTotal = splitDetail.asvcPiggyDeposits.reduce((s, d) => s + (d.amount || 0), 0);
+                        const mainPiggyDeposit = Math.max(0, splitDetail.piggyDeposit - asvcPiggyTotal);
+                        const piggyHow = splitDetail.piggyPayValue > 0
+                          ? ` (${splitDetail.piggyPayValue}% от базы)`
+                          : splitDetail.piggyPayType === 'fixed'
+                            ? ` (фикс ${splitDetail.piggyPayValue.toLocaleString('ru')} ₽)`
+                            : '';
+                        return (
+                          <>
+                            <div className="flex justify-between text-xs">
+                              <span className={`${sub} truncate`}>· в {piggyBankLabel(splitDetail.piggyTarget)}{piggyHow}</span>
+                              <span className="font-medium">{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
+                            </div>
+                            {splitDetail.asvcPiggyDeposits.map(d => (
+                              <div key={`ledger-ap-${d.name}-${d.amount}`} className="flex justify-between text-xs">
+                                <span className={`${sub} truncate`} title={`Остаток от «${d.name}» → в ${piggyBankLabel(d.resourceGroup)}`}>
+                                  · «{d.name}» → в {piggyBankLabel(d.resourceGroup)}
+                                </span>
+                                <span className="font-medium">{d.amount.toLocaleString('ru')} ₽</span>
+                              </div>
+                            ))}
+                          </>
+                        );
+                      })()}
+
+                      {splitDetail.ownerShares.map(o => (
+                        <div key={`ledger-o-${o.ownerId}`} className="flex justify-between text-xs">
+                          <span className={`${sub} truncate`}>
+                            · {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}
+                          </span>
+                          <span className="font-medium">{Math.round(o.amount).toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+
+                      {(() => {
+                        const asvcMasterPayTotal = splitDetail.asvcMasterPayTotal || 0;
+                        const asvcPiggyTotal = splitDetail.asvcPiggyDeposits.reduce((s, d) => s + (d.amount || 0), 0);
+                        const totalDistributed = splitDetail.masterTotal + splitDetail.piggyDeposit + splitDetail.ownersTotal;
+                        const expectedTotal = splitDetail.splitBase + asvcMasterPayTotal + asvcPiggyTotal;
+                        const diff = totalDistributed - expectedTotal;
+                        const ok = Math.abs(diff) <= 1;
+                        return (
+                          <>
+                            <div className="flex justify-between text-xs border-t border-white/10 pt-1">
+                              <span className={sub}>Итого распределено</span>
+                              <span className="font-semibold">{totalDistributed.toLocaleString('ru')} ₽</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className={sub}>Сверка (база + оплаты доп. услуг)</span>
+                              <span className={ok ? 'font-medium text-green-600' : 'font-medium text-amber-500'}>
+                                {ok ? '✓ сходится' : `разница ${diff.toLocaleString('ru')} ₽`}
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     <div className="space-y-3">
@@ -5664,10 +5754,7 @@ setOwnerNewBookingWorkers([]);
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">Копилка</div>
                           <div className={`text-[11px] ${sub}`}>
-                            авто: {splitDetail.piggyDepositAuto.toLocaleString('ru')} ₽
-                            {splitDetail.piggyTarget === 'wash' ? ' · копилка мойки'
-                              : splitDetail.piggyTarget === 'detailing' ? ' · копилка детейлинга'
-                                : splitDetail.piggyTarget === 'general' ? ' · общая копилка' : ''}
+                            в {piggyBankLabel(splitDetail.piggyTarget)} · авто: {splitDetail.piggyDepositAuto.toLocaleString('ru')} ₽
                           </div>
                         </div>
                         <div className="w-28 shrink-0">
@@ -5709,6 +5796,36 @@ setOwnerNewBookingWorkers([]);
                         );
                       })}
                     </div>
+
+                    {splitDetail.piggyTransactions.length > 0 && (
+                      <>
+                        <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'} my-3`} />
+                        <h4 className="text-xs font-semibold mb-2">Движения по копилке</h4>
+                        <div className="space-y-1.5">
+                          {splitDetail.piggyTransactions.map(tx => {
+                            const positive = tx.amount > 0;
+                            const label = {
+                              deposit_24percent: 'Депозит',
+                              material_withdrawal: 'Списание материалов',
+                              material_repayment: 'Возврат материалов',
+                            }[tx.transactionType] || tx.transactionType;
+                            return (
+                              <div key={tx.id} className="flex items-start justify-between gap-2 text-xs">
+                                <div className="min-w-0">
+                                  <div className="truncate">{tx.purpose}</div>
+                                  <div className={`${sub} text-[10px]`}>
+                                    {label}{tx.date ? ` · ${tx.date}` : ''}{tx.resourceGroup ? ` · ${piggyBankLabel(tx.resourceGroup)}` : ''}
+                                  </div>
+                                </div>
+                                <div className={`font-semibold shrink-0 ${positive ? 'text-green-600' : 'text-red-500'}`}>
+                                  {positive ? '+' : ''}{Math.round(tx.amount).toLocaleString('ru')} ₽
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {splitDetail.canEdit && (

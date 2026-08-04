@@ -10298,7 +10298,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
         dep_label = dep_labels.get(dep_group, dep_group)
 
-        dep_purpose = f"Остаток от «{dep.get('name', 'доп. услуги')}» в копилку {dep_label} ({booking.client_name})"
+        dep_purpose = f"Доп. услуга: остаток от «{dep.get('name', 'доп. услуги')}» в копилку {dep_label} ({booking.client_name})"
 
         print(f"[PIGGY_DEBUG] ADDING asvc deposit amount={dep['amount']} purpose={dep_purpose!r} group={dep_group}")
 
@@ -15587,7 +15587,6 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
                 earned = int(alink.fixed_amount or 0)
             else:
                 earned = round(asvc.price * (alink.percent or 0) / 100)
-            master_effective_total += earned
             asvc_workers.append(
                 BookingAsvcWorkerItem(
                     linkId=alink.id,
@@ -15663,7 +15662,14 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         hasCustom=split["has_custom"],
         workers=workers,
         piggyTransactions=[
-            BookingPiggyTxItem(id=t.id, amount=t.amount, transactionType=t.transaction_type, purpose=t.purpose)
+            BookingPiggyTxItem(
+                id=t.id,
+                amount=t.amount,
+                transactionType=t.transaction_type,
+                purpose=t.purpose,
+                resourceGroup=t.resource_group or "",
+                date=t.date or "",
+            )
             for t in all_txs
         ],
         ownerShares=owner_shares,
@@ -15795,12 +15801,22 @@ def update_owner_booking_money_split(
         )
     ).all()
     split = _booking_money_split(db, booking)
-    if payload.piggyDeposit is not None:
-        amount = int(payload.piggyDeposit)
-        if deposit_txs:
-            deposit_txs[0].amount = amount
-            for extra in deposit_txs[1:]:
-                db.delete(extra)
+    # Депозиты доп услуг (остаток от вычитаемых доп услуг) — авто-вклад в свою
+    # копилку, при ручной правке копилки их не трогаем
+    asvc_purpose_prefix = "Доп. услуга:"
+    asvc_sum = sum(int(d["amount"]) for d in split.get("asvc_piggy_deposits") or [])
+    asvc_txs = [t for t in deposit_txs if (t.purpose or "").startswith(asvc_purpose_prefix)]
+    main_txs = [t for t in deposit_txs if not (t.purpose or "").startswith(asvc_purpose_prefix)]
+
+    def _apply_main_deposit(amount: int) -> None:
+        if main_txs:
+            if amount > 0:
+                main_txs[0].amount = amount
+                for extra in main_txs[1:]:
+                    db.delete(extra)
+            else:
+                for tx in main_txs:
+                    db.delete(tx)
         elif amount > 0:
             db.add(
                 PiggyBankTransaction(
@@ -15816,16 +15832,12 @@ def update_owner_booking_money_split(
                     created_at=_now(),
                 )
             )
+
+    if payload.piggyDeposit is not None:
+        _apply_main_deposit(max(0, int(payload.piggyDeposit) - asvc_sum))
     else:
-        auto_deposit = int(split["piggy_deposit"])
-        if deposit_txs:
-            if auto_deposit > 0:
-                deposit_txs[0].amount = auto_deposit
-                for extra in deposit_txs[1:]:
-                    db.delete(extra)
-            else:
-                for tx in deposit_txs:
-                    db.delete(tx)
+        auto_deposit = max(0, int(split["piggy_deposit"]) - asvc_sum)
+        _apply_main_deposit(auto_deposit)
 
     if payload.owners:
         existing_shares = {

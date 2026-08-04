@@ -1612,6 +1612,8 @@ class BookingPiggyTxItem(BaseModel):
     amount: float
     transactionType: str
     purpose: str
+    resourceGroup: str = ""
+    date: str = ""
 
 
 class BookingAdditionalServiceItem(BaseModel):
