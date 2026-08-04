@@ -15449,6 +15449,11 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         owner_by_owner_effective[share.owner_id] = owner_by_owner_effective.get(share.owner_id, 0) + int(share.amount)
     owners_effective = sum(owner_by_owner_effective.values()) if owner_shares else split["owners_total"]
 
+    piggy_svc = db.get(Service, booking.service_id) if booking.service_id else None
+    piggy_target = (piggy_svc.piggy_target or "").strip() if piggy_svc else ""
+    if piggy_target not in ("detailing", "wash", "general"):
+        piggy_target = ""
+
     return BookingMoneySplitDetail(
         id=booking.id,
         clientName=booking.client_name,
@@ -15479,6 +15484,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         ownerByOwnerAuto=split["owner_by_owner"],
         masterPayType=split["master_pay_type"],
         piggyPayType=split["piggy_pay_type"],
+        piggyTarget=piggy_target,
         hasCustom=split["has_custom"],
         workers=workers,
         piggyTransactions=[

@@ -79,7 +79,7 @@ interface MoneySplitDetail {
   piggyDeposit: number; piggyDepositAuto: number;
   ownersTotal: number; ownersTotalAuto: number;
   ownerByOwner: Record<string, number>; ownerByOwnerAuto: Record<string, number>;
-  masterPayType: string; piggyPayType: string; hasCustom: boolean;
+  masterPayType: string; piggyPayType: string; piggyTarget: string; hasCustom: boolean;
   workers: MoneySplitWorkerItem[]; piggyTransactions: PiggyTxItem[];
   ownerShares: MoneySplitOwnerItem[]; canEdit: boolean;
 }
@@ -5540,6 +5540,9 @@ setOwnerNewBookingWorkers([]);
                     <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                       <div>{splitDetail.date} · {splitDetail.time} · {splitDetail.box}</div>
                       {splitDetail.clientPhone && <div>{splitDetail.clientPhone}</div>}
+                      <div>Мастера: {splitDetail.workers.length > 0
+                        ? splitDetail.workers.map(w => w.workerName).join(', ')
+                        : 'не назначен'}</div>
                       <div className="flex items-center gap-2">
                         <span>Оплата: {splitDetail.paymentType === 'cash' ? 'наличные' : splitDetail.paymentType === 'card' ? 'карта' : 'счёт'}</span>
                         {splitDetail.paymentSettled && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-600">Оплачена</span>}
@@ -5566,14 +5569,16 @@ setOwnerNewBookingWorkers([]);
                           <div className="text-sm font-medium">Материалы</div>
                           <div className={`text-[11px] ${sub}`}>авто: {splitDetail.materialsCostAuto.toLocaleString('ru')} ₽</div>
                         </div>
-                        <input
-                          type="number" inputMode="numeric" min={0}
-                          disabled={!splitDetail.canEdit}
-                          placeholder={String(splitDetail.materialsCostAuto)}
-                          value={splitMaterialsDraft}
-                          onChange={e => setSplitMaterialsDraft(e.target.value)}
-                          className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm`}
-                        />
+                        <div className="w-28 shrink-0">
+                          <input
+                            type="number" inputMode="numeric" min={0}
+                            disabled={!splitDetail.canEdit}
+                            placeholder={String(splitDetail.materialsCostAuto)}
+                            value={splitMaterialsDraft}
+                            onChange={e => setSplitMaterialsDraft(e.target.value)}
+                            className={`${inputCls} text-right rounded-xl text-sm`}
+                          />
+                        </div>
                       </div>
 
                       <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
@@ -5592,18 +5597,20 @@ setOwnerNewBookingWorkers([]);
                                 {hasOverride ? ` · авто: ${auto.toLocaleString('ru')} ₽` : ''}
                               </div>
                             </div>
-                            <input
-                              type="number" inputMode="numeric" min={0}
-                              disabled={!splitDetail.canEdit}
-                              placeholder={String(auto)}
-                              value={w.overrideEarned !== null && w.overrideEarned !== undefined ? String(Math.round(w.overrideEarned)) : ''}
-                              onChange={e => {
-                                const raw = e.target.value;
-                                const value = raw === '' ? null : Math.max(0, Number(raw) || 0);
-                                setSplitWorkersDraft(cur => cur.map(x => x.linkId === w.linkId ? { ...x, overrideEarned: value } : x));
-                              }}
-                              className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm`}
-                            />
+                            <div className="w-28 shrink-0">
+                              <input
+                                type="number" inputMode="numeric" min={0}
+                                disabled={!splitDetail.canEdit}
+                                placeholder={String(auto)}
+                                value={w.overrideEarned !== null && w.overrideEarned !== undefined ? String(Math.round(w.overrideEarned)) : ''}
+                                onChange={e => {
+                                  const raw = e.target.value;
+                                  const value = raw === '' ? null : Math.max(0, Number(raw) || 0);
+                                  setSplitWorkersDraft(cur => cur.map(x => x.linkId === w.linkId ? { ...x, overrideEarned: value } : x));
+                                }}
+                                className={`${inputCls} text-right rounded-xl text-sm`}
+                              />
+                            </div>
                           </div>
                         );
                       })}
@@ -5613,16 +5620,23 @@ setOwnerNewBookingWorkers([]);
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">Копилка</div>
-                          <div className={`text-[11px] ${sub}`}>авто: {splitDetail.piggyDepositAuto.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>
+                            авто: {splitDetail.piggyDepositAuto.toLocaleString('ru')} ₽
+                            {splitDetail.piggyTarget === 'wash' ? ' · копилка мойки'
+                              : splitDetail.piggyTarget === 'detailing' ? ' · копилка детейлинга'
+                                : splitDetail.piggyTarget === 'general' ? ' · общая копилка' : ''}
+                          </div>
                         </div>
-                        <input
-                          type="number" inputMode="numeric" min={0}
-                          disabled={!splitDetail.canEdit}
-                          placeholder={String(splitDetail.piggyDepositAuto)}
-                          value={splitPiggyDraft}
-                          onChange={e => setSplitPiggyDraft(e.target.value)}
-                          className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm`}
-                        />
+                        <div className="w-28 shrink-0">
+                          <input
+                            type="number" inputMode="numeric" min={0}
+                            disabled={!splitDetail.canEdit}
+                            placeholder={String(splitDetail.piggyDepositAuto)}
+                            value={splitPiggyDraft}
+                            onChange={e => setSplitPiggyDraft(e.target.value)}
+                            className={`${inputCls} text-right rounded-xl text-sm`}
+                          />
+                        </div>
                       </div>
 
                       <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'}`} />
@@ -5638,14 +5652,16 @@ setOwnerNewBookingWorkers([]);
                                 {paid ? 'Выплачено' : `авто: ${auto.toLocaleString('ru')} ₽`}
                               </div>
                             </div>
-                            <input
-                              type="number" inputMode="numeric" min={0}
-                              disabled={!splitDetail.canEdit || paid}
-                              placeholder={String(auto)}
-                              value={o.amount > 0 ? String(Math.round(o.amount)) : ''}
-                              onChange={e => setSplitOwnersDraft(cur => cur.map(x => x.ownerId === o.ownerId ? { ...x, amount: Math.max(0, Number(e.target.value) || 0) } : x))}
-                              className={`w-28 ${inputCls} text-right rounded-xl px-2 py-2 text-sm ${paid ? 'opacity-50' : ''}`}
-                            />
+                            <div className="w-28 shrink-0">
+                              <input
+                                type="number" inputMode="numeric" min={0}
+                                disabled={!splitDetail.canEdit || paid}
+                                placeholder={String(auto)}
+                                value={o.amount > 0 ? String(Math.round(o.amount)) : ''}
+                                onChange={e => setSplitOwnersDraft(cur => cur.map(x => x.ownerId === o.ownerId ? { ...x, amount: Math.max(0, Number(e.target.value) || 0) } : x))}
+                                className={`${inputCls} text-right rounded-xl text-sm ${paid ? 'opacity-50' : ''}`}
+                              />
+                            </div>
                           </div>
                         );
                       })}

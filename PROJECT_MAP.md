@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-04 07:55 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-04 08:05 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **241**
-- Строк кода: **71 600**
+- Строк кода: **71 623**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 36, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -322,7 +322,7 @@ concept1.0/
 - `_format_moneydef _format_money(value: int) -> str: return f"{value:,.0f}".replace(",", " ") + " руб."` (стр. 2891)
 - `_escapedef _escape(value: str) -> str: return escape(value).replace("\n", "<br/>")` (стр. 2899)
 
-### backend/app/main.py (17656 строк)
+### backend/app/main.py (17662 строк)
 
 Роуты (86):
 
@@ -396,23 +396,23 @@ concept1.0/
   `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 15040)
   `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 15247)
   `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 15343)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 15494)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 15563)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 15577)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 15782)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 16172)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 16549)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 16719)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 16939)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 17149)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 17285)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 17345)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 17539)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 17547)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 17559)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 17583)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 17591)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 17599)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 15500)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 15569)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 15583)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 15788)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 16178)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 16555)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 16725)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 16945)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 17155)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 17291)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 17351)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 17545)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 17553)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 17565)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 17589)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 17597)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 17605)
 ```
 
 Классы и функции (188):
@@ -601,10 +601,10 @@ concept1.0/
 - `_upsert_settingdef _upsert_setting(db: Session, key: str, value: dict) -> dict: row = db.get(AppSetting, key) if row is None: row = AppSetting(key=key, value=value) db.add(row) else: row.value = ` (стр. 14264)
 - `_parse_booking_date_paramdef _parse_booking_date_param(value: str) -> str: """Принимает YYYY-MM-DD или DD.MM.YYYY, возвращает DD.MM.YYYY.""" if value and len(value) == 10 and value[2] == ".": return value ` (стр. 15383)
 - `_booking_money_split_detaildef _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySplitDetail: """Полная деталь распределения денег по записи: авто-расчёт + фактические значения.""" pe` (стр. 15395)
-- `_salary_date_rangedef _salary_date_range(period: str, ref: date | None = None, custom_from: str | None = None, custom_to: str | None = None) -> tuple[str, str]: """Возвращает (date_from, date_to) в ` (стр. 15696)
-- `is_fixed_master_servicedef is_fixed_master_service(name: str | None) -> bool: return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME` (стр. 15752)
-- `_is_fixed_master_service_dbdef _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool: """Определяет, оплачивается ли услуга мастеру фиксированно. Привязка СТРОГО ` (стр. 15757)
-- `_resource_group_for_servicedef _resource_group_for_service(db: Session, service_id: str) -> str: svc = db.get(Service, service_id) return svc.resource_group if svc else "wash"` (стр. 15772)
+- `_salary_date_rangedef _salary_date_range(period: str, ref: date | None = None, custom_from: str | None = None, custom_to: str | None = None) -> tuple[str, str]: """Возвращает (date_from, date_to) в ` (стр. 15702)
+- `is_fixed_master_servicedef is_fixed_master_service(name: str | None) -> bool: return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME` (стр. 15758)
+- `_is_fixed_master_service_dbdef _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool: """Определяет, оплачивается ли услуга мастеру фиксированно. Привязка СТРОГО ` (стр. 15763)
+- `_resource_group_for_servicedef _resource_group_for_service(db: Session, service_id: str) -> str: svc = db.get(Service, service_id) return svc.resource_group if svc else "wash"` (стр. 15778)
 
 ### backend/app/models.py (526 строк)
 
@@ -637,7 +637,7 @@ concept1.0/
 - `class PiggyBankTransaction(Base):` (стр. 492)
 - `class OwnerProfitShare(Base):` (стр. 511)
 
-### backend/app/schemas.py (1665 строк)
+### backend/app/schemas.py (1666 строк)
 
 Классы и функции (170):
 
@@ -808,9 +808,9 @@ concept1.0/
 - `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1600)
 - `class BookingPiggyTxItem(BaseModel):` (стр. 1607)
 - `class BookingMoneySplitDetail(BaseModel):` (стр. 1614)
-- `class BookingWorkerEarnedUpdate(BaseModel):` (стр. 1651)
-- `class BookingMoneySplitOwnerUpdate(BaseModel):` (стр. 1656)
-- `class BookingMoneySplitUpdateRequest(BaseModel):` (стр. 1661)
+- `class BookingWorkerEarnedUpdate(BaseModel):` (стр. 1652)
+- `class BookingMoneySplitOwnerUpdate(BaseModel):` (стр. 1657)
+- `class BookingMoneySplitUpdateRequest(BaseModel):` (стр. 1662)
 
 ### backend/app/security.py (84 строк)
 
@@ -1710,7 +1710,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (10331 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (10347 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 155) — локальный
 - `STOCK_UNITS` (стр. 156) — локальный
@@ -2503,10 +2503,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-04 10:55)
+- `backend/app/schemas.py` (2026-08-04 11:05)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-04 11:03)
+- `backend/app/main.py` (2026-08-04 11:03)
 - `backend/tests/test_booking_money_split.py` (2026-08-04 10:51)
-- `backend/app/main.py` (2026-08-04 10:41)
-- `backend/app/schemas.py` (2026-08-04 10:39)
 - `backend/app/models.py` (2026-08-04 10:37)
 - `backend/tests/test_booking_logic.py` (2026-08-04 10:10)
 - `scripts/.project-map-watch.lock` (2026-08-04 09:27)

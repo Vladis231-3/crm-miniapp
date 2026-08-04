@@ -1580,7 +1580,7 @@ class BookingHistoryItem(BaseModel):
     box: str
     price: int
     status: BookingStatus
-    paymentType: PaymentType
+    paymentType: str
     paymentSettled: bool = False
     workers: list[BookingWorkerPayload] = Field(default_factory=list)
     createdAt: datetime
@@ -1622,7 +1622,7 @@ class BookingMoneySplitDetail(BaseModel):
     box: str
     price: int
     status: BookingStatus
-    paymentType: PaymentType
+    paymentType: str
     paymentSettled: bool = False
     resourceGroup: str = ""
     mainPrice: int = 0
@@ -1641,6 +1641,7 @@ class BookingMoneySplitDetail(BaseModel):
     ownerByOwnerAuto: dict[str, int] = Field(default_factory=dict)
     masterPayType: str = ""
     piggyPayType: str = ""
+    piggyTarget: str = ""
     hasCustom: bool = False
     workers: list[BookingMoneySplitWorkerItem] = Field(default_factory=list)
     piggyTransactions: list[BookingPiggyTxItem] = Field(default_factory=list)
