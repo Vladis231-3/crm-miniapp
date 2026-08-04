@@ -1621,6 +1621,23 @@ class BookingAdditionalServiceItem(BaseModel):
     duration: int = 0
 
 
+class BookingAsvcPiggyItem(BaseModel):
+    name: str
+    resourceGroup: str = ""
+    amount: int = 0
+
+
+class BookingAsvcWorkerItem(BaseModel):
+    linkId: int
+    workerId: str
+    workerName: str
+    percent: float = 0
+    payType: str = "percent"
+    fixedAmount: int | None = None
+    earned: int = 0
+    additionalServiceName: str = ""
+
+
 class BookingMoneySplitDetail(BaseModel):
     id: str
     clientName: str
@@ -1647,6 +1664,9 @@ class BookingMoneySplitDetail(BaseModel):
     masterTotal: int = 0
     masterTotalAuto: int = 0
     masterByWorker: dict[str, int] = Field(default_factory=dict)
+    asvcMasterPayTotal: int = 0
+    asvcPiggyDeposits: list[BookingAsvcPiggyItem] = Field(default_factory=list)
+    asvcWorkers: list[BookingAsvcWorkerItem] = Field(default_factory=list)
     piggyDeposit: int = 0
     piggyDepositAuto: int = 0
     ownersTotal: int = 0

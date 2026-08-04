@@ -367,6 +367,102 @@ class BookingMoneySplitTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 404, response.text)
 
+    def test_money_split_subtract_additional_service_pipeline(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s2")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "percent"
+            svc.master_pay_value = 40
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 24
+            svc.split_order = ["master", "piggy", "owners"]
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Pipeline Client",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Полировка стекла",
+                "serviceId": "s2",
+                "date": booking_date,
+                "time": "11:00",
+                "duration": 90,
+                "price": 25000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Детейлинг зона",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        add_response = self.client.post(
+            f"/api/bookings/{booking['id']}/additional-services",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "serviceId": "s1",
+                "name": "Подготовка к полировке",
+                "price": 5000,
+                "duration": 30,
+                "priceMode": "subtract",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "payType": "fixed", "fixedAmount": 1200}],
+            },
+        )
+        self.assertEqual(add_response.status_code, 200, add_response.text)
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        split = self.get_split(booking["id"], self.owner_token)
+
+        self.assertEqual(split["price"], 25000)
+        self.assertEqual(split["mainPrice"], 25000)
+        self.assertEqual(split["subtractTotal"], 5000)
+        self.assertEqual(split["splitBase"], 20000)
+        self.assertEqual(split["masterTotalAuto"], 9200, "40% от 20 000 + фикс 1 200 за подготовку")
+        self.assertEqual(split["masterTotal"], 9200)
+        self.assertEqual(split["asvcMasterPayTotal"], 1200)
+        self.assertEqual(split["piggyDepositAuto"], 6680, "2 880 детейлинг + 3 800 мойка")
+        self.assertEqual(split["piggyDeposit"], 6680)
+        self.assertEqual(split["ownersTotalAuto"], 9120)
+        self.assertEqual(split["ownersTotal"], 9120)
+
+        deposits = [d for d in split["asvcPiggyDeposits"] if d["amount"] == 3800]
+        self.assertEqual(len(deposits), 1)
+        self.assertEqual(deposits[0]["name"], "Подготовка к полировке")
+        self.assertEqual(deposits[0]["resourceGroup"], "wash")
+
+        wash_tx = [
+            t
+            for t in split["piggyTransactions"]
+            if t["transactionType"] == "deposit_24percent" and t["amount"] == 3800
+        ]
+        self.assertEqual(len(wash_tx), 1, "депозит 3 800 должен уйти в копилку мойки")
+
+        asvc_worker = [w for w in split["asvcWorkers"] if w["earned"] == 1200]
+        self.assertEqual(len(asvc_worker), 1)
+        self.assertEqual(asvc_worker[0]["additionalServiceName"], "Подготовка к полировке")
+        self.assertEqual(asvc_worker[0]["payType"], "fixed")
+
+        by_owner = {share["ownerId"]: share["amount"] for share in split["ownerShares"]}
+        self.assertEqual(len(by_owner), 2)
+        self.assertTrue(all(abs(v - 4560) < 1 for v in by_owner.values()), by_owner)
+
 
 if __name__ == "__main__":
     unittest.main()

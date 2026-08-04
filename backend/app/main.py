@@ -304,6 +304,10 @@ from .schemas import (
 
     BookingAdditionalServiceItem,
 
+    BookingAsvcPiggyItem,
+
+    BookingAsvcWorkerItem,
+
     BookingMoneySplitDetail,
 
     BookingMoneySplitOwnerItem,
@@ -10008,6 +10012,31 @@ def _booking_money_split(
 
         return master_by_worker, master_total, main_master_total
 
+    # Остаток вычитаемых доп услуг (цена − оплата мастеров на них) уходит
+    # в копилку ресурсной группы этой услуги (carve-out, не из пула)
+    asvc_piggy_deposits: list[dict] = []
+    for asvc in (booking.additional_services or []):
+        if asvc.price_mode != "subtract":
+            continue
+        asvc_pays = 0
+        for alink in asvc.worker_links:
+            if alink.pay_type == "fixed":
+                asvc_pays += int(alink.fixed_amount or 0)
+            else:
+                asvc_pays += round(asvc.price * (alink.percent or 0) / 100)
+        asvc_deposit = max(0, int(asvc.price) - asvc_pays)
+        if asvc_deposit > 0:
+            asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
+            asvc_rg = _service_resource_group(asvc_svc)
+            asvc_piggy_deposits.append(
+                {
+                    "name": asvc.name,
+                    "resource_group": asvc_rg,
+                    "amount": asvc_deposit,
+                }
+            )
+    asvc_piggy_total = sum(d["amount"] for d in asvc_piggy_deposits)
+
     split_order = [s for s in (svc.split_order or []) if s in ("materials", "master", "piggy", "owners")] if svc else []
     pipeline_mode = bool(split_order) and split_order != ["materials", "master", "piggy", "owners"]
 
@@ -10047,6 +10076,7 @@ def _booking_money_split(
         pool = max(0, main_price - subtract_total)
         master_by_worker: dict[str, int] = {}
         master_total = 0
+        main_master_total = 0
         piggy_deposit = 0
         owners_total = 0
         owner_by_owner: dict[str, int] = {}
@@ -10054,8 +10084,8 @@ def _booking_money_split(
             if step == "materials":
                 pool = max(0, pool - materials_cost)
             elif step == "master":
-                master_by_worker, master_total = _compute_master(pool)
-                pool = max(0, pool - master_total)
+                master_by_worker, master_total, main_master_total = _compute_master(pool)
+                pool = max(0, pool - main_master_total)
             elif step == "piggy":
                 piggy_deposit = max(0, min(_compute_piggy(pool), pool))
                 pool = max(0, pool - piggy_deposit)
@@ -10069,11 +10099,13 @@ def _booking_money_split(
                     claimed = round(pool * 50 / 100)
                 owners_total, owner_by_owner = _allocate_owners(claimed, pool)
                 pool = max(0, pool - owners_total)
+        # Вклады вычитаемых доп услуг — из их carve-out, пул не затрагивают
+        piggy_deposit += asvc_piggy_total
     else:
         # Классический порядок: материалы → мастера → копилка → владельцы
-        master_by_worker, master_total = _compute_master(split_base)
-        piggy_deposit = _compute_piggy(split_base)
-        remaining = split_base - master_total - piggy_deposit
+        master_by_worker, master_total, main_master_total = _compute_master(split_base)
+        piggy_deposit = _compute_piggy(split_base) + asvc_piggy_total
+        remaining = split_base - main_master_total - piggy_deposit
         claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
         owners_total, owner_by_owner = _allocate_owners(claimed, remaining)
 
@@ -10084,6 +10116,8 @@ def _booking_money_split(
         "net": net,
         "master_total": master_total,
         "master_by_worker": master_by_worker,
+        "asvc_master_pay": master_total - main_master_total,
+        "asvc_piggy_deposits": asvc_piggy_deposits,
         "piggy_deposit": piggy_deposit,
         "owners_total": owners_total,
         "owner_by_owner": owner_by_owner,
@@ -10196,6 +10230,13 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     print(f"[PIGGY_DEBUG] deposit_amount={deposit_amount} booking.price={booking.price}")
 
+    # Вклады доп услуг депозитируются отдельными транзакциями в свои группы —
+    # из основной суммы их вычитаем, чтобы не задвоить
+    asvc_piggy_sum = sum(int(d["amount"]) for d in split.get("asvc_piggy_deposits") or [])
+    deposit_amount = max(0, deposit_amount - asvc_piggy_sum)
+
+    print(f"[PIGGY_DEBUG] deposit_amount_after_asvc={deposit_amount} asvc_piggy_sum={asvc_piggy_sum}")
+
     if deposit_amount > 0:
 
         svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
@@ -10240,6 +10281,48 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
                 date=date_str,
 
                 resource_group=piggy_target or rg,
+
+                created_at=_now(),
+
+            )
+
+        )
+
+    # 3. Остаток вычитаемых доп услуг → в копилку ресурсной группы услуги
+
+    dep_labels = {"wash": "мойки", "detailing": "детейлинга", "general": "общей копилки"}
+
+    for dep in split.get("asvc_piggy_deposits") or []:
+
+        dep_group = dep.get("resource_group") or rg
+
+        dep_label = dep_labels.get(dep_group, dep_group)
+
+        dep_purpose = f"Остаток от «{dep.get('name', 'доп. услуги')}» в копилку {dep_label} ({booking.client_name})"
+
+        print(f"[PIGGY_DEBUG] ADDING asvc deposit amount={dep['amount']} purpose={dep_purpose!r} group={dep_group}")
+
+        db.add(
+
+            PiggyBankTransaction(
+
+                id=f"pb-{uuid4()}",
+
+                booking_id=booking.id,
+
+                amount=int(dep["amount"]),
+
+                transaction_type="deposit_24percent",
+
+                purpose=dep_purpose,
+
+                material_name=None,
+
+                material_cost=None,
+
+                date=date_str,
+
+                resource_group=dep_group,
 
                 created_at=_now(),
 
@@ -15497,6 +15580,26 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         (booking.additional_services or []),
         key=lambda a: a.created_at or datetime.min,
     )
+    asvc_workers: list[BookingAsvcWorkerItem] = []
+    for asvc in add_services:
+        for alink in asvc.worker_links:
+            if alink.pay_type == "fixed":
+                earned = int(alink.fixed_amount or 0)
+            else:
+                earned = round(asvc.price * (alink.percent or 0) / 100)
+            master_effective_total += earned
+            asvc_workers.append(
+                BookingAsvcWorkerItem(
+                    linkId=alink.id,
+                    workerId=alink.worker_id,
+                    workerName=alink.worker_name,
+                    percent=float(alink.percent or 0),
+                    payType=alink.pay_type or "percent",
+                    fixedAmount=alink.fixed_amount,
+                    earned=earned,
+                    additionalServiceName=asvc.name,
+                )
+            )
     additional_total = sum(a.price for a in add_services if a.price_mode != "subtract")
     subtract_total = sum(a.price for a in add_services if a.price_mode == "subtract")
     main_price = max(0, int(booking.price) - additional_total)
@@ -15536,6 +15639,16 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         masterTotal=master_effective_total,
         masterTotalAuto=split["master_total"],
         masterByWorker=master_by_worker_auto,
+        asvcMasterPayTotal=int(split.get("asvc_master_pay", 0)),
+        asvcPiggyDeposits=[
+            BookingAsvcPiggyItem(
+                name=d["name"],
+                resourceGroup=d["resource_group"],
+                amount=int(d["amount"]),
+            )
+            for d in split.get("asvc_piggy_deposits", [])
+        ],
+        asvcWorkers=asvc_workers,
         piggyDeposit=piggy_effective,
         piggyDepositAuto=split["piggy_deposit"],
         ownersTotal=owners_effective,
