@@ -1604,9 +1604,16 @@ class BookingTotalsOwnerItem(BaseModel):
     bookingCount: int = 0
 
 
+class BookingTotalsPiggyItem(BaseModel):
+    resourceGroup: str
+    amount: int = 0
+    bookingCount: int = 0
+
+
 class BookingHistoryTotals(BaseModel):
     workers: list[BookingTotalsWorkerItem] = Field(default_factory=list)
     owners: list[BookingTotalsOwnerItem] = Field(default_factory=list)
+    piggy: list[BookingTotalsPiggyItem] = Field(default_factory=list)
 
 
 class BookingMoneySplitWorkerItem(BaseModel):

@@ -303,6 +303,7 @@ from .schemas import (
     BookingHistoryItem,
 
     BookingHistoryTotals,
+    BookingTotalsPiggyItem,
 
     BookingAdditionalServiceItem,
 
@@ -10076,10 +10077,8 @@ def _booking_money_split(
     if pipeline_mode:
         # Конвейер: каждый шаг забирает свою сумму из текущего остатка
         pool = max(0, main_price - subtract_total)
-        split_base_report = pool
-        # Материалы уменьшают базу только если шаг "materials" есть в конвейере
-        if "materials" in split_order:
-            split_base_report = max(0, split_base_report - materials_cost)
+        pool_start = pool
+        materials_deducted = 0
         master_by_worker: dict[str, int] = {}
         master_total = 0
         main_master_total = 0
@@ -10088,7 +10087,8 @@ def _booking_money_split(
         owner_by_owner: dict[str, int] = {}
         for index, step in enumerate(split_order):
             if step == "materials":
-                pool = max(0, pool - materials_cost)
+                materials_deducted = min(materials_cost, pool)
+                pool = max(0, pool - materials_deducted)
             elif step == "master":
                 master_by_worker, master_total, main_master_total = _compute_master(pool)
                 pool = max(0, pool - main_master_total)
@@ -10107,6 +10107,8 @@ def _booking_money_split(
                 pool = max(0, pool - owners_total)
         # Вклады вычитаемых доп услуг — из их carve-out, пул не затрагивают
         piggy_deposit += asvc_piggy_total
+        # База отчёта = пул минус фактически ушедшее на шаге материалов
+        split_base_report = pool_start - materials_deducted
     else:
         # Классический порядок: материалы → мастера → копилка → владельцы
         split_base_report = split_base
@@ -15808,6 +15810,7 @@ def get_owner_bookings_history_totals(
 
     worker_totals: dict[str, dict] = {}
     owner_totals: dict[str, dict] = {}
+    piggy_totals: dict[str, dict] = {}
 
     for booking in bookings:
         if booking.status not in ("completed", "confirmed"):
@@ -15823,6 +15826,23 @@ def get_owner_bookings_history_totals(
             entry = worker_totals.setdefault(worker_id, {"name": "", "total": 0, "count": 0})
             entry["total"] += amount
             entry["count"] += 1
+
+        asvc_sum = sum(int(d.get("amount") or 0) for d in split.get("asvc_piggy_deposits") or [])
+        main_dep = max(0, int(split.get("piggy_deposit") or 0) - asvc_sum)
+        if main_dep > 0:
+            svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
+            piggy_target = (svc_for_piggy.piggy_target or "").strip() if svc_for_piggy else ""
+            if piggy_target not in ("detailing", "wash", "general"):
+                piggy_target = ""
+            bank = piggy_target or split.get("resource_group") or "general"
+            entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
+            entry["amount"] += main_dep
+            entry["booking_ids"].add(booking.id)
+        for dep in split.get("asvc_piggy_deposits") or []:
+            bank = dep.get("resource_group") or split.get("resource_group") or "general"
+            entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
+            entry["amount"] += int(dep.get("amount") or 0)
+            entry["booking_ids"].add(booking.id)
 
         shares = shares_by_booking.get(booking.id, [])
         if shares:
@@ -15863,7 +15883,15 @@ def get_owner_bookings_history_totals(
         )
         for owner_id, data in sorted(owner_totals.items(), key=lambda kv: -kv[1]["accrued"])
     ]
-    return BookingHistoryTotals(workers=workers, owners=owners)
+    piggy = [
+        BookingTotalsPiggyItem(
+            resourceGroup=bank,
+            amount=data["amount"],
+            bookingCount=len(data["booking_ids"]),
+        )
+        for bank, data in sorted(piggy_totals.items(), key=lambda kv: -kv[1]["amount"])
+    ]
+    return BookingHistoryTotals(workers=workers, owners=owners, piggy=piggy)
 
 
 
