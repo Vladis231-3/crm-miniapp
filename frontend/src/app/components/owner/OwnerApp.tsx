@@ -2624,7 +2624,7 @@ setOwnerNewBookingWorkers([]);
           paymentType: ownerBookingEditFull.paymentType,
           paymentSettled: ownerBookingEditFull.paymentSettled,
           serviceId: ownerBookingEditFull.serviceId || undefined,
-          price: Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+          price: Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         };
       } else if (ownerBookingEditMode === 'status') {
         patch = { status: ownerBookingEditStatus, ...(ownerBookingEditStatus === 'completed' ? { paymentSettled: true } : {}) };
@@ -2654,7 +2654,7 @@ setOwnerNewBookingWorkers([]);
         ...prev,
         ...patch,
         service: patch.serviceId ? (services.find(s => s.id === patch.serviceId)?.name || prev.service) : prev.service,
-        price: patch.serviceId ? Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)) : prev.price,
+        price: patch.serviceId ? Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)) : prev.price,
         duration: patch.serviceId ? (ownerBookingEditFull.duration || prev.duration) : prev.duration,
       } as typeof prev : null);
       setOwnerBookingEditMode(null);
@@ -8460,7 +8460,7 @@ setOwnerNewBookingWorkers([]);
                   </div>
                   <div className={`text-xs ${sub} mb-2`}>{selectedBooking.service} • {selectedBooking.date} • {selectedBooking.time}</div>
                   {(() => {
-                    const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0);
+                    const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0);
                     const legacyServicesTotal = (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0);
                     const baseServicePrice = Math.max(0, selectedBooking.price - additionalTotal - legacyServicesTotal);
                     return (
@@ -8588,7 +8588,7 @@ setOwnerNewBookingWorkers([]);
                               paymentType: selectedBooking.paymentType || 'cash',
                               paymentSettled: selectedBooking.paymentSettled ?? false,
                               serviceId: selectedBooking.serviceId || '',
-                              price: Math.max(0, selectedBooking.price - (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) - (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+                              price: Math.max(0, selectedBooking.price - (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
                               duration: selectedBooking.duration,
                             });
                           }
@@ -8961,7 +8961,7 @@ setOwnerNewBookingWorkers([]);
                   </button>
                 </div>
                 {ownerAddServiceDraft.priceMode === 'subtract' && (
-                  <p className={`text-xs ${sub} mt-1.5`}>Клиент платит как обычно, но сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма не прибавляется к стоимости клиента и вычитается из базы расчёта зп мастеров основной услуги</p>
                 )}
               </div>
 
@@ -9030,7 +9030,7 @@ setOwnerNewBookingWorkers([]);
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Итого</div>
                     <div className="flex justify-between items-center">
                       <span className={`text-sm ${sub}`}>Клиент заплатит</span>
-                      <span className={`text-sm font-semibold ${ownerAddServiceDraft.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{ownerAddServiceDraft.priceMode === 'subtract' ? '− ' : '+ '}{ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
+                      <span className="text-sm font-semibold">{ownerAddServiceDraft.priceMode === 'subtract' ? '0 ₽ (не прибавляется)' : `+ ${ownerAddServiceDraft.price.toLocaleString('ru')} ₽`}</span>
                     </div>
                     {ownerAddServiceDraft.priceMode === 'subtract' && (
                       <div className="flex justify-between items-center">
@@ -9120,7 +9120,7 @@ setOwnerNewBookingWorkers([]);
                   </button>
                 </div>
                 {ownerEditAsvcDraft.priceMode === 'subtract' && (
-                  <p className={`text-xs ${sub} mt-1.5`}>Сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма не прибавляется к стоимости клиента и вычитается из базы расчёта зп мастеров основной услуги</p>
                 )}
               </div>
 

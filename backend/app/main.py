@@ -9903,7 +9903,11 @@ def _booking_money_split(
     svc = db.get(Service, booking.service_id) if booking.service_id else None
     rg = _service_resource_group(svc)
 
-    additional_total = sum(asvc.price for asvc in (booking.additional_services or []))
+    additional_total = sum(
+        asvc.price
+        for asvc in (booking.additional_services or [])
+        if asvc.price_mode != "subtract"
+    )
     main_price = max(0, booking.price - additional_total)
     materials_cost = _booking_materials_cost(db, booking)
     net = max(0, main_price - materials_cost)
@@ -11220,7 +11224,8 @@ def add_booking_additional_service(
 
     db.add(asvc)
 
-    booking.price = (booking.price or 0) + payload.price
+    if (payload.priceMode or "add") != "subtract":
+        booking.price = (booking.price or 0) + payload.price
 
     booking.duration = (booking.duration or 0) + payload.duration
 
@@ -11292,7 +11297,8 @@ def remove_booking_additional_service(
 
         )
 
-    booking.price = max(0, (booking.price or 0) - asvc.price)
+    if asvc.price_mode != "subtract":
+        booking.price = max(0, (booking.price or 0) - asvc.price)
 
     booking.duration = max(0, (booking.duration or 0) - asvc.duration)
 
@@ -11357,8 +11363,13 @@ def update_booking_additional_service(
     if payload.duration is not None:
         booking.duration = max(0, (booking.duration or 0) - asvc.duration + payload.duration)
         asvc.duration = payload.duration
+    if payload.price is not None or payload.priceMode is not None:
+        old_effect = 0 if asvc.price_mode == "subtract" else asvc.price
+        new_mode = payload.priceMode or asvc.price_mode
+        new_price = payload.price if payload.price is not None else asvc.price
+        new_effect = 0 if new_mode == "subtract" else new_price
+        booking.price = max(0, (booking.price or 0) - old_effect + new_effect)
     if payload.price is not None:
-        booking.price = max(0, (booking.price or 0) - asvc.price + payload.price)
         asvc.price = payload.price
     if payload.priceMode is not None:
         asvc.price_mode = payload.priceMode

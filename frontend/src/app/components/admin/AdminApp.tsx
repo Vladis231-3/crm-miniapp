@@ -1105,7 +1105,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       clientName: booking.clientName || '',
       clientPhone: booking.clientPhone || '',
       serviceId: booking.serviceId || '',
-      price: Math.max(0, booking.price - (booking.additionalServices || []).reduce((s, as) => s + as.price, 0) - (booking.services || []).reduce((s, svc) => s + svc.price, 0)),
+      price: Math.max(0, booking.price - (booking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (booking.services || []).reduce((s, svc) => s + svc.price, 0)),
       duration: booking.duration,
     });
     setEditBookingError(null);
@@ -1150,7 +1150,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         clientName: editBookingDraft.clientName.trim() || undefined,
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
         serviceId: editBookingDraft.serviceId || undefined,
-        price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+        price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
       });
       setSelectedBooking((current) => (current ? {
         ...current,
@@ -1166,7 +1166,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         clientPhone: editBookingDraft.clientPhone.trim(),
         serviceId: editBookingDraft.serviceId,
         service: liveServices.find(s => s.id === editBookingDraft.serviceId)?.name || current.service,
-        price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+        price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         duration: editBookingDraft.duration,
       } : null));
       setShowEditModal(false);
@@ -3111,7 +3111,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} ₽</span>
                   </div>
                   {(() => {
-                    const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + as.price, 0);
+                    const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0);
                     const legacyServicesTotal = (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0);
                     const baseServicePrice = Math.max(0, selectedBooking.price - additionalTotal - legacyServicesTotal);
                     return (
@@ -3250,7 +3250,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   </button>
                 </div>
                 {addServiceDraft.priceMode === 'subtract' && (
-                  <p className={`text-xs ${sub} mt-1.5`}>Клиент платит как обычно, но сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма не прибавляется к стоимости клиента и вычитается из базы расчёта зп мастеров основной услуги</p>
                 )}
               </div>
 
@@ -3319,7 +3319,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Итого</div>
                     <div className="flex justify-between items-center">
                       <span className={`text-sm ${sub}`}>Клиент заплатит</span>
-                      <span className={`text-sm font-semibold ${addServiceDraft.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{addServiceDraft.priceMode === 'subtract' ? '− ' : '+ '}{addServiceDraft.price.toLocaleString('ru')} ₽</span>
+                      <span className="text-sm font-semibold">{addServiceDraft.priceMode === 'subtract' ? '0 ₽ (не прибавляется)' : `+ ${addServiceDraft.price.toLocaleString('ru')} ₽`}</span>
                     </div>
                     {addServiceDraft.priceMode === 'subtract' && (
                       <div className="flex justify-between items-center">
@@ -3402,7 +3402,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   </button>
                 </div>
                 {editAsvcDraft.priceMode === 'subtract' && (
-                  <p className={`text-xs ${sub} mt-1.5`}>Сумма вычитается из базы расчёта зп мастеров основной услуги</p>
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма не прибавляется к стоимости клиента и вычитается из базы расчёта зп мастеров основной услуги</p>
                 )}
               </div>
 
