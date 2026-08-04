@@ -63,7 +63,13 @@ interface BookingHistoryItem {
   status: string; paymentType: string; paymentSettled?: boolean;
   workers: BookingHistoryWorkerItem[]; createdAt: string;
 }
-interface BookingTotalsWorkerItem { workerId: string; workerName: string; totalEarned: number; bookingCount: number; }
+interface BookingTotalsWorkerItem {
+  workerId: string; workerName: string; bookingCount: number;
+  accruedFromBookings: number; baseSalary: number; shiftPayTotal: number; shiftCount: number;
+  bonusTotal: number; adjustmentTotal: number; advanceTotal: number;
+  deductionTotal: number; payoutTotal: number;
+  totalAccrued: number; totalDeducted: number; balance: number;
+}
 interface BookingTotalsOwnerItem { ownerId: string; ownerName: string; totalAccrued: number; totalPaid: number; bookingCount: number; }
 interface BookingTotalsPiggyItem { resourceGroup: string; amount: number; bookingCount: number; }
 interface BookingHistoryTotals {
@@ -5512,9 +5518,38 @@ setOwnerNewBookingWorkers([]);
                     <div className={`${glass} rounded-2xl p-3`}>
                       <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Мастера · итог за период</div>
                       {historyTotals.workers.map(w => (
-                        <div key={w.workerId} className="flex items-center justify-between py-1 text-sm">
-                          <span className={sub}>{w.workerName}</span>
-                          <span className="font-bold">{w.totalEarned.toLocaleString('ru')} ₽</span>
+                        <div key={w.workerId} className={`py-1.5 ${w !== historyTotals!.workers[0] ? 'border-t' : ''}`}
+                          style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)' }}>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-semibold">{w.workerName}</span>
+                            <span className="font-bold">{w.balance.toLocaleString('ru')} ₽</span>
+                          </div>
+                          <div className={`text-xs mt-0.5 space-y-0.5 ${sub}`}>
+                            {w.accruedFromBookings > 0 && (
+                              <div className="flex justify-between"><span>по записям ({w.bookingCount})</span><span className="font-medium">+{w.accruedFromBookings.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.baseSalary > 0 && (
+                              <div className="flex justify-between"><span>оклад</span><span className="font-medium">+{w.baseSalary.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.shiftPayTotal > 0 && (
+                              <div className="flex justify-between"><span>смены ({w.shiftCount})</span><span className="font-medium">+{w.shiftPayTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.bonusTotal > 0 && (
+                              <div className="flex justify-between"><span>бонусы</span><span className="font-medium">+{w.bonusTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.adjustmentTotal !== 0 && (
+                              <div className="flex justify-between"><span>поправки</span><span className="font-medium">{w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.advanceTotal > 0 && (
+                              <div className="flex justify-between"><span>авансы</span><span className="font-medium">−{w.advanceTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.deductionTotal > 0 && (
+                              <div className="flex justify-between"><span>вычеты</span><span className="font-medium">−{w.deductionTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {w.payoutTotal > 0 && (
+                              <div className="flex justify-between"><span>выплачено</span><span className="font-medium">−{w.payoutTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -5537,8 +5572,9 @@ setOwnerNewBookingWorkers([]);
                         <div key={o.ownerId} className="flex items-center justify-between py-1 text-sm">
                           <span className={sub}>{o.ownerName}</span>
                           <span className="font-bold">
-                            {o.totalAccrued.toLocaleString('ru')} ₽
-                            {o.totalPaid > 0 && <span className={`${sub} font-medium`}> · выплачено {o.totalPaid.toLocaleString('ru')} ₽</span>}
+                            {o.totalAccrued > 0 && <span>{o.totalAccrued.toLocaleString('ru')} ₽ к выплате</span>}
+                            {o.totalPaid > 0 && <span>{o.totalAccrued > 0 ? ' · ' : ''}выплачено {o.totalPaid.toLocaleString('ru')} ₽</span>}
+                            {o.totalAccrued === 0 && o.totalPaid === 0 && '0 ₽'}
                           </span>
                         </div>
                       ))}

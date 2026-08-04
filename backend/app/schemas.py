@@ -1592,8 +1592,19 @@ class BookingHistoryItem(BaseModel):
 class BookingTotalsWorkerItem(BaseModel):
     workerId: str
     workerName: str
-    totalEarned: int = 0
     bookingCount: int = 0
+    accruedFromBookings: int = 0
+    baseSalary: int = 0
+    shiftPayTotal: int = 0
+    shiftCount: int = 0
+    bonusTotal: int = 0
+    adjustmentTotal: int = 0
+    advanceTotal: int = 0
+    deductionTotal: int = 0
+    payoutTotal: int = 0
+    totalAccrued: int = 0
+    totalDeducted: int = 0
+    balance: int = 0
 
 
 class BookingTotalsOwnerItem(BaseModel):
@@ -1602,7 +1613,6 @@ class BookingTotalsOwnerItem(BaseModel):
     totalAccrued: int = 0
     totalPaid: int = 0
     bookingCount: int = 0
-
 
 class BookingTotalsPiggyItem(BaseModel):
     resourceGroup: str
