@@ -302,6 +302,8 @@ from .schemas import (
 
     BookingHistoryItem,
 
+    BookingAdditionalServiceItem,
+
     BookingMoneySplitDetail,
 
     BookingMoneySplitOwnerItem,
@@ -9929,8 +9931,10 @@ def _booking_money_split(
 
     complaints_map = complaints_by_worker or {}
 
-    def _compute_master(base: int) -> tuple[dict[str, int], int]:
-        """Доля мастеров: явные суммы (override/fixed) + сервисный режим/проценты профиля от base."""
+    def _compute_master(base: int) -> tuple[dict[str, int], int, int]:
+        """Доля мастеров: явные суммы (override/fixed) + сервисный режим/проценты профиля от base.
+        Возвращает (master_by_worker, master_total, main_master_total), где main_master_total —
+        оплата только мастеров основной услуги (без оплат мастеров доп услуг)."""
         master_by_worker: dict[str, int] = {}
         weighted_workers: list[tuple[str, int]] = []
         explicit_total = 0
@@ -9990,6 +9994,7 @@ def _booking_money_split(
                         explicit_total += amount
 
         master_total = explicit_total
+        main_master_total = explicit_total
 
         # Дополнительные услуги (оплата работникам)
         for asvc in (booking.additional_services or []):
@@ -10001,7 +10006,7 @@ def _booking_money_split(
                 master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
                 master_total += amount
 
-        return master_by_worker, master_total
+        return master_by_worker, master_total, main_master_total
 
     split_order = [s for s in (svc.split_order or []) if s in ("materials", "master", "piggy", "owners")] if svc else []
     pipeline_mode = bool(split_order) and split_order != ["materials", "master", "piggy", "owners"]
