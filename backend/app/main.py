@@ -2178,8 +2178,21 @@ def _apply_runtime_migrations() -> None:
         if "money_split_overrides" not in booking_columns:
             with engine.begin() as connection:
                 connection.exec_driver_sql(
-                    "ALTER TABLE bookings ADD COLUMN money_split_overrides TEXT DEFAULT NULL"
+                    "ALTER TABLE bookings ADD COLUMN money_split_overrides "
+                    + ("JSONB DEFAULT NULL" if engine.dialect.name == "postgresql" else "TEXT DEFAULT NULL")
                 )
+        elif engine.dialect.name == "postgresql":
+            column_type = next(
+                col["type"].__class__.__name__.lower()
+                for col in inspector.get_columns("bookings")
+                if col["name"] == "money_split_overrides"
+            )
+            if column_type == "text":
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        "ALTER TABLE bookings ALTER COLUMN money_split_overrides "
+                        "TYPE JSONB USING money_split_overrides::jsonb"
+                    )
 
     # Миграция: привязка расхода к записи (списание материалов)
     if "expenses" in inspector.get_table_names():
@@ -2195,6 +2208,21 @@ def _apply_runtime_migrations() -> None:
                     " AND expenses.title = 'Списание материалов: ' || b.service || ' (' || b.client_name || ')'"
                     " LIMIT 1) WHERE expenses.category = 'Расходные материалы'"
                 )
+
+    # Миграция: справочные поля записи в списаниях материалов
+    if "stock_write_offs" in inspector.get_table_names():
+        write_off_columns = {col["name"] for col in inspector.get_columns("stock_write_offs")}
+        for column, column_type in (
+            ("booking_service", "VARCHAR(120)"),
+            ("booking_client_name", "VARCHAR(120)"),
+            ("booking_date", "VARCHAR(16)"),
+            ("booking_worker_names", "VARCHAR(300)"),
+        ):
+            if column not in write_off_columns:
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        f"ALTER TABLE stock_write_offs ADD COLUMN {column} {column_type} DEFAULT NULL"
+                    )
 
 
 
