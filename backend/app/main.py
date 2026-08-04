@@ -302,6 +302,8 @@ from .schemas import (
 
     BookingHistoryItem,
 
+    BookingHistoryTotals,
+
     BookingAdditionalServiceItem,
 
     BookingAsvcPiggyItem,
@@ -10074,6 +10076,10 @@ def _booking_money_split(
     if pipeline_mode:
         # Конвейер: каждый шаг забирает свою сумму из текущего остатка
         pool = max(0, main_price - subtract_total)
+        split_base_report = pool
+        # Материалы уменьшают базу только если шаг "materials" есть в конвейере
+        if "materials" in split_order:
+            split_base_report = max(0, split_base_report - materials_cost)
         master_by_worker: dict[str, int] = {}
         master_total = 0
         main_master_total = 0
@@ -10103,9 +10109,12 @@ def _booking_money_split(
         piggy_deposit += asvc_piggy_total
     else:
         # Классический порядок: материалы → мастера → копилка → владельцы
+        split_base_report = split_base
         master_by_worker, master_total, main_master_total = _compute_master(split_base)
-        piggy_deposit = _compute_piggy(split_base) + asvc_piggy_total
-        remaining = split_base - main_master_total - piggy_deposit
+        main_piggy = _compute_piggy(split_base)
+        # Вклад доп услуг в копилку — из carve-out цены доп услуги, долю владельцев не уменьшает
+        piggy_deposit = main_piggy + asvc_piggy_total
+        remaining = split_base - main_master_total - main_piggy
         claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
         owners_total, owner_by_owner = _allocate_owners(claimed, remaining)
 
@@ -10114,6 +10123,7 @@ def _booking_money_split(
         "main_price": main_price,
         "materials_cost": materials_cost,
         "net": net,
+        "split_base": split_base_report,
         "master_total": master_total,
         "master_by_worker": master_by_worker,
         "asvc_master_pay": master_total - main_master_total,
@@ -15602,7 +15612,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     additional_total = sum(a.price for a in add_services if a.price_mode != "subtract")
     subtract_total = sum(a.price for a in add_services if a.price_mode == "subtract")
     main_price = max(0, int(booking.price) - additional_total)
-    split_base = max(0, split["net"] - subtract_total)
+    split_base = int(split.get("split_base", max(0, split["net"] - subtract_total)))
 
     return BookingMoneySplitDetail(
         id=booking.id,
@@ -15744,6 +15754,116 @@ def get_owner_bookings_history(
         )
         for b in bookings
     ]
+
+
+@app.get("/api/owner/bookings-history/totals", response_model=BookingHistoryTotals)
+def get_owner_bookings_history_totals(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    status: str | None = None,
+    q: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BookingHistoryTotals:
+    """Итоги за период по каждому мастеру и владельцу (по записям с распределением денег)."""
+    _ensure_staff_role(session_data, {"owner"})
+
+    query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(Booking.deleted_at.is_(None))
+    )
+
+    if date_from:
+        query = query.where(Booking.date >= _parse_booking_date_param(date_from))
+    if date_to:
+        query = query.where(Booking.date <= _parse_booking_date_param(date_to))
+    if status:
+        query = query.where(Booking.status == status)
+    if q and q.strip():
+        needle = q.strip().lower()
+        query = query.where(
+            or_(
+                func.lower(Booking.client_name).like(f"%{needle}%"),
+                func.lower(Booking.client_phone).like(f"%{needle}%"),
+                func.lower(Booking.service).like(f"%{needle}%"),
+                func.lower(Booking.car).like(f"%{needle}%"),
+                func.lower(Booking.plate).like(f"%{needle}%"),
+            )
+        )
+
+    bookings = db.scalars(query).unique().all()
+
+    penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(penalties)
+
+    split_booking_ids = [b.id for b in bookings if b.status in ("completed", "confirmed")]
+    shares_by_booking: dict[str, list[OwnerProfitShare]] = {}
+    if split_booking_ids:
+        all_shares = db.scalars(
+            select(OwnerProfitShare).where(OwnerProfitShare.booking_id.in_(split_booking_ids))
+        ).all()
+        for share in all_shares:
+            shares_by_booking.setdefault(share.booking_id, []).append(share)
+
+    worker_totals: dict[str, dict] = {}
+    owner_totals: dict[str, dict] = {}
+
+    for booking in bookings:
+        if booking.status not in ("completed", "confirmed"):
+            continue
+        for link in booking.worker_links:
+            worker_totals.setdefault(link.worker_id, {"name": link.worker_name, "total": 0, "count": 0})
+        for asvc in (booking.additional_services or []):
+            for alink in asvc.worker_links:
+                worker_totals.setdefault(alink.worker_id, {"name": alink.worker_name, "total": 0, "count": 0})
+
+        split = _booking_money_split(db, booking, complaints_by_worker)
+        for worker_id, amount in (split.get("master_by_worker") or {}).items():
+            entry = worker_totals.setdefault(worker_id, {"name": "", "total": 0, "count": 0})
+            entry["total"] += amount
+            entry["count"] += 1
+
+        shares = shares_by_booking.get(booking.id, [])
+        if shares:
+            for share in shares:
+                entry = owner_totals.setdefault(share.owner_id, {"name": "", "accrued": 0, "paid": 0, "count": 0})
+                entry["accrued"] += int(share.amount or 0)
+                if share.status == "paid":
+                    entry["paid"] += int(share.amount or 0)
+                entry["count"] += 1
+        else:
+            for owner_id, amount in (split.get("owner_by_owner") or {}).items():
+                entry = owner_totals.setdefault(owner_id, {"name": "", "accrued": 0, "paid": 0, "count": 0})
+                entry["accrued"] += amount
+                entry["count"] += 1
+
+    all_ids = set(worker_totals) | set(owner_totals)
+    name_by_id: dict[str, str] = {}
+    if all_ids:
+        staff = db.scalars(select(StaffUser).where(StaffUser.id.in_(all_ids))).all()
+        name_by_id = {item.id: item.name for item in staff}
+
+    workers = [
+        BookingTotalsWorkerItem(
+            workerId=worker_id,
+            workerName=data["name"] or name_by_id.get(worker_id, worker_id),
+            totalEarned=data["total"],
+            bookingCount=data["count"],
+        )
+        for worker_id, data in sorted(worker_totals.items(), key=lambda kv: -kv[1]["total"])
+    ]
+    owners = [
+        BookingTotalsOwnerItem(
+            ownerId=owner_id,
+            ownerName=data["name"] or name_by_id.get(owner_id, owner_id),
+            totalAccrued=data["accrued"],
+            totalPaid=data["paid"],
+            bookingCount=data["count"],
+        )
+        for owner_id, data in sorted(owner_totals.items(), key=lambda kv: -kv[1]["accrued"])
+    ]
+    return BookingHistoryTotals(workers=workers, owners=owners)
 
 
 

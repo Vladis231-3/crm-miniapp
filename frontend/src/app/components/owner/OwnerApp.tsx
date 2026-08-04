@@ -63,6 +63,11 @@ interface BookingHistoryItem {
   status: string; paymentType: string; paymentSettled?: boolean;
   workers: BookingHistoryWorkerItem[]; createdAt: string;
 }
+interface BookingTotalsWorkerItem { workerId: string; workerName: string; totalEarned: number; bookingCount: number; }
+interface BookingTotalsOwnerItem { ownerId: string; ownerName: string; totalAccrued: number; totalPaid: number; bookingCount: number; }
+interface BookingHistoryTotals {
+  workers: BookingTotalsWorkerItem[]; owners: BookingTotalsOwnerItem[];
+}
 interface MoneySplitWorkerItem {
   linkId: number; workerId: string; workerName: string; percent: number;
   payType: string; fixedAmount?: number | null; earned: number; overrideEarned?: number | null;
@@ -743,6 +748,7 @@ export function OwnerApp() {
 
   // Bookings history state
   const [historyItems, setHistoryItems] = useState<BookingHistoryItem[]>([]);
+  const [historyTotals, setHistoryTotals] = useState<BookingHistoryTotals | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPeriod, setHistoryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [historyDateFrom, setHistoryDateFrom] = useState('');
@@ -1503,6 +1509,12 @@ export function OwnerApp() {
       if (historyQuery.trim()) params.set('q', historyQuery.trim());
       const items = await apiRequest<BookingHistoryItem[]>(`/api/owner/bookings-history?${params.toString()}`);
       setHistoryItems(items);
+      try {
+        const totals = await apiRequest<BookingHistoryTotals>(`/api/owner/bookings-history/totals?${params.toString()}`);
+        setHistoryTotals(totals);
+      } catch {
+        setHistoryTotals(null);
+      }
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить историю записей');
       setTimeout(() => setBottomToast(null), 4000);
@@ -5492,6 +5504,36 @@ setOwnerNewBookingWorkers([]);
                   Найти
                 </button>
               </div>
+
+              {historyTotals && (historyTotals.workers.length > 0 || historyTotals.owners.length > 0) && (
+                <div className="grid gap-3 mb-4">
+                  {historyTotals.workers.length > 0 && (
+                    <div className={`${glass} rounded-2xl p-3`}>
+                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Мастера · итог за период</div>
+                      {historyTotals.workers.map(w => (
+                        <div key={w.workerId} className="flex items-center justify-between py-1 text-sm">
+                          <span className={sub}>{w.workerName}</span>
+                          <span className="font-bold">{w.totalEarned.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {historyTotals.owners.length > 0 && (
+                    <div className={`${glass} rounded-2xl p-3`}>
+                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Владельцы · итог за период</div>
+                      {historyTotals.owners.map(o => (
+                        <div key={o.ownerId} className="flex items-center justify-between py-1 text-sm">
+                          <span className={sub}>{o.ownerName}</span>
+                          <span className="font-bold">
+                            {o.totalAccrued.toLocaleString('ru')} ₽
+                            {o.totalPaid > 0 && <span className={`${sub} font-medium`}> · выплачено {o.totalPaid.toLocaleString('ru')} ₽</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {historyLoading && historyItems.length === 0 ? (
                 <div className={`text-center py-10 text-sm ${sub}`}>Загрузка...</div>

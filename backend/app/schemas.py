@@ -1589,6 +1589,26 @@ class BookingHistoryItem(BaseModel):
     createdAt: datetime
 
 
+class BookingTotalsWorkerItem(BaseModel):
+    workerId: str
+    workerName: str
+    totalEarned: int = 0
+    bookingCount: int = 0
+
+
+class BookingTotalsOwnerItem(BaseModel):
+    ownerId: str
+    ownerName: str
+    totalAccrued: int = 0
+    totalPaid: int = 0
+    bookingCount: int = 0
+
+
+class BookingHistoryTotals(BaseModel):
+    workers: list[BookingTotalsWorkerItem] = Field(default_factory=list)
+    owners: list[BookingTotalsOwnerItem] = Field(default_factory=list)
+
+
 class BookingMoneySplitWorkerItem(BaseModel):
     linkId: int
     workerId: str
