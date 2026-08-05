@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-05 07:54 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-05 08:03 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **242**
-- Строк кода: **74 326**
+- Строк кода: **74 362**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 37, `.ts`: 19, `.tsx`: 182
 
 ## Архитектура
@@ -969,9 +969,9 @@ concept1.0/
 
 ### backend/tests/__init__.py (0 строк)
 
-### backend/tests/test_archive.py (362 строк)
+### backend/tests/test_archive.py (391 строк)
 
-Классы и функции (22):
+Классы и функции (23):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 20)
 - `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode( {"user": json.dumps({"id": te` (стр. 26)
@@ -995,6 +995,7 @@ concept1.0/
 - `ArchiveEndpointTests.test_owners_salary_detail_with_datesdef test_owners_salary_detail_with_dates(self) -> None: booking = self.create_booking(status="completed") split = self.client.get( f"/api/owner/bookings/{booking['id']}/money-split` (стр. 317)
 - `ArchiveEndpointTests.test_archive_requires_owner_roledef test_archive_requires_owner_role(self) -> None: response = self.client.get( "/api/owner/archive", headers=self.auth_headers(self.admin_token), ) self.assertEqual(response.statu` (стр. 336)
 - `ArchiveEndpointTests.test_archive_rejects_invalid_datedef test_archive_rejects_invalid_date(self) -> None: response = self.client.get( "/api/owner/archive?date_from=not-a-date", headers=self.auth_headers(self.owner_token), ) self.asse` (стр. 349)
+- `ArchiveEndpointTests.test_worker_salary_detail_accepts_both_date_formatsdef test_worker_salary_detail_accepts_both_date_formats(self) -> None: booking = self.create_booking(status="completed") booking_date = booking["date"] iso_date = booking_date[6:10` (стр. 356)
 
 ### backend/tests/test_attendance_endpoints.py (155 строк)
 
@@ -1762,7 +1763,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11310 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11317 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 218) — локальный
 - `STOCK_UNITS` (стр. 219) — локальный
@@ -2555,10 +2556,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-05 11:03)
+- `backend/tests/test_archive.py` (2026-08-05 11:01)
+- `backend/app/main.py` (2026-08-05 11:01)
 - `backend/tests/test_booking_money_split.py` (2026-08-05 10:54)
-- `backend/app/main.py` (2026-08-05 10:54)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-05 10:28)
-- `backend/tests/test_archive.py` (2026-08-05 10:22)
 - `backend/app/schemas.py` (2026-08-05 10:17)
 - `scripts/.project-map-watch.lock` (2026-08-05 09:50)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-04 12:06)

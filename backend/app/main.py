@@ -15086,8 +15086,8 @@ def get_admin_workers_payroll(
         if not date_from or not date_to:
             raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
         # Convert YYYY-MM-DD from frontend to DD.MM.YYYY
-        date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
-        date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
+        date_from = _parse_booking_date_param(date_from)
+        date_to = _parse_booking_date_param(date_to)
     else:
         date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
     date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
@@ -16541,9 +16541,9 @@ def owner_worker_salary_detail(
 
             raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
 
-        date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
+        date_from = _parse_booking_date_param(date_from)
 
-        date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
+        date_to = _parse_booking_date_param(date_to)
 
     else:
 
@@ -16931,9 +16931,9 @@ def worker_my_salary_detail(
 
             raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
 
-        date_from = date_from[8:10] + "." + date_from[5:7] + "." + date_from[0:4]
+        date_from = _parse_booking_date_param(date_from)
 
-        date_to = date_to[8:10] + "." + date_to[5:7] + "." + date_to[0:4]
+        date_to = _parse_booking_date_param(date_to)
 
     else:
 

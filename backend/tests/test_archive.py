@@ -353,6 +353,35 @@ class ArchiveEndpointTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422, response.text)
 
+    def test_worker_salary_detail_accepts_both_date_formats(self) -> None:
+        booking = self.create_booking(status="completed")
+        booking_date = booking["date"]
+        iso_date = booking_date[6:10] + "-" + booking_date[3:5] + "-" + booking_date[0:2]
+
+        from app.database import SessionLocal
+        from app.models import StaffUser
+
+        with SessionLocal() as db:
+            worker = db.scalars(
+                select(StaffUser).where(StaffUser.login == "ivan")
+            ).one()
+            worker_id = worker.id
+
+        for fmt_date in (booking_date, iso_date):
+            response = self.client.get(
+                f"/api/owner/workers/{worker_id}/salary-detail?period=custom&segment=all"
+                f"&date_from={fmt_date}&date_to={fmt_date}",
+                headers=self.auth_headers(self.owner_token),
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        mine = self.client.get(
+            f"/api/owner/workers/{worker_id}/salary-detail?period=custom&segment=all"
+            f"&date_from={booking_date}&date_to={booking_date}",
+            headers=self.auth_headers(self.worker_token),
+        )
+        self.assertEqual(mine.status_code, 403, mine.text)
+
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
