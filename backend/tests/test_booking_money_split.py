@@ -196,6 +196,25 @@ class BookingMoneySplitTests(unittest.TestCase):
         )
         self.assertEqual(forbidden.status_code, 403, forbidden.text)
 
+    def test_bookings_history_totals_accepts_dd_mm_yyyy_dates(self) -> None:
+        booking = self.create_booking(status="completed")
+        booking_date = booking["date"]
+
+        dated = self.client.get(
+            f"/api/owner/bookings-history/totals?date_from={booking_date}&date_to={booking_date}",
+            headers=self.auth_headers(self.owner_token),
+        )
+        self.assertEqual(dated.status_code, 200, dated.text)
+        payload = dated.json()
+        self.assertIn("workers", payload)
+        self.assertIn("owners", payload)
+
+        invalid = self.client.get(
+            "/api/owner/bookings-history/totals?date_from=not-a-date&date_to=not-a-date",
+            headers=self.auth_headers(self.owner_token),
+        )
+        self.assertEqual(invalid.status_code, 422, invalid.text)
+
     def test_money_split_get_returns_full_distribution(self) -> None:
         booking = self.create_booking(status="completed")
 

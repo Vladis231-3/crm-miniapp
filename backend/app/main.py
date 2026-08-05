@@ -15849,14 +15849,14 @@ def get_owner_bookings_history_totals(
     ]
     entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
     if date_from and date_to:
-        dt_from = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        dt_from = datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc)
+        dt_to = datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
         entries_query = entries_query.where(
             PayrollEntry.created_at >= dt_from,
             PayrollEntry.created_at <= dt_to,
         )
-        shift_from = datetime.strptime(date_from, "%Y-%m-%d").date()
-        shift_to = datetime.strptime(date_to, "%Y-%m-%d").date()
+        shift_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        shift_to = datetime.strptime(date_to, "%d.%m.%Y").date()
     else:
         shift_from = None
         shift_to = None
