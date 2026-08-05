@@ -397,6 +397,10 @@ from .schemas import (
 
     ArchiveBookingItem,
 
+    ArchiveBookingWorkerItem,
+
+    ArchiveAdditionalServiceItem,
+
     ArchivePayrollItem,
 
     ArchiveOwnerItem,
@@ -13424,6 +13428,8 @@ def _dmy_to_date(s: str) -> date:
 @app.get("/api/owner/wallet", response_model=WalletResponse)
 
 def get_wallet(
+    date_from: str | None = None,
+    date_to: str | None = None,
 
     session_data: dict = Depends(_require_session),
 
@@ -13436,6 +13442,10 @@ def get_wallet(
 
 
     saturday, friday = _week_bounds()
+    if date_from:
+        saturday = _dmy_to_date(_parse_booking_date_param(date_from))
+    if date_to:
+        friday = _dmy_to_date(_parse_booking_date_param(date_to))
 
     week_start_str = _dmy(saturday)
 
@@ -16012,12 +16022,7 @@ def get_owner_archive(
     archive_bookings: list[ArchiveBookingItem] = []
     summary = ArchiveSummary()
     for b in bookings:
-        split = _booking_money_split(db, b, complaints_by_worker)
-        net = int(split.get("net") or 0)
-        master_total = int(split.get("master_total") or 0)
-        owners_total = int(split.get("owners_total") or 0)
-        asvc_sum = sum(int(d.get("amount") or 0) for d in split.get("asvc_piggy_deposits") or [])
-        piggy_deposit = max(0, int(split.get("piggy_deposit") or 0) - asvc_sum)
+        detail = _booking_money_split_detail(db, b)
         archive_bookings.append(
             ArchiveBookingItem(
                 id=b.id,
@@ -16026,25 +16031,58 @@ def get_owner_archive(
                 service=b.service,
                 clientName=b.client_name,
                 clientPhone=b.client_phone or "",
+                clientId=b.client_id or None,
                 car=b.car,
                 plate=b.plate,
                 box=b.box,
                 price=int(b.price or 0),
-                net=net,
+                net=detail.net,
                 status=b.status,
                 paymentType=b.payment_type or "",
                 paymentSettled=bool(b.payment_settled),
-                resourceGroup=split.get("resource_group") or "",
-                masterTotal=master_total,
-                piggyDeposit=piggy_deposit,
-                ownersTotal=owners_total,
+                resourceGroup=detail.resourceGroup,
+                masterTotal=detail.masterTotal,
+                piggyDeposit=detail.piggyDeposit,
+                ownersTotal=detail.ownersTotal,
+                materialsCost=detail.materialsCost,
+                workers=[
+                    ArchiveBookingWorkerItem(
+                        workerId=w.workerId,
+                        workerName=w.workerName,
+                        percent=w.percent,
+                        payType=w.payType,
+                        fixedAmount=w.fixedAmount,
+                        earned=w.earned,
+                    )
+                    for w in detail.workers
+                ],
+                asvcWorkers=[
+                    ArchiveBookingWorkerItem(
+                        workerId=w.workerId,
+                        workerName=w.workerName,
+                        percent=w.percent,
+                        payType=w.payType,
+                        fixedAmount=w.fixedAmount,
+                        earned=w.earned,
+                        additionalServiceName=w.additionalServiceName,
+                    )
+                    for w in detail.asvcWorkers
+                ],
+                additionalServices=[
+                    ArchiveAdditionalServiceItem(
+                        name=a.name,
+                        price=a.price,
+                        priceMode=a.priceMode,
+                    )
+                    for a in detail.additionalServices
+                ],
                 createdAt=b.created_at,
             )
         )
         summary.revenue += int(b.price or 0)
-        summary.net += net
-        summary.masterTotal += master_total
-        summary.piggyDeposit += piggy_deposit
+        summary.net += detail.net
+        summary.masterTotal += detail.masterTotal
+        summary.piggyDeposit += detail.piggyDeposit
 
     summary.bookingCount = len(bookings)
 
@@ -17400,6 +17438,10 @@ def owner_salary_detail(
 
     period: str = "month",
 
+    date_from: str | None = None,
+
+    date_to: str | None = None,
+
     session_data: dict = Depends(_require_session),
 
     db: Session = Depends(get_db),
@@ -17482,7 +17524,21 @@ def owner_salary_detail(
 
 
 
+    date_from_dmy = _parse_booking_date_param(date_from) if date_from else None
+
+    date_to_dmy = _parse_booking_date_param(date_to) if date_to else None
+
+
+
     for share in all_shares:
+
+        if date_from_dmy and share.date and share.date < date_from_dmy:
+
+            continue
+
+        if date_to_dmy and share.date and share.date > date_to_dmy:
+
+            continue
 
         if share.owner_id not in owner_data:
 

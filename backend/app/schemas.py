@@ -1745,6 +1745,22 @@ class BookingMoneySplitUpdateRequest(BaseModel):
 # --- Archive (главная библиотека и картотека) schemas ---
 
 
+class ArchiveBookingWorkerItem(BaseModel):
+    workerId: str
+    workerName: str
+    percent: float = 0
+    payType: str = "percent"
+    fixedAmount: float | None = None
+    earned: int = 0
+    additionalServiceName: str | None = None
+
+
+class ArchiveAdditionalServiceItem(BaseModel):
+    name: str
+    price: int
+    priceMode: str = "add"
+
+
 class ArchiveBookingItem(BaseModel):
     id: str
     date: str
@@ -1752,6 +1768,7 @@ class ArchiveBookingItem(BaseModel):
     service: str
     clientName: str
     clientPhone: str = ""
+    clientId: str | None = None
     car: str | None = None
     plate: str | None = None
     box: str
@@ -1764,6 +1781,10 @@ class ArchiveBookingItem(BaseModel):
     masterTotal: int = 0
     piggyDeposit: int = 0
     ownersTotal: int = 0
+    materialsCost: int = 0
+    workers: list[ArchiveBookingWorkerItem] = Field(default_factory=list)
+    asvcWorkers: list[ArchiveBookingWorkerItem] = Field(default_factory=list)
+    additionalServices: list[ArchiveAdditionalServiceItem] = Field(default_factory=list)
     createdAt: datetime
 
 

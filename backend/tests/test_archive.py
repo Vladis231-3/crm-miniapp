@@ -258,6 +258,81 @@ class ArchiveEndpointTests(unittest.TestCase):
                 sum(o["totalAccrued"] for o in archive["owners"]),
             )
 
+    def test_archive_booking_detail_matches_money_split(self) -> None:
+        booking = self.create_booking(status="completed")
+        archive = self.get_archive()
+        item = next((b for b in archive["bookings"] if b["id"] == booking["id"]), None)
+        self.assertIsNotNone(item, "Запись должна быть в архиве")
+
+        split = self.client.get(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token),
+        ).json()
+        self.assertEqual(item["materialsCost"], split["materialsCost"])
+        self.assertEqual(
+            {w["workerId"]: w["earned"] for w in item["workers"]},
+            {w["workerId"]: w["earned"] for w in split["workers"]},
+        )
+        self.assertEqual(
+            [(a["name"], a["price"], a["priceMode"]) for a in item["additionalServices"]],
+            [(a["name"], a["price"], a["priceMode"]) for a in split["additionalServices"]],
+        )
+
+    def test_archive_booking_has_client_id(self) -> None:
+        booking = self.create_booking(status="completed")
+        archive = self.get_archive()
+        item = next((b for b in archive["bookings"] if b["id"] == booking["id"]), None)
+        self.assertIsNotNone(item)
+        self.assertIsInstance(item["clientId"], (str, type(None)))
+
+    def test_wallet_accepts_period_dates(self) -> None:
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
+        income = self.client.post(
+            "/api/owner/incomes",
+            headers=self.auth_headers(self.owner_token),
+            json={"amount": 3000, "source": "Аренда", "note": "", "date": yesterday},
+        )
+        self.assertEqual(income.status_code, 201, income.text)
+        income_id = income.json()["id"]
+
+        iso_yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        response = self.client.get(
+            f"/api/owner/wallet?date_from={iso_yesterday}&date_to={iso_yesterday}",
+            headers=self.auth_headers(self.owner_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        self.assertTrue(any(i["id"] == income_id for i in data["incomes"]))
+        self.assertEqual(data["totalIncome"], 3000)
+
+        iso_other = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        response = self.client.get(
+            f"/api/owner/wallet?date_from={iso_other}&date_to={iso_other}",
+            headers=self.auth_headers(self.owner_token),
+        )
+        data = response.json()
+        self.assertFalse(any(i["id"] == income_id for i in data["incomes"]))
+        self.assertEqual(data["totalIncome"], 0)
+
+    def test_owners_salary_detail_with_dates(self) -> None:
+        booking = self.create_booking(status="completed")
+        split = self.client.get(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token),
+        ).json()
+        if not split["ownerShares"]:
+            self.skipTest("в тестовом окружении нет долей владельцев")
+        response = self.client.get(
+            f"/api/owner/owners/salary-detail?period=all&date_from={booking['date']}&date_to={booking['date']}",
+            headers=self.auth_headers(self.owner_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()
+        owner_ids = {o["ownerId"] for o in split["ownerShares"]}
+        found = [o for o in data["owners"] if o["ownerId"] in owner_ids]
+        self.assertTrue(found, "Владелец с долей должен попасть в отчёт за дату записи")
+        self.assertGreater(sum(o["totalAccrued"] for o in found), 0)
+
     def test_archive_requires_owner_role(self) -> None:
         response = self.client.get(
             "/api/owner/archive",

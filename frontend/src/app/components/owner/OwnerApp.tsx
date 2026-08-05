@@ -109,11 +109,18 @@ interface MoneySplitDetail {
   ownerShares: MoneySplitOwnerItem[]; canEdit: boolean;
 }
 
+interface ArchiveBookingWorkerItem {
+  workerId: string; workerName: string; percent: number; payType: string;
+  fixedAmount?: number | null; earned: number; additionalServiceName?: string | null;
+}
+interface ArchiveAdditionalServiceItem { name: string; price: number; priceMode: string; }
 interface ArchiveBookingItem {
   id: string; date: string; time: string; service: string; clientName: string;
-  clientPhone?: string; car?: string | null; plate?: string | null; box: string;
+  clientPhone?: string; clientId?: string | null; car?: string | null; plate?: string | null; box: string;
   price: number; net: number; status: string; paymentType?: string; paymentSettled?: boolean;
   resourceGroup?: string; masterTotal: number; piggyDeposit: number; ownersTotal: number;
+  materialsCost: number; workers: ArchiveBookingWorkerItem[];
+  asvcWorkers: ArchiveBookingWorkerItem[]; additionalServices: ArchiveAdditionalServiceItem[];
   createdAt: string;
 }
 interface ArchivePayrollItem {
@@ -698,6 +705,8 @@ export function OwnerApp() {
   const [piggyTab, setPiggyTab] = useState<'all' | 'wash' | 'detailing'>('all');
   const [piggyDateFrom, setPiggyDateFrom] = useState('');
   const [piggyDateTo, setPiggyDateTo] = useState('');
+  const [walletDateFrom, setWalletDateFrom] = useState('');
+  const [walletDateTo, setWalletDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
   const [showArchivesModal, setShowArchivesModal] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<WeeklyArchiveInfo | null>(null);
@@ -777,7 +786,9 @@ export function OwnerApp() {
   const [payrollDateTo, setPayrollDateTo] = useState('');
   const [payrollData, setPayrollData] = useState<Worker[] | null>(null);
   const [ownerSalaryData, setOwnerSalaryData] = useState<OwnerSalaryData | null>(null);
-  const [ownerSalaryPeriod, setOwnerSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all'>('month');
+  const [ownerSalaryPeriod, setOwnerSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
+  const [ownerSalaryDateFrom, setOwnerSalaryDateFrom] = useState('');
+  const [ownerSalaryDateTo, setOwnerSalaryDateTo] = useState('');
   const [ownerSalaryLoading, setOwnerSalaryLoading] = useState(false);
   const [ownerPayTarget, setOwnerPayTarget] = useState<string | null>(null);
   const [ownerPayAmount, setOwnerPayAmount] = useState('');
@@ -1043,11 +1054,16 @@ export function OwnerApp() {
   useEffect(() => setTwoFactor(settings.ownerSecurity.twoFactor), [settings.ownerSecurity.twoFactor]);
   useEffect(() => {
     setOwnerSalaryLoading(true);
-    apiRequest<OwnerSalaryData>(`/api/owner/owners/salary-detail?period=${ownerSalaryPeriod}`)
+    const params = new URLSearchParams({ period: ownerSalaryPeriod });
+    if (ownerSalaryPeriod === 'custom') {
+      params.set('date_from', ownerSalaryDateFrom);
+      params.set('date_to', ownerSalaryDateTo);
+    }
+    apiRequest<OwnerSalaryData>(`/api/owner/owners/salary-detail?${params.toString()}`)
       .then(setOwnerSalaryData)
       .catch(() => setOwnerSalaryData(null))
       .finally(() => setOwnerSalaryLoading(false));
-  }, [ownerSalaryPeriod]);
+  }, [ownerSalaryPeriod, ownerSalaryDateFrom, ownerSalaryDateTo]);
 
   const handlePayOwnerSalary = async (ownerId: string) => {
     const amount = parseFloat(ownerPayAmount.replace(',', '.'));
@@ -1088,10 +1104,16 @@ export function OwnerApp() {
     finally { setPiggyBankLoading(false); }
   }, []);
 
-  const loadWallet = useCallback(async () => {
+  const loadWallet = useCallback(async (dateFrom?: string, dateTo?: string) => {
     setWalletLoading(true);
     try {
-      const data = await apiRequest<WalletData>('/api/owner/wallet');
+      let path = '/api/owner/wallet';
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      const qs = params.toString();
+      if (qs) path += '?' + qs;
+      const data = await apiRequest<WalletData>(path);
       setWalletData(data);
     } catch { /* ignore */ }
     finally { setWalletLoading(false); }
@@ -1114,14 +1136,14 @@ export function OwnerApp() {
       setShowPiggyWithdraw(false);
       setPiggyWithdrawForm({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
       await loadPiggyBank();
-      await loadWallet();
+      await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
     } catch (e: unknown) {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка');
     }
   }
 
   useEffect(() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }, [page, piggyDateFrom, piggyDateTo]);
-  useEffect(() => { void loadWallet(); }, [page]);
+  useEffect(() => { void loadWallet(walletDateFrom || undefined, walletDateTo || undefined); }, [page, walletDateFrom, walletDateTo]);
   useEffect(() => {
     setClientCardDrafts(
       Object.fromEntries(
@@ -1665,31 +1687,91 @@ export function OwnerApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archiveHighlight]);
 
+  const currentNavRange = () => {
+    const source = settingsSection === 'archive' ? archivePeriodDates() : historyPeriodDates();
+    return { dateFrom: source.dateFrom, dateTo: source.dateTo };
+  };
+
   const gotoWorkerSalary = (workerId: string) => {
+    const { dateFrom, dateTo } = currentNavRange();
     setPage('salary-detail');
     setSettingsSection(null);
     setSelectedSalaryWorkerId(workerId);
+    setSalaryPeriod(dateFrom ? 'custom' : 'all');
+    setSalaryDateFrom(dateFrom);
+    setSalaryDateTo(dateTo);
+    setSalarySegment('all');
     setArchiveHighlight({ target: 'worker', workerId });
   };
 
   const gotoOwnerSalary = (ownerId: string) => {
+    const { dateFrom, dateTo } = currentNavRange();
     setPage('payroll');
     setSettingsSection(null);
     setSelectedSalaryWorkerId(null);
     setSalaryDetail(null);
+    setOwnerSalaryPeriod(dateFrom ? 'custom' : 'all');
+    setOwnerSalaryDateFrom(dateFrom);
+    setOwnerSalaryDateTo(dateTo);
     setArchiveHighlight({ target: 'owner', ownerId });
   };
 
   const gotoPiggyBank = (txId?: string) => {
+    const { dateFrom, dateTo } = currentNavRange();
     setPage('piggy-bank');
     setSettingsSection(null);
+    setPiggyDateFrom(dateFrom);
+    setPiggyDateTo(dateTo);
     setArchiveHighlight({ target: 'piggy', txId });
   };
 
   const gotoWalletItem = (kind: 'income' | 'expense', id: string) => {
+    const { dateFrom, dateTo } = currentNavRange();
     setPage('wallet');
     setSettingsSection(null);
+    setWalletDateFrom(dateFrom);
+    setWalletDateTo(dateTo);
     setArchiveHighlight({ target: kind, incomeId: kind === 'income' ? id : undefined, expenseId: kind === 'expense' ? id : undefined });
+  };
+
+  const gotoHistory = () => {
+    const { dateFrom, dateTo } = currentNavRange();
+    setSettingsSection('bookings-history');
+    setHistoryPeriod(dateFrom ? 'custom' : 'all');
+    setHistoryDateFrom(dateFrom);
+    setHistoryDateTo(dateTo);
+    setArchiveHighlight(null);
+  };
+
+  const gotoPayroll = () => {
+    const { dateFrom, dateTo } = currentNavRange();
+    setPage('payroll');
+    setSettingsSection(null);
+    setPayrollPeriod(dateFrom ? 'custom' : 'all');
+    setPayrollDateFrom(dateFrom);
+    setPayrollDateTo(dateTo);
+    setArchiveHighlight(null);
+  };
+
+  const gotoWallet = () => {
+    const { dateFrom, dateTo } = currentNavRange();
+    setPage('wallet');
+    setSettingsSection(null);
+    setWalletDateFrom(dateFrom);
+    setWalletDateTo(dateTo);
+    setArchiveHighlight(null);
+  };
+
+  const gotoClient = (clientId: string | null | undefined, clientPhone: string) => {
+    setPage('settings');
+    setSettingsSection('clients');
+    setArchiveHighlight(null);
+    if (clientId) {
+      setSettingsClientId(clientId);
+    } else {
+      setSettingsClientId(null);
+      setSettingsClientSearchQuery(clientPhone || '');
+    }
   };
 
   const loadSplitDetail = useCallback(async (bookingId: string) => {
@@ -4090,15 +4172,25 @@ setOwnerNewBookingWorkers([]);
               {!isAccountant && (
                 <div className="mt-6">
                   <h2 className="font-semibold mb-3">Доходы владельцев</h2>
-                  <div className="flex gap-1 mb-3">
-                    {(['day', 'week', 'month', 'all'] as const).map(p => (
+                  <div className="flex gap-1 mb-3 flex-wrap">
+                    {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                       <button key={p} onClick={() => setOwnerSalaryPeriod(p)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                         style={{ background: ownerSalaryPeriod === p ? primary : 'transparent', color: ownerSalaryPeriod === p ? '#fff' : sub }}>
-                        {{ day: 'День', week: 'Неделя', month: 'Месяц', all: 'Всё' }[p]}
+                        {{ day: 'День', week: 'Неделя', month: 'Месяц', all: 'Всё', custom: 'Свои' }[p]}
                       </button>
                     ))}
                   </div>
+                  {ownerSalaryPeriod === 'custom' && (
+                    <div className="flex gap-2 mb-3">
+                      <input type="date" value={ownerSalaryDateFrom}
+                        onChange={e => setOwnerSalaryDateFrom(e.target.value)}
+                        className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      <input type="date" value={ownerSalaryDateTo}
+                        onChange={e => setOwnerSalaryDateTo(e.target.value)}
+                        className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                    </div>
+                  )}
                   {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Загрузка...</div>}
                   {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => {
                     const rawId = owner.ownerId.replace('owner-tg-', '');
@@ -4724,7 +4816,7 @@ setOwnerNewBookingWorkers([]);
                   )}
                   <h2 className="font-semibold">Кошелёк</h2>
                 </div>
-                <button onClick={() => { void loadWallet(); }} disabled={walletLoading} className={`p-2 rounded-xl ${glass}`}>
+                <button onClick={() => { void loadWallet(walletDateFrom || undefined, walletDateTo || undefined); }} disabled={walletLoading} className={`p-2 rounded-xl ${glass}`}>
                   <RefreshCw size={16} className={walletLoading ? 'animate-spin' : ''} />
                 </button>
               </div>
@@ -4732,8 +4824,16 @@ setOwnerNewBookingWorkers([]);
               {walletData && (
                 <>
                   {/* Week period */}
-                  <div className={`text-xs ${sub} mb-4`}>
-                    {walletData.weekStart.split('-').reverse().join('.')} – {walletData.weekEnd.split('-').reverse().join('.')}
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className={`text-xs ${sub}`}>
+                      {walletData.weekStart.split('-').reverse().join('.')} – {walletData.weekEnd.split('-').reverse().join('.')}
+                    </div>
+                    {walletDateFrom && (
+                      <button onClick={() => { setWalletDateFrom(''); setWalletDateTo(''); }}
+                        className="text-xs font-medium px-2.5 py-1 rounded-xl shrink-0" style={{ background: `${primary}20`, color: primary }}>
+                        Текущая неделя
+                      </button>
+                    )}
                   </div>
 
                   {/* Summary cards */}
@@ -4871,7 +4971,7 @@ setOwnerNewBookingWorkers([]);
 
               {!walletData && !walletLoading && (
                 <div className="text-center py-12">
-                  <button onClick={() => { void loadWallet(); }} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: `${primary}20`, color: primary }}>
+                  <button onClick={() => { void loadWallet(walletDateFrom || undefined, walletDateTo || undefined); }} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: `${primary}20`, color: primary }}>
                     Загрузить данные
                   </button>
                 </div>
@@ -4889,8 +4989,16 @@ setOwnerNewBookingWorkers([]);
           {page === 'piggy-bank' && (
             <motion.div key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Header */}
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold">Копилка</h2>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold">Копилка</h2>
+                  {piggyDateFrom && (
+                    <button onClick={() => { setPiggyDateFrom(''); setPiggyDateTo(''); }}
+                      className="text-xs font-medium px-2.5 py-1 rounded-xl shrink-0" style={{ background: `${primary}20`, color: primary }}>
+                      За весь период
+                    </button>
+                  )}
+                </div>
                 <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
                   <RefreshCw size={16} className={piggyBankLoading ? 'animate-spin' : ''} />
                 </button>
@@ -6242,20 +6350,21 @@ setOwnerNewBookingWorkers([]);
                 <>
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {[
-                      { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#10B981', tab: 'bookings' as ArchiveTab, suffix: '₽' },
-                      { label: 'Прибыль', value: archiveData.summary.profit, color: accent, tab: 'bookings' as ArchiveTab, suffix: '₽' },
-                      { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#6366F1', tab: 'payroll' as ArchiveTab, suffix: '₽' },
-                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#A855F7', tab: 'owners' as ArchiveTab, suffix: '₽' },
-                      { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#22C55E', tab: 'incomes' as ArchiveTab, suffix: '₽' },
-                      { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#EF4444', tab: 'expenses' as ArchiveTab, suffix: '₽' },
-                      { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#F59E0B', tab: 'piggy' as ArchiveTab, suffix: '₽' },
+                      { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#10B981', onClick: gotoHistory, hint: 'История записей' },
+                      { label: 'Прибыль', value: archiveData.summary.profit, color: accent, onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#6366F1', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#A855F7', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#22C55E', onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#EF4444', onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#F59E0B', onClick: () => gotoPiggyBank(), hint: 'Копилка' },
                     ].map(card => (
-                      <button key={card.label} onClick={() => setArchiveTab(card.tab)}
+                      <button key={card.label} onClick={card.onClick}
                         className={`${glass} rounded-2xl p-3 text-left transition active:scale-[0.98]`}>
                         <div className={`text-[11px] ${sub}`}>{card.label}</div>
                         <div className="font-bold text-base mt-0.5" style={{ color: card.color }}>
-                          {card.value.toLocaleString('ru')} {card.suffix}
+                          {card.value.toLocaleString('ru')} ₽
                         </div>
+                        <div className={`text-[10px] mt-0.5`} style={{ color: card.color }}>→ {card.hint}</div>
                       </button>
                     ))}
                   </div>
@@ -6284,22 +6393,50 @@ setOwnerNewBookingWorkers([]);
                     ) : (
                       <div className="space-y-2">
                         {archiveData.bookings.map(b => (
-                          <button key={b.id} onClick={() => openHistoryBooking(b.id)}
-                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}>
+                          <div key={b.id} onClick={() => openHistoryBooking(b.id)}
+                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98] cursor-pointer`}>
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate">{b.clientName} · {b.service}</div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <button onClick={(e) => { e.stopPropagation(); gotoClient(b.clientId, b.clientPhone || ''); }}
+                                    className="text-sm font-semibold truncate hover:opacity-70" style={{ color: primary }}>
+                                    {b.clientName}
+                                  </button>
+                                  <span className="text-sm font-medium truncate">· {b.service}</span>
+                                </div>
                                 <div className={`text-xs ${sub} mt-0.5`}>{b.date} · {b.time} · {b.box}</div>
                               </div>
                               <div className="font-bold text-sm shrink-0">{b.price.toLocaleString('ru')} ₽</div>
                             </div>
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[11px]">
-                              <span className={sub}>Мастера: <b className="font-semibold" style={{ color: '#6366F1' }}>+{b.masterTotal.toLocaleString('ru')} ₽</b></span>
+                              {b.workers.length > 0 && (
+                                <span className={sub}>Мастера:{' '}
+                                  {b.workers.map((w, i) => (
+                                    <button key={`${b.id}-${w.workerId}`}
+                                      onClick={(e) => { e.stopPropagation(); gotoWorkerSalary(w.workerId); }}
+                                      className="font-semibold hover:opacity-70" style={{ color: '#6366F1' }}>
+                                      {i > 0 ? ' · ' : ''}{w.workerName} +{w.earned.toLocaleString('ru')} ₽
+                                    </button>
+                                  ))}
+                                </span>
+                              )}
                               <span className={sub}>Копилка: <b className="font-semibold" style={{ color: '#F59E0B' }}>+{b.piggyDeposit.toLocaleString('ru')} ₽</b></span>
                               <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#A855F7' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
                               <span className={sub}>Нетто: <b className="font-semibold" style={{ color: '#10B981' }}>{b.net.toLocaleString('ru')} ₽</b></span>
                             </div>
-                          </button>
+                            {b.additionalServices.map(a => (
+                              <div key={`${b.id}-${a.name}`} className="flex justify-between text-[11px] mt-1">
+                                <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}</span>
+                                <span className="font-medium">{a.priceMode === 'subtract' ? '−' : '+'}{a.price.toLocaleString('ru')} ₽</span>
+                              </div>
+                            ))}
+                            {b.materialsCost > 0 && (
+                              <div className="flex justify-between text-[11px] mt-1">
+                                <span className={sub}>Материалы</span>
+                                <span className="font-medium" style={{ color: '#EF4444' }}>−{b.materialsCost.toLocaleString('ru')} ₽</span>
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )
