@@ -13977,6 +13977,110 @@ def get_worker_calendar_bookings(
 
 
 
+_SEARCH_LATIN_TO_CYRILLIC = {
+    "a": "а",
+    "b": "в",
+    "c": "с",
+    "e": "е",
+    "h": "н",
+    "k": "к",
+    "m": "м",
+    "o": "о",
+    "p": "р",
+    "t": "т",
+    "x": "х",
+    "y": "у",
+}
+
+
+def _search_text_normalize(value: str) -> str:
+    return value.strip().lower().replace(" ", "").replace("-", "")
+
+
+def _search_plate_normalize(value: str) -> str:
+    return "".join(_SEARCH_LATIN_TO_CYRILLIC.get(char, char) for char in _search_text_normalize(value))
+
+
+@app.get(
+    "/api/worker/cars/search",
+    response_model=list[WorkerCalendarBookingPayload],
+)
+def search_worker_cars(
+    q: str = "",
+    date: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[WorkerCalendarBookingPayload]:
+    if session_data.get("role") != "worker":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        )
+
+    worker_id = session_data["actorId"]
+    worker = db.get(StaffUser, worker_id)
+    if worker is None or worker.role != "worker":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found"
+        )
+
+    query = (
+        select(Booking)
+        .options(selectinload(Booking.worker_links))
+        .where(
+            Booking.deleted_at.is_(None),
+            Booking.status != "cancelled",
+        )
+    )
+
+    normalized = _search_text_normalize(q)
+    if normalized:
+        pass
+    elif date and date.strip():
+        query = query.where(Booking.date == date.strip())
+    else:
+        query = query.where(Booking.date == datetime.now().strftime("%d.%m.%Y"))
+
+    bookings = db.scalars(
+        query.order_by(Booking.date.desc(), Booking.time.desc()).limit(500)
+    ).all()
+
+    if normalized:
+        plate_pattern = _search_plate_normalize(normalized)
+        bookings = [
+            booking
+            for booking in bookings
+            if plate_pattern in _search_plate_normalize(booking.plate or "")
+            or normalized in _search_text_normalize(booking.car or "")
+            or normalized in _search_text_normalize(booking.client_name or "")
+        ]
+
+    return [
+        WorkerCalendarBookingPayload(
+            id=booking.id,
+            clientName=_safe_text(booking.client_name),
+            service=_safe_text(booking.service),
+            serviceId=booking.service_id or "",
+            date=_safe_text(booking.date),
+            time=_safe_text(booking.time),
+            duration=int(booking.duration or 0),
+            status=booking.status,
+            box=_safe_text(booking.box),
+            workers=[
+                BookingWorkerPayload(
+                    workerId=link.worker_id,
+                    workerName=_safe_text(link.worker_name),
+                )
+                for link in booking.worker_links
+            ],
+            car=_safe_text(booking.car) or None,
+            plate=_safe_text(booking.plate) or None,
+        )
+        for booking in bookings
+    ]
+
+
+
+
 @app.post("/api/penalties", response_model=PenaltyPayload)
 
 def create_penalty(

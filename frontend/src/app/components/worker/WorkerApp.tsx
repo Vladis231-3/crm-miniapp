@@ -4,7 +4,7 @@ import {
   Bell, Sun, Moon, Calendar, CalendarDays, DollarSign, User, Play,
   Info, ArrowLeft, Phone, X, Check, Clock, ChevronRight, ChevronLeft, AlertCircle,
   Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
-  Mail, MapPin, Award, Eye, EyeOff, TrendingUp
+  Mail, MapPin, Award, Eye, EyeOff, TrendingUp, CarFront, Search
 } from 'lucide-react';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
@@ -13,7 +13,7 @@ import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from
 import { apiRequest } from '../../api';
 import { WorkerCalendar, type WorkerCalendarBooking } from './WorkerCalendar';
 
-type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile' | 'calendar';
+type WorkerTab = 'today' | 'schedule' | 'calendar' | 'cars' | 'earnings' | 'profile';
 type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift' | 'attendance';
 
 const READY_TO_START_STATUSES: Booking['status'][] = ['new', 'confirmed', 'scheduled'];
@@ -270,6 +270,11 @@ export function WorkerApp() {
   const [calendarBookings, setCalendarBookings] = useState<WorkerCalendarBooking[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
 
+  // Car search state
+  const [carQuery, setCarQuery] = useState('');
+  const [carResults, setCarResults] = useState<WorkerCalendarBooking[]>([]);
+  const [carLoading, setCarLoading] = useState(false);
+
   // Earnings state
   const [salaryPeriod, setSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [salarySegment, setSalarySegment] = useState<'all' | 'wash' | 'detailing'>('all');
@@ -357,6 +362,21 @@ export function WorkerApp() {
     if (tab !== 'calendar') return;
     loadCalendar();
   }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'cars') return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setCarLoading(true);
+      const params = new URLSearchParams();
+      if (carQuery.trim()) params.set('q', carQuery.trim());
+      apiRequest<WorkerCalendarBooking[]>(`/api/worker/cars/search?${params.toString()}`)
+        .then(items => { if (!cancelled) setCarResults(items); })
+        .catch(e => { console.error('worker car search error:', e); if (!cancelled) setCarResults([]); })
+        .finally(() => { if (!cancelled) setCarLoading(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [tab, carQuery]);
 
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
@@ -532,6 +552,7 @@ export function WorkerApp() {
     : tab === 'today' ? 'Сегодня'
     : tab === 'schedule' ? 'Расписание'
     : tab === 'calendar' ? 'Календарь'
+    : tab === 'cars' ? 'Машины'
     : tab === 'earnings' ? 'Заработок'
     : profileSection === 'personal' ? 'Личные данные'
     : profileSection === 'shift' ? 'Чек-лист смены'
@@ -715,6 +736,83 @@ export function WorkerApp() {
                   </div>
                 );
               })}
+            </motion.div>
+
+          ) : tab === 'cars' && !profileSection ? (
+            <motion.div key="cars" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div className={`${glass} rounded-2xl p-3 mb-3`}>
+                <div className="relative">
+                  <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                  <input
+                    autoFocus
+                    className={`${inputCls} pl-9`}
+                    placeholder="Госномер или марка: а123вс777, BMW"
+                    value={carQuery}
+                    onChange={e => setCarQuery(e.target.value)}
+                  />
+                  {carQuery && (
+                    <button onClick={() => setCarQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1">
+                      <X size={14} className={sub} />
+                    </button>
+                  )}
+                </div>
+                <div className={`text-xs ${sub} mt-2`}>
+                  {carQuery.trim() ? 'Поиск по всем записям' : 'Машины на сегодня'}
+                </div>
+              </div>
+
+              {carLoading ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <div className={`text-sm ${sub}`}>Поиск...</div>
+                </div>
+              ) : carResults.length === 0 ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <CarFront size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className="text-sm font-medium">Ничего не найдено</p>
+                  <p className={`text-xs ${sub} mt-1`}>
+                    {carQuery.trim() ? 'Похоже, машина ещё не заведена' : 'На сегодня записей нет'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {carResults.map(b => {
+                    const assignedToMe = b.workers.some(w => w.workerId === workerId);
+                    return (
+                      <div key={b.id} className={`${glass} rounded-2xl p-4`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-semibold text-sm">
+                              {b.car || 'Машина не указана'}
+                              {b.plate && <span className={`ml-2 text-xs font-mono ${sub}`}>{b.plate}</span>}
+                            </div>
+                            <div className={`text-sm ${sub}`}>{b.clientName}</div>
+                            <div className={`text-xs ${sub}`}>{b.date} · {b.time} · {b.box} · {b.service}</div>
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(b.status)}`}>
+                            {workerStatusLabel(b.status)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className={`text-xs ${sub} min-w-0 truncate`}>
+                            {b.workers.length === 0
+                              ? 'Мастер не назначен'
+                              : <>Мастера: {b.workers.map(w => w.workerName).join(', ')}</>}
+                          </div>
+                          {assignedToMe ? (
+                            <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ background: `${accent}20`, color: accent }}>
+                              ✓ Заведена на вас
+                            </span>
+                          ) : b.workers.length === 0 ? (
+                            <span className="text-xs px-2 py-1 rounded-full shrink-0 bg-red-500/15 text-red-500">Не заведена</span>
+                          ) : (
+                            <span className="text-xs px-2 py-1 rounded-full shrink-0 bg-amber-500/15 text-amber-600">Не на вас</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
 
           ) : tab === 'calendar' && !profileSection ? (
@@ -1309,6 +1407,7 @@ export function WorkerApp() {
         {[
           { id: 'today', icon: Clock, label: 'Сегодня' },
           { id: 'schedule', icon: Calendar, label: 'Расписание' },
+          { id: 'cars', icon: CarFront, label: 'Машины' },
           { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
           { id: 'earnings', icon: DollarSign, label: 'Заработок' },
           { id: 'profile', icon: User, label: 'Профиль' },
