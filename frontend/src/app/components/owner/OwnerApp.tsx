@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive
  } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -33,7 +33,7 @@ import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } fr
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -79,8 +79,8 @@ interface MoneySplitWorkerItem {
   linkId: number; workerId: string; workerName: string; percent: number;
   payType: string; fixedAmount?: number | null; earned: number; overrideEarned?: number | null;
 }
-interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; }
-interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; resourceGroup: string; date: string; }
+interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; shareId?: string; }
+interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; resourceGroup: string; date: string; bookingId?: string | null; bookingInfo?: string | null; createdAt?: string; }
 interface AdditionalServiceItem { name: string; price: number; priceMode: string; duration: number; }
 interface AsvcPiggyItem { name: string; resourceGroup: string; amount: number; }
 interface AsvcWorkerItem {
@@ -107,6 +107,37 @@ interface MoneySplitDetail {
   piggyTarget: string; hasCustom: boolean;
   workers: MoneySplitWorkerItem[]; piggyTransactions: PiggyTxItem[];
   ownerShares: MoneySplitOwnerItem[]; canEdit: boolean;
+}
+
+interface ArchiveBookingItem {
+  id: string; date: string; time: string; service: string; clientName: string;
+  clientPhone?: string; car?: string | null; plate?: string | null; box: string;
+  price: number; net: number; status: string; paymentType?: string; paymentSettled?: boolean;
+  resourceGroup?: string; masterTotal: number; piggyDeposit: number; ownersTotal: number;
+  createdAt: string;
+}
+interface ArchivePayrollItem {
+  workerId: string; workerName: string; bookingCount: number; accruedFromBookings: number;
+  baseSalary: number; shiftPayTotal: number; shiftCount: number; bonusTotal: number;
+  adjustmentTotal: number; advanceTotal: number; deductionTotal: number; payoutTotal: number;
+  totalAccrued: number; totalDeducted: number; balance: number;
+}
+interface ArchiveOwnerItem { ownerId: string; ownerName: string; totalAccrued: number; totalPaid: number; bookingCount: number; }
+interface ArchiveSummary {
+  revenue: number; net: number; totalIncome: number; totalExpense: number; profit: number;
+  masterTotal: number; piggyDeposit: number; ownersAccrued: number; ownersPaid: number;
+  bookingCount: number; incomeCount: number; expenseCount: number; piggyTxCount: number;
+}
+interface ArchiveResponse {
+  dateFrom: string; dateTo: string; summary: ArchiveSummary;
+  bookings: ArchiveBookingItem[]; incomes: Income[];
+  expenses: Expense[]; piggyTransactions: PiggyTxItem[];
+  payroll: ArchivePayrollItem[]; owners: ArchiveOwnerItem[];
+}
+type ArchiveTab = 'bookings' | 'incomes' | 'expenses' | 'piggy' | 'payroll' | 'owners';
+interface ArchiveHighlight {
+  target: 'worker' | 'owner' | 'piggy' | 'income' | 'expense';
+  workerId?: string; ownerId?: string; txId?: string; incomeId?: string; expenseId?: string;
 }
 
 interface OwnerProfitShareItem {
@@ -771,6 +802,19 @@ export function OwnerApp() {
   const [splitMaterialsDraft, setSplitMaterialsDraft] = useState('');
   const [splitPiggyDraft, setSplitPiggyDraft] = useState('');
   const [splitOwnersDraft, setSplitOwnersDraft] = useState<MoneySplitOwnerItem[]>([]);
+
+  // Archive state
+  const [archiveData, setArchiveData] = useState<ArchiveResponse | null>(null);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archivePeriod, setArchivePeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'custom'>('month');
+  const [archiveDateFrom, setArchiveDateFrom] = useState('');
+  const [archiveDateTo, setArchiveDateTo] = useState('');
+  const [archiveTab, setArchiveTab] = useState<ArchiveTab>('bookings');
+  const [archiveCalendarOpen, setArchiveCalendarOpen] = useState(false);
+  const [archiveCalendarStep, setArchiveCalendarStep] = useState<'year' | 'month' | 'week'>('year');
+  const [archiveCalendarYear, setArchiveCalendarYear] = useState(() => new Date().getFullYear());
+  const [archiveCalendarMonth, setArchiveCalendarMonth] = useState(() => new Date().getMonth());
+  const [archiveHighlight, setArchiveHighlight] = useState<ArchiveHighlight | null>(null);
 
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
@@ -1537,6 +1581,117 @@ export function OwnerApp() {
     }
   }, [page, settingsSection, selectedHistoryBookingId, fetchBookingsHistory]);
 
+  const archivePeriodDates = () => {
+    const today = new Date();
+    if (archivePeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
+    if (archivePeriod === 'week') {
+      const from = new Date(today);
+      const offset = (today.getDay() + 6) % 7;
+      from.setDate(today.getDate() - offset);
+      return { dateFrom: formatDate(from), dateTo: formatDate(today) };
+    }
+    if (archivePeriod === 'month') {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { dateFrom: formatDate(from), dateTo: formatDate(today) };
+    }
+    if (archivePeriod === 'year') {
+      return {
+        dateFrom: formatDate(new Date(today.getFullYear(), 0, 1)),
+        dateTo: formatDate(new Date(today.getFullYear(), 11, 31)),
+      };
+    }
+    if (archivePeriod === 'custom') return { dateFrom: archiveDateFrom, dateTo: archiveDateTo };
+    return { dateFrom: '', dateTo: '' };
+  };
+
+  const getWeeksOfMonth = (year: number, month: number) => {
+    const weeks: { start: Date; end: Date }[] = [];
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const seen = new Set<string>();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const day = new Date(year, month, d);
+      const offset = (day.getDay() + 6) % 7;
+      const start = new Date(year, month, d - offset);
+      const key = start.toDateString();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      weeks.push({ start, end });
+    }
+    return weeks;
+  };
+
+  const fetchArchive = useCallback(async () => {
+    setArchiveLoading(true);
+    try {
+      const params = new URLSearchParams();
+      const { dateFrom, dateTo } = archivePeriodDates();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      const data = await apiRequest<ArchiveResponse>(`/api/owner/archive?${params.toString()}`);
+      setArchiveData(data);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить архив');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setArchiveLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archivePeriod, archiveDateFrom, archiveDateTo]);
+
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'archive' && !selectedHistoryBookingId) {
+      void fetchArchive();
+    }
+  }, [page, settingsSection, selectedHistoryBookingId, fetchArchive]);
+
+  const archiveHighlightId = (h: ArchiveHighlight) => {
+    if (h.target === 'worker') return `archive-hl-worker-${h.workerId}`;
+    if (h.target === 'owner') return `archive-hl-owner-${h.ownerId}`;
+    if (h.target === 'piggy') return `archive-hl-piggy-${h.txId}`;
+    if (h.target === 'income') return `archive-hl-income-${h.incomeId}`;
+    if (h.target === 'expense') return `archive-hl-expense-${h.expenseId}`;
+    return '';
+  };
+
+  useEffect(() => {
+    if (!archiveHighlight) return;
+    const id = archiveHighlightId(archiveHighlight);
+    const timer = setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archiveHighlight]);
+
+  const gotoWorkerSalary = (workerId: string) => {
+    setPage('salary-detail');
+    setSettingsSection(null);
+    setSelectedSalaryWorkerId(workerId);
+    setArchiveHighlight({ target: 'worker', workerId });
+  };
+
+  const gotoOwnerSalary = (ownerId: string) => {
+    setPage('payroll');
+    setSettingsSection(null);
+    setSelectedSalaryWorkerId(null);
+    setSalaryDetail(null);
+    setArchiveHighlight({ target: 'owner', ownerId });
+  };
+
+  const gotoPiggyBank = (txId?: string) => {
+    setPage('piggy-bank');
+    setSettingsSection(null);
+    setArchiveHighlight({ target: 'piggy', txId });
+  };
+
+  const gotoWalletItem = (kind: 'income' | 'expense', id: string) => {
+    setPage('wallet');
+    setSettingsSection(null);
+    setArchiveHighlight({ target: kind, incomeId: kind === 'income' ? id : undefined, expenseId: kind === 'expense' ? id : undefined });
+  };
+
   const loadSplitDetail = useCallback(async (bookingId: string) => {
     setSplitLoading(true);
     try {
@@ -1566,6 +1721,7 @@ export function OwnerApp() {
   const closeHistoryBooking = () => {
     setSelectedHistoryBookingId(null);
     setSplitDetail(null);
+    setArchiveHighlight(null);
   };
 
   const handleSaveMoneySplit = async () => {
@@ -3948,7 +4104,10 @@ setOwnerNewBookingWorkers([]);
                     const rawId = owner.ownerId.replace('owner-tg-', '');
                     const ownerDisplayName = rawId === '476719812' ? 'Юра' : rawId === '1768985608' ? 'Максим' : owner.ownerName;
                     return (
-                    <div key={owner.ownerId} className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div key={owner.ownerId}
+                      id={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? archiveHighlightId(archiveHighlight) : undefined}
+                      className={`${glass} rounded-2xl p-4 mb-3`}
+                      style={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? { boxShadow: '0 0 0 2px #10B981' } : undefined}>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
                           {ownerDisplayName.charAt(0)}
@@ -4019,7 +4178,7 @@ setOwnerNewBookingWorkers([]);
           {/* ── SALARY DETAIL ── */}
           {page === 'salary-detail' && (
             <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
+              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
                 <ArrowLeft size={16} />Назад к зарплатам
               </button>
 
@@ -4027,7 +4186,9 @@ setOwnerNewBookingWorkers([]);
               {selectedSalaryWorkerId && (
                 <div className={`${glass} rounded-2xl p-4 mb-3`}>
                   {salaryDetail && (
-                    <div className="flex items-center gap-3 mb-2">
+                    <div id={archiveHighlight?.target === 'worker' && archiveHighlight.workerId === selectedSalaryWorkerId ? archiveHighlightId(archiveHighlight) : undefined}
+                      className="flex items-center gap-3 mb-2 rounded-xl"
+                      style={archiveHighlight?.target === 'worker' && archiveHighlight.workerId === selectedSalaryWorkerId ? { boxShadow: '0 0 0 2px #10B981' } : undefined}>
                       <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
                         {salaryDetail.workerName.charAt(0)}
                       </div>
@@ -4611,7 +4772,10 @@ setOwnerNewBookingWorkers([]);
                     ) : (
                       <div className="space-y-2">
                         {walletData.incomes.map(i => (
-                          <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                          <div key={i.id}
+                            id={archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? archiveHighlightId(archiveHighlight) : undefined}
+                            className="flex justify-between items-center py-2 border-b last:border-0"
+                            style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', ...(archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? { boxShadow: '0 0 0 2px #10B981', borderRadius: 8 } : {}) }}>
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium truncate">{i.source}</div>
                               <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
@@ -4643,7 +4807,10 @@ setOwnerNewBookingWorkers([]);
                     ) : (
                       <div className="space-y-2">
                          {walletData.expenses.map(e => (
-                           <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                           <div key={e.id}
+                             id={archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? archiveHighlightId(archiveHighlight) : undefined}
+                             className="flex justify-between items-center py-2 border-b last:border-0"
+                             style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', ...(archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? { boxShadow: '0 0 0 2px #EF4444', borderRadius: 8 } : {}) }}>
                              <div className="flex-1 min-w-0">
                                <div className="text-sm font-medium truncate">{e.title}</div>
                                <div className={`text-xs ${sub}`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
@@ -4984,7 +5151,10 @@ setOwnerNewBookingWorkers([]);
                       const txRunningBalance = runningBalance;
                       runningBalance -= tx.amount;
                       return (
-                        <Wrapper key={tx.id} onClick={handleClick} className={`${glass} rounded-xl p-3 w-full text-left transition active:scale-[0.98] ${tx.bookingId ? 'cursor-pointer hover:brightness-110' : ''}`}>
+                        <Wrapper key={tx.id} onClick={handleClick}
+                          id={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? archiveHighlightId(archiveHighlight) : undefined}
+                          className={`${glass} rounded-xl p-3 w-full text-left transition active:scale-[0.98] ${tx.bookingId ? 'cursor-pointer hover:brightness-110' : ''}`}
+                          style={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? { boxShadow: '0 0 0 2px #F59E0B' } : undefined}>
                           <div className="flex justify-between items-start gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -5419,6 +5589,7 @@ setOwnerNewBookingWorkers([]);
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
                 { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
+                { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
@@ -5633,7 +5804,7 @@ setOwnerNewBookingWorkers([]);
           )}
 
           {/* ── SETTINGS: BOOKINGS HISTORY DETAIL ── */}
-          {!isAccountant && page === 'settings' && settingsSection === 'bookings-history' && selectedHistoryBookingId && (
+          {!isAccountant && page === 'settings' && (settingsSection === 'bookings-history' || settingsSection === 'archive') && selectedHistoryBookingId && (
             <motion.div key="s-booking-split" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
 
@@ -5712,20 +5883,22 @@ setOwnerNewBookingWorkers([]);
                             ? `фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽`
                             : `${w.percent}% от базы`;
                         return (
-                          <div key={`ledger-w-${w.linkId}`} className="flex justify-between text-xs">
+                          <button key={`ledger-w-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)}
+                            className="flex justify-between text-xs w-full text-left hover:opacity-80">
                             <span className={`${sub} truncate`} title={`Мастер: ${w.workerName}`}>· {w.workerName} ({how})</span>
-                            <span className="font-medium">{w.earned.toLocaleString('ru')} ₽</span>
-                          </div>
+                            <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                          </button>
                         );
                       })}
 
                       {splitDetail.asvcWorkers.map(w => (
-                        <div key={`ledger-aw-${w.linkId}`} className="flex justify-between text-xs">
+                        <button key={`ledger-aw-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)}
+                          className="flex justify-between text-xs w-full text-left hover:opacity-80">
                           <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName} — ${w.additionalServiceName}`}>
                             · {w.workerName} — «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
                           </span>
-                          <span className="font-medium">{w.earned.toLocaleString('ru')} ₽</span>
-                        </div>
+                          <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                        </button>
                       ))}
 
                       {(() => {
@@ -5738,10 +5911,11 @@ setOwnerNewBookingWorkers([]);
                             : '';
                         return (
                           <>
-                            <div className="flex justify-between text-xs">
+                            <button className="flex justify-between text-xs w-full text-left hover:opacity-80"
+                              onClick={() => gotoPiggyBank()}>
                               <span className={`${sub} truncate`}>· в {piggyBankLabel(splitDetail.piggyTarget)}{piggyHow}</span>
-                              <span className="font-medium">{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
-                            </div>
+                              <span className="font-medium shrink-0" style={{ color: '#F59E0B' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
+                            </button>
                             {splitDetail.asvcPiggyDeposits.map(d => (
                               <div key={`ledger-ap-${d.name}-${d.amount}`} className="flex justify-between text-xs">
                                 <span className={`${sub} truncate`} title={`Остаток от «${d.name}» → в ${piggyBankLabel(d.resourceGroup)}`}>
@@ -5755,12 +5929,13 @@ setOwnerNewBookingWorkers([]);
                       })()}
 
                       {splitDetail.ownerShares.map(o => (
-                        <div key={`ledger-o-${o.ownerId}`} className="flex justify-between text-xs">
+                        <button key={`ledger-o-${o.ownerId}`} onClick={() => gotoOwnerSalary(o.ownerId)}
+                          className="flex justify-between text-xs w-full text-left hover:opacity-80">
                           <span className={`${sub} truncate`}>
                             · {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}
                           </span>
-                          <span className="font-medium">{Math.round(o.amount).toLocaleString('ru')} ₽</span>
-                        </div>
+                          <span className="font-medium shrink-0" style={{ color: '#A855F7' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
+                        </button>
                       ))}
 
                       {(() => {
@@ -5936,6 +6111,343 @@ setOwnerNewBookingWorkers([]);
                         </button>
                       )}
                     </>
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── SETTINGS: ARCHIVE ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'archive' && !selectedHistoryBookingId && (
+            <motion.div key="s-archive" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => { setSettingsSection(null); setArchiveHighlight(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-1">Архив</h2>
+              <div className={`text-xs ${sub} mb-4`}>Главная библиотека и картотека: все записи, доходы, расходы и расчёты за период</div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  { id: 'day', label: 'День' },
+                  { id: 'week', label: 'Неделя' },
+                  { id: 'month', label: 'Месяц' },
+                  { id: 'year', label: 'Год' },
+                  { id: 'all', label: 'Всё' },
+                  { id: 'custom', label: 'Свои' },
+                ].map(option => (
+                  <button key={option.id}
+                    onClick={() => setArchivePeriod(option.id as typeof archivePeriod)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${archivePeriod === option.id ? 'text-white' : `${glass} ${sub}`}`}
+                    style={archivePeriod === option.id ? { background: '#10B981' } : undefined}>
+                    {option.label}
+                  </button>
+                ))}
+                <button onClick={() => { setArchiveCalendarStep('year'); setArchiveCalendarOpen(true); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${glass} ${sub}`}>
+                  <CalendarDays size={14} />Календарь
+                </button>
+              </div>
+
+              {archivePeriod === 'custom' && (
+                <div className="flex gap-2 mb-3">
+                  <input type="date" value={archiveDateFrom}
+                    onChange={e => setArchiveDateFrom(e.target.value)}
+                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  <input type="date" value={archiveDateTo}
+                    onChange={e => setArchiveDateTo(e.target.value)}
+                    className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                </div>
+              )}
+
+              {archiveCalendarOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}
+                  onClick={() => setArchiveCalendarOpen(false)}>
+                  <div className={`${glass} rounded-2xl p-4 w-full max-w-sm`} onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-sm">
+                        {archiveCalendarStep === 'year' ? 'Выберите год'
+                          : archiveCalendarStep === 'month' ? `Год ${archiveCalendarYear}`
+                          : `${archiveCalendarYear} · ${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][archiveCalendarMonth]}`}
+                      </h3>
+                      <button onClick={() => setArchiveCalendarOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10"><X size={16} /></button>
+                    </div>
+
+                    {archiveCalendarStep === 'year' && (
+                      <div className="grid grid-cols-4 gap-2">
+                        {(() => {
+                          const currentYear = new Date().getFullYear();
+                          const years: number[] = [];
+                          for (let y = currentYear - 5; y <= currentYear + 1; y++) years.push(y);
+                          return years.map(y => (
+                            <button key={y}
+                              onClick={() => { setArchiveCalendarYear(y); setArchiveCalendarStep('month'); }}
+                              className={`py-2 rounded-xl text-sm font-semibold transition-colors ${archiveCalendarYear === y ? 'text-white' : `${glass}`}`}
+                              style={archiveCalendarYear === y ? { background: '#10B981' } : undefined}>
+                              {y}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    )}
+
+                    {archiveCalendarStep === 'month' && (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <button onClick={() => setArchiveCalendarYear(y => y - 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronLeft size={16} /></button>
+                          <span className="text-sm font-semibold">{archiveCalendarYear}</span>
+                          <button onClick={() => setArchiveCalendarYear(y => y + 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronRight size={16} /></button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'].map((m, idx) => (
+                            <button key={m}
+                              onClick={() => { setArchiveCalendarMonth(idx); setArchiveCalendarStep('week'); }}
+                              className={`py-2 rounded-xl text-sm font-medium transition-colors ${archiveCalendarMonth === idx ? 'text-white' : `${glass}`}`}
+                              style={archiveCalendarMonth === idx ? { background: '#10B981' } : undefined}>
+                              {m.slice(0, 3)}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {archiveCalendarStep === 'week' && (
+                      <div className="space-y-2 max-h-72 overflow-y-auto">
+                        {getWeeksOfMonth(archiveCalendarYear, archiveCalendarMonth).map((w, idx) => (
+                          <button key={idx}
+                            onClick={() => {
+                              setArchivePeriod('custom');
+                              setArchiveDateFrom(formatDate(w.start));
+                              setArchiveDateTo(formatDate(w.end));
+                              setArchiveCalendarOpen(false);
+                            }}
+                            className={`w-full ${glass} rounded-xl px-3 py-2.5 text-left flex items-center justify-between`}>
+                            <span className="text-sm font-medium">Неделя {idx + 1}</span>
+                            <span className={`text-xs ${sub}`}>
+                              {w.start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} – {w.end.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {archiveLoading ? (
+                <div className={`text-center py-12 text-sm ${sub}`}>Загрузка архива...</div>
+              ) : !archiveData ? (
+                <div className="text-center py-12">
+                  <div className={`text-sm ${sub} mb-3`}>Не удалось загрузить архив</div>
+                  <button onClick={() => void fetchArchive()} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: '#10B98120', color: '#10B981' }}>Повторить</button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {[
+                      { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#10B981', tab: 'bookings' as ArchiveTab, suffix: '₽' },
+                      { label: 'Прибыль', value: archiveData.summary.profit, color: accent, tab: 'bookings' as ArchiveTab, suffix: '₽' },
+                      { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#6366F1', tab: 'payroll' as ArchiveTab, suffix: '₽' },
+                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#A855F7', tab: 'owners' as ArchiveTab, suffix: '₽' },
+                      { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#22C55E', tab: 'incomes' as ArchiveTab, suffix: '₽' },
+                      { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#EF4444', tab: 'expenses' as ArchiveTab, suffix: '₽' },
+                      { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#F59E0B', tab: 'piggy' as ArchiveTab, suffix: '₽' },
+                    ].map(card => (
+                      <button key={card.label} onClick={() => setArchiveTab(card.tab)}
+                        className={`${glass} rounded-2xl p-3 text-left transition active:scale-[0.98]`}>
+                        <div className={`text-[11px] ${sub}`}>{card.label}</div>
+                        <div className="font-bold text-base mt-0.5" style={{ color: card.color }}>
+                          {card.value.toLocaleString('ru')} {card.suffix}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {[
+                      { id: 'bookings', label: 'Записи', count: archiveData.summary.bookingCount },
+                      { id: 'incomes', label: 'Доходы', count: archiveData.summary.incomeCount },
+                      { id: 'expenses', label: 'Расходы', count: archiveData.summary.expenseCount },
+                      { id: 'piggy', label: 'Копилка', count: archiveData.summary.piggyTxCount },
+                      { id: 'payroll', label: 'Зарплаты', count: archiveData.payroll.length },
+                      { id: 'owners', label: 'Владельцы', count: archiveData.owners.length },
+                    ].map(option => (
+                      <button key={option.id}
+                        onClick={() => setArchiveTab(option.id as ArchiveTab)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${archiveTab === option.id ? 'text-white' : `${glass} ${sub}`}`}
+                        style={archiveTab === option.id ? { background: '#10B981' } : undefined}>
+                        {option.label}{option.count > 0 ? ` (${option.count})` : ''}
+                      </button>
+                    ))}
+                  </div>
+
+                  {archiveTab === 'bookings' && (
+                    archiveData.bookings.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${sub}`}>За этот период нет завершённых записей</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {archiveData.bookings.map(b => (
+                          <button key={b.id} onClick={() => openHistoryBooking(b.id)}
+                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{b.clientName} · {b.service}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>{b.date} · {b.time} · {b.box}</div>
+                              </div>
+                              <div className="font-bold text-sm shrink-0">{b.price.toLocaleString('ru')} ₽</div>
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[11px]">
+                              <span className={sub}>Мастера: <b className="font-semibold" style={{ color: '#6366F1' }}>+{b.masterTotal.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Копилка: <b className="font-semibold" style={{ color: '#F59E0B' }}>+{b.piggyDeposit.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#A855F7' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Нетто: <b className="font-semibold" style={{ color: '#10B981' }}>{b.net.toLocaleString('ru')} ₽</b></span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {archiveTab === 'incomes' && (
+                    archiveData.incomes.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${sub}`}>Доходов за период нет</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {archiveData.incomes.map(i => (
+                          <button key={i.id}
+                            id={archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? archiveHighlightId(archiveHighlight) : undefined}
+                            onClick={() => gotoWalletItem('income', i.id)}
+                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}
+                            style={archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? { boxShadow: '0 0 0 2px #10B981' } : undefined}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{i.source}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
+                              </div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#22C55E' }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {archiveTab === 'expenses' && (
+                    archiveData.expenses.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${sub}`}>Расходов за период нет</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {archiveData.expenses.map(e => (
+                          <button key={e.id}
+                            id={archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? archiveHighlightId(archiveHighlight) : undefined}
+                            onClick={() => gotoWalletItem('expense', e.id)}
+                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}
+                            style={archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? { boxShadow: '0 0 0 2px #EF4444' } : undefined}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{e.title}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
+                              </div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#EF4444' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {archiveTab === 'piggy' && (
+                    archiveData.piggyTransactions.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${sub}`}>Движений копилки за период нет</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {archiveData.piggyTransactions.map(tx => {
+                          const isDeposit = tx.amount > 0;
+                          const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
+                            : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                            : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
+                            : tx.transactionType === 'custom_deposit' ? 'Пополнение'
+                            : tx.transactionType === 'custom_withdrawal' ? 'Снятие'
+                            : 'Корректировка';
+                          return (
+                            <button key={tx.id}
+                              id={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? archiveHighlightId(archiveHighlight) : undefined}
+                              onClick={() => gotoPiggyBank(tx.id)}
+                              className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}
+                              style={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? { boxShadow: '0 0 0 2px #F59E0B' } : undefined}>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-green-500' : 'bg-red-500'}`} />
+                                    <span className="text-sm font-medium">{txLabel}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+                                      {tx.resourceGroup === 'detailing' ? '✨' : '🚗'}
+                                    </span>
+                                  </div>
+                                  <div className={`text-[11px] ${sub} mt-0.5`}>
+                                    {tx.date}{tx.bookingInfo ? ` · ${tx.bookingInfo}` : ''}{tx.purpose ? ` · ${tx.purpose}` : ''}
+                                  </div>
+                                </div>
+                                <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
+                                  {isDeposit ? '+' : '−'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  )}
+
+                  {archiveTab === 'payroll' && (
+                    archiveData.payroll.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${sub}`}>Зарплатных данных за период нет</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {archiveData.payroll.map(w => (
+                          <button key={w.workerId} onClick={() => gotoWorkerSalary(w.workerId)}
+                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{w.workerName}</div>
+                                <div className={`text-[11px] ${sub} mt-0.5 space-y-0.5`}>
+                                  <div>записей: {w.bookingCount} · по записям: +{w.accruedFromBookings.toLocaleString('ru')} ₽{w.baseSalary > 0 ? ` · оклад: +${w.baseSalary.toLocaleString('ru')} ₽` : ''}{w.shiftPayTotal > 0 ? ` · смены (${w.shiftCount}): +${w.shiftPayTotal.toLocaleString('ru')} ₽` : ''}</div>
+                                  {(w.bonusTotal > 0 || w.adjustmentTotal !== 0) && (
+                                    <div>бонусы: +{w.bonusTotal.toLocaleString('ru')} ₽ · поправки: {w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</div>
+                                  )}
+                                  {(w.advanceTotal > 0 || w.deductionTotal > 0 || w.payoutTotal > 0) && (
+                                    <div>авансы: −{w.advanceTotal.toLocaleString('ru')} ₽ · вычеты: −{w.deductionTotal.toLocaleString('ru')} ₽ · выплаты: −{w.payoutTotal.toLocaleString('ru')} ₽</div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: w.balance >= 0 ? '#6366F1' : '#EF4444' }}>
+                                {w.balance.toLocaleString('ru')} ₽
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {archiveTab === 'owners' && (
+                    archiveData.owners.length === 0 ? (
+                      <div className={`text-center py-10 text-sm ${sub}`}>Долей владельцев за период нет</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {archiveData.owners.map(o => (
+                          <button key={o.ownerId} onClick={() => gotoOwnerSalary(o.ownerId)}
+                            className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{o.ownerName}</div>
+                                <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} записей · начислено: +{o.totalAccrued.toLocaleString('ru')} ₽ · выплачено: −{o.totalPaid.toLocaleString('ru')} ₽</div>
+                              </div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#A855F7' }}>
+                                {(o.totalAccrued - o.totalPaid).toLocaleString('ru')} ₽
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
                   )}
                 </>
               )}

@@ -1642,6 +1642,7 @@ class BookingMoneySplitOwnerItem(BaseModel):
     ownerName: str
     amount: float = 0
     status: str = "pending"
+    shareId: str | None = None
 
 
 class BookingPiggyTxItem(BaseModel):
@@ -1739,3 +1740,82 @@ class BookingMoneySplitUpdateRequest(BaseModel):
     materialsCost: int | None = Field(default=None, ge=0, le=10_000_000)
     piggyDeposit: int | None = Field(default=None, ge=0, le=10_000_000)
     owners: list[BookingMoneySplitOwnerUpdate] = Field(default_factory=list)
+
+
+# --- Archive (главная библиотека и картотека) schemas ---
+
+
+class ArchiveBookingItem(BaseModel):
+    id: str
+    date: str
+    time: str
+    service: str
+    clientName: str
+    clientPhone: str = ""
+    car: str | None = None
+    plate: str | None = None
+    box: str
+    price: int
+    net: int = 0
+    status: BookingStatus
+    paymentType: str = ""
+    paymentSettled: bool = False
+    resourceGroup: str = ""
+    masterTotal: int = 0
+    piggyDeposit: int = 0
+    ownersTotal: int = 0
+    createdAt: datetime
+
+
+class ArchivePayrollItem(BaseModel):
+    workerId: str
+    workerName: str
+    bookingCount: int = 0
+    accruedFromBookings: int = 0
+    baseSalary: int = 0
+    shiftPayTotal: int = 0
+    shiftCount: int = 0
+    bonusTotal: int = 0
+    adjustmentTotal: int = 0
+    advanceTotal: int = 0
+    deductionTotal: int = 0
+    payoutTotal: int = 0
+    totalAccrued: int = 0
+    totalDeducted: int = 0
+    balance: int = 0
+
+
+class ArchiveOwnerItem(BaseModel):
+    ownerId: str
+    ownerName: str
+    totalAccrued: int = 0
+    totalPaid: int = 0
+    bookingCount: int = 0
+
+
+class ArchiveSummary(BaseModel):
+    revenue: int = 0
+    net: int = 0
+    totalIncome: int = 0
+    totalExpense: int = 0
+    profit: int = 0
+    masterTotal: int = 0
+    piggyDeposit: int = 0
+    ownersAccrued: int = 0
+    ownersPaid: int = 0
+    bookingCount: int = 0
+    incomeCount: int = 0
+    expenseCount: int = 0
+    piggyTxCount: int = 0
+
+
+class ArchiveResponse(BaseModel):
+    dateFrom: str = ""
+    dateTo: str = ""
+    summary: ArchiveSummary = Field(default_factory=ArchiveSummary)
+    bookings: list[ArchiveBookingItem] = Field(default_factory=list)
+    incomes: list[IncomePayload] = Field(default_factory=list)
+    expenses: list[ExpensePayload] = Field(default_factory=list)
+    piggyTransactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
+    payroll: list[ArchivePayrollItem] = Field(default_factory=list)
+    owners: list[ArchiveOwnerItem] = Field(default_factory=list)

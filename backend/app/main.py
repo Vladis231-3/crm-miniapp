@@ -301,9 +301,13 @@ from .schemas import (
     BookingMaterialPayload,
 
     BookingHistoryItem,
-
     BookingHistoryTotals,
+
     BookingTotalsPiggyItem,
+
+    BookingTotalsWorkerItem,
+
+    BookingTotalsOwnerItem,
 
     BookingAdditionalServiceItem,
 
@@ -390,6 +394,16 @@ from .schemas import (
     WalletResponse,
 
     WeeklyArchivePayload,
+
+    ArchiveBookingItem,
+
+    ArchivePayrollItem,
+
+    ArchiveOwnerItem,
+
+    ArchiveSummary,
+
+    ArchiveResponse,
 
 )
 
@@ -15606,6 +15620,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
                 ownerName=owner.name if owner else "Владелец",
                 amount=int(share.amount),
                 status=share.status,
+                shareId=share.id,
             )
         )
         owner_by_owner_effective[share.owner_id] = owner_by_owner_effective.get(share.owner_id, 0) + int(share.amount)
@@ -15946,6 +15961,274 @@ def get_owner_bookings_history_totals(
         for bank, data in sorted(piggy_totals.items(), key=lambda kv: -kv[1]["amount"])
     ]
     return BookingHistoryTotals(workers=workers, owners=owners, piggy=piggy)
+
+
+@app.get("/api/owner/archive", response_model=ArchiveResponse)
+def get_owner_archive(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> ArchiveResponse:
+    """Архив — главная библиотека за период: записи с расчёткой, доходы, расходы,
+    движения копилки, расчётка мастеров и доли владельцев."""
+    _ensure_staff_role(session_data, {"owner"})
+
+    date_from_dmy = _parse_booking_date_param(date_from) if date_from else None
+    date_to_dmy = _parse_booking_date_param(date_to) if date_to else None
+
+    def _in_range(d: str | None) -> bool:
+        if not d:
+            return True
+        parsed = _dmy_to_date(d) if "." in d else _parse_date(d)
+        if parsed is None:
+            return True
+        if date_from_dmy:
+            parsed_from = _dmy_to_date(date_from_dmy)
+            if parsed < parsed_from:
+                return False
+        if date_to_dmy:
+            parsed_to = _dmy_to_date(date_to_dmy)
+            if parsed > parsed_to:
+                return False
+        return True
+
+    # ── Записи (завершённые) с лёгкой расчёткой ──
+    booking_query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed")
+        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    )
+    if date_from_dmy:
+        booking_query = booking_query.where(Booking.date >= date_from_dmy)
+    if date_to_dmy:
+        booking_query = booking_query.where(Booking.date <= date_to_dmy)
+    bookings = db.scalars(booking_query).unique().all()
+
+    penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(penalties)
+
+    archive_bookings: list[ArchiveBookingItem] = []
+    summary = ArchiveSummary()
+    for b in bookings:
+        split = _booking_money_split(db, b, complaints_by_worker)
+        net = int(split.get("net") or 0)
+        master_total = int(split.get("master_total") or 0)
+        owners_total = int(split.get("owners_total") or 0)
+        asvc_sum = sum(int(d.get("amount") or 0) for d in split.get("asvc_piggy_deposits") or [])
+        piggy_deposit = max(0, int(split.get("piggy_deposit") or 0) - asvc_sum)
+        archive_bookings.append(
+            ArchiveBookingItem(
+                id=b.id,
+                date=b.date,
+                time=b.time,
+                service=b.service,
+                clientName=b.client_name,
+                clientPhone=b.client_phone or "",
+                car=b.car,
+                plate=b.plate,
+                box=b.box,
+                price=int(b.price or 0),
+                net=net,
+                status=b.status,
+                paymentType=b.payment_type or "",
+                paymentSettled=bool(b.payment_settled),
+                resourceGroup=split.get("resource_group") or "",
+                masterTotal=master_total,
+                piggyDeposit=piggy_deposit,
+                ownersTotal=owners_total,
+                createdAt=b.created_at,
+            )
+        )
+        summary.revenue += int(b.price or 0)
+        summary.net += net
+        summary.masterTotal += master_total
+        summary.piggyDeposit += piggy_deposit
+
+    summary.bookingCount = len(bookings)
+
+    # ── Доходы и расходы за период ──
+    incomes = db.scalars(select(Income)).all()
+    incomes = [i for i in incomes if i.date and _in_range(i.date)]
+    incomes.sort(key=lambda i: (i.date, i.created_at), reverse=True)
+    expenses = db.scalars(select(Expense)).all()
+    expenses = [e for e in expenses if e.date and _in_range(e.date)]
+    expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
+
+    summary.totalIncome = int(sum(i.amount for i in incomes))
+    summary.totalExpense = int(sum(e.amount for e in expenses))
+    summary.incomeCount = len(incomes)
+    summary.expenseCount = len(expenses)
+
+    archive_incomes = [
+        IncomePayload(
+            id=i.id,
+            amount=i.amount,
+            source=i.source,
+            note=i.note,
+            createdById=i.created_by_id,
+            date=i.date,
+            resourceGroup=i.resource_group,
+            createdAt=i.created_at,
+        )
+        for i in incomes
+    ]
+    archive_expenses = [
+        ExpensePayload(
+            id=e.id,
+            title=e.title,
+            amount=e.amount,
+            category=e.category,
+            date=e.date,
+            note=e.note,
+            resourceGroup=e.resource_group,
+        )
+        for e in expenses
+    ]
+
+    # ── Движения копилки за период ──
+    piggy_txs = db.scalars(
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+    ).all()
+    piggy_txs = [t for t in piggy_txs if _in_range(t.date)]
+    summary.piggyTxCount = len(piggy_txs)
+
+    piggy_payloads = []
+    for t in piggy_txs:
+        b = db.get(Booking, t.booking_id) if t.booking_id else None
+        piggy_payloads.append(
+            PiggyBankTransactionPayload(
+                id=t.id,
+                bookingId=t.booking_id,
+                amount=t.amount,
+                transactionType=t.transaction_type,
+                purpose=t.purpose,
+                materialName=t.material_name,
+                materialCost=t.material_cost,
+                date=t.date,
+                resourceGroup=t.resource_group,
+                createdAt=t.created_at,
+                bookingInfo=f"{b.service} — {b.client_name} ({b.date})" if b else None,
+                bookingClientName=b.client_name if b else None,
+                bookingService=b.service if b else None,
+                bookingDate=b.date if b else None,
+                bookingTime=b.time if b else None,
+                bookingCar=b.car if b else None,
+                bookingPlate=b.plate if b else None,
+                bookingPrice=float(b.price or 0) if b else None,
+                bookingStatus=b.status if b else None,
+            )
+        )
+
+    # ── Расчётка мастеров за период ──
+    workers_list = db.scalars(
+        select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name.asc())
+    ).all()
+    worker_ids = [w.id for w in workers_list]
+    worker_bookings = [
+        b for b in bookings
+        if any(link.worker_id in worker_ids for link in b.worker_links)
+    ]
+    entries = []
+    shift_from = None
+    shift_to = None
+    if date_from_dmy and date_to_dmy:
+        entries = db.scalars(
+            select(PayrollEntry)
+            .where(PayrollEntry.worker_id.in_(worker_ids))
+            .order_by(PayrollEntry.created_at.desc())
+        ).all()
+        shift_from = _dmy_to_date(date_from_dmy)
+        shift_to = _dmy_to_date(date_to_dmy)
+    payroll_summaries = _worker_payroll_summaries_from_data(
+        db,
+        workers_list,
+        worker_bookings,
+        entries,
+        complaints_by_worker,
+        shift_from=shift_from,
+        shift_to=shift_to,
+    )
+    archive_payroll = [
+        ArchivePayrollItem(
+            workerId=worker.id,
+            workerName=worker.name,
+            bookingCount=summary_row.completedBookings,
+            accruedFromBookings=summary_row.accruedFromBookings,
+            baseSalary=summary_row.baseSalary,
+            shiftPayTotal=summary_row.shiftPayTotal,
+            shiftCount=summary_row.shiftCount,
+            bonusTotal=summary_row.bonusTotal,
+            adjustmentTotal=summary_row.adjustmentTotal,
+            advanceTotal=summary_row.advanceTotal,
+            deductionTotal=summary_row.deductionTotal,
+            payoutTotal=summary_row.payoutTotal,
+            totalAccrued=summary_row.totalAccrued,
+            totalDeducted=summary_row.totalDeducted,
+            balance=summary_row.balance,
+        )
+        for worker in workers_list
+        for summary_row in [payroll_summaries.get(worker.id)]
+        if summary_row is not None
+        and (
+            summary_row.completedBookings > 0
+            or summary_row.balance != 0
+            or summary_row.baseSalary > 0
+            or summary_row.shiftPayTotal > 0
+            or summary_row.bonusTotal > 0
+            or summary_row.adjustmentTotal != 0
+        )
+    ]
+    archive_payroll.sort(key=lambda item: item.balance, reverse=True)
+
+    # ── Доли владельцев по записям периода ──
+    owner_totals: dict[str, dict] = {}
+    booking_ids = [b.id for b in bookings]
+    if booking_ids:
+        all_shares = db.scalars(
+            select(OwnerProfitShare).where(OwnerProfitShare.booking_id.in_(booking_ids))
+        ).all()
+        for share in all_shares:
+            entry = owner_totals.setdefault(share.owner_id, {"name": "", "accrued": 0, "paid": 0, "count": 0})
+            amt = int(share.amount or 0)
+            if share.status == "paid":
+                entry["paid"] += amt
+            else:
+                entry["accrued"] += amt
+            entry["count"] += 1
+    owner_name_by_id: dict[str, str] = {}
+    if owner_totals:
+        staff = db.scalars(
+            select(StaffUser).where(StaffUser.id.in_(set(owner_totals)))
+        ).all()
+        owner_name_by_id = {item.id: item.name for item in staff}
+    archive_owners = [
+        ArchiveOwnerItem(
+            ownerId=oid,
+            ownerName=owner_name_by_id.get(oid, "Владелец"),
+            totalAccrued=data["accrued"],
+            totalPaid=data["paid"],
+            bookingCount=data["count"],
+        )
+        for oid, data in owner_totals.items()
+    ]
+    summary.ownersAccrued = sum(o.totalAccrued for o in archive_owners)
+    summary.ownersPaid = sum(o.totalPaid for o in archive_owners)
+
+    summary.profit = summary.net + summary.totalIncome - summary.totalExpense
+
+    return ArchiveResponse(
+        dateFrom=date_from_dmy or "",
+        dateTo=date_to_dmy or "",
+        summary=summary,
+        bookings=archive_bookings,
+        incomes=archive_incomes,
+        expenses=archive_expenses,
+        piggyTransactions=piggy_payloads,
+        payroll=archive_payroll,
+        owners=archive_owners,
+    )
 
 
 
