@@ -2219,35 +2219,42 @@ export function OwnerApp() {
     if (!draft) return;
     try {
       setSavingClientId(clientId);
-      let vehicles = draftVehicles[clientId] ?? (selectedSettingsClientVehicles.length > 0
-        ? selectedSettingsClientVehicles.map((v, i) => ({ ...v, isMain: v.isMain ?? i === 0 }))
-        : undefined);
+      const draftHasCar = Object.prototype.hasOwnProperty.call(draft, 'car');
+      const draftHasPlate = Object.prototype.hasOwnProperty.call(draft, 'plate');
+      const draftHasPlateType = Object.prototype.hasOwnProperty.call(draft, 'plateType');
+      const draftPlateType = ((draft.plateType || 'russian') as PlateType);
+      const draftPlate = draftHasPlate ? normalizePlateInput(draft.plate ?? '', draftPlateType) : undefined;
+      let vehicles = draftVehicles[clientId] ?? ownerClientVehicles(clientId);
       if (vehicles && vehicles.length > 0) {
-        const mainIdx = vehicles.findIndex((v) => v.isMain);
-        if (mainIdx >= 0) {
-          vehicles = vehicles.map((v, i) =>
-            i === mainIdx
-              ? { ...v, car: draft.car, plate: normalizePlateInput(draft.plate, draft.plateType as PlateType), plateType: draft.plateType }
-              : v,
-          );
-        }
+        vehicles = vehicles.map((v, i) => ({ ...v, isMain: v.isMain ?? i === 0 }));
+        const mainIdx = Math.max(vehicles.findIndex((v) => v.isMain), 0);
+        vehicles = vehicles.map((v, i) =>
+          i === mainIdx
+            ? {
+                ...v,
+                car: draftHasCar ? (draft.car ?? '') : (v.car ?? ''),
+                plate: draftHasPlate ? draftPlate ?? '' : (v.plate ?? ''),
+                plateType: draftHasPlateType ? (draft.plateType || 'russian') : (v.plateType || 'russian'),
+              }
+            : v,
+        );
       }
       await updateClientCard(clientId, options?.adminOnly
         ? { adminRating: draft.adminRating, adminNote: draft.adminNote, referralSource: draft.referralSource }
         : {
           name: draft.name,
           phone: draft.phone,
-          car: draft.car,
-          plate: normalizePlateInput(draft.plate, draft.plateType as PlateType),
-          plateType: draft.plateType,
+          car: draftHasCar ? draft.car : undefined,
+          plate: draftPlate,
+          plateType: draftHasPlateType ? draft.plateType : undefined,
           notes: draft.notes,
           debtBalance: Number(draft.debtBalance || 0),
           adminRating: draft.adminRating,
           adminNote: draft.adminNote,
           referralSource: draft.referralSource,
-          ...(vehicles ? { vehicles } : {}),
+          ...(vehicles && vehicles.length > 0 ? { vehicles } : {}),
         });
-      if (vehicles) {
+      if (vehicles && vehicles.length > 0) {
         setDraftVehicles((prev) => {
           const next = { ...prev };
           delete next[clientId];
