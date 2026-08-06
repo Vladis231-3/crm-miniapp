@@ -8837,6 +8837,63 @@ def update_client_card(
     return _client_summary_payload(client, db)
 
 
+@app.post("/api/clients", response_model=ClientSummaryPayload, status_code=status.HTTP_200_OK)
+
+def create_client(
+
+    payload: ClientCreateRequest,
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> ClientSummaryPayload:
+
+    _ensure_staff_role(session_data, {"owner", "admin"})
+
+    existing = _client_by_phone(db, payload.phone)
+
+    if existing is not None:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_409_CONFLICT,
+
+            detail="Клиент с таким номером телефона уже существует",
+
+        )
+
+    client = Client(
+
+        id=f"c-{uuid4()}",
+
+        name=payload.name,
+
+        phone=payload.phone,
+
+        car=payload.car,
+
+        plate=payload.plate,
+
+        plate_type=payload.plateType,
+
+        notes=payload.notes,
+
+        referral_source=payload.referralSource,
+
+        registered=True,
+
+    )
+
+    db.add(client)
+
+    db.commit()
+
+    db.refresh(client)
+
+    return _client_summary_payload(client, db)
+
+
 @app.get("/api/health", response_model=GenericMessage)
 
 def health() -> GenericMessage:
