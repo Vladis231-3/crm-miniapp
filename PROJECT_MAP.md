@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-07 09:41 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-07 10:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **245**
-- Строк кода: **77 057**
+- Строк кода: **77 066**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 39, `.ts`: 19, `.tsx`: 183
 
 ## Архитектура
@@ -2270,7 +2270,7 @@ concept1.0/
 
 - `REFERRAL_SOURCES` (стр. 1)
 
-### frontend/src/app/context/AppContext.tsx (1897 строк)
+### frontend/src/app/context/AppContext.tsx (1906 строк)
 
 - `EMPTY_CONTENT` (стр. 814)
 - `timeToMinutes` (стр. 837) — локальный
@@ -2458,9 +2458,9 @@ concept1.0/
 - `durationMinutes` (стр. 1759) — локальный
 - `params` (стр. 1761) — локальный
 - `response` (стр. 1771) — локальный
-- `useApp` (стр. 1889)
-- `ctx` (стр. 1890) — локальный
-- `getWorkerNotificationSettings` (стр. 1895)
+- `useApp` (стр. 1898)
+- `ctx` (стр. 1899) — локальный
+- `getWorkerNotificationSettings` (стр. 1904)
 
 ### frontend/src/app/hooks/useTelegramBackButton.ts (23 строк)
 
@@ -2710,7 +2710,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/context/AppContext.tsx` (2026-08-07 12:41)
+- `frontend/src/app/context/AppContext.tsx` (2026-08-07 13:08)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-07 12:41)
 - `backend/tests/test_booking_money_split.py` (2026-08-07 12:41)
 - `backend/app/schemas.py` (2026-08-07 12:41)

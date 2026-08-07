@@ -1880,6 +1880,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       refreshActiveSessions,
       checkConsent,
       submitConsent,
+      listDepositClients,
+      getDepositOverview,
+      updateDepositSubscription,
+      depositTopUp,
+      depositAdjust,
+      depositRecordWash,
+      depositSettleMonth,
+      downloadDepositExport,
+      downloadDepositExportAll,
     }}>
       {children}
     </AppContext.Provider>
