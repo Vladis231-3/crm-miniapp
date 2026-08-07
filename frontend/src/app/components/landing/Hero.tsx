@@ -13,8 +13,7 @@ function resolveImageUrl(url: string): string {
 const FALLBACK_HERO: ContentHero = {
   backgroundImage: '/hero-bg.jpg',
   badgeText: 'ATMOSFERA ДЕТЕЙЛИНГ',
-  title: 'Ваш автомобиль заслуживает лучшего ухода',
-  titleHighlight: 'лучшего',
+  title: { before: 'Ваш автомобиль заслуживает ', highlight: 'лучшего', after: ' ухода' },
   subtitle: 'Премиум мойка и детейлинг для безупречного блеска вашего авто.',
   button1Text: 'Наши услуги',
   button1Action: 'services',
@@ -39,9 +38,7 @@ export function Hero({ content }: { content?: { hero?: ContentHero } | null }) {
   const bg = h.backgroundImage || FALLBACK_HERO.backgroundImage;
   const stats = h.stats.length >= 3 ? h.stats : FALLBACK_HERO.stats;
 
-  const titleParts = h.titleHighlight
-    ? h.title.split(h.titleHighlight)
-    : [h.title];
+  const { before, highlight, after } = h.title;
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -62,10 +59,10 @@ export function Hero({ content }: { content?: { hero?: ContentHero } | null }) {
 
           <h1 className="text-white mb-5"
             style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.03em' }}>
-            {h.titleHighlight && titleParts.length > 1 ? (
-              <>{titleParts[0]}<span className="text-blue-400">{h.titleHighlight}</span>{titleParts.slice(1).join(h.titleHighlight)}</>
+            {highlight ? (
+              <>{before}<span className="text-blue-400">{highlight}</span>{after}</>
             ) : (
-              h.title
+              `${before}${highlight}${after}`
             )}
           </h1>
 

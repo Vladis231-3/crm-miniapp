@@ -22,6 +22,7 @@ from typing import Any
 
 from uuid import uuid4
 
+from pydantic import ValidationError
 
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, UploadFile, status
@@ -9059,6 +9060,27 @@ def _default_content() -> ContentPayload:
 
 
 
+def _normalize_legacy_content(value: dict) -> dict:
+    """Мигрирует старый формат контента (hero.title строкой + hero.titleHighlight)
+    в новый (hero.title => {before, highlight, after})."""
+    hero = value.get("hero")
+    if not isinstance(hero, dict):
+        return value
+    title_val = hero.get("title")
+    if not isinstance(title_val, str):
+        return value
+    highlight = hero.get("titleHighlight") or ""
+    before, after = "", ""
+    if highlight and highlight in title_val:
+        idx = title_val.index(highlight)
+        before, after = title_val[:idx], title_val[idx + len(highlight):]
+    else:
+        before = title_val
+    hero["title"] = {"before": before, "highlight": highlight, "after": after}
+    hero.pop("titleHighlight", None)
+    return value
+
+
 def _get_or_create_content(db: Session) -> ContentPayload:
 
     row = db.get(AppSetting, "content")
@@ -9073,7 +9095,27 @@ def _get_or_create_content(db: Session) -> ContentPayload:
 
         return default
 
-    return ContentPayload.model_validate(row.value)
+    try:
+
+        return ContentPayload.model_validate(row.value)
+
+    except ValidationError:
+
+        normalized = _normalize_legacy_content(dict(row.value))
+
+        try:
+
+            content = ContentPayload.model_validate(normalized)
+
+        except ValidationError:
+
+            content = _default_content()
+
+        row.value = content.model_dump()
+
+        db.commit()
+
+        return content
 
 
 

@@ -215,19 +215,21 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className={`text-xs ${sub} block mb-1`}>Заголовок (до выделения)</label>
-              <input className={inputCls} value={content.hero.title.split(content.hero.titleHighlight)[0] || content.hero.title} onChange={(e) => {
-                const before = e.target.value;
-                const after = content.hero.title.split(content.hero.titleHighlight).slice(1).join(content.hero.titleHighlight);
-                updateHero({ title: before + content.hero.titleHighlight + after });
+              <input className={inputCls} value={content.hero.title.before} onChange={(e) => {
+                updateHero({ title: { ...content.hero.title, before: e.target.value } });
               }} placeholder="Ваш автомобиль заслуживает " />
             </div>
             <div>
               <label className={`text-xs ${sub} block mb-1`}>Выделенная часть</label>
-              <input className={inputCls} value={content.hero.titleHighlight} onChange={(e) => {
-                const hl = e.target.value;
-                const parts = content.hero.title.split(content.hero.titleHighlight);
-                updateHero({ titleHighlight: hl, title: parts[0] + hl + parts.slice(1).join(content.hero.titleHighlight) });
+              <input className={inputCls} value={content.hero.title.highlight} onChange={(e) => {
+                updateHero({ title: { ...content.hero.title, highlight: e.target.value } });
               }} placeholder="лучшего" />
+            </div>
+            <div className="col-span-2">
+              <label className={`text-xs ${sub} block mb-1`}>Заголовок (после выделения)</label>
+              <input className={inputCls} value={content.hero.title.after} onChange={(e) => {
+                updateHero({ title: { ...content.hero.title, after: e.target.value } });
+              }} placeholder=" ухода" />
             </div>
           </div>
 

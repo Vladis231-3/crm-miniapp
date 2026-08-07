@@ -642,40 +642,48 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
         {sheet === 'wash' && (
           <Sheet title="Записать мойку в долг" isDark={isDark} onClose={() => setSheet(null)}>
-            <div className="flex gap-2 mb-3">
+            <div className="mb-3">
+              {fieldLabel('Марка авто')}
               <input
                 className={inputCls}
-                placeholder="Марка авто (напр. Toyota Camry)"
+                placeholder="Например: Toyota Camry"
                 value={washCar}
                 onChange={(event) => setWashCar(event.target.value)}
               />
             </div>
-            <div className="flex gap-2 mb-3">
-              <input
-                className={`${inputCls} flex-1`}
-                placeholder="Гос.номер"
-                value={washPlate}
-                onChange={(event) => setWashPlate(event.target.value)}
-              />
-              <select
-                className={`${selectCls} w-24 shrink-0`}
-                value={washPlateType}
-                onChange={(event) => setWashPlateType(event.target.value)}
-              >
-                <option value="russian">RU</option>
-                <option value="foreign">EU</option>
-              </select>
+            <div className="mb-3">
+              {fieldLabel('Номер автомобиля')}
+              <div className="flex gap-2">
+                <input
+                  className={`${inputCls} flex-1 min-w-0`}
+                  placeholder="Например: а123вс777"
+                  value={washPlate}
+                  onChange={(event) => setWashPlate(event.target.value)}
+                />
+                <select
+                  className={`${selectCls} w-24 shrink-0`}
+                  value={washPlateType}
+                  onChange={(event) => setWashPlateType(event.target.value)}
+                >
+                  <option value="russian">RU</option>
+                  <option value="foreign">EU</option>
+                </select>
+              </div>
             </div>
-            <div className="flex gap-2 mb-3">
+            <div className="mb-3">
+              {fieldLabel('Цена мойки (₽)')}
               <input
-                className={`${inputCls} flex-1`}
+                className={inputCls}
                 type="number"
-                placeholder="Цена мойки"
+                placeholder="Например: 700"
                 value={washPrice}
                 onChange={(event) => setWashPrice(event.target.value)}
               />
+            </div>
+            <div className="mb-3">
+              {fieldLabel('Мойщик')}
               <select
-                className={`${selectCls} flex-1`}
+                className={selectCls}
                 value={washWorkerId}
                 onChange={(event) => setWashWorkerId(event.target.value)}
               >
@@ -685,25 +693,34 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                 ))}
               </select>
             </div>
-            <input
-              className={`${inputCls} mb-3`}
-              placeholder="Услуга (необязательно)"
-              value={washService}
-              onChange={(event) => setWashService(event.target.value)}
-            />
+            <div className="mb-3">
+              {fieldLabel('Услуга (необязательно)')}
+              <input
+                className={inputCls}
+                placeholder="Например: Кузов мойка"
+                value={washService}
+                onChange={(event) => setWashService(event.target.value)}
+              />
+            </div>
             <div className="flex gap-2 mb-1">
-              <input
-                className={inputCls}
-                placeholder="Дата (ДД.ММ.ГГГГ)"
-                value={dateDraft}
-                onChange={(event) => setDateDraft(event.target.value)}
-              />
-              <input
-                className={inputCls}
-                placeholder="Время"
-                value={washTime}
-                onChange={(event) => setWashTime(event.target.value)}
-              />
+              <div className="flex-1 min-w-0">
+                {fieldLabel('Дата (пусто — сегодня)')}
+                <input
+                  className={inputCls}
+                  placeholder="ДД.ММ.ГГГГ"
+                  value={dateDraft}
+                  onChange={(event) => setDateDraft(event.target.value)}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                {fieldLabel('Время')}
+                <input
+                  className={inputCls}
+                  placeholder="Например: 14:00"
+                  value={washTime}
+                  onChange={(event) => setWashTime(event.target.value)}
+                />
+              </div>
             </div>
             <p className={`text-xs ${sub} mb-4`}>Сумма мойки спишется с депозита, в копилку вернётся при закрытии месяца.</p>
             <button

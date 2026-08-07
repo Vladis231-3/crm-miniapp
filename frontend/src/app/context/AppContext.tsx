@@ -614,11 +614,16 @@ export interface ContentStats {
   label: string;
 }
 
+export interface ContentHeroTitle {
+  before: string;
+  highlight: string;
+  after: string;
+}
+
 export interface ContentHero {
   backgroundImage: string;
   badgeText: string;
-  title: string;
-  titleHighlight: string;
+  title: ContentHeroTitle;
   subtitle: string;
   button1Text: string;
   button1Action: string;
@@ -815,8 +820,7 @@ export const EMPTY_CONTENT: ContentData = {
   hero: {
     backgroundImage: '',
     badgeText: 'ATMOSFERA ДЕТЕЙЛИНГ',
-    title: 'Ваш автомобиль заслуживает лучшего ухода',
-    titleHighlight: 'лучшего',
+    title: { before: 'Ваш автомобиль заслуживает ', highlight: 'лучшего', after: ' ухода' },
     subtitle: 'Премиум мойка и детейлинг для безупречного блеска вашего авто.',
     button1Text: 'Наши услуги',
     button1Action: 'services',
