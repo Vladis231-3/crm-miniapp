@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-07 10:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-07 10:27 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **245**
-- Строк кода: **77 066**
+- Строк кода: **77 101**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 39, `.ts`: 19, `.tsx`: 183
 
 ## Архитектура
@@ -670,7 +670,7 @@ concept1.0/
 - `class DepositMonth(Base):` (стр. 534)
 - `class OwnerProfitShare(Base):` (стр. 551)
 
-### backend/app/schemas.py (1972 строк)
+### backend/app/schemas.py (1973 строк)
 
 Классы и функции (197):
 
@@ -858,19 +858,19 @@ concept1.0/
 - `class ArchiveOwnerItem(BaseModel):` (стр. 1815)
 - `class ArchiveSummary(BaseModel):` (стр. 1823)
 - `class ArchiveResponse(BaseModel):` (стр. 1839)
-- `class DepositSubscriptionUpdateRequest(BaseModel):` (стр. 1853)
-- `class DepositTopUpRequest(BaseModel):` (стр. 1860)
-- `DepositTopUpRequest.validate_datedef validate_date(cls, value: str) -> str: value = value.strip() if value and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1868)
-- `class DepositAdjustRequest(BaseModel):` (стр. 1875)
-- `DepositAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: value = value.strip() if value and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1883)
-- `class DepositWashRequest(BaseModel):` (стр. 1890)
-- `DepositWashRequest.validate_vehicledef validate_vehicle(self) -> "DepositWashRequest": if not self.car.strip() and not self.plate.strip():` (стр. 1906)
-- `class DepositSettleRequest(BaseModel):` (стр. 1916)
-- `DepositSettleRequest.validate_monthdef validate_month(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{4}", value.strip()):` (стр. 1922)
-- `class DepositTransactionPayload(BaseModel):` (стр. 1928)
-- `class DepositMonthPayload(BaseModel):` (стр. 1941)
-- `class DepositOverview(BaseModel):` (стр. 1951)
-- `class DepositSummaryItem(BaseModel):` (стр. 1966)
+- `class DepositSubscriptionUpdateRequest(BaseModel):` (стр. 1854)
+- `class DepositTopUpRequest(BaseModel):` (стр. 1861)
+- `DepositTopUpRequest.validate_datedef validate_date(cls, value: str) -> str: value = value.strip() if value and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1869)
+- `class DepositAdjustRequest(BaseModel):` (стр. 1876)
+- `DepositAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: value = value.strip() if value and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1884)
+- `class DepositWashRequest(BaseModel):` (стр. 1891)
+- `DepositWashRequest.validate_vehicledef validate_vehicle(self) -> "DepositWashRequest": if not self.car.strip() and not self.plate.strip():` (стр. 1907)
+- `class DepositSettleRequest(BaseModel):` (стр. 1917)
+- `DepositSettleRequest.validate_monthdef validate_month(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{4}", value.strip()):` (стр. 1923)
+- `class DepositTransactionPayload(BaseModel):` (стр. 1929)
+- `class DepositMonthPayload(BaseModel):` (стр. 1942)
+- `class DepositOverview(BaseModel):` (стр. 1952)
+- `class DepositSummaryItem(BaseModel):` (стр. 1967)
 
 ### backend/app/security.py (84 строк)
 
@@ -1256,9 +1256,9 @@ concept1.0/
 - `test_normalize_database_url_uses_psycopg_for_postgresql_schemedef test_normalize_database_url_uses_psycopg_for_postgresql_scheme() -> None: raw_url = "postgresql://user:pass@example.com:5432/appdb" assert _normalize_database_url(raw_url) == "` (стр. 12)
 - `test_normalize_database_url_keeps_explicit_driver_and_sqlitedef test_normalize_database_url_keeps_explicit_driver_and_sqlite() -> None: assert _normalize_database_url("postgresql+psycopg://user:pass@example.com/appdb") == "postgresql+psycop` (стр. 18)
 
-### backend/tests/test_deposit.py (335 строк)
+### backend/tests/test_deposit.py (367 строк)
 
-Классы и функции (21):
+Классы и функции (23):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 27)
 - `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": tel` (стр. 38)
@@ -1280,7 +1280,9 @@ concept1.0/
 - `DepositTests.test_topup_requires_active_depositdef test_topup_requires_active_deposit(self) -> None: client_id = self._create_client() response = self.client.post( f"/api/owner/deposits/{client_id}/topup", headers=self._auth_he` (стр. 284)
 - `DepositTests.test_export_exceldef test_export_excel(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(client_id, 1000) respo` (стр. 293)
 - `DepositTests.test_export_alldef test_export_all(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( "/api/owner/deposits/export-all.xlsx", head` (стр. 309)
-- `DepositTests.test_overview_forbidden_for_workerdef test_overview_forbidden_for_worker(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( f"/api/owner/deposits/{c` (стр. 323)
+- `DepositTests.test_overview_allowed_for_admindef test_overview_allowed_for_admin(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( f"/api/owner/deposits/{clie` (стр. 323)
+- `DepositTests.test_activate_deposit_as_admindef test_activate_deposit_as_admin(self) -> None: client_id = self._create_client() response = self.client.patch( f"/api/owner/deposits/{client_id}", headers=self._auth_headers(sel` (стр. 333)
+- `DepositTests.test_settle_month_allowed_for_admindef test_settle_month_allowed_for_admin(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(clie` (стр. 351)
 
 ### backend/tests/test_finance_edit.py (393 строк)
 
@@ -1423,7 +1425,7 @@ concept1.0/
 - `response` (стр. 175) — локальный
 - `blob` (стр. 184) — локальный
 
-### frontend/src/app/App.tsx (725 строк)
+### frontend/src/app/App.tsx (731 строк)
 
 - `NOOP` (стр. 49) — локальный
 - `ConsentDialog` (стр. 51) — локальный
@@ -1450,11 +1452,11 @@ concept1.0/
 - `navRef` (стр. 354) — локальный
 - `handleBack` (стр. 357) — локальный
 - `AppContent` (стр. 631) — локальный
-- `usePath` (стр. 691) — локальный
-- `onPopState` (стр. 694) — локальный
-- `LandingWrapper` (стр. 701) — локальный
-- `App` (стр. 709)
-- `path` (стр. 710) — локальный
+- `usePath` (стр. 697) — локальный
+- `onPopState` (стр. 700) — локальный
+- `LandingWrapper` (стр. 707) — локальный
+- `App` (стр. 715)
+- `path` (стр. 716) — локальный
 
 ### frontend/src/app/components/admin/AdminApp.tsx (4483 строк)
 
@@ -2270,7 +2272,7 @@ concept1.0/
 
 - `REFERRAL_SOURCES` (стр. 1)
 
-### frontend/src/app/context/AppContext.tsx (1906 строк)
+### frontend/src/app/context/AppContext.tsx (1902 строк)
 
 - `EMPTY_CONTENT` (стр. 814)
 - `timeToMinutes` (стр. 837) — локальный
@@ -2420,47 +2422,47 @@ concept1.0/
 - `saved` (стр. 1586) — локальный
 - `createPayrollEntry` (стр. 1590) — локальный
 - `checkConsent` (стр. 1595) — локальный
-- `response` (стр. 1597) — локальный
-- `submitConsent` (стр. 1604) — локальный
-- `listShiftChecklists` (стр. 1608) — локальный
-- `entries` (стр. 1609) — локальный
-- `submitShiftChecklist` (стр. 1613) — локальный
-- `entry` (стр. 1614) — локальный
-- `listAdminShiftInspections` (стр. 1621) — локальный
-- `entries` (стр. 1622) — локальный
-- `submitAdminShiftInspection` (стр. 1630) — локальный
-- `entry` (стр. 1637) — локальный
-- `hireWorker` (стр. 1648) — локальный
-- `created` (стр. 1649) — локальный
-- `normalized` (стр. 1650) — локальный
-- `fireWorker` (стр. 1660) — локальный
-- `resetWorkerPassword` (стр. 1665) — локальный
-- `changePassword` (стр. 1672) — локальный
-- `requestOwnerDatabaseReset` (стр. 1679) — локальный
-- `response` (стр. 1680) — локальный
-- `approveOwnerDatabaseReset` (стр. 1697) — локальный
-- `response` (стр. 1698) — локальный
-- `executeOwnerDatabaseReset` (стр. 1714) — локальный
-- `response` (стр. 1715) — локальный
-- `getTimeSlotsForDate` (стр. 1723) — локальный
-- `parsedDate` (стр. 1724) — локальный
-- `day` (стр. 1726) — локальный
-- `openMinutes` (стр. 1729) — локальный
-- `closeMinutes` (стр. 1730) — локальный
-- `durationMinutes` (стр. 1733) — локальный
-- `scheduleSlots` (стр. 1734) — локальный
-- `candidateBoxes` (стр. 1735) — локальный
-- `boxNames` (стр. 1740) — локальный
-- `slotStart` (стр. 1742) — локальный
-- `slotEnd` (стр. 1744) — локальный
-- `bookingStart` (стр. 1751) — локальный
-- `getBookingAvailabilityForDate` (стр. 1758) — локальный
-- `durationMinutes` (стр. 1759) — локальный
-- `params` (стр. 1761) — локальный
-- `response` (стр. 1771) — локальный
-- `useApp` (стр. 1898)
-- `ctx` (стр. 1899) — локальный
-- `getWorkerNotificationSettings` (стр. 1904)
+- `response` (стр. 1596) — локальный
+- `submitConsent` (стр. 1600) — локальный
+- `listShiftChecklists` (стр. 1604) — локальный
+- `entries` (стр. 1605) — локальный
+- `submitShiftChecklist` (стр. 1609) — локальный
+- `entry` (стр. 1610) — локальный
+- `listAdminShiftInspections` (стр. 1617) — локальный
+- `entries` (стр. 1618) — локальный
+- `submitAdminShiftInspection` (стр. 1626) — локальный
+- `entry` (стр. 1633) — локальный
+- `hireWorker` (стр. 1644) — локальный
+- `created` (стр. 1645) — локальный
+- `normalized` (стр. 1646) — локальный
+- `fireWorker` (стр. 1656) — локальный
+- `resetWorkerPassword` (стр. 1661) — локальный
+- `changePassword` (стр. 1668) — локальный
+- `requestOwnerDatabaseReset` (стр. 1675) — локальный
+- `response` (стр. 1676) — локальный
+- `approveOwnerDatabaseReset` (стр. 1693) — локальный
+- `response` (стр. 1694) — локальный
+- `executeOwnerDatabaseReset` (стр. 1710) — локальный
+- `response` (стр. 1711) — локальный
+- `getTimeSlotsForDate` (стр. 1719) — локальный
+- `parsedDate` (стр. 1720) — локальный
+- `day` (стр. 1722) — локальный
+- `openMinutes` (стр. 1725) — локальный
+- `closeMinutes` (стр. 1726) — локальный
+- `durationMinutes` (стр. 1729) — локальный
+- `scheduleSlots` (стр. 1730) — локальный
+- `candidateBoxes` (стр. 1731) — локальный
+- `boxNames` (стр. 1736) — локальный
+- `slotStart` (стр. 1738) — локальный
+- `slotEnd` (стр. 1740) — локальный
+- `bookingStart` (стр. 1747) — локальный
+- `getBookingAvailabilityForDate` (стр. 1754) — локальный
+- `durationMinutes` (стр. 1755) — локальный
+- `params` (стр. 1757) — локальный
+- `response` (стр. 1767) — локальный
+- `useApp` (стр. 1894)
+- `ctx` (стр. 1895) — локальный
+- `getWorkerNotificationSettings` (стр. 1900)
 
 ### frontend/src/app/hooks/useTelegramBackButton.ts (23 строк)
 
@@ -2710,18 +2712,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/context/AppContext.tsx` (2026-08-07 13:08)
+- `backend/tests/test_deposit.py` (2026-08-07 13:27)
+- `backend/app/main.py` (2026-08-07 13:25)
+- `frontend/src/app/context/AppContext.tsx` (2026-08-07 13:23)
+- `frontend/src/app/App.tsx` (2026-08-07 13:22)
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 13:20)
+- `backend/app/schemas.py` (2026-08-07 13:17)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-07 12:41)
 - `backend/tests/test_booking_money_split.py` (2026-08-07 12:41)
-- `backend/app/schemas.py` (2026-08-07 12:41)
 - `backend/app/models.py` (2026-08-07 12:41)
-- `backend/app/main.py` (2026-08-07 12:41)
 - `backend/app/exports.py` (2026-08-07 12:41)
-- `backend/tests/test_deposit.py` (2026-08-07 11:46)
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 11:40)
 - `scripts/.project-map-watch.lock` (2026-08-07 10:28)
 - `backend/tests/test_worker_car_search.py` (2026-08-05 12:21)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-05 12:21)
 - `backend/tests/test_archive.py` (2026-08-05 11:01)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-04 12:06)
-- `backend/tests/test_booking_logic.py` (2026-08-04 10:10)

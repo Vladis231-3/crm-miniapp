@@ -13680,7 +13680,7 @@ def list_deposit_clients(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[DepositSummaryItem]:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
     clients = db.scalars(
         select(Client).where(Client.deleted_at.is_(None)).order_by(Client.name.asc())
     ).all()
@@ -13704,7 +13704,7 @@ def update_deposit_subscription(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> DepositOverview:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "admin"})
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -13727,7 +13727,7 @@ def deposit_topup(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> DepositTransactionPayload:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -13754,12 +13754,12 @@ def deposit_adjust(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> DepositOverview:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "admin"})
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")
     if not client.deposit_active:
-        raise HTTPException(status_code=400, detail="Клиент не является депонентом депозита")
+        raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
     date = payload.date or datetime.now().strftime("%d.%m.%Y")
     _deposit_add_transaction(
         db,
@@ -13780,7 +13780,7 @@ def deposit_export_all_excel(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
     from .exports import build_deposit_export_all
 
     export_file = build_deposit_export_all(
@@ -13797,7 +13797,7 @@ def get_deposit_overview(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> DepositOverview:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -13881,7 +13881,7 @@ def deposit_settle_month(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> DepositOverview:
-    _ensure_staff_role(session_data, {"owner"})
+    _ensure_staff_role(session_data, {"owner", "admin"})
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -13947,7 +13947,7 @@ def deposit_export_excel(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
-    _ensure_staff_role(session_data, {"owner", "accountant"})
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Клиент не найден")

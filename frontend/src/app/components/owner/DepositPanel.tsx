@@ -267,7 +267,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
   const openActivateFor = (client: RegisteredClient | null) => {
     setActivateClientId(client?.id ?? '');
-    setActivateActive(client ? !!client.depositActive : false);
+    setActivateActive(client ? !!client.depositActive : true);
     setActivateMonthly(client && client.depositMonthly ? String(client.depositMonthly) : '');
     setSheet('activate');
   };

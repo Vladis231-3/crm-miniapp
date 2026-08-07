@@ -320,7 +320,7 @@ class DepositTests(unittest.TestCase):
             response.headers.get("Content-Type", ""),
         )
 
-    def test_overview_forbidden_for_worker(self) -> None:
+    def test_overview_allowed_for_admin(self) -> None:
         client_id = self._create_client()
         self._activate_deposit(client_id, 4000)
 
@@ -328,7 +328,39 @@ class DepositTests(unittest.TestCase):
             f"/api/owner/deposits/{client_id}",
             headers=self._auth_headers(self.admin_token),
         )
-        self.assertEqual(response.status_code, 403, response.text)
+        self.assertEqual(response.status_code, 200, response.text)
+
+    def test_activate_deposit_as_admin(self) -> None:
+        client_id = self._create_client()
+
+        response = self.client.patch(
+            f"/api/owner/deposits/{client_id}",
+            headers=self._auth_headers(self.admin_token),
+            json={"clientId": client_id, "depositActive": True, "depositMonthly": 4000},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()["depositActive"])
+
+        summary = self.client.get(
+            "/api/owner/deposits",
+            headers=self._auth_headers(self.admin_token),
+        )
+        self.assertEqual(summary.status_code, 200, summary.text)
+        self.assertTrue(any(item["clientId"] == client_id for item in summary.json()))
+
+    def test_settle_month_allowed_for_admin(self) -> None:
+        client_id = self._create_client()
+        self._activate_deposit(client_id, 4000)
+        self._topup(client_id, 4000)
+        self._record_wash(client_id, 1000)
+
+        month = __import__("datetime").date.today().strftime("%m.%Y")
+        response = self.client.post(
+            f"/api/owner/deposits/{client_id}/settle-month",
+            headers=self._auth_headers(self.admin_token),
+            json={"clientId": client_id, "month": month},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
 
 
 if __name__ == "__main__":
