@@ -130,6 +130,10 @@ from .models import (
 
     WeeklyArchive,
 
+    DepositTransaction,
+
+    DepositMonth,
+
 )
 
 from .schemas import (
@@ -408,6 +412,24 @@ from .schemas import (
     ArchiveSummary,
 
     ArchiveResponse,
+
+    DepositSubscriptionUpdateRequest,
+
+    DepositTopUpRequest,
+
+    DepositAdjustRequest,
+
+    DepositWashRequest,
+
+    DepositSettleRequest,
+
+    DepositTransactionPayload,
+
+    DepositMonthPayload,
+
+    DepositOverview,
+
+    DepositSummaryItem,
 
 )
 
@@ -1484,6 +1506,36 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
 
                 "ALTER TABLE clients ADD COLUMN plate_type VARCHAR(16) NOT NULL DEFAULT 'russian'"
+
+            )
+
+    if "deposit_active" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                f"ALTER TABLE clients ADD COLUMN deposit_active BOOLEAN DEFAULT {boolean_default_sql(False)}"
+
+            )
+
+    if "deposit_monthly" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_monthly INTEGER DEFAULT 0"
+
+            )
+
+    if "deposit_start_month" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_start_month VARCHAR(16) DEFAULT ''"
 
             )
 
@@ -2831,6 +2883,9 @@ def _client_summary_payload(
         adminNote=client.admin_note or "",
 
         referralSource=client.referral_source or "",
+        depositActive=bool(client.deposit_active),
+        depositMonthly=int(client.deposit_monthly or 0),
+        depositStartMonth=client.deposit_start_month or "",
         createdAt=client.created_at,
 
     )
@@ -8161,6 +8216,8 @@ def _payment_type_label(payment_type: str) -> str:
 
         "invoice": "По счёту",
 
+        "credit": "В долг (депозит)",
+
     }.get(payment_type, payment_type)
 
 
@@ -8807,6 +8864,18 @@ def update_client_card(
     if payload.referralSource is not None:
 
         client.referral_source = payload.referralSource
+
+    if payload.depositActive is not None:
+
+        client.deposit_active = payload.depositActive
+
+    if payload.depositMonthly is not None:
+
+        client.deposit_monthly = payload.depositMonthly
+
+    if payload.depositStartMonth is not None:
+
+        client.deposit_start_month = payload.depositStartMonth
 
     if payload.vehicles is not None:
 
@@ -10352,6 +10421,10 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     print(f"[PIGGY_DEBUG] deposit_amount_after_asvc={deposit_amount} asvc_piggy_sum={asvc_piggy_sum}")
 
+    if booking.payment_type == "credit":
+        print(f"[PIGGY_DEBUG] credit booking {booking.id} — 24% deposit deferred to month settle")
+        return
+
     if deposit_amount > 0:
 
         svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
@@ -10450,6 +10523,10 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 def _process_owner_profit_share(db: Session, booking: Booking) -> None:
 
     """Расчёт доли владельцев: цена → материалы → мастера → копилка → остаток владельцам (50/50)."""
+
+    if booking.payment_type == "credit":
+        print(f"[PROFIT_DEBUG] credit booking {booking.id} — owner share deferred to month settle")
+        return
 
     split = _booking_money_split(db, booking)
 
@@ -13446,6 +13523,440 @@ def piggy_bank_withdraw(
 
 
 
+
+
+# ---------------------------------------------------------------------------
+
+# Deposit Endpoints (абонентенты/цех малярка)
+
+# ---------------------------------------------------------------------------
+
+def _deposit_balance(db: Session, client_id: str) -> float:
+    return sum(
+        t.amount
+        for t in db.scalars(
+            select(DepositTransaction).where(DepositTransaction.client_id == client_id)
+        ).all()
+    )
+
+
+def _deposit_add_transaction(
+    db: Session,
+    client_id: str,
+    txn_type: str,
+    amount: float,
+    description: str,
+    *,
+    date: str,
+    booking_id: str | None = None,
+    created_by_id: str | None = None,
+) -> DepositTransaction:
+    balance_after = _deposit_balance(db, client_id) + amount
+    txn = DepositTransaction(
+        id=f"dep-{uuid4()}",
+        client_id=client_id,
+        date=date,
+        transaction_type=txn_type,
+        amount=amount,
+        balance_after=balance_after,
+        description=description,
+        booking_id=booking_id,
+        created_by_id=created_by_id,
+        created_at=_now(),
+    )
+    db.add(txn)
+    return txn
+
+
+def _deposit_txn_payload(txn: DepositTransaction) -> DepositTransactionPayload:
+    return DepositTransactionPayload(
+        id=txn.id,
+        clientId=txn.client_id,
+        date=txn.date,
+        transaction_type=txn.transaction_type,
+        amount=txn.amount,
+        balance_after=txn.balance_after,
+        description=txn.description or "",
+        bookingId=txn.booking_id,
+        createdById=txn.created_by_id,
+        createdAt=txn.created_at,
+    )
+
+
+def _deposit_month_label() -> str:
+    return datetime.now().strftime("%m.%Y")
+def _deposit_month_of(date_str: str) -> str:
+    parts = (date_str or "").split(".")
+    if len(parts) == 3:
+        return f"{parts[1]}.{parts[2]}"
+    return ""
+
+
+def _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> float:
+    total = 0.0
+    rows = db.scalars(
+        select(Booking).where(
+            Booking.client_id == client_id,
+            Booking.payment_type == "credit",
+            Booking.status == "completed",
+            Booking.deleted_at.is_(None),
+        )
+    ).all()
+    for booking in rows:
+        if _deposit_month_of(booking.date) == month:
+            total += float(booking.price)
+    return total
+
+
+def _deposit_months_window() -> set[str]:
+    """Set of 'MM.YYYY' keys for current and previous month."""
+    now = datetime.now()
+    months = {f"{now.month:02d}.{now.year}"}
+    prev = now.month - 1
+    prev_year = now.year
+    if prev == 0:
+        prev = 12
+        prev_year -= 1
+    months.add(f"{prev:02d}.{prev_year}")
+    return months
+
+
+def _deposit_overview(
+    db: Session, client_id: str, client: Client
+) -> DepositOverview:
+    month = _deposit_month_label()
+    wash_total = _deposit_month_wash_total_for(db, client_id, month)
+    month_subscription = float(client.deposit_monthly or 0)
+    month_payable = max(0.0, month_subscription - wash_total)
+
+    window = _deposit_months_window()
+
+    transactions = db.scalars(
+        select(DepositTransaction)
+        .where(DepositTransaction.client_id == client_id)
+        .order_by(DepositTransaction.created_at.desc())
+    ).all()
+    transactions = [
+        t
+        for t in transactions
+        if _deposit_month_of(t.date) in window
+    ]
+
+    closed_months = db.scalars(
+        select(DepositMonth)
+        .where(DepositMonth.client_id == client_id)
+        .order_by(DepositMonth.month.desc())
+    ).all()
+
+    return DepositOverview(
+        clientId=client.id,
+        clientName=client.name,
+        depositActive=bool(client.deposit_active),
+        balance=_deposit_balance(db, client_id),
+        depositMonthly=int(client.deposit_monthly or 0),
+        depositStartMonth=client.deposit_start_month or "",
+        monthLabel=month,
+        monthWashTotal=wash_total,
+        monthSubscription=month_subscription,
+        monthPayable=month_payable,
+        transactions=[_deposit_txn_payload(t) for t in transactions],
+        closedMonths=[
+            DepositMonthPayload(
+                id=dm.id,
+                clientId=dm.client_id,
+                month=dm.month,
+                subscription=dm.subscription or 0,
+                washTotal=dm.wash_total or 0,
+                balanceAfter=dm.balance_after or 0,
+                closedAt=dm.closed_at,
+            )
+            for dm in closed_months
+        ],
+    )
+
+
+@app.get("/api/owner/deposits", response_model=list[DepositSummaryItem])
+def list_deposit_clients(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[DepositSummaryItem]:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    clients = db.scalars(
+        select(Client).where(Client.deleted_at.is_(None)).order_by(Client.name.asc())
+    ).all()
+    return [
+        DepositSummaryItem(
+            clientId=c.id,
+            clientName=c.name,
+            depositMonthly=int(c.deposit_monthly or 0),
+            balance=_deposit_balance(db, c.id),
+            active=bool(c.deposit_active),
+        )
+        for c in clients
+        if c.deposit_active
+    ]
+
+
+@app.patch("/api/owner/deposits/{client_id}", response_model=DepositOverview)
+def update_deposit_subscription(
+    client_id: str,
+    payload: DepositSubscriptionUpdateRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DepositOverview:
+    _ensure_staff_role(session_data, {"owner"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    if payload.depositActive is not None:
+        client.deposit_active = payload.depositActive
+    if payload.depositMonthly is not None:
+        client.deposit_monthly = payload.depositMonthly
+    if payload.depositStartMonth:
+        client.deposit_start_month = payload.depositStartMonth
+    client.updated_at = _now()
+    db.commit()
+    db.refresh(client)
+    return _deposit_overview(db, client_id, client)
+
+
+@app.post("/api/owner/deposits/{client_id}/topup", response_model=DepositTransactionPayload)
+def deposit_topup(
+    client_id: str,
+    payload: DepositTopUpRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DepositTransactionPayload:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    if not client.deposit_active:
+        raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
+    date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    txn = _deposit_add_transaction(
+        db,
+        client_id,
+        "topup",
+        float(payload.amount),
+        payload.note.strip() or "Пополнение депозита",
+        date=date,
+    )
+    db.commit()
+    db.refresh(txn)
+    return _deposit_txn_payload(txn)
+
+
+@app.post("/api/owner/deposits/{client_id}/adjust", response_model=DepositOverview)
+def deposit_adjust(
+    client_id: str,
+    payload: DepositAdjustRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DepositOverview:
+    _ensure_staff_role(session_data, {"owner"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    if not client.deposit_active:
+        raise HTTPException(status_code=400, detail="Клиент не является депонентом депозита")
+    date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    _deposit_add_transaction(
+        db,
+        client_id,
+        "adjust",
+        float(payload.amount),
+        payload.note.strip() or "Корректировка депозита",
+        date=date,
+    )
+    db.commit()
+    return _deposit_overview(db, client_id, client)
+
+
+@app.get("/api/owner/deposits/export-all.xlsx", response_model=None)
+def deposit_export_all_excel(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> Response:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    from .exports import build_deposit_export_all
+
+    export_file = build_deposit_export_all(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    return _download_response(export_file)
+
+
+@app.get("/api/owner/deposits/{client_id}", response_model=DepositOverview)
+def get_deposit_overview(
+    client_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DepositOverview:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    return _deposit_overview(db, client_id, client)
+
+
+@app.post("/api/owner/deposits/{client_id}/washes", response_model=DepositOverview)
+def deposit_record_wash(
+    client_id: str,
+    payload: DepositWashRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DepositOverview:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    if not client.deposit_active:
+        raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
+
+    service_name = payload.service.strip() or "Мойка"
+    service_id = payload.serviceId or ""
+    booking_date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    booking_time = payload.time or datetime.now().strftime("%H:%M")
+
+    booking = Booking(
+        id=f"b-{uuid4()}",
+        client_id=client.id,
+        client_name=client.name,
+        client_phone=client.phone,
+        service=service_name,
+        service_id=service_id,
+        date=booking_date,
+        time=booking_time,
+        duration=max(1, int(payload.duration or 30)),
+        price=int(payload.price),
+        status="completed",
+        box="",
+        payment_type="credit",
+        payment_settled=True,
+        notes="Запись через депозит (цех малярка)",
+        car=payload.car,
+        plate=payload.plate,
+        plate_type=payload.plateType or "russian",
+        completed_at=_now(),
+    )
+    db.add(booking)
+    db.flush()
+
+    if payload.workerId:
+        db.add(
+            BookingWorker(
+                booking_id=booking.id,
+                worker_id=payload.workerId,
+                worker_name=payload.workerName or "Мастер",
+                percent=max(0, min(100, int(payload.workerPercent))),
+                pay_type="percent",
+                fixed_amount=None,
+            )
+        )
+
+    txn = _deposit_add_transaction(
+        db,
+        client_id,
+        "wash_deduction",
+        -float(payload.price),
+        f"Мойка {payload.plate or payload.car or 'авто'} ({booking_date})",
+        date=booking_date,
+        booking_id=booking.id,
+    )
+    txn.created_by_id = session_data["actorId"]
+
+    db.commit()
+    return _deposit_overview(db, client_id, client)
+
+
+@app.post("/api/owner/deposits/{client_id}/settle-month", response_model=DepositOverview)
+def deposit_settle_month(
+    client_id: str,
+    payload: DepositSettleRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DepositOverview:
+    _ensure_staff_role(session_data, {"owner"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+
+    month = payload.month
+    existing = db.scalar(
+        select(DepositMonth).where(
+            DepositMonth.client_id == client_id,
+            DepositMonth.month == month,
+        )
+    )
+    if existing is not None:
+        raise HTTPException(status_code=400, detail="Месяц уже закрыт")
+
+    wash_total = _deposit_month_wash_total_for(db, client_id, month)
+    subscription = float(client.deposit_monthly or 0)
+
+    db.add(
+        DepositMonth(
+            id=f"dm-{uuid4()}",
+            client_id=client_id,
+            month=month,
+            subscription=subscription,
+            wash_total=wash_total,
+            balance_after=_deposit_balance(db, client_id),
+            closed_at=_now(),
+            created_at=_now(),
+        )
+    )
+
+    # Возврат моек в копилку мойки (24% не вносился при мойке — возвращаем выручку целиком)
+    if wash_total > 0:
+        db.add(
+            PiggyBankTransaction(
+                id=f"pb-{uuid4()}",
+                booking_id=None,
+                amount=wash_total,
+                transaction_type="deposit_return",
+                purpose=f"Депозит {client.name}: возврат моек за {month} в копилку мойки",
+                material_name=None,
+                material_cost=None,
+                date=datetime.now().strftime("%d.%m.%Y"),
+                resource_group="wash",
+                created_at=_now(),
+            )
+        )
+        _deposit_add_transaction(
+            db,
+            client_id,
+            "month_return",
+            wash_total,
+            f"Закрытие {month}: возврат моек в копилку",
+            date=datetime.now().strftime("%d.%m.%Y"),
+        )
+
+    db.commit()
+    return _deposit_overview(db, client_id, client)
+
+
+@app.get("/api/owner/deposits/{client_id}/export.xlsx")
+def deposit_export_excel(
+    client_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> Response:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    from .exports import build_deposit_export
+
+    export_file = build_deposit_export(
+        db, client, _deposit_overview(db, client_id, client)
+    )
+    return _download_response(export_file)
 
 
 # ---------------------------------------------------------------------------

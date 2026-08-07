@@ -46,6 +46,9 @@ export interface RegisteredClient {
   adminRating: number;
   adminNote: string;
   referralSource: string;
+  depositActive?: boolean;
+  depositMonthly?: number;
+  depositStartMonth?: string;
   createdAt: Date;
 }
 
@@ -361,6 +364,68 @@ export interface OwnerExportDelivery {
   telegramChatId?: string | null;
 }
 
+export interface DepositTransactionPayload {
+  id: string;
+  clientId: string;
+  date: string;
+  transaction_type: string;
+  amount: number;
+  balance_after: number;
+  description: string;
+  bookingId?: string | null;
+  createdById?: string | null;
+  createdAt: Date;
+}
+
+export interface DepositClosedMonth {
+  id: string;
+  clientId: string;
+  month: string;
+  subscription: number;
+  washTotal: number;
+  balanceAfter: number;
+  closedAt?: Date | null;
+}
+
+export interface DepositOverview {
+  clientId: string;
+  clientName: string;
+  depositActive: boolean;
+  depositMonthly: number;
+  depositStartMonth: string;
+  balance: number;
+  monthLabel: string;
+  monthWashTotal: number;
+  monthSubscription: number;
+  monthPayable: number;
+  transactions: DepositTransactionPayload[];
+  closedMonths: DepositClosedMonth[];
+}
+
+export interface DepositSummaryItem {
+  clientId: string;
+  clientName: string;
+  depositMonthly: number;
+  balance: number;
+  active: boolean;
+}
+
+export interface DepositWashInput {
+  clientId: string;
+  car: string;
+  plate: string;
+  plateType?: string;
+  price: number;
+  date?: string;
+  time?: string;
+  duration?: number;
+  serviceId?: string;
+  service?: string;
+  workerId?: string;
+  workerName?: string;
+  workerPercent?: number;
+}
+
 export interface OwnerDatabaseResetPreview {
   ownersPreserved: number;
   employeesDeleted: number;
@@ -656,6 +721,15 @@ interface AppContextType {
   addClient: (client: ClientCreateInput) => Promise<RegisteredClient>;
   updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }> }>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
+  listDepositClients: () => Promise<DepositSummaryItem[]>;
+  getDepositOverview: (clientId: string) => Promise<DepositOverview>;
+  updateDepositSubscription: (clientId: string, patch: { depositActive?: boolean; depositMonthly?: number; depositStartMonth?: string }) => Promise<DepositOverview>;
+  depositTopUp: (clientId: string, amount: number, note?: string, date?: string) => Promise<DepositTransactionPayload>;
+  depositAdjust: (clientId: string, amount: number, note?: string) => Promise<DepositOverview>;
+  depositRecordWash: (wash: DepositWashInput) => Promise<DepositOverview>;
+  depositSettleMonth: (clientId: string, month: string) => Promise<DepositOverview>;
+  downloadDepositExport: (clientId: string) => Promise<string>;
+  downloadDepositExportAll: () => Promise<string>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
@@ -1043,6 +1117,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function deleteClient(clientId: string) {
     await apiRequest<{ message: string }>(`/api/clients/${clientId}`, { method: 'DELETE' });
     setClients((current) => current.filter((client) => client.id !== clientId));
+  }
+
+  async function listDepositClients() {
+    const items = await apiRequest<DepositSummaryItem[]>('/api/owner/deposits');
+    return items;
+  }
+
+  async function getDepositOverview(clientId: string) {
+    const overview = await apiRequest<DepositOverview>(`/api/owner/deposits/${clientId}`);
+    return {
+      ...overview,
+      transactions: overview.transactions.map((txn) => ({ ...txn, createdAt: new Date(txn.createdAt) })),
+      closedMonths: overview.closedMonths.map((dm) => ({ ...dm, closedAt: dm.closedAt ? new Date(dm.closedAt) : null })),
+    };
+  }
+
+  async function updateDepositSubscription(clientId: string, patch: { depositActive?: boolean; depositMonthly?: number; depositStartMonth?: string }) {
+    const overview = await apiRequest<DepositOverview>(`/api/owner/deposits/${clientId}`, { method: 'PATCH', body: { clientId, ...patch } });
+    return {
+      ...overview,
+      transactions: overview.transactions.map((txn) => ({ ...txn, createdAt: new Date(txn.createdAt) })),
+      closedMonths: overview.closedMonths.map((dm) => ({ ...dm, closedAt: dm.closedAt ? new Date(dm.closedAt) : null })),
+    };
+  }
+
+  async function depositTopUp(clientId: string, amount: number, note?: string, date?: string) {
+    const txn = await apiRequest<DepositTransactionPayload>(`/api/owner/deposits/${clientId}/topup`, { method: 'POST', body: { clientId, amount, note: note ?? '', date: date ?? '' } });
+    return { ...txn, createdAt: new Date(txn.createdAt) };
+  }
+
+  async function depositAdjust(clientId: string, amount: number, note?: string) {
+    const overview = await apiRequest<DepositOverview>(`/api/owner/deposits/${clientId}/adjust`, { method: 'POST', body: { clientId, amount, note: note ?? '' } });
+    return {
+      ...overview,
+      transactions: overview.transactions.map((txn) => ({ ...txn, createdAt: new Date(txn.createdAt) })),
+      closedMonths: overview.closedMonths.map((dm) => ({ ...dm, closedAt: dm.closedAt ? new Date(dm.closedAt) : null })),
+    };
+  }
+
+  async function depositRecordWash(wash: DepositWashInput) {
+    const overview = await apiRequest<DepositOverview>(`/api/owner/deposits/${wash.clientId}/washes`, { method: 'POST', body: wash });
+    return {
+      ...overview,
+      transactions: overview.transactions.map((txn) => ({ ...txn, createdAt: new Date(txn.createdAt) })),
+      closedMonths: overview.closedMonths.map((dm) => ({ ...dm, closedAt: dm.closedAt ? new Date(dm.closedAt) : null })),
+    };
+  }
+
+  async function depositSettleMonth(clientId: string, month: string) {
+    const overview = await apiRequest<DepositOverview>(`/api/owner/deposits/${clientId}/settle-month`, { method: 'POST', body: { clientId, month } });
+    return {
+      ...overview,
+      transactions: overview.transactions.map((txn) => ({ ...txn, createdAt: new Date(txn.createdAt) })),
+      closedMonths: overview.closedMonths.map((dm) => ({ ...dm, closedAt: dm.closedAt ? new Date(dm.closedAt) : null })),
+    };
+  }
+
+  async function downloadDepositExport(clientId: string) {
+    return apiDownload(`/api/owner/deposits/${clientId}/export.xlsx`, 'deposit.xlsx');
+  }
+
+  async function downloadDepositExportAll() {
+    return apiDownload('/api/owner/deposits/export-all.xlsx', 'deposits-all.xlsx');
   }
 
   async function addBooking(booking: BookingCreateInput) {

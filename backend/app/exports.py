@@ -44,7 +44,7 @@ from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, 
 
 from .complaints import adjusted_booking_percent, complaint_status_for_percent
 
-from .models import Booking, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
+from .models import Booking, Client, DepositMonth, DepositTransaction, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
 
 
 
@@ -73,6 +73,8 @@ PAYMENT_LABELS = {
     "transfer": "Перевод",
 
     "invoice": "По счёту",
+
+    "credit": "В долг (депозит)",
 
 }
 
@@ -2899,6 +2901,134 @@ def _format_money(value: int) -> str:
 def _escape(value: str) -> str:
 
     return escape(value).replace("\n", "<br/>")
+
+
+DEPOSIT_TYPE_LABELS = {
+    "topup": "Пополнение",
+    "wash_deduction": "Мойка в долг",
+    "month_return": "Закрытие месяца (возврат в копилку)",
+    "adjust": "Корректировка",
+}
+
+
+def build_deposit_export(
+    db: Any,
+    client: Client,
+    overview: Any,
+) -> GeneratedExport:
+    """Excel-экспорт депозита одного клиента (движения + сводка месяца)."""
+
+    txn_rows = [
+        [
+            t.date,
+            DEPOSIT_TYPE_LABELS.get(t.transaction_type, t.transaction_type),
+            t.description or "",
+            float(t.amount),
+            float(t.balance_after),
+        ]
+        for t in overview.transactions
+    ]
+
+    summary_rows = [
+        ["Клиент", client.name],
+        ["Баланс депозита", f"{overview.balance:,.0f} ₽".replace(",", " ")],
+        ["Абонентская плата в месяц", f"{overview.depositMonthly:,.0f} ₽".replace(",", " ")],
+        ["Мойки за месяц", f"{overview.monthWashTotal:,.0f} ₽".replace(",", " ")],
+        ["К доплате за месяц", f"{overview.monthPayable:,.0f} ₽".replace(",", " ")],
+    ]
+
+    workbook = Workbook()
+    summary = workbook.active
+    summary.title = "Сводка"
+    summary.append(["Показатель", "Значение"])
+    for row in summary_rows:
+        summary.append(row)
+    _style_table(summary, 1, 2, summary.max_row, 2)
+    _autosize(summary)
+
+    _append_sheet(
+        workbook,
+        "Движения",
+        ["Дата", "Тип", "Описание", "Сумма", "Остаток"],
+        txn_rows,
+        currency_cols={4, 5},
+    )
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return GeneratedExport(
+        file_name=f"deposit-{client.id}.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=buffer.getvalue(),
+        telegram_caption=f"Депозит {client.name}: баланс {overview.balance:,.0f} ₽".replace(",", " "),
+    )
+
+
+def build_deposit_export_all(
+    db: Any,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> GeneratedExport:
+    """Excel-экспорт по всем абонентным клиентам: сводка + движения за период."""
+
+    from sqlalchemy import select
+
+    clients = db.scalars(
+        select(Client).where(Client.deleted_at.is_(None), Client.deposit_active.is_(True)).order_by(Client.name.asc())
+    ).all()
+
+    client_rows = []
+    txn_rows = []
+    for client in clients:
+        txn = db.scalars(
+            select(DepositTransaction)
+            .where(DepositTransaction.client_id == client.id)
+            .order_by(DepositTransaction.created_at.asc())
+        ).all()
+        balance = sum(t.amount for t in txn) if txn else 0.0
+        client_rows.append([client.name, client.deposit_monthly or 0, balance])
+        for t in txn:
+            if date_from and t.date < date_from:
+                continue
+            if date_to and t.date > date_to:
+                continue
+            txn_rows.append(
+                [
+                    t.date,
+                    client.name,
+                    DEPOSIT_TYPE_LABELS.get(t.transaction_type, t.transaction_type),
+                    t.description or "",
+                    float(t.amount),
+                    float(t.balance_after),
+                ]
+            )
+
+    workbook = Workbook()
+    summary = workbook.active
+    summary.title = "Клиенты"
+    summary.append(["Клиент", "Абонплата в месяц", "Баланс"])
+    for row in client_rows:
+        summary.append(row)
+    _style_table(summary, 1, 2, summary.max_row, 3)
+    _autosize(summary)
+
+    _append_sheet(
+        workbook,
+        "Движения",
+        ["Дата", "Клиент", "Тип", "Описание", "Сумма", "Остаток"],
+        txn_rows,
+        currency_cols={5, 6},
+    )
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return GeneratedExport(
+        file_name="deposits-all.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=buffer.getvalue(),
+        telegram_caption="Депозит: все абонентные клиенты",
+    )
 
 
 

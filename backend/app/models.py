@@ -33,6 +33,9 @@ class Client(Base):
     admin_rating: Mapped[int] = mapped_column(Integer, default=0)
     admin_note: Mapped[str] = mapped_column(Text, default="")
     referral_source: Mapped[str] = mapped_column(String(64), default="")
+    deposit_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    deposit_monthly: Mapped[int] = mapped_column(Integer, default=0)
+    deposit_start_month: Mapped[str] = mapped_column(String(16), default="")
     registered: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
@@ -504,6 +507,42 @@ class PiggyBankTransaction(Base):
     material_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
     date: Mapped[str] = mapped_column(String(16))
     resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
+class DepositTransaction(Base):
+    __tablename__ = "deposit_transactions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    client_id: Mapped[str] = mapped_column(
+        String(64), index=True
+    )
+    date: Mapped[str] = mapped_column(String(16))
+    transaction_type: Mapped[str] = mapped_column(String(32))
+    amount: Mapped[float] = mapped_column(Float)
+    balance_after: Mapped[float] = mapped_column(Float)
+    description: Mapped[str] = mapped_column(String(255), default="")
+    booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
+class DepositMonth(Base):
+    __tablename__ = "deposit_months"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    client_id: Mapped[str] = mapped_column(String(64), index=True)
+    month: Mapped[str] = mapped_column(String(16))
+    subscription: Mapped[float] = mapped_column(Float, default=0)
+    wash_total: Mapped[float] = mapped_column(Float, default=0)
+    balance_after: Mapped[float] = mapped_column(Float, default=0)
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

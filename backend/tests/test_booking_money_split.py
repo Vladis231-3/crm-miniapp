@@ -386,6 +386,68 @@ class BookingMoneySplitTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 404, response.text)
 
+    def test_credit_booking_skips_piggy_deposit_and_owner_share(self) -> None:
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Credit Client",
+                "clientPhone": "+7 (999) 777-88-99",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "16:00",
+                "duration": 30,
+                "price": 1000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "credit",
+                "car": "Lada Vesta",
+                "plate": "A321BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        from app.database import SessionLocal
+        from app.models import OwnerProfitShare, PiggyBankTransaction
+
+        with SessionLocal() as db:
+            deposit_txns = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.booking_id == booking_id,
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                )
+            ).all()
+            owner_shares = db.scalars(
+                select(OwnerProfitShare).where(
+                    OwnerProfitShare.booking_id == booking_id,
+                )
+            ).all()
+
+        self.assertEqual(
+            len(deposit_txns), 0,
+            "credit booking должен пропустить вклад 24% в копилку",
+        )
+        self.assertEqual(
+            len(owner_shares), 0,
+            "credit booking должен пропустить начисление долей владельца",
+        )
+
+        # Мастеру проценты всё равно начисляются
+        split = self.get_split(booking_id, self.owner_token)
+        self.assertGreater(split["masterTotalAuto"], 0)
+
     def test_money_split_subtract_additional_service_pipeline(self) -> None:
         from app.database import SessionLocal
         from app.models import Service

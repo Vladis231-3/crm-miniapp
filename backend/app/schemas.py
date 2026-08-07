@@ -22,7 +22,7 @@ BookingStatus = Literal[
     "cancelled",
     "admin_review",
 ]
-PaymentType = Literal["cash", "transfer", "invoice"]
+PaymentType = Literal["cash", "transfer", "invoice", "credit"]
 PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]
 
 NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{1,59}$")
@@ -220,6 +220,9 @@ class ClientSummaryPayload(BaseModel):
     adminRating: int = Field(default=0, ge=0, le=5)
     adminNote: str = ""
     referralSource: str = ""
+    depositActive: bool = False
+    depositMonthly: int = 0
+    depositStartMonth: str = ""
     createdAt: datetime
 
 
@@ -1022,6 +1025,9 @@ class ClientCardUpdateRequest(BaseModel):
     adminRating: int | None = Field(default=None, ge=0, le=5)
     adminNote: str | None = None
     referralSource: str | None = None
+    depositActive: bool | None = None
+    depositMonthly: int | None = None
+    depositStartMonth: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -1839,4 +1845,128 @@ class ArchiveResponse(BaseModel):
     expenses: list[ExpensePayload] = Field(default_factory=list)
     piggyTransactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
     payroll: list[ArchivePayrollItem] = Field(default_factory=list)
+
+
+# --- Deposit (абонентские клиенты / цех малярка) ---
+
+
+class DepositSubscriptionUpdateRequest(BaseModel):
+    clientId: str = Field(min_length=1, max_length=64)
+    depositActive: bool | None = None
+    depositMonthly: int | None = Field(default=None, ge=0, le=100_000_000)
+    depositStartMonth: str = ""
+
+
+class DepositTopUpRequest(BaseModel):
+    clientId: str = Field(min_length=1, max_length=64)
+    amount: float = Field(ge=1, le=100_000_000)
+    date: str = ""
+    note: str = ""
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return value
+
+
+class DepositAdjustRequest(BaseModel):
+    clientId: str = Field(min_length=1, max_length=64)
+    amount: float = Field(ge=-100_000_000, le=100_000_000)
+    note: str = ""
+    date: str = ""
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        value = value.strip()
+        if value and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return value
+
+
+class DepositWashRequest(BaseModel):
+    clientId: str = Field(min_length=1, max_length=64)
+    car: str = ""
+    plate: str = ""
+    plateType: str = "russian"
+    price: float = Field(ge=1, le=10_000_000)
+    date: str = ""
+    time: str = ""
+    duration: int = Field(default=30, ge=1)
+    serviceId: str = ""
+    service: str = ""
+    workerId: str = ""
+    workerName: str = ""
+    workerPercent: int = Field(default=0, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def validate_vehicle(self) -> "DepositWashRequest":
+        if not self.car.strip() and not self.plate.strip():
+            raise ValueError("Укажите марку авто или гос.номер")
+        if self.car.strip():
+            self.car = normalize_vehicle_name(self.car)
+        if self.plate.strip():
+            self.plate = normalize_plate(self.plate, self.plateType)
+        return self
+
+
+class DepositSettleRequest(BaseModel):
+    clientId: str = Field(min_length=1, max_length=64)
+    month: str
+
+    @field_validator("month")
+    @classmethod
+    def validate_month(cls, value: str) -> str:
+        if not re.fullmatch(r"\d{2}\.\d{4}", value.strip()):
+            raise ValueError("Месяц должен быть в формате ММ.ГГГГ")
+        return value.strip()
+
+
+class DepositTransactionPayload(BaseModel):
+    id: str
+    clientId: str
+    date: str
+    transaction_type: str
+    amount: float
+    balance_after: float
+    description: str = ""
+    bookingId: str | None = None
+    createdById: str | None = None
+    createdAt: datetime
+
+
+class DepositMonthPayload(BaseModel):
+    id: str
+    clientId: str
+    month: str
+    subscription: float = 0
+    washTotal: float = 0
+    balanceAfter: float = 0
+    closedAt: datetime | None = None
+
+
+class DepositOverview(BaseModel):
+    clientId: str
+    clientName: str
+    depositActive: bool
+    depositMonthly: int = 0
+    depositStartMonth: str = ""
+    balance: float = 0
+    monthLabel: str = ""
+    monthWashTotal: float = 0
+    monthSubscription: float = 0
+    monthPayable: float = 0
+    transactions: list[DepositTransactionPayload] = Field(default_factory=list)
+    closedMonths: list[DepositMonthPayload] = Field(default_factory=list)
+
+
+class DepositSummaryItem(BaseModel):
+    clientId: str
+    clientName: str
+    depositMonthly: int = 0
+    balance: float = 0
+    active: bool = False
     owners: list[ArchiveOwnerItem] = Field(default_factory=list)

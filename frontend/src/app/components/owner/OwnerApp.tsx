@@ -15,6 +15,7 @@ import { apiBlobUrl, apiRequest } from '../../api';
 import { useApp, type AdditionalService, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
+import { DepositPanel } from './DepositPanel';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
@@ -33,7 +34,7 @@ import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } fr
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'deposit';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -5702,6 +5703,7 @@ setOwnerNewBookingWorkers([]);
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
                 { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
+                { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#F59E0B' },
                 { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
                 { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
                 { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
@@ -7310,6 +7312,11 @@ setOwnerNewBookingWorkers([]);
                 </div>
               )}
             </motion.div>
+          )}
+
+          {/* ── SETTINGS: DEPOSIT ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'deposit' && (
+            <DepositPanel onBack={() => setSettingsSection(null)} />
           )}
 
           {/* ── SETTINGS: BOXES ── */}
