@@ -1593,12 +1593,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function checkConsent() {
-    try {
-      const response = await apiRequest<{ consented: boolean }>('/api/auth/consent/check');
-      return response.consented;
-    } catch {
-      return false;
-    }
+    const response = await apiRequest<{ consented: boolean }>('/api/auth/consent/check');
+    return response.consented;
   }
 
   async function submitConsent() {

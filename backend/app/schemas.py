@@ -1845,6 +1845,7 @@ class ArchiveResponse(BaseModel):
     expenses: list[ExpensePayload] = Field(default_factory=list)
     piggyTransactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
     payroll: list[ArchivePayrollItem] = Field(default_factory=list)
+    owners: list[ArchiveOwnerItem] = Field(default_factory=list)
 
 
 # --- Deposit (абонентские клиенты / цех малярка) ---

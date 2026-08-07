@@ -634,26 +634,32 @@ function AppContent() {
   const [consentNeeded, setConsentNeeded] = useState(true);
 
   useEffect(() => {
+    if (!session) {
+      setConsentReady(true);
+      return;
+    }
     checkConsent()
       .then((consented) => {
         setConsentNeeded(!consented);
         setConsentReady(true);
       })
       .catch(() => {
+        void logout();
+        setConsentNeeded(false);
         setConsentReady(true);
       });
-  }, [checkConsent]);
+  }, [checkConsent, session]);
 
   if (loading || !consentReady) {
     return <div className={`${isDark ? 'dark bg-[#0B1226] text-[#E6EEF8]' : 'bg-[#F6F7FA] text-[#0B1226]'} min-h-screen flex items-center justify-center text-sm`}>Загрузка...</div>;
   }
 
-  if (consentNeeded) {
-    return <ConsentDialog onConsent={() => setConsentNeeded(false)} />;
-  }
-
   if (!session) {
     return <WelcomeScreen />;
+  }
+
+  if (consentNeeded) {
+    return <ConsentDialog onConsent={() => setConsentNeeded(false)} />;
   }
 
   return (
