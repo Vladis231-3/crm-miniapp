@@ -1850,12 +1850,28 @@ class ArchiveResponse(BaseModel):
 
 # --- Deposit (абонентские клиенты / цех малярка) ---
 
+DEPOSIT_PLANS = {"fee", "washes", "per_wash", "unlimited"}
+
 
 class DepositSubscriptionUpdateRequest(BaseModel):
     clientId: str = Field(min_length=1, max_length=64)
     depositActive: bool | None = None
     depositMonthly: int | None = Field(default=None, ge=0, le=100_000_000)
     depositStartMonth: str = ""
+    depositPlan: str = ""
+    depositWashesIncluded: int | None = Field(default=None, ge=0, le=100_000)
+    depositWashesCarryover: bool | None = None
+    depositMinBalance: int | None = Field(default=None, ge=0, le=100_000_000)
+    depositBillingDay: int | None = Field(default=None, ge=1, le=31)
+    depositWashPrice: int | None = Field(default=None, ge=0, le=100_000_000)
+
+    @field_validator("depositPlan")
+    @classmethod
+    def validate_plan(cls, value: str) -> str:
+        value = value.strip()
+        if value and value not in DEPOSIT_PLANS:
+            raise ValueError("Неизвестный тип абонемента")
+        return value
 
 
 class DepositTopUpRequest(BaseModel):
@@ -1946,7 +1962,32 @@ class DepositMonthPayload(BaseModel):
     subscription: float = 0
     washTotal: float = 0
     balanceAfter: float = 0
+    carryoverWashes: int = 0
     closedAt: datetime | None = None
+
+
+class DepositStats(BaseModel):
+    totalTopUps: float = 0
+    totalWashDebits: float = 0
+    totalAdjustments: float = 0
+    totalWashCount: int = 0
+    avgWashPrice: float = 0
+    monthsActive: int = 0
+    startMonth: str = ""
+
+
+class DepositMonthBreakdown(BaseModel):
+    month: str
+    washTotal: float = 0
+    washCount: int = 0
+    subscription: float = 0
+    washLimit: int = 0
+    carriedWashes: int = 0
+    topUp: float = 0
+    adjust: float = 0
+    closed: bool = False
+    balanceStart: float = 0
+    balanceAfter: float = 0
 
 
 class DepositOverview(BaseModel):
@@ -1955,13 +1996,27 @@ class DepositOverview(BaseModel):
     depositActive: bool
     depositMonthly: int = 0
     depositStartMonth: str = ""
+    depositPlan: str = "fee"
+    depositWashesIncluded: int = 0
+    depositWashesCarryover: bool = False
+    depositMinBalance: int = 0
+    depositBillingDay: int = 1
+    depositWashPrice: int = 0
     balance: float = 0
     monthLabel: str = ""
     monthWashTotal: float = 0
+    monthWashCount: int = 0
     monthSubscription: float = 0
     monthPayable: float = 0
+    planWashLimit: int = 0
+    washesLeft: int = 0
+    carriedWashes: int = 0
+    needsTopUp: bool = False
+    monthPending: bool = False
+    stats: DepositStats = Field(default_factory=DepositStats)
     transactions: list[DepositTransactionPayload] = Field(default_factory=list)
     closedMonths: list[DepositMonthPayload] = Field(default_factory=list)
+    monthRows: list[DepositMonthBreakdown] = Field(default_factory=list)
 
 
 class DepositSummaryItem(BaseModel):
@@ -1970,4 +2025,12 @@ class DepositSummaryItem(BaseModel):
     depositMonthly: int = 0
     balance: float = 0
     active: bool = False
+    depositPlan: str = "fee"
+    monthLabel: str = ""
+    monthWashCount: int = 0
+    planWashLimit: int = 0
+    washesLeft: int = 0
+    needsTopUp: bool = False
+    monthPending: bool = False
+    startMonth: str = ""
     owners: list[ArchiveOwnerItem] = Field(default_factory=list)

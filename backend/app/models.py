@@ -36,6 +36,12 @@ class Client(Base):
     deposit_active: Mapped[bool] = mapped_column(Boolean, default=False)
     deposit_monthly: Mapped[int] = mapped_column(Integer, default=0)
     deposit_start_month: Mapped[str] = mapped_column(String(16), default="")
+    deposit_plan: Mapped[str] = mapped_column(String(16), default="fee")
+    deposit_washes_included: Mapped[int] = mapped_column(Integer, default=0)
+    deposit_washes_carryover: Mapped[bool] = mapped_column(Boolean, default=False)
+    deposit_min_balance: Mapped[int] = mapped_column(Integer, default=0)
+    deposit_billing_day: Mapped[int] = mapped_column(Integer, default=1)
+    deposit_wash_price: Mapped[int] = mapped_column(Integer, default=0)
     registered: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
@@ -540,6 +546,7 @@ class DepositMonth(Base):
     subscription: Mapped[float] = mapped_column(Float, default=0)
     wash_total: Mapped[float] = mapped_column(Float, default=0)
     balance_after: Mapped[float] = mapped_column(Float, default=0)
+    carryover_washes: Mapped[int] = mapped_column(Integer, default=0)
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

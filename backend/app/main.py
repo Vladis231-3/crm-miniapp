@@ -6,6 +6,8 @@ import hmac as hmac_mod
 
 import logging
 
+import re
+
 import secrets
 
 import base64
@@ -427,6 +429,10 @@ from .schemas import (
     DepositTransactionPayload,
 
     DepositMonthPayload,
+
+    DepositStats,
+
+    DepositMonthBreakdown,
 
     DepositOverview,
 
@@ -1537,6 +1543,82 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
 
                 "ALTER TABLE clients ADD COLUMN deposit_start_month VARCHAR(16) DEFAULT ''"
+
+            )
+
+    if "deposit_plan" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_plan VARCHAR(16) DEFAULT 'fee'"
+
+            )
+
+    if "deposit_washes_included" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_washes_included INTEGER DEFAULT 0"
+
+            )
+
+    if "deposit_washes_carryover" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                f"ALTER TABLE clients ADD COLUMN deposit_washes_carryover BOOLEAN DEFAULT {boolean_default_sql(False)}"
+
+            )
+
+    if "deposit_min_balance" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_min_balance INTEGER DEFAULT 0"
+
+            )
+
+    if "deposit_billing_day" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_billing_day INTEGER DEFAULT 1"
+
+            )
+
+    if "deposit_wash_price" not in client_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE clients ADD COLUMN deposit_wash_price INTEGER DEFAULT 0"
+
+            )
+
+    deposit_month_columns = (
+        {column["name"] for column in inspector.get_columns("deposit_months")}
+        if "deposit_months" in inspector.get_table_names()
+        else set()
+    )
+
+    if "carryover_washes" not in deposit_month_columns:
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+
+                "ALTER TABLE deposit_months ADD COLUMN carryover_washes INTEGER DEFAULT 0"
 
             )
 
@@ -7702,6 +7784,61 @@ def _send_owner_summary_report(
     )
 
 
+@app.get("/api/owner/exports/{kind}")
+def download_owner_export(
+    kind: str,
+    segment: str = "all",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> Response:
+    _ensure_staff_role(session_data, {"owner"})
+    export_file = _owner_export_file(
+        db,
+        session_data["actorId"],
+        kind,
+        segment=segment,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    return _download_response(export_file)
+
+
+@app.post("/api/owner/exports/{kind}/telegram", response_model=OwnerExportDeliveryPayload)
+def send_owner_export_to_telegram(
+    kind: str,
+    segment: str = "all",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerExportDeliveryPayload:
+    _ensure_staff_role(session_data, {"owner"})
+    export_file = _owner_export_file(
+        db,
+        session_data["actorId"],
+        kind,
+        segment=segment,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    return _send_export_to_telegram(db, session_data["actorId"], export_file)
+
+
+@app.post("/api/owner/reports/{period}/{segment}/telegram", response_model=GenericMessage)
+def send_owner_summary_report_to_telegram(
+    period: str,
+    segment: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    _ensure_staff_role(session_data, {"owner"})
+    report = _owner_summary_report(db, session_data["actorId"], period, segment)
+    export_file = _owner_summary_export_file(db, session_data["actorId"], period, segment)
+    return _send_owner_summary_report(db, session_data["actorId"], report, export_file)
+
+
 
 
 
@@ -13650,17 +13787,152 @@ def _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> fl
     return total
 
 
-def _deposit_months_window() -> set[str]:
-    """Set of 'MM.YYYY' keys for current and previous month."""
+def _deposit_plan_key(value: str | None) -> str:
+    plan = (value or "").strip() or "fee"
+    return plan if plan in {"fee", "washes", "per_wash", "unlimited"} else "fee"
+
+
+def _deposit_prev_month(month: str) -> str:
+    try:
+        m, y = month.split(".")
+        yi = int(y) - (1 if int(m) == 1 else 0)
+        mi = 12 if int(m) == 1 else int(m) - 1
+        return f"{mi:02d}.{yi}"
+    except (ValueError, TypeError):
+        return ""
+
+
+def _deposit_month_wash_count_for(db: Session, client_id: str, month: str) -> int:
+    rows = db.scalars(
+        select(Booking).where(
+            Booking.client_id == client_id,
+            Booking.payment_type == "credit",
+            Booking.status == "completed",
+            Booking.deleted_at.is_(None),
+        )
+    ).all()
+    return sum(1 for booking in rows if _deposit_month_of(booking.date) == month)
+
+
+def _deposit_carried_washes(db: Session, client: Client, month: str) -> int:
+    prev = _deposit_prev_month(month)
+    row = db.scalar(
+        select(DepositMonth).where(
+            DepositMonth.client_id == client.id,
+            DepositMonth.month == prev,
+        )
+    )
+    return int(row.carryover_washes or 0) if row else 0
+
+
+def _deposit_wash_limit(db: Session, client: Client, month: str) -> int:
+    """Лимит моек по плану 'washes' (включённые + перенесённые)."""
+    if _deposit_plan_key(client.deposit_plan or "") != "washes":
+        return 0
+    included = int(client.deposit_washes_included or 0)
+    if not bool(client.deposit_washes_carryover):
+        return included
+    return included + _deposit_carried_washes(db, client, month)
+
+
+def _deposit_month_wash_extra(db: Session, client: Client, month: str) -> float:
+    """Сумма цен моек сверх включённого лимита по плану 'washes'."""
+    if _deposit_plan_key(client.deposit_plan or "") != "washes":
+        return 0.0
+    limit = _deposit_wash_limit(db, client, month)
+    rows = db.scalars(
+        select(Booking).where(
+            Booking.client_id == client.id,
+            Booking.payment_type == "credit",
+            Booking.status == "completed",
+            Booking.deleted_at.is_(None),
+        )
+    ).all()
+    month_rows = [
+        b
+        for b in rows
+        if _deposit_month_of(b.date) == month
+    ]
+    if limit <= 0:
+        return float(sum(b.price for b in month_rows))
+    total = 0.0
+    used = 0
+    for booking in sorted(month_rows, key=lambda b: (b.date or "", b.completed_at or b.created_at or datetime.min)):
+        if used >= limit:
+            total += float(booking.price)
+        used += 1
+    return total
+
+
+def _deposit_month_payable(db: Session, client: Client, month: str) -> float:
+    """Сколько клиент должен заплатить за месяц по своему типу абонемента."""
+    plan = _deposit_plan_key(client.deposit_plan or "")
+    subscription = float(client.deposit_monthly or 0)
+    wash_total = _deposit_month_wash_total_for(db, client.id, month)
+    wash_count = _deposit_month_wash_count_for(db, client.id, month)
+    if plan == "per_wash":
+        unit = float(client.deposit_wash_price or 0)
+        return float(float(wash_count * unit) if unit > 0 else wash_total)
+    if plan == "washes":
+        limit = _deposit_wash_limit(db, client, month)
+        unit = float(client.deposit_wash_price or 0)
+        if unit <= 0:
+            unit = subscription / limit if limit > 0 else 0.0
+        covered = float(min(wash_count, limit)) * unit
+        extra = float(max(0, wash_count - limit)) * unit
+        return max(0.0, subscription - covered) + extra
+    return max(0.0, subscription - wash_total)
+
+
+def _deposit_months_active(start_month: str) -> int:
+    match = re.fullmatch(r"(\d{2})\.(\d{4})", (start_month or "").strip())
+    if not match:
+        return 0
+    start_total = int(match.group(2)) * 12 + int(match.group(1))
     now = datetime.now()
-    months = {f"{now.month:02d}.{now.year}"}
-    prev = now.month - 1
-    prev_year = now.year
-    if prev == 0:
-        prev = 12
-        prev_year -= 1
-    months.add(f"{prev:02d}.{prev_year}")
-    return months
+    return max(0, (now.year * 12 + now.month) - start_total + 1)
+
+
+def _deposit_month_rows(
+    db: Session,
+    client: Client,
+    transactions: list[DepositTransaction],
+    closed_months: list[DepositMonth],
+) -> list[DepositMonthBreakdown]:
+    client_id = client.id
+    months: set[str] = {
+        _deposit_month_of(t.date) for t in transactions if _deposit_month_of(t.date)
+    }
+    months.update(row.month for row in closed_months)
+    rows: list[DepositMonthBreakdown] = []
+    for month in sorted(months, reverse=True):
+        month_txns = [t for t in transactions if _deposit_month_of(t.date) == month]
+        balance_before = sum(
+            t.amount
+            for t in transactions
+            if _deposit_month_of(t.date) and _deposit_month_of(t.date) < month
+        )
+        closed_row = next((r for r in closed_months if r.month == month), None)
+        rows.append(
+            DepositMonthBreakdown(
+                month=month,
+                washTotal=_deposit_month_wash_total_for(db, client_id, month),
+                washCount=_deposit_month_wash_count_for(db, client_id, month),
+                subscription=float(client.deposit_monthly or 0),
+                washLimit=_deposit_wash_limit(db, client, month),
+                carriedWashes=(
+                    int(closed_row.carryover_washes or 0)
+                    if closed_row
+                    else _deposit_carried_washes(db, client, month)
+                ),
+                topUp=sum(t.amount for t in month_txns if t.transaction_type == "topup"),
+                adjust=sum(t.amount for t in month_txns if t.transaction_type == "adjust"),
+                closed=closed_row is not None,
+                balanceStart=balance_before,
+                balanceAfter=balance_before + sum(t.amount for t in month_txns),
+            )
+        )
+    return rows
 
 
 def _deposit_overview(
@@ -13668,21 +13940,20 @@ def _deposit_overview(
 ) -> DepositOverview:
     month = _deposit_month_label()
     wash_total = _deposit_month_wash_total_for(db, client_id, month)
+    wash_count = _deposit_month_wash_count_for(db, client_id, month)
     month_subscription = float(client.deposit_monthly or 0)
-    month_payable = max(0.0, month_subscription - wash_total)
-
-    window = _deposit_months_window()
+    month_payable = _deposit_month_payable(db, client, month)
+    balance = _deposit_balance(db, client_id)
+    plan = _deposit_plan_key(client.deposit_plan or "")
+    wash_limit = _deposit_wash_limit(db, client, month)
+    carried = _deposit_carried_washes(db, client, month)
+    min_balance = int(client.deposit_min_balance or 0)
 
     transactions = db.scalars(
         select(DepositTransaction)
         .where(DepositTransaction.client_id == client_id)
-        .order_by(DepositTransaction.created_at.desc())
+        .order_by(DepositTransaction.created_at.asc())
     ).all()
-    transactions = [
-        t
-        for t in transactions
-        if _deposit_month_of(t.date) in window
-    ]
 
     closed_months = db.scalars(
         select(DepositMonth)
@@ -13690,18 +13961,54 @@ def _deposit_overview(
         .order_by(DepositMonth.month.desc())
     ).all()
 
+    total_topups = sum(t.amount for t in transactions if t.transaction_type == "topup")
+    total_wash_debits = sum(
+        t.amount for t in transactions if t.transaction_type == "wash_deduction"
+    )
+    total_wash_count = sum(
+        1 for t in transactions if t.transaction_type == "wash_deduction"
+    )
+    avg_wash = abs(total_wash_debits) / total_wash_count if total_wash_count else 0.0
+
     return DepositOverview(
         clientId=client.id,
         clientName=client.name,
         depositActive=bool(client.deposit_active),
-        balance=_deposit_balance(db, client_id),
+        balance=balance,
         depositMonthly=int(client.deposit_monthly or 0),
         depositStartMonth=client.deposit_start_month or "",
+        depositPlan=plan,
+        depositWashesIncluded=int(client.deposit_washes_included or 0),
+        depositWashesCarryover=bool(client.deposit_washes_carryover),
+        depositMinBalance=min_balance,
+        depositBillingDay=int(client.deposit_billing_day or 1),
+        depositWashPrice=int(client.deposit_wash_price or 0),
         monthLabel=month,
         monthWashTotal=wash_total,
+        monthWashCount=wash_count,
         monthSubscription=month_subscription,
         monthPayable=month_payable,
-        transactions=[_deposit_txn_payload(t) for t in transactions],
+        planWashLimit=wash_limit,
+        washesLeft=max(0, wash_limit - wash_count) if wash_limit else 0,
+        carriedWashes=carried,
+        needsTopUp=bool(min_balance > 0 and balance < min_balance),
+        monthPending=not any(dm.month == month for dm in closed_months),
+        stats=DepositStats(
+            totalTopUps=float(total_topups),
+            totalWashDebits=float(abs(total_wash_debits)),
+            totalAdjustments=float(
+                sum(
+                    t.amount
+                    for t in transactions
+                    if t.transaction_type in ("adjust", "month_return") and t.amount < 0
+                )
+            ),
+            totalWashCount=total_wash_count,
+            avgWashPrice=round(float(avg_wash), 2),
+            monthsActive=_deposit_months_active(client.deposit_start_month or ""),
+            startMonth=client.deposit_start_month or "",
+        ),
+        transactions=[_deposit_txn_payload(t) for t in reversed(transactions)],
         closedMonths=[
             DepositMonthPayload(
                 id=dm.id,
@@ -13710,10 +14017,12 @@ def _deposit_overview(
                 subscription=dm.subscription or 0,
                 washTotal=dm.wash_total or 0,
                 balanceAfter=dm.balance_after or 0,
+                carryoverWashes=int(dm.carryover_washes or 0),
                 closedAt=dm.closed_at,
             )
             for dm in closed_months
         ],
+        monthRows=_deposit_month_rows(db, client, transactions, closed_months),
     )
 
 
@@ -13726,17 +14035,39 @@ def list_deposit_clients(
     clients = db.scalars(
         select(Client).where(Client.deleted_at.is_(None)).order_by(Client.name.asc())
     ).all()
-    return [
-        DepositSummaryItem(
-            clientId=c.id,
-            clientName=c.name,
-            depositMonthly=int(c.deposit_monthly or 0),
-            balance=_deposit_balance(db, c.id),
-            active=bool(c.deposit_active),
+    month = _deposit_month_label()
+    items: list[DepositSummaryItem] = []
+    for c in clients:
+        if not c.deposit_active:
+            continue
+        balance = _deposit_balance(db, c.id)
+        min_balance = int(c.deposit_min_balance or 0)
+        wash_count = _deposit_month_wash_count_for(db, c.id, month)
+        limit = _deposit_wash_limit(db, c, month)
+        closed = db.scalar(
+            select(DepositMonth).where(
+                DepositMonth.client_id == c.id,
+                DepositMonth.month == month,
+            )
         )
-        for c in clients
-        if c.deposit_active
-    ]
+        items.append(
+            DepositSummaryItem(
+                clientId=c.id,
+                clientName=c.name,
+                depositMonthly=int(c.deposit_monthly or 0),
+                balance=balance,
+                active=True,
+                depositPlan=_deposit_plan_key(c.deposit_plan or ""),
+                monthLabel=month,
+                monthWashCount=wash_count,
+                planWashLimit=limit,
+                washesLeft=max(0, limit - wash_count) if limit else 0,
+                needsTopUp=bool(min_balance > 0 and balance < min_balance),
+                monthPending=closed is None,
+                startMonth=c.deposit_start_month or "",
+            )
+        )
+    return items
 
 
 @app.patch("/api/owner/deposits/{client_id}", response_model=DepositOverview)
@@ -13756,6 +14087,18 @@ def update_deposit_subscription(
         client.deposit_monthly = payload.depositMonthly
     if payload.depositStartMonth:
         client.deposit_start_month = payload.depositStartMonth
+    if payload.depositPlan:
+        client.deposit_plan = payload.depositPlan
+    if payload.depositWashesIncluded is not None:
+        client.deposit_washes_included = payload.depositWashesIncluded
+    if payload.depositWashesCarryover is not None:
+        client.deposit_washes_carryover = payload.depositWashesCarryover
+    if payload.depositMinBalance is not None:
+        client.deposit_min_balance = payload.depositMinBalance
+    if payload.depositBillingDay is not None:
+        client.deposit_billing_day = payload.depositBillingDay
+    if payload.depositWashPrice is not None:
+        client.deposit_wash_price = payload.depositWashPrice
     client.updated_at = _now()
     db.commit()
     db.refresh(client)
@@ -13831,6 +14174,36 @@ def deposit_export_all_excel(
         date_to=date_to,
     )
     return _download_response(export_file)
+
+
+@app.post("/api/owner/deposits/export-all.xlsx/telegram", response_model=OwnerExportDeliveryPayload)
+def deposit_export_all_excel_telegram(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerExportDeliveryPayload:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    from .exports import build_deposit_export_all
+
+    export_file = build_deposit_export_all(db)
+    return _send_export_to_telegram(db, session_data["actorId"], export_file)
+
+
+@app.post("/api/owner/deposits/{client_id}/export.xlsx/telegram", response_model=OwnerExportDeliveryPayload)
+def deposit_export_excel_telegram(
+    client_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerExportDeliveryPayload:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    from .exports import build_deposit_export
+
+    export_file = build_deposit_export(
+        db, client, _deposit_overview(db, client_id, client)
+    )
+    return _send_export_to_telegram(db, session_data["actorId"], export_file)
 
 
 @app.get("/api/owner/deposits/{client_id}", response_model=DepositOverview)
@@ -13941,6 +14314,15 @@ def deposit_settle_month(
     wash_total = _deposit_month_wash_total_for(db, client_id, month)
     subscription = float(client.deposit_monthly or 0)
 
+    carryover_washes = 0
+    if (
+        _deposit_plan_key(client.deposit_plan or "") == "washes"
+        and bool(client.deposit_washes_carryover)
+    ):
+        limit = _deposit_wash_limit(db, client, month)
+        used = _deposit_month_wash_count_for(db, client_id, month)
+        carryover_washes = max(0, limit - used)
+
     db.add(
         DepositMonth(
             id=f"dm-{uuid4()}",
@@ -13949,6 +14331,7 @@ def deposit_settle_month(
             subscription=subscription,
             wash_total=wash_total,
             balance_after=_deposit_balance(db, client_id),
+            carryover_washes=carryover_washes,
             closed_at=_now(),
             created_at=_now(),
         )

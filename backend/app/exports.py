@@ -2916,7 +2916,18 @@ def build_deposit_export(
     client: Client,
     overview: Any,
 ) -> GeneratedExport:
-    """Excel-экспорт депозита одного клиента (движения + сводка месяца)."""
+    """Excel-экспорт депозита одного клиента (сводка, движения, разбивка по месяцам)."""
+
+    plan_label_map = {
+        "fee": "Фиксированная абонплата",
+        "washes": "N моек включено",
+        "per_wash": "Оплата за мойку",
+        "unlimited": "Безлимит",
+    }
+    plan_label = plan_label_map.get(overview.depositPlan or "fee", "fee")
+
+    def money(value: float) -> str:
+        return f"{float(value):,.0f} ₽".replace(",", " ")
 
     txn_rows = [
         [
@@ -2926,15 +2937,28 @@ def build_deposit_export(
             float(t.amount),
             float(t.balance_after),
         ]
-        for t in overview.transactions
+        for t in (overview.transactions or [])
     ]
 
     summary_rows = [
         ["Клиент", client.name],
-        ["Баланс депозита", f"{overview.balance:,.0f} ₽".replace(",", " ")],
-        ["Абонентская плата в месяц", f"{overview.depositMonthly:,.0f} ₽".replace(",", " ")],
-        ["Мойки за месяц", f"{overview.monthWashTotal:,.0f} ₽".replace(",", " ")],
-        ["К доплате за месяц", f"{overview.monthPayable:,.0f} ₽".replace(",", " ")],
+        ["Тип абонемента", plan_label],
+        ["Баланс депозита", money(overview.balance)],
+        ["Абонентская плата в месяц", money(overview.depositMonthly)],
+        ["Старт абонемента", overview.depositStartMonth or "—"],
+        ["День биллинга", overview.depositBillingDay or 1],
+        ["Мойки за месяц, ₽", money(overview.monthWashTotal)],
+        ["Моек за месяц, шт", overview.monthWashCount or 0],
+        ["Лимит моек, шт", overview.planWashLimit or "—"],
+        ["Остаток моек, шт", overview.planWashLimit and overview.washesLeft or "—"],
+        ["Перенесено моек, шт", overview.carriedWashes or "—"],
+        ["К доплате за месяц", money(overview.monthPayable)],
+        ["Порог низкого баланса", money(overview.depositMinBalance)],
+        ["Пополнения всего", money(overview.stats.totalTopUps)],
+        ["Мойки всего, ₽", money(overview.stats.totalWashDebits)],
+        ["Моек всего, шт", overview.stats.totalWashCount or 0],
+        ["Средний чек, ₽", round(float(overview.stats.avgWashPrice or 0), 2)],
+        ["Месяцев с начала абонемента", overview.stats.monthsActive or 0],
     ]
 
     workbook = Workbook()
@@ -2952,6 +2976,28 @@ def build_deposit_export(
         ["Дата", "Тип", "Описание", "Сумма", "Остаток"],
         txn_rows,
         currency_cols={4, 5},
+    )
+
+    month_rows = [
+        [
+            row.month,
+            "да" if row.closed else "нет",
+            row.washCount or 0,
+            (row.washLimit if row.washLimit else "—"),
+            (row.carriedWashes if row.carriedWashes else "—"),
+            money(row.washTotal),
+            money(row.topUp),
+            money(row.subscription),
+            money(row.balanceAfter),
+        ]
+        for row in (overview.monthRows or [])
+    ]
+    _append_sheet(
+        workbook,
+        "По месяцам",
+        ["Месяц", "Закрыт", "Моек, шт", "Лимит", "Перенос", "Мойки", "Пополнено", "Абонплата", "Остаток"],
+        month_rows,
+        currency_cols={6, 7, 8, 9},
     )
 
     buffer = io.BytesIO()
@@ -2980,6 +3026,12 @@ def build_deposit_export_all(
 
     client_rows = []
     txn_rows = []
+    plan_labels = {
+        "fee": "Абонплата",
+        "washes": "N моек",
+        "per_wash": "За мойку",
+        "unlimited": "Безлимит",
+    }
     for client in clients:
         txn = db.scalars(
             select(DepositTransaction)
@@ -2987,7 +3039,18 @@ def build_deposit_export_all(
             .order_by(DepositTransaction.created_at.asc())
         ).all()
         balance = sum(t.amount for t in txn) if txn else 0.0
-        client_rows.append([client.name, client.deposit_monthly or 0, balance])
+        plan = plan_labels.get(
+            (client.deposit_plan or "").strip() or "fee", "Абонплата"
+        )
+        client_rows.append(
+            [
+                client.name,
+                plan,
+                client.deposit_monthly or 0,
+                client.deposit_washes_included or 0,
+                balance,
+            ]
+        )
         for t in txn:
             if date_from and t.date < date_from:
                 continue
@@ -3007,10 +3070,12 @@ def build_deposit_export_all(
     workbook = Workbook()
     summary = workbook.active
     summary.title = "Клиенты"
-    summary.append(["Клиент", "Абонплата в месяц", "Баланс"])
+    summary.append(
+        ["Клиент", "Тип абонемента", "Абонплата в месяц", "Моек включено, шт", "Баланс"]
+    )
     for row in client_rows:
         summary.append(row)
-    _style_table(summary, 1, 2, summary.max_row, 3)
+    _style_table(summary, 1, 2, summary.max_row, 5)
     _autosize(summary)
 
     _append_sheet(
