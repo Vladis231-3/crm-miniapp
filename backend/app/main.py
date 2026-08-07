@@ -2969,6 +2969,12 @@ def _client_summary_payload(
         depositActive=bool(client.deposit_active),
         depositMonthly=int(client.deposit_monthly or 0),
         depositStartMonth=client.deposit_start_month or "",
+        depositPlan=_deposit_plan_key(client.deposit_plan or ""),
+        depositWashesIncluded=int(client.deposit_washes_included or 0),
+        depositWashesCarryover=bool(client.deposit_washes_carryover),
+        depositMinBalance=int(client.deposit_min_balance or 0),
+        depositBillingDay=int(client.deposit_billing_day or 1),
+        depositWashPrice=int(client.deposit_wash_price or 0),
         createdAt=client.created_at,
 
     )
@@ -13856,11 +13862,11 @@ def _deposit_month_wash_extra(db: Session, client: Client, month: str) -> float:
     if limit <= 0:
         return float(sum(b.price for b in month_rows))
     total = 0.0
-    used = 0
-    for booking in sorted(month_rows, key=lambda b: (b.date or "", b.completed_at or b.created_at or datetime.min)):
+    for used, booking in enumerate(
+        sorted(month_rows, key=lambda b: (b.date or "", b.completed_at or b.created_at or _now()))
+    ):
         if used >= limit:
             total += float(booking.price)
-        used += 1
     return total
 
 
@@ -14238,6 +14244,14 @@ def deposit_record_wash(
     booking_date = payload.date or datetime.now().strftime("%d.%m.%Y")
     booking_time = payload.time or datetime.now().strftime("%H:%M")
 
+    plan = _deposit_plan_key(client.deposit_plan or "")
+    tariff = float(client.deposit_wash_price or 0)
+    charge = float(payload.price)
+    charge_note = ""
+    if plan == "per_wash" and tariff > 0:
+        charge = tariff
+        charge_note = f" (тариф {int(tariff)} ₽ за мойку)"
+
     booking = Booking(
         id=f"b-{uuid4()}",
         client_id=client.id,
@@ -14248,7 +14262,7 @@ def deposit_record_wash(
         date=booking_date,
         time=booking_time,
         duration=max(1, int(payload.duration or 30)),
-        price=int(payload.price),
+        price=int(charge),
         status="completed",
         box="",
         payment_type="credit",
@@ -14278,8 +14292,8 @@ def deposit_record_wash(
         db,
         client_id,
         "wash_deduction",
-        -float(payload.price),
-        f"Мойка {payload.plate or payload.car or 'авто'} ({booking_date})",
+        -charge,
+        f"Мойка {payload.plate or payload.car or 'авто'} ({booking_date}){charge_note}",
         date=booking_date,
         booking_id=booking.id,
     )
@@ -14338,12 +14352,20 @@ def deposit_settle_month(
     )
 
     # Возврат моек в копилку мойки (24% не вносился при мойке — возвращаем выручку целиком)
-    if wash_total > 0:
+    # Планы: fee/unlimited — возврат всей суммы; washes — только включённые мойки
+    # (сверх лимита остаются списанными); per_wash — возврат не делается (оплата за мойку).
+    refund = wash_total
+    if _deposit_plan_key(client.deposit_plan or "") == "per_wash":
+        refund = 0.0
+    elif _deposit_plan_key(client.deposit_plan or "") == "washes":
+        refund = max(0.0, wash_total - _deposit_month_wash_extra(db, client, month))
+
+    if refund > 0:
         db.add(
             PiggyBankTransaction(
                 id=f"pb-{uuid4()}",
                 booking_id=None,
-                amount=wash_total,
+                amount=refund,
                 transaction_type="deposit_return",
                 purpose=f"Депозит {client.name}: возврат моек за {month} в копилку мойки",
                 material_name=None,
@@ -14357,7 +14379,7 @@ def deposit_settle_month(
             db,
             client_id,
             "month_return",
-            wash_total,
+            refund,
             f"Закрытие {month}: возврат моек в копилку",
             date=datetime.now().strftime("%d.%m.%Y"),
         )

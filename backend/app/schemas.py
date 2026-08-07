@@ -223,6 +223,12 @@ class ClientSummaryPayload(BaseModel):
     depositActive: bool = False
     depositMonthly: int = 0
     depositStartMonth: str = ""
+    depositPlan: str = "fee"
+    depositWashesIncluded: int = 0
+    depositWashesCarryover: bool = False
+    depositMinBalance: int = 0
+    depositBillingDay: int = 1
+    depositWashPrice: int = 0
     createdAt: datetime
 
 

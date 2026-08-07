@@ -124,11 +124,13 @@ class DepositTests(unittest.TestCase):
             db.commit()
         return client_id
 
-    def _activate_deposit(self, client_id: str, monthly: int = 4000) -> None:
+    def _activate_deposit(self, client_id: str, monthly: int = 4000, **plan_fields) -> None:
+        payload: dict = {"clientId": client_id, "depositActive": True, "depositMonthly": monthly}
+        payload.update(plan_fields)
         response = self.client.patch(
             f"/api/owner/deposits/{client_id}",
             headers=self._auth_headers(self.owner_token),
-            json={"clientId": client_id, "depositActive": True, "depositMonthly": monthly},
+            json=payload,
         )
         self.assertEqual(response.status_code, 200, response.text)
 
@@ -361,6 +363,152 @@ class DepositTests(unittest.TestCase):
             json={"clientId": client_id, "month": month},
         )
         self.assertEqual(response.status_code, 200, response.text)
+
+    # ------------------------------------------------------------------
+    # Plan-aware behavior (fee | washes | per_wash | unlimited)
+    # ------------------------------------------------------------------
+
+    def test_per_wash_plan_charges_tariff_and_no_refund_at_settle(self) -> None:
+        client_id = self._create_client()
+        self._activate_deposit(
+            client_id,
+            monthly=0,
+            depositPlan="per_wash",
+            depositWashPrice=500,
+        )
+        self._topup(client_id, 4000)
+        self._record_wash(client_id, 1000)
+
+        overview = self._overview(client_id)
+        self.assertEqual(overview["depositPlan"], "per_wash")
+        self.assertEqual(overview["depositWashPrice"], 500)
+        self.assertEqual(overview["balance"], 3500, "тариф 500 ₽, а не полная цена 1000 ₽")
+        self.assertEqual(overview["monthWashTotal"], 500)
+
+        month = __import__("datetime").date.today().strftime("%m.%Y")
+        response = self.client.post(
+            f"/api/owner/deposits/{client_id}/settle-month",
+            headers=self._auth_headers(self.owner_token),
+            json={"clientId": client_id, "month": month},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self._overview(client_id)["balance"], 3500)
+
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            returns = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.transaction_type == "deposit_return"
+                )
+            ).all()
+        self.assertEqual(len(returns), 0, "per_wash: возврата моек в копилку быть не должно")
+
+    def test_washes_plan_charges_full_price_and_refunds_only_covered(self) -> None:
+        client_id = self._create_client()
+        self._activate_deposit(
+            client_id,
+            monthly=4000,
+            depositPlan="washes",
+            depositWashesIncluded=2,
+            depositWashPrice=500,
+        )
+        self._topup(client_id, 4000)
+        self._record_wash(client_id, 1000)
+        self._record_wash(client_id, 1000)
+        self._record_wash(client_id, 1000)
+
+        overview = self._overview(client_id)
+        self.assertEqual(overview["depositPlan"], "washes")
+        self.assertEqual(overview["planWashLimit"], 2)
+        self.assertEqual(overview["monthWashCount"], 3)
+        self.assertEqual(overview["balance"], 1000, "3 мойки по 1000 ₽ списаны с баланса")
+
+        month = __import__("datetime").date.today().strftime("%m.%Y")
+        response = self.client.post(
+            f"/api/owner/deposits/{client_id}/settle-month",
+            headers=self._auth_headers(self.owner_token),
+            json={"clientId": client_id, "month": month},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            returns = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.transaction_type == "deposit_return"
+                )
+            ).all()
+        self.assertEqual(len(returns), 1)
+        self.assertEqual(
+            returns[0].amount, 2000, "возврат только 2 включённых моек, 3-я остаётся оплаченной"
+        )
+        self.assertEqual(self._overview(client_id)["balance"], 3000)
+
+    def test_washes_plan_carryover_from_previous_month(self) -> None:
+        from datetime import date
+        from uuid import uuid4 as _uuid4
+
+        from app.database import SessionLocal
+        from app.models import DepositMonth
+
+        client_id = self._create_client()
+        self._activate_deposit(
+            client_id,
+            monthly=4000,
+            depositPlan="washes",
+            depositWashesIncluded=2,
+            depositWashesCarryover=True,
+        )
+
+        today = date.today()
+        prev_month = (
+            f"{today.month - 1 if today.month > 1 else 12:02d}."
+            f"{today.year - 1 if today.month == 1 else today.year}"
+        )
+        with SessionLocal() as db:
+            db.add(
+                DepositMonth(
+                    id=f"dm-{_uuid4().hex}",
+                    client_id=client_id,
+                    month=prev_month,
+                    subscription=4000,
+                    wash_total=0,
+                    balance_after=4000,
+                    carryover_washes=1,
+                    closed_at=None,
+                )
+            )
+            db.commit()
+
+        overview = self._overview(client_id)
+        self.assertEqual(overview["carriedWashes"], 1)
+        self.assertEqual(overview["planWashLimit"], 3, "2 включённые + 1 перенесённая")
+
+    def test_deposit_export_telegram_endpoints_reachable(self) -> None:
+        client_id = self._create_client()
+        self._activate_deposit(client_id, 4000)
+
+        response = self.client.post(
+            f"/api/owner/deposits/{client_id}/export.xlsx/telegram",
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertIn("fileName", payload)
+        self.assertIn("telegramSent", payload)
+
+        response_all = self.client.post(
+            "/api/owner/deposits/export-all.xlsx/telegram",
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(response_all.status_code, 200, response_all.text)
+        self.assertIn("telegramSent", response_all.json())
 
 
 if __name__ == "__main__":

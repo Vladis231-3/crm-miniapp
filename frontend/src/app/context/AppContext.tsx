@@ -49,6 +49,12 @@ export interface RegisteredClient {
   depositActive?: boolean;
   depositMonthly?: number;
   depositStartMonth?: string;
+  depositPlan?: string;
+  depositWashesIncluded?: number;
+  depositWashesCarryover?: boolean;
+  depositMinBalance?: number;
+  depositBillingDay?: number;
+  depositWashPrice?: number;
   createdAt: Date;
 }
 
@@ -384,7 +390,32 @@ export interface DepositClosedMonth {
   subscription: number;
   washTotal: number;
   balanceAfter: number;
+  carryoverWashes?: number;
   closedAt?: Date | null;
+}
+
+export interface DepositStats {
+  totalTopUps: number;
+  totalWashDebits: number;
+  totalAdjustments: number;
+  totalWashCount: number;
+  avgWashPrice: number;
+  monthsActive: number;
+  startMonth: string;
+}
+
+export interface DepositMonthBreakdown {
+  month: string;
+  washTotal: number;
+  washCount: number;
+  subscription: number;
+  washLimit: number;
+  carriedWashes: number;
+  topUp: number;
+  adjust: number;
+  closed: boolean;
+  balanceStart: number;
+  balanceAfter: number;
 }
 
 export interface DepositOverview {
@@ -393,13 +424,27 @@ export interface DepositOverview {
   depositActive: boolean;
   depositMonthly: number;
   depositStartMonth: string;
+  depositPlan: string;
+  depositWashesIncluded: number;
+  depositWashesCarryover: boolean;
+  depositMinBalance: number;
+  depositBillingDay: number;
+  depositWashPrice: number;
   balance: number;
   monthLabel: string;
   monthWashTotal: number;
+  monthWashCount: number;
   monthSubscription: number;
   monthPayable: number;
+  planWashLimit: number;
+  washesLeft: number;
+  carriedWashes: number;
+  needsTopUp: boolean;
+  monthPending: boolean;
+  stats: DepositStats;
   transactions: DepositTransactionPayload[];
   closedMonths: DepositClosedMonth[];
+  monthRows: DepositMonthBreakdown[];
 }
 
 export interface DepositSummaryItem {
@@ -408,6 +453,14 @@ export interface DepositSummaryItem {
   depositMonthly: number;
   balance: number;
   active: boolean;
+  depositPlan: string;
+  monthLabel: string;
+  monthWashCount: number;
+  planWashLimit: number;
+  washesLeft: number;
+  needsTopUp: boolean;
+  monthPending: boolean;
+  startMonth: string;
 }
 
 export interface DepositWashInput {
@@ -424,6 +477,18 @@ export interface DepositWashInput {
   workerId?: string;
   workerName?: string;
   workerPercent?: number;
+}
+
+export interface DepositSubscriptionPatch {
+  depositActive?: boolean;
+  depositMonthly?: number;
+  depositStartMonth?: string;
+  depositPlan?: string;
+  depositWashesIncluded?: number;
+  depositWashesCarryover?: boolean;
+  depositMinBalance?: number;
+  depositBillingDay?: number;
+  depositWashPrice?: number;
 }
 
 export interface OwnerDatabaseResetPreview {
@@ -728,13 +793,15 @@ interface AppContextType {
   deleteClient: (clientId: string) => Promise<void>;
   listDepositClients: () => Promise<DepositSummaryItem[]>;
   getDepositOverview: (clientId: string) => Promise<DepositOverview>;
-  updateDepositSubscription: (clientId: string, patch: { depositActive?: boolean; depositMonthly?: number; depositStartMonth?: string }) => Promise<DepositOverview>;
+  updateDepositSubscription: (clientId: string, patch: DepositSubscriptionPatch) => Promise<DepositOverview>;
   depositTopUp: (clientId: string, amount: number, note?: string, date?: string) => Promise<DepositTransactionPayload>;
   depositAdjust: (clientId: string, amount: number, note?: string) => Promise<DepositOverview>;
   depositRecordWash: (wash: DepositWashInput) => Promise<DepositOverview>;
   depositSettleMonth: (clientId: string, month: string) => Promise<DepositOverview>;
   downloadDepositExport: (clientId: string) => Promise<string>;
   downloadDepositExportAll: () => Promise<string>;
+  sendDepositExport: (clientId: string) => Promise<OwnerExportDelivery>;
+  sendDepositExportAll: () => Promise<OwnerExportDelivery>;
   addBooking: (booking: BookingCreateInput) => Promise<Booking>;
   updateBooking: (id: string, updates: BookingUpdateInput) => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
@@ -1137,7 +1204,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }
 
-  async function updateDepositSubscription(clientId: string, patch: { depositActive?: boolean; depositMonthly?: number; depositStartMonth?: string }) {
+  async function updateDepositSubscription(clientId: string, patch: DepositSubscriptionPatch) {
     const overview = await apiRequest<DepositOverview>(`/api/owner/deposits/${clientId}`, { method: 'PATCH', body: { clientId, ...patch } });
     return {
       ...overview,
@@ -1184,6 +1251,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function downloadDepositExportAll() {
     return apiDownload('/api/owner/deposits/export-all.xlsx', 'deposits-all.xlsx');
+  }
+
+  async function sendDepositExport(clientId: string) {
+    return apiRequest<OwnerExportDelivery>(`/api/owner/deposits/${clientId}/export.xlsx/telegram`, { method: 'POST' });
+  }
+
+  async function sendDepositExportAll() {
+    return apiRequest<OwnerExportDelivery>('/api/owner/deposits/export-all.xlsx/telegram', { method: 'POST' });
   }
 
   async function addBooking(booking: BookingCreateInput) {
@@ -1889,6 +1964,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       depositSettleMonth,
       downloadDepositExport,
       downloadDepositExportAll,
+      sendDepositExport,
+      sendDepositExportAll,
     }}>
       {children}
     </AppContext.Provider>
