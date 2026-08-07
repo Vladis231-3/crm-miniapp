@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-07 12:52 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-07 12:57 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **246**
-- Строк кода: **77 342**
+- Строк кода: **77 367**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 40, `.ts`: 19, `.tsx`: 183
 
 ## Архитектура
@@ -1874,44 +1874,53 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/DepositPanel.tsx (739 строк)
+### frontend/src/app/components/owner/DepositPanel.tsx (764 строк)
 
-- `MONTH_LABELS` (стр. 20) — локальный
-- `monthKeyToLabel` (стр. 22) — локальный
-- `match` (стр. 23) — локальный
-- `monthIndex` (стр. 25) — локальный
-- `currentMonthKey` (стр. 29) — локальный
-- `now` (стр. 30) — локальный
-- `formatMoney` (стр. 34) — локальный
-- `fieldLabel` (стр. 38) — локальный
-- `Sheet` (стр. 49) — локальный
-- `DepositPanel` (стр. 79)
-- `glass` (стр. 95) — локальный
-- `sub` (стр. 96) — локальный
-- `primary` (стр. 97) — локальный
-- `accent` (стр. 98) — локальный
-- `danger` (стр. 99) — локальный
-- `inputCls` (стр. 100) — локальный
-- `selectCls` (стр. 101) — локальный
-- `loadSummaries` (стр. 126) — локальный
-- `loadOverview` (стр. 138) — локальный
-- `selectedClient` (стр. 151) — локальный
-- `workerOptions` (стр. 156) — локальный
-- `eligibleClients` (стр. 158) — локальный
-- `openClient` (стр. 160) — локальный
-- `runAndRefresh` (стр. 165) — локальный
-- `handleActivate` (стр. 177) — локальный
-- `handleTopup` (стр. 191) — локальный
-- `handleAdjust` (стр. 201) — локальный
-- `handleRecordWash` (стр. 210) — локальный
-- `selectedWorker` (стр. 220) — локальный
-- `handleSettle` (стр. 244) — локальный
-- `handleExportOne` (стр. 249) — локальный
-- `handleExportAll` (стр. 259) — локальный
-- `openActivateFor` (стр. 268) — локальный
-- `openWashFor` (стр. 275) — локальный
-- `openTopupFor` (стр. 286) — локальный
-- `txnRows` (стр. 293) — локальный
+- `toISODate` (стр. 22) — локальный
+- `parsed` (стр. 23) — локальный
+- `y` (стр. 25) — локальный
+- `m` (стр. 26) — локальный
+- `d` (стр. 27) — локальный
+- `TIME_SLOTS` (стр. 31) — локальный
+- `h` (стр. 32) — локальный
+- `m` (стр. 33) — локальный
+- `MONTH_LABELS` (стр. 37) — локальный
+- `monthKeyToLabel` (стр. 39) — локальный
+- `match` (стр. 40) — локальный
+- `monthIndex` (стр. 42) — локальный
+- `currentMonthKey` (стр. 46) — локальный
+- `now` (стр. 47) — локальный
+- `formatMoney` (стр. 51) — локальный
+- `fieldLabel` (стр. 55) — локальный
+- `Sheet` (стр. 66) — локальный
+- `DepositPanel` (стр. 96)
+- `glass` (стр. 112) — локальный
+- `sub` (стр. 113) — локальный
+- `primary` (стр. 114) — локальный
+- `accent` (стр. 115) — локальный
+- `danger` (стр. 116) — локальный
+- `inputCls` (стр. 117) — локальный
+- `selectCls` (стр. 118) — локальный
+- `loadSummaries` (стр. 143) — локальный
+- `loadOverview` (стр. 155) — локальный
+- `selectedClient` (стр. 168) — локальный
+- `workerOptions` (стр. 173) — локальный
+- `eligibleClients` (стр. 175) — локальный
+- `openClient` (стр. 177) — локальный
+- `runAndRefresh` (стр. 182) — локальный
+- `handleActivate` (стр. 194) — локальный
+- `handleTopup` (стр. 208) — локальный
+- `handleAdjust` (стр. 218) — локальный
+- `handleRecordWash` (стр. 227) — локальный
+- `selectedWorker` (стр. 237) — локальный
+- `handleSettle` (стр. 261) — локальный
+- `handleExportOne` (стр. 266) — локальный
+- `handleExportAll` (стр. 276) — локальный
+- `openActivateFor` (стр. 285) — локальный
+- `openWashFor` (стр. 292) — локальный
+- `openTopupFor` (стр. 303) — локальный
+- `txnRows` (стр. 310) — локальный
+- `val` (стр. 734) — локальный
 
 ### frontend/src/app/components/owner/OwnerApp.tsx (11324 строк)
 
@@ -2725,7 +2734,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 15:51)
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 15:57)
 - `backend/app/main.py` (2026-08-07 15:47)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-07 15:47)
 - `backend/app/models.py` (2026-08-07 15:47)

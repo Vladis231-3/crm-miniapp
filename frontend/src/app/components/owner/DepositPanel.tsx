@@ -11,11 +11,28 @@ import {
   type DepositWashInput,
   type RegisteredClient,
 } from '../../context/AppContext';
-import { formatDate } from '../../utils/date';
+import { formatDate, parseFlexibleDate } from '../../utils/date';
+import { normalizePlateInput, type PlateType } from '../../utils/validation';
 
 interface DepositPanelProps {
+
   onBack: () => void;
 }
+
+function toISODate(value: string) {
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) return '';
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const d = String(parsed.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0');
+  const m = String((i % 2) * 30).padStart(2, '0');
+  return `${h}:${m}`;
+});
 
 const MONTH_LABELS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
@@ -117,7 +134,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
   const [washCar, setWashCar] = useState('');
   const [washPlate, setWashPlate] = useState('');
-  const [washPlateType, setWashPlateType] = useState('russian');
+  const [washPlateType, setWashPlateType] = useState<PlateType>('russian');
   const [washPrice, setWashPrice] = useState('');
   const [washWorkerId, setWashWorkerId] = useState('');
   const [washService, setWashService] = useState('');
@@ -653,23 +670,26 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             </div>
             <div className="mb-3">
               {fieldLabel('Номер автомобиля')}
-              <div className="flex gap-2">
-                <input
-                  className={`${inputCls} flex-1 min-w-0`}
-                  placeholder="Например: а123вс777"
-                  value={washPlate}
-                  onChange={(event) => setWashPlate(event.target.value)}
-                />
-                <select
-                  className={`${selectCls} shrink-0`}
-                  style={{ width: 88 }}
-                  value={washPlateType}
-                  onChange={(event) => setWashPlateType(event.target.value)}
-                >
-                  <option value="russian">RU</option>
-                  <option value="foreign">EU</option>
-                </select>
+              <div className="mb-2 flex gap-1.5">
+                {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`text-[10px] px-2 py-1 rounded-lg ${washPlateType === t ? 'text-white font-medium' : `${sub}`}`}
+                    style={washPlateType === t ? { background: primary } : { background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                    onClick={() => { setWashPlateType(t); setWashPlate(''); }}
+                  >
+                    {t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}
+                  </button>
+                ))}
               </div>
+              <input
+                className={inputCls}
+                placeholder={washPlateType === 'russian' ? 'а123вс777' : washPlateType === 'motorcycle' ? '1234ав77' : 'xyz1234'}
+                maxLength={washPlateType === 'foreign' ? 15 : 9}
+                value={washPlate}
+                onChange={(event) => setWashPlate(normalizePlateInput(event.target.value, washPlateType))}
+              />
             </div>
             <div className="mb-3">
               {fieldLabel('Цена мойки (₽)')}
@@ -703,24 +723,29 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                 onChange={(event) => setWashService(event.target.value)}
               />
             </div>
-            <div className="flex gap-2 mb-1">
-              <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-2 gap-2 mb-1">
+              <div className="min-w-0">
                 {fieldLabel('Дата (пусто — сегодня)')}
                 <input
                   className={inputCls}
-                  placeholder="ДД.ММ.ГГГГ"
-                  value={dateDraft}
-                  onChange={(event) => setDateDraft(event.target.value)}
+                  type="date"
+                  value={toISODate(dateDraft)}
+                  onChange={(event) => {
+                    const val = parseFlexibleDate(event.target.value);
+                    setDateDraft(val ? formatDate(val) : '');
+                  }}
                 />
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0">
                 {fieldLabel('Время')}
-                <input
-                  className={inputCls}
-                  placeholder="Например: 14:00"
+                <select
+                  className={selectCls}
                   value={washTime}
                   onChange={(event) => setWashTime(event.target.value)}
-                />
+                >
+                  <option value="">--:--</option>
+                  {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                </select>
               </div>
             </div>
             <p className={`text-xs ${sub} mb-4`}>Сумма мойки спишется с депозита, в копилку вернётся при закрытии месяца.</p>
