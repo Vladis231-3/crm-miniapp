@@ -661,7 +661,8 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   onChange={(event) => setWashPlate(event.target.value)}
                 />
                 <select
-                  className={`${selectCls} w-24 shrink-0`}
+                  className={`${selectCls} shrink-0`}
+                  style={{ width: 88 }}
                   value={washPlateType}
                   onChange={(event) => setWashPlateType(event.target.value)}
                 >

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-07 12:39 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-07 12:52 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **246**
-- Строк кода: **77 341**
+- Строк кода: **77 342**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 40, `.ts`: 19, `.tsx`: 183
 
 ## Архитектура
@@ -1874,7 +1874,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/DepositPanel.tsx (738 строк)
+### frontend/src/app/components/owner/DepositPanel.tsx (739 строк)
 
 - `MONTH_LABELS` (стр. 20) — локальный
 - `monthKeyToLabel` (стр. 22) — локальный
@@ -2725,18 +2725,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 15:39)
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 15:51)
+- `backend/app/main.py` (2026-08-07 15:47)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-07 15:47)
+- `backend/app/models.py` (2026-08-07 15:47)
+- `backend/app/schemas.py` (2026-08-07 15:47)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-07 15:47)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-07 15:47)
 - `backend/tests/test_content.py` (2026-08-07 15:36)
-- `backend/app/main.py` (2026-08-07 15:33)
 - `frontend/src/app/components/admin/ContentEditor.tsx` (2026-08-07 15:29)
 - `frontend/src/app/components/landing/Hero.tsx` (2026-08-07 15:29)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-07 15:28)
 - `backend/tests/test_deposit.py` (2026-08-07 13:27)
 - `frontend/src/app/App.tsx` (2026-08-07 13:22)
-- `backend/app/schemas.py` (2026-08-07 13:17)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-07 12:41)
 - `backend/tests/test_booking_money_split.py` (2026-08-07 12:41)
-- `backend/app/models.py` (2026-08-07 12:41)
 - `backend/app/exports.py` (2026-08-07 12:41)
-- `scripts/.project-map-watch.lock` (2026-08-07 10:28)
-- `backend/tests/test_worker_car_search.py` (2026-08-05 12:21)
