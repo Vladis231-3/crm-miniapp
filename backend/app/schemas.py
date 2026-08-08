@@ -1959,6 +1959,8 @@ class DepositTransactionPayload(BaseModel):
     bookingId: str | None = None
     createdById: str | None = None
     createdAt: datetime
+    car: str = ""
+    plate: str = ""
 
 
 class DepositMonthPayload(BaseModel):

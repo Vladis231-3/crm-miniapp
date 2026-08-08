@@ -781,13 +781,17 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm truncate">{txn.description}</div>
                         <div className={`text-xs ${sub}`}>
-                          {formatDate(new Date(txn.date))}
+                          {txn.date}
                           {txn.bookingId ? ' · мойка' : ''}
+                          {(txn.car || txn.plate) ? ` · ${[txn.car, txn.plate].filter(Boolean).join(' ')}` : ''}
                           {TXN_TYPE_OPTIONS.find((option) => option.value === txn.transaction_type)?.label ? ` · ${TXN_TYPE_OPTIONS.find((option) => option.value === txn.transaction_type)?.label}` : ''}
                         </div>
                       </div>
-                      <div className={`text-sm font-medium ${txn.amount >= 0 ? '' : 'text-red-500'}`}>
-                        {txn.amount >= 0 ? '+' : ''}{formatMoney(txn.amount)}
+                      <div className="text-right shrink-0">
+                        <div className={`text-sm font-medium ${txn.amount >= 0 ? '' : 'text-red-500'}`}>
+                          {txn.amount >= 0 ? '+' : ''}{formatMoney(txn.amount)}
+                        </div>
+                        <div className={`text-xs ${sub}`}>баланс {formatMoney(txn.balance_after)}</div>
                       </div>
                     </div>
                   ))}

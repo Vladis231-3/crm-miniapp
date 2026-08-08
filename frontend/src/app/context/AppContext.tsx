@@ -381,6 +381,8 @@ export interface DepositTransactionPayload {
   bookingId?: string | null;
   createdById?: string | null;
   createdAt: Date;
+  car?: string;
+  plate?: string;
 }
 
 export interface DepositClosedMonth {

@@ -13753,7 +13753,13 @@ def _deposit_add_transaction(
     return txn
 
 
-def _deposit_txn_payload(txn: DepositTransaction) -> DepositTransactionPayload:
+def _deposit_txn_payload(db: Session, txn: DepositTransaction) -> DepositTransactionPayload:
+    car, plate = "", ""
+    if txn.booking_id:
+        booking = db.get(Booking, txn.booking_id)
+        if booking is not None:
+            car = booking.car or ""
+            plate = booking.plate or ""
     return DepositTransactionPayload(
         id=txn.id,
         clientId=txn.client_id,
@@ -13765,6 +13771,8 @@ def _deposit_txn_payload(txn: DepositTransaction) -> DepositTransactionPayload:
         bookingId=txn.booking_id,
         createdById=txn.created_by_id,
         createdAt=txn.created_at,
+        car=car,
+        plate=plate,
     )
 
 
@@ -14014,7 +14022,7 @@ def _deposit_overview(
             monthsActive=_deposit_months_active(client.deposit_start_month or ""),
             startMonth=client.deposit_start_month or "",
         ),
-        transactions=[_deposit_txn_payload(t) for t in reversed(transactions)],
+        transactions=[_deposit_txn_payload(db, t) for t in reversed(transactions)],
         closedMonths=[
             DepositMonthPayload(
                 id=dm.id,
@@ -14135,7 +14143,7 @@ def deposit_topup(
     )
     db.commit()
     db.refresh(txn)
-    return _deposit_txn_payload(txn)
+    return _deposit_txn_payload(db, txn)
 
 
 @app.post("/api/owner/deposits/{client_id}/adjust", response_model=DepositOverview)

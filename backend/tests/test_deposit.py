@@ -198,6 +198,17 @@ class DepositTests(unittest.TestCase):
         self.assertEqual(overview["monthWashTotal"], 1000)
         self.assertEqual(overview["monthPayable"], 4000 - 1000)
 
+        wash_txn = next(
+            (tx for tx in overview["transactions"] if tx["transaction_type"] == "wash_deduction"),
+            None,
+        )
+        self.assertIsNotNone(wash_txn)
+        self.assertEqual(wash_txn["car"], "BMW")
+        from app.schemas import normalize_plate
+
+        self.assertEqual(wash_txn["plate"], normalize_plate("M001AA", "russian"))
+        self.assertEqual(wash_txn["balance_after"], 3000)
+
         from app.database import SessionLocal
         from app.models import PiggyBankTransaction
         from sqlalchemy import select

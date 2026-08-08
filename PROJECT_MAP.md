@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-07 13:50 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-08 07:05 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **246**
-- Строк кода: **78 516**
+- Строк кода: **78 543**
 - По расширениям: `.js`: 1, `.mjs`: 3, `.py`: 40, `.ts`: 19, `.tsx`: 183
 
 ## Архитектура
@@ -330,7 +330,7 @@ concept1.0/
 - `OwnerSummaryExportData.moneydef money(value: float) -> str: return f"{float(value):,.0f} ₽".replace(",", " ")` (стр. 2929)
 - `build_deposit_export_alldef build_deposit_export_all( db: Any, *, date_from: str | None = None, date_to: str | None = None,` (стр. 3013)
 
-### backend/app/main.py (19509 строк)
+### backend/app/main.py (19517 строк)
 
 Роуты (104):
 
@@ -382,63 +382,63 @@ concept1.0/
   `PATCH /api/owner/incomes/{income_id}` -> `update_income` (декоратор: стр. 13002)
   `GET /api/owner/piggy-bank` -> `get_piggy_bank` (декоратор: стр. 13082)
   `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 13571)
-  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 14035)
-  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 14079)
-  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 14114)
-  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 14141)
-  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 14167)
-  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 14185)
-  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 14197)
-  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 14215)
-  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 14228)
-  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 14306)
-  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 14391)
-  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 14443)
-  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 14642)
-  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 14738)
-  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 14818)
-  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 14886)
-  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 15019)
-  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 15099)
-  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 15249)
-  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 15391)
-  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 15537)
-  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 15591)
-  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 15675)
-  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 15733)
-  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 15781)
-  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 15855)
-  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 15879)
-  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 15939)
-  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 15981)
-  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 16005)
-  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 16029)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 16053)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 16089)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 16192)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 16273)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 16345)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 16552)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 16648)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 16870)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 16938)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 17095)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 17392)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 17406)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 17617)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 18007)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 18384)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 18554)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 18792)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 19002)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 19138)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 19198)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 19392)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 19400)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 19412)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 19436)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 19444)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 19452)
+  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 14043)
+  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 14087)
+  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 14122)
+  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 14149)
+  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 14175)
+  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 14193)
+  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 14205)
+  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 14223)
+  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 14236)
+  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 14314)
+  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 14399)
+  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 14451)
+  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 14650)
+  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 14746)
+  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 14826)
+  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 14894)
+  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 15027)
+  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 15107)
+  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 15257)
+  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 15399)
+  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 15545)
+  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 15599)
+  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 15683)
+  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 15741)
+  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 15789)
+  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 15863)
+  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 15887)
+  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 15947)
+  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 15989)
+  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 16013)
+  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 16037)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 16061)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 16097)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 16200)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 16281)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 16353)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 16560)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 16656)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 16878)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 16946)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 17103)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 17400)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 17414)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 17625)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 18015)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 18392)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 18562)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 18800)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 19010)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 19146)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 19206)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 19400)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 19408)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 19420)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 19444)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 19452)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 19460)
 ```
 
 Классы и функции (209):
@@ -624,25 +624,25 @@ concept1.0/
 - `_PartialBroadcastError._in_rangedef _in_range(d: str | None) -> bool: if not d: return True parsed = _parse_date_str(d) if not parsed: return True if parsed_from and parsed < parsed_from: return False if parsed_t` (стр. 13128)
 - `_deposit_balancedef _deposit_balance(db: Session, client_id: str) -> float: return sum( t.amount for t in db.scalars( select(DepositTransaction).where(DepositTransaction.client_id == client_id) ).` (стр. 13719)
 - `_deposit_add_transactiondef _deposit_add_transaction( db: Session, client_id: str, txn_type: str, amount: float, description: str, *, date: str, booking_id: str | None = None, created_by_id: str | None = ` (стр. 13728)
-- `_deposit_txn_payloaddef _deposit_txn_payload(txn: DepositTransaction) -> DepositTransactionPayload: return DepositTransactionPayload( id=txn.id, clientId=txn.client_id, date=txn.date, transaction_type` (стр. 13756)
-- `_deposit_month_labeldef _deposit_month_label() -> str: return datetime.now().strftime("%m.%Y")` (стр. 13771)
-- `_deposit_month_ofdef _deposit_month_of(date_str: str) -> str: parts = (date_str or "").split(".") if len(parts) == 3: return f"{parts[1]}.{parts[2]}" return ""` (стр. 13773)
-- `_deposit_month_wash_total_fordef _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> float: total = 0.0 rows = db.scalars( select(Booking).where( Booking.client_id == client_id, Booking.p` (стр. 13780)
-- `_deposit_plan_keydef _deposit_plan_key(value: str | None) -> str: plan = (value or "").strip() or "fee" return plan if plan in {"fee", "washes", "per_wash", "unlimited"} else "fee"` (стр. 13796)
-- `_deposit_prev_monthdef _deposit_prev_month(month: str) -> str: try: m, y = month.split(".") yi = int(y) - (1 if int(m) == 1 else 0) mi = 12 if int(m) == 1 else int(m) - 1 return f"{mi:02d}.{yi}" exce` (стр. 13801)
-- `_deposit_month_wash_count_fordef _deposit_month_wash_count_for(db: Session, client_id: str, month: str) -> int: rows = db.scalars( select(Booking).where( Booking.client_id == client_id, Booking.payment_type ==` (стр. 13811)
-- `_deposit_carried_washesdef _deposit_carried_washes(db: Session, client: Client, month: str) -> int: prev = _deposit_prev_month(month) row = db.scalar( select(DepositMonth).where( DepositMonth.client_id =` (стр. 13823)
-- `_deposit_wash_limitdef _deposit_wash_limit(db: Session, client: Client, month: str) -> int: """Лимит моек по плану 'washes' (включённые + перенесённые).""" if _deposit_plan_key(client.deposit_plan or` (стр. 13834)
-- `_deposit_month_wash_extradef _deposit_month_wash_extra(db: Session, client: Client, month: str) -> float: """Сумма цен моек сверх включённого лимита по плану 'washes'.""" if _deposit_plan_key(client.deposi` (стр. 13844)
-- `_deposit_month_payabledef _deposit_month_payable(db: Session, client: Client, month: str) -> float: """Сколько клиент должен заплатить за месяц по своему типу абонемента.""" plan = _deposit_plan_key(cli` (стр. 13873)
-- `_deposit_months_activedef _deposit_months_active(start_month: str) -> int: match = re.fullmatch(r"(\d{2})\.(\d{4})", (start_month or "").strip()) if not match: return 0 start_total = int(match.group(2))` (стр. 13893)
-- `_deposit_month_rowsdef _deposit_month_rows( db: Session, client: Client, transactions: list[DepositTransaction], closed_months: list[DepositMonth],` (стр. 13902)
-- `_deposit_overviewdef _deposit_overview( db: Session, client_id: str, client: Client` (стр. 13944)
-- `_week_boundsdef _week_bounds() -> tuple[date, date]: today = date.today() saturday = today - timedelta(days=(today.weekday() - 5) % 7) friday = saturday + timedelta(days=6) return saturday, fr` (стр. 14419)
-- `_dmydef _dmy(d: date) -> str: return f"{d.day:02d}.{d.month:02d}.{d.year}"` (стр. 14430)
-- `_dmy_to_datedef _dmy_to_date(s: str) -> date: return datetime.strptime(s.strip(), "%d.%m.%Y").date()` (стр. 14435)
-- `_search_text_normalizedef _search_text_normalize(value: str) -> str: return value.strip().lower().replace(" ", "").replace("-", "")` (стр. 15011)
-- `_search_plate_normalizedef _search_plate_normalize(value: str) -> str: return "".join(_SEARCH_LATIN_TO_CYRILLIC.get(char, char) for char in _search_text_normalize(value))` (стр. 15015)
+- `_deposit_txn_payloaddef _deposit_txn_payload(db: Session, txn: DepositTransaction) -> DepositTransactionPayload: car, plate = "", "" if txn.booking_id: booking = db.get(Booking, txn.booking_id) if boo` (стр. 13756)
+- `_deposit_month_labeldef _deposit_month_label() -> str: return datetime.now().strftime("%m.%Y")` (стр. 13779)
+- `_deposit_month_ofdef _deposit_month_of(date_str: str) -> str: parts = (date_str or "").split(".") if len(parts) == 3: return f"{parts[1]}.{parts[2]}" return ""` (стр. 13781)
+- `_deposit_month_wash_total_fordef _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> float: total = 0.0 rows = db.scalars( select(Booking).where( Booking.client_id == client_id, Booking.p` (стр. 13788)
+- `_deposit_plan_keydef _deposit_plan_key(value: str | None) -> str: plan = (value or "").strip() or "fee" return plan if plan in {"fee", "washes", "per_wash", "unlimited"} else "fee"` (стр. 13804)
+- `_deposit_prev_monthdef _deposit_prev_month(month: str) -> str: try: m, y = month.split(".") yi = int(y) - (1 if int(m) == 1 else 0) mi = 12 if int(m) == 1 else int(m) - 1 return f"{mi:02d}.{yi}" exce` (стр. 13809)
+- `_deposit_month_wash_count_fordef _deposit_month_wash_count_for(db: Session, client_id: str, month: str) -> int: rows = db.scalars( select(Booking).where( Booking.client_id == client_id, Booking.payment_type ==` (стр. 13819)
+- `_deposit_carried_washesdef _deposit_carried_washes(db: Session, client: Client, month: str) -> int: prev = _deposit_prev_month(month) row = db.scalar( select(DepositMonth).where( DepositMonth.client_id =` (стр. 13831)
+- `_deposit_wash_limitdef _deposit_wash_limit(db: Session, client: Client, month: str) -> int: """Лимит моек по плану 'washes' (включённые + перенесённые).""" if _deposit_plan_key(client.deposit_plan or` (стр. 13842)
+- `_deposit_month_wash_extradef _deposit_month_wash_extra(db: Session, client: Client, month: str) -> float: """Сумма цен моек сверх включённого лимита по плану 'washes'.""" if _deposit_plan_key(client.deposi` (стр. 13852)
+- `_deposit_month_payabledef _deposit_month_payable(db: Session, client: Client, month: str) -> float: """Сколько клиент должен заплатить за месяц по своему типу абонемента.""" plan = _deposit_plan_key(cli` (стр. 13881)
+- `_deposit_months_activedef _deposit_months_active(start_month: str) -> int: match = re.fullmatch(r"(\d{2})\.(\d{4})", (start_month or "").strip()) if not match: return 0 start_total = int(match.group(2))` (стр. 13901)
+- `_deposit_month_rowsdef _deposit_month_rows( db: Session, client: Client, transactions: list[DepositTransaction], closed_months: list[DepositMonth],` (стр. 13910)
+- `_deposit_overviewdef _deposit_overview( db: Session, client_id: str, client: Client` (стр. 13952)
+- `_week_boundsdef _week_bounds() -> tuple[date, date]: today = date.today() saturday = today - timedelta(days=(today.weekday() - 5) % 7) friday = saturday + timedelta(days=6) return saturday, fr` (стр. 14427)
+- `_dmydef _dmy(d: date) -> str: return f"{d.day:02d}.{d.month:02d}.{d.year}"` (стр. 14438)
+- `_dmy_to_datedef _dmy_to_date(s: str) -> date: return datetime.strptime(s.strip(), "%d.%m.%Y").date()` (стр. 14443)
+- `_search_text_normalizedef _search_text_normalize(value: str) -> str: return value.strip().lower().replace(" ", "").replace("-", "")` (стр. 15019)
+- `_search_plate_normalizedef _search_plate_normalize(value: str) -> str: return "".join(_SEARCH_LATIN_TO_CYRILLIC.get(char, char) for char in _search_text_normalize(value))` (стр. 15023)
 - ...ещё 9
 
 ### backend/app/models.py (573 строк)
@@ -678,7 +678,7 @@ concept1.0/
 - `class DepositMonth(Base):` (стр. 540)
 - `class OwnerProfitShare(Base):` (стр. 558)
 
-### backend/app/schemas.py (2042 строк)
+### backend/app/schemas.py (2044 строк)
 
 Классы и функции (200):
 
@@ -877,11 +877,11 @@ concept1.0/
 - `class DepositSettleRequest(BaseModel):` (стр. 1939)
 - `DepositSettleRequest.validate_monthdef validate_month(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{4}", value.strip()):` (стр. 1945)
 - `class DepositTransactionPayload(BaseModel):` (стр. 1951)
-- `class DepositMonthPayload(BaseModel):` (стр. 1964)
-- `class DepositStats(BaseModel):` (стр. 1975)
-- `class DepositMonthBreakdown(BaseModel):` (стр. 1985)
-- `class DepositOverview(BaseModel):` (стр. 1999)
-- `class DepositSummaryItem(BaseModel):` (стр. 2028)
+- `class DepositMonthPayload(BaseModel):` (стр. 1966)
+- `class DepositStats(BaseModel):` (стр. 1977)
+- `class DepositMonthBreakdown(BaseModel):` (стр. 1987)
+- `class DepositOverview(BaseModel):` (стр. 2001)
+- `class DepositSummaryItem(BaseModel):` (стр. 2030)
 
 ### backend/app/security.py (84 строк)
 
@@ -1283,7 +1283,7 @@ concept1.0/
 - `ContentTests.test_new_format_passes_throughdef test_new_format_passes_through(self) -> None: self._seed_content({ "hero": { "backgroundImage": "/hero-bg.jpg", "badgeText": "ATMOSFERA", "title": {"before": "Ваш автомобиль за` (стр. 134)
 - `ContentTests.test_put_roundtrip_new_formatdef test_put_roundtrip_new_format(self) -> None: payload = { "hero": { "backgroundImage": "/bg.jpg", "badgeText": "ATMOSFERA", "title": {"before": "A ", "highlight": "H", "after": ` (стр. 155)
 
-### backend/tests/test_deposit.py (515 строк)
+### backend/tests/test_deposit.py (526 строк)
 
 Классы и функции (27):
 
@@ -1301,19 +1301,19 @@ concept1.0/
 - `DepositTests._overviewdef _overview(self, client_id: str) -> dict: response = self.client.get( f"/api/owner/deposits/{client_id}", headers=self._auth_headers(self.owner_token), ) self.assertEqual(respon` (стр. 159)
 - `DepositTests.test_activate_and_topup_and_balancedef test_activate_and_topup_and_balance(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) overview = self._overv` (стр. 171)
 - `DepositTests.test_credit_wash_deducts_and_no_immediate_piggy_depositdef test_credit_wash_deducts_and_no_immediate_piggy_deposit(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) se` (стр. 190)
-- `DepositTests.test_settle_month_returns_wash_total_to_piggy_bankdef test_settle_month_returns_wash_total_to_piggy_bank(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._r` (стр. 217)
-- `DepositTests.test_settle_month_twice_is_rejecteddef test_settle_month_twice_is_rejected(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(clie` (стр. 256)
-- `DepositTests.test_wash_requires_active_depositdef test_wash_requires_active_deposit(self) -> None: client_id = self._create_client() response = self.client.post( f"/api/owner/deposits/{client_id}/washes", headers=self._auth_he` (стр. 277)
-- `DepositTests.test_topup_requires_active_depositdef test_topup_requires_active_deposit(self) -> None: client_id = self._create_client() response = self.client.post( f"/api/owner/deposits/{client_id}/topup", headers=self._auth_he` (стр. 286)
-- `DepositTests.test_export_exceldef test_export_excel(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(client_id, 1000) respo` (стр. 295)
-- `DepositTests.test_export_alldef test_export_all(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( "/api/owner/deposits/export-all.xlsx", head` (стр. 311)
-- `DepositTests.test_overview_allowed_for_admindef test_overview_allowed_for_admin(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( f"/api/owner/deposits/{clie` (стр. 325)
-- `DepositTests.test_activate_deposit_as_admindef test_activate_deposit_as_admin(self) -> None: client_id = self._create_client() response = self.client.patch( f"/api/owner/deposits/{client_id}", headers=self._auth_headers(sel` (стр. 335)
-- `DepositTests.test_settle_month_allowed_for_admindef test_settle_month_allowed_for_admin(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(clie` (стр. 353)
-- `DepositTests.test_per_wash_plan_charges_tariff_and_no_refund_at_settledef test_per_wash_plan_charges_tariff_and_no_refund_at_settle(self) -> None: client_id = self._create_client() self._activate_deposit( client_id, monthly=0, depositPlan="per_wash",` (стр. 371)
-- `DepositTests.test_washes_plan_charges_full_price_and_refunds_only_covereddef test_washes_plan_charges_full_price_and_refunds_only_covered(self) -> None: client_id = self._create_client() self._activate_deposit( client_id, monthly=4000, depositPlan="wash` (стр. 409)
-- `DepositTests.test_washes_plan_carryover_from_previous_monthdef test_washes_plan_carryover_from_previous_month(self) -> None: from datetime import date from uuid import uuid4 as _uuid4 from app.database import SessionLocal from app.models i` (стр. 453)
-- `DepositTests.test_deposit_export_telegram_endpoints_reachabledef test_deposit_export_telegram_endpoints_reachable(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.post( f"/api/ow` (стр. 493)
+- `DepositTests.test_settle_month_returns_wash_total_to_piggy_bankdef test_settle_month_returns_wash_total_to_piggy_bank(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._r` (стр. 228)
+- `DepositTests.test_settle_month_twice_is_rejecteddef test_settle_month_twice_is_rejected(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(clie` (стр. 267)
+- `DepositTests.test_wash_requires_active_depositdef test_wash_requires_active_deposit(self) -> None: client_id = self._create_client() response = self.client.post( f"/api/owner/deposits/{client_id}/washes", headers=self._auth_he` (стр. 288)
+- `DepositTests.test_topup_requires_active_depositdef test_topup_requires_active_deposit(self) -> None: client_id = self._create_client() response = self.client.post( f"/api/owner/deposits/{client_id}/topup", headers=self._auth_he` (стр. 297)
+- `DepositTests.test_export_exceldef test_export_excel(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(client_id, 1000) respo` (стр. 306)
+- `DepositTests.test_export_alldef test_export_all(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( "/api/owner/deposits/export-all.xlsx", head` (стр. 322)
+- `DepositTests.test_overview_allowed_for_admindef test_overview_allowed_for_admin(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.get( f"/api/owner/deposits/{clie` (стр. 336)
+- `DepositTests.test_activate_deposit_as_admindef test_activate_deposit_as_admin(self) -> None: client_id = self._create_client() response = self.client.patch( f"/api/owner/deposits/{client_id}", headers=self._auth_headers(sel` (стр. 346)
+- `DepositTests.test_settle_month_allowed_for_admindef test_settle_month_allowed_for_admin(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) self._topup(client_id, 4000) self._record_wash(clie` (стр. 364)
+- `DepositTests.test_per_wash_plan_charges_tariff_and_no_refund_at_settledef test_per_wash_plan_charges_tariff_and_no_refund_at_settle(self) -> None: client_id = self._create_client() self._activate_deposit( client_id, monthly=0, depositPlan="per_wash",` (стр. 382)
+- `DepositTests.test_washes_plan_charges_full_price_and_refunds_only_covereddef test_washes_plan_charges_full_price_and_refunds_only_covered(self) -> None: client_id = self._create_client() self._activate_deposit( client_id, monthly=4000, depositPlan="wash` (стр. 420)
+- `DepositTests.test_washes_plan_carryover_from_previous_monthdef test_washes_plan_carryover_from_previous_month(self) -> None: from datetime import date from uuid import uuid4 as _uuid4 from app.database import SessionLocal from app.models i` (стр. 464)
+- `DepositTests.test_deposit_export_telegram_endpoints_reachabledef test_deposit_export_telegram_endpoints_reachable(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.post( f"/api/ow` (стр. 504)
 
 ### backend/tests/test_finance_edit.py (393 строк)
 
@@ -1887,7 +1887,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/DepositPanel.tsx (1142 строк)
+### frontend/src/app/components/owner/DepositPanel.tsx (1146 строк)
 
 - `toISODate` (стр. 22) — локальный
 - `parsed` (стр. 23) — локальный
@@ -1959,7 +1959,7 @@ concept1.0/
 - `openActivateFor` (стр. 415) — локальный
 - `openWashFor` (стр. 428) — локальный
 - `openTopupFor` (стр. 439) — локальный
-- `val` (стр. 1112) — локальный
+- `val` (стр. 1116) — локальный
 
 ### frontend/src/app/components/owner/OwnerApp.tsx (11324 строк)
 
@@ -2333,199 +2333,199 @@ concept1.0/
 
 - `REFERRAL_SOURCES` (стр. 1)
 
-### frontend/src/app/context/AppContext.tsx (1983 строк)
+### frontend/src/app/context/AppContext.tsx (1985 строк)
 
-- `EMPTY_CONTENT` (стр. 886)
-- `timeToMinutes` (стр. 908) — локальный
-- `minutesToTime` (стр. 915) — локальный
-- `hours` (стр. 916) — локальный
-- `minutes` (стр. 917) — локальный
-- `buildTimeSlots` (стр. 921) — локальный
-- `timeRangesOverlap` (стр. 929) — локальный
-- `AppContext` (стр. 933) — локальный
-- `normalizeWorker` (стр. 935) — локальный
-- `normalizeBootstrap` (стр. 949) — локальный
-- `AppProvider` (стр. 973)
-- `upcomingDates` (стр. 997) — локальный
-- `todayLabel` (стр. 998) — локальный
-- `tomorrowLabel` (стр. 999) — локальный
-- `applyBootstrap` (стр. 1001) — локальный
-- `normalized` (стр. 1002) — локальный
-- `refreshBootstrap` (стр. 1030) — локальный
-- `bootstrap` (стр. 1031) — локальный
-- `handleError` (стр. 1035) — локальный
-- `message` (стр. 1036) — локальный
-- `restoreSession` (стр. 1041) — локальный
-- `bootstrap` (стр. 1043) — локальный
-- `refreshActiveSessions` (стр. 1052) — локальный
-- `applyTelegramTheme` (стр. 1056) — локальный
-- `root` (стр. 1058) — локальный
-- `theme` (стр. 1059) — локальный
-- `cssVar` (стр. 1062) — локальный
-- `tg` (стр. 1069) — локальный
-- `logout` (стр. 1086) — локальный
-- `loginClient` (стр. 1110) — локальный
-- `bootstrap` (стр. 1114) — локальный
-- `linkStaff` (стр. 1128) — локальный
-- `bootstrap` (стр. 1132) — локальный
-- `switchRole` (стр. 1146) — локальный
-- `bootstrap` (стр. 1150) — локальный
-- `updateClientProfile` (стр. 1164) — локальный
-- `payload` (стр. 1165) — локальный
-- `saved` (стр. 1166) — локальный
-- `remindAdminAboutInactiveClients` (стр. 1170) — локальный
-- `response` (стр. 1171) — локальный
-- `addClient` (стр. 1175) — локальный
-- `created` (стр. 1176) — локальный
-- `normalized` (стр. 1177) — локальный
-- `updateClientCard` (стр. 1182) — локальный
-- `saved` (стр. 1183) — локальный
-- `normalized` (стр. 1184) — локальный
-- `deleteClient` (стр. 1188) — локальный
-- `listDepositClients` (стр. 1193) — локальный
-- `items` (стр. 1194) — локальный
-- `getDepositOverview` (стр. 1198) — локальный
-- `overview` (стр. 1199) — локальный
-- `updateDepositSubscription` (стр. 1207) — локальный
-- `overview` (стр. 1208) — локальный
-- `depositTopUp` (стр. 1216) — локальный
-- `txn` (стр. 1217) — локальный
-- `depositAdjust` (стр. 1221) — локальный
-- `overview` (стр. 1222) — локальный
-- `depositRecordWash` (стр. 1230) — локальный
-- `overview` (стр. 1231) — локальный
-- `depositSettleMonth` (стр. 1239) — локальный
-- `overview` (стр. 1240) — локальный
-- `downloadDepositExport` (стр. 1248) — локальный
-- `downloadDepositExportAll` (стр. 1252) — локальный
-- `sendDepositExport` (стр. 1256) — локальный
-- `sendDepositExportAll` (стр. 1260) — локальный
-- `addBooking` (стр. 1264) — локальный
-- `created` (стр. 1265) — локальный
-- `existingClient` (стр. 1285) — локальный
-- `nextClient` (стр. 1286) — локальный
-- `updateBooking` (стр. 1310) — локальный
-- `updated` (стр. 1311) — локальный
-- `deleteBooking` (стр. 1337) — локальный
-- `addBookingService` (стр. 1342) — локальный
-- `updated` (стр. 1343) — локальный
-- `addBookingAdditionalService` (стр. 1363) — локальный
-- `updated` (стр. 1364) — локальный
-- `updateBookingAdditionalService` (стр. 1384) — локальный
-- `updated` (стр. 1385) — локальный
-- `removeBookingAdditionalService` (стр. 1405) — локальный
-- `updated` (стр. 1406) — локальный
-- `addNotification` (стр. 1426) — локальный
-- `created` (стр. 1427) — локальный
-- `markNotificationRead` (стр. 1446) — локальный
-- `markAllNotificationsRead` (стр. 1451) — локальный
-- `addStockItem` (стр. 1465) — локальный
-- `created` (стр. 1466) — локальный
-- `updateStockItem` (стр. 1470) — локальный
-- `updated` (стр. 1471) — локальный
-- `writeOffStock` (стр. 1475) — локальный
-- `updated` (стр. 1476) — локальный
-- `getWriteOffHistory` (стр. 1480) — локальный
-- `deleteStockItem` (стр. 1484) — локальный
-- `addStockCategory` (стр. 1489) — локальный
-- `created` (стр. 1490) — локальный
-- `updateStockCategory` (стр. 1494) — локальный
-- `updated` (стр. 1495) — локальный
-- `deleteStockCategory` (стр. 1499) — локальный
-- `addExpense` (стр. 1508) — локальный
-- `created` (стр. 1509) — локальный
-- `addIncome` (стр. 1513) — локальный
-- `created` (стр. 1514) — локальный
-- `updateExpense` (стр. 1518) — локальный
-- `updated` (стр. 1519) — локальный
-- `updateIncome` (стр. 1523) — локальный
-- `updated` (стр. 1524) — локальный
-- `addPenalty` (стр. 1528) — локальный
-- `revokePenalty` (стр. 1533) — локальный
-- `revokeAllPenalties` (стр. 1538) — локальный
-- `createTelegramLinkCode` (стр. 1543) — локальный
-- `created` (стр. 1544) — локальный
-- `downloadOwnerExport` (стр. 1548) — локальный
-- `fallback` (стр. 1549) — локальный
-- `qs` (стр. 1552) — локальный
-- `qstr` (стр. 1556) — локальный
-- `sendOwnerExportToTelegram` (стр. 1562) — локальный
-- `qs` (стр. 1565) — локальный
-- `qstr` (стр. 1569) — локальный
-- `sendOwnerSummaryReport` (стр. 1575) — локальный
-- `response` (стр. 1576) — локальный
-- `dispatchOwnerReminders` (стр. 1580) — локальный
-- `saveServices` (стр. 1590) — локальный
-- `saveBoxes` (стр. 1595) — локальный
-- `saveSchedule` (стр. 1599) — локальный
-- `saveAdminProfile` (стр. 1603) — локальный
-- `saved` (стр. 1604) — локальный
-- `saveAdminNotificationSettings` (стр. 1608) — локальный
-- `saved` (стр. 1609) — локальный
-- `saveWorkerProfile` (стр. 1613) — локальный
-- `saved` (стр. 1614) — локальный
-- `normalized` (стр. 1615) — локальный
-- `saveWorkerNotificationSettings` (стр. 1622) — локальный
-- `saved` (стр. 1623) — локальный
-- `saveOwnerCompany` (стр. 1630) — локальный
-- `saved` (стр. 1631) — локальный
-- `saveOwnerNotificationSettings` (стр. 1635) — локальный
-- `saved` (стр. 1636) — локальный
-- `saveOwnerIntegrations` (стр. 1640) — локальный
-- `saved` (стр. 1641) — локальный
-- `saveOwnerSecurity` (стр. 1645) — локальный
-- `saved` (стр. 1646) — локальный
-- `saveWorkerSettings` (стр. 1650) — локальный
-- `saved` (стр. 1651) — локальный
-- `saveAdminWorkerPayroll` (стр. 1655) — локальный
-- `saved` (стр. 1656) — локальный
-- `normalized` (стр. 1657) — локальный
-- `nextWorker` (стр. 1659) — локальный
-- `saveContent` (стр. 1664) — локальный
-- `saved` (стр. 1665) — локальный
-- `createPayrollEntry` (стр. 1669) — локальный
-- `checkConsent` (стр. 1674) — локальный
-- `response` (стр. 1675) — локальный
-- `submitConsent` (стр. 1679) — локальный
-- `listShiftChecklists` (стр. 1683) — локальный
-- `entries` (стр. 1684) — локальный
-- `submitShiftChecklist` (стр. 1688) — локальный
-- `entry` (стр. 1689) — локальный
-- `listAdminShiftInspections` (стр. 1696) — локальный
-- `entries` (стр. 1697) — локальный
-- `submitAdminShiftInspection` (стр. 1705) — локальный
-- `entry` (стр. 1712) — локальный
-- `hireWorker` (стр. 1723) — локальный
-- `created` (стр. 1724) — локальный
-- `normalized` (стр. 1725) — локальный
-- `fireWorker` (стр. 1735) — локальный
-- `resetWorkerPassword` (стр. 1740) — локальный
-- `changePassword` (стр. 1747) — локальный
-- `requestOwnerDatabaseReset` (стр. 1754) — локальный
-- `response` (стр. 1755) — локальный
-- `approveOwnerDatabaseReset` (стр. 1772) — локальный
-- `response` (стр. 1773) — локальный
-- `executeOwnerDatabaseReset` (стр. 1789) — локальный
-- `response` (стр. 1790) — локальный
-- `getTimeSlotsForDate` (стр. 1798) — локальный
-- `parsedDate` (стр. 1799) — локальный
-- `day` (стр. 1801) — локальный
-- `openMinutes` (стр. 1804) — локальный
-- `closeMinutes` (стр. 1805) — локальный
-- `durationMinutes` (стр. 1808) — локальный
-- `scheduleSlots` (стр. 1809) — локальный
-- `candidateBoxes` (стр. 1810) — локальный
-- `boxNames` (стр. 1815) — локальный
-- `slotStart` (стр. 1817) — локальный
-- `slotEnd` (стр. 1819) — локальный
-- `bookingStart` (стр. 1826) — локальный
-- `getBookingAvailabilityForDate` (стр. 1833) — локальный
-- `durationMinutes` (стр. 1834) — локальный
-- `params` (стр. 1836) — локальный
-- `response` (стр. 1846) — локальный
-- `useApp` (стр. 1975)
-- `ctx` (стр. 1976) — локальный
-- `getWorkerNotificationSettings` (стр. 1981)
+- `EMPTY_CONTENT` (стр. 888)
+- `timeToMinutes` (стр. 910) — локальный
+- `minutesToTime` (стр. 917) — локальный
+- `hours` (стр. 918) — локальный
+- `minutes` (стр. 919) — локальный
+- `buildTimeSlots` (стр. 923) — локальный
+- `timeRangesOverlap` (стр. 931) — локальный
+- `AppContext` (стр. 935) — локальный
+- `normalizeWorker` (стр. 937) — локальный
+- `normalizeBootstrap` (стр. 951) — локальный
+- `AppProvider` (стр. 975)
+- `upcomingDates` (стр. 999) — локальный
+- `todayLabel` (стр. 1000) — локальный
+- `tomorrowLabel` (стр. 1001) — локальный
+- `applyBootstrap` (стр. 1003) — локальный
+- `normalized` (стр. 1004) — локальный
+- `refreshBootstrap` (стр. 1032) — локальный
+- `bootstrap` (стр. 1033) — локальный
+- `handleError` (стр. 1037) — локальный
+- `message` (стр. 1038) — локальный
+- `restoreSession` (стр. 1043) — локальный
+- `bootstrap` (стр. 1045) — локальный
+- `refreshActiveSessions` (стр. 1054) — локальный
+- `applyTelegramTheme` (стр. 1058) — локальный
+- `root` (стр. 1060) — локальный
+- `theme` (стр. 1061) — локальный
+- `cssVar` (стр. 1064) — локальный
+- `tg` (стр. 1071) — локальный
+- `logout` (стр. 1088) — локальный
+- `loginClient` (стр. 1112) — локальный
+- `bootstrap` (стр. 1116) — локальный
+- `linkStaff` (стр. 1130) — локальный
+- `bootstrap` (стр. 1134) — локальный
+- `switchRole` (стр. 1148) — локальный
+- `bootstrap` (стр. 1152) — локальный
+- `updateClientProfile` (стр. 1166) — локальный
+- `payload` (стр. 1167) — локальный
+- `saved` (стр. 1168) — локальный
+- `remindAdminAboutInactiveClients` (стр. 1172) — локальный
+- `response` (стр. 1173) — локальный
+- `addClient` (стр. 1177) — локальный
+- `created` (стр. 1178) — локальный
+- `normalized` (стр. 1179) — локальный
+- `updateClientCard` (стр. 1184) — локальный
+- `saved` (стр. 1185) — локальный
+- `normalized` (стр. 1186) — локальный
+- `deleteClient` (стр. 1190) — локальный
+- `listDepositClients` (стр. 1195) — локальный
+- `items` (стр. 1196) — локальный
+- `getDepositOverview` (стр. 1200) — локальный
+- `overview` (стр. 1201) — локальный
+- `updateDepositSubscription` (стр. 1209) — локальный
+- `overview` (стр. 1210) — локальный
+- `depositTopUp` (стр. 1218) — локальный
+- `txn` (стр. 1219) — локальный
+- `depositAdjust` (стр. 1223) — локальный
+- `overview` (стр. 1224) — локальный
+- `depositRecordWash` (стр. 1232) — локальный
+- `overview` (стр. 1233) — локальный
+- `depositSettleMonth` (стр. 1241) — локальный
+- `overview` (стр. 1242) — локальный
+- `downloadDepositExport` (стр. 1250) — локальный
+- `downloadDepositExportAll` (стр. 1254) — локальный
+- `sendDepositExport` (стр. 1258) — локальный
+- `sendDepositExportAll` (стр. 1262) — локальный
+- `addBooking` (стр. 1266) — локальный
+- `created` (стр. 1267) — локальный
+- `existingClient` (стр. 1287) — локальный
+- `nextClient` (стр. 1288) — локальный
+- `updateBooking` (стр. 1312) — локальный
+- `updated` (стр. 1313) — локальный
+- `deleteBooking` (стр. 1339) — локальный
+- `addBookingService` (стр. 1344) — локальный
+- `updated` (стр. 1345) — локальный
+- `addBookingAdditionalService` (стр. 1365) — локальный
+- `updated` (стр. 1366) — локальный
+- `updateBookingAdditionalService` (стр. 1386) — локальный
+- `updated` (стр. 1387) — локальный
+- `removeBookingAdditionalService` (стр. 1407) — локальный
+- `updated` (стр. 1408) — локальный
+- `addNotification` (стр. 1428) — локальный
+- `created` (стр. 1429) — локальный
+- `markNotificationRead` (стр. 1448) — локальный
+- `markAllNotificationsRead` (стр. 1453) — локальный
+- `addStockItem` (стр. 1467) — локальный
+- `created` (стр. 1468) — локальный
+- `updateStockItem` (стр. 1472) — локальный
+- `updated` (стр. 1473) — локальный
+- `writeOffStock` (стр. 1477) — локальный
+- `updated` (стр. 1478) — локальный
+- `getWriteOffHistory` (стр. 1482) — локальный
+- `deleteStockItem` (стр. 1486) — локальный
+- `addStockCategory` (стр. 1491) — локальный
+- `created` (стр. 1492) — локальный
+- `updateStockCategory` (стр. 1496) — локальный
+- `updated` (стр. 1497) — локальный
+- `deleteStockCategory` (стр. 1501) — локальный
+- `addExpense` (стр. 1510) — локальный
+- `created` (стр. 1511) — локальный
+- `addIncome` (стр. 1515) — локальный
+- `created` (стр. 1516) — локальный
+- `updateExpense` (стр. 1520) — локальный
+- `updated` (стр. 1521) — локальный
+- `updateIncome` (стр. 1525) — локальный
+- `updated` (стр. 1526) — локальный
+- `addPenalty` (стр. 1530) — локальный
+- `revokePenalty` (стр. 1535) — локальный
+- `revokeAllPenalties` (стр. 1540) — локальный
+- `createTelegramLinkCode` (стр. 1545) — локальный
+- `created` (стр. 1546) — локальный
+- `downloadOwnerExport` (стр. 1550) — локальный
+- `fallback` (стр. 1551) — локальный
+- `qs` (стр. 1554) — локальный
+- `qstr` (стр. 1558) — локальный
+- `sendOwnerExportToTelegram` (стр. 1564) — локальный
+- `qs` (стр. 1567) — локальный
+- `qstr` (стр. 1571) — локальный
+- `sendOwnerSummaryReport` (стр. 1577) — локальный
+- `response` (стр. 1578) — локальный
+- `dispatchOwnerReminders` (стр. 1582) — локальный
+- `saveServices` (стр. 1592) — локальный
+- `saveBoxes` (стр. 1597) — локальный
+- `saveSchedule` (стр. 1601) — локальный
+- `saveAdminProfile` (стр. 1605) — локальный
+- `saved` (стр. 1606) — локальный
+- `saveAdminNotificationSettings` (стр. 1610) — локальный
+- `saved` (стр. 1611) — локальный
+- `saveWorkerProfile` (стр. 1615) — локальный
+- `saved` (стр. 1616) — локальный
+- `normalized` (стр. 1617) — локальный
+- `saveWorkerNotificationSettings` (стр. 1624) — локальный
+- `saved` (стр. 1625) — локальный
+- `saveOwnerCompany` (стр. 1632) — локальный
+- `saved` (стр. 1633) — локальный
+- `saveOwnerNotificationSettings` (стр. 1637) — локальный
+- `saved` (стр. 1638) — локальный
+- `saveOwnerIntegrations` (стр. 1642) — локальный
+- `saved` (стр. 1643) — локальный
+- `saveOwnerSecurity` (стр. 1647) — локальный
+- `saved` (стр. 1648) — локальный
+- `saveWorkerSettings` (стр. 1652) — локальный
+- `saved` (стр. 1653) — локальный
+- `saveAdminWorkerPayroll` (стр. 1657) — локальный
+- `saved` (стр. 1658) — локальный
+- `normalized` (стр. 1659) — локальный
+- `nextWorker` (стр. 1661) — локальный
+- `saveContent` (стр. 1666) — локальный
+- `saved` (стр. 1667) — локальный
+- `createPayrollEntry` (стр. 1671) — локальный
+- `checkConsent` (стр. 1676) — локальный
+- `response` (стр. 1677) — локальный
+- `submitConsent` (стр. 1681) — локальный
+- `listShiftChecklists` (стр. 1685) — локальный
+- `entries` (стр. 1686) — локальный
+- `submitShiftChecklist` (стр. 1690) — локальный
+- `entry` (стр. 1691) — локальный
+- `listAdminShiftInspections` (стр. 1698) — локальный
+- `entries` (стр. 1699) — локальный
+- `submitAdminShiftInspection` (стр. 1707) — локальный
+- `entry` (стр. 1714) — локальный
+- `hireWorker` (стр. 1725) — локальный
+- `created` (стр. 1726) — локальный
+- `normalized` (стр. 1727) — локальный
+- `fireWorker` (стр. 1737) — локальный
+- `resetWorkerPassword` (стр. 1742) — локальный
+- `changePassword` (стр. 1749) — локальный
+- `requestOwnerDatabaseReset` (стр. 1756) — локальный
+- `response` (стр. 1757) — локальный
+- `approveOwnerDatabaseReset` (стр. 1774) — локальный
+- `response` (стр. 1775) — локальный
+- `executeOwnerDatabaseReset` (стр. 1791) — локальный
+- `response` (стр. 1792) — локальный
+- `getTimeSlotsForDate` (стр. 1800) — локальный
+- `parsedDate` (стр. 1801) — локальный
+- `day` (стр. 1803) — локальный
+- `openMinutes` (стр. 1806) — локальный
+- `closeMinutes` (стр. 1807) — локальный
+- `durationMinutes` (стр. 1810) — локальный
+- `scheduleSlots` (стр. 1811) — локальный
+- `candidateBoxes` (стр. 1812) — локальный
+- `boxNames` (стр. 1817) — локальный
+- `slotStart` (стр. 1819) — локальный
+- `slotEnd` (стр. 1821) — локальный
+- `bookingStart` (стр. 1828) — локальный
+- `getBookingAvailabilityForDate` (стр. 1835) — локальный
+- `durationMinutes` (стр. 1836) — локальный
+- `params` (стр. 1838) — локальный
+- `response` (стр. 1848) — локальный
+- `useApp` (стр. 1977)
+- `ctx` (стр. 1978) — локальный
+- `getWorkerNotificationSettings` (стр. 1983)
 
 ### frontend/src/app/hooks/useTelegramBackButton.ts (23 строк)
 
@@ -2775,11 +2775,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/app/main.py` (2026-08-07 16:50)
-- `backend/tests/test_deposit.py` (2026-08-07 16:47)
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 16:38)
-- `frontend/src/app/context/AppContext.tsx` (2026-08-07 16:37)
-- `backend/app/schemas.py` (2026-08-07 16:36)
+- `scripts/.project-map-watch.lock` (2026-08-08 10:04)
+- `backend/tests/test_deposit.py` (2026-08-07 17:07)
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-07 17:02)
+- `frontend/src/app/context/AppContext.tsx` (2026-08-07 17:02)
+- `backend/app/main.py` (2026-08-07 17:02)
+- `backend/app/schemas.py` (2026-08-07 17:01)
 - `backend/app/exports.py` (2026-08-07 16:19)
 - `backend/app/models.py` (2026-08-07 16:16)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-07 15:47)
@@ -2789,4 +2790,3 @@ concept1.0/
 - `frontend/src/app/components/admin/ContentEditor.tsx` (2026-08-07 15:29)
 - `frontend/src/app/components/landing/Hero.tsx` (2026-08-07 15:29)
 - `frontend/src/app/App.tsx` (2026-08-07 13:22)
-- `backend/tests/test_booking_money_split.py` (2026-08-07 12:41)
