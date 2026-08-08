@@ -662,6 +662,7 @@ export function OwnerApp() {
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetail, setShowBookingDetail] = useState(false);
+  const [showStatusList, setShowStatusList] = useState<BookingStatus | null>(null);
   const [expenseAdded, setExpenseAdded] = useState(false);
   const [writeOffQty, setWriteOffQty] = useState('1');
   const [writeOffHistory, setWriteOffHistory] = useState<StockWriteOff[]>([]);
@@ -1339,6 +1340,11 @@ export function OwnerApp() {
     inProgress: weeklyBookings.filter((booking) => booking.status === 'in_progress').length,
     noShow: weeklyBookings.filter((booking) => booking.status === 'no_show').length,
   };
+  const statusListItems = showStatusList
+    ? bookings.filter((booking) => booking.status === showStatusList)
+      .slice()
+      .sort((left, right) => (left.date || '').localeCompare(right.date || '') || left.time.localeCompare(right.time))
+    : [];
   const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
 
   // Finance breakdown by service category
@@ -3625,15 +3631,16 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Новые', value: pipelineCounts.new, color: '#6366F1' },
-                    { label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
-                    { label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
-                    { label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
+                    { status: 'new' as BookingStatus, label: 'Новые', value: pipelineCounts.new, color: '#6366F1' },
+                    { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
+                    { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
+                    { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
-                    <div key={item.label} className={`${glass} rounded-xl px-3 py-3`}>
+                    <motion.button key={item.status} whileTap={{ scale: 0.96 }} onClick={() => setShowStatusList(item.status)}
+                      className={`${glass} rounded-xl px-3 py-3 text-left active:opacity-80`}>
                       <div className={`text-[11px] ${sub}`}>{item.label}</div>
                       <div className="text-lg font-semibold mt-1" style={{ color: item.color }}>{item.value}</div>
-                    </div>
+                    </motion.button>
                   ))}
                 </div>
               </div>
@@ -9788,6 +9795,60 @@ setOwnerNewBookingWorkers([]);
                   <Trash2 size={15} className="inline mr-1.5 -mt-0.5" />Удалить запись
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* STATUS LIST MODAL */}
+      <AnimatePresence>
+        {showStatusList && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowStatusList(null); }}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">{ownerStatusLabel(showStatusList)}</h3>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(showStatusList)}`}>{statusListItems.length} записей</span>
+                  <button onClick={() => setShowStatusList(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                </div>
+              </div>
+              {statusListItems.length === 0 ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className={sub}>Нет записей со статусом «{ownerStatusLabel(showStatusList)}»</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {statusListItems.map(booking => (
+                    <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
+                      onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }}
+                      className={`${glass} rounded-2xl p-4 w-full text-left`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
+                            <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                          </div>
+                          <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
+                          {(booking.car || booking.plate) && (
+                            <div className={`text-xs ${sub} mt-0.5 truncate`}>
+                              {[booking.car, booking.plate].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
+                          <div className="flex justify-between mt-2">
+                            <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                            <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
