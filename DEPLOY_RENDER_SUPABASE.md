@@ -34,7 +34,7 @@
 - `WEBAPP_URL` — адрес сервиса Render, например `https://crm-tg-miniapp.onrender.com`
 - `CORS_ORIGINS` — тот же адрес Render
 
-Остальные переменные уже заданы в `render.yaml`.
+Остальные переменные уже заданы в `render.yaml`. Blueprint включает `APP_ENV=production`, запрещает demo seed и по умолчанию отключает uploads: на free-плане `/data` не является гарантированно постоянным диском. Для uploads подключите persistent disk к `/data` и явно установите `UPLOADS_ENABLED=true`, либо интегрируйте внешнее object storage.
 
 ### После первого деплоя
 

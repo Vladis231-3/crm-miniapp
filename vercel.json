@@ -2,6 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "cd frontend && npm ci && npm run build",
   "outputDirectory": "frontend/dist",
+  "env": {
+    "APP_ENV": "production",
+    "ALLOW_DEMO_SEED_DATA": "false",
+    "RUN_EMBEDDED_BOT": "false",
+    "UPLOADS_ENABLED": "false"
+  },
   "functions": {
     "api/index.py": {
       "maxDuration": 60

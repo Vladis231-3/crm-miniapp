@@ -24,9 +24,7 @@
 - `ALLOW_INSECURE_CLIENT_AUTH` — `false`
 - `CORS_ORIGINS` — публичный URL приложения в Amvera, например `https://your-app.amvera.io`
 
-Опционально:
-
-- `PERSISTENT_DATA_DIR=/data`
+В `amvera.yml` уже зафиксированы безопасные несекретные defaults: `APP_ENV=production`, `ALLOW_DEMO_SEED_DATA=false`, `PERSISTENT_DATA_DIR=/data`, `UPLOADS_ENABLED=true`. `/data` обязан оставаться подключённым persistent volume; иначе SQLite и uploads использовать нельзя.
 
 ### Важный порядок
 

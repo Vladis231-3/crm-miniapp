@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 import re
+
+from .date_utils import parse_dmy
 from enum import Enum
 from typing import Any, Literal
 
@@ -1160,7 +1163,7 @@ class IncomePayload(BaseModel):
 
 class ExpenseCreateRequest(BaseModel):
     title: str
-    amount: float = Field(ge=1, le=10_000_000)
+    amount: Decimal = Field(ge=1, le=10_000_000)
     category: str
     date: str
     note: str | None = None
@@ -1356,7 +1359,7 @@ JsonDict = dict[str, Any]
 
 class ExpenseUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
-    amount: float | None = Field(default=None, ge=1, le=10_000_000)
+    amount: Decimal | None = Field(default=None, ge=1, le=10_000_000)
     category: str | None = Field(default=None, max_length=100)
     date: str | None = None  # DD.MM.YYYY
     note: str | None = Field(default=None, max_length=1000)
@@ -1389,7 +1392,7 @@ class ExpenseUpdateRequest(BaseModel):
 
 
 class IncomeUpdateRequest(BaseModel):
-    amount: float | None = Field(default=None, ge=1, le=10_000_000)
+    amount: Decimal | None = Field(default=None, ge=1, le=10_000_000)
     source: str | None = Field(default=None, min_length=1, max_length=255)
     note: str | None = Field(default=None, max_length=1000)  # явный null очищает поле
     date: str | None = None  # DD.MM.YYYY
@@ -1569,7 +1572,7 @@ class OwnerSalaryDetailResponse(BaseModel):
 
 class PayOwnerSalaryRequest(BaseModel):
     ownerId: str
-    amount: float = Field(ge=1, le=10_000_000)
+    amount: Decimal = Field(ge=1, le=10_000_000)
     note: str = ""
 
 

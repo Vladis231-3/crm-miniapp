@@ -20,12 +20,8 @@ from fastapi.testclient import TestClient
 
 def reset_app_modules() -> None:
     for name in list(sys.modules):
-        if (
-            name == "app"
-            or name.startswith("app.")
-            or name == "backend.app"
-            or name.startswith("backend.app.")
-            or name == "bot"
+        if name in {"app", "backend.app", "bot"} or name.startswith(
+            ("app.", "backend.app.")
         ):
             del sys.modules[name]
 
@@ -56,9 +52,10 @@ class AttendanceEndpointTests(unittest.TestCase):
         self.client_manager = TestClient(app)
         self.client = self.client_manager.__enter__()
 
-        self._disable_owner_two_factor()
-        self.owner_token = self._login_staff("owner", "owner")
-        self.worker_token = self._login_staff("ivan", "master")
+        self._link_staff("owner", "1001")
+        self._link_staff("ivan", "1002")
+        self.owner_token = self._telegram_init_data("1001")
+        self.worker_token = self._telegram_init_data("1002")
 
     def tearDown(self) -> None:
         if hasattr(self, "client_manager"):
@@ -77,23 +74,23 @@ class AttendanceEndpointTests(unittest.TestCase):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _login_staff(self, login: str, password: str) -> str:
-        response = self.client.post(
-            "/api/auth/staff/login",
-            json={"login": login, "password": password},
-        )
-        self.assertEqual(response.status_code, 200, response.text)
-        return response.json()["token"]
-
-    def _disable_owner_two_factor(self) -> None:
+    def _link_staff(self, login: str, telegram_id: str) -> None:
         from app.database import SessionLocal
-        from app.models import AppSetting
+        from app.models import StaffUser
+        from sqlalchemy import select
 
         with SessionLocal() as db:
-            setting = db.get(AppSetting, "owner_security")
-            if setting is not None:
-                setting.value = {"twoFactor": False}
-                db.commit()
+            staff = db.scalar(select(StaffUser).where(StaffUser.login == login))
+            self.assertIsNotNone(staff, f"Staff user '{login}' not found")
+            assert staff is not None
+            staff.telegram_chat_id = telegram_id
+            db.commit()
+
+    @staticmethod
+    def _telegram_init_data(telegram_id: str) -> str:
+        from urllib.parse import urlencode
+
+        return urlencode({"user": f'{{"id":{telegram_id}}}'})
 
     def _get_worker_id(self, login: str) -> str:
         """Return the staff user id for the given login."""
@@ -110,8 +107,8 @@ class AttendanceEndpointTests(unittest.TestCase):
             return worker.id
 
     @staticmethod
-    def _auth_headers(token: str) -> dict[str, str]:
-        return {"Authorization": f"Bearer {token}"}
+    def _auth_headers(init_data: str) -> dict[str, str]:
+        return {"Authorization": init_data}
 
     # ------------------------------------------------------------------
     # Tests

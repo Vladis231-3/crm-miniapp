@@ -7,6 +7,18 @@ services:
     healthCheckPath: /api/health
     dockerfilePath: ./Dockerfile
     envVars:
+      - key: APP_ENV
+        value: production
+      - key: ALLOW_DEMO_SEED_DATA
+        value: false
+      - key: TELEGRAM_INIT_DATA_MAX_AGE_SECONDS
+        value: 300
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: PERSISTENT_DATA_DIR
+        value: /data
+      - key: UPLOADS_ENABLED
+        value: false
       - key: API_HOST
         value: 0.0.0.0
       - key: API_PORT

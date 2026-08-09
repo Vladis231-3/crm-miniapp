@@ -1,43 +1,48 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import get_settings
 
-
 settings = get_settings()
+
+_PROVIDER_ONLY_QUERY_PARAMS = {"pgbouncer", "supavisor"}
 
 
 class Base(DeclarativeBase):
     pass
 
 
-def _clean_db_url(raw_url: str) -> str:
-    """Убирает query-параметры из DATABASE_URL.
-
-    psycopg и psycopg2 не принимают нестандартные параметры
-    (supavisor, pgbouncer и т.д.) которые Supabase добавляет в URL.
-    SSL включён по умолчанию в psycopg при подключении к Supabase.
-    """
+def _database_connection_config(
+    raw_url: str, *, default_sslmode: str | None = None
+) -> tuple[str, dict[str, object]]:
+    """Preserve URL options and apply explicit driver connection settings."""
     if raw_url.startswith("sqlite"):
-        return raw_url
-    # Убираем всё после ?
-    return raw_url.split("?")[0]
+        return raw_url, {"check_same_thread": False}
+
+    url = make_url(raw_url)
+    query = dict(url.query)
+    for provider_param in _PROVIDER_ONLY_QUERY_PARAMS:
+        query.pop(provider_param, None)
+    connect_args: dict[str, object] = {"prepare_threshold": None}
+    sslmode = query.get("sslmode") or default_sslmode
+    if sslmode:
+        connect_args["sslmode"] = sslmode
+        query.pop("sslmode", None)
+    normalized_url = url.set(query=query).render_as_string(hide_password=False)
+    return normalized_url, connect_args
 
 
-_db_url = _clean_db_url(settings.database_url)
-
-import logging as _logging
-_logging.getLogger(__name__).warning("DB URL (masked): %s", _db_url.split("@")[-1] if "@" in _db_url else _db_url)
-
-engine = create_engine(
-    _db_url,
-    connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {"sslmode": "require", "prepare_threshold": None},
+_db_url, _connect_args = _database_connection_config(
+    settings.database_url, default_sslmode=settings.database_sslmode
 )
+
+engine = create_engine(_db_url, connect_args=_connect_args)
 
 if _db_url.startswith("sqlite"):
     @event.listens_for(engine, "connect")

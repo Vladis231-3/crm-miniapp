@@ -6,7 +6,9 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder build --win portable"
+    "build": "electron-builder build --win portable",
+    "test": "node --test test/*.test.js",
+    "check": "node --check src/main.js && node --check src/url-policy.js"
   },
   "build": {
     "appId": "com.atmosfera.crm",

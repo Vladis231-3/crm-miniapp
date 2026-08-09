@@ -3,6 +3,8 @@ from __future__ import annotations
 
 
 import hmac as hmac_mod
+import html
+import os
 
 import logging
 
@@ -64,6 +66,9 @@ from .complaints import (
 )
 
 from .config import get_settings, PERSISTENT_DATA_DIR
+from .date_utils import parse_date_param, parse_dmy, validate_range
+from .finance import money, money_int, salary_base_for_period
+from .finance_sync import sync_expense_piggy_transaction
 
 from .database import Base, engine, get_db
 
@@ -558,21 +563,11 @@ PRIMARY_OWNER_LOGIN = "creator_owner"
 
 SECONDARY_OWNER_ID = "owner-1"
 
-# Жёстко зашитые владельцы, входящие по Telegram без пароля.
+# Explicitly configured owners; no Telegram identifiers are stored in source.
 
-# Формат: (id записи в БД, login, telegram chat id).
+# Format: (database id, login, Telegram id, display name).
 
-# Эти аккаунты восстанавливаются на каждом старте бэка,
-
-# поэтому их нельзя случайно отвязать/затереть через UI.
-
-PERMANENT_TELEGRAM_OWNERS: tuple[tuple[str, str, str], ...] = (
-
-    ("owner-tg-1768985608", "owner_tg_1", "1768985608"),
-
-    ("owner-tg-476719812", "owner_tg_2", "476719812"),
-
-)
+PERMANENT_TELEGRAM_OWNERS = settings.permanent_telegram_owners
 
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
 
@@ -803,7 +798,29 @@ HTML_NO_CACHE_HEADERS = {
 }
 
 
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; img-src 'self' data: blob: https:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://telegram.org; "
+        "connect-src 'self' https: wss:; frame-ancestors 'self' https://web.telegram.org"
+    ),
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-XSS-Protection": "0",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+}
 
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for key, value in SECURITY_HEADERS.items():
+        response.headers[key] = value
+    if request.url.path.startswith("/api/") and not request.url.path.startswith("/api/uploads/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    if settings.is_production and request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 @app.middleware("http")
@@ -840,18 +857,14 @@ async def serve_single_page_app(request: Request, call_next):
 
         headers = HTML_NO_CACHE_HEADERS if candidate.suffix == ".html" else None
 
-        return FileResponse(candidate, headers=headers)
+        response = FileResponse(candidate, headers=headers)
+        for key, value in SECURITY_HEADERS.items():
+            response.headers[key] = value
+        return response
 
     response = FileResponse(index_file, headers=HTML_NO_CACHE_HEADERS)
-
-    response.headers["X-Content-Type-Options"] = "nosniff"
-
-    response.headers["X-Frame-Options"] = "DENY"
-
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-
+    for key, value in SECURITY_HEADERS.items():
+        response.headers[key] = value
     return response
 
 
@@ -1072,49 +1085,31 @@ def _primary_owner(db: Session) -> StaffUser | None:
 
 def _ensure_permanent_telegram_owners(db: Session) -> None:
 
-    """Гарантирует, что владельцы с зашитыми Telegram ID существуют и активны.
+    """Upsert explicitly configured owners without reassigning existing rows."""
 
+    for staff_id, login, chat_id, owner_name in PERMANENT_TELEGRAM_OWNERS:
 
+        owner = db.get(StaffUser, staff_id)
 
-    На каждом старте бэка:
+        chat_owner = db.scalar(
 
-    * снимает chat_id с любой другой записи, чтобы избежать конфликта уникальности;
+            select(StaffUser).where(StaffUser.telegram_chat_id == chat_id)
 
-    * создаёт запись владельца, если её нет;
+        )
 
-    * принудительно восстанавливает role/active/telegram_chat_id, если запись есть
+        if chat_owner is not None and chat_owner.id != staff_id:
 
-      (защита от случайного/ручного редактирования в UI).
+            logger.warning(
 
-    """
+                "Configured permanent Telegram owner %s conflicts with existing staff %s; preserving database assignment",
 
-    for staff_id, login, chat_id in PERMANENT_TELEGRAM_OWNERS:
+                staff_id,
 
-        # 1) Снимаем chat_id с любой другой записи, чтобы upsert не словил 409.
-
-        squatters = db.scalars(
-
-            select(StaffUser).where(
-
-                StaffUser.telegram_chat_id == chat_id,
-
-                StaffUser.id != staff_id,
+                chat_owner.id,
 
             )
 
-        ).all()
-
-        for squatter in squatters:
-
-            squatter.telegram_chat_id = ""
-
-
-
-        # 2) Upsert самой записи владельца.
-
-        owner_name = "Максим М" if chat_id == "1768985608" else "Юра" if chat_id == "476719812" else "Владелец"
-
-        owner = db.get(StaffUser, staff_id)
+            continue
 
         if owner is None:
 
@@ -1140,13 +1135,7 @@ def _ensure_permanent_telegram_owners(db: Session) -> None:
 
                 specialty="",
 
-                about=(
-
-                    "Владелец с зашитым Telegram ID. Входит в Mini App "
-
-                    "напрямую через Telegram, пароль не используется."
-
-                ),
+                about="Владелец, настроенный через защищённую конфигурацию Telegram.",
 
                 telegram_chat_id=chat_id,
 
@@ -1167,6 +1156,18 @@ def _ensure_permanent_telegram_owners(db: Session) -> None:
             db.add(owner)
 
         else:
+
+            if owner.telegram_chat_id and owner.telegram_chat_id != chat_id:
+
+                logger.warning(
+
+                    "Configured permanent owner %s already has a different Telegram id; preserving database assignment",
+
+                    staff_id,
+
+                )
+
+                continue
 
             owner.login = login
 
@@ -1453,6 +1454,49 @@ def _apply_runtime_migrations() -> None:
 
 
     inspector = inspect(engine)
+
+    piggy_columns = {
+        column["name"] for column in inspector.get_columns("piggy_bank_transactions")
+    }
+    if "expense_id" not in piggy_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE piggy_bank_transactions ADD COLUMN expense_id VARCHAR(64)"
+            )
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_expense_id "
+            "ON piggy_bank_transactions (expense_id)"
+        )
+        # Link only exact one-to-one legacy candidates; ambiguous pairs stay untouched.
+        connection.execute(text("""
+            UPDATE piggy_bank_transactions AS p
+            SET expense_id = (
+                SELECT e.id FROM expenses AS e
+                WHERE p.date = e.date
+                  AND p.resource_group = e.resource_group
+                  AND p.purpose = 'Расход: ' || e.title
+                  AND p.amount = -e.amount
+            )
+            WHERE p.transaction_type = 'expense'
+              AND p.expense_id IS NULL
+              AND 1 = (
+                  SELECT COUNT(*) FROM expenses AS e
+                  WHERE p.date = e.date
+                    AND p.resource_group = e.resource_group
+                    AND p.purpose = 'Расход: ' || e.title
+                    AND p.amount = -e.amount
+              )
+              AND 1 = (
+                  SELECT COUNT(*) FROM piggy_bank_transactions AS p2
+                  WHERE p2.transaction_type = 'expense'
+                    AND p2.expense_id IS NULL
+                    AND p2.date = p.date
+                    AND p2.resource_group = p.resource_group
+                    AND p2.purpose = p.purpose
+                    AND p2.amount = p.amount
+              )
+        """))
 
     client_columns = {column["name"] for column in inspector.get_columns("clients")}
 
@@ -3792,6 +3836,7 @@ def _worker_payroll_summaries_from_data(
     complaints_by_worker: dict[str, list[Penalty]],
     shift_from: date | None = None,
     shift_to: date | None = None,
+    period: str = "all",
 ) -> dict[str, WorkerPayrollSummaryPayload]:
     if not workers:
         return {}
@@ -3882,9 +3927,16 @@ def _worker_payroll_summaries_from_data(
         )
         salary_per_shift = getattr(worker, "salary_per_shift", 0) or 0
         shift_pay_total = shift_count * salary_per_shift
+        base_from = shift_from or _date.today().replace(day=1)
+        base_to = shift_to or _date.today()
+        period_base_salary = money_int(
+            salary_base_for_period(
+                worker.salary_base, base_from, base_to, period=period
+            )
+        )
         total_accrued = (
             accrued_from_bookings
-            + worker.salary_base
+            + period_base_salary
             + shift_pay_total
             + bonus_total
             + max(adjustment_total, 0)
@@ -3896,7 +3948,7 @@ def _worker_payroll_summaries_from_data(
             completedBookings=len(booking_items),
             completedRevenue=completed_revenue,
             accruedFromBookings=accrued_from_bookings,
-            baseSalary=worker.salary_base,
+            baseSalary=period_base_salary,
             shiftPayTotal=shift_pay_total,
             shiftCount=shift_count,
             bonusTotal=bonus_total,
@@ -4797,7 +4849,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
     schedule = db.scalars(select(ScheduleEntry).order_by(ScheduleEntry.day_index)).all()
 
-    owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    owner_ids = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
 
     workers = db.scalars(
 
@@ -5097,7 +5149,12 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
     try:
 
-        validated = validate_telegram_init_data(authorization, settings.telegram_bot_token)
+        validated = validate_telegram_init_data(
+            authorization,
+            settings.telegram_bot_token,
+            max_age_seconds=settings.telegram_init_data_max_age_seconds,
+            future_skew_seconds=settings.telegram_init_data_future_skew_seconds,
+        )
 
     except ValueError:
 
@@ -5107,7 +5164,15 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
                 validated = validate_telegram_init_data(
 
-                    authorization, settings.telegram_bot_token, skip_validation=True
+                    authorization,
+
+                    settings.telegram_bot_token,
+
+                    skip_validation=True,
+
+                    max_age_seconds=settings.telegram_init_data_max_age_seconds,
+
+                    future_skew_seconds=settings.telegram_init_data_future_skew_seconds,
 
                 )
 
@@ -5588,7 +5653,7 @@ def _compute_shift_attendance(
 
     """
 
-    shift_dates: list[date] = []
+    shift_dates: set[date] = set()
 
 
 
@@ -5668,15 +5733,13 @@ def _compute_shift_attendance(
 
 
 
-        shift_dates.append(inspection_date)
+        shift_dates.add(inspection_date)
 
 
 
     # Сортируем по убыванию и форматируем
 
-    shift_dates.sort(reverse=True)
-
-    shift_dates_str = [d.strftime("%d.%m.%Y") for d in shift_dates]
+    shift_dates_str = [d.strftime("%d.%m.%Y") for d in sorted(shift_dates, reverse=True)]
 
 
 
@@ -6969,6 +7032,8 @@ def _perform_owner_database_reset(db: Session) -> None:
 
     db.execute(sa_delete(Penalty))
 
+    db.execute(sa_delete(PiggyBankTransaction))
+
     db.execute(sa_delete(Expense))
 
     db.execute(sa_delete(StockItem))
@@ -7005,7 +7070,11 @@ def _perform_owner_database_reset(db: Session) -> None:
 
 
 
-    seed_database(db)
+    seed_database(
+        db,
+        include_demo_staff=settings.allow_demo_seed_data,
+        is_production=settings.is_production,
+    )
 
     _ensure_owner_accounts(db)
 
@@ -9312,75 +9381,104 @@ def save_content(
 
 
 
-ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+ALLOWED_UPLOAD_TYPES = {
+    ".jpg": ("jpeg", "image/jpeg"),
+    ".jpeg": ("jpeg", "image/jpeg"),
+    ".png": ("png", "image/png"),
+    ".gif": ("gif", "image/gif"),
+    ".webp": ("webp", "image/webp"),
+}
+UPLOAD_CHUNK_SIZE = 64 * 1024
 
 
+def _detected_image_format(header: bytes) -> str | None:
+    if header.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if header.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return "webp"
+    return None
 
+
+def _upload_headers(filename: str) -> dict[str, str]:
+    return {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "X-Content-Type-Options": "nosniff",
+    }
 
 
 @app.post("/api/upload")
-
 async def upload_file(
-
     file: UploadFile = ...,
-
     session_data: dict = Depends(_require_session),
-
     db: Session = Depends(get_db),
-
 ) -> dict:
-
+    if not getattr(settings, "uploads_enabled", True):
+        raise HTTPException(status_code=503, detail="Uploads require persistent external storage")
     _ensure_staff_role(session_data, {"admin", "owner"})
-
     ext = Path(file.filename or "").suffix.lower()
-
-    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
-
+    expected = ALLOWED_UPLOAD_TYPES.get(ext)
+    if expected is None:
         raise HTTPException(status_code=400, detail=f"Недопустимый формат файла: {ext}")
 
     unique_name = f"{uuid4().hex}{ext}"
-
     dest = UPLOAD_DIR / unique_name
-
-    content = await file.read()
-
-    dest.write_bytes(content)
-
-    mime = file.content_type or "application/octet-stream"
-
-    db.add(UploadedFile(id=Path(unique_name).stem, filename=file.filename or unique_name, mime_type=mime, data=content))
-
-    db.commit()
-
+    temp_path = UPLOAD_DIR / f".{unique_name}.tmp"
+    total = 0
+    header = bytearray()
+    try:
+        with temp_path.open("xb") as output:
+            while chunk := await file.read(UPLOAD_CHUNK_SIZE):
+                total += len(chunk)
+                if total > settings.upload_max_bytes:
+                    raise HTTPException(status_code=413, detail="Файл слишком большой")
+                if len(header) < 16:
+                    header.extend(chunk[: 16 - len(header)])
+                output.write(chunk)
+            output.flush()
+            os.fsync(output.fileno())
+        if not total or _detected_image_format(bytes(header)) != expected[0]:
+            raise HTTPException(status_code=400, detail="Содержимое файла не соответствует формату")
+        os.replace(temp_path, dest)
+        db.add(
+            UploadedFile(
+                id=Path(unique_name).stem,
+                filename=file.filename or unique_name,
+                mime_type=expected[1],
+                data=b"",
+            )
+        )
+        db.commit()
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        dest.unlink(missing_ok=True)
+        db.rollback()
+        raise
+    finally:
+        await file.close()
     return {"url": f"/api/uploads/{unique_name}"}
 
 
-
-
-
 @app.get("/api/uploads/{filename}")
-
 async def serve_upload(filename: str, db: Session = Depends(get_db)) -> Response:
-
-    if "/" in filename or "\\" in filename:
-
+    if "/" in filename or "\\" in filename or Path(filename).name != filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
-
-    stem = Path(filename).stem
-
-    record = db.get(UploadedFile, stem)
-
-    if record is not None:
-
-        return Response(content=record.data, media_type=record.mime_type)
-
-    dest = UPLOAD_DIR / filename
-
-    if not dest.is_file():
-
+    ext = Path(filename).suffix.lower()
+    allowed = ALLOWED_UPLOAD_TYPES.get(ext)
+    if allowed is None:
         raise HTTPException(status_code=404, detail="File not found")
-
-    return FileResponse(dest)
+    headers = _upload_headers(filename)
+    dest = UPLOAD_DIR / filename
+    if dest.is_file():
+        return FileResponse(dest, media_type=allowed[1], headers=headers)
+    record = db.get(UploadedFile, Path(filename).stem)
+    if record is not None and record.data:
+        return Response(content=record.data, media_type=allowed[1], headers=headers)
+    raise HTTPException(status_code=404, detail="File not found")
 
 
 
@@ -9408,19 +9506,19 @@ def submit_contact(
 
     if name:
 
-        parts.append(f"<b>Имя:</b> {name}")
+        parts.append(f"<b>Имя:</b> {html.escape(name)}")
 
     if phone:
 
-        parts.append(f"<b>Телефон:</b> {phone}")
+        parts.append(f"<b>Телефон:</b> {html.escape(phone)}")
 
     if service:
 
-        parts.append(f"<b>Услуга:</b> {service}")
+        parts.append(f"<b>Услуга:</b> {html.escape(service)}")
 
     if message_text:
 
-        parts.append(f"<b>Сообщение:</b> {message_text}")
+        parts.append(f"<b>Сообщение:</b> {html.escape(message_text)}")
 
     text = "\n".join(parts)
 
@@ -9518,7 +9616,7 @@ def resync_telegram_webhook(
 
     username = sync_telegram_webhook(drop_pending_updates=False)
 
-    return GenericMessage(message=f"Товар «{name}» удалён")
+    return GenericMessage(message=f"Telegram webhook синхронизирован для @{username}")
 
 
 
@@ -10417,7 +10515,7 @@ def _booking_money_split(
             return 0, owner_by_owner
         owners_total = max(0, min(claimed, limit))
         if owners_total > 0:
-            owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+            owner_ids = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
             owners = db.scalars(
                 select(StaffUser).where(
                     StaffUser.id.in_(owner_ids),
@@ -12791,35 +12889,7 @@ def create_expense(
 
     db.add(expense)
 
-    # Если расход относится к мойке или детейлингу — списываем из копилки
-
-    if payload.resourceGroup in ("wash", "detailing"):
-
-        pb_tx = PiggyBankTransaction(
-
-            id=f"pb-{uuid4()}",
-
-            booking_id=None,
-
-            amount=-payload.amount,
-
-            transaction_type="expense",
-
-            purpose=f"Расход: {payload.title}",
-
-            material_name=None,
-
-            material_cost=None,
-
-            date=payload.date,
-
-            resource_group=payload.resourceGroup,
-
-            created_at=_now(),
-
-        )
-
-        db.add(pb_tx)
+    sync_expense_piggy_transaction(db, expense)
 
     db.commit()
 
@@ -12876,6 +12946,8 @@ def update_expense(
     if payload.resourceGroup is not None:
 
         expense.resource_group = payload.resourceGroup
+
+    sync_expense_piggy_transaction(db, expense)
 
     db.commit()
 
@@ -13396,7 +13468,7 @@ def get_piggy_bank(
 
     # Owner profit shares
 
-    owner_ids_for_pb = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    owner_ids_for_pb = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
 
     all_owner_shares = db.scalars(
 
@@ -14442,7 +14514,15 @@ def _dmy(d: date) -> str:
 
 def _dmy_to_date(s: str) -> date:
 
-    return datetime.strptime(s.strip(), "%d.%m.%Y").date()
+    return parse_dmy(s)
+
+
+def _stored_date_in_range(value: str, date_from: date, date_to: date) -> bool:
+    try:
+        parsed = parse_dmy(value)
+    except (TypeError, ValueError):
+        return False
+    return date_from <= parsed <= date_to
 
 
 
@@ -14469,6 +14549,10 @@ def get_wallet(
         saturday = _dmy_to_date(_parse_booking_date_param(date_from))
     if date_to:
         friday = _dmy_to_date(_parse_booking_date_param(date_to))
+    try:
+        validate_range(saturday, friday)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     week_start_str = _dmy(saturday)
 
@@ -14480,12 +14564,18 @@ def get_wallet(
 
     # Filter incomes for current week — proper date comparison
     all_incomes_wallet = db.scalars(select(Income)).all()
-    incomes = [i for i in all_incomes_wallet if i.date and _dmy_to_date(i.date) >= saturday and _dmy_to_date(i.date) <= friday]
+    incomes = [
+        i for i in all_incomes_wallet
+        if i.date and _stored_date_in_range(i.date, saturday, friday)
+    ]
     incomes.sort(key=lambda i: (i.date, i.created_at), reverse=True)
 
     # Filter expenses for current week
     all_expenses_wallet = db.scalars(select(Expense)).all()
-    expenses = [e for e in all_expenses_wallet if e.date and _dmy_to_date(e.date) >= saturday and _dmy_to_date(e.date) <= friday]
+    expenses = [
+        e for e in all_expenses_wallet
+        if e.date and _stored_date_in_range(e.date, saturday, friday)
+    ]
     expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
 
     # Completed bookings for current week
@@ -14495,7 +14585,10 @@ def get_wallet(
             Booking.deleted_at.is_(None),
         )
     ).all()
-    completed_bookings = [b for b in all_bookings_wallet if b.date and _dmy_to_date(b.date) >= saturday and _dmy_to_date(b.date) <= friday]
+    completed_bookings = [
+        b for b in all_bookings_wallet
+        if b.date and _stored_date_in_range(b.date, saturday, friday)
+    ]
 
 
 
@@ -16271,7 +16364,7 @@ def get_admin_workers_payroll(
         shift_to = datetime.strptime(date_to, "%d.%m.%Y").date()
     payroll_summaries = _worker_payroll_summaries_from_data(
         db, workers_list, completed_bookings, entries, _complaints_by_worker(_load_penalties(db)),
-        shift_from=shift_from, shift_to=shift_to,
+        shift_from=shift_from, shift_to=shift_to, period=period,
     )
     return [
         _worker_payload_with_payroll(w, payroll_summaries) for w in workers_list
@@ -16885,6 +16978,14 @@ def get_owner_bookings_history(
     db: Session = Depends(get_db),
 ) -> list[BookingHistoryItem]:
     _ensure_staff_role(session_data, {"owner"})
+    parsed_from = parse_date_param(date_from) if date_from else None
+    parsed_to = parse_date_param(date_to) if date_to else None
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 
     query = (
         select(Booking)
@@ -16893,10 +16994,6 @@ def get_owner_bookings_history(
         .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
     )
 
-    if date_from:
-        query = query.where(Booking.date >= _parse_booking_date_param(date_from))
-    if date_to:
-        query = query.where(Booking.date <= _parse_booking_date_param(date_to))
     if status:
         query = query.where(Booking.status == status)
     if q and q.strip():
@@ -16912,6 +17009,10 @@ def get_owner_bookings_history(
         )
 
     bookings = db.scalars(query).unique().all()
+    if parsed_from or parsed_to:
+        lower = parsed_from or date.min
+        upper = parsed_to or date.max
+        bookings = [b for b in bookings if _stored_date_in_range(b.date, lower, upper)]
 
     return [
         BookingHistoryItem(
@@ -16953,17 +17054,25 @@ def get_owner_bookings_history_totals(
     """Итоги за период из расчётки: по каждому мастеру — начисления/вычеты по компонентам,
     владельцам — доли прибыли (к выплате / выплачено), копилкам — вклады по банкам."""
     _ensure_staff_role(session_data, {"owner"})
+    parsed_from = parse_date_param(date_from) if date_from else None
+    parsed_to = parse_date_param(date_to) if date_to else None
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 
     completed_query = (
         select(Booking)
         .options(joinedload(Booking.worker_links))
         .where(Booking.deleted_at.is_(None), Booking.status == "completed")
     )
-    if date_from:
-        completed_query = completed_query.where(Booking.date >= _parse_booking_date_param(date_from))
-    if date_to:
-        completed_query = completed_query.where(Booking.date <= _parse_booking_date_param(date_to))
     bookings = db.scalars(completed_query).unique().all()
+    if parsed_from or parsed_to:
+        lower = parsed_from or date.min
+        upper = parsed_to or date.max
+        bookings = [b for b in bookings if _stored_date_in_range(b.date, lower, upper)]
 
     # ── Расчётка мастеров: записи + оклад + смены + бонусы + поправки − авансы/вычеты/выплаты ──
     workers_list = db.scalars(
@@ -16996,6 +17105,7 @@ def get_owner_bookings_history_totals(
         _complaints_by_worker(_load_penalties(db)),
         shift_from=shift_from,
         shift_to=shift_to,
+        period="custom" if shift_from and shift_to else "all",
     )
 
     workers = [
@@ -17113,22 +17223,20 @@ def get_owner_archive(
 
     date_from_dmy = _parse_booking_date_param(date_from) if date_from else None
     date_to_dmy = _parse_booking_date_param(date_to) if date_to else None
+    parsed_from = parse_dmy(date_from_dmy) if date_from_dmy else None
+    parsed_to = parse_dmy(date_to_dmy) if date_to_dmy else None
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     def _in_range(d: str | None) -> bool:
         if not d:
+            return not (parsed_from or parsed_to)
+        if not (parsed_from or parsed_to):
             return True
-        parsed = _dmy_to_date(d) if "." in d else _parse_date(d)
-        if parsed is None:
-            return True
-        if date_from_dmy:
-            parsed_from = _dmy_to_date(date_from_dmy)
-            if parsed < parsed_from:
-                return False
-        if date_to_dmy:
-            parsed_to = _dmy_to_date(date_to_dmy)
-            if parsed > parsed_to:
-                return False
-        return True
+        return _stored_date_in_range(d, parsed_from or date.min, parsed_to or date.max)
 
     # ── Записи (завершённые) с лёгкой расчёткой ──
     booking_query = (
@@ -17137,11 +17245,12 @@ def get_owner_archive(
         .where(Booking.deleted_at.is_(None), Booking.status == "completed")
         .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
     )
-    if date_from_dmy:
-        booking_query = booking_query.where(Booking.date >= date_from_dmy)
-    if date_to_dmy:
-        booking_query = booking_query.where(Booking.date <= date_to_dmy)
     bookings = db.scalars(booking_query).unique().all()
+    if parsed_from or parsed_to:
+        bookings = [
+            b for b in bookings
+            if _stored_date_in_range(b.date, parsed_from or date.min, parsed_to or date.max)
+        ]
 
     penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(penalties)
@@ -17314,6 +17423,7 @@ def get_owner_archive(
         complaints_by_worker,
         shift_from=shift_from,
         shift_to=shift_to,
+        period="custom" if shift_from and shift_to else "all",
     )
     archive_payroll = [
         ArchivePayrollItem(
@@ -17677,6 +17787,12 @@ def owner_worker_salary_detail(
         date_from = date_to = None
 
     df, dt = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
+    range_from = parse_dmy(df)
+    range_to = parse_dmy(dt)
+    try:
+        validate_range(range_from, range_to)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 
@@ -17961,10 +18077,15 @@ def owner_worker_salary_detail(
     adjustment_total = sum(e.amount for e in all_entries if e.kind == "adjustment")
 
     shift_pay_total = shift_count * salary_per_shift
+    period_base_salary = money_int(
+        salary_base_for_period(
+            worker.salary_base, range_from, range_to, period=period
+        )
+    )
 
     balance_to_pay = int(
         total_earned
-        + worker.salary_base
+        + period_base_salary
         + shift_pay_total
         + bonus_total
         + max(adjustment_total, 0)
@@ -17982,7 +18103,7 @@ def owner_worker_salary_detail(
 
         workerName=worker.name,
 
-        salaryBase=worker.salary_base,
+        salaryBase=period_base_salary,
 
         salaryPerShift=salary_per_shift,
 
@@ -18067,6 +18188,12 @@ def worker_my_salary_detail(
         date_from = date_to = None
 
     df, dt = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
+    range_from = parse_dmy(df)
+    range_to = parse_dmy(dt)
+    try:
+        validate_range(range_from, range_to)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 
@@ -18338,10 +18465,15 @@ def worker_my_salary_detail(
     adjustment_total = sum(e.amount for e in all_entries if e.kind == "adjustment")
 
     shift_pay_total = shift_count * salary_per_shift
+    period_base_salary = money_int(
+        salary_base_for_period(
+            worker.salary_base, range_from, range_to, period=period
+        )
+    )
 
     balance_to_pay = int(
         total_earned
-        + worker.salary_base
+        + period_base_salary
         + shift_pay_total
         + bonus_total
         + max(adjustment_total, 0)
@@ -18359,7 +18491,7 @@ def worker_my_salary_detail(
 
         workerName=worker.name,
 
-        salaryBase=worker.salary_base,
+        salaryBase=period_base_salary,
 
         salaryPerShift=salary_per_shift,
 
@@ -18577,7 +18709,7 @@ def owner_salary_detail(
 
     _ensure_staff_role(session_data, {"owner", "admin"})
 
-    owner_ids = [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    owner_ids = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
 
     owners = db.scalars(
 
@@ -18654,16 +18786,21 @@ def owner_salary_detail(
     date_from_dmy = _parse_booking_date_param(date_from) if date_from else None
 
     date_to_dmy = _parse_booking_date_param(date_to) if date_to else None
+    parsed_from = parse_dmy(date_from_dmy) if date_from_dmy else None
+    parsed_to = parse_dmy(date_to_dmy) if date_to_dmy else None
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 
     for share in all_shares:
 
-        if date_from_dmy and share.date and share.date < date_from_dmy:
-
-            continue
-
-        if date_to_dmy and share.date and share.date > date_to_dmy:
+        if (parsed_from or parsed_to) and not _stored_date_in_range(
+            share.date, parsed_from or date.min, parsed_to or date.max
+        ):
 
             continue
 
@@ -18821,7 +18958,7 @@ def owner_pay_salary(
 
 
 
-    if payload.ownerId not in [sid for sid, _, _ in PERMANENT_TELEGRAM_OWNERS]:
+    if payload.ownerId not in [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]:
 
         raise HTTPException(status_code=403, detail="Нельзя выплатить ЗП этому владельцу")
 

@@ -4,7 +4,9 @@ This project can run on Vercel only in webhook mode.
 
 ### Required production changes
 
-- Use an external Postgres database in `DATABASE_URL`.
+- Set `APP_ENV=production` and `ALLOW_DEMO_SEED_DATA=false`.
+- Use an external Postgres database in `DATABASE_URL`; startup fails safely if production falls back to SQLite.
+- Set `UPLOADS_ENABLED=false`. The serverless filesystem is ephemeral, so uploads require an external object-storage integration that this repository does not currently provide.
 - Keep `RUN_EMBEDDED_BOT=false`.
 - Set `TELEGRAM_DELIVERY_MODE=webhook`.
 - Set `SYNC_TELEGRAM_WEBHOOK=true`.
@@ -14,8 +16,11 @@ This project can run on Vercel only in webhook mode.
 ### Recommended env values
 
 ```env
-APP_SECRET=replace-me
-DATABASE_URL=postgresql://...
+APP_ENV=production
+ALLOW_DEMO_SEED_DATA=false
+UPLOADS_ENABLED=false
+APP_SECRET=<set-in-platform-secret-store>
+DATABASE_URL=<external-postgresql-url>
 TELEGRAM_BOT_TOKEN=123456:token
 WEBAPP_URL=https://your-project.vercel.app
 TELEGRAM_DELIVERY_MODE=webhook

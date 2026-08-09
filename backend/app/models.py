@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, Numeric, String, Text
@@ -252,7 +253,7 @@ class BookingMaterial(Base):
     name: Mapped[str] = mapped_column(String(120))
     qty: Mapped[float] = mapped_column(Float)
     unit: Mapped[str] = mapped_column(String(16))
-    unit_price: Mapped[float] = mapped_column(Float)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
@@ -320,7 +321,7 @@ class StockItem(Base):
     name: Mapped[str] = mapped_column(String(120))
     qty: Mapped[float] = mapped_column(Float)
     unit: Mapped[str] = mapped_column(String(16))
-    unit_price: Mapped[float] = mapped_column(Float)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     category: Mapped[str] = mapped_column(String(120))
     category_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("stock_categories.id", ondelete="SET NULL"), nullable=True
@@ -338,7 +339,7 @@ class Expense(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     category: Mapped[str] = mapped_column(String(120))
     date: Mapped[str] = mapped_column(String(16))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -359,8 +360,8 @@ class StockWriteOff(Base):
     stock_item_name: Mapped[str] = mapped_column(String(120))
     qty: Mapped[float] = mapped_column(Float)
     unit: Mapped[str] = mapped_column(String(16))
-    unit_price: Mapped[float] = mapped_column(Float)
-    total_cost: Mapped[float] = mapped_column(Float)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     source: Mapped[str] = mapped_column(String(32), default="manual")
     booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     booking_service: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -408,7 +409,7 @@ class PayrollEntry(Base):
     actor_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
     actor_role: Mapped[str] = mapped_column(String(32))
     kind: Mapped[str] = mapped_column(String(32))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     note: Mapped[str] = mapped_column(Text, default="")
     expense_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     income_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -466,7 +467,7 @@ class Income(Base):
     __tablename__ = "incomes"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     source: Mapped[str] = mapped_column(String(255))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by_id: Mapped[str] = mapped_column(
@@ -506,11 +507,15 @@ class PiggyBankTransaction(Base):
     booking_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True
     )
-    amount: Mapped[float] = mapped_column(Float)
+    expense_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("expenses.id", ondelete="CASCADE"),
+        nullable=True, unique=True, index=True,
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     transaction_type: Mapped[str] = mapped_column(String(32))
     purpose: Mapped[str] = mapped_column(String(255))
     material_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    material_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    material_cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     date: Mapped[str] = mapped_column(String(16))
     resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
     created_at: Mapped[datetime] = mapped_column(
@@ -527,8 +532,8 @@ class DepositTransaction(Base):
     )
     date: Mapped[str] = mapped_column(String(16))
     transaction_type: Mapped[str] = mapped_column(String(32))
-    amount: Mapped[float] = mapped_column(Float)
-    balance_after: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    balance_after: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     description: Mapped[str] = mapped_column(String(255), default="")
     booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -565,7 +570,7 @@ class OwnerProfitShare(Base):
     owner_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("staff_users.id", ondelete="CASCADE")
     )
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     status: Mapped[str] = mapped_column(String(16), default=OWNER_PROFIT_PENDING)
     date: Mapped[str] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(

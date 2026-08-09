@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import logging
 import time
@@ -302,7 +303,7 @@ def _send_about_message(runtime: BotRuntime, chat_id: int) -> None:
         row = db.get(AppSetting, "content")
         if row and isinstance(row.value, dict):
             about = row.value.get("about", {})
-            text = about.get("text", "") if isinstance(about, dict) else ""
+            text = html.escape(str(about.get("text", ""))) if isinstance(about, dict) else ""
         else:
             text = ""
     if not text:
@@ -322,9 +323,9 @@ def _send_works_message(runtime: BotRuntime, chat_id: int) -> None:
             title = w.get("title", "")
             desc = w.get("description", "")
             if title:
-                lines.append(f"<b>{title}</b>")
+                lines.append(f"<b>{html.escape(str(title))}</b>")
             if desc:
-                lines.append(f"{desc}")
+                lines.append(html.escape(str(desc)))
             lines.append("")
         text = "\n".join(lines).strip()
     else:
@@ -332,9 +333,11 @@ def _send_works_message(runtime: BotRuntime, chat_id: int) -> None:
     _send_text_message(runtime, chat_id, text, parse_mode="HTML")
 
 
-def send_telegram_message(chat_id: str | int, text: str) -> None:
+def send_telegram_message(
+    chat_id: str | int, text: str, *, parse_mode: str | None = None
+) -> None:
     runtime = _build_runtime()
-    _send_text_message(runtime, int(chat_id), text)
+    _send_text_message(runtime, int(chat_id), text, parse_mode=parse_mode)
 
 
 def send_telegram_document(

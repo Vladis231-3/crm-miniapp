@@ -2,9 +2,11 @@ const { app, BrowserWindow, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
+const { createUrlPolicy } = require('./url-policy');
 
 const PORT = 8000;
 const BACKEND_URL = `http://127.0.0.1:${PORT}`;
+const urlPolicy = createUrlPolicy(PORT);
 
 let backendProcess = null;
 let mainWindow = null;
@@ -121,14 +123,33 @@ function createWindow() {
 
   mainWindow.loadURL(BACKEND_URL);
 
-  // Внешние ссылки открываем в системном браузере, не в окне приложения.
+  // Popups never get an Electron renderer. Safe external links go to the OS.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1:') || url.startsWith('http://localhost:')) {
-      return { action: 'allow' };
+    if (urlPolicy.isExternal(url)) {
+      void shell.openExternal(url);
     }
-    shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // Keep the application renderer pinned to the exact local backend origins.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!urlPolicy.isInternal(url)) {
+      event.preventDefault();
+      if (urlPolicy.isExternal(url)) {
+        void shell.openExternal(url);
+      }
+    }
+  });
+
+  // Cancel cross-origin top-level requests, including redirect targets.
+  mainWindow.webContents.session.webRequest.onBeforeRequest(
+    { urls: ['http://*/*', 'https://*/*'] },
+    (details, callback) => {
+      const isThisWindow = details.webContentsId === mainWindow?.webContents.id;
+      const cancel = isThisWindow && details.resourceType === 'mainFrame' && !urlPolicy.isInternal(details.url);
+      callback({ cancel });
+    }
+  );
 
   mainWindow.on('closed', () => {
     mainWindow = null;

@@ -47,6 +47,7 @@ class BookingLogicTests(unittest.TestCase):
         os.environ["SYNC_TELEGRAM_WEBHOOK"] = "false"
         os.environ["TELEGRAM_WEBHOOK_PATH"] = "/api/telegram/webhook"
         os.environ.pop("WEBAPP_URL", None)
+        os.environ.pop("PERMANENT_TELEGRAM_OWNERS", None)
 
         self.restart_app()
 
@@ -326,7 +327,7 @@ class BookingLogicTests(unittest.TestCase):
         self.db_path = self.db_path.with_name(f"prod_seed_{uuid4().hex}.sqlite3")
         os.environ["DATABASE_URL"] = f"sqlite:///{self.db_path.as_posix()}"
         os.environ["APP_ENV"] = "production"
-        os.environ["APP_SECRET"] = "prod-secret"
+        os.environ["APP_SECRET"] = "p" * 32
         os.environ["ALLOW_DEMO_SEED_DATA"] = "false"
         self.restart_app()
 
@@ -335,16 +336,10 @@ class BookingLogicTests(unittest.TestCase):
 
         with SessionLocal() as db:
             staff = db.scalars(select(StaffUser).order_by(StaffUser.id.asc())).all()
-            # В production без demo-seed остаётся только primary owner
-            # плюс постоянные Telegram-владельцы (без пароля, вход по TG).
-            self.assertEqual(
-                [item.login for item in staff],
-                ["creator_owner", "owner_tg_1", "owner_tg_2"],
-            )
+            # В production без demo-seed и без owner env-конфигурации
+            # создаётся только технический primary owner.
+            self.assertEqual([item.login for item in staff], ["creator_owner"])
             self.assertTrue(staff[0].is_primary_owner)
-            for permanent in staff[1:]:
-                self.assertFalse(permanent.is_primary_owner)
-                self.assertTrue(permanent.telegram_chat_id)
 
         os.environ["APP_ENV"] = "development"
         os.environ["APP_SECRET"] = "test-secret"
@@ -2285,6 +2280,66 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(clients[client_id]["adminRating"], 4)
         self.assertEqual(clients[client_id]["adminNote"], "Нужен звонок перед подтверждением")
 
+    def test_admin_payroll_propagates_period_and_matches_salary_base_helper(self) -> None:
+        from app.database import SessionLocal
+        from app.finance import money_int, salary_base_for_period
+        from app.main import (
+            _worker_payroll_summaries_from_data,
+            get_admin_workers_payroll,
+        )
+        from app.models import StaffUser
+
+        cases = [
+            ("day", None, None),
+            ("week", None, None),
+            ("month", None, None),
+            ("custom", "2025-01-10", "2025-01-20"),
+            ("all", None, None),
+        ]
+        with SessionLocal() as db:
+            worker = db.get(StaffUser, "w1")
+            assert worker is not None
+            worker.salary_base = 3100
+            db.commit()
+
+            with patch(
+                "app.main._worker_payroll_summaries_from_data",
+                wraps=_worker_payroll_summaries_from_data,
+            ) as payroll_helper:
+                for period, custom_from, custom_to in cases:
+                    response = get_admin_workers_payroll(
+                        period=period,
+                        date_from=custom_from,
+                        date_to=custom_to,
+                        session_data={"role": "admin"},
+                        db=db,
+                    )
+                    helper_kwargs = payroll_helper.call_args.kwargs
+                    self.assertEqual(helper_kwargs["period"], period)
+
+                    if period == "all":
+                        range_from = datetime.now(timezone.utc).date().replace(day=1)
+                        range_to = datetime.now(timezone.utc).date()
+                    else:
+                        range_from = helper_kwargs["shift_from"]
+                        range_to = helper_kwargs["shift_to"]
+                    expected_base = money_int(
+                        salary_base_for_period(
+                            3100,
+                            range_from,
+                            range_to,
+                            period=period,
+                        )
+                    )
+                    workers = {
+                        item.id: item.model_dump(by_alias=True) for item in response
+                    }
+                    self.assertEqual(
+                        workers["w1"]["payrollSummary"]["baseSalary"],
+                        expected_base,
+                    )
+                    payroll_helper.reset_mock()
+
     def test_owner_and_admin_can_see_detailed_worker_payroll_summary(self) -> None:
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")
@@ -3998,14 +4053,13 @@ class BookingLogicTests(unittest.TestCase):
 
         with SessionLocal() as db:
             owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all()
-            # После reset должны восстановиться: primary + 2 постоянных
-            # Telegram-владельца (вход по TG, без пароля).
-            self.assertEqual(len(owners), 3)
+            # Reset сохраняет существующие owner rows и не возвращает demo staff.
+            self.assertEqual(len(owners), 2)
             self.assertEqual(len(db.scalars(select(StaffUser).where(StaffUser.role != "owner")).all()), 0)
-            permanent_logins = {
-                item.login for item in owners if not item.is_primary_owner
-            }
-            self.assertEqual(permanent_logins, {"owner_tg_1", "owner_tg_2"})
+            self.assertEqual(
+                {item.login for item in owners},
+                {"creator_owner", "owner"},
+            )
             self.assertEqual(len(db.scalars(select(Client)).all()), 0)
             self.assertEqual(len(db.scalars(select(Booking)).all()), 0)
             self.assertEqual(len(db.scalars(select(StockItem)).all()), 0)

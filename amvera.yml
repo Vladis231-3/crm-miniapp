@@ -4,3 +4,8 @@ build:
 run:
   containerPort: 8000
   persistenceMount: /data
+  env:
+    APP_ENV: production
+    ALLOW_DEMO_SEED_DATA: "false"
+    PERSISTENT_DATA_DIR: /data
+    UPLOADS_ENABLED: "true"

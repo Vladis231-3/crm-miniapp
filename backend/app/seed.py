@@ -11,7 +11,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
     if is_production:
         # Never seed demo data in production
         include_demo_staff = False
-    if include_demo_staff and not db.scalar(select(StaffUser.id).limit(1)):
+    if include_demo_staff:
         staff = [
             StaffUser(
                 id="admin-1",
@@ -99,7 +99,13 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
                 active=True,
             ),
         ]
-        db.add_all(staff)
+        existing_ids = set(db.scalars(select(StaffUser.id)).all())
+        existing_logins = set(db.scalars(select(StaffUser.login)).all())
+        db.add_all(
+            user
+            for user in staff
+            if user.id not in existing_ids and user.login not in existing_logins
+        )
 
     if not db.scalar(select(Service.id).limit(1)):
         services = [
