@@ -839,6 +839,257 @@ class BookingMoneySplitTests(unittest.TestCase):
         expectedTotal = split["splitBase"] + split["asvcMasterPayTotal"] + asvcPiggyTotal
         self.assertEqual(totalDistributed, expectedTotal, "сверка классики с доп услугой сходится")
 
+    def test_toggling_payment_settled_does_not_duplicate_piggy_deposits(self) -> None:
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction
+        from sqlalchemy import select
+
+        def deposit_count(booking_id: str) -> int:
+            with SessionLocal() as db:
+                return len(
+                    db.scalars(
+                        select(PiggyBankTransaction).where(
+                            PiggyBankTransaction.booking_id == booking_id,
+                            PiggyBankTransaction.transaction_type == "deposit_24percent",
+                        )
+                    ).all()
+                )
+
+        booking = self.create_booking(status="completed")
+        first_count = deposit_count(booking["id"])
+        self.assertGreater(first_count, 0, "при завершении создаются вклады в копилку")
+
+        # Toggle paymentSettled false → true повторно вызывает триггер payment_just_settled
+        toggle_off = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"paymentSettled": False},
+        )
+        self.assertEqual(toggle_off.status_code, 200, toggle_off.text)
+
+        toggle_on = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"paymentSettled": True},
+        )
+        self.assertEqual(toggle_on.status_code, 200, toggle_on.text)
+
+        second_count = deposit_count(booking["id"])
+        self.assertEqual(
+            second_count,
+            first_count,
+            "повторный триггер paymentSettled не должен дублировать вклады в копилку",
+        )
+
+    def test_money_split_add_service_remainder_to_piggy_and_owners(self) -> None:
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction, Service
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s1")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "percent"
+            svc.master_pay_value = 40
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 24
+            svc.split_order = []
+            svc.material_consumption = 0
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Add Svc Client",
+                "clientPhone": "+7 (999) 333-44-55",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "14:00",
+                "duration": 30,
+                "price": 25000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        add_response = self.client.post(
+            f"/api/bookings/{booking['id']}/additional-services",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "serviceId": "s1",
+                "name": "Защита кузова",
+                "price": 5000,
+                "duration": 30,
+                "priceMode": "add",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "payType": "fixed", "fixedAmount": 1200}],
+            },
+        )
+        self.assertEqual(add_response.status_code, 200, add_response.text)
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        split = self.get_split(booking["id"], self.owner_token)
+
+        # POST /additional-services прибавляет цену add-услуги к booking.price
+        # (25000 + 5000 = 30000), а main_price = 30000 − 5000 = 25000
+        self.assertEqual(split["price"], 30000)
+        self.assertEqual(split["mainPrice"], 25000, "add-услуга вычитается из цены")
+        self.assertEqual(split["splitBase"], 25000)
+        self.assertEqual(split["masterTotal"], 11200, "40% от 25 000 + фикс 1 200")
+        # Остаток add-услуги: 5000 − 1200 = 3800 → 24% = 912 в копилку, 2888 владельцам
+        self.assertEqual(split["asvcOwnerExtra"], 2888)
+        asvc_deposits = split["asvcPiggyDeposits"]
+        self.assertEqual(len(asvc_deposits), 1)
+        self.assertEqual(asvc_deposits[0]["amount"], 912)
+        self.assertEqual(asvc_deposits[0]["resourceGroup"], "wash")
+        self.assertEqual(split["piggyDeposit"], 6912, "24% от 25 000 + 912 за add-услугу")
+        self.assertEqual(split["ownersTotal"], 11888, "9000 остаток + 2888 доп. доля")
+        self.assertTrue(all(share["amount"] >= 5944 for share in split["ownerShares"]))
+
+        totalDistributed = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertEqual(totalDistributed, 30000, "вся цена записи распределена")
+
+        with SessionLocal() as db:
+            deposits = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.booking_id == booking["id"],
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                )
+            ).all()
+        self.assertEqual(sum(t.amount for t in deposits), 6912, "вклады в копилку = 24% основной + 24% остатка")
+        self.assertTrue(
+            any("Защита кузова" in (t.purpose or "") and t.amount == 912 for t in deposits),
+            "вклад по add-услуге создан с пометкой услуги",
+        )
+
+    def test_service_mode_weights_respect_complaints(self) -> None:
+        from datetime import timedelta, timezone
+
+        from app.database import SessionLocal
+        from app.models import Penalty, Service, StaffUser
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s1")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "percent"
+            svc.master_pay_value = 40
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 24
+            svc.split_order = []
+            owner = db.scalars(select(StaffUser).where(StaffUser.role == "owner")).first()
+            self.assertIsNotNone(owner)
+            assert owner is not None
+            # 3 активные жалобы на w1 → снижение процента на 10 п.п.
+            for i in range(3):
+                db.add(
+                    Penalty(
+                        id=f"p-m1-{i}",
+                        worker_id="w1",
+                        owner_id=owner.id,
+                        title="Жалоба",
+                        reason="тест",
+                        amount=0,
+                        score=5,
+                        active_until=datetime.now(timezone.utc) + timedelta(days=7),
+                        created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+                    )
+                )
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Complaint Client",
+                "clientPhone": "+7 (999) 555-66-77",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "15:00",
+                "duration": 30,
+                "price": 10000,
+                "status": "scheduled",
+                "workers": [
+                    {"workerId": "w1", "workerName": "Иван", "percent": 30},
+                    {"workerId": "w2", "workerName": "Олег", "percent": 20},
+                ],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        split = self.get_split(booking["id"], self.owner_token)
+
+        self.assertEqual(split["masterTotal"], 4000, "40% от 10 000")
+        by_worker = {w["workerId"]: w["earned"] for w in split["workers"]}
+        # Веса: w1 30−10=20, w2 20 → 4000 * 20/40 = 2000 каждому
+        self.assertEqual(by_worker.get("w1"), 2000, "жалобы снизили вес w1")
+        self.assertEqual(by_worker.get("w2"), 2000)
+
+    def test_single_active_owner_gets_full_share(self) -> None:
+        from app.database import SessionLocal
+        from app.models import OwnerProfitShare, StaffUser
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            owners = db.scalars(
+                select(StaffUser).where(StaffUser.role == "owner")
+            ).all()
+            permanent = [o for o in owners if o.id.startswith("owner-tg-")]
+            self.assertGreaterEqual(len(permanent), 2, "ожидается два постоянных владельца")
+            surviving = permanent[0]
+            for o in permanent[1:]:
+                o.active = False
+            db.commit()
+
+        booking = self.create_booking(status="completed")
+
+        split = self.get_split(booking["id"], self.owner_token)
+        self.assertEqual(split["ownersTotal"], 552, "1200 − 360 мастера − 288 копилка")
+        shares = split["ownerShares"]
+        self.assertEqual(len(shares), 1, "доля должна достаться одному активному владельцу")
+        self.assertEqual(shares[0]["ownerId"], surviving.id)
+        self.assertEqual(shares[0]["amount"], 552)
+
+        from app.database import SessionLocal as _S
+        with _S() as db:
+            rows = db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking["id"])
+            ).all()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].amount, 552)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1735,6 +1735,7 @@ class BookingMoneySplitDetail(BaseModel):
     masterByWorker: dict[str, int] = Field(default_factory=dict)
     asvcMasterPayTotal: int = 0
     asvcPiggyDeposits: list[BookingAsvcPiggyItem] = Field(default_factory=list)
+    asvcOwnerExtra: int = 0
     asvcWorkers: list[BookingAsvcWorkerItem] = Field(default_factory=list)
     piggyDeposit: int = 0
     piggyDepositAuto: int = 0

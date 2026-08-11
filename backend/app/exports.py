@@ -410,13 +410,15 @@ def build_owner_summary_report(
 
         deposits = sum(t.amount for t in period_piggy if t.transaction_type == "deposit_24percent" and t.amount > 0)
 
+        returns = sum(t.amount for t in period_piggy if t.transaction_type == "deposit_return" and t.amount > 0)
+
         withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "material_withdrawal" and t.amount < 0)
 
         repayments = sum(t.amount for t in period_piggy if t.transaction_type == "material_repayment" and t.amount > 0)
 
         total_balance = sum(t.amount for t in piggy_transactions)
 
-        if deposits or withdrawals or repayments:
+        if deposits or withdrawals or repayments or returns:
 
             lines.append("")
 
@@ -425,6 +427,10 @@ def build_owner_summary_report(
             if deposits:
 
                 lines.append(f"  24% начислено: +{_format_money(deposits)}")
+
+            if returns:
+
+                lines.append(f"  Возврат депозита: +{_format_money(returns)}")
 
             if withdrawals:
 
@@ -500,6 +506,8 @@ def build_owner_summary_export(
 
     now: datetime | None = None,
 
+    db: Session | None = None,
+
 ) -> GeneratedExport:
 
     context = _build_owner_summary_context(
@@ -525,6 +533,8 @@ def build_owner_summary_export(
         context=context,
 
         penalties=penalties or [],
+
+        db=db,
 
     )
 
@@ -668,6 +678,8 @@ def _build_owner_summary_export_data(
 
     penalties: list[Penalty] | None = None,
 
+    db: Session | None = None,
+
 ) -> OwnerSummaryExportData:
 
     sorted_items = sorted(context.filtered, key=lambda item: _booking_sort_key(item[0]), reverse=True)
@@ -721,6 +733,16 @@ def _build_owner_summary_export_data(
     for penalty in (penalties or []):
 
         complaints_by_worker.setdefault(penalty.worker_id, []).append(penalty)
+
+    # Единый расчёт заработка мастеров (как на странице ЗП): сплит записи,
+    # а не «цена × процент». Ленивый импорт — exports импортируется из main.
+    earned_by_booking: dict[str, dict[str, int]] = {}
+    if db is not None:
+        from .main import _booking_money_split
+
+        for _booking in completed:
+            _split = _booking_money_split(db, _booking, complaints_by_worker)
+            earned_by_booking[_booking.id] = _split["master_by_worker"]
 
     unique_boxes = {booking.box.strip() for booking in bookings if booking.box.strip()}
 
@@ -1144,23 +1166,31 @@ def _build_owner_summary_export_data(
 
                 worker_row["revenue"] += booking.price
 
-                worker_penalties = complaints_by_worker.get(link.worker_id, [])
+                worker_earned_map = earned_by_booking.get(booking.id)
 
-                percent = adjusted_booking_percent(
+                if worker_earned_map is not None:
 
-                    link.percent,
+                    worker_row["earned"] += worker_earned_map.get(link.worker_id, 0)
 
-                    worker_penalties,
+                else:
 
-                    date_value=booking.date,
+                    worker_penalties = complaints_by_worker.get(link.worker_id, [])
 
-                    time_value=booking.time,
+                    percent = adjusted_booking_percent(
 
-                    fallback=booking.created_at,
+                        link.percent,
 
-                )
+                        worker_penalties,
 
-                worker_row["earned"] += FIXED_MASTER_EARNED if _is_fixed_booking(booking) else round(booking.price * percent / 100)
+                        date_value=booking.date,
+
+                        time_value=booking.time,
+
+                        fallback=booking.created_at,
+
+                    )
+
+                    worker_row["earned"] += round(booking.price * percent / 100)
 
             elif booking.status in {"scheduled", "in_progress"}:
 
@@ -1562,6 +1592,8 @@ def build_owner_export(
 
     shift_pay_by_worker: dict[str, int] | None = None,
 
+    db: Session | None = None,
+
 ) -> GeneratedExport:
 
     data = _build_export_data(
@@ -1587,6 +1619,8 @@ def build_owner_export(
         payroll_entries=payroll_entries or [],
 
         shift_pay_by_worker=shift_pay_by_worker or {},
+
+        db=db,
 
     )
 
@@ -1648,10 +1682,12 @@ def _build_export_data(
 
     shift_pay_by_worker: dict[str, int] | None = None,
 
+    db: Session | None = None,
+
 ) -> OwnerExportData:
 
     # Ленивый импорт, чтобы избежать циклического импорта с main (main импортирует exports на верхнем уровне).
-    from .main import FIXED_MASTER_EARNED, FIXED_MASTER_SERVICE_NAME, is_fixed_master_service
+    from .main import FIXED_MASTER_EARNED, FIXED_MASTER_SERVICE_NAME, _booking_money_split, is_fixed_master_service
 
     generated_at = datetime.now().astimezone()
 
@@ -1800,6 +1836,14 @@ def _build_export_data(
 
         complaints_by_worker.setdefault(penalty.worker_id, []).append(penalty)
 
+    # Единый расчёт заработка мастеров (как на странице ЗП): сплит записи,
+    # а не «цена × процент». Сплиты считаем один раз на запись.
+    earned_by_booking: dict[str, dict[str, int]] = {}
+    if db is not None:
+        for _booking in completed:
+            _split = _booking_money_split(db, _booking, complaints_by_worker)
+            earned_by_booking[_booking.id] = _split["master_by_worker"]
+
 
 
     # Группируем ручные операции по сотруднику для точного расчёта баланса
@@ -1836,21 +1880,15 @@ def _build_export_data(
 
             link = next((item for item in booking.worker_links if item.worker_id == worker.id), None)
 
-            percent = adjusted_booking_percent(
+            if link is not None and link.override_earned is not None:
 
-                link.percent if link is not None else 0,
+                earned += int(link.override_earned)
 
-                worker_penalties,
+            else:
 
-                date_value=booking.date,
+                worker_earned_map = earned_by_booking.get(booking.id)
 
-                time_value=booking.time,
-
-                fallback=booking.created_at,
-
-            )
-
-            earned += FIXED_MASTER_EARNED if _is_fixed_booking(booking) else round(booking.price * percent / 100)
+                earned += worker_earned_map.get(worker.id, 0) if worker_earned_map else 0
 
         complaint_state = complaint_status_for_percent(worker.default_percent, worker_penalties)
 

@@ -4476,6 +4476,13 @@ setOwnerNewBookingWorkers([]);
                       <button onClick={async () => {
                         const amount = Number(salaryPayAmount);
                         if (!amount || amount < 1) return;
+                        const balance = Number(salaryDetail.balanceToPay ?? 0);
+                        if (amount > balance) {
+                          const ok = window.confirm(
+                            `Сумма ${Math.round(amount).toLocaleString('ru')} ₽ превышает доступный баланс (${balance.toLocaleString('ru')} ₽) за период. Выдать сверх баланса?`
+                          );
+                          if (!ok) return;
+                        }
                         setSalaryLoading(true);
                         try {
                           const periodLabel = salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : salaryPeriod === 'custom' ? 'выбранный период' : 'весь период';

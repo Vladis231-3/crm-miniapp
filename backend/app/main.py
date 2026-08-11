@@ -962,6 +962,18 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _local_day_bounds(date_str: str) -> tuple[datetime, datetime]:
+    """Границы локального дня (DD.MM.YYYY) в UTC: (00:00, 23:59:59) местного времени.
+
+    Периоды ЗП считаются по локальному календарю, а created_at хранится в UTC —
+    иначе записи, созданные ночью, попадают не в тот день."""
+    local_tz = datetime.now().astimezone().tzinfo or timezone.utc
+    day = datetime.strptime(date_str, "%d.%m.%Y")
+    start = day.replace(tzinfo=local_tz).astimezone(timezone.utc)
+    end = day.replace(hour=23, minute=59, second=59, tzinfo=local_tz).astimezone(timezone.utc)
+    return start, end
+
+
 
 
 
@@ -1984,6 +1996,15 @@ def _apply_runtime_migrations() -> None:
                     text(
                         "ALTER TABLE booking_additional_services ADD COLUMN price_mode VARCHAR(8) NOT NULL DEFAULT 'add'"
                     )
+                )
+                conn.commit()
+
+    if "owner_profit_shares" in inspector.get_table_names():
+        ops_cols = {col["name"] for col in inspector.get_columns("owner_profit_shares")}
+        if "paid_at" not in ops_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text("ALTER TABLE owner_profit_shares ADD COLUMN paid_at TIMESTAMP DEFAULT NULL")
                 )
                 conn.commit()
 
@@ -7577,6 +7598,8 @@ def _owner_export_file(
 
         shift_pay_by_worker=shift_pay_map,
 
+        db=db,
+
     )
 
 
@@ -7851,6 +7874,8 @@ def _owner_summary_report(
 
         segment=segment,
 
+        db=db,
+
     )
 
 
@@ -7966,6 +7991,8 @@ def _owner_summary_export_file(
         period=period,
 
         segment=segment,
+
+        db=db,
 
     )
 
@@ -10664,7 +10691,15 @@ def _booking_money_split(
                 master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
                 explicit_total += amount
             elif has_service_master_mode:
-                weighted_workers.append((link.worker_id, max(0, int(link.percent or 0))))
+                # Вес в сервисном режиме тоже учитывает комплайнты (как и в обычном)
+                adjusted_percent = adjusted_booking_percent(
+                    link.percent,
+                    complaints_map.get(link.worker_id, []),
+                    date_value=booking.date,
+                    time_value=booking.time,
+                    fallback=booking.created_at,
+                )
+                weighted_workers.append((link.worker_id, max(0, int(adjusted_percent))))
             else:
                 percent = adjusted_booking_percent(
                     link.percent,
@@ -10743,8 +10778,39 @@ def _booking_money_split(
                     "name": asvc.name,
                     "resource_group": asvc_rg,
                     "amount": asvc_deposit,
+                    "label": f"остаток от «{asvc.name}»",
                 }
             )
+
+    # Не-вычитаемые доп услуги: остаток (цена − оплата мастеров) →
+    # 24% в копилку своей категории, остальное — владельцам (доп. доля 50/50)
+    asvc_owner_extra_total = 0
+    for asvc in (booking.additional_services or []):
+        if asvc.price_mode == "subtract":
+            continue
+        asvc_pays = 0
+        for alink in asvc.worker_links:
+            if alink.pay_type == "fixed":
+                asvc_pays += int(alink.fixed_amount or 0)
+            else:
+                asvc_pays += round(asvc.price * (alink.percent or 0) / 100)
+        asvc_remainder = max(0, int(asvc.price) - asvc_pays)
+        if asvc_remainder <= 0:
+            continue
+        asvc_piggy_24 = round(asvc_remainder * 24 / 100)
+        if asvc_piggy_24 > 0:
+            asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
+            asvc_rg = _service_resource_group(asvc_svc)
+            asvc_piggy_deposits.append(
+                {
+                    "name": asvc.name,
+                    "resource_group": asvc_rg,
+                    "amount": asvc_piggy_24,
+                    "label": f"24% от остатка «{asvc.name}»",
+                }
+            )
+        asvc_owner_extra_total += asvc_remainder - asvc_piggy_24
+
     asvc_piggy_total = sum(d["amount"] for d in asvc_piggy_deposits)
 
     split_order = [s for s in (svc.split_order or []) if s in ("materials", "master", "piggy", "owners")] if svc else []
@@ -10774,8 +10840,11 @@ def _booking_money_split(
                     StaffUser.active.is_(True),
                 )
             ).all()
-            if len(owners) >= 2:
-                owners_sorted = sorted(owners, key=lambda owner: owner.id)
+            owners_sorted = sorted(owners, key=lambda owner: owner.id)
+            if len(owners_sorted) == 1:
+                # Один активный владелец получает всю долю
+                owner_by_owner[owners_sorted[0].id] = owners_total
+            elif len(owners_sorted) >= 2:
                 first_share = owners_total // 2
                 owner_by_owner[owners_sorted[0].id] = first_share
                 owner_by_owner[owners_sorted[1].id] = owners_total - first_share
@@ -10804,6 +10873,9 @@ def _booking_money_split(
                 pool = max(0, pool - piggy_deposit)
             elif step == "owners":
                 is_last = index == len(split_order) - 1
+                if asvc_owner_extra_total > 0:
+                    # Доп. доля владельцев от остатка не-вычитаемых доп услуг
+                    pool += asvc_owner_extra_total
                 if owner_pay_type == "percent":
                     claimed = round(pool * owner_pay_value / 100)
                 elif is_last:
@@ -10825,6 +10897,10 @@ def _booking_money_split(
         piggy_deposit = main_piggy + asvc_piggy_total
         remaining = split_base - main_master_total - main_piggy
         claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
+        # Доп. доля владельцев от остатка не-вычитаемых доп услуг (после 24% в копилку)
+        if asvc_owner_extra_total > 0:
+            remaining += asvc_owner_extra_total
+            claimed += asvc_owner_extra_total
         owners_total, owner_by_owner = _allocate_owners(claimed, remaining)
 
     return {
@@ -10837,6 +10913,7 @@ def _booking_money_split(
         "master_by_worker": master_by_worker,
         "asvc_master_pay": master_total - main_master_total,
         "asvc_piggy_deposits": asvc_piggy_deposits,
+        "asvc_owner_extra": asvc_owner_extra_total,
         "piggy_deposit": piggy_deposit,
         "owners_total": owners_total,
         "owner_by_owner": owner_by_owner,
@@ -10844,6 +10921,9 @@ def _booking_money_split(
         "piggy_pay_type": piggy_pay_type,
         "has_custom": bool(master_pay_type) or bool(piggy_pay_type) or pipeline_mode,
     }
+
+
+ASVC_PIGGY_PURPOSE_PREFIX = "Доп. услуга:"
 
 
 def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
@@ -10956,11 +11036,25 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
     print(f"[PIGGY_DEBUG] deposit_amount_after_asvc={deposit_amount} asvc_piggy_sum={asvc_piggy_sum}")
 
+    # Идемпотентность: повторный триггер (например, toggle paymentSettled false→true)
+    # не должен дублировать вклады. Main-депозит и вклады доп. услуг проверяем отдельно.
+    existing_deposits = db.scalars(
+        select(PiggyBankTransaction).where(
+            PiggyBankTransaction.booking_id == booking.id,
+            PiggyBankTransaction.transaction_type == "deposit_24percent",
+        )
+    ).all()
+    existing_purposes = {t.purpose or "" for t in existing_deposits}
+    main_deposit_exists = any(
+        not (purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX)
+        for purpose in existing_purposes
+    )
+
     if booking.payment_type == "credit":
         print(f"[PIGGY_DEBUG] credit booking {booking.id} — 24% deposit deferred to month settle")
         return
 
-    if deposit_amount > 0:
+    if deposit_amount > 0 and not main_deposit_exists:
 
         svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
         piggy_percent_value = int(svc_for_piggy.piggy_pay_value or 0) if svc_for_piggy else 0
@@ -11021,7 +11115,13 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
         dep_label = dep_labels.get(dep_group, dep_group)
 
-        dep_purpose = f"Доп. услуга: остаток от «{dep.get('name', 'доп. услуги')}» в копилку {dep_label} ({booking.client_name})"
+        dep_name = dep.get("label") or f"остаток от «{dep.get('name', 'доп. услуги')}»"
+
+        dep_purpose = f"Доп. услуга: {dep_name} в копилку {dep_label} ({booking.client_name})"
+
+        if dep_purpose in existing_purposes:
+            print(f"[PIGGY_DEBUG] SKIP asvc deposit (already exists): {dep_purpose!r}")
+            continue
 
         print(f"[PIGGY_DEBUG] ADDING asvc deposit amount={dep['amount']} purpose={dep_purpose!r} group={dep_group}")
 
@@ -16603,9 +16703,10 @@ def get_admin_workers_payroll(
         ).unique().all()
     entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
     if period != "all":
+        _pf, _pt = _local_day_bounds(date_from), _local_day_bounds(date_to)
         entries_query = entries_query.where(
-            PayrollEntry.created_at >= datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc),
-            PayrollEntry.created_at <= datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+            PayrollEntry.created_at >= _pf[0],
+            PayrollEntry.created_at <= _pt[1],
         )
     entries = db.scalars(entries_query.order_by(PayrollEntry.created_at.desc())).all()
     if period == "all":
@@ -17181,6 +17282,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         masterTotalAuto=split["master_total"],
         masterByWorker=master_by_worker_auto,
         asvcMasterPayTotal=int(split.get("asvc_master_pay", 0)),
+        asvcOwnerExtra=int(split.get("asvc_owner_extra", 0)),
         asvcPiggyDeposits=[
             BookingAsvcPiggyItem(
                 name=d["name"],
@@ -17337,8 +17439,7 @@ def get_owner_bookings_history_totals(
     ]
     entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
     if date_from and date_to:
-        dt_from = datetime.strptime(date_from, "%d.%m.%Y").replace(tzinfo=timezone.utc)
-        dt_to = datetime.strptime(date_to, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        dt_from, dt_to = _local_day_bounds(date_from)[0], _local_day_bounds(date_to)[1]
         entries_query = entries_query.where(
             PayrollEntry.created_at >= dt_from,
             PayrollEntry.created_at <= dt_to,
@@ -17801,8 +17902,11 @@ def update_owner_booking_money_split(
     booking.money_split_overrides = overrides or None
 
     target_materials = int(payload.materialsCost) if payload.materialsCost is not None else _booking_materials_cost_actual(db, booking)
-    for write_off in db.scalars(select(StockWriteOff).where(StockWriteOff.booking_id == booking.id)).all():
-        write_off.total_cost = target_materials
+    write_offs = db.scalars(select(StockWriteOff).where(StockWriteOff.booking_id == booking.id)).all()
+    if len(write_offs) == 1 and payload.materialsCost is not None:
+        # Ручной перерасчёт: единственная строка списания берёт всю целевую сумму.
+        # При нескольких строках не переписываем — распределить сумму однозначно нельзя.
+        write_offs[0].total_cost = target_materials
     for expense in db.scalars(select(Expense).where(Expense.booking_id == booking.id)).all():
         expense.amount = target_materials
 
@@ -17815,7 +17919,7 @@ def update_owner_booking_money_split(
     split = _booking_money_split(db, booking)
     # Депозиты доп услуг (остаток от вычитаемых доп услуг) — авто-вклад в свою
     # копилку, при ручной правке копилки их не трогаем
-    asvc_purpose_prefix = "Доп. услуга:"
+    asvc_purpose_prefix = ASVC_PIGGY_PURPOSE_PREFIX
     asvc_sum = sum(int(d["amount"]) for d in split.get("asvc_piggy_deposits") or [])
     asvc_txs = [t for t in deposit_txs if (t.purpose or "").startswith(asvc_purpose_prefix)]
     main_txs = [t for t in deposit_txs if not (t.purpose or "").startswith(asvc_purpose_prefix)]
@@ -17982,6 +18086,91 @@ def _resource_group_for_service(db: Session, service_id: str) -> str:
 
 
 
+
+
+def _worker_period_balance(
+    db: Session,
+    worker: StaffUser,
+    *,
+    date_from: str,
+    date_to: str,
+    segment: str,
+    complaints_by_worker: dict[str, list[Penalty]],
+) -> int:
+    """Баланс мастера за период — ровно как на странице ЗП: заработанное по записям
+    периода (сплит) + оклад + смены + премии/корректировки − авансы − удержания − выплаты."""
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]  # DD.MM.YYYY → YYYYMMDD
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+
+    date_col_key = (
+        func.substr(Booking.date, 7, 4).concat(
+            func.substr(Booking.date, 4, 2)
+        ).concat(
+            func.substr(Booking.date, 1, 2)
+        )
+    )
+
+    bookings_query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .join(BookingWorker)
+        .where(
+            BookingWorker.worker_id == worker.id,
+            Booking.status == "completed",
+            date_col_key >= date_from_key,
+            date_col_key <= date_to_key,
+        )
+        .order_by(Booking.date.desc(), Booking.time.desc())
+    )
+    completed_bookings = db.scalars(bookings_query).unique().all()
+
+    total_earned = 0
+    for b in completed_bookings:
+        worker_link = next(
+            (link for link in b.worker_links if link.worker_id == worker.id), None
+        )
+        if worker_link is None:
+            continue
+        rg = _resource_group_for_service(db, b.service_id)
+        if segment != "all" and rg != segment:
+            continue
+        split = _booking_money_split(db, b, complaints_by_worker)
+        if worker_link.override_earned is not None:
+            total_earned += int(worker_link.override_earned)
+        else:
+            total_earned += split["master_by_worker"].get(worker.id, 0)
+
+    entries = db.scalars(
+        select(PayrollEntry).where(
+            PayrollEntry.worker_id == worker.id,
+            PayrollEntry.created_at >= _local_day_bounds(date_from)[0],
+            PayrollEntry.created_at <= _local_day_bounds(date_to)[1],
+        )
+    ).all()
+
+    d_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+    d_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+    inspections = _admin_shift_inspections_state(db)
+    shift_count, _ = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
+    shift_pay_total = shift_count * (getattr(worker, "salary_per_shift", 0) or 0)
+
+    bonus_total = sum(e.amount for e in entries if e.kind == "bonus")
+    advance_total = sum(e.amount for e in entries if e.kind == "advance")
+    deduction_total = sum(e.amount for e in entries if e.kind == "deduction")
+    payout_total = sum(e.amount for e in entries if e.kind == "payout")
+    adjustment_total = sum(e.amount for e in entries if e.kind == "adjustment")
+
+    return int(
+        total_earned
+        + worker.salary_base
+        + shift_pay_total
+        + bonus_total
+        + max(adjustment_total, 0)
+        - advance_total
+        - deduction_total
+        - payout_total
+        - max(-adjustment_total, 0)
+    )
 
 
 @app.get(
@@ -18226,9 +18415,9 @@ def owner_worker_salary_detail(
 
             PayrollEntry.worker_id == worker_id,
 
-            PayrollEntry.created_at >= datetime.strptime(df, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at >= _local_day_bounds(df)[0],
 
-            PayrollEntry.created_at <= datetime.strptime(dt, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+            PayrollEntry.created_at <= _local_day_bounds(dt)[1],
 
         )
 
@@ -18616,9 +18805,9 @@ def worker_my_salary_detail(
 
             PayrollEntry.worker_id == worker_id,
 
-            PayrollEntry.created_at >= datetime.strptime(df, "%d.%m.%Y").replace(tzinfo=timezone.utc),
+            PayrollEntry.created_at >= _local_day_bounds(df)[0],
 
-            PayrollEntry.created_at <= datetime.strptime(dt, "%d.%m.%Y").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc),
+            PayrollEntry.created_at <= _local_day_bounds(dt)[1],
 
         )
 
@@ -18903,19 +19092,20 @@ def owner_worker_pay_salary(
 
 
 
-    # Recalculate balance
-
+    # Recalculate balance за тот же период, что показывает экран ЗП
+    date_from, date_to = _salary_date_range(
+        payload.period, custom_from=payload.dateFrom, custom_to=payload.dateTo
+    )
     all_penalties = _load_penalties(db)
-
     complaints_by_worker = _complaints_by_worker(all_penalties)
-
-    payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
-
-    summary = payroll_summaries.get(worker.id)
-
-    new_balance = summary.balance if summary else 0
-
-
+    new_balance = _worker_period_balance(
+        db,
+        worker,
+        date_from=date_from,
+        date_to=date_to,
+        segment=payload.segment,
+        complaints_by_worker=complaints_by_worker,
+    )
 
     return PaySalaryResponse(
 
@@ -19007,17 +19197,26 @@ def owner_salary_detail(
 
 
 
+    # Период доли: pending — по дате создания (когда заработана),
+    # paid — по дате выплаты (paid_at; для старых записей без paid_at — created_at)
+
+    def _ops_ts(value: datetime | None) -> datetime:
+        if value is None:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
     all_shares = db.scalars(
-
-        select(OwnerProfitShare).where(
-
-            OwnerProfitShare.created_at >= dt_from,
-
-            OwnerProfitShare.created_at <= dt_to,
-
-        ).order_by(OwnerProfitShare.created_at.desc())
-
+        select(OwnerProfitShare).order_by(OwnerProfitShare.created_at.desc())
     ).all()
+
+    period_shares = [
+        share
+        for share in all_shares
+        if (share.status == "pending" and dt_from <= _ops_ts(share.created_at) <= dt_to)
+        or (share.status != "pending" and dt_from <= _ops_ts(share.paid_at or share.created_at) <= dt_to)
+    ]
 
 
 
@@ -19048,7 +19247,7 @@ def owner_salary_detail(
 
 
 
-    for share in all_shares:
+    for share in period_shares:
 
         if (parsed_from or parsed_to) and not _stored_date_in_range(
             share.date, parsed_from or date.min, parsed_to or date.max
@@ -19252,6 +19451,8 @@ def owner_pay_salary(
 
     # Mark shares as paid
 
+    paid_at_dt = _now()
+
     to_pay = amount
 
     for share in pending_shares:
@@ -19264,6 +19465,8 @@ def owner_pay_salary(
 
             share.status = "paid"
 
+            share.paid_at = paid_at_dt
+
             to_pay -= share.amount
 
         else:
@@ -19273,6 +19476,8 @@ def owner_pay_salary(
             share.amount = to_pay
 
             share.status = "paid"
+
+            share.paid_at = paid_at_dt
 
             db.add(
 
@@ -19290,7 +19495,9 @@ def owner_pay_salary(
 
                     date=share.date,
 
-                    created_at=_now(),
+                    # Остаток доли остаётся в периоде исходной записи,
+                    # а не переезжает в период выплаты
+                    created_at=share.created_at,
 
                 )
 
