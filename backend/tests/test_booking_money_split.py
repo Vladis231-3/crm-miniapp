@@ -27,7 +27,7 @@ def reset_app_modules() -> None:
 
 def build_init_data(telegram_id: str) -> str:
     """Build Telegram init data that passes insecure validation (no HMAC)."""
-    return urllib.parse.urlencode({"user": json.dumps({"id": telegram_id})})
+    return urllib.parse.urlencode({"user": json.dumps({"id": int(telegram_id)})})
 
 
 class BookingMoneySplitTests(unittest.TestCase):
@@ -51,6 +51,12 @@ class BookingMoneySplitTests(unittest.TestCase):
         os.environ["SYNC_TELEGRAM_WEBHOOK"] = "false"
         os.environ["TELEGRAM_WEBHOOK_PATH"] = "/api/telegram/webhook"
         os.environ.pop("WEBAPP_URL", None)
+        os.environ["PERMANENT_TELEGRAM_OWNERS"] = json.dumps(
+            [
+                {"id": "owner-tg-1", "login": "owner-tg-1", "telegram_id": "77701301", "name": "Владелец ТГ 1"},
+                {"id": "owner-tg-2", "login": "owner-tg-2", "telegram_id": "77701302", "name": "Владелец ТГ 2"},
+            ]
+        )
 
         self.restart_app()
         self._set_staff_telegram_ids()

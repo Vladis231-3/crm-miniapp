@@ -37,7 +37,7 @@ def reset_app_modules() -> None:
 
 def build_init_data(telegram_id: str) -> str:
     """Build Telegram init data that passes insecure validation (no HMAC)."""
-    return urllib.parse.urlencode({"user": json.dumps({"id": telegram_id})})
+    return urllib.parse.urlencode({"user": json.dumps({"id": int(telegram_id)})})
 
 
 class DepositTests(unittest.TestCase):

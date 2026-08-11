@@ -18,6 +18,8 @@ import sys
 
 from datetime import date, datetime, timedelta, timezone
 
+from decimal import Decimal
+
 from pathlib import Path
 
 from threading import Thread
@@ -14140,12 +14142,15 @@ def piggy_bank_withdraw(
 
 # ---------------------------------------------------------------------------
 
-def _deposit_balance(db: Session, client_id: str) -> float:
+def _deposit_balance(db: Session, client_id: str) -> Decimal:
     return sum(
-        t.amount
-        for t in db.scalars(
-            select(DepositTransaction).where(DepositTransaction.client_id == client_id)
-        ).all()
+        (
+            t.amount
+            for t in db.scalars(
+                select(DepositTransaction).where(DepositTransaction.client_id == client_id)
+            ).all()
+        ),
+        Decimal(0),
     )
 
 
@@ -14160,13 +14165,14 @@ def _deposit_add_transaction(
     booking_id: str | None = None,
     created_by_id: str | None = None,
 ) -> DepositTransaction:
-    balance_after = _deposit_balance(db, client_id) + amount
+    amount_dec = Decimal(str(amount))
+    balance_after = _deposit_balance(db, client_id) + amount_dec
     txn = DepositTransaction(
         id=f"dep-{uuid4()}",
         client_id=client_id,
         date=date,
         transaction_type=txn_type,
-        amount=amount,
+        amount=amount_dec,
         balance_after=balance_after,
         description=description,
         booking_id=booking_id,
@@ -17332,8 +17338,11 @@ def get_owner_bookings_history(
     db: Session = Depends(get_db),
 ) -> list[BookingHistoryItem]:
     _ensure_staff_role(session_data, {"owner"})
-    parsed_from = parse_date_param(date_from) if date_from else None
-    parsed_to = parse_date_param(date_to) if date_to else None
+    try:
+        parsed_from = parse_date_param(date_from) if date_from else None
+        parsed_to = parse_date_param(date_to) if date_to else None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if parsed_from and parsed_to:
         try:
             validate_range(parsed_from, parsed_to)
@@ -17408,8 +17417,11 @@ def get_owner_bookings_history_totals(
     """Итоги за период из расчётки: по каждому мастеру — начисления/вычеты по компонентам,
     владельцам — доли прибыли (к выплате / выплачено), копилкам — вклады по банкам."""
     _ensure_staff_role(session_data, {"owner"})
-    parsed_from = parse_date_param(date_from) if date_from else None
-    parsed_to = parse_date_param(date_to) if date_to else None
+    try:
+        parsed_from = parse_date_param(date_from) if date_from else None
+        parsed_to = parse_date_param(date_to) if date_to else None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if parsed_from and parsed_to:
         try:
             validate_range(parsed_from, parsed_to)
