@@ -41,9 +41,9 @@ const STATUS_COLORS: Record<string, string> = {
   admin_review: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
 };
 
-const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress']);
-const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show', 'admin_review']);
-const CANCELLABLE_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled']);
+const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress', 'admin_review']);
+const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show']);
+const CANCELLABLE_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'admin_review']);
 type Page = 'catalog' | 'detail' | 'slots' | 'confirm' | 'bookings' | 'profile';
 
 function isBoxRentalService(service: Service | null | undefined) {
@@ -302,7 +302,7 @@ export function ClientApp() {
       time: selectedSlot || '',
       duration: selectedDuration,
       price: selectedPrice,
-      status: 'new',
+      status: 'admin_review',
       workers: [],
       box: defaultBoxName,
       paymentType: 'cash',
@@ -812,10 +812,10 @@ export function ClientApp() {
                 <Check size={36} style={{ color: primary }} />
               </motion.div>
               <h2 className="text-xl font-semibold mb-2 text-center">
-                Запись подтверждена!
+                Заявка отправлена!
               </h2>
               <p className={`text-sm ${sub} mb-6 text-center`}>
-                Напоминание придёт за 60 минут
+                Администратор свяжется с вами для уточнения деталей
               </p>
               <div className={`${glass} rounded-2xl p-4 w-full mb-6`}>
                 <div className="space-y-3">

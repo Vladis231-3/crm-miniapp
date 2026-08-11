@@ -751,7 +751,7 @@ export function OwnerApp() {
     date: todayLabel,
     time: '10:00',
     box: liveBoxes[0]?.name || 'Бокс 1',
-    status: 'scheduled' as BookingStatus,
+    status: 'admin_review' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
     price: 0,
@@ -917,7 +917,7 @@ export function OwnerApp() {
     plate: '',
     plateType: 'russian' as PlateType,
     notes: '',
-    status: 'scheduled' as BookingStatus,
+    status: 'admin_review' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
       isOutsource: false,
@@ -2543,7 +2543,7 @@ export function OwnerApp() {
       date: todayLabel,
       time: '10:00',
       box: '',
-      status: 'scheduled',
+      status: 'admin_review',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
       price: firstSvc?.price || 0,
@@ -2551,7 +2551,7 @@ export function OwnerApp() {
     });
   };
 
-  const openBookingForClient = (client: RegisteredClient, status: BookingStatus = 'scheduled') => {
+  const openBookingForClient = (client: RegisteredClient, status: BookingStatus = 'admin_review') => {
     const historyDate = new Date();
     historyDate.setDate(historyDate.getDate() - 1);
     const firstServiceId = services[0]?.id || 's1';
@@ -2756,7 +2756,7 @@ setOwnerNewBookingWorkers([]);
       plate: '',
       plateType: 'russian' as PlateType,
       notes: '',
-      status: 'scheduled',
+      status: 'admin_review',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
       paymentSettled: false,
       isOutsource: false,

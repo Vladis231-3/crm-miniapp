@@ -589,7 +589,7 @@ OWNER_DATABASE_RESET_DELAY_SECONDS = 10
 
 BOOKING_ACTIVE_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
 
-BOOKING_CLIENT_CANCELLABLE_STATUSES = {"new", "confirmed", "scheduled"}
+BOOKING_CLIENT_CANCELLABLE_STATUSES = {"new", "confirmed", "scheduled", "admin_review"}
 
 BOOKING_REMINDER_ELIGIBLE_STATUSES = {"new", "confirmed", "scheduled"}
 
@@ -10181,11 +10181,16 @@ def create_booking(
 
     )
 
-    booking_status = "new" if session_data["role"] == "client" else payload.status
+    booking_status = "admin_review" if session_data["role"] == "client" else payload.status
 
 
 
     requires_scheduled_slot = _booking_requires_scheduled_slot(booking_status) and booking_status != "scheduled"
+
+    # Клиент всегда выбирает дату/время в интерфейсе — даже для записи «на уточнении»
+    # сохраняем проверки слота (не в прошлом, в графике работы, свободный бокс)
+    if session_data["role"] == "client":
+        requires_scheduled_slot = True
 
     if requires_scheduled_slot:
 
@@ -11822,7 +11827,7 @@ def delete_booking(
 
                 status_code=status.HTTP_400_BAD_REQUEST,
 
-                detail="Клиент может отменить только новую, подтверждённую или запланированную запись",
+                detail="Клиент может отменить только новую, подтверждённую, запланированную запись или запись на уточнении",
 
             )
 

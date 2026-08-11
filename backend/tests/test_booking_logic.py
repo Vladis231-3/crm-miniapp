@@ -401,7 +401,7 @@ class BookingLogicTests(unittest.TestCase):
                 return next_date.strftime("%d.%m.%Y")
         raise AssertionError("Unable to find active schedule day")
 
-    def test_client_booking_uses_session_client_and_forces_new_status(self) -> None:
+    def test_client_booking_uses_session_client_and_forces_admin_review_status(self) -> None:
         token, actor_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
         response = self.client.post(
             "/api/bookings",
@@ -428,7 +428,7 @@ class BookingLogicTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["clientId"], actor_id)
         self.assertEqual(payload["clientName"], "Alice")
-        self.assertEqual(payload["status"], "new")
+        self.assertEqual(payload["status"], "admin_review")
         self.assertEqual(payload["workers"], [])
         self.assertEqual(payload["serviceId"], "s1")
         self.assertNotEqual(payload["service"], "Spoofed service")
@@ -716,7 +716,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(detailing_response.status_code, 200, detailing_response.text)
         detailing_payload = detailing_response.json()
         self.assertTrue(str(detailing_payload["box"]).startswith("Детейлинг"))
-        self.assertEqual(detailing_payload["status"], "new")
+        self.assertEqual(detailing_payload["status"], "admin_review")
 
     def test_booking_rejects_box_time_overlap(self) -> None:
         token, _ = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
