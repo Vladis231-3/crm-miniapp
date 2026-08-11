@@ -5283,7 +5283,254 @@ def _require_session(
     return session_data
 
 
+def _extract_telegram_id_from_init_data(authorization: str) -> str:
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData")
+    try:
+        validated = validate_telegram_init_data(
+            authorization,
+            settings.telegram_bot_token,
+            max_age_seconds=settings.telegram_init_data_max_age_seconds,
+            future_skew_seconds=settings.telegram_init_data_future_skew_seconds,
+        )
+    except ValueError:
+        if settings.allow_insecure_client_auth:
+            try:
+                validated = validate_telegram_init_data(
+                    authorization,
+                    settings.telegram_bot_token,
+                    skip_validation=True,
+                    max_age_seconds=settings.telegram_init_data_max_age_seconds,
+                    future_skew_seconds=settings.telegram_init_data_future_skew_seconds,
+                )
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData"
+                )
+        else:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid initData")
+    telegram_user = validated.get("user") or {}
+    telegram_id = str(telegram_user.get("id")) if telegram_user.get("id") is not None else ""
+    if not telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user is missing"
+        )
+    return telegram_id
 
+
+@app.post("/api/auth/client", response_model=BootstrapPayload)
+def register_or_login_client(
+    payload: ClientRegisterRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = (request.headers.get("authorization") or "").strip()
+    if not authorization:
+        authorization = (payload.initData or "").strip()
+    if not authorization:
+        if settings.allow_insecure_client_auth:
+            telegram_id = ""
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData"
+            )
+    else:
+        telegram_id = _extract_telegram_id_from_init_data(authorization)
+
+    if telegram_id:
+        existing = db.scalar(
+            select(Client).where(
+                Client.telegram_id == telegram_id,
+                Client.deleted_at.is_(None),
+            )
+        )
+        if existing is not None:
+            if payload.phone:
+                phone_client = _client_by_phone(db, payload.phone)
+                if (
+                    phone_client is not None
+                    and phone_client.id != existing.id
+                    and telegram_id != (phone_client.telegram_id or "")
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Этот Telegram уже привязан к другому клиенту",
+                    )
+            if payload.name:
+                existing.name = payload.name
+            if payload.car:
+                existing.car = payload.car
+            if payload.plate:
+                existing.plate = payload.plate
+            existing.updated_at = _now()
+            db.commit()
+            db.refresh(existing)
+            return _build_bootstrap(
+                db,
+                {
+                    "role": "client",
+                    "actorId": existing.id,
+                    "displayName": existing.name,
+                    "sessionId": "",
+                },
+            )
+
+    if payload.phone:
+        phone_owner = _client_by_phone(db, payload.phone)
+        if phone_owner is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Клиент с таким номером телефона уже существует",
+            )
+
+    client = Client(
+        id=f"c-{uuid4()}",
+        telegram_id=telegram_id or None,
+        name=payload.name,
+        phone=payload.phone,
+        car=payload.car or "",
+        plate=payload.plate or "",
+        plate_type=payload.plateType,
+        registered=True,
+    )
+    db.add(client)
+    db.commit()
+    db.refresh(client)
+    return _build_bootstrap(
+        db,
+        {
+            "role": "client",
+            "actorId": client.id,
+            "displayName": client.name,
+            "sessionId": "",
+        },
+    )
+
+
+@app.post("/api/auth/telegram", response_model=BootstrapPayload)
+async def authenticate_via_telegram(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = (request.headers.get("authorization") or "").strip()
+    if not authorization:
+        try:
+            body_data = await request.json()
+        except ValueError:
+            body_data = {}
+        if isinstance(body_data, dict):
+            authorization = (body_data.get("initData") or "").strip()
+    session_data = _resolve_user_from_init_data(authorization, db)
+    if session_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Аккаунт для этого Telegram ещё не привязан. Сначала завершите регистрацию или привязку профиля.",
+        )
+    return _build_bootstrap(db, session_data)
+
+
+@app.post("/api/auth/staff/link", response_model=BootstrapPayload)
+def link_staff_account(
+    payload: StaffLinkRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = (request.headers.get("authorization") or "").strip()
+    telegram_id = _extract_telegram_id_from_init_data(authorization)
+    staff = db.scalar(
+        select(StaffUser).where(StaffUser.login == payload.login.strip().lower())
+    )
+    if staff is None or not verify_password(payload.password, staff.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль"
+        )
+    if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён"
+        )
+    staff.telegram_chat_id = telegram_id
+    staff.updated_at = _now()
+    db.commit()
+    return _build_bootstrap(
+        db,
+        {
+            "role": staff.role,
+            "actorId": staff.id,
+            "login": staff.login,
+            "displayName": staff.name,
+            "sessionId": "",
+        },
+    )
+
+
+@app.post("/api/auth/telegram-owner", response_model=BootstrapPayload)
+def authenticate_primary_owner_via_telegram(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    authorization = (request.headers.get("authorization") or "").strip()
+    telegram_id = _extract_telegram_id_from_init_data(authorization)
+    owner = _primary_owner(db)
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Главный владелец не настроен"
+        )
+    current_chat_id = _safe_text(owner.telegram_chat_id).strip()
+    if not current_chat_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Telegram создателя ещё не привязан. Сначала войдите по логину и привяжите Telegram через CRM.",
+        )
+    if current_chat_id != telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Этот Telegram не привязан к создателю"
+        )
+    if not owner.name.strip():
+        owner.name = _telegram_display_name(telegram_user={}, fallback="Создатель")
+        db.commit()
+    return _build_bootstrap(
+        db,
+        {
+            "role": owner.role,
+            "actorId": owner.id,
+            "login": owner.login,
+            "displayName": owner.name,
+            "sessionId": "",
+        },
+    )
+
+
+@app.post("/api/auth/switch-role", response_model=BootstrapPayload)
+def switch_role(
+    payload: SwitchRoleRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    current_role = session_data["role"]
+    if current_role not in {"owner", "admin", "worker", "accountant"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Недоступно для этой роли"
+        )
+    staff = db.scalar(select(StaffUser).where(StaffUser.id == session_data["actorId"]))
+    if staff is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
+        )
+    allowed = {staff.role, *(staff.extra_roles or [])}
+    if payload.targetRole not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Роль недоступна"
+        )
+    return _build_bootstrap(
+        db,
+        {
+            "role": payload.targetRole,
+            "actorId": staff.id,
+            "login": staff.login,
+            "displayName": staff.name,
+            "sessionId": "",
+        },
+    )
 
 
 def _ensure_staff_role(session_data: dict, allowed: set[str]) -> None:

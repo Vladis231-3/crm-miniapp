@@ -876,11 +876,23 @@ class BootstrapPayload(BaseModel):
 
 
 class ClientRegisterRequest(BaseModel):
-    name: str
-    phone: str
+    name: str = ""
+    phone: str = ""
     car: str = ""
     plate: str = ""
     plateType: str = "russian"
+    registered: bool = True
+    initData: str = ""
+    profile: ClientProfileInput | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def lift_profile(cls, raw: Any) -> Any:
+        if isinstance(raw, dict) and isinstance(raw.get("profile"), dict):
+            merged = {**raw["profile"], **raw}
+            merged.pop("profile", None)
+            return merged
+        return raw
 
     @field_validator("name")
     @classmethod
@@ -892,6 +904,8 @@ class ClientRegisterRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
+        if not value.strip():
+            return ""
         return normalize_phone(value)
 
     @model_validator(mode="after")
