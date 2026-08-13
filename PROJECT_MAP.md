@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **271**
-- Строк кода: **82 798**
+- Строк кода: **82 801**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 60, `.ts`: 19, `.tsx`: 186
 
 ## Архитектура
@@ -1542,7 +1542,7 @@ concept1.0/
 - `test_build_auth_url_returns_consent_urldef test_build_auth_url_returns_consent_url(settings): url = build_auth_url(settings, "test-state-123") assert url.startswith("https://accounts.google.com/o/oauth2/auth") assert "t` (стр. 242)
 - `test_exchange_code_returns_tokensdef test_exchange_code_returns_tokens(settings): flow_mock = MagicMock() flow_mock.credentials.to_json.return_value = { "token": "t", "refresh_token": "r", "client_id": "c", "token` (стр. 249)
 
-### backend/tests/test_google_calendar_api.py (242 строк)
+### backend/tests/test_google_calendar_api.py (245 строк)
 
 Классы и функции (13):
 

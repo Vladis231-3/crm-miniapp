@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, ChevronRight, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive
  } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
