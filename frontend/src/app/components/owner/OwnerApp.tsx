@@ -1714,6 +1714,23 @@ export function OwnerApp() {
     }
   };
 
+  const handleGoogleEditKeys = async () => {
+    // Удалить сохранённые ключи OAuth-клиента — снова покажется мастер
+    // с инструкцией «откуда брать ключ и куда ставить» и загрузкой .json.
+    setGoogleConnectError(null);
+    try {
+      await apiRequest('/api/owner/integrations/google/credentials', { method: 'DELETE' });
+      const status = await apiRequest<{ configured: boolean; source: 'env' | 'db' | null; redirectUri: string }>(
+        '/api/owner/integrations/google/status'
+      );
+      setGoogleSetupStatus(status);
+      setGoogleSetupOpen(true);
+      setIntegrations(p => ({ ...p, googleCalendar: false }));
+    } catch (error) {
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось удалить ключи Google Календаря');
+    }
+  };
+
   const handleGoogleSyncNow = async () => {
     setGoogleSyncing(true);
     setGoogleSyncError(null);
@@ -8118,6 +8135,12 @@ setOwnerNewBookingWorkers([]);
                       className="w-full py-2 rounded-xl text-xs font-medium"
                       style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
                       Отключить Google Календарь
+                    </button>
+                    <button
+                      onClick={() => { void handleGoogleEditKeys(); }}
+                      className="w-full py-2 rounded-xl text-xs font-medium"
+                      style={{ color: '#4285F4', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
+                      Изменить ключи подключения
                     </button>
                   </div>
                 )}

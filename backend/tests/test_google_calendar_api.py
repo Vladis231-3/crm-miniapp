@@ -244,6 +244,7 @@ class GoogleCalendarApiTests(unittest.TestCase):
             response = self.client.get(
                 "/api/owner/integrations/google/callback",
                 params={"code": "auth-code", "state": state},
+                headers={"Accept": "application/json"},
             )
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json(), {"ok": True})
@@ -258,9 +259,49 @@ class GoogleCalendarApiTests(unittest.TestCase):
         response = self.client.get(
             "/api/owner/integrations/google/callback",
             params={"code": "auth-code", "state": "wrong-state"},
+            headers={"Accept": "application/json"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["error"], "state_mismatch")
+
+    def test_callback_returns_html_page_for_browser(self) -> None:
+        """Браузер (Accept: text/html) после OAuth видит понятную страницу, а не JSON."""
+        token = self.login_owner()
+        with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent"):
+            self.client.get(
+                "/api/owner/integrations/google/auth-url",
+                headers=self.auth_headers(token),
+            )
+        from app.database import SessionLocal
+        from app.models import AppSetting
+
+        with SessionLocal() as db:
+            state = db.get(AppSetting, "google_calendar_oauth_state").value["state"]
+
+        with patch(
+            "app.main.exchange_code",
+            return_value={"token": "t", "refresh_token": "r"},
+        ), patch(
+            "app.main.pull_calendar_changes",
+            return_value={"ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0, "error": None},
+        ):
+            response = self.client.get(
+                "/api/owner/integrations/google/callback",
+                params={"code": "auth-code", "state": state},
+                headers={"Accept": "text/html"},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.headers["content-type"].startswith("text/html"))
+        self.assertIn("Google Календарь подключён", response.text)
+
+        response_error = self.client.get(
+            "/api/owner/integrations/google/callback",
+            params={"code": "auth-code", "state": "wrong"},
+            headers={"Accept": "text/html"},
+        )
+        self.assertEqual(response_error.status_code, 200)
+        self.assertTrue(response_error.headers["content-type"].startswith("text/html"))
+        self.assertIn("Не удалось подключить", response_error.text)
 
     def test_disconnect_clears_tokens_and_flag(self) -> None:
         token = self.login_owner()

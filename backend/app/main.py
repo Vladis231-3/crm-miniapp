@@ -37,7 +37,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from fastapi.staticfiles import StaticFiles
 
@@ -16798,39 +16798,89 @@ def get_google_calendar_auth_url(
     return {"authUrl": auth_url}
 
 
+def _google_callback_page(ok: bool, text: str, hint: str = "") -> HTMLResponse:
+    """Простая HTML-страница результата Google OAuth для браузера владельца.
+
+    После OAuth Google редиректит браузер на callback, и голый JSON
+    выглядит как «пустое окно». Страница объясняет, что делать дальше.
+    """
+
+    def esc(value: str) -> str:
+        return (
+            value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        )
+
+    color = "#22C55E" if ok else "#EF4444"
+    icon = "✓" if ok else "✕"
+    lines = [esc(text)]
+    if hint:
+        lines.append(esc(hint))
+    body = "<br>".join(lines)
+    return HTMLResponse(
+        f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Подключение Google Календаря</title></head>
+<body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+background:#0F172A;display:flex;align-items:center;justify-content:center;min-height:100vh">
+<div style="background:#1E293B;border-radius:16px;padding:32px;max-width:380px;width:88%;
+text-align:center;color:#E2E8F0">
+<div style="font-size:40px;color:{color}">{icon}</div>
+<div style="font-size:17px;font-weight:600;margin:14px 0 8px">{body}</div>
+<div style="font-size:13px;color:#94A3B8;margin-top:12px">Можно закрыть это окно и вернуться в Telegram.</div>
+</div></body></html>"""
+    )
+
+
 @app.get("/api/owner/integrations/google/callback")
 def google_calendar_callback(
     code: str = "",
     state: str = "",
     error: str | None = None,
+    request: Request = None,  # type: ignore[assignment]  # FastAPI инжектит Request
     db: Session = Depends(get_db),
-) -> dict:
+) -> Response:
     """Callback от Google после OAuth. Сохраняет токены и включает интеграцию.
 
     Endpoint публичный (браузер перенаправляется Google), поэтому защищаемся
-    параметром state, сохранённым при запросе auth-url.
+    параметром state, сохранённым при запросе auth-url. Для браузера отдаём
+    человекочитаемую HTML-страницу, для остальных клиентов — JSON.
     """
     saved = _setting(db, "google_calendar_oauth_state", {})
+    error_text: str | None = None
     if error:
-        return {"ok": False, "error": f"google_error:{error}"}
-    if not code:
-        return {"ok": False, "error": "missing_code"}
-    if (saved or {}).get("state") != state:
-        return {"ok": False, "error": "state_mismatch"}
-    if not is_configured(settings, db):
-        return {"ok": False, "error": "not_configured"}
-    try:
-        tokens = exchange_code(settings, code, db)
-    except Exception:  # noqa: BLE001
-        logger.exception("Google OAuth token exchange failed")
-        return {"ok": False, "error": "exchange_failed"}
-    save_tokens(db, tokens)
+        error_text = f"google_error:{error}"
+    elif not code:
+        error_text = "missing_code"
+    elif (saved or {}).get("state") != state:
+        error_text = "state_mismatch"
+    elif not is_configured(settings, db):
+        error_text = "not_configured"
+
+    tokens: dict | None = None
+    if error_text is None:
+        try:
+            tokens = exchange_code(settings, code, db)
+        except Exception:
+            logger.exception("Google OAuth token exchange failed")
+            error_text = "exchange_failed"
+
+    want_html = bool(request) and "text/html" in (request.headers.get("accept", "") or "").lower()
+    if error_text is not None:
+        if want_html:
+            return _google_callback_page(
+                False,
+                "Не удалось подключить Google Календарь",
+                f"Код ошибки: {error_text}. Вернитесь в Telegram и попробуйте ещё раз.",
+            )
+        return {"ok": False, "error": error_text}
+
+    save_tokens(db, tokens)  # type: ignore[arg-type]
 
     # Сразу после подключения выполняем первый pull: события из Google
     # появляются в CRM (source="google"), ошибки не блокируют OAuth.
     try:
         pull_calendar_changes(db, settings)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Initial Google Calendar pull after OAuth failed")
 
     integrations = _merge_setting_dict(
@@ -16840,6 +16890,12 @@ def google_calendar_callback(
     integrations["googleCalendar"] = True
     _upsert_setting(db, "owner_integrations", integrations)
     db.commit()
+    if want_html:
+        return _google_callback_page(
+            True,
+            "Google Календарь подключён!",
+            "Синхронизация уже запущена. Вернитесь в Telegram.",
+        )
     return {"ok": True}
 
 

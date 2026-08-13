@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-13 13:24 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-13 13:45 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **269**
-- Строк кода: **84 416**
+- Строк кода: **84 536**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 57, `.ts`: 19, `.tsx`: 187
 
 ## Архитектура
@@ -428,7 +428,7 @@ concept1.0/
 - `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 693)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 723)
 
-### backend/app/main.py (20581 строк)
+### backend/app/main.py (20637 строк)
 
 Роуты (117):
 
@@ -518,41 +518,41 @@ concept1.0/
   `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 16720)
   `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 16744)
   `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 16779)
-  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 16801)
-  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 16846)
-  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 16864)
-  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 16897)
-  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 16930)
-  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 16942)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 16966)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 17002)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 17105)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 17187)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 17259)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 17466)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 17562)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 17785)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 17864)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 18032)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 18329)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 18343)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 18642)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 19043)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 19431)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 19602)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 19854)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 20072)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 20210)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 20270)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 20464)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 20472)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 20484)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 20508)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 20516)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 20524)
+  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 16834)
+  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 16902)
+  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 16920)
+  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 16953)
+  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 16986)
+  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 16998)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 17022)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 17058)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 17161)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 17243)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 17315)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 17522)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 17618)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 17841)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 17920)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 18088)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 18385)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 18399)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 18698)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 19099)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 19487)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 19658)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 19910)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 20128)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 20266)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 20326)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 20520)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 20528)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 20540)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 20564)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 20572)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 20580)
 ```
 
-Классы и функции (222):
+Классы и функции (224):
 
 - `_resolve_frontend_distdef _resolve_frontend_dist() -> Path: """Каталог собранного React-фронтенда. В обычном режиме — <project>/frontend/dist (родитель каталога app/). В frozen-режиме (PyInstaller bundl` (стр. 543)
 - `_check_rate_limitdef _check_rate_limit(ip: str) -> None: global _last_rate_limit_cleanup now = time_module.time() window_start = now - _LOGIN_RATE_LIMIT_WINDOW # Periodic cleanup of stale entries t` (стр. 749)
@@ -754,7 +754,7 @@ concept1.0/
 - `_deposit_carried_washesdef _deposit_carried_washes(db: Session, client: Client, month: str) -> int: prev = _deposit_prev_month(month) row = db.scalar( select(DepositMonth).where( DepositMonth.client_id =` (стр. 14514)
 - `_deposit_wash_limitdef _deposit_wash_limit(db: Session, client: Client, month: str) -> int: """Лимит моек по плану 'washes' (включённые + перенесённые).""" if _deposit_plan_key(client.deposit_plan or` (стр. 14525)
 - `_deposit_month_wash_extradef _deposit_month_wash_extra(db: Session, client: Client, month: str) -> float: """Сумма цен моек сверх включённого лимита по плану 'washes'.""" if _deposit_plan_key(client.deposi` (стр. 14535)
-- ...ещё 22
+- ...ещё 24
 
 ### backend/app/models.py (595 строк)
 
@@ -1573,9 +1573,9 @@ concept1.0/
 - `test_build_auth_url_returns_consent_urldef test_build_auth_url_returns_consent_url(settings): url = gc.build_auth_url(settings, "test-state-123") assert url.startswith("https://accounts.google.com/o/oauth2/auth") assert` (стр. 323)
 - `test_exchange_code_returns_tokensdef test_exchange_code_returns_tokens(settings): resp_mock = MagicMock() resp_mock.status_code = 200 resp_mock.json.return_value = {"token": "t", "refresh_token": "r"} with patch.o` (стр. 330)
 
-### backend/tests/test_google_calendar_api.py (405 строк)
+### backend/tests/test_google_calendar_api.py (446 строк)
 
-Классы и функции (21):
+Классы и функции (22):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 17)
 - `class GoogleCalendarApiTests(unittest.TestCase):` (стр. 23)
@@ -1592,12 +1592,13 @@ concept1.0/
 - `GoogleCalendarApiTests.test_credentials_endpoints_require_ownerdef test_credentials_endpoints_require_owner(self) -> None: response = self.client.get("/api/owner/integrations/google/status") self.assertEqual(response.status_code, 401) response` (стр. 202)
 - `GoogleCalendarApiTests.test_put_credentials_rejects_emptydef test_put_credentials_rejects_empty(self) -> None: token = self.login_owner() response = self.client.put( "/api/owner/integrations/google/credentials", headers=self.auth_headers` (стр. 213)
 - `GoogleCalendarApiTests.test_callback_exchanges_code_and_enables_integrationdef test_callback_exchanges_code_and_enables_integration(self) -> None: token = self.login_owner() # Получаем state из AppSetting после запроса auth-url with patch("app.main.build_` (стр. 223)
-- `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, ) ` (стр. 257)
-- `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 265)
-- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 302)
-- `GoogleCalendarApiTests.test_sync_endpoint_requires_ownerdef test_sync_endpoint_requires_owner(self) -> None: response = self.client.post("/api/owner/integrations/google/sync") self.assertEqual(response.status_code, 401)` (стр. 343)
-- `GoogleCalendarApiTests.test_sync_endpoint_returns_pull_statsdef test_sync_endpoint_returns_pull_stats(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 347)
-- `GoogleCalendarApiTests.test_create_booking_sets_source_for_client_roledef test_create_booking_sets_source_for_client_role(self) -> None: token = self.login_owner() response = self.client.post( "/api/bookings", headers=self.auth_headers(token), json={` (стр. 379)
+- `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, he` (стр. 258)
+- `GoogleCalendarApiTests.test_callback_returns_html_page_for_browserdef test_callback_returns_html_page_for_browser(self) -> None: """Браузер (Accept: text/html) после OAuth видит понятную страницу, а не JSON.""" token = self.login_owner() with pat` (стр. 267)
+- `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 306)
+- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 343)
+- `GoogleCalendarApiTests.test_sync_endpoint_requires_ownerdef test_sync_endpoint_requires_owner(self) -> None: response = self.client.post("/api/owner/integrations/google/sync") self.assertEqual(response.status_code, 401)` (стр. 384)
+- `GoogleCalendarApiTests.test_sync_endpoint_returns_pull_statsdef test_sync_endpoint_returns_pull_stats(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 388)
+- `GoogleCalendarApiTests.test_create_booking_sets_source_for_client_roledef test_create_booking_sets_source_for_client_role(self) -> None: token = self.login_owner() response = self.client.post( "/api/bookings", headers=self.auth_headers(token), json={` (стр. 420)
 
 ### backend/tests/test_google_calendar_pull.py (480 строк)
 
@@ -2291,7 +2292,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11854 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11877 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 220) — локальный
 - `STOCK_UNITS` (стр. 221) — локальный
@@ -3157,12 +3158,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/app/main.py` (2026-08-13 16:45)
+- `backend/tests/test_google_calendar_api.py` (2026-08-13 16:38)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 16:36)
 - `backend/app/google_calendar.py` (2026-08-13 16:14)
 - `backend/tests/test_google_calendar_pull.py` (2026-08-13 16:14)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 16:13)
 - `frontend/public/google2855e110d983d030.html` (2026-08-13 15:45)
-- `backend/app/main.py` (2026-08-13 14:58)
-- `backend/tests/test_google_calendar_api.py` (2026-08-13 14:48)
 - `backend/tests/test_google_calendar.py` (2026-08-13 14:47)
 - `backend/app/schemas.py` (2026-08-13 14:44)
 - `backend/requirements.txt` (2026-08-13 14:24)
