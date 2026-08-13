@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-13 09:24 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-13 09:32 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **271**
-- Строк кода: **82 801**
-- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 60, `.ts`: 19, `.tsx`: 186
+- Файлов кода: **267**
+- Строк кода: **82 588**
+- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 56, `.ts`: 19, `.tsx`: 186
 
 ## Архитектура
 
@@ -218,10 +218,6 @@ concept1.0/
 │       └── workspace.globals.yaml
 ├── scripts/
 │   ├── .project-map-watch.lock
-│   ├── _insert_gc_helper.py
-│   ├── _insert_gc_hook_create.py
-│   ├── _insert_gc_hooks_update_delete.py
-│   ├── _insert_gc_oauth_endpoints.py
 │   ├── generate_project_map.py
 │   ├── install-tunnel-watchdog-task.ps1
 │   ├── run-backend-local.bat
@@ -390,22 +386,22 @@ concept1.0/
 
 - `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" transaction = db.scalar( select(Pig` (стр. 14)
 
-### backend/app/google_calendar.py (250 строк)
+### backend/app/google_calendar.py (247 строк)
 
 Классы и функции (12):
 
-- `_appsetting_modeldef _appsetting_model(): """Ленивый импорт модели AppSetting (обход циклических зависимостей).""" global _AppSetting if _AppSetting is None: from .models import AppSetting _AppSett` (стр. 37)
-- `is_configureddef is_configured(settings: Settings) -> bool: """True, если заданы учётные данные Google Calendar.""" return bool( settings.google_calendar_client_id and settings.google_calendar_` (стр. 47)
-- `load_tokensdef load_tokens(db: Any) -> dict[str, Any]: """Вернуть OAuth-токены владельца или пустой dict.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_K` (стр. 54)
-- `save_tokensdef save_tokens(db: Any, tokens: dict[str, Any]) -> None: """Сохранить OAuth-токены владельца (upsert).""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR` (стр. 64)
-- `clear_tokensdef clear_tokens(db: Any) -> None: """Отключить интеграцию: удалить сохранённые токены.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY) if ` (стр. 76)
-- `_client_configdef _client_config(settings: Settings) -> dict[str, Any]: """Базовый client_config для построения Flow.""" redirect_uri = settings.google_calendar_redirect_uri return { "installed"` (стр. 85)
-- `build_auth_urldef build_auth_url(settings: Settings, state: str) -> str: """Построить OAuth-URL для подключения Google Calendar.""" from google_auth_oauthlib.flow import Flow # type: ignore flow` (стр. 99)
-- `exchange_codedef exchange_code(settings: Settings, code: str) -> dict[str, Any]: """Обменять OAuth-код на токены. Вернёт dict токенов.""" from google_auth_oauthlib.flow import Flow # type: igno` (стр. 117)
-- `_build_servicedef _build_service(credentials: Any, settings: Settings): """Собрать ресурс Google Calendar API из credentials.""" from google.oauth2.credentials import Credentials # type: ignore ` (стр. 128)
-- `_booking_event_bodydef _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]: """Сформировать тело Google-события из записи Booking.""" from zoneinfo import ZoneInfo # type: ignore ` (стр. 144)
-- `sync_booking_to_calendardef sync_booking_to_calendar( db: Any, settings: Settings, booking: Any, *, action: str = "upsert"` (стр. 182)
-- `_sync_booking_to_calendar_impldef _sync_booking_to_calendar_impl( db: Any, settings: Settings, booking: Any, *, action: str` (стр. 202)
+- `_appsetting_modeldef _appsetting_model(): """Ленивый импорт модели AppSetting (обход циклических зависимостей).""" global _AppSetting if _AppSetting is None: from .models import AppSetting _AppSett` (стр. 36)
+- `is_configureddef is_configured(settings: Settings) -> bool: """True, если заданы учётные данные Google Calendar.""" return bool( settings.google_calendar_client_id and settings.google_calendar_` (стр. 46)
+- `load_tokensdef load_tokens(db: Any) -> dict[str, Any]: """Вернуть OAuth-токены владельца или пустой dict.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_K` (стр. 53)
+- `save_tokensdef save_tokens(db: Any, tokens: dict[str, Any]) -> None: """Сохранить OAuth-токены владельца (upsert).""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR` (стр. 63)
+- `clear_tokensdef clear_tokens(db: Any) -> None: """Отключить интеграцию: удалить сохранённые токены.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY) if ` (стр. 75)
+- `_client_configdef _client_config(settings: Settings) -> dict[str, Any]: """Базовый client_config для построения Flow.""" redirect_uri = settings.google_calendar_redirect_uri return { "installed"` (стр. 84)
+- `build_auth_urldef build_auth_url(settings: Settings, state: str) -> str: """Построить OAuth-URL для подключения Google Calendar.""" from google_auth_oauthlib.flow import Flow # type: ignore flow` (стр. 98)
+- `exchange_codedef exchange_code(settings: Settings, code: str) -> dict[str, Any]: """Обменять OAuth-код на токены. Вернёт dict токенов.""" from google_auth_oauthlib.flow import Flow # type: igno` (стр. 116)
+- `_build_servicedef _build_service(credentials: Any, settings: Settings): """Собрать ресурс Google Calendar API из credentials.""" from google.oauth2.credentials import Credentials # type: ignore ` (стр. 127)
+- `_booking_event_bodydef _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]: """Сформировать тело Google-события из записи Booking.""" from zoneinfo import ZoneInfo # type: ignore ` (стр. 143)
+- `sync_booking_to_calendardef sync_booking_to_calendar( db: Any, settings: Settings, booking: Any, *, action: str = "upsert"` (стр. 181)
+- `_sync_booking_to_calendar_impldef _sync_booking_to_calendar_impl( db: Any, settings: Settings, booking: Any, *, action: str` (стр. 201)
 
 ### backend/app/main.py (20405 строк)
 
@@ -1542,23 +1538,23 @@ concept1.0/
 - `test_build_auth_url_returns_consent_urldef test_build_auth_url_returns_consent_url(settings): url = build_auth_url(settings, "test-state-123") assert url.startswith("https://accounts.google.com/o/oauth2/auth") assert "t` (стр. 242)
 - `test_exchange_code_returns_tokensdef test_exchange_code_returns_tokens(settings): flow_mock = MagicMock() flow_mock.credentials.to_json.return_value = { "token": "t", "refresh_token": "r", "client_id": "c", "token` (стр. 249)
 
-### backend/tests/test_google_calendar_api.py (245 строк)
+### backend/tests/test_google_calendar_api.py (242 строк)
 
 Классы и функции (13):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 17)
-- `class GoogleCalendarApiTests(unittest.TestCase):` (стр. 29)
-- `GoogleCalendarApiTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_gc_api_{os.urandom(4).` (стр. 30)
-- `GoogleCalendarApiTests.tearDowndef tearDown(self) -> None: self.client_manager.__exit__(None, None, None) reset_app_modules() from app.database import engine engine.dispose() for suffix in ("", "-wal", "-shm"):` (стр. 58)
-- `GoogleCalendarApiTests.login_ownerdef login_owner(self) -> str: """Аутентификация владельца: возвращаем подписанный initData. В демо-сиде владелец не привязан к Telegram, поэтому предварительно проставляем telegram` (стр. 71)
-- `GoogleCalendarApiTests.auth_headersdef auth_headers(self, init_data: str) -> dict[str, str]: return {"Authorization": init_data}` (стр. 113)
-- `GoogleCalendarApiTests.telegram_bot_tokendef telegram_bot_token(self) -> str: return os.environ["TELEGRAM_BOT_TOKEN"]` (стр. 116)
-- `GoogleCalendarApiTests.test_auth_url_requires_ownerdef test_auth_url_requires_owner(self) -> None: response = self.client.get("/api/owner/integrations/google/auth-url") self.assertEqual(response.status_code, 401)` (стр. 119)
-- `GoogleCalendarApiTests.test_auth_url_returns_consent_linkdef test_auth_url_returns_consent_link(self) -> None: token = self.login_owner() with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent?state=abc")` (стр. 123)
-- `GoogleCalendarApiTests.test_callback_exchanges_code_and_enables_integrationdef test_callback_exchanges_code_and_enables_integration(self) -> None: token = self.login_owner() # Получаем state из AppSetting после запроса auth-url with patch("app.main.build_` (стр. 134)
-- `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, ) ` (стр. 165)
-- `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 173)
-- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 206)
+- `class GoogleCalendarApiTests(unittest.TestCase):` (стр. 23)
+- `GoogleCalendarApiTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_gc_api_{os.urandom(4).` (стр. 24)
+- `GoogleCalendarApiTests.tearDowndef tearDown(self) -> None: # Закрываем соединения ДВИЖКА, который реально использовал app (до # reset_app_modules — иначе импорт вернёт новый движок без соединений, # а старый дер` (стр. 52)
+- `GoogleCalendarApiTests.login_ownerdef login_owner(self) -> str: """Аутентификация владельца: возвращаем подписанный initData. В демо-сиде владелец не привязан к Telegram, поэтому предварительно проставляем telegram` (стр. 68)
+- `GoogleCalendarApiTests.auth_headersdef auth_headers(self, init_data: str) -> dict[str, str]: return {"Authorization": init_data}` (стр. 110)
+- `GoogleCalendarApiTests.telegram_bot_tokendef telegram_bot_token(self) -> str: return os.environ["TELEGRAM_BOT_TOKEN"]` (стр. 113)
+- `GoogleCalendarApiTests.test_auth_url_requires_ownerdef test_auth_url_requires_owner(self) -> None: response = self.client.get("/api/owner/integrations/google/auth-url") self.assertEqual(response.status_code, 401)` (стр. 116)
+- `GoogleCalendarApiTests.test_auth_url_returns_consent_linkdef test_auth_url_returns_consent_link(self) -> None: token = self.login_owner() with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent?state=abc")` (стр. 120)
+- `GoogleCalendarApiTests.test_callback_exchanges_code_and_enables_integrationdef test_callback_exchanges_code_and_enables_integration(self) -> None: token = self.login_owner() # Получаем state из AppSetting после запроса auth-url with patch("app.main.build_` (стр. 131)
+- `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, ) ` (стр. 162)
+- `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 170)
+- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 203)
 
 ### backend/tests/test_html_and_headers.py (66 строк)
 
@@ -2226,7 +2222,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11518 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11521 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 219) — локальный
 - `STOCK_UNITS` (стр. 220) — локальный
@@ -3080,28 +3076,24 @@ concept1.0/
 
 ## Скрипты и корневые файлы
 
-- `scripts/_insert_gc_helper.py`
-- `scripts/_insert_gc_hook_create.py`
-- `scripts/_insert_gc_hooks_update_delete.py`
-- `scripts/_insert_gc_oauth_endpoints.py`
 - `scripts/generate_project_map.py`
 - `app.py`
 - `flip_push_permission.py`
 
 ## Недавно изменённые файлы
 
-- `backend/tests/test_google_calendar_api.py` (2026-08-13 12:24)
+- `backend/tests/test_google_calendar_api.py` (2026-08-13 12:31)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 12:29)
+- `backend/app/google_calendar.py` (2026-08-13 12:27)
 - `Showcase/vite.config.ts` (2026-08-13 12:21)
 - `carwash/vite.config.ts` (2026-08-13 12:21)
 - `frontend/package.json` (2026-08-13 12:18)
 - `backend/app/main.py` (2026-08-13 12:17)
 - `backend/tests/test_google_calendar.py` (2026-08-13 12:17)
-- `backend/app/google_calendar.py` (2026-08-13 12:17)
 - `backend/.env.example` (2026-08-13 12:16)
 - `requirements.txt` (2026-08-13 12:16)
 - `backend/requirements.txt` (2026-08-13 12:16)
-- `scripts/_insert_gc_oauth_endpoints.py` (2026-08-13 12:11)
-- `scripts/_insert_gc_hooks_update_delete.py` (2026-08-13 12:10)
-- `scripts/_insert_gc_helper.py` (2026-08-13 12:09)
-- `scripts/_insert_gc_hook_create.py` (2026-08-13 12:09)
 - `frontend/vite.config.ts` (2026-08-13 12:08)
+- `backend/app/models.py` (2026-08-13 12:06)
+- `backend/app/config.py` (2026-08-13 12:06)
+- `package.json` (2026-08-13 12:05)

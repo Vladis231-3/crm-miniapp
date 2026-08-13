@@ -3999,7 +3999,7 @@ setOwnerNewBookingWorkers([]);
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
                     <div className="flex-1">
                       <div className="font-semibold">{worker.name}</div>
-                      <div className={`text-xs ${sub}`}>{employeeRoleLabel(worker.role === 'owner' ? 'admin' : worker.role)} · база {worker.defaultPercent}%</div>
+                      <div className={`text-xs ${sub}`}>{employeeRoleLabel(worker.role === 'owner' ? 'admin' : worker.role)} · база {worker.defaultPercent}%{worker.salaryPerShift > 0 ? ` · за выход: ${worker.salaryPerShift.toLocaleString('ru')} ₽` : ''}</div>
                     </div>
                     <div className="text-right">
                       <div className="font-bold" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽</div>
@@ -4045,6 +4045,9 @@ setOwnerNewBookingWorkers([]);
                       <div className={`text-[11px] ${sub} mb-1`}>Начислено</div>
                       <div className="text-sm font-semibold">{(payrollSummary?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub} mt-1`}>
+                        {(payrollSummary && payrollSummary.shiftPayTotal > 0) && (
+                          <span>За смены: +{payrollSummary.shiftPayTotal.toLocaleString('ru')} ₽ ({payrollSummary.shiftCount} вых.) · </span>
+                        )}
                         Премии: {(payrollSummary?.bonusTotal || 0).toLocaleString('ru')} ₽ · Корректировки: {(payrollSummary?.adjustmentTotal || 0).toLocaleString('ru')} ₽
                       </div>
                     </div>
