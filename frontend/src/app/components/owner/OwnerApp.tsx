@@ -5,7 +5,7 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink
  } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -855,6 +855,12 @@ export function OwnerApp() {
   const [googleSyncing, setGoogleSyncing] = useState(false);
   const [googleSyncResult, setGoogleSyncResult] = useState<{ at?: string | null; created?: number; updated?: number; cancelled?: number; skipped?: boolean; error?: string | null } | null>(null);
   const [googleSyncError, setGoogleSyncError] = useState<string | null>(null);
+  const [googleSetupOpen, setGoogleSetupOpen] = useState(false);
+  const [googleSetupStatus, setGoogleSetupStatus] = useState<{ configured: boolean; source: 'env' | 'db' | null; redirectUri: string; hasDbCredentials: boolean } | null>(null);
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [googleClientSecret, setGoogleClientSecret] = useState('');
+  const [googleSavingKeys, setGoogleSavingKeys] = useState(false);
+  const [googleCopiedUri, setGoogleCopiedUri] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
@@ -1607,11 +1613,49 @@ export function OwnerApp() {
     setGoogleConnectLoading(true);
     setGoogleConnectError(null);
     try {
+      const status = await apiRequest<{ configured: boolean; source: 'env' | 'db' | null; redirectUri: string }>(
+        '/api/owner/integrations/google/status'
+      );
+      if (!status.configured) {
+        // Сервер не настроен: показываем мастер подключения с инструкцией.
+        setGoogleSetupStatus(status);
+        setGoogleSetupOpen(true);
+        setGoogleConnectLoading(false);
+        return;
+      }
       const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
       window.location.href = authUrl;
     } catch (error) {
       setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось начать подключение Google Календаря');
       setGoogleConnectLoading(false);
+    }
+  };
+
+  const handleGoogleSaveKeys = async () => {
+    setGoogleSavingKeys(true);
+    setGoogleConnectError(null);
+    try {
+      await apiRequest('/api/owner/integrations/google/credentials', {
+        method: 'PUT',
+        body: { clientId: googleClientId, clientSecret: googleClientSecret },
+      });
+      // Ключи сохранены — сразу переходим к OAuth-авторизации Google.
+      const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
+      window.location.href = authUrl;
+    } catch (error) {
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось сохранить ключи Google Календаря');
+      setGoogleSavingKeys(false);
+    }
+  };
+
+  const handleGoogleCopyUri = async () => {
+    if (!googleSetupStatus?.redirectUri) return;
+    try {
+      await navigator.clipboard.writeText(googleSetupStatus.redirectUri);
+      setGoogleCopiedUri(true);
+      setTimeout(() => setGoogleCopiedUri(false), 2000);
+    } catch {
+      // Clipboard недоступен — оставляем URI видимым для ручного копирования.
     }
   };
 
@@ -7887,6 +7931,82 @@ setOwnerNewBookingWorkers([]);
                   )}
                 </div>
                 {googleConnectError && <div className="text-xs text-red-500 mb-2">{googleConnectError}</div>}
+                {googleSetupOpen && googleSetupStatus && !integrations.googleCalendar && (
+                  <div className="space-y-3 mt-2 mb-2 rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                    <div className="text-xs font-semibold">Подключение Google Календаря</div>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 mt-0.5 text-white" style={{ background: '#4285F4' }}>1</span>
+                        <div>
+                          Откройте <span className="font-medium">Google Cloud Console</span>, включите
+                          <span className="font-medium"> Google Calendar API</span> (APIs &amp; Services → Library) и создайте
+                          <span className="font-medium"> OAuth Client ID</span> типа «Web application» (Credentials → Create Credentials).
+                        </div>
+                      </div>
+                      <a
+                        href="https://console.cloud.google.com/apis/credentials"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-xs font-medium"
+                        style={{ background: '#4285F4' }}>
+                        Открыть Google Cloud Console <ExternalLink size={12} />
+                      </a>
+                      <div className="flex items-start gap-2 pt-1">
+                        <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 mt-0.5 text-white" style={{ background: '#4285F4' }}>2</span>
+                        <div className="flex-1">
+                          В созданном клиенте добавьте этот адрес в «Authorized redirect URIs»:
+                          <div className="flex items-center gap-2 mt-1">
+                            <code className="flex-1 text-[11px] px-2 py-1 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
+                              {googleSetupStatus.redirectUri}
+                            </code>
+                            <button
+                              onClick={() => { void handleGoogleCopyUri(); }}
+                              className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
+                              style={{ color: '#4285F4', background: '#4285F418' }}>
+                              {googleCopiedUri ? 'Скопировано' : 'Копировать'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2 pt-1">
+                        <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 mt-0.5 text-white" style={{ background: '#4285F4' }}>3</span>
+                        <div className="flex-1">
+                          Вставьте скопированные <span className="font-medium">Client ID</span> и <span className="font-medium">Client Secret</span>:
+                          <input
+                            className={`${inputCls} mt-1.5`}
+                            placeholder="Client ID (…apps.googleusercontent.com)"
+                            value={googleClientId}
+                            onChange={e => setGoogleClientId(e.target.value)}
+                            autoComplete="off"
+                          />
+                          <input
+                            className={`${inputCls} mt-1.5`}
+                            type="password"
+                            placeholder="Client Secret"
+                            value={googleClientSecret}
+                            onChange={e => setGoogleClientSecret(e.target.value)}
+                            autoComplete="off"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => { void handleGoogleSaveKeys(); }}
+                        disabled={googleSavingKeys || !googleClientId.trim() || !googleClientSecret.trim()}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                        style={{ background: '#4285F4' }}>
+                        {googleSavingKeys ? 'Сохранение...' : 'Сохранить и подключить'}
+                      </button>
+                      <button
+                        onClick={() => { setGoogleSetupOpen(false); setGoogleConnectError(null); }}
+                        className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                        style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
+                        Отмена
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {!integrations.googleCalendar && (
                   <div className={`text-xs ${sub}`}>
                     Подключите Google Календарь, чтобы записи из бота автоматически появлялись в календаре,

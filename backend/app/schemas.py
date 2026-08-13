@@ -788,6 +788,14 @@ class OwnerIntegrationsPayload(BaseModel):
     googleCalendar: bool
 
 
+class GoogleCredentialsPayload(BaseModel):
+    """Учётные данные Google OAuth, вводимые владельцем через UI (без правки .env)."""
+
+    clientId: str = ""
+    clientSecret: str = ""
+    redirectUri: str = ""
+
+
 class OwnerSecurityPayload(BaseModel):
     twoFactor: bool
 

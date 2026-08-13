@@ -75,11 +75,14 @@ from .finance_sync import sync_expense_piggy_transaction
 from .google_calendar import (
     GOOGLE_CALENDAR_LAST_SYNC_KEY,
     build_auth_url,
+    clear_credentials,
     clear_tokens,
     exchange_code,
     is_configured,
     last_sync_at,
+    load_credentials,
     pull_calendar_changes,
+    save_credentials,
     save_tokens,
     sync_booking_to_calendar,
 )
@@ -265,6 +268,8 @@ from .schemas import (
     OwnerDatabaseResetStartRequest,
 
     OwnerExportDeliveryPayload,
+
+    GoogleCredentialsPayload,
 
     OwnerIntegrationsPayload,
 
@@ -10108,7 +10113,7 @@ def _google_sync_booking(db, booking, *, action="upsert") -> None:
     No-op, если интеграция не настроена или токены не привязаны. Ошибки
     Google API логируются модулем google_calendar и не ломают бронирование.
     """
-    if not is_configured(settings):
+    if not is_configured(settings, db):
         return
     _, ok = sync_booking_to_calendar(db, settings, booking, action=action)
     db.flush()
@@ -16761,14 +16766,25 @@ def save_owner_integrations(
 
 
 
+def _google_callback_uri(request: Request) -> str:
+    """Google OAuth redirect URI на основе хоста текущего запроса.
+
+    Используется как fallback, когда redirect_uri не задан ни в env, ни в БД
+    (владелец подключает календарь через UI с того же хоста, где крутится API).
+    """
+    base = str(request.base_url).rstrip("/")
+    return f"{base}/api/owner/integrations/google/callback"
+
+
 @app.get("/api/owner/integrations/google/auth-url")
 def get_google_calendar_auth_url(
+    request: Request,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> dict:
     """Вернуть OAuth-URL для подключения Google Calendar владельца."""
     _ensure_staff_role(session_data, {"owner"})
-    if not is_configured(settings):
+    if not is_configured(settings, db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Google Calendar не настроен на сервере (нет GOOGLE_CALENDAR_CLIENT_ID/SECRET)",
@@ -16776,7 +16792,9 @@ def get_google_calendar_auth_url(
     state = secrets.token_urlsafe(32)
     _upsert_setting(db, "google_calendar_oauth_state", {"state": state})
     db.commit()
-    auth_url = build_auth_url(settings, state)
+    auth_url = build_auth_url(
+        settings, state, db, fallback_redirect_uri=_google_callback_uri(request)
+    )
     return {"authUrl": auth_url}
 
 
@@ -16799,10 +16817,10 @@ def google_calendar_callback(
         return {"ok": False, "error": "missing_code"}
     if (saved or {}).get("state") != state:
         return {"ok": False, "error": "state_mismatch"}
-    if not is_configured(settings):
+    if not is_configured(settings, db):
         return {"ok": False, "error": "not_configured"}
     try:
-        tokens = exchange_code(settings, code)
+        tokens = exchange_code(settings, code, db)
     except Exception:  # noqa: BLE001
         logger.exception("Google OAuth token exchange failed")
         return {"ok": False, "error": "exchange_failed"}
@@ -16843,6 +16861,84 @@ def disconnect_google_calendar(
     return {"ok": True}
 
 
+@app.get("/api/owner/integrations/google/status")
+def get_google_calendar_status(
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Статус готовности Google Calendar: настроен ли OAuth-клиент и откуда.
+
+    source: "db" — учётные данные введены владельцем через UI,
+            "env" — заданы переменными окружения на сервере,
+            None — не настроено (фронт показывает мастер подключения).
+    redirectUri — куда Google должен вернуть после OAuth (нужно вписать
+    в Google Cloud Console как Authorized redirect URI).
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    creds = load_credentials(db)
+    db_configured = bool(
+        creds.get("client_id") and creds.get("client_secret")
+    )
+    env_configured = is_configured(settings)
+    redirect_uri = (
+        str(creds.get("redirect_uri") or "").strip()
+        or (settings.google_calendar_redirect_uri or "").strip()
+        or _google_callback_uri(request)
+    )
+    return {
+        "configured": env_configured or db_configured,
+        "source": "db" if db_configured else ("env" if env_configured else None),
+        "redirectUri": redirect_uri,
+        "hasDbCredentials": db_configured,
+    }
+
+
+@app.put("/api/owner/integrations/google/credentials")
+def save_google_calendar_credentials(
+    payload: GoogleCredentialsPayload,
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Сохранить учётные данные Google OAuth, введённые владельцем через UI.
+
+    Позволяет подключить Google Calendar без правки .env: client_id/secret
+    хранятся в БД и перекрывают env при построении OAuth-запросов.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    client_id = payload.clientId.strip()
+    client_secret = payload.clientSecret.strip()
+    if not client_id or not client_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите Client ID и Client Secret",
+        )
+    redirect_uri = payload.redirectUri.strip() or _google_callback_uri(request)
+    save_credentials(
+        db,
+        {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+        },
+    )
+    db.commit()
+    return {"ok": True, "source": "db", "redirectUri": redirect_uri}
+
+
+@app.delete("/api/owner/integrations/google/credentials")
+def delete_google_calendar_credentials(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Удалить учётные данные Google OAuth, введённые через UI."""
+    _ensure_staff_role(session_data, {"owner"})
+    clear_credentials(db)
+    db.commit()
+    return {"ok": True}
+
+
 @app.post("/api/owner/integrations/google/sync")
 def sync_google_calendar_now(
     session_data: dict = Depends(_require_session),
@@ -16856,7 +16952,7 @@ def sync_google_calendar_now(
     время последней синхронизации.
     """
     _ensure_staff_role(session_data, {"owner"})
-    if not is_configured(settings):
+    if not is_configured(settings, db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Google Calendar не настроен на сервере (нет GOOGLE_CALENDAR_CLIENT_ID/SECRET)",

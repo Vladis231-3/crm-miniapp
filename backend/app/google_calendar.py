@@ -7,9 +7,12 @@
   (pull_calendar_changes). Инкрементальная синхронизация через syncToken.
 
 Безопасное поведение: если сервис не настроен (нет GOOGLE_CALENDAR_CLIENT_ID
-и SECRET в env) или у владельца нет сохранённых OAuth-токенов, все функции —
-no-op. Интеграция «включается» добавлением env-переменных, приложение и тесты
-работают без Google-аккаунта.
+и SECRET в env и не сохранены учётные данные через UI) или у владельца нет
+сохранённых OAuth-токенов, все функции — no-op. Интеграция «включается»
+учётными данными OAuth-клиента: владелец может ввести их в интерфейсе настроек
+(хранятся в AppSetting под GOOGLE_CALENDAR_CREDENTIALS_KEY, перекрывают env),
+либо администратор прописывает env-переменные. Приложение и тесты работают
+без Google-аккаунта.
 
 Токены владельца хранятся в AppSetting под ключом GOOGLE_CALENDAR_TOKENS_KEY.
 Записи сохраняют внешний идентификатор события в колонке google_event_id
@@ -32,6 +35,7 @@ logger = logging.getLogger(__name__)
 GOOGLE_CALENDAR_TOKENS_KEY = "google_calendar_tokens"
 GOOGLE_CALENDAR_SYNC_TOKEN_KEY = "google_calendar_sync_token"
 GOOGLE_CALENDAR_LAST_SYNC_KEY = "google_calendar_last_sync"
+GOOGLE_CALENDAR_CREDENTIALS_KEY = "google_calendar_credentials"
 
 # Статусы Booking, при которых запись считается активной и синхронизируется.
 SYNCED_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
@@ -54,11 +58,81 @@ def _appsetting_model():
     return _AppSetting
 
 
-def is_configured(settings: Settings) -> bool:
-    """True, если заданы учётные данные Google Calendar."""
-    return bool(
-        settings.google_calendar_client_id and settings.google_calendar_client_secret
-    )
+def is_configured(settings: Settings, db: Any = None) -> bool:
+    """True, если заданы учётные данные Google Calendar.
+
+    Учётные данные берутся из БД (заполняются владельцем через UI), если они
+    сохранены там; иначе — из env (GOOGLE_CALENDAR_CLIENT_ID/SECRET).
+    """
+    creds = _resolve_creds(db, settings)
+    return bool(creds.get("client_id") and creds.get("client_secret"))
+
+
+def load_credentials(db: Any) -> dict[str, Any]:
+    """Вернуть учётные данные OAuth-клиента из БД или пустой dict.
+
+    Владелец может ввести client_id/secret прямо в интерфейсе настроек
+    (без правки .env). Ключи хранятся под GOOGLE_CALENDAR_CREDENTIALS_KEY.
+    """
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_CREDENTIALS_KEY)
+    if row is None:
+        return {}
+    value = row.value
+    return value if isinstance(value, dict) else {}
+
+
+def save_credentials(db: Any, credentials: dict[str, Any]) -> None:
+    """Сохранить учётные данные OAuth-клиента (upsert)."""
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_CREDENTIALS_KEY)
+    if row is None:
+        row = AppSetting(key=GOOGLE_CALENDAR_CREDENTIALS_KEY, value=credentials)
+        db.add(row)
+    else:
+        row.value = credentials
+    db.flush()
+
+
+def clear_credentials(db: Any) -> None:
+    """Удалить сохранённые в БД учётные данные OAuth-клиента."""
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_CREDENTIALS_KEY)
+    if row is not None:
+        db.delete(row)
+    db.flush()
+
+
+def _resolve_creds(
+    db: Any,
+    settings: Settings,
+    *,
+    fallback_redirect_uri: str = "",
+) -> dict[str, Any]:
+    """Учётные данные для OAuth: сохранённые в БД перекрывают env.
+
+    fallback_redirect_uri используется, когда ни в БД, ни в env не задан
+    redirect_uri (например, вычисленный из текущего запроса сервером).
+    """
+    saved = load_credentials(db) if db is not None else {}
+    if saved.get("client_id") and saved.get("client_secret"):
+        return {
+            "client_id": str(saved["client_id"]).strip(),
+            "client_secret": str(saved["client_secret"]).strip(),
+            "redirect_uri": (
+                str(saved.get("redirect_uri") or "").strip()
+                or (getattr(settings, "google_calendar_redirect_uri", None) or "").strip()
+                or fallback_redirect_uri
+            ),
+        }
+    return {
+        "client_id": getattr(settings, "google_calendar_client_id", None),
+        "client_secret": getattr(settings, "google_calendar_client_secret", None),
+        "redirect_uri": (
+            (getattr(settings, "google_calendar_redirect_uri", None) or "").strip()
+            or fallback_redirect_uri
+        ),
+    }
 
 
 def load_tokens(db: Any) -> dict[str, Any]:
@@ -107,14 +181,17 @@ def _client_config(settings: Settings) -> dict[str, Any]:
     }
 
 
-def build_auth_url(settings: Settings, state: str) -> str:
+def build_auth_url(
+    settings: Settings, state: str, db: Any = None, *, fallback_redirect_uri: str = ""
+) -> str:
     """Построить OAuth-URL для подключения Google Calendar (чистый HTTP)."""
     from urllib.parse import urlencode
 
+    creds = _resolve_creds(db, settings, fallback_redirect_uri=fallback_redirect_uri)
     query = urlencode(
         {
-            "client_id": settings.google_calendar_client_id,
-            "redirect_uri": settings.google_calendar_redirect_uri or "",
+            "client_id": creds["client_id"],
+            "redirect_uri": creds["redirect_uri"],
             "response_type": "code",
             "scope": " ".join(_SCOPES),
             "access_type": "offline",
@@ -126,16 +203,19 @@ def build_auth_url(settings: Settings, state: str) -> str:
     return f"https://accounts.google.com/o/oauth2/auth?{query}"
 
 
-def exchange_code(settings: Settings, code: str) -> dict[str, Any]:
+def exchange_code(
+    settings: Settings, code: str, db: Any = None, *, fallback_redirect_uri: str = ""
+) -> dict[str, Any]:
     """Обменять OAuth-код на токены (POST на token endpoint). Вернёт dict."""
+    creds = _resolve_creds(db, settings, fallback_redirect_uri=fallback_redirect_uri)
     resp = requests.post(
         "https://oauth2.googleapis.com/token",
         data={
-            "client_id": settings.google_calendar_client_id,
-            "client_secret": settings.google_calendar_client_secret,
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
             "code": code,
             "grant_type": "authorization_code",
-            "redirect_uri": settings.google_calendar_redirect_uri or "",
+            "redirect_uri": creds["redirect_uri"],
         },
         timeout=30,
     )
@@ -152,13 +232,16 @@ class _GoogleApiError(Exception):
         self.status = status
 
 
-def _refresh_access_token(settings: Settings, tokens: dict[str, Any]) -> dict[str, Any]:
+def _refresh_access_token(
+    settings: Settings, tokens: dict[str, Any], db: Any = None
+) -> dict[str, Any]:
     """Обновить access_token по refresh_token. Вернёт новый dict токенов."""
+    creds = _resolve_creds(db, settings)
     resp = requests.post(
         "https://oauth2.googleapis.com/token",
         data={
-            "client_id": settings.google_calendar_client_id,
-            "client_secret": settings.google_calendar_client_secret,
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
             "refresh_token": tokens.get("refresh_token"),
             "grant_type": "refresh_token",
         },
@@ -194,7 +277,7 @@ def _calendar_request(
     headers = {"Authorization": f"Bearer {tokens['token']}"}
     resp = requests.request(method, url, params=params, json=body, headers=headers, timeout=30)
     if resp.status_code in (401, 403) and not _retried and tokens.get("refresh_token"):
-        save_tokens(db, _refresh_access_token(settings, tokens))
+        save_tokens(db, _refresh_access_token(settings, tokens, db=db))
         return _calendar_request(db, settings, method, path, params=params, body=body, _retried=True)
     if resp.status_code >= 400:
         raise _GoogleApiError(resp.status_code, f"google_api_{resp.status_code}")
@@ -273,7 +356,7 @@ def sync_booking_to_calendar(
 def _sync_booking_to_calendar_impl(
     db: Any, settings: Settings, booking: Any, *, action: str
 ) -> tuple[str | None, bool]:
-    if not is_configured(settings):
+    if not is_configured(settings, db):
         return None, False
     tokens = load_tokens(db)
     if not tokens or not tokens.get("refresh_token"):
@@ -602,7 +685,7 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         "cancelled": 0,
         "error": None,
     }
-    if not is_configured(settings):
+    if not is_configured(settings, db):
         result["skipped"] = True
         return result
     tokens = load_tokens(db)

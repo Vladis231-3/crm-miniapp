@@ -87,6 +87,75 @@ def test_load_tokens_ignores_non_dict(fake_db):
     assert gc.load_tokens(fake_db) == {}
 
 
+def test_credentials_save_load_clear(fake_db):
+    creds = {
+        "client_id": "id.apps.googleusercontent.com",
+        "client_secret": "secret",
+        "redirect_uri": "https://example.com/callback",
+    }
+    gc.save_credentials(fake_db, creds)
+    assert gc.load_credentials(fake_db) == creds
+    gc.clear_credentials(fake_db)
+    assert gc.load_credentials(fake_db) == {}
+
+
+def test_load_credentials_ignores_non_dict(fake_db):
+    fake_db.rows[gc.GOOGLE_CALENDAR_CREDENTIALS_KEY] = _Row(
+        gc.GOOGLE_CALENDAR_CREDENTIALS_KEY, "not-a-dict"
+    )
+    assert gc.load_credentials(fake_db) == {}
+
+
+def test_is_configured_with_db_credentials(fake_db):
+    settings2 = SimpleNamespace(
+        google_calendar_client_id=None, google_calendar_client_secret=None
+    )
+    assert gc.is_configured(settings2, fake_db) is False
+    gc.save_credentials(
+        fake_db, {"client_id": "id.apps.googleusercontent.com", "client_secret": "s"}
+    )
+    assert gc.is_configured(settings2, fake_db) is True
+    # Без db учётные данные из БД не учитываются.
+    assert gc.is_configured(settings2) is False
+
+
+def test_build_auth_url_uses_db_credentials(fake_db, settings):
+    gc.save_credentials(
+        fake_db,
+        {
+            "client_id": "db-client.apps.googleusercontent.com",
+            "client_secret": "db-secret",
+            "redirect_uri": "https://db.example.com/callback",
+        },
+    )
+    url = gc.build_auth_url(settings, "state-1", fake_db)
+    assert "client_id=db-client.apps.googleusercontent.com" in url
+    assert "redirect_uri=https%3A%2F%2Fdb.example.com%2Fcallback" in url
+    # Без db — учётные данные из env.
+    url2 = gc.build_auth_url(settings, "state-1")
+    assert "client_id=test-client-id.apps.googleusercontent.com" in url2
+
+
+def test_exchange_code_uses_db_credentials(fake_db, settings):
+    gc.save_credentials(
+        fake_db,
+        {
+            "client_id": "db-client.apps.googleusercontent.com",
+            "client_secret": "db-secret",
+            "redirect_uri": "",
+        },
+    )
+    resp_mock = MagicMock()
+    resp_mock.status_code = 200
+    resp_mock.json.return_value = {"token": "t", "refresh_token": "r"}
+    with patch.object(gc.requests, "post", return_value=resp_mock) as post_mock:
+        tokens = gc.exchange_code(settings, "code-123", fake_db)
+    assert tokens["token"] == "t"
+    data = post_mock.call_args.kwargs["data"]
+    assert data["client_id"] == "db-client.apps.googleusercontent.com"
+    assert data["client_secret"] == "db-secret"
+
+
 def test_booking_event_body_uses_timezone_and_duration(settings):
     booking = SimpleNamespace(
         id="b1",

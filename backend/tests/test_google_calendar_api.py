@@ -133,6 +133,93 @@ class GoogleCalendarApiTests(unittest.TestCase):
         self.assertEqual(response.json()["authUrl"], "https://accounts.google.com/consent?state=abc")
         mock_build.assert_called_once()
 
+    def test_status_reports_env_source_when_configured(self) -> None:
+        token = self.login_owner()
+        response = self.client.get(
+            "/api/owner/integrations/google/status",
+            headers=self.auth_headers(token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertTrue(body["configured"])
+        self.assertEqual(body["source"], "env")
+        self.assertEqual(body["redirectUri"], "https://example.com/callback")
+
+    def test_put_credentials_saves_and_auth_url_uses_db_creds(self) -> None:
+        token = self.login_owner()
+        response = self.client.put(
+            "/api/owner/integrations/google/credentials",
+            headers=self.auth_headers(token),
+            json={
+                "clientId": "db-client.apps.googleusercontent.com",
+                "clientSecret": "db-secret",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["source"], "db")
+        self.assertTrue(
+            body["redirectUri"].endswith("/api/owner/integrations/google/callback"),
+            body["redirectUri"],
+        )
+
+        status = self.client.get(
+            "/api/owner/integrations/google/status",
+            headers=self.auth_headers(token),
+        ).json()
+        self.assertEqual(status["source"], "db")
+        self.assertEqual(status["configured"], True)
+        self.assertEqual(status["redirectUri"], body["redirectUri"])
+
+        # OAuth-URL строится с учётными данными из БД (без мока).
+        auth_url = self.client.get(
+            "/api/owner/integrations/google/auth-url",
+            headers=self.auth_headers(token),
+        )
+        self.assertEqual(auth_url.status_code, 200, auth_url.text)
+        self.assertIn("client_id=db-client.apps.googleusercontent.com", auth_url.json()["authUrl"])
+
+    def test_delete_credentials_restores_env_source(self) -> None:
+        token = self.login_owner()
+        self.client.put(
+            "/api/owner/integrations/google/credentials",
+            headers=self.auth_headers(token),
+            json={"clientId": "db-client.apps.googleusercontent.com", "clientSecret": "db-secret"},
+        )
+        response = self.client.delete(
+            "/api/owner/integrations/google/credentials",
+            headers=self.auth_headers(token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"ok": True})
+        status = self.client.get(
+            "/api/owner/integrations/google/status",
+            headers=self.auth_headers(token),
+        ).json()
+        self.assertEqual(status["source"], "env")
+
+    def test_credentials_endpoints_require_owner(self) -> None:
+        response = self.client.get("/api/owner/integrations/google/status")
+        self.assertEqual(response.status_code, 401)
+        response = self.client.put(
+            "/api/owner/integrations/google/credentials",
+            json={"clientId": "x", "clientSecret": "y"},
+        )
+        self.assertEqual(response.status_code, 401)
+        response = self.client.delete("/api/owner/integrations/google/credentials")
+        self.assertEqual(response.status_code, 401)
+
+    def test_put_credentials_rejects_empty(self) -> None:
+        token = self.login_owner()
+        response = self.client.put(
+            "/api/owner/integrations/google/credentials",
+            headers=self.auth_headers(token),
+            json={"clientId": "", "clientSecret": ""},
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("Client ID", response.json()["detail"])
+
     def test_callback_exchanges_code_and_enables_integration(self) -> None:
         token = self.login_owner()
         # Получаем state из AppSetting после запроса auth-url
