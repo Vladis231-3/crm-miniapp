@@ -225,11 +225,49 @@ def exchange_code(
 
 
 class _GoogleApiError(Exception):
-    """Ошибка Google Calendar API (HTTP status из ответа)."""
+    """Ошибка Google Calendar API (HTTP status из ответа).
 
-    def __init__(self, status: int, message: str = ""):
+    reason/details извлекаются из тела ответа Google (error.reason и
+    error.message), когда это возможно, — они нужны для диагностики
+    (например, accessNotConfigured = API не включён в проекте).
+    """
+
+    def __init__(
+        self,
+        status: int,
+        message: str = "",
+        *,
+        reason: str | None = None,
+        details: str | None = None,
+    ):
         super().__init__(message or f"google api error {status}")
         self.status = status
+        self.reason = reason
+        self.details = details
+
+
+def _google_error_from_response(resp: Any) -> tuple[str | None, str | None]:
+    """Извлечь (reason, details) из тела ошибки Google API, если возможно.
+
+    Calendar API: {"error": {"reason": ..., "message": ...}}.
+    Token endpoint: {"error": "invalid_grant", "error_description": "..."}.
+    """
+    try:
+        body = resp.json()
+    except Exception:  # noqa: BLE001
+        return None, None
+    err = body.get("error") or {}
+    if isinstance(err, dict):
+        reason = err.get("reason") or err.get("status")
+        details = err.get("message")
+        if not details:
+            errors = err.get("errors") or []
+            if errors and isinstance(errors[0], dict):
+                details = errors[0].get("message")
+        return (reason or None), (details or None)
+    if isinstance(err, str):
+        return err, (body.get("error_description") or None)
+    return None, None
 
 
 def _refresh_access_token(
@@ -248,7 +286,10 @@ def _refresh_access_token(
         timeout=30,
     )
     if resp.status_code >= 400:
-        raise _GoogleApiError(resp.status_code, "token_refresh_failed")
+        reason, details = _google_error_from_response(resp)
+        raise _GoogleApiError(
+            resp.status_code, details or "token_refresh_failed", reason=reason, details=details
+        )
     new_tokens = dict(tokens)
     new_tokens["token"] = resp.json().get("access_token")
     return new_tokens
@@ -280,7 +321,10 @@ def _calendar_request(
         save_tokens(db, _refresh_access_token(settings, tokens, db=db))
         return _calendar_request(db, settings, method, path, params=params, body=body, _retried=True)
     if resp.status_code >= 400:
-        raise _GoogleApiError(resp.status_code, f"google_api_{resp.status_code}")
+        reason, details = _google_error_from_response(resp)
+        raise _GoogleApiError(
+            resp.status_code, details or f"google_api_{resp.status_code}", reason=reason, details=details
+        )
     if not resp.content:
         return {}
     return resp.json()
@@ -723,14 +767,26 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         next_sync_token = page.get("nextSyncToken")
         if next_sync_token:
             _save_sync_token(db, next_sync_token)
-    except _GoogleApiError as exc:  # noqa: BLE001
+    except _GoogleApiError as exc:
         # 410 GONE: syncToken устарел (календарь пересоздан) — полный рескан.
         if exc.status == 410:
             _save_sync_token(db, None)
             return _pull_calendar_changes_impl(db, settings)
         if exc.status in (401, 403):
-            logger.warning("Google Calendar pull auth failed")
+            logger.warning("Google Calendar pull auth failed: %s", exc.details or exc)
             result.update(ok=False, error="auth_failed")
+            if exc.reason == "accessNotConfigured":
+                # 403 "Google Calendar API has not been used ... or it is disabled":
+                # токены рабочие, но сам API не включён в проекте Google Cloud.
+                result["errorDetails"] = (
+                    "Google Calendar API не включён в проекте Google Cloud. "
+                    "Включите его по этой ссылке: "
+                    "https://console.cloud.google.com/apis/library/calendar.googleapis.com — "
+                    "затем нажмите «Синхронизировать сейчас» ещё раз (подождите 1–2 минуты "
+                    "после включения)."
+                )
+            elif exc.details:
+                result["errorDetails"] = exc.details
             return result
         raise
 

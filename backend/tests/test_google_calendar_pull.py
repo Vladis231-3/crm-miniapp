@@ -433,6 +433,48 @@ class GoogleCalendarPullTests(unittest.TestCase):
             assert booking is not None
             self.assertEqual(booking.date, "13.08.2026")  # не тронута
 
+    def test_pull_reports_auth_failed_with_google_details(self) -> None:
+        """401/403 после попытки обновления токена -> error="auth_failed";
+
+        детали из ответа Google пробрасываются в errorDetails, чтобы пользователь
+        видел реальную причину (например, accessNotConfigured = API не включён).
+        """
+        from app.google_calendar import _GoogleApiError, pull_calendar_changes
+
+        self._save_tokens()
+        with self._patch_calendar_request(
+            [
+                _GoogleApiError(
+                    403,
+                    "Google Calendar API has not been used in project before or it is disabled.",
+                    reason="accessNotConfigured",
+                    details="Google Calendar API has not been used in project before or it is disabled.",
+                )
+            ]
+        ), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "auth_failed")
+        details = result.get("errorDetails") or ""
+        self.assertIn("console.cloud.google.com/apis/library/calendar.googleapis.com", details)
+
+    def test_pull_reports_auth_failed_with_raw_details(self) -> None:
+        """Прочие 401/403 (не accessNotConfigured) отдают исходный текст Google."""
+        from app.google_calendar import _GoogleApiError, pull_calendar_changes
+
+        self._save_tokens()
+        with self._patch_calendar_request(
+            [_GoogleApiError(403, "permission denied", reason="permissionDenied", details="permission denied")]
+        ), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "auth_failed")
+        self.assertEqual(result.get("errorDetails"), "permission denied")
+
 
 if __name__ == "__main__":
     unittest.main()

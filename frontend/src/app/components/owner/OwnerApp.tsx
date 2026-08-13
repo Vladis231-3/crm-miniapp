@@ -1719,7 +1719,7 @@ export function OwnerApp() {
     setGoogleSyncError(null);
     setGoogleSyncResult(null);
     try {
-      const result = await apiRequest<{ ok: boolean; skipped?: boolean; created?: number; updated?: number; cancelled?: number; error?: string | null; lastSyncAt?: string | null }>(
+      const result = await apiRequest<{ ok: boolean; skipped?: boolean; created?: number; updated?: number; cancelled?: number; error?: string | null; errorDetails?: string | null; lastSyncAt?: string | null }>(
         '/api/owner/integrations/google/sync',
         { method: 'POST' }
       );
@@ -8107,6 +8107,9 @@ setOwnerNewBookingWorkers([]);
                           <div>Последняя синхронизация: {new Date(googleSyncResult.lastSyncAt).toLocaleString('ru-RU')}</div>
                         )}
                         {googleSyncResult.error && <div className="text-red-500">Ошибка: {googleSyncResult.error}</div>}
+                        {googleSyncResult.errorDetails && (
+                          <div className="text-[11px] leading-relaxed mt-1 text-red-500/90">{googleSyncResult.errorDetails}</div>
+                        )}
                       </div>
                     )}
                     {googleSyncError && <div className="text-xs text-red-500">{googleSyncError}</div>}
