@@ -384,7 +384,7 @@ export function WorkerApp() {
   const allTasks = bookings.filter(b =>
     filterMine ? b.workers.some(w => w.workerId === workerId) : true
   );
-  const todayTasks = allTasks.filter(b => b.date === todayLabel);
+  const todayTasks = allTasks.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
 
   const myEarnings = bookings
     .filter(b => b.status === 'completed' && b.workers.some(w => w.workerId === workerId))

@@ -612,7 +612,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       : notification.recipientRole === 'admin',
   );
   const unreadCount = adminNotifications.filter((notification) => !notification.read).length;
-  const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
   const completedAll = bookings.filter(b => b.status === 'completed');
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
 

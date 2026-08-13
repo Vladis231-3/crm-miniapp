@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-13 07:45 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-13 08:11 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **264**
-- Строк кода: **81 415**
-- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 53, `.ts`: 19, `.tsx`: 186
+- Файлов кода: **265**
+- Строк кода: **81 499**
+- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 54, `.ts`: 19, `.tsx`: 186
 
 ## Архитектура
 
@@ -47,6 +47,7 @@ concept1.0/
 │   │   ├── exports.py
 │   │   ├── finance.py
 │   │   ├── finance_sync.py
+│   │   ├── google_calendar.py
 │   │   ├── main.py
 │   │   ├── models.py
 │   │   ├── schemas.py
@@ -297,20 +298,20 @@ concept1.0/
 - `parse_booking_datetimedef parse_booking_datetime(date_value: str, time_value: str) -> datetime | None: try: parsed = datetime.strptime(f"{date_value} {time_value}", "%d.%m.%Y %H:%M") except ValueError: ` (стр. 80)
 - `adjusted_booking_percentdef adjusted_booking_percent( assigned_percent: float, complaints: Iterable[Any], *, date_value: str, time_value: str, fallback: datetime | None = None,` (стр. 88)
 
-### backend/app/config.py (256 строк)
+### backend/app/config.py (271 строк)
 
 Классы и функции (10):
 
 - `class Settings: app_name: str environment: str is_production: bool app_secret: str telegram_bot_token: str | None webapp` (стр. 34)
-- `_parse_booldef _parse_bool(raw: str | None, default: bool) -> bool: if raw is None: return default return raw.strip().lower() in {"1", "true", "yes", "on"}` (стр. 60)
-- `_parse_positive_intdef _parse_positive_int(name: str, raw: str | None, default: int) -> int: try: value = int(raw) if raw is not None else default except ValueError as exc: raise RuntimeError(f"{name` (стр. 66)
-- `_parse_telegram_delivery_modedef _parse_telegram_delivery_mode(raw: str | None) -> str: value = (raw or "polling").strip().lower() if value not in {"polling", "webhook"}: raise ValueError("TELEGRAM_DELIVERY_MO` (стр. 76)
-- `_normalize_webhook_pathdef _normalize_webhook_path(raw: str | None) -> str: value = (raw or "/api/telegram/webhook").strip() or "/api/telegram/webhook" if not value.startswith("/"):` (стр. 83)
-- `_normalize_database_urldef _normalize_database_url(raw: str) -> str: if raw.startswith("postgres://"):` (стр. 90)
-- `_normalize_environmentdef _normalize_environment() -> tuple[str, bool]: raw = ( os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or os.getenv("VERCEL_ENV") or "development" ).strip().lower() aliases = {` (стр. 98)
-- `_parse_cors_originsdef _parse_cors_origins(raw: str, *, strong_environment: bool) -> tuple[str, ...]: origins = tuple(dict.fromkeys(origin.strip().rstrip("/") for origin in raw.split(",") if origin.s` (стр. 115)
-- `_parse_permanent_telegram_ownersdef _parse_permanent_telegram_owners(raw: str | None) -> tuple[tuple[str, str, str, str], ...]: if not raw: return () try: items = json.loads(raw) except json.JSONDecodeError as ex` (стр. 132)
-- `get_settingsdef get_settings() -> Settings: PERSISTENT_DATA_DIR.mkdir(parents=True, exist_ok=True) environment, is_production = _normalize_environment() strong_environment = environment in _ST` (стр. 167)
+- `_parse_booldef _parse_bool(raw: str | None, default: bool) -> bool: if raw is None: return default return raw.strip().lower() in {"1", "true", "yes", "on"}` (стр. 64)
+- `_parse_positive_intdef _parse_positive_int(name: str, raw: str | None, default: int) -> int: try: value = int(raw) if raw is not None else default except ValueError as exc: raise RuntimeError(f"{name` (стр. 70)
+- `_parse_telegram_delivery_modedef _parse_telegram_delivery_mode(raw: str | None) -> str: value = (raw or "polling").strip().lower() if value not in {"polling", "webhook"}: raise ValueError("TELEGRAM_DELIVERY_MO` (стр. 80)
+- `_normalize_webhook_pathdef _normalize_webhook_path(raw: str | None) -> str: value = (raw or "/api/telegram/webhook").strip() or "/api/telegram/webhook" if not value.startswith("/"):` (стр. 87)
+- `_normalize_database_urldef _normalize_database_url(raw: str) -> str: if raw.startswith("postgres://"):` (стр. 94)
+- `_normalize_environmentdef _normalize_environment() -> tuple[str, bool]: raw = ( os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or os.getenv("VERCEL_ENV") or "development" ).strip().lower() aliases = {` (стр. 102)
+- `_parse_cors_originsdef _parse_cors_origins(raw: str, *, strong_environment: bool) -> tuple[str, ...]: origins = tuple(dict.fromkeys(origin.strip().rstrip("/") for origin in raw.split(",") if origin.s` (стр. 119)
+- `_parse_permanent_telegram_ownersdef _parse_permanent_telegram_owners(raw: str | None) -> tuple[tuple[str, str, str, str], ...]: if not raw: return () try: items = json.loads(raw) except json.JSONDecodeError as ex` (стр. 136)
+- `get_settingsdef get_settings() -> Settings: PERSISTENT_DATA_DIR.mkdir(parents=True, exist_ok=True) environment, is_production = _normalize_environment() strong_environment = environment in _ST` (стр. 171)
 
 ### backend/app/date_utils.py (36 строк)
 
@@ -381,6 +382,15 @@ concept1.0/
 Классы и функции (1):
 
 - `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" transaction = db.scalar( select(Pig` (стр. 14)
+
+### backend/app/google_calendar.py (69 строк)
+
+Классы и функции (4):
+
+- `is_configureddef is_configured(settings: Settings) -> bool: """True, если есть учётные данные Google Calendar.""" return bool( settings.google_calendar_client_id and settings.google_calendar_cl` (стр. 36)
+- `_load_tokensdef _load_tokens(db: Any) -> dict[str, Any]: row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY) if _AppSetting is not None else None return (row.value or {}) if row else {}` (стр. 43)
+- `_save_tokensdef _save_tokens(db: Any, tokens: dict[str, Any]) -> None: if _AppSetting is None: return row = db.get(_AppSetting, GOOGLE_CALENDAR_TOKENS_KEY) if row is None: row = _AppSetting(ke` (стр. 48)
+- `_ensure_modelsdef _ensure_models() -> None: global _AppSetting if _AppSetting is None: from .models import AppSetting as _AppSetting_imp # type: ignore _AppSetting = _AppSetting_imp` (стр. 64)
 
 ### backend/app/main.py (20252 строк)
 
@@ -3008,6 +3018,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/app/google_calendar.py` (2026-08-13 11:11)
+- `backend/app/config.py` (2026-08-13 11:08)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-13 11:08)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-13 11:08)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 11:08)
 - `Showcase/src/app/components/BookingSection.tsx` (2026-08-13 10:45)
 - `Showcase/src/app/components/PricingSection.tsx` (2026-08-13 10:45)
 - `Showcase/src/app/components/ServicesSection.tsx` (2026-08-13 10:45)
@@ -3018,8 +3033,3 @@ concept1.0/
 - `frontend/src/app/components/landing/Pricing.tsx` (2026-08-13 10:43)
 - `frontend/src/app/components/landing/Services.tsx` (2026-08-13 10:43)
 - `frontend/src/app/components/admin/ContentEditor.tsx` (2026-08-13 10:43)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-13 10:42)
-- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-13 10:42)
-- `frontend/src/app/components/shared/ServiceSearchInput.tsx` (2026-08-13 10:41)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 10:41)
-- `scripts/.project-map-watch.lock` (2026-08-13 10:36)
