@@ -191,6 +191,16 @@ class Booking(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     money_split_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
 
+    # Google Calendar интеграция (бот -> Google).
+    google_event_id: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)
+    google_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
+    # Источник записи: "bot" (Telegram-миниапп), "google" (Google Calendar),
+    # "manual" (создана вручную в админке). NULL — исторические записи.
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
+
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(
         back_populates="booking",

@@ -7,6 +7,7 @@ import {
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp, CarFront, Search
 } from 'lucide-react';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
+import { SourceBadge } from '../shared/SourceBadge';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
@@ -599,6 +600,7 @@ export function WorkerApp() {
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className={`text-xs font-medium ${sub} mb-2`}>КЛИЕНТ</div>
                 <div className="font-semibold">{selectedTask.clientName}</div>
+                <div className="mt-1"><SourceBadge source={selectedTask.source} /></div>
                 <a href={`tel:${selectedTask.clientPhone}`} className="flex items-center gap-2 mt-1" style={{ color: primary }}>
                   <Phone size={14} /><span className="text-sm">{selectedTask.clientPhone}</span>
                 </a>
@@ -679,7 +681,7 @@ export function WorkerApp() {
                     <motion.div key={task.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`${glass} rounded-2xl p-4`}>
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <div className="font-semibold text-sm">{task.time} · {task.service}</div>
+                          <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">{task.time} · {task.service}<SourceBadge source={task.source} /></div>
                           <div className={`text-sm ${sub}`}>{task.clientName}</div>
                           <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
                           {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
@@ -724,7 +726,7 @@ export function WorkerApp() {
                         <div className="flex justify-between items-center">
                           <div>
                             <div className="text-sm font-medium">{task.time} — {task.service}</div>
-                            <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}</div>
+                            <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}<SourceBadge source={task.source} className="ml-1.5 align-middle" /></div>
                             {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
@@ -785,7 +787,7 @@ export function WorkerApp() {
                               {b.car || 'Машина не указана'}
                               {b.plate && <span className={`ml-2 text-xs font-mono ${sub}`}>{b.plate}</span>}
                             </div>
-                            <div className={`text-sm ${sub}`}>{b.clientName}</div>
+                            <div className={`text-sm ${sub}`}>{b.clientName}<SourceBadge source={b.source} className="ml-1.5 align-middle" /></div>
                             <div className={`text-xs ${sub}`}>{b.date} · {b.time} · {b.box} · {b.service}</div>
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(b.status)}`}>

@@ -18,6 +18,7 @@ import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
+import { SourceBadge } from '../shared/SourceBadge';
 import {
   isClientCardIncomplete,
   normalizePersonName,
@@ -1495,8 +1496,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       <div className={`w-1 self-stretch rounded-full ${STATUS_COLORS[booking.status]}`} />
                       <div className="flex-1">
                         <div className="flex justify-between items-start mb-1">
-                          <div className="font-semibold text-sm">{booking.time} · {booking.clientName}</div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="font-semibold text-sm truncate">{booking.time} · {booking.clientName}</div>
+                            <SourceBadge source={booking.source} />
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
                         </div>
                         <div className={`text-sm ${sub}`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
                         <div className="flex justify-between mt-2">
@@ -1522,11 +1526,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       onClick={() => { setSelectedBooking(booking); setShowSlideOver(true); }}
                       className={`${glass} rounded-2xl p-4 w-full text-left mb-3`}>
                       <div className="flex justify-between items-center">
-                        <div>
-                          <div className="text-sm font-medium">{booking.clientName}</div>
-                          <div className={`text-xs ${sub}`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1" style={{ color: primary }}> +{booking.services.length}</span> : ''} · {booking.date}</div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="text-sm font-medium truncate">{booking.clientName}</div>
+                            <SourceBadge source={booking.source} />
+                          </div>
+                          <div className={`text-xs ${sub} truncate`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1" style={{ color: primary }}> +{booking.services.length}</span> : ''} · {booking.date}</div>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
                       </div>
                     </motion.button>
                   ))}
@@ -3061,6 +3068,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} mb-2`}>КЛИЕНТ</div>
                   <div className="font-semibold">{selectedBooking.clientName}</div>
+                  <div className="mt-1"><SourceBadge source={selectedBooking.source} /></div>
                   <a href={`tel:${selectedBooking.clientPhone}`} className="flex items-center gap-2 mt-1" style={{ color: primary }}>
                     <Phone size={13} /><span className="text-sm">{selectedBooking.clientPhone}</span>
                   </a>

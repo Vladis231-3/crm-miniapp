@@ -72,6 +72,18 @@ from .date_utils import parse_date_param, parse_dmy, validate_range
 from .finance import money, money_int, salary_base_for_period
 from .finance_sync import sync_expense_piggy_transaction
 
+from .google_calendar import (
+    GOOGLE_CALENDAR_LAST_SYNC_KEY,
+    build_auth_url,
+    clear_tokens,
+    exchange_code,
+    is_configured,
+    last_sync_at,
+    pull_calendar_changes,
+    save_tokens,
+    sync_booking_to_calendar,
+)
+
 from .database import Base, engine, get_db
 
 from .exports import (
@@ -563,6 +575,10 @@ except OSError:
 
 bot_thread: Thread | None = None
 
+# Периодическая обратная синхронизация Google Calendar -> CRM.
+GOOGLE_SYNC_INTERVAL_SECONDS = 300
+google_sync_thread: Thread | None = None
+
 PRIMARY_OWNER_ID = "owner-primary"
 
 PRIMARY_OWNER_LOGIN = "creator_owner"
@@ -960,6 +976,18 @@ def on_startup() -> None:
         bot_thread = Thread(target=run_polling, name="telegram-bot", daemon=True)
 
         bot_thread.start()
+
+    start_google_sync_thread()
+
+
+def start_google_sync_thread() -> None:
+    """Запустить фоновый поток обратной синхронизации Google Calendar (идемпотентно)."""
+    global google_sync_thread
+    if google_sync_thread is None:
+        google_sync_thread = Thread(
+            target=_google_sync_loop, name="google-sync", daemon=True
+        )
+        google_sync_thread.start()
 
 
 
@@ -2419,6 +2447,25 @@ def _apply_runtime_migrations() -> None:
                         "ALTER TABLE bookings ALTER COLUMN money_split_overrides "
                         "TYPE JSONB USING money_split_overrides::jsonb"
                     )
+
+    # Миграция: поля Google Calendar интеграции на записи
+    if "bookings" in inspector.get_table_names():
+        booking_gc_columns = {col["name"] for col in inspector.get_columns("bookings")}
+        if "google_event_id" not in booking_gc_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN google_event_id VARCHAR(256) DEFAULT NULL"
+                )
+        if "google_updated_at" not in booking_gc_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN google_updated_at TIMESTAMP"
+                )
+        if "source" not in booking_gc_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN source VARCHAR(32) DEFAULT NULL"
+                )
 
     # Миграция: привязка расхода к записи (списание материалов)
     if "expenses" in inspector.get_table_names():
@@ -4208,6 +4255,7 @@ def _booking_payload(
         materialsWrittenOff=booking.materials_written_off,
         startedAt=booking.started_at,
         completedAt=booking.completed_at,
+        source=getattr(booking, "source", None),
     )
 
 
@@ -10054,6 +10102,37 @@ def get_booking_availability(
 
 
 
+def _google_sync_booking(db, booking, *, action="upsert") -> None:
+    """Best-effort синхронизация записи с Google Calendar.
+
+    No-op, если интеграция не настроена или токены не привязаны. Ошибки
+    Google API логируются модулем google_calendar и не ломают бронирование.
+    """
+    if not is_configured(settings):
+        return
+    _, ok = sync_booking_to_calendar(db, settings, booking, action=action)
+    db.flush()
+
+
+def _google_sync_loop() -> None:
+    """Фоновый цикл обратной синхронизации «Google Calendar -> CRM».
+
+    Запускается daemon-потоком при старте приложения. No-op, если интеграция
+    не настроена или токены не привязаны. Ошибки логируются и не роняют цикл.
+    """
+    while True:
+        try:
+            db = next(get_db())
+            try:
+                pull_calendar_changes(db, settings)
+                db.commit()
+            finally:
+                db.close()
+        except Exception:  # noqa: BLE001
+            logger.exception("Google Calendar background sync iteration failed")
+        time_module.sleep(GOOGLE_SYNC_INTERVAL_SECONDS)
+
+
 @app.post("/api/bookings", response_model=BookingPayload)
 
 def create_booking(
@@ -10409,6 +10488,8 @@ def create_booking(
 
         payment_settled=payload.paymentSettled,
 
+        source="bot" if session_data["role"] == "client" else "manual",
+
         services=[],
 
         notes=payload.notes,
@@ -10549,6 +10630,8 @@ def create_booking(
     db.commit()
 
     db.refresh(booking)
+
+    _google_sync_booking(db, booking, action="upsert")
 
     return _booking_payload_for_response(db, booking)
 
@@ -11917,6 +12000,8 @@ def update_booking(
 
         db.commit()
 
+    _google_sync_booking(db, booking, action="upsert")
+
     return _booking_payload_for_response(db, booking)
 
 
@@ -12012,6 +12097,8 @@ def delete_booking(
     booking.deleted_at = _now()
 
     db.commit()
+
+    _google_sync_booking(db, booking, action="delete")
 
     return GenericMessage(message="Запись удалена")
 
@@ -14871,6 +14958,7 @@ def deposit_record_wash(
         plate=payload.plate,
         plate_type=payload.plateType or "russian",
         completed_at=_now(),
+        source="manual",
     )
     db.add(booking)
     db.flush()
@@ -15602,6 +15690,8 @@ def get_worker_calendar_bookings(
             car=_safe_text(booking.car) or None,
 
             plate=_safe_text(booking.plate) or None,
+
+            source=getattr(booking, "source", None) or None,
 
         )
 
@@ -16668,6 +16758,113 @@ def save_owner_integrations(
 
 
 
+
+
+
+@app.get("/api/owner/integrations/google/auth-url")
+def get_google_calendar_auth_url(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Вернуть OAuth-URL для подключения Google Calendar владельца."""
+    _ensure_staff_role(session_data, {"owner"})
+    if not is_configured(settings):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google Calendar не настроен на сервере (нет GOOGLE_CALENDAR_CLIENT_ID/SECRET)",
+        )
+    state = secrets.token_urlsafe(32)
+    _upsert_setting(db, "google_calendar_oauth_state", {"state": state})
+    db.commit()
+    auth_url = build_auth_url(settings, state)
+    return {"authUrl": auth_url}
+
+
+@app.get("/api/owner/integrations/google/callback")
+def google_calendar_callback(
+    code: str = "",
+    state: str = "",
+    error: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Callback от Google после OAuth. Сохраняет токены и включает интеграцию.
+
+    Endpoint публичный (браузер перенаправляется Google), поэтому защищаемся
+    параметром state, сохранённым при запросе auth-url.
+    """
+    saved = _setting(db, "google_calendar_oauth_state", {})
+    if error:
+        return {"ok": False, "error": f"google_error:{error}"}
+    if not code:
+        return {"ok": False, "error": "missing_code"}
+    if (saved or {}).get("state") != state:
+        return {"ok": False, "error": "state_mismatch"}
+    if not is_configured(settings):
+        return {"ok": False, "error": "not_configured"}
+    try:
+        tokens = exchange_code(settings, code)
+    except Exception:  # noqa: BLE001
+        logger.exception("Google OAuth token exchange failed")
+        return {"ok": False, "error": "exchange_failed"}
+    save_tokens(db, tokens)
+
+    # Сразу после подключения выполняем первый pull: события из Google
+    # появляются в CRM (source="google"), ошибки не блокируют OAuth.
+    try:
+        pull_calendar_changes(db, settings)
+    except Exception:  # noqa: BLE001
+        logger.exception("Initial Google Calendar pull after OAuth failed")
+
+    integrations = _merge_setting_dict(
+        _setting(db, "owner_integrations", {}),
+        {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
+    )
+    integrations["googleCalendar"] = True
+    _upsert_setting(db, "owner_integrations", integrations)
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/api/owner/integrations/google/disconnect")
+def disconnect_google_calendar(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Отключить Google Calendar: удалить токены и выключить флаг."""
+    _ensure_staff_role(session_data, {"owner"})
+    clear_tokens(db)
+    integrations = _merge_setting_dict(
+        _setting(db, "owner_integrations", {}),
+        {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
+    )
+    integrations["googleCalendar"] = False
+    _upsert_setting(db, "owner_integrations", integrations)
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/api/owner/integrations/google/sync")
+def sync_google_calendar_now(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Ручная обратная синхронизация «Google Calendar -> CRM».
+
+    Импортирует события, созданные/изменённые в Google, в записи CRM
+    (source="google"), переносит правки времени в существующие записи и
+    отменяет записи, события которых удалены. Возвращает статистику и
+    время последней синхронизации.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    if not is_configured(settings):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google Calendar не настроен на сервере (нет GOOGLE_CALENDAR_CLIENT_ID/SECRET)",
+        )
+    result = pull_calendar_changes(db, settings)
+    db.commit()
+    last = _setting(db, GOOGLE_CALENDAR_LAST_SYNC_KEY, {})
+    return {**result, "lastSyncAt": last.get("at")}
 
 
 @app.put("/api/settings/owner/security", response_model=OwnerSecurityPayload)

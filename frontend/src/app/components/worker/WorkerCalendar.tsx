@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock, RefreshCw } from 'lucide-react';
 import type { Booking, ScheduleDay, Worker } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
+import { SourceBadge } from '../shared/SourceBadge';
 
 export interface WorkerCalendarBooking {
   id: string;
@@ -17,6 +18,7 @@ export interface WorkerCalendarBooking {
   workers: { workerId: string; workerName: string }[];
   car?: string | null;
   plate?: string | null;
+  source?: string | null;
 }
 
 const WORKER_CALENDAR_WEEKDAYS = ['Сб', 'Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
@@ -518,8 +520,9 @@ export function WorkerCalendar({
                                   <div className="space-y-2">
                                     {cell.bookings.map((booking) => (
                                       <div key={`${cell.id}-${booking.id}`} className={`${glass} rounded-xl p-3 w-full text-left`}>
-                                        <div className="font-medium text-sm truncate">
+                                        <div className="font-medium text-sm truncate flex items-center gap-1.5 min-w-0">
                                           {booking.clientName}
+                                          <SourceBadge source={booking.source} />
                                           {isMine(booking) && (
                                             <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
                                               Моя
@@ -566,9 +569,10 @@ export function WorkerCalendar({
                               {workerItems.map((booking) => (
                                 <div key={`${worker.id}-${booking.id}`} className="flex items-center justify-between gap-2 w-full text-left">
                                   <div className="min-w-0">
-                                    <div className="text-sm font-medium truncate">
-                                      <Clock size={12} className="inline mr-1 -mt-0.5" style={{ color: primary }} />
+                                    <div className="text-sm font-medium truncate flex items-center gap-1.5 min-w-0">
+                                      <Clock size={12} className="inline mr-1 -mt-0.5 shrink-0" style={{ color: primary }} />
                                       <span className="tabular-nums">{booking.time}</span> · {booking.clientName}
+                                      <SourceBadge source={booking.source} />
                                       {isMine(booking) && (
                                         <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
                                           Моя

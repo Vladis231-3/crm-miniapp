@@ -55,6 +55,10 @@ class Settings:
     database_url: str
     database_sslmode: str | None
     permanent_telegram_owners: tuple[tuple[str, str, str, str], ...]
+    google_calendar_client_id: str | None
+    google_calendar_client_secret: str | None
+    google_calendar_redirect_uri: str | None
+    google_calendar_timezone: str
 
 
 def _parse_bool(raw: str | None, default: bool) -> bool:
@@ -253,4 +257,15 @@ def get_settings() -> Settings:
         permanent_telegram_owners=_parse_permanent_telegram_owners(
             os.getenv("PERMANENT_TELEGRAM_OWNERS")
         ),
+        google_calendar_client_id=(os.getenv("GOOGLE_CALENDAR_CLIENT_ID") or "").strip() or None,
+        google_calendar_client_secret=(
+            os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET") or ""
+        ).strip()
+        or None,
+        google_calendar_redirect_uri=(
+            os.getenv("GOOGLE_CALENDAR_REDIRECT_URI") or ""
+        ).strip()
+        or None,
+        google_calendar_timezone=(os.getenv("GOOGLE_CALENDAR_TIMEZONE") or "Europe/Moscow").strip()
+        or "Europe/Moscow",
     )

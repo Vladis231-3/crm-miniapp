@@ -473,6 +473,7 @@ class BookingPayload(BaseModel):
     materialsWrittenOff: bool = False
     startedAt: datetime | None = None
     completedAt: datetime | None = None
+    source: str | None = None
 
 
 class WorkerCalendarBookingPayload(BaseModel):
@@ -488,6 +489,7 @@ class WorkerCalendarBookingPayload(BaseModel):
     workers: list[BookingWorkerPayload]
     car: str | None = None
     plate: str | None = None
+    source: str | None = None
 
 
 class BookingAvailabilitySlotPayload(BaseModel):

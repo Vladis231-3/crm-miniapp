@@ -192,6 +192,8 @@ export interface Booking {
   additionalServices: AdditionalService[];
   materials: BookingMaterial[];
   materialsWrittenOff: boolean;
+  /** Источник записи: 'bot' | 'google' | 'manual' | null */
+  source?: string | null;
 }
 
 export interface BookingSlotAvailability {

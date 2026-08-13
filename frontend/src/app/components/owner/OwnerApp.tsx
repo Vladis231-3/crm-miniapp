@@ -15,6 +15,7 @@ import { apiBlobUrl, apiRequest } from '../../api';
 import { useApp, type AdditionalService, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
+import { SourceBadge } from '../shared/SourceBadge';
 import { DepositPanel } from './DepositPanel';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
@@ -849,6 +850,11 @@ export function OwnerApp() {
   );
   const [notifSettings, setNotifSettings] = useState(settings.ownerNotificationSettings);
   const [integrations, setIntegrations] = useState(settings.ownerIntegrations);
+  const [googleConnectLoading, setGoogleConnectLoading] = useState(false);
+  const [googleConnectError, setGoogleConnectError] = useState<string | null>(null);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleSyncResult, setGoogleSyncResult] = useState<{ at?: string | null; created?: number; updated?: number; cancelled?: number; skipped?: boolean; error?: string | null } | null>(null);
+  const [googleSyncError, setGoogleSyncError] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
@@ -1594,6 +1600,47 @@ export function OwnerApp() {
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить настройки');
       setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    setGoogleConnectLoading(true);
+    setGoogleConnectError(null);
+    try {
+      const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
+      window.location.href = authUrl;
+    } catch (error) {
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось начать подключение Google Календаря');
+      setGoogleConnectLoading(false);
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    setGoogleConnectError(null);
+    setGoogleSyncError(null);
+    setGoogleSyncResult(null);
+    try {
+      await apiRequest('/api/owner/integrations/google/disconnect', { method: 'POST' });
+      setIntegrations(p => ({ ...p, googleCalendar: false }));
+    } catch (error) {
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось отключить Google Календарь');
+    }
+  };
+
+  const handleGoogleSyncNow = async () => {
+    setGoogleSyncing(true);
+    setGoogleSyncError(null);
+    setGoogleSyncResult(null);
+    try {
+      const result = await apiRequest<{ ok: boolean; skipped?: boolean; created?: number; updated?: number; cancelled?: number; error?: string | null; lastSyncAt?: string | null }>(
+        '/api/owner/integrations/google/sync',
+        { method: 'POST' }
+      );
+      setGoogleSyncResult(result);
+    } catch (error) {
+      setGoogleSyncError(error instanceof Error ? error.message : 'Не удалось выполнить синхронизацию');
+    } finally {
+      setGoogleSyncing(false);
     }
   };
 
@@ -3273,6 +3320,8 @@ setOwnerNewBookingWorkers([]);
     </button>
   );
 
+  // Подпись источника записи: «Бот» / «Google» / «Вручную» (общий компонент SourceBadge).
+
   const SettingRow = ({ label, desc, value, onChange }: { label: string; desc?: string; value: boolean; onChange: () => void }) => (
     <div className={`${glass} rounded-xl p-4 mb-2 flex items-center justify-between`}>
       <div className="flex-1 mr-3">
@@ -3497,6 +3546,7 @@ setOwnerNewBookingWorkers([]);
                                     <div className="text-xs font-medium truncate">
                                       <span className="tabular-nums">{booking.time}</span>
                                       {' '}
+                                      <SourceBadge source={booking.source} className="mr-1" />
                                       {booking.clientName || 'Без имени'}
                                     </div>
                                     <div className={`text-[11px] truncate ${sub}`}>
@@ -3529,7 +3579,10 @@ setOwnerNewBookingWorkers([]);
                             className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
+                                <SourceBadge source={booking.source} />
+                              </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
                                 {ownerStatusLabel(booking.status)}
                               </span>
@@ -3585,7 +3638,10 @@ setOwnerNewBookingWorkers([]);
                         <div className={`w-1 self-stretch rounded-full ${booking.status === 'new' ? 'bg-indigo-500' : booking.status === 'confirmed' ? 'bg-cyan-500' : booking.status === 'scheduled' ? 'bg-blue-500' : booking.status === 'in_progress' ? 'bg-yellow-500' : booking.status === 'completed' ? 'bg-green-500' : booking.status === 'no_show' ? 'bg-orange-500' : 'bg-red-500'}`} />
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
-                            <div className="font-semibold text-sm">{booking.time} · {booking.clientName}</div>
+                            <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">
+                              <span className="truncate">{booking.time} · {booking.clientName}</span>
+                              <SourceBadge source={booking.source} />
+                            </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
                           <div className={`text-sm ${sub}`}>{booking.service}</div>
@@ -3709,7 +3765,10 @@ setOwnerNewBookingWorkers([]);
                                       <div className="space-y-2">
                                         {cell.bookings.map((booking) => (
                                           <button key={booking.id} onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }} className={`${glass} rounded-xl p-3 w-full text-left`}>
-                                            <div className="font-medium text-sm truncate">{booking.clientName}</div>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <div className="font-medium text-sm truncate">{booking.clientName}</div>
+                                              <SourceBadge source={booking.source} />
+                                            </div>
                                             <div className={`text-xs ${sub} truncate mt-1`}>{booking.service}</div>
                                             {(booking.car || booking.plate) && (
                                               <div className={`text-[11px] ${sub} truncate mt-0.5`}>
@@ -3760,7 +3819,10 @@ setOwnerNewBookingWorkers([]);
                                       <div className="space-y-2">
                                         {cell.bookings.map((booking) => (
                                           <button key={`${cell.id}-${booking.id}`} onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }} className={`${glass} rounded-xl p-3 w-full text-left`}>
-                                            <div className="font-medium text-sm truncate">{booking.clientName}</div>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <div className="font-medium text-sm truncate">{booking.clientName}</div>
+                                              <SourceBadge source={booking.source} />
+                                            </div>
                                             <div className={`text-xs ${sub} truncate mt-1`}>{booking.box} · {booking.service}</div>
                                             {(booking.car || booking.plate) && (
                                               <div className={`text-[11px] ${sub} truncate mt-0.5`}>
@@ -3803,7 +3865,10 @@ setOwnerNewBookingWorkers([]);
                                   {boxItems.map((booking) => (
                                     <button key={booking.id} onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }} className="flex items-center justify-between gap-2 w-full text-left">
                                       <div className="min-w-0">
-                                        <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                          <SourceBadge source={booking.source} />
+                                        </div>
                                         <div className={`text-xs ${sub} truncate`}>{booking.service}</div>
                                         {(booking.car || booking.plate) && (
                                           <div className={`text-[11px] ${sub} truncate`}>
@@ -3841,7 +3906,10 @@ setOwnerNewBookingWorkers([]);
                                   {workerItems.map((booking) => (
                                     <button key={`${worker.id}-${booking.id}`} onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }} className="flex items-center justify-between gap-2 w-full text-left">
                                       <div className="min-w-0">
-                                        <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <div className="text-sm font-medium truncate">{booking.time} · {booking.clientName}</div>
+                                          <SourceBadge source={booking.source} />
+                                        </div>
                                         <div className={`text-xs ${sub} truncate`}>{booking.box} · {booking.service}</div>
                                         {(booking.car || booking.plate) && (
                                           <div className={`text-[11px] ${sub} truncate`}>
@@ -7386,7 +7454,10 @@ setOwnerNewBookingWorkers([]);
                           <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
                             <div className="flex items-start justify-between gap-3 mb-2">
                               <div className="min-w-0">
-                                <div className="font-medium text-sm">{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <div className="font-medium text-sm truncate">{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
+                                  <SourceBadge source={booking.source} />
+                                </div>
                                 <div className={`text-xs ${sub} mt-0.5`}>
                                   {booking.date} • {booking.time} • {booking.box || 'Без бокса'}
                                 </div>
@@ -7778,7 +7849,6 @@ setOwnerNewBookingWorkers([]);
                 { key: 'telegram', label: 'Telegram Bot', desc: 'Уведомления и управление через Telegram', color: '#229ED9' },
                 { key: 'yookassa', label: 'ЮКасса', desc: 'Приём онлайн-платежей', color: '#7B61FF' },
                 { key: 'amoCrm', label: 'amoCRM', desc: 'Синхронизация клиентской базы', color: '#E6007E' },
-                { key: 'googleCalendar', label: 'Google Календарь', desc: 'Синхронизация расписания', color: '#4285F4' },
               ].map(item => (
                 <div key={item.key} className={`${glass} rounded-2xl p-4 mb-2 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
@@ -7795,6 +7865,70 @@ setOwnerNewBookingWorkers([]);
                   </button>
                 </div>
               ))}
+              <div className={`${glass} rounded-2xl p-4 mb-2`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#4285F418' }}>
+                    <Globe size={18} style={{ color: '#4285F4' }} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Google Календарь</div>
+                    <div className={`text-xs ${sub}`}>Двусторонняя синхронизация расписания</div>
+                  </div>
+                  {integrations.googleCalendar ? (
+                    <span className="text-[11px] px-2 py-1 rounded-full shrink-0" style={{ background: '#22C55E18', color: '#22C55E' }}>Подключено</span>
+                  ) : (
+                    <button
+                      onClick={() => { void handleGoogleConnect(); }}
+                      disabled={googleConnectLoading}
+                      className="text-xs px-3 py-1.5 rounded-full text-white font-medium shrink-0 disabled:opacity-50"
+                      style={{ background: '#4285F4' }}>
+                      {googleConnectLoading ? 'Подключение...' : 'Подключить'}
+                    </button>
+                  )}
+                </div>
+                {googleConnectError && <div className="text-xs text-red-500 mb-2">{googleConnectError}</div>}
+                {!integrations.googleCalendar && (
+                  <div className={`text-xs ${sub}`}>
+                    Подключите Google Календарь, чтобы записи из бота автоматически появлялись в календаре,
+                    а события из Google — в расписании (отмечены как «Google»).
+                  </div>
+                )}
+                {integrations.googleCalendar && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => { void handleGoogleSyncNow(); }}
+                      disabled={googleSyncing}
+                      className="w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
+                      style={{ background: '#4285F418', color: '#4285F4' }}>
+                      {googleSyncing ? 'Синхронизация...' : 'Синхронизировать сейчас'}
+                    </button>
+                    {googleSyncResult && (
+                      <div className={`text-xs ${sub} space-y-0.5`}>
+                        {googleSyncResult.skipped ? (
+                          <div>Синхронизация пропущена (нет токенов или нечего делать)</div>
+                        ) : googleSyncResult.created === undefined ? (
+                          <div>Синхронизация завершена</div>
+                        ) : (
+                          <div>
+                            Создано: {googleSyncResult.created} · Обновлено: {googleSyncResult.updated} · Отменено: {googleSyncResult.cancelled}
+                          </div>
+                        )}
+                        {googleSyncResult.lastSyncAt && (
+                          <div>Последняя синхронизация: {new Date(googleSyncResult.lastSyncAt).toLocaleString('ru-RU')}</div>
+                        )}
+                        {googleSyncResult.error && <div className="text-red-500">Ошибка: {googleSyncResult.error}</div>}
+                      </div>
+                    )}
+                    {googleSyncError && <div className="text-xs text-red-500">{googleSyncError}</div>}
+                    <button
+                      onClick={() => { void handleGoogleDisconnect(); }}
+                      className="w-full py-2 rounded-xl text-xs font-medium"
+                      style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
+                      Отключить Google Календарь
+                    </button>
+                  </div>
+                )}
+              </div>
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
@@ -9493,7 +9627,10 @@ setOwnerNewBookingWorkers([]);
                 {/* Info card */}
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-start mb-2">
-                    <div className="font-medium text-sm">{selectedBooking.clientName || 'Клиент без имени'}</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="font-medium text-sm">{selectedBooking.clientName || 'Клиент без имени'}</div>
+                      <SourceBadge source={selectedBooking.source} />
+                    </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(selectedBooking.status)}`}>{ownerStatusLabel(selectedBooking.status)}</span>
                   </div>
                   <div className={`text-xs ${sub} mb-2`}>{selectedBooking.service} • {selectedBooking.date} • {selectedBooking.time}</div>
@@ -9957,7 +10094,10 @@ setOwnerNewBookingWorkers([]);
                         <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-1">
-                            <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
+                              <SourceBadge source={booking.source} />
+                            </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
                           <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
