@@ -7932,71 +7932,52 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 {googleConnectError && <div className="text-xs text-red-500 mb-2">{googleConnectError}</div>}
                 {googleSetupOpen && googleSetupStatus && !integrations.googleCalendar && (
-                  <div className="space-y-3 mt-2 mb-2 rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
-                    <div className="text-xs font-semibold">Подключение Google Календаря</div>
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex items-start gap-2">
-                        <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 mt-0.5 text-white" style={{ background: '#4285F4' }}>1</span>
-                        <div>
-                          Откройте <span className="font-medium">Google Cloud Console</span>, включите
-                          <span className="font-medium"> Google Calendar API</span> (APIs &amp; Services → Library) и создайте
-                          <span className="font-medium"> OAuth Client ID</span> типа «Web application» (Credentials → Create Credentials).
-                        </div>
-                      </div>
-                      <a
-                        href="https://console.cloud.google.com/apis/credentials"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-xs font-medium"
-                        style={{ background: '#4285F4' }}>
-                        Открыть Google Cloud Console <ExternalLink size={12} />
-                      </a>
-                      <div className="flex items-start gap-2 pt-1">
-                        <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 mt-0.5 text-white" style={{ background: '#4285F4' }}>2</span>
-                        <div className="flex-1">
-                          В созданном клиенте добавьте этот адрес в «Authorized redirect URIs»:
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="flex-1 text-[11px] px-2 py-1 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
-                              {googleSetupStatus.redirectUri}
-                            </code>
-                            <button
-                              onClick={() => { void handleGoogleCopyUri(); }}
-                              className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
-                              style={{ color: '#4285F4', background: '#4285F418' }}>
-                              {googleCopiedUri ? 'Скопировано' : 'Копировать'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2 pt-1">
-                        <span className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 mt-0.5 text-white" style={{ background: '#4285F4' }}>3</span>
-                        <div className="flex-1">
-                          Вставьте скопированные <span className="font-medium">Client ID</span> и <span className="font-medium">Client Secret</span>:
-                          <input
-                            className={`${inputCls} mt-1.5`}
-                            placeholder="Client ID (…apps.googleusercontent.com)"
-                            value={googleClientId}
-                            onChange={e => setGoogleClientId(e.target.value)}
-                            autoComplete="off"
-                          />
-                          <input
-                            className={`${inputCls} mt-1.5`}
-                            type="password"
-                            placeholder="Client Secret"
-                            value={googleClientSecret}
-                            onChange={e => setGoogleClientSecret(e.target.value)}
-                            autoComplete="off"
-                          />
-                        </div>
+                  <div className="space-y-2.5 mt-2 mb-2 rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-medium"
+                      style={{ background: '#4285F4' }}>
+                      Создать OAuth-клиент в Google <ExternalLink size={12} />
+                    </a>
+                    <div className={`text-[11px] ${sub}`}>
+                      Включите Google Calendar API, создайте OAuth Client ID (Web application)
+                      и добавьте в него этот адрес:
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <code className="flex-1 text-[11px] px-2 py-1 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
+                          {googleSetupStatus.redirectUri}
+                        </code>
+                        <button
+                          onClick={() => { void handleGoogleCopyUri(); }}
+                          className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
+                          style={{ color: '#4285F4', background: '#4285F418' }}>
+                          {googleCopiedUri ? 'Ок' : 'Копировать'}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2 pt-1">
+                    <input
+                      className={`${inputCls}`}
+                      placeholder="Client ID (…apps.googleusercontent.com)"
+                      value={googleClientId}
+                      onChange={e => setGoogleClientId(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <input
+                      className={`${inputCls}`}
+                      type="password"
+                      placeholder="Client Secret"
+                      value={googleClientSecret}
+                      onChange={e => setGoogleClientSecret(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <div className="flex gap-2 pt-0.5">
                       <button
                         onClick={() => { void handleGoogleSaveKeys(); }}
                         disabled={googleSavingKeys || !googleClientId.trim() || !googleClientSecret.trim()}
                         className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                         style={{ background: '#4285F4' }}>
-                        {googleSavingKeys ? 'Сохранение...' : 'Сохранить и подключить'}
+                        {googleSavingKeys ? 'Подключение...' : 'Подключить'}
                       </button>
                       <button
                         onClick={() => { setGoogleSetupOpen(false); setGoogleConnectError(null); }}
