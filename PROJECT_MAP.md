@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-13 12:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-13 12:45 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -138,6 +138,8 @@ concept1.0/
 ├── frontend/
 │   ├── guidelines/
 │   │   └── Guidelines.md
+│   ├── public/
+│   │   └── google2855e110d983d030.html
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── components/
@@ -3152,6 +3154,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/public/google2855e110d983d030.html` (2026-08-13 15:45)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 15:25)
 - `backend/app/main.py` (2026-08-13 14:58)
 - `backend/tests/test_google_calendar_api.py` (2026-08-13 14:48)
@@ -3166,4 +3169,3 @@ concept1.0/
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-13 13:59)
 - `frontend/src/app/components/shared/SourceBadge.tsx` (2026-08-13 13:59)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-13 13:49)
-- `scripts/.project-map-watch.lock` (2026-08-13 13:04)
