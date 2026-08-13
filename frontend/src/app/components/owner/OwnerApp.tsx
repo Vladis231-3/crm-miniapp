@@ -1661,6 +1661,17 @@ export function OwnerApp() {
     }
   };
 
+  const openExternal = (url: string) => {
+    // В Telegram открываем во внешнем браузере: во встроенном Google
+    // блокирует консоль и OAuth (частые «URL not found» и пустые страницы).
+    const webApp = window.Telegram?.WebApp;
+    if (webApp && typeof webApp.openLink === 'function') {
+      webApp.openLink(url);
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  };
+
   const handleGoogleLoadJson = (file: File) => {
     setGoogleJsonError(null);
     const reader = new FileReader();
@@ -7969,13 +7980,25 @@ setOwnerNewBookingWorkers([]);
                       href="https://console.cloud.google.com/apis/credentials"
                       target="_blank"
                       rel="noreferrer"
+                      onClick={e => { e.preventDefault(); openExternal('https://console.cloud.google.com/apis/credentials'); }}
                       className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-medium"
                       style={{ background: '#4285F4' }}>
                       Создать OAuth-клиент в Google <ExternalLink size={12} />
                     </a>
                     <div className={`text-[11px] ${sub}`}>
-                      Включите Google Calendar API, создайте OAuth Client ID (Web application)
-                      и добавьте в него этот адрес:
+                      Если Google откроет меню с проектами: создайте проект (это бесплатно),
+                      затем нажмите <span className="font-medium">Включить Google Calendar API</span> —
+                      <a
+                        href="https://console.cloud.google.com/apis/library/calendar.googleapis.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={e => { e.preventDefault(); openExternal('https://console.cloud.google.com/apis/library/calendar.googleapis.com'); }}
+                        className="underline"
+                        style={{ color: '#4285F4' }}
+                      >
+                        прямая ссылка
+                      </a>, после чего вернитесь на эту страницу и создайте OAuth Client ID
+                      (Web application), добавив в него этот адрес:
                       <div className="flex items-center gap-1.5 mt-1">
                         <code className="flex-1 text-[11px] px-2 py-1 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
                           {googleSetupStatus.redirectUri}
