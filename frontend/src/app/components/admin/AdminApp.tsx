@@ -16,6 +16,7 @@ import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShift
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
+import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
 import {
   isClientCardIncomplete,
@@ -378,6 +379,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const [boxes, setBoxes] = useState(liveBoxes);
   const [schedule, setScheduleState] = useState(liveSchedule);
   const [services, setServicesState] = useState(liveServices);
+  const [pricingSearchQuery, setPricingSearchQuery] = useState('');
   const [notifSettings, setNotifSettings] = useState(settings.adminNotificationSettings);
   const [profile, setProfile] = useState(settings.adminProfile);
   const [showPass, setShowPass] = useState(false);
@@ -2302,7 +2304,19 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-1">Цены на услуги</h2>
               <p className={`text-xs ${sub} mb-4`}>Изменения отображаются у клиентов после сохранения</p>
-              {services.map((svc, i) => (
+              <div className="relative mb-3">
+                <ServiceSearchInput
+                  value={pricingSearchQuery}
+                  onChange={setPricingSearchQuery}
+                  inputCls={`${inputCls} w-full`}
+                  iconCls={sub}
+                />
+              </div>
+              {services.map((svc, i) => {
+                const q = pricingSearchQuery.trim().toLowerCase();
+                const matchesQuery = !q || [svc.name, svc.category, svc.desc || ''].some((v) => v.toLowerCase().includes(q));
+                if (!matchesQuery) return null;
+                return (
                 <div key={svc.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex justify-end -mt-1 -mr-1 mb-1">
                     <button onClick={() => handleRemoveService(svc.id)} className="p-1.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors">
@@ -2347,7 +2361,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     </label>
                   </div>
                 </div>
-              ))}
+                );
+              })}
+              {pricingSearchQuery.trim() && services.filter((svc) => {
+                const q = pricingSearchQuery.trim().toLowerCase();
+                return [svc.name, svc.category, svc.desc || ''].some((v) => v.toLowerCase().includes(q));
+              }).length === 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>По запросу «{pricingSearchQuery.trim()}» услуг не найдено</div>
+              )}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
                 <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить цены'}
               </button>
@@ -3642,23 +3663,32 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                  <select className={selectCls} value={editBookingDraft.serviceId} onChange={e => {
-                    const svc = liveServices.find(s => s.id === e.target.value);
-                    setEditBookingDraft((current) => {
-                      const prevSvc = liveServices.find(s => s.id === current.serviceId);
-                      const wasDefaultPrice = current.price === 0 || (prevSvc && current.price === prevSvc.price);
-                      return {
-                        ...current,
-                        serviceId: e.target.value,
-                        price: wasDefaultPrice ? (svc?.price || 0) : current.price,
-                        duration: svc?.duration || 30,
-                      };
-                    });
-                    setEditBookingError(null);
-                  }}>
-                    <option value="">Выберите услугу</option>
-                    {liveServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <ServiceSearchSelect
+                    value={editBookingDraft.serviceId}
+                    services={liveServices}
+                    selectCls={selectCls}
+                    inputCls={inputCls}
+                    glass={glass}
+                    text={text}
+                    sub={sub}
+                    primary={primary}
+                    isDark={isDark}
+                    placeholder="Выберите услугу"
+                    onChange={(serviceId) => {
+                      const svc = liveServices.find(s => s.id === serviceId);
+                      setEditBookingDraft((current) => {
+                        const prevSvc = liveServices.find(s => s.id === current.serviceId);
+                        const wasDefaultPrice = current.price === 0 || (prevSvc && current.price === prevSvc.price);
+                        return {
+                          ...current,
+                          serviceId,
+                          price: wasDefaultPrice ? (svc?.price || 0) : current.price,
+                          duration: svc?.duration || 30,
+                        };
+                      });
+                      setEditBookingError(null);
+                    }}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

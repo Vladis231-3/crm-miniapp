@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Check, ArrowRight } from "lucide-react";
 import type { ContentService } from "../../api";
+import { ServiceSearchInput } from "./ServiceSearchInput";
 
 export type ServiceTitle =
   | "Express Wash"
@@ -56,6 +58,11 @@ const FALLBACK_SERVICES: ContentService[] = [
 
 export function Services({ onBook, apiServices }: { onBook: (service: ServiceTitle) => void; apiServices: ContentService[] }) {
   const services = apiServices.length > 0 ? apiServices : FALLBACK_SERVICES;
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const visibleServices = q
+    ? services.filter((s) => [s.title, s.subtitle, s.description, s.category].some((v) => v && v.toLowerCase().includes(q)))
+    : services;
 
   return (
     <section id="services" className="py-24 bg-gray-50">
@@ -87,11 +94,21 @@ export function Services({ onBook, apiServices }: { onBook: (service: ServiceTit
           </p>
         </div>
 
+        <div className="max-w-md mx-auto mb-10">
+          <ServiceSearchInput value={query} onChange={setQuery} placeholder="Search services..." />
+        </div>
+
+        {visibleServices.length === 0 ? (
+          <div className="text-center text-gray-500 py-8" style={{ fontSize: "0.95rem" }}>
+            No services match "{query.trim()}"
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
-          {services.map((svc, i) => (
+          {visibleServices.map((svc, i) => (
             <ServiceCard key={i} {...svc} onBook={onBook} />
           ))}
         </div>
+        )}
       </div>
     </section>
   );

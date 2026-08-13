@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import type { ContentService } from '../../context/AppContext';
+import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 
 const FALLBACK_PLANS = [
   { name: 'Базовый', tagline: 'Для регулярного ухода', price: 29, period: 'за мойку', color: '#6b7280', highlight: false, features: ['Наружная мойка', 'Чистка колёс', 'Мойка стёкол', 'Ароматизатор', 'Микрофибра'], notIncluded: ['Пылесос салона', 'Полировка'] },
@@ -21,6 +23,12 @@ export function Pricing({ services }: { services: ContentService[] }) {
       }))
     : FALLBACK_PLANS;
 
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const visiblePlans = q
+    ? plans.filter((p) => [p.name, p.tagline, ...p.features].some((v) => v && v.toLowerCase().includes(q)))
+    : plans;
+
   return (
     <section id="pricing" className="py-24 bg-white">
       <div className="max-w-7xl mx-auto px-6">
@@ -30,8 +38,21 @@ export function Pricing({ services }: { services: ContentService[] }) {
           <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.75rem)', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em', lineHeight: 1.15 }}>
             Прозрачные цены</h2>
         </div>
+        <div className="max-w-md mx-auto mb-10">
+          <ServiceSearchInput
+            value={query}
+            onChange={setQuery}
+            inputCls="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 w-full text-sm text-gray-900 placeholder-gray-400 outline-none shadow-sm focus:border-blue-500"
+            iconCls="text-gray-400"
+          />
+        </div>
+        {visiblePlans.length === 0 ? (
+          <div className="text-center text-gray-500 py-8" style={{ fontSize: '0.95rem' }}>
+            По запросу «{query.trim()}» услуг не найдено
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {plans.map((plan) => (
+          {visiblePlans.map((plan) => (
             <div key={plan.name}
               className={`rounded-2xl p-8 flex flex-col border transition-all duration-300 ${plan.highlight ? 'shadow-xl scale-105 border-blue-200' : 'shadow-sm border-gray-100'}`}
               style={{ backgroundColor: plan.highlight ? '#ffffff' : '#fafafa' }}>
@@ -59,6 +80,7 @@ export function Pricing({ services }: { services: ContentService[] }) {
             </div>
           ))}
         </div>
+        )}
       </div>
     </section>
   );

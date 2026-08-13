@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import { Check } from "lucide-react";
+import { ServiceSearchInput } from "./ServiceSearchInput";
 
 const plans = [
   {
@@ -54,6 +56,12 @@ const plans = [
 ];
 
 export function PricingSection() {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const visiblePlans = q
+    ? plans.filter((p) => [p.name, p.desc, ...p.features].some((v) => v && v.toLowerCase().includes(q)))
+    : plans;
+
   return (
     <section id="pricing" className="py-20 md:py-28 bg-black relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
@@ -79,8 +87,17 @@ export function PricingSection() {
           </p>
         </motion.div>
 
+        <div className="max-w-md mx-auto mb-10">
+          <ServiceSearchInput value={query} onChange={setQuery} placeholder="Search plans..." />
+        </div>
+
+        {visiblePlans.length === 0 ? (
+          <div className="text-center text-white/50 py-8 text-sm">
+            No plans match "{query.trim()}"
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          {plans.map((plan, i) => (
+          {visiblePlans.map((plan, i) => (
             <motion.div
               key={plan.name}
               initial={{ opacity: 0, y: 30 }}
@@ -143,6 +160,7 @@ export function PricingSection() {
             </motion.div>
           ))}
         </div>
+        )}
 
         <p className="text-center text-white/30 text-sm mt-8">
           Prices vary by vehicle size. SUVs and trucks may incur additional charges. Contact us for a custom quote.

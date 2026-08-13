@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import { Sparkles, Wind, Shield, Zap, Droplets, Eye } from "lucide-react";
+import { ServiceSearchInput } from "./ServiceSearchInput";
 
 const services = [
   {
@@ -56,6 +58,12 @@ const colorMap: Record<string, string> = {
 };
 
 export function ServicesSection() {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const visibleServices = q
+    ? services.filter((s) => [s.title, s.desc].some((v) => v && v.toLowerCase().includes(q)))
+    : services;
+
   return (
     <section id="services" className="py-20 md:py-28 bg-black relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
@@ -80,8 +88,17 @@ export function ServicesSection() {
           </p>
         </motion.div>
 
+        <div className="max-w-md mx-auto mb-10">
+          <ServiceSearchInput value={query} onChange={setQuery} placeholder="Search services..." />
+        </div>
+
+        {visibleServices.length === 0 ? (
+          <div className="text-center text-white/50 py-8 text-sm">
+            No services match "{query.trim()}"
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((svc, i) => {
+          {visibleServices.map((svc, i) => {
             const Icon = svc.icon;
             const colorCls = colorMap[svc.color];
             return (
@@ -114,6 +131,7 @@ export function ServicesSection() {
             );
           })}
         </div>
+        )}
       </div>
     </section>
   );

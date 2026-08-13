@@ -147,6 +147,63 @@ class AttendanceEndpointTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 403, response.text)
 
+    def test_owner_can_open_shift_for_masters_immediately_approved(self) -> None:
+        """Owner opens a shift for masters: immediately approved, visible in the
+        shift list and counted in masters' attendance.
+        """
+        ivan_id = self._get_worker_id("ivan")
+        oleg_id = self._get_worker_id("oleg")
+
+        create_response = self.client.post(
+            "/api/owner/shift-openings",
+            headers=self._auth_headers(self.owner_token),
+            json={"masterIds": [ivan_id, oleg_id], "note": "Смена открыта владельцем"},
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        payload = create_response.json()
+        self.assertEqual(payload["status"], "approved")
+        self.assertTrue(payload["reviewedAt"])
+        self.assertEqual(payload["floorPhotoUrl"], "")
+        checked_masters = {item["workerId"] for item in payload["masters"] if item["checked"]}
+        self.assertEqual(checked_masters, {ivan_id, oleg_id})
+
+        # Без выбранных мастеров — ошибка валидации
+        empty_response = self.client.post(
+            "/api/owner/shift-openings",
+            headers=self._auth_headers(self.owner_token),
+            json={"masterIds": [], "note": ""},
+        )
+        self.assertEqual(empty_response.status_code, 400, empty_response.text)
+
+        # Только владелец может открывать смену через этот эндпоинт
+        self._link_staff("admin", "1003")
+        admin_token = self._telegram_init_data("1003")
+        forbidden_response = self.client.post(
+            "/api/owner/shift-openings",
+            headers=self._auth_headers(admin_token),
+            json={"masterIds": [ivan_id]},
+        )
+        self.assertEqual(forbidden_response.status_code, 403, forbidden_response.text)
+
+        # Открытие видно в общем списке смен как подтверждённое
+        owner_list = self.client.get(
+            "/api/admin/shift-inspections",
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(owner_list.status_code, 200, owner_list.text)
+        self.assertTrue(any(item["id"] == payload["id"] and item["status"] == "approved" for item in owner_list.json()))
+
+        # Открытие смены владельцем попадает в посещаемость мастеров
+        attendance = self.client.get(
+            "/api/owner/shift-attendance",
+            params={"period": "month"},
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(attendance.status_code, 200, attendance.text)
+        by_worker = {item["workerId"]: item for item in attendance.json()}
+        self.assertEqual(by_worker[ivan_id]["shiftCount"], 1)
+        self.assertEqual(by_worker[oleg_id]["shiftCount"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

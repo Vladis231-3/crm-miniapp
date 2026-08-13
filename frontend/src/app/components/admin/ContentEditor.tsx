@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Save, Plus, X, Image, Loader2, Upload, AlertCircle } from 'lucide-react';
 import { type ContentData, type ContentHero, type ContentAbout, type ContentService, type ContentWorks, type ContentStats } from '../../context/AppContext';
 import { apiRequest, apiUploadFile } from '../../api';
+import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 
 interface ContentEditorProps {
   initialContent: ContentData;
@@ -93,6 +94,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
 
   useEffect(() => {
     apiRequest<ContentData>('/api/content').then(setContent).catch(() => {});
@@ -318,7 +320,19 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
       {/* Services tab */}
       {tab === 'services' && (
         <div className="space-y-3">
-          {content.services.map((svc, i) => (
+          <div className="relative">
+            <ServiceSearchInput
+              value={serviceSearchQuery}
+              onChange={setServiceSearchQuery}
+              inputCls={`${inputCls} w-full`}
+              iconCls={sub}
+            />
+          </div>
+          {content.services.map((svc, i) => {
+            const q = serviceSearchQuery.trim().toLowerCase();
+            const matchesQuery = !q || [svc.title, svc.subtitle, svc.category, svc.description].some((v) => v && v.toLowerCase().includes(q));
+            if (!matchesQuery) return null;
+            return (
             <div key={i} className={`${glass} rounded-2xl p-4`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium">{svc.title || `Услуга ${i + 1}`}</span>
@@ -361,7 +375,14 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
+          {serviceSearchQuery.trim() && content.services.filter((svc) => {
+            const q = serviceSearchQuery.trim().toLowerCase();
+            return [svc.title, svc.subtitle, svc.category, svc.description].some((v) => v && v.toLowerCase().includes(q));
+          }).length === 0 && (
+            <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>По запросу «{serviceSearchQuery.trim()}» услуг не найдено</div>
+          )}
           <button onClick={addService} className={`flex items-center gap-2 ${glass} rounded-2xl p-4 w-full text-left ${sub} text-sm`}>
             <Plus size={16} /> Добавить услугу
           </button>

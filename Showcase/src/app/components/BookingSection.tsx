@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "motion/react";
-import { Calendar, Car, User, Phone, CheckCircle2 } from "lucide-react";
+import { Calendar, Car, User, Phone, CheckCircle2, Search } from "lucide-react";
 
 const services = [
   "Essential Wash — $35",
@@ -16,6 +16,10 @@ const vehicles = ["Sedan / Coupe", "SUV / Crossover", "Truck", "Van / Minivan", 
 export function BookingSection() {
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", service: "", vehicle: "", date: "", notes: "" });
+  const [serviceQuery, setServiceQuery] = useState("");
+  const [serviceOpen, setServiceOpen] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const serviceRef = useRef<HTMLDivElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -23,8 +27,18 @@ export function BookingSection() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.service) {
+      setSubmitError("Please select a service");
+      setServiceOpen(true);
+      return;
+    }
+    setSubmitError("");
     setSubmitted(true);
   };
+
+  const serviceFiltered = serviceQuery.trim()
+    ? services.filter((s) => s.toLowerCase().includes(serviceQuery.trim().toLowerCase()))
+    : services;
 
   return (
     <section id="book" className="py-20 md:py-28 bg-black relative overflow-hidden">
@@ -122,18 +136,48 @@ export function BookingSection() {
                 </select>
               </div>
 
-              <select
-                name="service"
-                required
-                value={form.service}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:border-sky-500/60 transition-colors appearance-none"
-              >
-                <option value="" className="bg-zinc-900">Select a Service</option>
-                {services.map((s) => (
-                  <option key={s} value={s} className="bg-zinc-900">{s}</option>
-                ))}
-              </select>
+              <div ref={serviceRef} className="relative">
+                <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-white/30 pointer-events-none" />
+                <input
+                  name="service"
+                  type="text"
+                  placeholder="Select a Service — type to search"
+                  value={serviceOpen || !form.service ? serviceQuery : form.service}
+                  onChange={(e) => {
+                    setServiceQuery(e.target.value);
+                    setForm((f) => ({ ...f, service: "" }));
+                    setServiceOpen(true);
+                  }}
+                  onFocus={() => setServiceOpen(true)}
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border text-white placeholder-white/30 text-sm focus:outline-none transition-colors ${submitError && !form.service ? "border-red-500/60" : "border-white/10 focus:border-sky-500/60"}`}
+                />
+                {serviceOpen && (
+                  <div className="absolute z-20 left-0 right-0 mt-1 rounded-xl bg-zinc-900 border border-white/10 max-h-56 overflow-y-auto shadow-xl">
+                    {serviceFiltered.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-white/40">No services match "{serviceQuery.trim()}"</div>
+                    ) : (
+                      serviceFiltered.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => {
+                            setForm((f) => ({ ...f, service: s }));
+                            setServiceQuery("");
+                            setServiceOpen(false);
+                            setSubmitError("");
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {submitError && !form.service && (
+                  <p className="text-red-400 text-xs mt-1.5">{submitError}</p>
+                )}
+              </div>
 
               <div className="relative">
                 <Calendar className="absolute left-3.5 top-3.5 w-4 h-4 text-white/30" />

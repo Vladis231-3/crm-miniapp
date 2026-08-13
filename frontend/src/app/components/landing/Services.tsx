@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Check, ArrowRight } from 'lucide-react';
 import type { ContentService } from '../../context/AppContext';
+import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 
 const FALLBACK_SERVICES: ContentService[] = [
   { title: 'Экспресс-мойка', subtitle: 'Быстро и качественно', description: 'Тщательная наружная мойка и ручная сушка.', price: 'от 1 900 ₽', category: '', accent: '#2563eb', image: '', features: ['Пенная обработка', 'Мойка высоким давлением', 'Ручная сушка', 'Чистка стёкол'] },
@@ -12,6 +14,11 @@ const FALLBACK_SERVICES: ContentService[] = [
 
 export function Services({ onBook, apiServices }: { onBook: (service: string) => void; apiServices: ContentService[] }) {
   const services = apiServices.length > 0 ? apiServices : FALLBACK_SERVICES;
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const visibleServices = q
+    ? services.filter((s) => [s.title, s.subtitle, s.description, s.category].some((v) => v && v.toLowerCase().includes(q)))
+    : services;
 
   return (
     <section id="services" className="py-24 bg-gray-50">
@@ -24,9 +31,23 @@ export function Services({ onBook, apiServices }: { onBook: (service: string) =>
           <p className="text-gray-500 mt-4 max-w-xl mx-auto" style={{ fontSize: '1rem', lineHeight: 1.7 }}>
             От быстрой мойки до полного восстановления.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
-          {services.map((svc, i) => <ServiceCard key={i} {...svc} onBook={onBook} />)}
+        <div className="max-w-md mx-auto mb-10">
+          <ServiceSearchInput
+            value={query}
+            onChange={setQuery}
+            inputCls="bg-white border border-gray-200 rounded-xl px-3 py-2.5 w-full text-sm text-gray-900 placeholder-gray-400 outline-none shadow-sm focus:border-blue-500"
+            iconCls="text-gray-400"
+          />
         </div>
+        {visibleServices.length === 0 ? (
+          <div className="text-center text-gray-500 py-8" style={{ fontSize: '0.95rem' }}>
+            По запросу «{query.trim()}» услуг не найдено
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
+          {visibleServices.map((svc, i) => <ServiceCard key={i} {...svc} onBook={onBook} />)}
+        </div>
+        )}
       </div>
     </section>
   );

@@ -166,6 +166,8 @@ from .schemas import (
 
     AdminProfilePayload,
 
+    OwnerShiftOpeningRequest,
+
     BookingAvailabilityPayload,
 
     BookingAvailabilitySlotPayload,
@@ -13204,6 +13206,131 @@ def review_admin_shift_inspection(
         owner_actor_id=session_data["actorId"],
 
     )
+
+
+
+
+@app.post("/api/owner/shift-openings", response_model=AdminShiftInspectionPayload)
+
+def open_shift_for_masters(
+
+    payload: OwnerShiftOpeningRequest,
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> AdminShiftInspectionPayload:
+
+    """Владелец открывает смену для мастеров без фото-чеклиста.
+
+    Запись сразу сохраняется как подтверждённая (владелец — финальный
+
+    решающий), попадает в посещаемость мастеров и общий список смен.
+
+    """
+
+    _ensure_staff_role(session_data, {"owner"})
+
+    owner = db.get(StaffUser, session_data["actorId"])
+
+    if owner is None:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_404_NOT_FOUND, detail="Владелец не найден"
+
+        )
+
+    requested_ids = set(payload.masterIds)
+
+    if not requested_ids:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте мастеров на смене"
+
+        )
+
+    masters = db.scalars(
+
+        select(StaffUser)
+
+        .where(StaffUser.role == "worker", StaffUser.active.is_(True))
+
+        .order_by(StaffUser.name.asc())
+
+    ).all()
+
+    selected_ids = {worker.id for worker in masters} & requested_ids
+
+    if not selected_ids:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Отметьте мастеров на смене"
+
+        )
+
+    masters_payload = [
+
+        {
+
+            "workerId": worker.id,
+
+            "workerName": worker.name,
+
+            "checked": worker.id in selected_ids,
+
+        }
+
+        for worker in masters
+
+    ]
+
+    entries = _admin_shift_inspections_state(db)
+
+    now_iso = _serialize_state_datetime(_now())
+
+    entry = {
+
+        "id": f"owner-shift-{uuid4()}",
+
+        "adminId": owner.id,
+
+        "adminName": owner.name,
+
+        "status": "approved",
+
+        "createdAt": now_iso,
+
+        "reviewedAt": now_iso,
+
+        "floorPhotoUrl": "",
+
+        "clothsReady": False,
+
+        "suppliesChecked": False,
+
+        "note": payload.note.strip(),
+
+        "issueNote": "",
+
+        "ownerDecisionBy": owner.id,
+
+        "supplies": [],
+
+        "masters": masters_payload,
+
+    }
+
+    entries.append(entry)
+
+    _upsert_setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, entries[-200:])
+
+    db.commit()
+
+    return _admin_shift_inspection_payload(entry)
 
 
 

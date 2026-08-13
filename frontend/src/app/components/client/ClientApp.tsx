@@ -16,6 +16,7 @@ import {
 } from '../../utils/validation';
 import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
 import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
+import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 
 const NOOP = () => {};
 
@@ -93,6 +94,7 @@ export function ClientApp() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(upcomingDates[0] || '');
   const [activeCategory, setActiveCategory] = useState('Все');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
   const [calendarAnim, setCalendarAnim] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
@@ -215,9 +217,12 @@ export function ClientApp() {
   const myNotifications = notifications.filter((notification) => notification.recipientRole === 'client' && notification.recipientId === session?.actorId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
-  const filteredServices = activeCategory === 'Все'
-    ? activeServices
-    : activeServices.filter((service) => service.category === activeCategory);
+  const normalizedSearchQuery = serviceSearchQuery.trim().toLowerCase();
+  const filteredServices = activeServices.filter((service) => {
+    if (activeCategory !== 'Все' && service.category !== activeCategory) return false;
+    if (!normalizedSearchQuery) return true;
+    return [service.name, service.category, service.desc].some((v) => v && v.toLowerCase().includes(normalizedSearchQuery));
+  });
   const compatibleBoxes = bookingBoxesForService(selectedService, boxes);
   const defaultBoxName = compatibleBoxes[0]?.name || 'Детейлинг';
 
@@ -488,6 +493,16 @@ export function ClientApp() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.22 }}
             >
+              {/* Search */}
+              <div className="px-4 pt-4">
+                <ServiceSearchInput
+                  value={serviceSearchQuery}
+                  onChange={(v) => { setServiceSearchQuery(v); if (v.trim()) setActiveCategory('Все'); }}
+                  inputCls={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                  iconCls={sub}
+                />
+              </div>
+
               {/* Category chips */}
               <div className="flex gap-2 px-4 py-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
                 {categories.map(cat => (
@@ -540,6 +555,9 @@ export function ClientApp() {
                   </motion.div>
                 ))}
               </div>
+              {filteredServices.length === 0 && activeServices.length > 0 && (
+                <div className={`px-4 py-6 text-sm text-center ${sub}`}>По запросу «{serviceSearchQuery.trim()}» услуг не найдено</div>
+              )}
             </motion.div>
           )}
 

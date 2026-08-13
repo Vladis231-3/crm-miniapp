@@ -860,6 +860,7 @@ interface AppContextType {
     masters: Array<{ workerId: string; checked: boolean }>;
     note?: string;
   }) => Promise<AdminShiftInspection>;
+  openShiftForMasters: (payload: { masterIds: string[]; note?: string }) => Promise<AdminShiftInspection>;
   hireWorker: (worker: WorkerCreateInput) => Promise<Worker>;
   fireWorker: (workerId: string) => Promise<void>;
   resetWorkerPassword: (workerId: string, newPassword: string) => Promise<void>;
@@ -1722,6 +1723,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }
 
+  async function openShiftForMasters(payload: { masterIds: string[]; note?: string }) {
+    const entry = await apiRequest<Omit<AdminShiftInspection, 'createdAt' | 'reviewedAt'> & { createdAt: string; reviewedAt?: string | null }>('/api/owner/shift-openings', {
+      method: 'POST',
+      body: payload,
+    });
+    return {
+      ...entry,
+      createdAt: new Date(entry.createdAt),
+      reviewedAt: entry.reviewedAt ? new Date(entry.reviewedAt) : null,
+    };
+  }
+
   async function hireWorker(worker: WorkerCreateInput) {
     const created = await apiRequest<Worker>('/api/workers', { method: 'POST', body: worker });
     const normalized = normalizeWorker(created);
@@ -1946,6 +1959,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       submitShiftChecklist,
       listAdminShiftInspections,
       submitAdminShiftInspection,
+      openShiftForMasters,
       hireWorker,
       fireWorker,
       resetWorkerPassword,

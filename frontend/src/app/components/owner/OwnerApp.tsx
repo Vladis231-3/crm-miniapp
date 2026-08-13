@@ -34,7 +34,7 @@ import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } fr
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'deposit';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'deposit' | 'shift';
 type OwnerExportKind = 'report' | 'pdf';
 
 interface SalaryBookingItem {
@@ -639,6 +639,7 @@ export function OwnerApp() {
       remindAdminAboutInactiveClients,
       listAdminShiftInspections,
       listShiftChecklists,
+      openShiftForMasters,
       todayLabel,
       tomorrowLabel,
       upcomingDates,
@@ -898,6 +899,11 @@ export function OwnerApp() {
   const [adminShiftInspections, setAdminShiftInspections] = useState<AdminShiftInspection[]>([]);
   const [adminShiftPhotoUrls, setAdminShiftPhotoUrls] = useState<Record<string, string>>({});
   const adminShiftPhotoUrlsRef = useRef<Record<string, string>>({});
+  const [shiftOpenMasterIds, setShiftOpenMasterIds] = useState<string[]>([]);
+  const [shiftOpenNote, setShiftOpenNote] = useState('');
+  const [shiftOpenSubmitting, setShiftOpenSubmitting] = useState(false);
+  const [shiftOpenError, setShiftOpenError] = useState<string | null>(null);
+  const [shiftOpenSuccess, setShiftOpenSuccess] = useState(false);
 
   // Quick booking modal state (task 9.1)
   const [showOwnerNewBooking, setShowOwnerNewBooking] = useState(false);
@@ -1218,6 +1224,36 @@ export function OwnerApp() {
       setSettingsSection(null);
     }
   }, [isAccountant, page]);
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'shift' && !isAccountant) {
+      void listAdminShiftInspections().then(setAdminShiftInspections);
+    }
+  }, [isAccountant, page, settingsSection]);
+
+  const handleOpenShiftForMasters = async () => {
+    setShiftOpenError(null);
+    setShiftOpenSuccess(false);
+    if (shiftOpenMasterIds.length === 0) {
+      setShiftOpenError('Отметьте мастеров, которые вышли в смену');
+      return;
+    }
+    setShiftOpenSubmitting(true);
+    try {
+      const saved = await openShiftForMasters({
+        masterIds: shiftOpenMasterIds,
+        note: shiftOpenNote.trim() || undefined,
+      });
+      setAdminShiftInspections((current) => [saved, ...current]);
+      setShiftOpenMasterIds([]);
+      setShiftOpenNote('');
+      setShiftOpenSuccess(true);
+      window.setTimeout(() => setShiftOpenSuccess(false), 3000);
+    } catch (error) {
+      setShiftOpenError(error instanceof Error ? error.message : 'Не удалось открыть смену');
+    } finally {
+      setShiftOpenSubmitting(false);
+    }
+  };
 
   const ownerNotifications = notifications.filter((notification) => notification.recipientRole === financeNotificationRole);
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
@@ -4766,13 +4802,13 @@ setOwnerNewBookingWorkers([]);
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mt-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className="font-semibold">Открытие смены админом</div>
-                    <div className={`text-xs ${sub} mt-1`}>Фото пола, отмеченные расходники, мастера на смене и решение владельца</div>
+                    <div className="font-semibold">Открытие смены</div>
+                    <div className={`text-xs ${sub} mt-1`}>Открытия смены админом и владельцем: мастера на смене и решение владельца</div>
                   </div>
                   <div className={`text-xs ${sub}`}>{latestAdminShiftInspections.length} последних</div>
                 </div>
                 {latestAdminShiftInspections.length === 0 ? (
-                  <div className={`text-sm ${sub}`}>Админ ещё не отправлял открытия смены на подтверждение.</div>
+                  <div className={`text-sm ${sub}`}>Смены ещё не открывались.</div>
                 ) : (
                   <div className="space-y-3">
                     {latestAdminShiftInspections.map((inspection) => (
@@ -4788,11 +4824,17 @@ setOwnerNewBookingWorkers([]);
                             {inspection.status === 'pending' ? 'На подтверждении' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказано'}
                           </div>
                         </div>
-                        {adminShiftPhotoUrls[inspection.id] ? (
-                          <img src={adminShiftPhotoUrls[inspection.id]} alt="Фото открытия смены" className="mb-3 h-44 w-full rounded-2xl object-cover" />
+                        {inspection.floorPhotoUrl ? (
+                          adminShiftPhotoUrls[inspection.id] ? (
+                            <img src={adminShiftPhotoUrls[inspection.id]} alt="Фото открытия смены" className="mb-3 h-44 w-full rounded-2xl object-cover" />
+                          ) : (
+                            <div className={`${glass} mb-3 flex h-44 w-full items-center justify-center rounded-2xl text-sm ${sub}`}>
+                              Загружаем фото открытия смены...
+                            </div>
+                          )
                         ) : (
                           <div className={`${glass} mb-3 flex h-44 w-full items-center justify-center rounded-2xl text-sm ${sub}`}>
-                            Загружаем фото открытия смены...
+                            Открыта владельцем, без фото
                           </div>
                         )}
                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -4812,7 +4854,7 @@ setOwnerNewBookingWorkers([]);
                         <div className={`text-xs ${sub} mt-3`}>
                           Чистые тряпки: {inspection.clothsReady ? 'Да' : 'Нет'}
                         </div>
-                        {inspection.note && <div className={`text-xs ${sub} mt-1`}>Комментарий админа: {inspection.note}</div>}
+                        {inspection.note && <div className={`text-xs ${sub} mt-1`}>Комментарий: {inspection.note}</div>}
                         {inspection.issueNote && <div className="text-xs text-red-500 mt-2">Причина отказа: {inspection.issueNote}</div>}
                         {inspection.reviewedAt && (
                           <div className={`text-[11px] ${sub} mt-2`}>
@@ -5715,6 +5757,7 @@ setOwnerNewBookingWorkers([]);
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
                 { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
+                { id: 'shift', icon: Clock, label: 'Открытие смены', desc: 'Открыть смену для мастеров', color: accent },
                 { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#F59E0B' },
@@ -5743,6 +5786,90 @@ setOwnerNewBookingWorkers([]);
                   <ChevronRight size={16} className={sub} />
                 </motion.button>
               ))}
+            </motion.div>
+          )}
+
+          {/* ── SETTINGS: SHIFT OPENING ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'shift' && (
+            <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <h2 className="font-semibold mb-1">Открытие смены</h2>
+              <p className={`text-xs ${sub} mb-4`}>Отметь мастеров, которые вышли на смену. Смена сразу открыта и попадает в посещаемость — подтверждение не требуется.</p>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-medium mb-3">Мастера на смене</div>
+                <div className="space-y-2">
+                  {workers.filter((worker) => worker.role === 'worker' && worker.active).map((worker) => {
+                    const checked = shiftOpenMasterIds.includes(worker.id);
+                    return (
+                      <button
+                        key={worker.id}
+                        type="button"
+                        onClick={() => setShiftOpenMasterIds((current) => (checked ? current.filter((id) => id !== worker.id) : [...current, worker.id]))}
+                        className={`${glass} w-full rounded-2xl p-3 text-left transition-all ${checked ? 'ring-2' : ''}`}
+                        style={checked ? { outline: `2px solid ${primary}`, outlineOffset: '-2px' } : undefined}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium">{worker.name}</div>
+                            <div className={`text-xs ${sub}`}>{worker.experience || 'Мастер'}</div>
+                          </div>
+                          <div
+                            className="h-6 min-w-6 rounded-full px-2 flex items-center justify-center text-[11px] font-semibold text-white"
+                            style={{ background: checked ? primary : '#9CA3AF' }}
+                          >
+                            {checked ? 'Есть' : 'Нет'}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className={`mt-3 text-xs ${sub}`}>
+                  Отметь только тех мастеров, которые реально вышли в смену.
+                </div>
+              </div>
+
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="font-medium mb-3">Комментарий к смене</div>
+                <textarea
+                  className={`${inputCls} min-h-[88px] resize-none`}
+                  placeholder="Комментарий (необязательно)"
+                  value={shiftOpenNote}
+                  onChange={(event) => setShiftOpenNote(event.target.value)}
+                />
+                {shiftOpenError && <div className="mt-3 text-xs text-red-500">{shiftOpenError}</div>}
+                {shiftOpenSuccess && <div className="mt-3 text-xs" style={{ color: accent }}>Смена открыта для отмеченных мастеров</div>}
+                <button onClick={() => { void handleOpenShiftForMasters(); }} disabled={shiftOpenSubmitting} className="mt-3 w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: primary }}>
+                  {shiftOpenSubmitting ? 'Открываем смену...' : 'Открыть смену'}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="font-medium">Последние открытия</div>
+                {adminShiftInspections.length === 0 ? (
+                  <div className={`text-sm ${sub}`}>Смены ещё не открывались.</div>
+                ) : (
+                  adminShiftInspections.slice(0, 10).map((inspection) => (
+                    <div key={inspection.id} className={`${glass} rounded-2xl p-4`}>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <div className="font-medium">{inspection.adminName}</div>
+                          <div className={`text-xs ${sub}`}>{inspection.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${inspection.status === 'pending' ? 'bg-amber-500/15 text-amber-600' : inspection.status === 'approved' ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
+                          {inspection.status === 'pending' ? 'На подтверждении' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказано'}
+                        </div>
+                      </div>
+                      <div className={`text-xs ${sub}`}>
+                        Мастера: {inspection.masters.filter((item) => item.checked).map((item) => item.workerName).join(', ') || 'Не выбраны'}
+                      </div>
+                      {inspection.note && <div className={`text-xs ${sub} mt-1`}>{inspection.note}</div>}
+                      {inspection.issueNote && <div className="mt-2 text-xs text-red-500">Проблема: {inspection.issueNote}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
             </motion.div>
           )}
 
@@ -9130,23 +9257,34 @@ setOwnerNewBookingWorkers([]);
                     </div>
                   </div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Услуга</label><select className={selectCls} value={bookingForm.service} onChange={e => {
-                  const svc = services.find(s => s.id === e.target.value);
-                  setBookingForm(p => {
-                    const prevSvc = services.find(s => s.id === p.service);
-                    const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
-                    return {
-                      ...p,
-                      service: e.target.value,
-                      price: wasDefaultPrice ? (svc?.price || 0) : p.price,
-                      duration: svc?.duration || 30,
-                    };
-                  });
-                }}>
-                  {services.map(service => (
-                    <option key={service.id} value={service.id}>{service.name} — {service.price.toLocaleString('ru')} ₽</option>
-                  ))}
-                </select></div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
+                  <ServiceSearchSelect
+                    value={bookingForm.service}
+                    services={services}
+                    selectCls={selectCls}
+                    inputCls={inputCls}
+                    glass={glass}
+                    text={text}
+                    sub={sub}
+                    primary={primary}
+                    isDark={isDark}
+                    placeholder="Выберите услугу"
+                    onChange={(serviceId) => {
+                      const svc = services.find(s => s.id === serviceId);
+                      setBookingForm(p => {
+                        const prevSvc = services.find(s => s.id === p.service);
+                        const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                        return {
+                          ...p,
+                          service: serviceId,
+                          price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                          duration: svc?.duration || 30,
+                        };
+                      });
+                    }}
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label><input className={inputCls} type="number" value={numberInputValue(bookingForm.price)} onChange={e => setBookingForm(p => ({ ...p, price: numberFromInput(e.target.value) }))} /></div>
                   <div><label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label><input className={inputCls} type="number" value={numberInputValue(bookingForm.duration)} onChange={e => setBookingForm(p => ({ ...p, duration: numberFromInput(e.target.value) }))} /></div>
@@ -9878,23 +10016,32 @@ setOwnerNewBookingWorkers([]);
               {/* ── Услуга ── */}
               <div>
                 <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
-                <select className={selectCls} value={ownerAddServiceDraft.serviceId} onChange={e => {
-                  const svc = liveServices.find(s => s.id === e.target.value);
-                  setOwnerAddServiceDraft(p => {
-                    const prevSvc = liveServices.find(s => s.id === p.serviceId);
-                    const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
-                    return {
-                      serviceId: e.target.value,
-                      price: wasDefaultPrice ? (svc?.price || 0) : p.price,
-                      duration: svc?.duration || 30,
-                      priceMode: p.priceMode,
-                    };
-                  });
-                  setOwnerAddServiceError(null);
-                }}>
-                  <option value="">Выберите услугу</option>
-                  {liveServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <ServiceSearchSelect
+                  value={ownerAddServiceDraft.serviceId}
+                  services={liveServices}
+                  selectCls={selectCls}
+                  inputCls={inputCls}
+                  glass={glass}
+                  text={text}
+                  sub={sub}
+                  primary={primary}
+                  isDark={isDark}
+                  placeholder="Выберите услугу"
+                  onChange={(serviceId) => {
+                    const svc = liveServices.find(s => s.id === serviceId);
+                    setOwnerAddServiceDraft(p => {
+                      const prevSvc = liveServices.find(s => s.id === p.serviceId);
+                      const wasDefaultPrice = p.price === 0 || (prevSvc && p.price === prevSvc.price);
+                      return {
+                        serviceId,
+                        price: wasDefaultPrice ? (svc?.price || 0) : p.price,
+                        duration: svc?.duration || 30,
+                        priceMode: p.priceMode,
+                      };
+                    });
+                    setOwnerAddServiceError(null);
+                  }}
+                />
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />

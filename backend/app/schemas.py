@@ -622,6 +622,11 @@ class AdminShiftInspectionReviewRequest(BaseModel):
     issueNote: str = ""
 
 
+class OwnerShiftOpeningRequest(BaseModel):
+    masterIds: list[str] = Field(default_factory=list)
+    note: str = ""
+
+
 class ExpensePayload(BaseModel):
     id: str
     title: str
