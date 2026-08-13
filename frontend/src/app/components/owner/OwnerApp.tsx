@@ -17,7 +17,7 @@ import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { DepositPanel } from './DepositPanel';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
-import { formatDate, getLastNDates, getScheduleDayIndex, isPastTimeSlot, parseFlexibleDate } from '../../utils/date';
+import { formatDate, getLastNDates, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
   isClientCardIncomplete,
   normalizePersonName,
@@ -2695,19 +2695,6 @@ export function OwnerApp() {
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
-    if (bookingForm.status === 'completed') {
-      const parsedDate = parseFlexibleDate(bookingForm.date.trim());
-      if (!parsedDate || !bookingForm.time.trim()) {
-        setBottomToast('Для прошлой записи укажите дату и время');
-        setTimeout(() => setBottomToast(null), 3000);
-        return;
-      }
-      if (!isPastTimeSlot(formatDate(parsedDate), bookingForm.time.trim())) {
-        setBottomToast('Для прошлой записи укажите прошедшие дату и время');
-        setTimeout(() => setBottomToast(null), 3000);
-        return;
-      }
-    }
     const requiresScheduledSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(bookingForm.status);
     if (requiresScheduledSlot && !bookingForm.box.trim()) {
       setBottomToast('Для записи на это время укажите помещение');
@@ -2827,18 +2814,10 @@ setOwnerNewBookingWorkers([]);
     const hasDate = Boolean(ownerNewBookingForm.date.trim());
     const hasTime = Boolean(ownerNewBookingForm.time.trim());
     const requiresScheduledSlot = ['new', 'confirmed', 'in_progress'].includes(ownerNewBookingForm.status);
-    if (requiresScheduledSlot || ownerNewBookingForm.status === 'completed') {
+    if (requiresScheduledSlot) {
       if (!hasDate) nextErrors.date = 'Укажите дату записи';
       if (!hasTime) nextErrors.time = 'Укажите время записи';
-      if (hasDate && hasTime && ownerNewBookingForm.status === 'completed') {
-        const parsedDate = parseFlexibleDate(ownerNewBookingForm.date.trim());
-        if (!parsedDate) {
-          nextErrors.date = 'Укажите дату в формате ДД.ММ.ГГГГ';
-        } else if (!isPastTimeSlot(formatDate(parsedDate), ownerNewBookingForm.time.trim())) {
-          nextErrors.time = 'Для прошлой записи укажите прошедшие дату и время';
-        }
-      }
-    } else if (hasDate || hasTime) {
+    } else if (ownerNewBookingForm.status !== 'completed' && (hasDate || hasTime)) {
       if (!hasDate) nextErrors.date = 'Укажите дату или очистите дату и время';
       else if (!hasTime) nextErrors.time = 'Укажите время или очистите дату и время';
     }

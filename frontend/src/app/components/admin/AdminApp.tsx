@@ -914,7 +914,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     const hasDate = Boolean(newBookingForm.date.trim());
     const hasTime = Boolean(newBookingForm.time.trim());
     const requiresScheduledSlot = bookingStatusRequiresScheduledSlot(newBookingForm.status);
-    if (requiresScheduledSlot || newBookingForm.status === 'completed') {
+    if (requiresScheduledSlot) {
       if (!hasDate) {
         nextErrors.date = 'Укажите дату записи';
       }
@@ -922,18 +922,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         nextErrors.time = 'Укажите время записи';
       }
       if (hasDate && hasTime) {
-        if (newBookingForm.status === 'completed') {
-          const validation = validateBookingDateTimeFormat(newBookingForm.date, newBookingForm.time);
-          if (validation.date) nextErrors.date = validation.date;
-          if (validation.time) nextErrors.time = validation.time;
-          if (!validation.date && !validation.time && !isPastTimeSlot(formatDate(validation.parsedDate as Date), newBookingForm.time.trim())) {
-            nextErrors.time = 'Для прошлой записи укажите прошедшие дату и время';
-          }
-        } else {
-          Object.assign(nextErrors, validateBookingDate(newBookingForm.date, newBookingForm.time, selectedService?.duration || newBookingForm.duration || 30));
-        }
+        Object.assign(nextErrors, validateBookingDate(newBookingForm.date, newBookingForm.time, selectedService?.duration || newBookingForm.duration || 30));
       }
-    } else if (hasDate || hasTime) {
+    } else if (newBookingForm.status !== 'completed' && (hasDate || hasTime)) {
       if (!hasDate) {
         nextErrors.date = 'Укажите дату или очистите дату и время';
       } else if (!hasTime) {
