@@ -861,6 +861,8 @@ export function OwnerApp() {
   const [googleClientSecret, setGoogleClientSecret] = useState('');
   const [googleSavingKeys, setGoogleSavingKeys] = useState(false);
   const [googleCopiedUri, setGoogleCopiedUri] = useState(false);
+  const [googleJsonFile, setGoogleJsonFile] = useState<string | null>(null);
+  const [googleJsonError, setGoogleJsonError] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
@@ -1657,6 +1659,36 @@ export function OwnerApp() {
     } catch {
       // Clipboard недоступен — оставляем URI видимым для ручного копирования.
     }
+  };
+
+  const handleGoogleLoadJson = (file: File) => {
+    setGoogleJsonError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result ?? ''));
+        // Файл client_secret_*.json из Google Cloud Console: {"web": {...}} или {"installed": {...}}
+        const source = parsed?.web || parsed?.installed || parsed;
+        const clientId = typeof source?.client_id === 'string' ? source.client_id.trim() : '';
+        const clientSecret = typeof source?.client_secret === 'string' ? source.client_secret.trim() : '';
+        if (!clientId || !clientSecret) {
+          setGoogleJsonError('Это не файл настроек Google. Скачайте JSON в консоли (Download JSON) рядом с созданным OAuth-клиентом.');
+          setGoogleJsonFile(null);
+          return;
+        }
+        setGoogleClientId(clientId);
+        setGoogleClientSecret(clientSecret);
+        setGoogleJsonFile(file.name || 'client_secret.json');
+      } catch {
+        setGoogleJsonError('Не удалось прочитать файл. Скачайте JSON в Google Cloud Console и повторите.');
+        setGoogleJsonFile(null);
+      }
+    };
+    reader.onerror = () => {
+      setGoogleJsonError('Не удалось прочитать файл.');
+      setGoogleJsonFile(null);
+    };
+    reader.readAsText(file);
   };
 
   const handleGoogleDisconnect = async () => {
@@ -7956,6 +7988,26 @@ setOwnerNewBookingWorkers([]);
                         </button>
                       </div>
                     </div>
+                    <label
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
+                      style={{ color: googleJsonFile ? '#22C55E' : '#4285F4', background: googleJsonFile ? '#22C55E18' : '#4285F418' }}>
+                      {googleJsonFile ? `✓ ${googleJsonFile}` : 'Загрузить файл настроек (.json)'}
+                      <span className="hidden">
+                        <input
+                          type="file"
+                          accept=".json,application/json"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) handleGoogleLoadJson(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </span>
+                    </label>
+                    {googleJsonError && <div className="text-[11px] text-red-500">{googleJsonError}</div>}
+                    {!googleJsonFile && (
+                      <div className={`text-[11px] ${sub}`}>или вставьте вручную:</div>
+                    )}
                     <input
                       className={`${inputCls}`}
                       placeholder="Client ID (…apps.googleusercontent.com)"
