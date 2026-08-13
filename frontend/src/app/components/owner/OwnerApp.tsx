@@ -8061,6 +8061,14 @@ setOwnerNewBookingWorkers([]);
                         Отмена
                       </button>
                     </div>
+                    <div className={`text-[11px] ${sub} leading-relaxed`}>
+                      Если Google покажет предупреждение «непроверенное приложение» — это нормально
+                      для личного подключения: нажмите <span className="font-medium">Advanced</span> →
+                      <span className="font-medium"> Continue (unsafe)</span>. Если вместо входа появится
+                      «только тестовые пользователи» — в консоли откройте
+                      <span className="font-medium"> OAuth consent screen</span> и добавьте свой email
+                      в <span className="font-medium">Test users</span>.
+                    </div>
                   </div>
                 )}
                 {!integrations.googleCalendar && (
