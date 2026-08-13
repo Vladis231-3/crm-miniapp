@@ -167,17 +167,15 @@ def test_sync_insert_saves_event_id(fake_db, settings):
         notes="",
         service="Мойка",
     )
-    service_mock = MagicMock()
-    events_mock = service_mock.events.return_value
-    events_mock.insert.return_value.execute.return_value = {"id": "evt-123"}
-    with patch.object(gc, "_build_service", return_value=service_mock) as build:
+    with patch.object(gc, "_calendar_request", return_value={"id": "evt-123"}) as api:
         event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
-    build.assert_called_once()
+    api.assert_called_once()
+    assert api.call_args.args[2] == "POST"
+    assert api.call_args.args[3] == "calendars/primary/events"
     assert event_id == "evt-123"
     assert ok is True
     assert booking.google_event_id == "evt-123"
     assert booking.google_updated_at is not None
-    events_mock.insert.assert_called_once()
 
 
 def test_sync_patch_existing_event(fake_db, settings):
@@ -197,12 +195,12 @@ def test_sync_patch_existing_event(fake_db, settings):
         notes="",
         service="Мойка",
     )
-    service_mock = MagicMock()
-    with patch.object(gc, "_build_service", return_value=service_mock):
+    with patch.object(gc, "_calendar_request", return_value={}) as api:
         event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
     assert event_id == "evt-123"
     assert ok is True
-    service_mock.events().patch.assert_called_once()
+    assert api.call_args.args[2] == "PATCH"
+    assert api.call_args.args[3] == "calendars/primary/events/evt-123"
 
 
 def test_sync_delete_removes_event(fake_db, settings):
@@ -210,12 +208,12 @@ def test_sync_delete_removes_event(fake_db, settings):
     booking = SimpleNamespace(
         id="b1", status="cancelled", google_event_id="evt-123"
     )
-    service_mock = MagicMock()
-    with patch.object(gc, "_build_service", return_value=service_mock):
+    with patch.object(gc, "_calendar_request", return_value={}) as api:
         event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
     assert ok is True
     assert event_id is None
-    service_mock.events().delete.assert_called_once()
+    assert api.call_args.args[2] == "DELETE"
+    assert api.call_args.args[3] == "calendars/primary/events/evt-123"
 
 
 def test_sync_cancelled_without_event_is_noop(fake_db, settings):
@@ -223,12 +221,11 @@ def test_sync_cancelled_without_event_is_noop(fake_db, settings):
     booking = SimpleNamespace(
         id="b1", status="cancelled", google_event_id=None
     )
-    service_mock = MagicMock()
-    with patch.object(gc, "_build_service", return_value=service_mock):
+    with patch.object(gc, "_calendar_request", return_value={}) as api:
         event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
     assert ok is True
     assert event_id is None
-    service_mock.events().delete.assert_not_called()
+    api.assert_not_called()
 
 
 def test_sync_errors_are_caught(fake_db, settings):
@@ -248,9 +245,7 @@ def test_sync_errors_are_caught(fake_db, settings):
         notes="",
         service="Мойка",
     )
-    service_mock = MagicMock()
-    service_mock.events().insert().execute.side_effect = RuntimeError("google api down")
-    with patch.object(gc, "_build_service", return_value=service_mock):
+    with patch.object(gc, "_calendar_request", side_effect=RuntimeError("google api down")):
         event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
     assert ok is False
     assert event_id is None
@@ -264,16 +259,13 @@ def test_build_auth_url_returns_consent_url(settings):
 
 
 def test_exchange_code_returns_tokens(settings):
-    flow_mock = MagicMock()
-    flow_mock.credentials.to_json.return_value = {
-        "token": "t",
-        "refresh_token": "r",
-        "client_id": "c",
-        "token_uri": "u",
-    }
-    with patch("google_auth_oauthlib.flow.Flow") as flow_cls:
-        flow_cls.from_client_config.return_value = flow_mock
+    resp_mock = MagicMock()
+    resp_mock.status_code = 200
+    resp_mock.json.return_value = {"token": "t", "refresh_token": "r"}
+    with patch.object(gc.requests, "post", return_value=resp_mock) as post_mock:
         tokens = gc.exchange_code(settings, "code-123")
     assert tokens["token"] == "t"
     assert tokens["refresh_token"] == "r"
-    flow_mock.fetch_token.assert_called_once_with(code="code-123")
+    assert post_mock.call_args.args[0] == "https://oauth2.googleapis.com/token"
+    assert post_mock.call_args.kwargs["data"]["code"] == "code-123"
+    assert post_mock.call_args.kwargs["data"]["grant_type"] == "authorization_code"

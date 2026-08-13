@@ -101,11 +101,20 @@ class GoogleCalendarPullTests(unittest.TestCase):
             save_tokens(db, {"token": "t", "refresh_token": "r"})
             db.commit()
 
-    def _make_service(self, pages: list[dict]) -> MagicMock:
-        service_mock = MagicMock()
-        execute_results = [p for p in pages]
-        service_mock.events().list().execute.side_effect = execute_results
-        return service_mock
+    def _patch_calendar_request(self, pages: list) -> patch:
+        """Подменить _calendar_request: каждый вызов возвращает следующую страницу.
+
+        Элемент может быть dict (страница) или исключением (поднимается).
+        """
+        consumed: list[dict | BaseException] = [p for p in pages]
+
+        def fake_calendar_request(db, settings, method, path, *, params=None, body=None, _retried=False):
+            next_item = consumed.pop(0)
+            if isinstance(next_item, BaseException):
+                raise next_item
+            return next_item
+
+        return patch("app.google_calendar._calendar_request", side_effect=fake_calendar_request)
 
     def test_pull_skipped_without_tokens(self) -> None:
         from app.google_calendar import pull_calendar_changes
@@ -120,21 +129,19 @@ class GoogleCalendarPullTests(unittest.TestCase):
         from app.google_calendar import pull_calendar_changes
 
         self._save_tokens()
-        service_mock = self._make_service(
-            [
-                {
-                    "items": [
-                        _event(
-                            "g-new-1",
-                            summary="Полировка",
-                            description="Клиент: Пётр\nТелефон: +7 (999) 555-44-33\nАвто: BMW\nКомментарий: приеду к 10:00",
-                        )
-                    ],
-                    "nextSyncToken": "tok-1",
-                }
-            ]
-        )
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-new-1",
+                        summary="Полировка",
+                        description="Клиент: Пётр\nТелефон: +7 (999) 555-44-33\nАвто: BMW\nКомментарий: приеду к 10:00",
+                    )
+                ],
+                "nextSyncToken": "tok-1",
+            }
+        ]
+        with self._patch_calendar_request(pages):
             with self.session() as db:
                 result = pull_calendar_changes(db, self.settings)
                 db.commit()
@@ -196,18 +203,16 @@ class GoogleCalendarPullTests(unittest.TestCase):
             db.commit()
 
         self._save_tokens()
-        service_mock = self._make_service(
-            [
-                {
-                    "items": [
-                        {**_event("g-1", start="2026-08-14T15:45:00+03:00", end="2026-08-14T16:45:00+03:00"),
-                         "extendedProperties": {"private": {"crmBookingId": "b-1"}}}
-                    ],
-                    "nextSyncToken": "tok-1",
-                }
-            ]
-        )
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+        pages = [
+            {
+                "items": [
+                    {**_event("g-1", start="2026-08-14T15:45:00+03:00", end="2026-08-14T16:45:00+03:00"),
+                     "extendedProperties": {"private": {"crmBookingId": "b-1"}}}
+                ],
+                "nextSyncToken": "tok-1",
+            }
+        ]
+        with self._patch_calendar_request(pages):
             with self.session() as db:
                 result = pull_calendar_changes(db, self.settings)
                 db.commit()
@@ -254,10 +259,8 @@ class GoogleCalendarPullTests(unittest.TestCase):
             db.commit()
 
         self._save_tokens()
-        service_mock = self._make_service(
-            [{"items": [_event("g-2", cancelled=True)], "nextSyncToken": "tok-1"}]
-        )
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+        pages = [{"items": [_event("g-2", cancelled=True)], "nextSyncToken": "tok-1"}]
+        with self._patch_calendar_request(pages):
             with self.session() as db:
                 result = pull_calendar_changes(db, self.settings)
                 db.commit()
@@ -299,10 +302,10 @@ class GoogleCalendarPullTests(unittest.TestCase):
             db.commit()
 
         self._save_tokens()
-        service_mock = self._make_service(
-            [{"items": [_event("g-3", start="2026-08-13T11:00:00+03:00", end="2026-08-13T11:30:00+03:00")], "nextSyncToken": "tok-1"}]
-        )
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+        pages = [
+            {"items": [_event("g-3", start="2026-08-13T11:00:00+03:00", end="2026-08-13T11:30:00+03:00")], "nextSyncToken": "tok-1"}
+        ]
+        with self._patch_calendar_request(pages):
             with self.session() as db:
                 result = pull_calendar_changes(db, self.settings)
                 db.commit()
@@ -319,52 +322,57 @@ class GoogleCalendarPullTests(unittest.TestCase):
         from app.google_calendar import pull_calendar_changes
 
         self._save_tokens()
-        service_mock = self._make_service([{"items": [], "nextSyncToken": "tok-1"}])
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+        pages = [{"items": [], "nextSyncToken": "tok-1"}]
+        with self._patch_calendar_request(pages):
             with self.session() as db:
                 pull_calendar_changes(db, self.settings)
                 db.commit()
 
         # Второй запуск: запрос должен идти с syncToken и БЕЗ timeMin/timeMax.
-        service_mock.events.reset_mock()
-        second_mock = self._make_service([{"items": [], "nextSyncToken": "tok-2"}])
-        with patch("app.google_calendar._build_service", return_value=second_mock):
+        captured: list[dict] = []
+
+        def fake_second(db, settings, method, path, *, params=None, body=None, _retried=False):
+            captured.append(dict(params or {}))
+            return {"items": [], "nextSyncToken": "tok-2"}
+
+        with patch("app.google_calendar._calendar_request", side_effect=fake_second):
             with self.session() as db:
                 pull_calendar_changes(db, self.settings)
                 db.commit()
 
-        kwargs = second_mock.events().list.call_args.kwargs
+        kwargs = captured[0]
         self.assertEqual(kwargs.get("syncToken"), "tok-1")
         self.assertNotIn("timeMin", kwargs)
         self.assertNotIn("timeMax", kwargs)
 
     def test_pull_full_rescan_when_sync_token_expired(self) -> None:
-        from googleapiclient.errors import HttpError
-
-        from app.google_calendar import pull_calendar_changes
+        from app.google_calendar import _GoogleApiError, pull_calendar_changes
 
         self._save_tokens()
-        service_mock = MagicMock()
-        list_mock = service_mock.events().list
-        execute_mock = list_mock.return_value.execute
-        gone_resp = MagicMock()
-        gone_resp.status = 410
-        gone = HttpError(gone_resp, b"sync token expired")
-        execute_mock.side_effect = [
-            gone,
+        captured: list[dict] = []
+        pages: list = [
+            _GoogleApiError(410, "sync token expired"),
             {"items": [], "nextSyncToken": "tok-fresh"},
         ]
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+
+        def fake_rescan(db, settings, method, path, *, params=None, body=None, _retried=False):
+            captured.append(dict(params or {}))
+            next_item = pages.pop(0)
+            if isinstance(next_item, BaseException):
+                raise next_item
+            return next_item
+
+        with patch("app.google_calendar._calendar_request", side_effect=fake_rescan):
             with self.session() as db:
                 result = pull_calendar_changes(db, self.settings)
                 db.commit()
 
         self.assertTrue(result["ok"])
-        self.assertEqual(execute_mock.call_count, 2)
+        self.assertEqual(len(captured), 2)
         # Оба вызова идут полным сканом (без syncToken), свежий токен сохранён.
-        for call in list_mock.call_args_list:
-            self.assertNotIn("syncToken", call.kwargs)
-            self.assertIn("timeMin", call.kwargs)
+        for query in captured:
+            self.assertNotIn("syncToken", query)
+            self.assertIn("timeMin", query)
         from app.models import AppSetting
 
         with self.session() as db:
@@ -402,20 +410,18 @@ class GoogleCalendarPullTests(unittest.TestCase):
             db.commit()
 
         self._save_tokens()
-        service_mock = self._make_service(
-            [
-                {
-                    "items": [
-                        {
-                            **_event("g-4", start="2026-08-14T09:00:00+03:00"),
-                            "extendedProperties": {"private": {"crmBookingId": "b-4"}},
-                        }
-                    ],
-                    "nextSyncToken": "tok-1",
-                }
-            ]
-        )
-        with patch("app.google_calendar._build_service", return_value=service_mock):
+        pages = [
+            {
+                "items": [
+                    {
+                        **_event("g-4", start="2026-08-14T09:00:00+03:00"),
+                        "extendedProperties": {"private": {"crmBookingId": "b-4"}},
+                    }
+                ],
+                "nextSyncToken": "tok-1",
+            }
+        ]
+        with self._patch_calendar_request(pages):
             with self.session() as db:
                 result = pull_calendar_changes(db, self.settings)
                 db.commit()

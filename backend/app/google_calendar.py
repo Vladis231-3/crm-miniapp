@@ -23,6 +23,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
+import requests
+
 from .config import Settings
 
 logger = logging.getLogger(__name__)
@@ -96,62 +98,109 @@ def clear_tokens(db: Any) -> None:
 
 
 def _client_config(settings: Settings) -> dict[str, Any]:
-    """Базовый client_config для построения Flow."""
+    """Базовый client_config для построения OAuth-запросов."""
     redirect_uri = settings.google_calendar_redirect_uri
     return {
-        "installed": {
-            "client_id": settings.google_calendar_client_id,
-            "client_secret": settings.google_calendar_client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [redirect_uri] if redirect_uri else [],
-        }
+        "client_id": settings.google_calendar_client_id,
+        "client_secret": settings.google_calendar_client_secret,
+        "redirect_uri": redirect_uri or "",
     }
 
 
 def build_auth_url(settings: Settings, state: str) -> str:
-    """Построить OAuth-URL для подключения Google Calendar."""
-    from google_auth_oauthlib.flow import Flow  # type: ignore
+    """Построить OAuth-URL для подключения Google Calendar (чистый HTTP)."""
+    from urllib.parse import urlencode
 
-    flow = Flow.from_client_config(
-        _client_config(settings), scopes=_SCOPES
+    query = urlencode(
+        {
+            "client_id": settings.google_calendar_client_id,
+            "redirect_uri": settings.google_calendar_redirect_uri or "",
+            "response_type": "code",
+            "scope": " ".join(_SCOPES),
+            "access_type": "offline",
+            "prompt": "consent",
+            "state": state,
+            "include_granted_scopes": "true",
+        }
     )
-    if settings.google_calendar_redirect_uri:
-        flow.redirect_uri = settings.google_calendar_redirect_uri
-    authorization_url, _ = flow.authorization_url(
-        access_type="offline",
-        prompt="consent",
-        state=state,
-        include_granted_scopes="true",
-    )
-    return authorization_url
+    return f"https://accounts.google.com/o/oauth2/auth?{query}"
 
 
 def exchange_code(settings: Settings, code: str) -> dict[str, Any]:
-    """Обменять OAuth-код на токены. Вернёт dict токенов."""
-    from google_auth_oauthlib.flow import Flow  # type: ignore
-
-    flow = Flow.from_client_config(_client_config(settings), scopes=_SCOPES)
-    if settings.google_calendar_redirect_uri:
-        flow.redirect_uri = settings.google_calendar_redirect_uri
-    flow.fetch_token(code=code)
-    return dict(flow.credentials.to_json())
-
-
-def _build_service(credentials: Any, settings: Settings):
-    """Собрать ресурс Google Calendar API из credentials."""
-    from google.oauth2.credentials import Credentials  # type: ignore
-    from googleapiclient.discovery import build  # type: ignore
-
-    creds = Credentials(
-        token=credentials.get("token"),
-        refresh_token=credentials.get("refresh_token"),
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=settings.google_calendar_client_id,
-        client_secret=settings.google_calendar_client_secret,
-        scopes=_SCOPES,
+    """Обменять OAuth-код на токены (POST на token endpoint). Вернёт dict."""
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": settings.google_calendar_client_id,
+            "client_secret": settings.google_calendar_client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": settings.google_calendar_redirect_uri or "",
+        },
+        timeout=30,
     )
-    return build("calendar", "v3", credentials=creds)
+    if resp.status_code >= 400:
+        raise _GoogleApiError(resp.status_code, "token_exchange_failed")
+    return resp.json()
+
+
+class _GoogleApiError(Exception):
+    """Ошибка Google Calendar API (HTTP status из ответа)."""
+
+    def __init__(self, status: int, message: str = ""):
+        super().__init__(message or f"google api error {status}")
+        self.status = status
+
+
+def _refresh_access_token(settings: Settings, tokens: dict[str, Any]) -> dict[str, Any]:
+    """Обновить access_token по refresh_token. Вернёт новый dict токенов."""
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": settings.google_calendar_client_id,
+            "client_secret": settings.google_calendar_client_secret,
+            "refresh_token": tokens.get("refresh_token"),
+            "grant_type": "refresh_token",
+        },
+        timeout=30,
+    )
+    if resp.status_code >= 400:
+        raise _GoogleApiError(resp.status_code, "token_refresh_failed")
+    new_tokens = dict(tokens)
+    new_tokens["token"] = resp.json().get("access_token")
+    return new_tokens
+
+
+def _calendar_request(
+    db: Any,
+    settings: Settings,
+    method: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None = None,
+    body: dict[str, Any] | None = None,
+    _retried: bool = False,
+) -> dict[str, Any]:
+    """Выполнить запрос к Google Calendar API v3 (чистый HTTP, без SDK).
+
+    path — путь после /calendar/v3/, например "calendars/primary/events".
+    При 401/403 автоматически обновляет access_token по refresh_token
+    (один повтор). Возвращает JSON-ответ ({} для пустого тела, напр. DELETE).
+    """
+    tokens = load_tokens(db)
+    if not tokens or not tokens.get("token"):
+        raise _GoogleApiError(401, "no_token")
+    url = f"https://www.googleapis.com/calendar/v3/{path}"
+    headers = {"Authorization": f"Bearer {tokens['token']}"}
+    resp = requests.request(method, url, params=params, json=body, headers=headers, timeout=30)
+    if resp.status_code in (401, 403) and not _retried and tokens.get("refresh_token"):
+        save_tokens(db, _refresh_access_token(settings, tokens))
+        return _calendar_request(db, settings, method, path, params=params, body=body, _retried=True)
+    if resp.status_code >= 400:
+        raise _GoogleApiError(resp.status_code, f"google_api_{resp.status_code}")
+    if not resp.content:
+        return {}
+    return resp.json()
 
 
 def _source_label(source: Any) -> str:
@@ -237,10 +286,13 @@ def _sync_booking_to_calendar_impl(
     if action == "delete":
         if not event_id:
             return None, True
-        service = _build_service(tokens, settings)
-        service.events().delete(
-            calendarId="primary", eventId=event_id, sendUpdates="none"
-        ).execute()
+        _calendar_request(
+            db,
+            settings,
+            "DELETE",
+            f"calendars/primary/events/{event_id}",
+            params={"sendUpdates": "none"},
+        )
         return None, True
 
     if not is_active:
@@ -249,19 +301,26 @@ def _sync_booking_to_calendar_impl(
             return _sync_booking_to_calendar_impl(db, settings, booking, action="delete")
         return None, True
 
-    service = _build_service(tokens, settings)
     body = _booking_event_body(booking, settings)
 
     if event_id:
-        service.events().patch(
-            calendarId="primary", eventId=event_id, body=body, sendUpdates="none"
-        ).execute()
+        _calendar_request(
+            db,
+            settings,
+            "PATCH",
+            f"calendars/primary/events/{event_id}",
+            params={"sendUpdates": "none"},
+            body=body,
+        )
         return event_id, True
 
-    created = (
-        service.events()
-        .insert(calendarId="primary", body=body, sendUpdates="none")
-        .execute()
+    created = _calendar_request(
+        db,
+        settings,
+        "POST",
+        "calendars/primary/events",
+        params={"sendUpdates": "none"},
+        body=body,
     )
     new_id = created.get("id")
     if new_id:
@@ -551,10 +610,8 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         result["skipped"] = True
         return result
 
-    service = _build_service(tokens, settings)
     sync_token = _load_sync_token(db)
     params: dict[str, Any] = {
-        "calendarId": "primary",
         "singleEvents": True,
         "maxResults": 250,
     }
@@ -572,7 +629,9 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
             query = dict(params)
             if page_token:
                 query["pageToken"] = page_token
-            page = service.events().list(**query).execute()
+            page = _calendar_request(
+                db, settings, "GET", "calendars/primary/events", params=query
+            )
             for item in page.get("items", []):
                 _apply_calendar_event(db, settings, item, result)
             page_token = page.get("nextPageToken")
@@ -581,12 +640,12 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         next_sync_token = page.get("nextSyncToken")
         if next_sync_token:
             _save_sync_token(db, next_sync_token)
-    except Exception as exc:  # noqa: BLE001
+    except _GoogleApiError as exc:  # noqa: BLE001
         # 410 GONE: syncToken устарел (календарь пересоздан) — полный рескан.
-        if getattr(exc, "resp", None) is not None and getattr(exc.resp, "status", None) == 410:
+        if exc.status == 410:
             _save_sync_token(db, None)
             return _pull_calendar_changes_impl(db, settings)
-        if getattr(exc, "resp", None) is not None and getattr(exc.resp, "status", None) in (401, 403):
+        if exc.status in (401, 403):
             logger.warning("Google Calendar pull auth failed")
             result.update(ok=False, error="auth_failed")
             return result
