@@ -8065,9 +8065,15 @@ setOwnerNewBookingWorkers([]);
                       Если Google покажет предупреждение «непроверенное приложение» — это нормально
                       для личного подключения: нажмите <span className="font-medium">Advanced</span> →
                       <span className="font-medium"> Continue (unsafe)</span>. Если вместо входа появится
-                      «только тестовые пользователи» — в консоли откройте
-                      <span className="font-medium"> OAuth consent screen</span> и добавьте свой email
-                      в <span className="font-medium">Test users</span>.
+                      <span className="font-medium"> 403 access_denied</span> или «только тестовые
+                      пользователи» — откройте настройки доступа и добавьте свой email в Test users
+                      (или нажмите <span className="font-medium">Publish app</span>):
+                      <button
+                        onClick={() => openExternal('https://console.cloud.google.com/apis/credentials/consent')}
+                        className="flex items-center justify-center gap-1.5 mt-1.5 w-full py-2 rounded-xl text-[11px] font-medium"
+                        style={{ color: '#4285F4', background: '#4285F418' }}>
+                        Открыть OAuth consent screen <ExternalLink size={11} />
+                      </button>
                     </div>
                   </div>
                 )}
