@@ -75,9 +75,10 @@ class AttendanceEndpointTests(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def _link_staff(self, login: str, telegram_id: str) -> None:
+        from sqlalchemy import select
+
         from app.database import SessionLocal
         from app.models import StaffUser
-        from sqlalchemy import select
 
         with SessionLocal() as db:
             staff = db.scalar(select(StaffUser).where(StaffUser.login == login))
@@ -94,9 +95,10 @@ class AttendanceEndpointTests(unittest.TestCase):
 
     def _get_worker_id(self, login: str) -> str:
         """Return the staff user id for the given login."""
+        from sqlalchemy import select
+
         from app.database import SessionLocal
         from app.models import StaffUser
-        from sqlalchemy import select
 
         with SessionLocal() as db:
             worker = db.scalar(
@@ -203,6 +205,39 @@ class AttendanceEndpointTests(unittest.TestCase):
         by_worker = {item["workerId"]: item for item in attendance.json()}
         self.assertEqual(by_worker[ivan_id]["shiftCount"], 1)
         self.assertEqual(by_worker[oleg_id]["shiftCount"], 1)
+
+        # Выход на смену добавляет мастеру 1000 ₽ к ЗП за каждый выход
+        salary = self.client.get(
+            f"/api/owner/workers/{ivan_id}/salary-detail",
+            params={"period": "month"},
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(salary.status_code, 200, salary.text)
+        salary_payload = salary.json()
+        self.assertEqual(salary_payload["shiftCount"], 1)
+        self.assertEqual(salary_payload["salaryPerShift"], 1000)
+        self.assertEqual(salary_payload["balanceToPay"], 1000)
+
+    def test_new_worker_gets_default_shift_pay_1000(self) -> None:
+        """Новый сотрудник получает оклад за выход 1000 ₽ по умолчанию."""
+        unique_login = f"newmaster-{uuid4().hex[:8]}"
+        response = self.client.post(
+            "/api/workers",
+            headers=self._auth_headers(self.owner_token),
+            json={
+                "role": "worker",
+                "name": "Новый мастер",
+                "login": unique_login,
+                "password": "password123",
+                "percent": 50,
+                "salaryBase": 0,
+                "phone": "",
+                "email": "",
+                "telegramChatId": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["salaryPerShift"], 1000)
 
 
 if __name__ == "__main__":

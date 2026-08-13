@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-13 08:50 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-13 08:55 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -3027,13 +3027,13 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/tests/test_attendance_endpoints.py` (2026-08-13 11:55)
+- `backend/app/seed.py` (2026-08-13 11:55)
+- `backend/app/models.py` (2026-08-13 11:55)
+- `backend/app/main.py` (2026-08-13 11:55)
+- `backend/app/config.py` (2026-08-13 11:55)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 11:50)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-13 11:50)
-- `backend/app/main.py` (2026-08-13 11:46)
-- `backend/tests/test_attendance_endpoints.py` (2026-08-13 11:33)
-- `backend/app/seed.py` (2026-08-13 11:33)
-- `backend/app/models.py` (2026-08-13 11:33)
-- `backend/app/config.py` (2026-08-13 11:33)
 - `backend/app/google_calendar.py` (2026-08-13 11:20)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-13 11:08)
 - `Showcase/src/app/components/BookingSection.tsx` (2026-08-13 10:45)

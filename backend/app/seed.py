@@ -3,7 +3,15 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import AppSetting, Box, ScheduleEntry, Service, StaffUser, StockCategory
+from .models import (
+    DEFAULT_SHIFT_PAY,
+    AppSetting,
+    Box,
+    ScheduleEntry,
+    Service,
+    StaffUser,
+    StockCategory,
+)
 from .security import hash_password
 
 
@@ -27,6 +35,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
                 about="Координирует загрузку боксов и работу смены.",
                 default_percent=0,
                 salary_base=0,
+                salary_per_shift=DEFAULT_SHIFT_PAY,
                 available=True,
                 active=True,
             ),
@@ -44,6 +53,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
                 about="Специализируется на полировке и восстановительных работах.",
                 default_percent=30,
                 salary_base=0,
+                salary_per_shift=DEFAULT_SHIFT_PAY,
                 available=True,
                 active=True,
             ),
@@ -61,6 +71,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
                 about="Помогает на мойке и подготовке машин.",
                 default_percent=10,
                 salary_base=25000,
+                salary_per_shift=DEFAULT_SHIFT_PAY,
                 available=True,
                 active=True,
             ),
@@ -78,6 +89,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
                 about="Занимается восстановлением и ремонтом автостекла.",
                 default_percent=25,
                 salary_base=0,
+                salary_per_shift=DEFAULT_SHIFT_PAY,
                 available=False,
                 active=False,
             ),
@@ -95,6 +107,7 @@ def seed_database(db: Session, *, include_demo_staff: bool = True, is_production
                 about="Отвечает за развитие сервиса и финансовые показатели.",
                 default_percent=0,
                 salary_base=0,
+                salary_per_shift=0,
                 available=True,
                 active=True,
             ),

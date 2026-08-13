@@ -41,7 +41,7 @@ from fastapi.responses import FileResponse, Response
 
 from fastapi.staticfiles import StaticFiles
 
-from sqlalchemy import delete as sa_delete, inspect, or_, select, func
+from sqlalchemy import delete as sa_delete, inspect, or_, select, func, update as sa_update
 
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -143,6 +143,8 @@ from .models import (
     DepositTransaction,
 
     DepositMonth,
+
+    DEFAULT_SHIFT_PAY,
 
 )
 
@@ -898,6 +900,8 @@ def on_startup() -> None:
         _normalize_worker_rules(db)
 
         _normalize_service_and_box_resources(db)
+
+        _apply_default_shift_pay(db)
 
         db.commit()
 
@@ -2445,6 +2449,36 @@ def _apply_runtime_migrations() -> None:
                     connection.exec_driver_sql(
                         f"ALTER TABLE stock_write_offs ADD COLUMN {column} {column_type} DEFAULT NULL"
                     )
+
+
+
+def _apply_default_shift_pay(db: Session) -> None:
+
+    """Один раз выставляет оклад за смену DEFAULT_SHIFT_PAY сотрудникам
+
+    (кроме владельцев), у которых ставка не задана (0).
+
+    Выполняется только при первом старте после внедрения правила
+
+    «выход на смену = 1000 ₽ в ЗП»; повторно не трогает ставки.
+
+    """
+
+    if db.get(AppSetting, "shift_pay_default_applied") is not None:
+
+        return
+
+    db.execute(
+
+        sa_update(StaffUser)
+
+        .where(StaffUser.role != "owner", StaffUser.salary_per_shift == 0)
+
+        .values(salary_per_shift=DEFAULT_SHIFT_PAY)
+
+    )
+
+    _upsert_setting(db, "shift_pay_default_applied", {"applied": True})
 
 
 
@@ -19853,6 +19887,8 @@ def create_worker(
         default_percent=clamp_worker_percent(payload.percent),
 
         salary_base=max(0, payload.salaryBase),
+
+        salary_per_shift=DEFAULT_SHIFT_PAY,
 
         available=True,
 

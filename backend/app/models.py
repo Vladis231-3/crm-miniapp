@@ -57,6 +57,10 @@ class Client(Base):
     bookings: Mapped[list["Booking"]] = relationship(back_populates="client")
 
 
+# Оклад мастера за один выход на смену по умолчанию (₽)
+DEFAULT_SHIFT_PAY = 1000
+
+
 class StaffUser(Base):
     __tablename__ = "staff_users"
 
@@ -84,7 +88,7 @@ class StaffUser(Base):
     extra_roles: Mapped[list[str]] = mapped_column(JSON, default=list)
     default_percent: Mapped[float] = mapped_column(Numeric(7, 5), default=0)
     salary_base: Mapped[int] = mapped_column(Integer, default=0)
-    salary_per_shift: Mapped[int] = mapped_column(Integer, default=0)
+    salary_per_shift: Mapped[int] = mapped_column(Integer, default=DEFAULT_SHIFT_PAY)
     available: Mapped[bool] = mapped_column(Boolean, default=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
