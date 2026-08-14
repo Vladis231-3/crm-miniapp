@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-14 08:52 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-14 09:06 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **269**
-- Строк кода: **85 188**
+- Строк кода: **85 356**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 57, `.ts`: 19, `.tsx`: 187
 
 ## Архитектура
@@ -390,9 +390,9 @@ concept1.0/
 
 - `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" transaction = db.scalar( select(Pig` (стр. 14)
 
-### backend/app/google_calendar.py (1109 строк)
+### backend/app/google_calendar.py (1187 строк)
 
-Классы и функции (43):
+Классы и функции (44):
 
 - `_appsetting_modeldef _appsetting_model(): """Ленивый импорт модели AppSetting (обход циклических зависимостей).""" global _AppSetting if _AppSetting is None: from .models import AppSetting _AppSett` (стр. 54)
 - `is_configureddef is_configured(settings: Settings, db: Any = None) -> bool: """True, если заданы учётные данные Google Calendar. Учётные данные берутся из БД (заполняются владельцем через UI), ` (стр. 64)
@@ -433,10 +433,11 @@ concept1.0/
 - `_active_service_namesdef _active_service_names(db: Any) -> list[str]: """Названия активных услуг из каталога — для распознавания в тексте события.""" from .models import Service return [row.name for ro` (стр. 863)
 - `_booking_by_google_eventdef _booking_by_google_event(db: Any, event_id: str) -> Any | None: from .models import Booking return db.query(Booking).filter(Booking.google_event_id == event_id).first()` (стр. 870)
 - `_update_booking_from_eventdef _update_booking_from_event(booking: Any, event: dict[str, Any], settings: Settings) -> None: """Перенести в запись время/длительность события (если событие изменилось). Сознате` (стр. 876)
-- `_create_booking_from_eventdef _create_booking_from_event( db: Any, event: dict[str, Any], settings: Settings` (стр. 900)
-- `_apply_calendar_eventdef _apply_calendar_event( db: Any, settings: Settings, event: dict[str, Any], result: dict[str, Any]` (стр. 972)
-- `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 1008)
-- `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 1038)
+- `_find_duplicate_bookingdef _find_duplicate_booking( db: Any, client_id: str, date: str, time: str` (стр. 900)
+- `_create_booking_from_eventdef _create_booking_from_event( db: Any, event: dict[str, Any], settings: Settings` (стр. 925)
+- `_apply_calendar_eventdef _apply_calendar_event( db: Any, settings: Settings, event: dict[str, Any], result: dict[str, Any]` (стр. 1047)
+- `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 1085)
+- `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 1115)
 
 ### backend/app/main.py (20637 строк)
 
@@ -1612,9 +1613,9 @@ concept1.0/
 - `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 444)
 - `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 467)
 
-### backend/tests/test_google_calendar_pull.py (772 строк)
+### backend/tests/test_google_calendar_pull.py (862 строк)
 
-Классы и функции (28):
+Классы и функции (30):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 14)
 - `_eventdef _event( event_id: str, *, start: str = "2026-08-13T10:30:00+03:00", end: str = "2026-08-13T11:15:00+03:00", summary: str = "Мойка", description: str | None = "Клиент: Иван\nТел` (стр. 20)
@@ -1644,6 +1645,8 @@ concept1.0/
 - `GoogleCalendarPullTests.test_sync_skips_deleted_statusdef test_sync_skips_deleted_status(self) -> None: """Отменённая запись не создаёт событие в календаре.""" from unittest.mock import patch as _patch from app.google_calendar import ` (стр. 646)
 - `GoogleCalendarPullTests.test_pull_parses_free_form_bookingdef test_pull_parses_free_form_booking(self) -> None: """«миша ремонт скола мерседес 79872136194» разкладывается по полям.""" from app.google_calendar import pull_calendar_changes ` (стр. 685)
 - `GoogleCalendarPullTests.test_pull_falls_back_to_free_text_slice_for_servicedef test_pull_falls_back_to_free_text_slice_for_service(self) -> None: """Без совпадения в каталоге услугой становится остаток текста.""" from app.google_calendar import pull_calen` (стр. 734)
+- `GoogleCalendarPullTests.test_pull_does_not_duplicate_existing_bookingdef test_pull_does_not_duplicate_existing_booking(self) -> None: """Запись из бота и то же событие из Google не дают дубля.""" from app.google_calendar import pull_calendar_changes` (стр. 770)
+- `GoogleCalendarPullTests.test_pull_links_booking_to_existing_clientdef test_pull_links_booking_to_existing_client(self) -> None: """Запись из Google падает в карточку уже известного клиента.""" from app.google_calendar import pull_calendar_changes` (стр. 820)
 
 ### backend/tests/test_html_and_headers.py (66 строк)
 
@@ -3177,8 +3180,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/tests/test_google_calendar_pull.py` (2026-08-14 11:52)
-- `backend/app/google_calendar.py` (2026-08-14 11:50)
+- `backend/tests/test_google_calendar_pull.py` (2026-08-14 12:05)
+- `backend/app/google_calendar.py` (2026-08-14 12:05)
 - `.gitignore` (2026-08-14 11:31)
 - `.env.local` (2026-08-14 11:31)
 - `scripts/.project-map-watch.lock` (2026-08-14 10:56)

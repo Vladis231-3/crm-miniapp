@@ -767,6 +767,96 @@ class GoogleCalendarPullTests(unittest.TestCase):
             self.assertEqual(client.phone, "79005551122")
             self.assertEqual(client.car, "Мерседес")
 
+    def test_pull_does_not_duplicate_existing_booking(self) -> None:
+        """Запись из бота и то же событие из Google не дают дубля."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        with self.session() as db:
+            client = Client(id="c-dup", name="Иван", phone="79001234567")
+            db.add(client)
+            db.add(
+                Booking(
+                    id="b-bot-dup",
+                    client_id=client.id,
+                    client_name="Иван",
+                    client_phone="79001234567",
+                    service="Мойка",
+                    service_id="s-wash",
+                    date="13.08.2026",
+                    time="10:30",
+                    duration=45,
+                    price=500,
+                    status="admin_review",
+                    box="Бокс 1",
+                    payment_type="cash",
+                    source="bot",
+                )
+            )
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event("g-dup", description="Иван +7 (900) 123-45-67 мойка")
+                ],
+                "nextSyncToken": "tok-dup",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 0)
+        self.assertEqual(result["duplicates"], 1)
+        with self.session() as db:
+            bots = db.scalar(select(Booking).where(Booking.id == "b-bot-dup"))
+            self.assertIsNotNone(bots)
+            # Новой записи от события не создано — исходная единственная.
+            self.assertIsNone(db.scalar(select(Booking).where(Booking.google_event_id == "g-dup")))
+
+    def test_pull_links_booking_to_existing_client(self) -> None:
+        """Запись из Google падает в карточку уже известного клиента."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        with self.session() as db:
+            db.add(Client(id="c-petr", name="Пётр", phone="79001234567"))
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-link",
+                        start="2026-08-15T10:30:00+03:00",
+                        end="2026-08-15T11:00:00+03:00",
+                        description="Пётр 79001234567 полировка",
+                    )
+                ],
+                "nextSyncToken": "tok-link",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            client = db.get(Client, "c-petr")
+            self.assertIsNotNone(client)
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-link"))
+            self.assertIsNotNone(booking)
+            assert client is not None and booking is not None
+            self.assertEqual(booking.client_id, client.id)
+            # Клиентов не плодим — ровно один.
+            count = len(db.scalars(select(Client)).all())
+            self.assertEqual(count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

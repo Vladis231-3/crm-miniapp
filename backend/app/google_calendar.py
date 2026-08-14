@@ -897,16 +897,45 @@ def _update_booking_from_event(booking: Any, event: dict[str, Any], settings: Se
     booking.google_updated_at = datetime.now(timezone.utc)
 
 
+def _find_duplicate_booking(
+    db: Any, client_id: str, date: str, time: str
+) -> Any | None:
+    """Активная запись клиента в том же слоте — кандидат на дубль.
+
+    Защита от дублирования: если в боте уже создана запись на клиента в
+    дату/время (и она ещё не отменена/завершена), а затем это же событие
+    появляется из Google Calendar — новую запись не создаём.
+    """
+    from .models import Booking
+
+    active = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
+    return (
+        db.query(Booking)
+        .filter(
+            Booking.client_id == client_id,
+            Booking.date == date,
+            Booking.time == time,
+            Booking.status.in_(active),
+            Booking.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
 def _create_booking_from_event(
     db: Any, event: dict[str, Any], settings: Settings
-) -> None:
-    """Создать запись CRM (source="google") из события, созданного в Google."""
+) -> bool:
+    """Создать запись CRM (source="google") из события, созданного в Google.
+
+    Возвращает True, если запись создана, False — если это дубль уже
+    существующей активной записи клиента (созданной, например, из бота).
+    """
     from .models import Booking, Client
     from .schemas import normalize_phone_digits
 
     start_local, end_local = _event_start_end(event, settings)
     if start_local is None:
-        return
+        return False
     duration = (
         max(30, int((end_local - start_local).total_seconds() // 60))
         if end_local is not None
@@ -929,9 +958,38 @@ def _create_booking_from_event(
     plate = fields.get("Номер") or loose.get("plate") or ""
     box = fields.get("Бокс") or ""
 
+    # Сопоставляем с уже известным клиентом: в первую очередь по телефону
+    # (точное совпадение, при неудаче — нормализованное сравнение), затем по
+    # имени. Найденного клиента НЕ дублируем, а пополняем карточку данными.
     client = None
     if phone:
-        client = db.query(Client).filter(Client.phone == phone).first()
+        client = (
+            db.query(Client)
+            .filter(Client.phone == phone, Client.deleted_at.is_(None))
+            .first()
+        )
+        if client is None:
+            normalized = phone
+            for cand in (
+                db.query(Client)
+                .filter(Client.phone != "", Client.deleted_at.is_(None))
+                .all()
+            ):
+                try:
+                    if normalize_phone_digits(cand.phone) == normalized:
+                        client = cand
+                        break
+                except ValueError:
+                    continue
+    if client is None and client_name not in {"", "Из Google-календаря"}:
+        same = (
+            db.query(Client)
+            .filter(Client.name == client_name, Client.deleted_at.is_(None))
+            .all()
+        )
+        if len(same) == 1:
+            client = same[0]
+
     if client is None:
         client = Client(
             id=f"c-{uuid4()}",
@@ -942,6 +1000,22 @@ def _create_booking_from_event(
             registered=True,
         )
         db.add(client)
+    else:
+        if not client.car and car:
+            client.car = car
+        if not client.plate and plate:
+            client.plate = plate
+        if client_name not in {"", "Из Google-календаря"} and (
+            not client.name or client.name == "Из Google-календаря"
+        ):
+            client.name = client_name
+
+    date = start_local.strftime("%d.%m.%Y")
+    time = start_local.strftime("%H:%M")
+
+    # Дубль: активная запись клиента уже есть в этом слоте -> не создаём.
+    if _find_duplicate_booking(db, client.id, date, time):
+        return False
 
     comments = fields.get("Комментарий") or ""
     booking = Booking(
@@ -951,8 +1025,8 @@ def _create_booking_from_event(
         client_phone=phone,
         service=loose.get("service") or (event.get("summary") or "Запись из Google"),
         service_id="",
-        date=start_local.strftime("%d.%m.%Y"),
-        time=start_local.strftime("%H:%M"),
+        date=date,
+        time=time,
         duration=duration,
         price=0,
         status="scheduled",
@@ -967,6 +1041,7 @@ def _create_booking_from_event(
         google_updated_at=datetime.now(timezone.utc),
     )
     db.add(booking)
+    return True
 
 
 def _apply_calendar_event(
@@ -1000,9 +1075,11 @@ def _apply_calendar_event(
     if booking is not None:
         _update_booking_from_event(booking, event, settings)
         result["updated"] += 1
-    else:
-        _create_booking_from_event(db, event, settings)
+    elif _create_booking_from_event(db, event, settings):
         result["created"] += 1
+    else:
+        # Дубль уже существующей записи клиента — просто пропускаем.
+        result["duplicates"] = result.get("duplicates", 0) + 1
 
 
 def pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]:
@@ -1016,7 +1093,7 @@ def pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]:
 
     Вернёт статистику:
     {"ok": bool, "skipped": bool, "created": int, "updated": int,
-     "cancelled": int, "error": str | None}
+     "cancelled": int, "duplicates": int, "error": str | None}
 
     Безопасное поведение: no-op (skipped=True), если сервис не настроен или
     токены не привязаны. Вызывающий ответственен за db.commit().
@@ -1042,6 +1119,7 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         "created": 0,
         "updated": 0,
         "cancelled": 0,
+        "duplicates": 0,
         "error": None,
     }
     if not is_configured(settings, db):
