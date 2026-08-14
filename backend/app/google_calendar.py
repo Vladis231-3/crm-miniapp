@@ -558,7 +558,7 @@ def _event_start_end(
 
 
 # Ключи, которые мы сами пишем в описании события при экспорте записи.
-_FIELD_PREFIXES = {"Клиент", "Телефон", "Авто", "Номер", "Бокс", "Комментарий"}
+_FIELD_PREFIXES = {"Клиент", "Телефон", "Авто", "Номер", "Бокс", "Комментарий", "Услуга"}
 
 
 def _parse_event_description(description: Any) -> dict[str, str]:
@@ -626,6 +626,10 @@ _CAR_BRANDS = frozenset(
         "rolls-royce", "rover", "seat", "skoda", "smart", "ssangyong",
         "subaru", "suzuki", "tesla", "toyota", "uaz", "vaz", "volkswagen",
         "volvo", "vw", "zeekr", "zotye",
+        # китайские и новые марки (латиница)
+        "avatr", "baic", "changhe", "dayun", "denza", "foton", "gac", "jetour",
+        "leapmotor", "li", "maxus", "neta", "polestar", "skywell", "tang",
+        "tank", "vortex", "voyah", "wuling", "xpeng", "yangwang", "yunus",
         # кириллица
         "ауди", "бмв", "ваз", "вольво", "газ", "гели", "джили", "джип",
         "дэу", "деу", "киа", "лада", "лексус", "мазда", "мерседес",
@@ -633,6 +637,11 @@ _CAR_BRANDS = frozenset(
         "опель", "пежо", "порше", "рено", "саньонг", "ссанъёнг", "субару",
         "судзуки", "тойота", "уаз", "фольксваген", "форд", "хендай",
         "хёндай", "хонда", "черри", "шкода", "шевроле", "эксид", "ягуар",
+        # китайские и новые марки (кириллица)
+        "аватр", "данза", "джетур", "зис", "кадиллак", "линкольн",
+        "максус", "нета", "полстар", "танк", "фотон", "хавал",
+        "эмгэ", "волксваген", "воях", "вулинг", "сяопэн",
+        "леап", "ли", "джи-эм",
     }
 )
 
@@ -684,14 +693,37 @@ _PLATE_MOTO_RE = re.compile(
     r"\d{2,3}(?![0-9A-Za-zА-Яа-яЁё])"
 )
 
+# Иностранные номера (Европа: M123AB / ABC123 / B123CDE; Казахстан KA123AB;
+# новые казахстанские 123ABC7; Украина) — буквы латиницей любого регистра.
+# Чтобы не спутать с российским номером и не зацепить телефон, требуем минимум
+# 2 латинские буквы и не менее 4 символов, буквы только справа от цифр/слева.
+_PLATE_FOREIGN_RE = re.compile(
+    r"(?<![0-9A-Za-zА-Яа-яЁё])"
+    r"[a-z]{1,3}\d{2,4}[a-z]{1,2}"
+    r"(?![0-9A-Za-zА-Яа-яЁё])",
+    flags=re.IGNORECASE,
+)
+
 
 def _extract_plate_from_text(text: str) -> str:
-    """Найти российский госномер в свободном тексте (или пустую строку)."""
+    """Найти госномер в свободном тексте (или пустую строку).
+
+    Сначала российские (авто + мото), затем иностранные. Иностранные
+    распознаём только если в тексте нет российского формата — иначе буквы
+    «M123AB» могли бы конфликтовать.
+    """
     from .schemas import normalize_plate
 
     for candidate in _PLATE_AUTO_RE.findall(text) + _PLATE_MOTO_RE.findall(text):
         try:
             return normalize_plate(candidate)
+        except ValueError:
+            continue
+
+    # Иностранные номера: только латиница, длина 4-10. «M123AB» -> m123ab.
+    for candidate in _PLATE_FOREIGN_RE.findall(text):
+        try:
+            return normalize_plate(candidate, plate_type="foreign")
         except ValueError:
             continue
     return ""
@@ -873,6 +905,25 @@ def _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, st
         result["plate"] = plate
         work = _PLATE_AUTO_RE.sub(" ", work)
         work = _PLATE_MOTO_RE.sub(" ", work)
+        work = _PLATE_FOREIGN_RE.sub(" ", work)
+
+    # Авто извлекаем ДО имени: модель («хавал джолион») не должна попасть в
+    # эвристику имени рядом с телефоном («Джолион»).
+    car = _extract_vehicle_from_text(work)
+    if car:
+        result["car"] = car
+        # Вырезаем распознанную марку+модель, чтобы она не попала в «остаток»
+        # текста и не загрязнила услугу (см. fallback ниже).
+        work = re.sub(
+            rf"(?<![0-9A-Za-zА-Яа-яЁё]){re.escape(car)}(?![0-9A-Za-zА-Яа-яЁё])",
+            " ",
+            work,
+            flags=re.IGNORECASE,
+        )
+
+    # Текст без номера и авто, но с телефоном — для эвристики имени рядом с
+    # телефоном (чтобы буквы госномера «У888УУ716» не стали именем «Уу»).
+    name_work = work
 
     phone = _extract_phone_from_text(work)
     if phone:
@@ -883,23 +934,11 @@ def _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, st
     if not name:
         # В словаре имя не нашлось — пробуем эвристику «рядом с телефоном»
         # (ловит неполные/редкие имена независимо от порядка слов).
-        name = _extract_name_by_phone_neighborhood(original, result.get("phone", ""))
+        name = _extract_name_by_phone_neighborhood(name_work, result.get("phone", ""))
     if name:
         result["name"] = name
         work = re.sub(
             rf"(?<![0-9A-Za-zА-Яа-яЁё]){re.escape(name)}(?![0-9A-Za-zА-Яа-яЁё])",
-            " ",
-            work,
-            flags=re.IGNORECASE,
-        )
-
-    car = _extract_vehicle_from_text(work)
-    if car:
-        result["car"] = car
-        # Вырезаем распознанную марку+модель, чтобы она не попала в «остаток»
-        # текста и не загрязнила услугу (см. fallback ниже).
-        work = re.sub(
-            rf"(?<![0-9A-Za-zА-Яа-яЁё]){re.escape(car)}(?![0-9A-Za-zА-Яа-яЁё])",
             " ",
             work,
             flags=re.IGNORECASE,
@@ -999,24 +1038,38 @@ def _update_booking_from_event(
             booking.duration = duration
 
     # Текстовые правки: заголовок события -> услуга; описание -> клиент/бокс/комментарий.
+    # Свободно введённый текст (без подписей «Авто:»/«Номер:») распознаём тем же
+    # парсером, что и при создании записи, чтобы правки в Google доходили до CRM.
     summary = (event.get("summary") or "").strip()
-    if summary and summary != booking.service:
-        booking.service = summary
+    description_text = event.get("description") or ""
+    description_fields = _parse_event_description(description_text)
+    event_text_for_loose = f"{event.get('summary') or ''}\n{description_text}"
+    loose = _parse_event_text_loose(event_text_for_loose, _active_service_names(db))
 
-    fields = _parse_event_description(event.get("description"))
     from .models import Client
     from .schemas import normalize_phone_digits
 
+    # Услуга: структурированная подпись -> свободно распознанный -> заголовок события.
+    # Если весь заголовок «съеден» как авто/номер («бмв х5 у888уу716»), мы не должны
+    # записать его в поле услуги: услугу берём только из описания/подписи.
+    new_service = description_fields.get("Услуга") or loose.get("service") or ""
+    if not new_service and not (loose.get("car") or loose.get("plate")):
+        # Заголовок — это услуга, только если он не распознался как авто/номер.
+        new_service = summary
+    if new_service and new_service != booking.service:
+        booking.service = new_service
+
+    fields = description_fields
     updated_fields: set[str] = set()
     client = db.get(Client, booking.client_id)
 
-    new_name = (fields.get("Клиент") or "").strip()
+    new_name = (fields.get("Клиент") or loose.get("name") or "").strip()
     if new_name and new_name != booking.client_name:
         booking.client_name = new_name
         updated_fields.add("name")
 
     new_phone = ""
-    new_phone_raw = (fields.get("Телефон") or "").strip()
+    new_phone_raw = (fields.get("Телефон") or loose.get("phone") or "").strip()
     if new_phone_raw:
         try:
             new_phone = normalize_phone_digits(new_phone_raw)
@@ -1026,12 +1079,14 @@ def _update_booking_from_event(
         except ValueError:
             pass
 
-    new_car = (fields.get("Авто") or "").strip()
+    new_car = (fields.get("Авто") or loose.get("car") or "").strip()
     if new_car and new_car != (booking.car or ""):
         booking.car = new_car
         updated_fields.add("car")
 
-    new_plate = (fields.get("Номер") or "").strip()
+    new_plate = _extract_plate_from_text(
+        fields.get("Номер") or loose.get("plate") or ""
+    ) or _extract_plate_from_text(event_text_for_loose)
     if new_plate and new_plate != (booking.plate or ""):
         booking.plate = new_plate
         updated_fields.add("plate")

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-14 09:54 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-14 10:19 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **269**
-- Строк кода: **85 802**
+- Строк кода: **86 029**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 57, `.ts`: 19, `.tsx`: 187
 
 ## Архитектура
@@ -390,7 +390,7 @@ concept1.0/
 
 - `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" transaction = db.scalar( select(Pig` (стр. 14)
 
-### backend/app/google_calendar.py (1348 строк)
+### backend/app/google_calendar.py (1403 строк)
 
 Классы и функции (48):
 
@@ -422,26 +422,26 @@ concept1.0/
 - `_parse_google_datetimedef _parse_google_datetime(raw: str) -> datetime | None: """RFC3339 (dateTime или date) -> aware datetime, или None."""` (стр. 531)
 - `_event_start_enddef _event_start_end( event: dict[str, Any], settings: Settings` (стр. 539)
 - `_parse_event_descriptiondef _parse_event_description(description: Any) -> dict[str, str]: """Извлечь поля «Ключ: значение» из описания Google-события.""" fields: dict[str, str] = {} if not description: re` (стр. 564)
-- `_extract_plate_from_textdef _extract_plate_from_text(text: str) -> str: """Найти российский госномер в свободном тексте (или пустую строку).""" from .schemas import normalize_plate for candidate in _PLATE` (стр. 688)
-- `_extract_phone_from_textdef _extract_phone_from_text(text: str) -> str: """Найти российский мобильный телефон в свободном тексте (или пустую строку). Перебор всех подстрок 10-11 цифр: соседние цифры (напр` (стр. 700)
-- `_extract_name_from_textdef _extract_name_from_text(text: str) -> str: """Найти имя клиента по словарю русских имён (или пустую строку).""" for token in re.findall(r"[А-ЯЁа-яё]+", text):` (стр. 724)
-- `_is_plausible_namedef _is_plausible_name(word: str) -> bool: """Подходит ли слово на роль имени клиента (кириллица, не служебное).""" if not re.fullmatch(r"[А-ЯЁа-яё]+", word):` (стр. 733)
-- `_extract_name_by_phone_neighborhooddef _extract_name_by_phone_neighborhood(text: str, phone: str) -> str: """Определить имя клиента по соседству с телефоном (или пустую строку). Когда у события есть свободный текст,` (стр. 744)
-- `_title_case_wordsdef _title_case_words(value: str) -> str: """Привести каждое слово к виду «С заглавной», сохранив аббревиатуры. «тойота камри» -> «Тойота Камри», «BMW x5» -> «BMW X5», «BMW» остане` (стр. 769)
-- `_extract_vehicle_from_textdef _extract_vehicle_from_text(text: str) -> str: """Найти марку и модель автомобиля в свободном тексте (или пустую строку).""" from .schemas import normalize_vehicle_name lowered ` (стр. 783)
-- `_normalize_for_matchdef _normalize_for_match(value: str) -> str: """Нижний регистр без «ё» и лишних пробелов — для сопоставления названий.""" return re.sub(r"\s+", " ", value.lower().replace("ё", "е")` (стр. 821)
-- `_match_service_in_textdef _match_service_in_text(service_names: list[str], text: str) -> str: """Найти услугу из каталога в тексте; вернуть пусто, если нет. Сопоставляем по префиксу названия услуги (от ` (стр. 826)
-- `_parse_event_text_loosedef _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, str]: """Определить поля (госномер, телефон, имя, авто, услуга) из свободного текста. Данные могут идт` (стр. 857)
-- `_active_service_namesdef _active_service_names(db: Any) -> list[str]: """Названия активных услуг из каталога — для распознавания в тексте события.""" from .models import Service return [row.name for ro` (стр. 922)
-- `_booking_by_google_eventdef _booking_by_google_event(db: Any, event_id: str) -> Any | None: from .models import Booking return db.query(Booking).filter(Booking.google_event_id == event_id).first()` (стр. 929)
-- `_event_updated_utcdef _event_updated_utc(event: dict[str, Any]) -> datetime | None: """Метка «когда событие последний раз правилось» (event.updated) в UTC.""" raw = event.get("updated") if not raw: ` (стр. 935)
-- `_event_is_staledef _event_is_stale(event: dict[str, Any], booking: Any) -> bool: """Правилось ли событие ПОЗЖЕ последней записи записи в Google. True — событие не менялось после того, как запись ` (стр. 946)
-- `_update_booking_from_eventdef _update_booking_from_event( db: Any, booking: Any, event: dict[str, Any], settings: Settings` (стр. 965)
-- `_find_duplicate_bookingdef _find_duplicate_booking( db: Any, client_id: str, date: str, time: str` (стр. 1061)
-- `_create_booking_from_eventdef _create_booking_from_event( db: Any, event: dict[str, Any], settings: Settings` (стр. 1086)
-- `_apply_calendar_eventdef _apply_calendar_event( db: Any, settings: Settings, event: dict[str, Any], result: dict[str, Any]` (стр. 1208)
-- `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 1246)
-- `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 1276)
+- `_extract_plate_from_textdef _extract_plate_from_text(text: str) -> str: """Найти госномер в свободном тексте (или пустую строку). Сначала российские (авто + мото), затем иностранные. Иностранные распознаё` (стр. 708)
+- `_extract_phone_from_textdef _extract_phone_from_text(text: str) -> str: """Найти российский мобильный телефон в свободном тексте (или пустую строку). Перебор всех подстрок 10-11 цифр: соседние цифры (напр` (стр. 732)
+- `_extract_name_from_textdef _extract_name_from_text(text: str) -> str: """Найти имя клиента по словарю русских имён (или пустую строку).""" for token in re.findall(r"[А-ЯЁа-яё]+", text):` (стр. 756)
+- `_is_plausible_namedef _is_plausible_name(word: str) -> bool: """Подходит ли слово на роль имени клиента (кириллица, не служебное).""" if not re.fullmatch(r"[А-ЯЁа-яё]+", word):` (стр. 765)
+- `_extract_name_by_phone_neighborhooddef _extract_name_by_phone_neighborhood(text: str, phone: str) -> str: """Определить имя клиента по соседству с телефоном (или пустую строку). Когда у события есть свободный текст,` (стр. 776)
+- `_title_case_wordsdef _title_case_words(value: str) -> str: """Привести каждое слово к виду «С заглавной», сохранив аббревиатуры. «тойота камри» -> «Тойота Камри», «BMW x5» -> «BMW X5», «BMW» остане` (стр. 801)
+- `_extract_vehicle_from_textdef _extract_vehicle_from_text(text: str) -> str: """Найти марку и модель автомобиля в свободном тексте (или пустую строку).""" from .schemas import normalize_vehicle_name lowered ` (стр. 815)
+- `_normalize_for_matchdef _normalize_for_match(value: str) -> str: """Нижний регистр без «ё» и лишних пробелов — для сопоставления названий.""" return re.sub(r"\s+", " ", value.lower().replace("ё", "е")` (стр. 853)
+- `_match_service_in_textdef _match_service_in_text(service_names: list[str], text: str) -> str: """Найти услугу из каталога в тексте; вернуть пусто, если нет. Сопоставляем по префиксу названия услуги (от ` (стр. 858)
+- `_parse_event_text_loosedef _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, str]: """Определить поля (госномер, телефон, имя, авто, услуга) из свободного текста. Данные могут идт` (стр. 889)
+- `_active_service_namesdef _active_service_names(db: Any) -> list[str]: """Названия активных услуг из каталога — для распознавания в тексте события.""" from .models import Service return [row.name for ro` (стр. 961)
+- `_booking_by_google_eventdef _booking_by_google_event(db: Any, event_id: str) -> Any | None: from .models import Booking return db.query(Booking).filter(Booking.google_event_id == event_id).first()` (стр. 968)
+- `_event_updated_utcdef _event_updated_utc(event: dict[str, Any]) -> datetime | None: """Метка «когда событие последний раз правилось» (event.updated) в UTC.""" raw = event.get("updated") if not raw: ` (стр. 974)
+- `_event_is_staledef _event_is_stale(event: dict[str, Any], booking: Any) -> bool: """Правилось ли событие ПОЗЖЕ последней записи записи в Google. True — событие не менялось после того, как запись ` (стр. 985)
+- `_update_booking_from_eventdef _update_booking_from_event( db: Any, booking: Any, event: dict[str, Any], settings: Settings` (стр. 1004)
+- `_find_duplicate_bookingdef _find_duplicate_booking( db: Any, client_id: str, date: str, time: str` (стр. 1116)
+- `_create_booking_from_eventdef _create_booking_from_event( db: Any, event: dict[str, Any], settings: Settings` (стр. 1141)
+- `_apply_calendar_eventdef _apply_calendar_event( db: Any, settings: Settings, event: dict[str, Any], result: dict[str, Any]` (стр. 1263)
+- `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 1301)
+- `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 1331)
 
 ### backend/app/main.py (20662 строк)
 
@@ -1618,9 +1618,9 @@ concept1.0/
 - `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 444)
 - `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 467)
 
-### backend/tests/test_google_calendar_pull.py (1122 строк)
+### backend/tests/test_google_calendar_pull.py (1294 строк)
 
-Классы и функции (35):
+Классы и функции (39):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 15)
 - `_eventdef _event( event_id: str, *, start: str = "2026-08-13T10:30:00+03:00", end: str = "2026-08-13T11:15:00+03:00", summary: str = "Мойка", description: str | None = "Клиент: Иван\nТел` (стр. 21)
@@ -1657,6 +1657,10 @@ concept1.0/
 - `GoogleCalendarPullTests.test_pull_does_not_steal_service_word_as_namedef test_pull_does_not_steal_service_word_as_name(self) -> None: """Служебное слово рядом с телефоном не выдаётся за имя клиента.""" from app.google_calendar import pull_calendar_c` (стр. 941)
 - `GoogleCalendarPullTests.test_pull_transfers_google_edits_to_bookingdef test_pull_transfers_google_edits_to_booking(self) -> None: """Правки в Google (заголовок, клиент, бокс, комментарий) переносятся в CRM. Владелец отредактировал событие в Google` (стр. 979)
 - `GoogleCalendarPullTests.test_pull_does_not_overwrite_newer_crm_editdef test_pull_does_not_overwrite_newer_crm_edit(self) -> None: """Событие не правилось после последней записи в Google — правки CRM не затираются. Если запись недавно правилась в C` (стр. 1054)
+- `GoogleCalendarPullTests.test_pull_transfers_free_text_car_plate_to_existing_bookingdef test_pull_transfers_free_text_car_plate_to_existing_booking(self) -> None: """Свободный текст «бмв х5 у888уу716» в событии доходит до полей Авто/Номер. Существующая запись прав` (стр. 1120)
+- `GoogleCalendarPullTests.test_pull_does_not_use_plate_letters_as_namedef test_pull_does_not_use_plate_letters_as_name(self) -> None: """Буквы госномера «у888уу716» не становятся именем клиента «Уу».""" from app.google_calendar import pull_calendar_c` (стр. 1190)
+- `GoogleCalendarPullTests.test_pull_parses_foreign_platedef test_pull_parses_foreign_plate(self) -> None: """Иностранный госномер (M123AB) распознаётся и нормализуется.""" from app.google_calendar import pull_calendar_changes from app.m` (стр. 1225)
+- `GoogleCalendarPullTests.test_pull_parses_new_chinese_branddef test_pull_parses_new_chinese_brand(self) -> None: """Новые марки из расширенного словаря (хавал, танк) распознаются.""" from app.google_calendar import pull_calendar_changes fr` (стр. 1259)
 
 ### backend/tests/test_html_and_headers.py (66 строк)
 
@@ -3190,8 +3194,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/app/google_calendar.py` (2026-08-14 12:54)
-- `backend/tests/test_google_calendar_pull.py` (2026-08-14 12:52)
+- `backend/tests/test_google_calendar_pull.py` (2026-08-14 13:19)
+- `backend/app/google_calendar.py` (2026-08-14 13:19)
 - `vercel.json` (2026-08-14 12:51)
 - `backend/app/main.py` (2026-08-14 12:51)
 - `.gitignore` (2026-08-14 11:31)

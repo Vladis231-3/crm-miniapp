@@ -1117,6 +1117,178 @@ class GoogleCalendarPullTests(unittest.TestCase):
             self.assertEqual(booking.time, "12:00")
             self.assertEqual(booking.box, "Бокс 2")
 
+    def test_pull_transfers_free_text_car_plate_to_existing_booking(self) -> None:
+        """Свободный текст «бмв х5 у888уу716» в событии доходит до полей Авто/Номер.
+
+        Существующая запись правится в Google: заголовок события — это авто+номер,
+        а не услуга. Авто и госномер должны попасть в booking (и карточку клиента),
+        услуга при этом НЕ затирается «съеденным» заголовком.
+        """
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        with self.session() as db:
+            client = Client(id="c-edit3", name="Иван", phone="79990001122", registered=True)
+            db.add(client)
+            db.add(
+                Booking(
+                    id="b-edit3",
+                    client_id=client.id,
+                    client_name="Иван",
+                    client_phone="79990001122",
+                    service="Мойка",
+                    service_id="",
+                    date="15.08.2026",
+                    time="10:30",
+                    duration=30,
+                    price=500,
+                    status="scheduled",
+                    box="Бокс 1",
+                    payment_type="cash",
+                    source="bot",
+                    google_event_id="g-edit3",
+                    google_updated_at=datetime(2026, 8, 14, 10, 0, tzinfo=timezone.utc),
+                )
+            )
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-edit3",
+                        start="2026-08-15T12:00:00+03:00",
+                        end="2026-08-15T12:30:00+03:00",
+                        summary="бмв х5 у888уу716",
+                        description=None,
+                        crm_booking_id="b-edit3",
+                        updated="2026-08-15T08:00:00Z",
+                    )
+                ],
+                "nextSyncToken": "tok-edit3",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["updated"], 1)
+        with self.session() as db:
+            booking = db.get(Booking, "b-edit3")
+            assert booking is not None
+            self.assertEqual(booking.car, "Бмв Х5")
+            self.assertEqual(booking.plate, "у888уу716")
+            # Заголовок «съеден» авто/номером — услуга из CRМ не затирается.
+            self.assertEqual(booking.service, "Мойка")
+            client = db.get(Client, "c-edit3")
+            assert client is not None
+            self.assertEqual(client.car, "Бмв Х5")
+            self.assertEqual(client.plate, "у888уу716")
+
+    def test_pull_does_not_use_plate_letters_as_name(self) -> None:
+        """Буквы госномера «у888уу716» не становятся именем клиента «Уу»."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-name-plate",
+                        summary="бмв х5 у888уу716 +7 (900) 123-45-67",
+                        description=None,
+                    )
+                ],
+                "nextSyncToken": "tok-name-plate",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-name-plate"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertNotEqual(client.name, "Уу")
+            self.assertEqual(client.name, "Из Google-календаря")
+            self.assertEqual(client.plate, "у888уу716")
+
+    def test_pull_parses_foreign_plate(self) -> None:
+        """Иностранный госномер (M123AB) распознаётся и нормализуется."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-foreign",
+                        summary="мойка",
+                        description="BMW X5 M123AB",
+                    )
+                ],
+                "nextSyncToken": "tok-foreign",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-foreign"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.car, "BMW X5")
+            self.assertEqual(client.plate, "m123ab")
+
+    def test_pull_parses_new_chinese_brand(self) -> None:
+        """Новые марки из расширенного словаря (хавал, танк) распознаются."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-chinese",
+                        summary="мойка",
+                        description="хавал джолион +7 (900) 123-45-67",
+                    )
+                ],
+                "nextSyncToken": "tok-chinese",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-chinese"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.car, "Хавал Джолион")
+
 
 if __name__ == "__main__":
     unittest.main()
