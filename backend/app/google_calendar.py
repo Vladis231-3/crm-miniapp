@@ -461,6 +461,7 @@ def _sync_booking_to_calendar_impl(
             params={"sendUpdates": "none"},
             body=body,
         )
+        booking.google_updated_at = datetime.now(timezone.utc)
         return event_id, True
 
     created = _calendar_request(
@@ -931,27 +932,129 @@ def _booking_by_google_event(db: Any, event_id: str) -> Any | None:
     return db.query(Booking).filter(Booking.google_event_id == event_id).first()
 
 
-def _update_booking_from_event(booking: Any, event: dict[str, Any], settings: Settings) -> None:
-    """Перенести в запись время/длительность события (если событие изменилось).
+def _event_updated_utc(event: dict[str, Any]) -> datetime | None:
+    """Метка «когда событие последний раз правилось» (event.updated) в UTC."""
+    raw = event.get("updated")
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
-    Сознательно не трогаем статус, клиента, оплату и мастеров — это зона
-    ответственности CRM. Правки, сделанные в Google, только переносят запись.
+
+def _event_is_stale(event: dict[str, Any], booking: Any) -> bool:
+    """Правилось ли событие ПОЗЖЕ последней записи записи в Google.
+
+    True — событие не менялось после того, как запись была записана в Google
+    (например, её та же синхронизация из CRM). В этом случае правки Google не
+    переносим: они либо совпадают с записью, либо старее — затирать CRM нельзя.
     """
+    ev_updated = _event_updated_utc(event)
+    if ev_updated is None:
+        return False  # нет данных о времени правки — переносим (как раньше)
+    booking_updated = booking.google_updated_at
+    if booking_updated is None:
+        return False  # запись никогда не пушилась в Google — Google источник
+    if booking_updated.tzinfo is None:
+        # SQLite возвращает naive datetime — считаем его UTC.
+        booking_updated = booking_updated.replace(tzinfo=timezone.utc)
+    return ev_updated <= booking_updated
+
+
+def _update_booking_from_event(
+    db: Any, booking: Any, event: dict[str, Any], settings: Settings
+) -> None:
+    """Перенести правки события Google в запись CRM (время + текст).
+
+    Переносим только то, что владелец мог поменять в Google: время/длительность,
+    услугу (заголовок), клиента (имя/телефон/авто/номер), бокс, комментарий.
+    Статус, оплату и мастеров не трогаем — это зона ответственности CRM.
+
+    Защита от конфликтов: если событие НЕ правилось после последней записи
+    записи в Google (event.updated <= google_updated_at), ничего не переносим —
+    значит запись недавно правилась в CRM, и событие ей уже соответствует
+    (или старее). Правка в Google всегда обновляет event.updated — тогда
+    переносим.
+    """
+    if _event_is_stale(event, booking):
+        return
+
     start_local, end_local = _event_start_end(event, settings)
-    if start_local is None:
-        return
-    duration = (
-        max(30, int((end_local - start_local).total_seconds() // 60))
-        if end_local is not None
-        else booking.duration
-    )
-    new_date = start_local.strftime("%d.%m.%Y")
-    new_time = start_local.strftime("%H:%M")
-    if booking.date == new_date and booking.time == new_time and int(booking.duration or 0) == duration:
-        return
-    booking.date = new_date
-    booking.time = new_time
-    booking.duration = duration
+    if start_local is not None:
+        duration = (
+            max(30, int((end_local - start_local).total_seconds() // 60))
+            if end_local is not None
+            else booking.duration
+        )
+        new_date = start_local.strftime("%d.%m.%Y")
+        new_time = start_local.strftime("%H:%M")
+        if (
+            booking.date != new_date
+            or booking.time != new_time
+            or int(booking.duration or 0) != duration
+        ):
+            booking.date = new_date
+            booking.time = new_time
+            booking.duration = duration
+
+    # Текстовые правки: заголовок события -> услуга; описание -> клиент/бокс/комментарий.
+    summary = (event.get("summary") or "").strip()
+    if summary and summary != booking.service:
+        booking.service = summary
+
+    fields = _parse_event_description(event.get("description"))
+    from .models import Client
+    from .schemas import normalize_phone_digits
+
+    updated_fields: set[str] = set()
+    client = db.get(Client, booking.client_id)
+
+    new_name = (fields.get("Клиент") or "").strip()
+    if new_name and new_name != booking.client_name:
+        booking.client_name = new_name
+        updated_fields.add("name")
+
+    new_phone = ""
+    new_phone_raw = (fields.get("Телефон") or "").strip()
+    if new_phone_raw:
+        try:
+            new_phone = normalize_phone_digits(new_phone_raw)
+            if new_phone and new_phone != booking.client_phone:
+                booking.client_phone = new_phone
+                updated_fields.add("phone")
+        except ValueError:
+            pass
+
+    new_car = (fields.get("Авто") or "").strip()
+    if new_car and new_car != (booking.car or ""):
+        booking.car = new_car
+        updated_fields.add("car")
+
+    new_plate = (fields.get("Номер") or "").strip()
+    if new_plate and new_plate != (booking.plate or ""):
+        booking.plate = new_plate
+        updated_fields.add("plate")
+
+    new_box = (fields.get("Бокс") or "").strip()
+    if new_box and new_box != (booking.box or ""):
+        booking.box = new_box
+
+    new_notes = (fields.get("Комментарий") or "").strip()
+    if new_notes and new_notes != (booking.notes or ""):
+        booking.notes = new_notes
+
+    # Клиента тоже пополняем — правка имени/телефона в Google видна в CRM.
+    if client is not None:
+        if "name" in updated_fields and new_name != (client.name or ""):
+            client.name = new_name
+        if "phone" in updated_fields and (not client.phone or client.phone == ""):
+            client.phone = new_phone
+        if "car" in updated_fields and not client.car:
+            client.car = new_car
+        if "plate" in updated_fields and not client.plate:
+            client.plate = new_plate
+
     booking.google_updated_at = datetime.now(timezone.utc)
 
 
@@ -1123,7 +1226,7 @@ def _apply_calendar_event(
         # Событие принадлежит нашей записи: переносим время в CRM, но только
         # если событие действительно наше (google_event_id совпадает/пуст).
         if booking is not None and booking.google_event_id in (None, event_id):
-            _update_booking_from_event(booking, event, settings)
+            _update_booking_from_event(db, booking, event, settings)
             if not booking.google_event_id:
                 booking.google_event_id = event_id
             result["updated"] += 1
@@ -1131,7 +1234,7 @@ def _apply_calendar_event(
 
     booking = _booking_by_google_event(db, event_id)
     if booking is not None:
-        _update_booking_from_event(booking, event, settings)
+        _update_booking_from_event(db, booking, event, settings)
         result["updated"] += 1
     elif _create_booking_from_event(db, event, settings):
         result["created"] += 1

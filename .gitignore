@@ -33,3 +33,5 @@ Thumbs.db
 *.sqlite3-wal
 
 scripts/.project-map-watch.lock
+.vercel
+.env*

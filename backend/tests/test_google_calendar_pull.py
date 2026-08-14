@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -26,6 +27,7 @@ def _event(
     description: str | None = "Клиент: Иван\nТелефон: +7 999 123-45-67",
     crm_booking_id: str | None = None,
     cancelled: bool = False,
+    updated: str | None = None,
 ) -> dict:
     body: dict = {
         "id": event_id,
@@ -35,6 +37,8 @@ def _event(
         "end": {"dateTime": end},
         "description": description,
     }
+    if updated:
+        body["updated"] = updated
     if crm_booking_id:
         body["extendedProperties"] = {"private": {"crmBookingId": crm_booking_id}}
     return body
@@ -970,6 +974,148 @@ class GoogleCalendarPullTests(unittest.TestCase):
             # «мойка» — не имя: клиент остался с заглушкой, а не «Мойка».
             self.assertNotEqual(client.name, "Мойка")
             self.assertEqual(client.phone, "79001234567")
+
+
+    def test_pull_transfers_google_edits_to_booking(self) -> None:
+        """Правки в Google (заголовок, клиент, бокс, комментарий) переносятся в CRM.
+
+        Владелец отредактировал событие в Google: event.updated новее последней
+        записи в Google — переносим услугу/клиента/бокс/комментарий/время.
+        """
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        with self.session() as db:
+            client = Client(id="c-edit", name="Иван", phone="79990001122", registered=True)
+            db.add(client)
+            db.add(
+                Booking(
+                    id="b-edit",
+                    client_id=client.id,
+                    client_name="Иван",
+                    client_phone="79990001122",
+                    service="Мойка",
+                    service_id="",
+                    date="15.08.2026",
+                    time="10:30",
+                    duration=30,
+                    price=500,
+                    status="scheduled",
+                    box="Бокс 1",
+                    payment_type="cash",
+                    source="bot",
+                    google_event_id="g-edit",
+                    google_updated_at=datetime(2026, 8, 14, 10, 0, tzinfo=timezone.utc),
+                )
+            )
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-edit",
+                        start="2026-08-15T12:00:00+03:00",
+                        end="2026-08-15T12:30:00+03:00",
+                        summary="Химчистка салона",
+                        description=(
+                            "Клиент: Пётр\nТелефон: +7 (999) 555-44-33\n"
+                            "Бокс: Бокс 2\nКомментарий: срочно к 12:00"
+                        ),
+                        crm_booking_id="b-edit",
+                        updated="2026-08-15T08:00:00Z",
+                    )
+                ],
+                "nextSyncToken": "tok-edit",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["updated"], 1)
+        with self.session() as db:
+            booking = db.get(Booking, "b-edit")
+            assert booking is not None
+            self.assertEqual(booking.service, "Химчистка салона")
+            self.assertEqual(booking.client_name, "Пётр")
+            self.assertEqual(booking.client_phone, "79995554433")
+            self.assertEqual(booking.box, "Бокс 2")
+            self.assertEqual(booking.notes, "срочно к 12:00")
+            self.assertEqual(booking.date, "15.08.2026")
+            self.assertEqual(booking.time, "12:00")
+            client = db.get(Client, "c-edit")
+            assert client is not None
+            # Правка в Google видна и в карточке клиента.
+            self.assertEqual(client.name, "Пётр")
+
+    def test_pull_does_not_overwrite_newer_crm_edit(self) -> None:
+        """Событие не правилось после последней записи в Google — правки CRM не затираются.
+
+        Если запись недавно правилась в CRM (google_updated_at свежее event.updated),
+        обратная синхронизация не должна возвращать старые данные из Google.
+        """
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        with self.session() as db:
+            client = Client(id="c-edit2", name="Пётр", phone="79995554433", registered=True)
+            db.add(client)
+            db.add(
+                Booking(
+                    id="b-edit2",
+                    client_id=client.id,
+                    client_name="Пётр",
+                    client_phone="79995554433",
+                    service="Химчистка салона",
+                    service_id="",
+                    date="15.08.2026",
+                    time="12:00",
+                    duration=30,
+                    price=500,
+                    status="scheduled",
+                    box="Бокс 2",
+                    payment_type="cash",
+                    source="bot",
+                    google_event_id="g-edit2",
+                    # Владелец правил запись в CRM ПОСЛЕ правки события в Google.
+                    google_updated_at=datetime(2026, 8, 15, 9, 0, tzinfo=timezone.utc),
+                )
+            )
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-edit2",
+                        start="2026-08-15T12:00:00+03:00",
+                        end="2026-08-15T12:30:00+03:00",
+                        summary="Мойка",  # старая услуга из Google
+                        description="Клиент: Пётр\nТелефон: +7 (999) 555-44-33",
+                        crm_booking_id="b-edit2",
+                        updated="2026-08-15T07:00:00Z",  # старее google_updated_at
+                    )
+                ],
+                "nextSyncToken": "tok-edit2",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["updated"], 1)  # событие обработано
+        with self.session() as db:
+            booking = db.get(Booking, "b-edit2")
+            assert booking is not None
+            # Правка CRM (Химчистка салона, 12:00) сохранена, старые данные из Google не вернулись.
+            self.assertEqual(booking.service, "Химчистка салона")
+            self.assertEqual(booking.time, "12:00")
+            self.assertEqual(booking.box, "Бокс 2")
 
 
 if __name__ == "__main__":

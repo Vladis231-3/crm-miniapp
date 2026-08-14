@@ -17019,6 +17019,31 @@ def sync_google_calendar_now(
     return {**result, "lastSyncAt": last.get("at")}
 
 
+@app.get("/api/cron/google-sync")
+def run_google_calendar_sync_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Cron-эндпоинт Vercel: обратная синхронизация Google Calendar -> CRM.
+
+    Вызывается каждые 5 минут (vercel.json -> crons). Защищён CRON_SECRET:
+    запрос без секрета получает 503/401, как и остальные cron-эндпоинты.
+    """
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid cron secret",
+        )
+    result = pull_calendar_changes(db, settings)
+    db.commit()
+    return result
+
+
 @app.put("/api/settings/owner/security", response_model=OwnerSecurityPayload)
 
 def save_owner_security(
