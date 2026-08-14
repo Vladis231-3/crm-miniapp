@@ -900,6 +900,7 @@ export function OwnerApp() {
   const [serviceEditSearchQuery, setServiceEditSearchQuery] = useState('');
   const [showServiceMaterialPicker, setShowServiceMaterialPicker] = useState(false);
   const [serviceMaterialPickerCategory, setServiceMaterialPickerCategory] = useState<string | null>(null);
+  const [serviceSettingsSaving, setServiceSettingsSaving] = useState(false);
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
@@ -1608,6 +1609,22 @@ export function OwnerApp() {
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить настройки');
       setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  // «Готово» в модалке настройки услуги: сохраняет услуги сразу, чтобы не листать список до кнопки «Сохранить».
+  const handleServiceSettingsDone = async () => {
+    setServiceSettingsSaving(true);
+    try {
+      await saveServices(services);
+      setShowServiceSettings(false);
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить услугу');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setServiceSettingsSaving(false);
     }
   };
 
@@ -11772,8 +11789,8 @@ setOwnerNewBookingWorkers([]);
                   </>
                   )}
                 </div>
-                <button onClick={() => setShowServiceSettings(false)} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>
-                  Готово
+                <button onClick={() => void handleServiceSettingsDone()} disabled={serviceSettingsSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-60" style={{ background: primary }}>
+                  {serviceSettingsSaving ? 'Сохранение...' : 'Готово'}
                 </button>
               </motion.div>
             </motion.div>
