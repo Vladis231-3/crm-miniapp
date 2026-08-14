@@ -39,7 +39,9 @@ GOOGLE_CALENDAR_LAST_SYNC_KEY = "google_calendar_last_sync"
 GOOGLE_CALENDAR_CREDENTIALS_KEY = "google_calendar_credentials"
 
 # Статусы Booking, при которых запись считается активной и синхронизируется.
-SYNCED_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
+# admin_review — заявка от клиента ещё не подтверждена админом, но уже должна
+# попадать в Google Calendar (при отмене/удалении событие удаляется).
+SYNCED_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review"}
 
 # Человекочитаемые подписи источников записи (поле Booking.source).
 SOURCE_LABELS = {"bot": "Бот", "google": "Google", "manual": "Вручную"}

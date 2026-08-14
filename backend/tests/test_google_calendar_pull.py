@@ -602,6 +602,86 @@ class GoogleCalendarPullTests(unittest.TestCase):
             self.assertEqual(client.car, "Audi")
             self.assertEqual(client.plate, "в123вс77")
 
+    def test_sync_creates_event_for_admin_review_booking(self) -> None:
+        """Заявка клиента (admin_review) сразу синхронизируется в календарь."""
+        from unittest.mock import patch as _patch
+
+        from app.google_calendar import sync_booking_to_calendar
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        with self.session() as db:
+            client = Client(id="c-sync-adm", name="Иван", phone="79001234567")
+            db.add(client)
+            booking = Booking(
+                id="b-sync-adm",
+                client_id=client.id,
+                client_name="Иван",
+                client_phone="+7 (900) 123-45-67",
+                service="Мойка",
+                service_id="s-wash",
+                date="15.08.2026",
+                time="10:30",
+                duration=45,
+                price=500,
+                status="admin_review",
+                box="Бокс 1",
+                payment_type="cash",
+                source="bot",
+            )
+            db.add(booking)
+            db.commit()
+
+            with _patch(
+                "app.google_calendar._calendar_request",
+                return_value={"id": "evt-adm-1"},
+            ):
+                event_id, ok = sync_booking_to_calendar(db, self.settings, booking)
+            db.commit()
+
+            self.assertTrue(ok)
+            self.assertEqual(event_id, "evt-adm-1")
+            self.assertEqual(booking.google_event_id, "evt-adm-1")
+
+    def test_sync_skips_deleted_status(self) -> None:
+        """Отменённая запись не создаёт событие в календаре."""
+        from unittest.mock import patch as _patch
+
+        from app.google_calendar import sync_booking_to_calendar
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        with self.session() as db:
+            client = Client(id="c-sync-del", name="Пётр", phone="79995554433")
+            db.add(client)
+            booking = Booking(
+                id="b-sync-del",
+                client_id=client.id,
+                client_name="Пётр",
+                client_phone="+7 (999) 555-44-33",
+                service="Мойка",
+                service_id="s-wash",
+                date="15.08.2026",
+                time="11:00",
+                duration=30,
+                price=500,
+                status="cancelled",
+                box="Бокс 1",
+                payment_type="cash",
+                source="bot",
+            )
+            db.add(booking)
+            db.commit()
+
+            with _patch("app.google_calendar._calendar_request") as mock_req:
+                event_id, ok = sync_booking_to_calendar(db, self.settings, booking)
+            db.commit()
+
+            self.assertTrue(ok)
+            self.assertIsNone(event_id)
+            self.assertIsNone(booking.google_event_id)
+            mock_req.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
