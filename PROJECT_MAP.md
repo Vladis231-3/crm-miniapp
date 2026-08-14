@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-13 13:45 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-14 07:20 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **269**
-- Строк кода: **84 536**
+- Строк кода: **84 546**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 57, `.ts`: 19, `.tsx`: 187
 
 ## Архитектура
@@ -1745,7 +1745,7 @@ concept1.0/
 
 ## Frontend — CRM-минапп (frontend/src)
 
-### frontend/src/app/api.ts (186 строк)
+### frontend/src/app/api.ts (192 строк)
 
 - `API_BASE_URL` (стр. 1) — локальный
 - `getInitData` (стр. 55) — локальный
@@ -1763,21 +1763,21 @@ concept1.0/
 - `apiRequest` (стр. 99)
 - `initData` (стр. 106) — локальный
 - `response` (стр. 111) — локальный
-- `apiDownload` (стр. 124)
-- `initData` (стр. 126) — локальный
-- `response` (стр. 131) — локальный
-- `fileName` (стр. 140) — локальный
-- `blob` (стр. 141) — локальный
-- `objectUrl` (стр. 142) — локальный
-- `anchor` (стр. 143) — локальный
-- `apiUploadFile` (стр. 153)
-- `initData` (стр. 154) — локальный
-- `formData` (стр. 155) — локальный
-- `response` (стр. 157) — локальный
-- `apiBlobUrl` (стр. 168)
-- `initData` (стр. 170) — локальный
-- `response` (стр. 175) — локальный
-- `blob` (стр. 184) — локальный
+- `apiDownload` (стр. 130)
+- `initData` (стр. 132) — локальный
+- `response` (стр. 137) — локальный
+- `fileName` (стр. 146) — локальный
+- `blob` (стр. 147) — локальный
+- `objectUrl` (стр. 148) — локальный
+- `anchor` (стр. 149) — локальный
+- `apiUploadFile` (стр. 159)
+- `initData` (стр. 160) — локальный
+- `formData` (стр. 161) — локальный
+- `response` (стр. 163) — локальный
+- `apiBlobUrl` (стр. 174)
+- `initData` (стр. 176) — локальный
+- `response` (стр. 181) — локальный
+- `blob` (стр. 190) — локальный
 
 ### frontend/src/app/App.tsx (731 строк)
 
@@ -2292,7 +2292,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11877 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11881 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 220) — локальный
 - `STOCK_UNITS` (стр. 221) — локальный
@@ -2492,8 +2492,8 @@ concept1.0/
 - `wantsPasswordChange` (стр. 1565) — локальный
 - `handleGoogleConnect` (стр. 1614) — локальный
 - `status` (стр. 1618) — локальный
-- `handleGoogleSaveKeys` (стр. 1636) — локальный
-- `handleGoogleCopyUri` (стр. 1653) — локальный
+- `message` (стр. 1631) — локальный
+- `handleGoogleSaveKeys` (стр. 1638) — локальный
 
 ### frontend/src/app/components/shared/AttendanceTable.tsx (199 строк)
 
@@ -3158,9 +3158,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-14 10:20)
+- `frontend/src/app/api.ts` (2026-08-14 10:20)
+- `backend/app/config.py` (2026-08-14 10:20)
+- `scripts/.project-map-watch.lock` (2026-08-14 10:00)
 - `backend/app/main.py` (2026-08-13 16:45)
 - `backend/tests/test_google_calendar_api.py` (2026-08-13 16:38)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-13 16:36)
 - `backend/app/google_calendar.py` (2026-08-13 16:14)
 - `backend/tests/test_google_calendar_pull.py` (2026-08-13 16:14)
 - `frontend/public/google2855e110d983d030.html` (2026-08-13 15:45)
@@ -3170,6 +3173,3 @@ concept1.0/
 - `requirements.txt` (2026-08-13 14:24)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-13 14:01)
 - `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-08-13 14:00)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-13 13:59)
-- `frontend/src/app/components/shared/SourceBadge.tsx` (2026-08-13 13:59)
-- `frontend/src/app/context/AppContext.tsx` (2026-08-13 13:49)

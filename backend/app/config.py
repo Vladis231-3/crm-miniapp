@@ -198,7 +198,7 @@ def get_settings() -> Settings:
     init_data_max_age = _parse_positive_int(
         "TELEGRAM_INIT_DATA_MAX_AGE_SECONDS",
         os.getenv("TELEGRAM_INIT_DATA_MAX_AGE_SECONDS"),
-        300 if strong_environment else 24 * 60 * 60,
+        900 if strong_environment else 24 * 60 * 60,
     )
     future_skew = _parse_positive_int(
         "TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS",

@@ -1628,8 +1628,10 @@ export function OwnerApp() {
       const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
       window.location.href = authUrl;
     } catch (error) {
-      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось начать подключение Google Календаря');
+      const message = error instanceof Error ? error.message : 'Не удалось начать подключение Google Календаря';
+      setGoogleConnectError(message);
       setGoogleConnectLoading(false);
+      window.Telegram?.WebApp?.showAlert?.(message);
     }
   };
 
@@ -1645,8 +1647,10 @@ export function OwnerApp() {
       const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
       window.location.href = authUrl;
     } catch (error) {
-      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось сохранить ключи Google Календаря');
+      const message = error instanceof Error ? error.message : 'Не удалось сохранить ключи Google Календаря';
+      setGoogleConnectError(message);
       setGoogleSavingKeys(false);
+      window.Telegram?.WebApp?.showAlert?.(message);
     }
   };
 

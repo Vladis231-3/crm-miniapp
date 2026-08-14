@@ -115,6 +115,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error(
+        'Сессия устарела: закройте миниапп и откройте его заново, затем повторите действие. ' +
+          'Если вы долго не пользовались — это нормально.'
+      );
+    }
     throw new Error(await getErrorDetail(response));
   }
 
