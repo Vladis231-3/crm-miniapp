@@ -635,6 +635,24 @@ _CAR_BRANDS = frozenset(
     }
 )
 
+# Слова, которые НЕ могут быть именем клиента (глаголы услуг, бытовые слова).
+# Нужны для эвристики «имя рядом с телефоном», чтобы не отдать в имя
+# «мойка», «помыть», «позвоните» и т.п.
+_NAME_STOPWORDS = frozenset(
+    {
+        "авто", "автомойка", "автомобиль", "внешняя", "внутренняя", "время",
+        "запишите", "запись", "заявка", "комплекс",
+        "машина", "мойка", "помыть", "помой", "приеду", "сдо",
+        "экспресс", "выходные", "завтра", "сегодня", "срочно", "пожалуйста",
+        "кузов", "салон", "химчистка", "полировка", "плёнка", "пленка",
+        "керамика", "оклейка", "детейлинг", "уборка", "стекло", "фары",
+        "диски", "шиномонтаж", "привет", "добрый", "вечер",
+        "утро", "день", "клиент", "номер", "телефон", "бокс", "услуга",
+        "цена", "сколько", "хочу", "нужно", "надо", "можно", "записаться",
+    }
+)
+
+
 # Слова, обрывающие модель автомобиля после марки.
 _VEHICLE_STOP_WORDS = frozenset(
     {
@@ -708,6 +726,42 @@ def _extract_name_from_text(text: str) -> str:
         normalized = token[:1].upper() + token[1:].lower()
         if normalized in _COMMON_NAMES:
             return normalized
+    return ""
+
+
+def _is_plausible_name(word: str) -> bool:
+    """Подходит ли слово на роль имени клиента (кириллица, не служебное)."""
+    if not re.fullmatch(r"[А-ЯЁа-яё]+", word):
+        return False
+    lowered = word.lower()
+    if lowered in _NAME_STOPWORDS or lowered in _VEHICLE_STOP_WORDS:
+        return False
+    # Слова короче 2 букв или длиннее ~15 вряд ли имена.
+    return not (len(word) < 2 or len(word) > 15)
+
+
+def _extract_name_by_phone_neighborhood(text: str, phone: str) -> str:
+    """Определить имя клиента по соседству с телефоном (или пустую строку).
+
+    Когда у события есть свободный текст, имя клиента часто стоит прямо
+    рядом с телефоном — до или после него, в любом порядке. Эта эвристика
+    дополняет словарный поиск: она ловит имена, которых нет в _COMMON_NAMES
+    (редкие, неполные формы), независимо от расположения.
+    """
+    if not phone or not text:
+        return ""
+    # Находим фрагмент телефона в исходном тексте (окружение может быть
+    # «+7 (900) 123-45-67» — телефон при этом нормализован).
+    phone_re = re.compile(_PHONE_FRAGMENT_RE.pattern)
+    match = phone_re.search(text)
+    if not match:
+        return ""
+    # Смотрим слова слева и справа от телефона.
+    before = re.findall(r"[А-ЯЁа-яё]+", text[: match.start()])
+    after = re.findall(r"[А-ЯЁа-яё]+", text[match.end() :])
+    for candidate in (before[-1:] + after[:1]):
+        if _is_plausible_name(candidate):
+            return candidate[:1].upper() + candidate[1:].lower()
     return ""
 
 
@@ -825,6 +879,10 @@ def _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, st
         work = _PHONE_FRAGMENT_RE.sub(" ", work)
 
     name = _extract_name_from_text(work)
+    if not name:
+        # В словаре имя не нашлось — пробуем эвристику «рядом с телефоном»
+        # (ловит неполные/редкие имена независимо от порядка слов).
+        name = _extract_name_by_phone_neighborhood(original, result.get("phone", ""))
     if name:
         result["name"] = name
         work = re.sub(

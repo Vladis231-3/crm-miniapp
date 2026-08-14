@@ -857,6 +857,120 @@ class GoogleCalendarPullTests(unittest.TestCase):
             count = len(db.scalars(select(Client)).all())
             self.assertEqual(count, 1)
 
+    def test_pull_parses_rare_name_before_phone(self) -> None:
+        """Имя, которого нет в словаре, определяется по соседству с телефоном.
+
+        «Гарик» не входит в _COMMON_NAMES — эвристика «рядом с телефоном»
+        должна отдать его в поле имени независимо от расположения в тексте.
+        """
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-rare-1",
+                        start="2026-08-15T12:00:00+03:00",
+                        end="2026-08-15T12:30:00+03:00",
+                        summary="мойка",
+                        description="Гарик 79001234567 мерседес",
+                    )
+                ],
+                "nextSyncToken": "tok-rare1",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-rare-1"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.name, "Гарик")
+            self.assertEqual(client.phone, "79001234567")
+            self.assertEqual(client.car, "Мерседес")
+
+    def test_pull_parses_rare_name_after_phone(self) -> None:
+        """Имя после телефона в конце текста тоже определяется."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-rare-2",
+                        start="2026-08-15T13:00:00+03:00",
+                        end="2026-08-15T13:30:00+03:00",
+                        summary="мойка",
+                        description="89005551122 Рустам экспресс мойка",
+                    )
+                ],
+                "nextSyncToken": "tok-rare2",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-rare-2"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.name, "Рустам")
+            self.assertEqual(client.phone, "79005551122")
+
+    def test_pull_does_not_steal_service_word_as_name(self) -> None:
+        """Служебное слово рядом с телефоном не выдаётся за имя клиента."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-noname",
+                        start="2026-08-15T14:00:00+03:00",
+                        end="2026-08-15T14:30:00+03:00",
+                        summary="запись",
+                        description="мойка 79001234567 мерседес",
+                    )
+                ],
+                "nextSyncToken": "tok-noname",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-noname"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            # «мойка» — не имя: клиент остался с заглушкой, а не «Мойка».
+            self.assertNotEqual(client.name, "Мойка")
+            self.assertEqual(client.phone, "79001234567")
+
 
 if __name__ == "__main__":
     unittest.main()
