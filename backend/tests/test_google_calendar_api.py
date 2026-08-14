@@ -441,6 +441,41 @@ class GoogleCalendarApiTests(unittest.TestCase):
         # Владелец создаёт запись вручную -> source="manual"
         self.assertEqual(response.json()["source"], "manual")
 
+    def test_exchange_code_normalizes_google_response(self) -> None:
+        """exchange_code возвращает ключ "token" (access_token из ответа Google)."""
+        from unittest.mock import MagicMock
+
+        from app.config import get_settings
+        from app.google_calendar import exchange_code
+
+        raw = {
+            "access_token": "at-1",
+            "refresh_token": "rt-1",
+            "expires_in": 3599,
+            "scope": "https://www.googleapis.com/auth/calendar.events",
+            "token_type": "Bearer",
+            "refresh_token_expires_in": 604097,
+        }
+        with patch("requests.post") as mock_post:
+            mock_post.return_value = MagicMock(status_code=200, json=lambda: raw)
+            result = exchange_code(get_settings(), "code-1")
+        self.assertEqual(result["token"], "at-1")
+        self.assertEqual(result["refresh_token"], "rt-1")
+        self.assertEqual(result["expires_in"], 3599)
+        self.assertNotIn("access_token", result)
+
+    def test_load_tokens_normalizes_legacy_access_token_key(self) -> None:
+        """Токены, сохранённые старым кодом (ключ access_token), читаются как token."""
+        from app.database import SessionLocal
+        from app.google_calendar import load_tokens, save_tokens
+
+        with SessionLocal() as db:
+            save_tokens(db, {"access_token": "legacy-at", "refresh_token": "legacy-rt"})
+            db.commit()
+            tokens = load_tokens(db)
+        self.assertEqual(tokens.get("token"), "legacy-at")
+        self.assertEqual(tokens.get("refresh_token"), "legacy-rt")
+
 
 if __name__ == "__main__":
     unittest.main()

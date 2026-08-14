@@ -136,13 +136,22 @@ def _resolve_creds(
 
 
 def load_tokens(db: Any) -> dict[str, Any]:
-    """Вернуть OAuth-токены владельца или пустой dict."""
+    """Вернуть OAuth-токены владельца или пустой dict.
+
+    Совместимость: токены, сохранённые старыми версиями (сырой ответ
+    token-эндпоинта Google с ключом "access_token"), нормализуются в
+    ключ "token", который ожидает остальной код.
+    """
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY)
     if row is None:
         return {}
     value = row.value
-    return value if isinstance(value, dict) else {}
+    if not isinstance(value, dict):
+        return {}
+    if not value.get("token") and value.get("access_token"):
+        value = {**value, "token": value["access_token"]}
+    return value
 
 
 def save_tokens(db: Any, tokens: dict[str, Any]) -> None:
@@ -221,7 +230,17 @@ def exchange_code(
     )
     if resp.status_code >= 400:
         raise _GoogleApiError(resp.status_code, "token_exchange_failed")
-    return resp.json()
+    data = resp.json()
+    # Нормализуем ответ Google: остальной код ожидает ключ "token"
+    # (access_token из ответа token-эндпоинта Google).
+    return {
+        "token": data.get("access_token", ""),
+        "refresh_token": data.get("refresh_token", ""),
+        "expires_in": data.get("expires_in", 3600),
+        "scope": data.get("scope", ""),
+        "token_type": data.get("token_type", "Bearer"),
+        "refresh_token_expires_in": data.get("refresh_token_expires_in"),
+    }
 
 
 class _GoogleApiError(Exception):
