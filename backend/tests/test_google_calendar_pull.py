@@ -682,6 +682,91 @@ class GoogleCalendarPullTests(unittest.TestCase):
             self.assertIsNone(booking.google_event_id)
             mock_req.assert_not_called()
 
+    def test_pull_parses_free_form_booking(self) -> None:
+        """«миша ремонт скола мерседес 79872136194» разкладывается по полям."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client, Service
+
+        with self.session() as db:
+            db.add(
+                Service(
+                    id="s-skol",
+                    name="Ремонт скола лобового стекла (от 1000 рублей)",
+                    category="Стекло",
+                    price=1000,
+                    duration=60,
+                    active=True,
+                )
+            )
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-free-1",
+                        summary="миша ремонт скола мерседес 79872136194",
+                        description=None,
+                    )
+                ],
+                "nextSyncToken": "tok-free",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-free-1"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            self.assertEqual(booking.service, "Ремонт скола лобового стекла (от 1000 рублей)")
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.name, "Миша")
+            self.assertEqual(client.phone, "79872136194")
+            self.assertEqual(client.car, "Мерседес")
+
+    def test_pull_falls_back_to_free_text_slice_for_service(self) -> None:
+        """Без совпадения в каталоге услугой становится остаток текста."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-free-2",
+                        summary="маша полировка капота мерседес 89005551122",
+                        description=None,
+                    )
+                ],
+                "nextSyncToken": "tok-free2",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-free-2"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            self.assertEqual(booking.service, "полировка капота")
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.name, "Маша")
+            self.assertEqual(client.phone, "79005551122")
+            self.assertEqual(client.car, "Мерседес")
+
 
 if __name__ == "__main__":
     unittest.main()

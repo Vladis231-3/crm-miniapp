@@ -599,6 +599,12 @@ _COMMON_NAMES = frozenset(
         "Станислав", "Степан", "Тамара", "Татьяна", "Тимур", "Тимофей",
         "Фёдор", "Федор", "Эдуард", "Эльвира", "Юлия", "Юрий", "Яков",
         "Яна", "Ярослав",
+        # Уменьшительные формы (часто пишут именно так).
+        "Алёша", "Алеша", "Аня", "Валера", "Вася", "Вика", "Вова", "Гена",
+        "Даша", "Дима", "Женя", "Ира", "Катя", "Коля", "Ксюша", "Лена",
+        "Лёша", "Леша", "Люда", "Маша", "Миша", "Настя", "Наташа", "Оля",
+        "Паша", "Петя", "Саша", "Света", "Стас", "Тёма", "Тема", "Тима",
+        "Толя", "Толик", "Юля",
     }
 )
 
@@ -763,21 +769,33 @@ def _normalize_for_match(value: str) -> str:
 
 
 def _match_service_in_text(service_names: list[str], text: str) -> str:
-    """Найти название услуги из каталога в тексте; вернуть пусто, если нет."""
+    """Найти услугу из каталога в тексте; вернуть пусто, если нет.
+
+    Сопоставляем по префиксу названия услуги (от полного названия к 2 словам),
+    игнорируя хвост в скобках (например, цену «(от 1000 рублей)»). Так «ремонт
+    скола» распознается как «Ремонт скола лобового стекла (от 1000 рублей)».
+    """
     text_norm = _normalize_for_match(text or "")
     best: tuple[int, int, str] | None = None
     for name in service_names:
-        norm = _normalize_for_match(name)
-        if len(norm) < 3:
-            continue
-        match = re.search(
-            r"(?<![a-zа-яё0-9])" + re.escape(norm) + r"(?![a-zа-яё0-9])",
-            text_norm,
-        )
-        if match:
-            key = (match.start(), -len(norm), name)
-            if best is None or key < best:
-                best = key
+        base = re.split(r"\s*\(.*?\)\s*", _normalize_for_match(name), maxsplit=1)[0].strip()
+        tokens = base.split()
+        # n=1 (одно слово) пробуем только для реально однословных услуг, чтобы
+        # «мойка» в тексте не ложно матчила «Мойка + полировка» из каталога.
+        last_n = 1 if len(tokens) == 1 else 2
+        for n in range(len(tokens), last_n - 1, -1):  # от полного названия к короткому префиксу
+            prefix = " ".join(tokens[:n])
+            if len(prefix) < 4:
+                continue
+            m = re.search(
+                r"(?<![a-zа-яё0-9])" + re.escape(prefix) + r"(?![a-zа-яё0-9])",
+                text_norm,
+            )
+            if m:
+                key = (m.start(), -len(prefix), name)
+                if best is None or key < best:
+                    best = key
+                break  # самое длинное совпадение для этой услуги рассмотрено
     return best[2] if best else ""
 
 
@@ -819,10 +837,26 @@ def _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, st
     car = _extract_vehicle_from_text(work)
     if car:
         result["car"] = car
+        # Вырезаем распознанную марку+модель, чтобы она не попала в «остаток»
+        # текста и не загрязнила услугу (см. fallback ниже).
+        work = re.sub(
+            rf"(?<![0-9A-Za-zА-Яа-яЁё]){re.escape(car)}(?![0-9A-Za-zА-Яа-яЁё])",
+            " ",
+            work,
+            flags=re.IGNORECASE,
+        )
 
     service = _match_service_in_text(service_names, original)
     if service:
         result["service"] = service
+    else:
+        # Услуги в каталоге нет: как fallback берём остаток текста (после
+        # вырезания номера/телефона/имени/авто), но только если текст не в
+        # строгом формате «Ключ: значение» (иначе в остатке окажутся подписи).
+        if not re.search(r"(?:Клиент|Телефон|Авто|Номер|Бокс|Комментарий)\s*:", original):
+            rest = " ".join(work.split())
+            if rest:
+                result["service"] = rest
     return result
 
 
