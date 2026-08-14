@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-14 07:38 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-14 08:21 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **269**
-- Строк кода: **84 600**
+- Строк кода: **84 987**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 57, `.ts`: 19, `.tsx`: 187
 
 ## Архитектура
@@ -389,44 +389,53 @@ concept1.0/
 
 - `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" transaction = db.scalar( select(Pig` (стр. 14)
 
-### backend/app/google_calendar.py (813 строк)
+### backend/app/google_calendar.py (1073 строк)
 
-Классы и функции (34):
+Классы и функции (43):
 
-- `_appsetting_modeldef _appsetting_model(): """Ленивый импорт модели AppSetting (обход циклических зависимостей).""" global _AppSetting if _AppSetting is None: from .models import AppSetting _AppSett` (стр. 51)
-- `is_configureddef is_configured(settings: Settings, db: Any = None) -> bool: """True, если заданы учётные данные Google Calendar. Учётные данные берутся из БД (заполняются владельцем через UI), ` (стр. 61)
-- `load_credentialsdef load_credentials(db: Any) -> dict[str, Any]: """Вернуть учётные данные OAuth-клиента из БД или пустой dict. Владелец может ввести client_id/secret прямо в интерфейсе настроек (` (стр. 71)
-- `save_credentialsdef save_credentials(db: Any, credentials: dict[str, Any]) -> None: """Сохранить учётные данные OAuth-клиента (upsert).""" AppSetting = _appsetting_model() row = db.get(AppSetting,` (стр. 85)
-- `clear_credentialsdef clear_credentials(db: Any) -> None: """Удалить сохранённые в БД учётные данные OAuth-клиента.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_CREDE` (стр. 97)
-- `_resolve_credsdef _resolve_creds( db: Any, settings: Settings, *, fallback_redirect_uri: str = "",` (стр. 106)
-- `load_tokensdef load_tokens(db: Any) -> dict[str, Any]: """Вернуть OAuth-токены владельца или пустой dict. Совместимость: токены, сохранённые старыми версиями (сырой ответ token-эндпоинта Goog` (стр. 138)
-- `save_tokensdef save_tokens(db: Any, tokens: dict[str, Any]) -> None: """Сохранить OAuth-токены владельца (upsert).""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR` (стр. 157)
-- `clear_tokensdef clear_tokens(db: Any) -> None: """Отключить интеграцию: удалить токены и состояние синхронизации.""" AppSetting = _appsetting_model() for key in ( GOOGLE_CALENDAR_TOKENS_KEY, G` (стр. 169)
-- `_client_configdef _client_config(settings: Settings) -> dict[str, Any]: """Базовый client_config для построения OAuth-запросов.""" redirect_uri = settings.google_calendar_redirect_uri return { "` (стр. 183)
-- `build_auth_urldef build_auth_url( settings: Settings, state: str, db: Any = None, *, fallback_redirect_uri: str = ""` (стр. 193)
-- `exchange_codedef exchange_code( settings: Settings, code: str, db: Any = None, *, fallback_redirect_uri: str = ""` (стр. 215)
-- `class _GoogleApiError(Exception):` (стр. 246)
-- `_GoogleApiError.__init__def __init__( self, status: int, message: str = "", *, reason: str | None = None, details: str | None = None,` (стр. 254)
-- `_google_error_from_responsedef _google_error_from_response(resp: Any) -> tuple[str | None, str | None]: """Извлечь (reason, details) из тела ошибки Google API, если возможно. Calendar API: {"error": {"reason` (стр. 268)
-- `_refresh_access_tokendef _refresh_access_token( settings: Settings, tokens: dict[str, Any], db: Any = None` (стр. 292)
-- `_calendar_requestdef _calendar_request( db: Any, settings: Settings, method: str, path: str, *, params: dict[str, Any] | None = None, body: dict[str, Any] | None = None, _retried: bool = False,` (стр. 317)
-- `_source_labeldef _source_label(source: Any) -> str: """Подпись источника записи для Google-события.""" return SOURCE_LABELS.get(source or "", "CRM")` (стр. 352)
-- `_booking_event_bodydef _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]: """Сформировать тело Google-события из записи Booking.""" from zoneinfo import ZoneInfo # type: ignore ` (стр. 357)
-- `sync_booking_to_calendardef sync_booking_to_calendar( db: Any, settings: Settings, booking: Any, *, action: str = "upsert"` (стр. 399)
-- `_sync_booking_to_calendar_impldef _sync_booking_to_calendar_impl( db: Any, settings: Settings, booking: Any, *, action: str` (стр. 419)
-- `_load_sync_tokendef _load_sync_token(db: Any) -> str | None: """Текущий syncToken инкрементальной синхронизации или None.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALEND` (стр. 483)
-- `_save_sync_tokendef _save_sync_token(db: Any, sync_token: str | None) -> None: """Сохранить syncToken (upsert). None — сброс к полному скану.""" AppSetting = _appsetting_model() row = db.get(AppSe` (стр. 492)
-- `last_sync_atdef last_sync_at(db: Any) -> str | None: """ISO-метка последней успешной обратной синхронизации или None.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALEND` (стр. 506)
-- `_save_last_syncdef _save_last_sync(db: Any) -> None: AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_LAST_SYNC_KEY) now = datetime.now(timezone.utc).isoformat() if row i` (стр. 515)
-- `_parse_google_datetimedef _parse_google_datetime(raw: str) -> datetime | None: """RFC3339 (dateTime или date) -> aware datetime, или None."""` (стр. 527)
-- `_event_start_enddef _event_start_end( event: dict[str, Any], settings: Settings` (стр. 535)
-- `_parse_event_descriptiondef _parse_event_description(description: Any) -> dict[str, str]: """Извлечь поля «Ключ: значение» из описания Google-события.""" fields: dict[str, str] = {} if not description: re` (стр. 560)
-- `_booking_by_google_eventdef _booking_by_google_event(db: Any, event_id: str) -> Any | None: from .models import Booking return db.query(Booking).filter(Booking.google_event_id == event_id).first()` (стр. 577)
-- `_update_booking_from_eventdef _update_booking_from_event(booking: Any, event: dict[str, Any], settings: Settings) -> None: """Перенести в запись время/длительность события (если событие изменилось). Сознате` (стр. 583)
-- `_create_booking_from_eventdef _create_booking_from_event( db: Any, event: dict[str, Any], settings: Settings` (стр. 607)
-- `_apply_calendar_eventdef _apply_calendar_event( db: Any, settings: Settings, event: dict[str, Any], result: dict[str, Any]` (стр. 676)
-- `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 712)
-- `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 742)
+- `_appsetting_modeldef _appsetting_model(): """Ленивый импорт модели AppSetting (обход циклических зависимостей).""" global _AppSetting if _AppSetting is None: from .models import AppSetting _AppSett` (стр. 52)
+- `is_configureddef is_configured(settings: Settings, db: Any = None) -> bool: """True, если заданы учётные данные Google Calendar. Учётные данные берутся из БД (заполняются владельцем через UI), ` (стр. 62)
+- `load_credentialsdef load_credentials(db: Any) -> dict[str, Any]: """Вернуть учётные данные OAuth-клиента из БД или пустой dict. Владелец может ввести client_id/secret прямо в интерфейсе настроек (` (стр. 72)
+- `save_credentialsdef save_credentials(db: Any, credentials: dict[str, Any]) -> None: """Сохранить учётные данные OAuth-клиента (upsert).""" AppSetting = _appsetting_model() row = db.get(AppSetting,` (стр. 86)
+- `clear_credentialsdef clear_credentials(db: Any) -> None: """Удалить сохранённые в БД учётные данные OAuth-клиента.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_CREDE` (стр. 98)
+- `_resolve_credsdef _resolve_creds( db: Any, settings: Settings, *, fallback_redirect_uri: str = "",` (стр. 107)
+- `load_tokensdef load_tokens(db: Any) -> dict[str, Any]: """Вернуть OAuth-токены владельца или пустой dict. Совместимость: токены, сохранённые старыми версиями (сырой ответ token-эндпоинта Goog` (стр. 139)
+- `save_tokensdef save_tokens(db: Any, tokens: dict[str, Any]) -> None: """Сохранить OAuth-токены владельца (upsert).""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR` (стр. 158)
+- `clear_tokensdef clear_tokens(db: Any) -> None: """Отключить интеграцию: удалить токены и состояние синхронизации.""" AppSetting = _appsetting_model() for key in ( GOOGLE_CALENDAR_TOKENS_KEY, G` (стр. 170)
+- `_client_configdef _client_config(settings: Settings) -> dict[str, Any]: """Базовый client_config для построения OAuth-запросов.""" redirect_uri = settings.google_calendar_redirect_uri return { "` (стр. 184)
+- `build_auth_urldef build_auth_url( settings: Settings, state: str, db: Any = None, *, fallback_redirect_uri: str = ""` (стр. 194)
+- `exchange_codedef exchange_code( settings: Settings, code: str, db: Any = None, *, fallback_redirect_uri: str = ""` (стр. 216)
+- `class _GoogleApiError(Exception):` (стр. 247)
+- `_GoogleApiError.__init__def __init__( self, status: int, message: str = "", *, reason: str | None = None, details: str | None = None,` (стр. 255)
+- `_google_error_from_responsedef _google_error_from_response(resp: Any) -> tuple[str | None, str | None]: """Извлечь (reason, details) из тела ошибки Google API, если возможно. Calendar API: {"error": {"reason` (стр. 269)
+- `_refresh_access_tokendef _refresh_access_token( settings: Settings, tokens: dict[str, Any], db: Any = None` (стр. 293)
+- `_calendar_requestdef _calendar_request( db: Any, settings: Settings, method: str, path: str, *, params: dict[str, Any] | None = None, body: dict[str, Any] | None = None, _retried: bool = False,` (стр. 318)
+- `_source_labeldef _source_label(source: Any) -> str: """Подпись источника записи для Google-события.""" return SOURCE_LABELS.get(source or "", "CRM")` (стр. 353)
+- `_booking_event_bodydef _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]: """Сформировать тело Google-события из записи Booking.""" from zoneinfo import ZoneInfo # type: ignore ` (стр. 358)
+- `sync_booking_to_calendardef sync_booking_to_calendar( db: Any, settings: Settings, booking: Any, *, action: str = "upsert"` (стр. 400)
+- `_sync_booking_to_calendar_impldef _sync_booking_to_calendar_impl( db: Any, settings: Settings, booking: Any, *, action: str` (стр. 420)
+- `_load_sync_tokendef _load_sync_token(db: Any) -> str | None: """Текущий syncToken инкрементальной синхронизации или None.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALEND` (стр. 484)
+- `_save_sync_tokendef _save_sync_token(db: Any, sync_token: str | None) -> None: """Сохранить syncToken (upsert). None — сброс к полному скану.""" AppSetting = _appsetting_model() row = db.get(AppSe` (стр. 493)
+- `last_sync_atdef last_sync_at(db: Any) -> str | None: """ISO-метка последней успешной обратной синхронизации или None.""" AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALEND` (стр. 507)
+- `_save_last_syncdef _save_last_sync(db: Any) -> None: AppSetting = _appsetting_model() row = db.get(AppSetting, GOOGLE_CALENDAR_LAST_SYNC_KEY) now = datetime.now(timezone.utc).isoformat() if row i` (стр. 516)
+- `_parse_google_datetimedef _parse_google_datetime(raw: str) -> datetime | None: """RFC3339 (dateTime или date) -> aware datetime, или None."""` (стр. 528)
+- `_event_start_enddef _event_start_end( event: dict[str, Any], settings: Settings` (стр. 536)
+- `_parse_event_descriptiondef _parse_event_description(description: Any) -> dict[str, str]: """Извлечь поля «Ключ: значение» из описания Google-события.""" fields: dict[str, str] = {} if not description: re` (стр. 561)
+- `_extract_plate_from_textdef _extract_plate_from_text(text: str) -> str: """Найти российский госномер в свободном тексте (или пустую строку).""" from .schemas import normalize_plate for candidate in _PLATE` (стр. 661)
+- `_extract_phone_from_textdef _extract_phone_from_text(text: str) -> str: """Найти российский мобильный телефон в свободном тексте (или пустую строку). Перебор всех подстрок 10-11 цифр: соседние цифры (напр` (стр. 673)
+- `_extract_name_from_textdef _extract_name_from_text(text: str) -> str: """Найти имя клиента по словарю русских имён (или пустую строку).""" for token in re.findall(r"[А-ЯЁа-яё]+", text):` (стр. 697)
+- `_title_case_wordsdef _title_case_words(value: str) -> str: """Привести каждое слово к виду «С заглавной», сохранив аббревиатуры. «тойота камри» -> «Тойота Камри», «BMW x5» -> «BMW X5», «BMW» остане` (стр. 706)
+- `_extract_vehicle_from_textdef _extract_vehicle_from_text(text: str) -> str: """Найти марку и модель автомобиля в свободном тексте (или пустую строку).""" from .schemas import normalize_vehicle_name lowered ` (стр. 720)
+- `_normalize_for_matchdef _normalize_for_match(value: str) -> str: """Нижний регистр без «ё» и лишних пробелов — для сопоставления названий.""" return re.sub(r"\s+", " ", value.lower().replace("ё", "е")` (стр. 758)
+- `_match_service_in_textdef _match_service_in_text(service_names: list[str], text: str) -> str: """Найти название услуги из каталога в тексте; вернуть пусто, если нет.""" text_norm = _normalize_for_match(` (стр. 763)
+- `_parse_event_text_loosedef _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, str]: """Определить поля (госномер, телефон, имя, авто, услуга) из свободного текста. Данные могут идт` (стр. 782)
+- `_active_service_namesdef _active_service_names(db: Any) -> list[str]: """Названия активных услуг из каталога — для распознавания в тексте события.""" from .models import Service return [row.name for ro` (стр. 827)
+- `_booking_by_google_eventdef _booking_by_google_event(db: Any, event_id: str) -> Any | None: from .models import Booking return db.query(Booking).filter(Booking.google_event_id == event_id).first()` (стр. 834)
+- `_update_booking_from_eventdef _update_booking_from_event(booking: Any, event: dict[str, Any], settings: Settings) -> None: """Перенести в запись время/длительность события (если событие изменилось). Сознате` (стр. 840)
+- `_create_booking_from_eventdef _create_booking_from_event( db: Any, event: dict[str, Any], settings: Settings` (стр. 864)
+- `_apply_calendar_eventdef _apply_calendar_event( db: Any, settings: Settings, event: dict[str, Any], result: dict[str, Any]` (стр. 936)
+- `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 972)
+- `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 1002)
 
 ### backend/app/main.py (20637 строк)
 
@@ -1602,9 +1611,9 @@ concept1.0/
 - `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 444)
 - `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 467)
 
-### backend/tests/test_google_calendar_pull.py (480 строк)
+### backend/tests/test_google_calendar_pull.py (607 строк)
 
-Классы и функции (21):
+Классы и функции (24):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 14)
 - `_eventdef _event( event_id: str, *, start: str = "2026-08-13T10:30:00+03:00", end: str = "2026-08-13T11:15:00+03:00", summary: str = "Мойка", description: str | None = "Клиент: Иван\nТел` (стр. 20)
@@ -1627,6 +1636,9 @@ concept1.0/
 - `GoogleCalendarPullTests.test_pull_skips_foreign_event_with_wrong_crm_linkdef test_pull_skips_foreign_event_with_wrong_crm_link(self) -> None: """Событие с чужим crmBookingId (подделанным или от другой записи) не должно перезаписывать чужую запись.""" fr` (стр. 383)
 - `GoogleCalendarPullTests.test_pull_reports_auth_failed_with_google_detailsdef test_pull_reports_auth_failed_with_google_details(self) -> None: """401/403 после попытки обновления токена -> error="auth_failed"; детали из ответа Google пробрасываются в err` (стр. 436)
 - `GoogleCalendarPullTests.test_pull_reports_auth_failed_with_raw_detailsdef test_pull_reports_auth_failed_with_raw_details(self) -> None: """Прочие 401/403 (не accessNotConfigured) отдают исходный текст Google.""" from app.google_calendar import _Googl` (стр. 463)
+- `GoogleCalendarPullTests.test_pull_parses_scrambled_descriptiondef test_pull_parses_scrambled_description(self) -> None: """Свободный текст события: имя, телефон, авто, госномер, услуга в любом порядке.""" from app.google_calendar import pull_` (стр. 478)
+- `GoogleCalendarPullTests.test_pull_parses_latin_brand_and_short_platedef test_pull_parses_latin_brand_and_short_plate(self) -> None: """Латиница марки, телефон «+7 (…)», госномер на 777.""" from app.google_calendar import pull_calendar_changes from ` (стр. 528)
+- `GoogleCalendarPullTests.test_pull_keeps_strict_format_prioritydef test_pull_keeps_strict_format_priority(self) -> None: """«Ключ: значение» имеет приоритет над свободным распознаванием.""" from app.google_calendar import pull_calendar_changes` (стр. 565)
 
 ### backend/tests/test_html_and_headers.py (66 строк)
 
@@ -3160,14 +3172,14 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/tests/test_google_calendar_pull.py` (2026-08-14 11:21)
+- `backend/app/google_calendar.py` (2026-08-14 11:13)
+- `scripts/.project-map-watch.lock` (2026-08-14 10:56)
 - `backend/tests/test_google_calendar_api.py` (2026-08-14 10:38)
-- `backend/app/google_calendar.py` (2026-08-14 10:35)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-14 10:20)
 - `frontend/src/app/api.ts` (2026-08-14 10:20)
 - `backend/app/config.py` (2026-08-14 10:20)
-- `scripts/.project-map-watch.lock` (2026-08-14 10:00)
 - `backend/app/main.py` (2026-08-13 16:45)
-- `backend/tests/test_google_calendar_pull.py` (2026-08-13 16:14)
 - `frontend/public/google2855e110d983d030.html` (2026-08-13 15:45)
 - `backend/tests/test_google_calendar.py` (2026-08-13 14:47)
 - `backend/app/schemas.py` (2026-08-13 14:44)

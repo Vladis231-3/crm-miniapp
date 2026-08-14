@@ -475,6 +475,133 @@ class GoogleCalendarPullTests(unittest.TestCase):
         self.assertEqual(result["error"], "auth_failed")
         self.assertEqual(result.get("errorDetails"), "permission denied")
 
+    def test_pull_parses_scrambled_description(self) -> None:
+        """Свободный текст события: имя, телефон, авто, госномер, услуга в любом порядке."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client, Service
+
+        with self.session() as db:
+            db.add(
+                Service(
+                    id="s-wash",
+                    name="Мойка",
+                    category="Мойка",
+                    price=500,
+                    duration=30,
+                    active=True,
+                )
+            )
+            db.commit()
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-scramble-1",
+                        summary="запись",
+                        description="89001234567 тойота камри а123вс77 иван мойка",
+                    )
+                ],
+                "nextSyncToken": "tok-s",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-scramble-1"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            self.assertEqual(booking.service, "Мойка")
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.name, "Иван")
+            self.assertEqual(client.phone, "79001234567")
+            self.assertEqual(client.car, "Тойота Камри")
+            self.assertEqual(client.plate, "а123вс77")
+
+    def test_pull_parses_latin_brand_and_short_plate(self) -> None:
+        """Латиница марки, телефон «+7 (…)», госномер на 777."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-scramble-2",
+                        summary="мойка экспресс",
+                        description="BMW x5 +7 (900) 123-45-67 а777вс177",
+                    )
+                ],
+                "nextSyncToken": "tok-s2",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-scramble-2"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            # Услуги из каталога нет — берётся заголовок события.
+            self.assertEqual(booking.service, "мойка экспресс")
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.phone, "79001234567")
+            self.assertEqual(client.car, "BMW X5")
+            self.assertEqual(client.plate, "а777вс177")
+
+    def test_pull_keeps_strict_format_priority(self) -> None:
+        """«Ключ: значение» имеет приоритет над свободным распознаванием."""
+        from app.google_calendar import pull_calendar_changes
+        from app.models import Booking, Client
+
+        self._save_tokens()
+        pages = [
+            {
+                "items": [
+                    _event(
+                        "g-strict-1",
+                        summary="Мойка",
+                        description=(
+                            "Клиент: Пётр\nТелефон: +7 (999) 555-44-33\n"
+                            "Авто: Audi\nНомер: в123вс77\nКомментарий: приеду к 10:00"
+                        ),
+                    )
+                ],
+                "nextSyncToken": "tok-st",
+            }
+        ]
+        with self._patch_calendar_request(pages), self.session() as db:
+            result = pull_calendar_changes(db, self.settings)
+            db.commit()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["created"], 1)
+        with self.session() as db:
+            booking = db.scalar(select(Booking).where(Booking.google_event_id == "g-strict-1"))
+            self.assertIsNotNone(booking)
+            assert booking is not None
+            self.assertEqual(booking.service, "Мойка")
+            client = db.get(Client, booking.client_id)
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertEqual(client.name, "Пётр")
+            self.assertEqual(client.phone, "79995554433")
+            self.assertEqual(client.car, "Audi")
+            self.assertEqual(client.plate, "в123вс77")
+
 
 if __name__ == "__main__":
     unittest.main()

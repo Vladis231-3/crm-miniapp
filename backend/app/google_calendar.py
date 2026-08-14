@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
@@ -574,6 +575,262 @@ def _parse_event_description(description: Any) -> dict[str, str]:
     return fields
 
 
+# --- Свободное распознавание полей из текста (любой порядок, без подписей) ---
+
+# Распространённые русские имена: распознаём по словарю, чтобы не путать
+# с марками автомобилей и другими словами текста.
+_COMMON_NAMES = frozenset(
+    {
+        "Александр", "Александра", "Алексей", "Алина", "Алёна", "Алена",
+        "Анастасия", "Андрей", "Анна", "Антон", "Артём", "Артем", "Борис",
+        "Вадим", "Валентина", "Валерий", "Валерия", "Василий", "Вера",
+        "Виктор", "Виктория", "Владимир", "Владислав", "Вячеслав", "Галина",
+        "Геннадий", "Георгий", "Григорий", "Даниил", "Данил", "Дарья",
+        "Денис", "Дмитрий", "Евгений", "Евгения", "Егор", "Екатерина",
+        "Елена", "Елизавета", "Жанна", "Захар", "Зоя", "Иван", "Игорь",
+        "Илья", "Инна", "Ирина", "Кирилл", "Кристина", "Ксения", "Лариса",
+        "Лев", "Леонид", "Лидия", "Любовь", "Людмила", "Максим", "Марат",
+        "Марина", "Мария", "Марк", "Матвей", "Михаил", "Надежда", "Наталья",
+        "Никита", "Николай", "Нина", "Оксана", "Олег", "Ольга", "Павел",
+        "Пётр", "Петр", "Полина", "Регина", "Роман", "Руслан", "Светлана",
+        "Святослав", "Семён", "Семен", "Сергей", "Софья", "София",
+        "Станислав", "Степан", "Тамара", "Татьяна", "Тимур", "Тимофей",
+        "Фёдор", "Федор", "Эдуард", "Эльвира", "Юлия", "Юрий", "Яков",
+        "Яна", "Ярослав",
+    }
+)
+
+# Марки автомобилей (lowercase). Кириллица и латиница.
+_CAR_BRANDS = frozenset(
+    {
+        # латиница
+        "acura", "alfa romeo", "aston martin", "audi", "bentley", "bmw",
+        "brilliance", "bugatti", "buick", "byd", "cadillac", "changan",
+        "chery", "chevrolet", "chrysler", "citroen", "dacia", "daewoo",
+        "daihatsu", "dodge", "dongfeng", "exeed", "faw", "ferrari", "fiat",
+        "ford", "gaz", "geely", "genesis", "great wall", "gmc", "haval",
+        "honda", "hyundai", "infiniti", "isuzu", "jac", "jaecoo", "jaguar",
+        "jeep", "kia", "koenigsegg", "lada", "lamborghini", "land rover",
+        "lexus", "lifan", "lincoln", "lixiang", "maserati", "mazda",
+        "mclaren", "mercedes", "mercedes-benz", "mg", "mini", "mitsubishi",
+        "nissan", "omoda", "opel", "peugeot", "porsche", "ram", "renault",
+        "rolls-royce", "rover", "seat", "skoda", "smart", "ssangyong",
+        "subaru", "suzuki", "tesla", "toyota", "uaz", "vaz", "volkswagen",
+        "volvo", "vw", "zeekr", "zotye",
+        # кириллица
+        "ауди", "бмв", "ваз", "вольво", "газ", "гели", "джили", "джип",
+        "дэу", "деу", "киа", "лада", "лексус", "мазда", "мерседес",
+        "мерседес-бенц", "митсубиси", "мицубиси", "москвич", "ниссан",
+        "опель", "пежо", "порше", "рено", "саньонг", "ссанъёнг", "субару",
+        "судзуки", "тойота", "уаз", "фольксваген", "форд", "хендай",
+        "хёндай", "хонда", "черри", "шкода", "шевроле", "эксид", "ягуар",
+    }
+)
+
+# Слова, обрывающие модель автомобиля после марки.
+_VEHICLE_STOP_WORDS = frozenset(
+    {
+        "а", "без", "бы", "в", "ваш", "вечером", "время", "все", "вы",
+        "дата", "день", "для", "до", "днём", "днем", "его", "ее", "её",
+        "же", "за", "завтра", "запись", "из", "и", "как", "клиент", "км",
+        "комментарий", "кто", "кузов", "машина", "мой", "мойка", "мойки",
+        "мыть", "на", "наш", "не", "номер", "но", "о", "об", "от",
+        "плёнка", "пленка", "по", "пожалуйста", "полировка", "полировки",
+        "под", "при", "приеду", "руб", "с", "салон", "сегодня", "со",
+        "тел", "телефон", "то", "тыс", "у", "уборка", "услуга", "утром",
+        "цена", "что", "это", "авто", "автомобиль", "бокс", "госномер",
+    }
+)
+
+# Фрагмент телефона в исходном тексте (для вырезания после распознавания).
+# Lookbehind запрещает матч с цифры, перед которой стоит буква («x5 +7…»
+# не должен начинаться с «5»).
+_PHONE_FRAGMENT_RE = re.compile(r"(?<![A-Za-zА-Яа-яЁё])(?:\+?\d[\d\s()\-]{8,})")
+
+# Кандидаты в госномера: авто А123ВС77 / А123ВС777 и мото 1234АВ77.
+_PLATE_AUTO_RE = re.compile(
+    r"(?<![0-9A-Za-zА-Яа-яЁё])(?:[АВЕКМНОРСТУХавекмнорстухA-Za-z])"
+    r"\d{3}(?:[АВЕКМНОРСТУХавекмнорстухA-Za-z]){2}\d{2,3}(?![0-9A-Za-zА-Яа-яЁё])"
+)
+_PLATE_MOTO_RE = re.compile(
+    r"(?<![0-9A-Za-zА-Яа-яЁё])\d{4}(?:[АВЕКМНОРСТУХавекмнорстухA-Za-z]){2}"
+    r"\d{2,3}(?![0-9A-Za-zА-Яа-яЁё])"
+)
+
+
+def _extract_plate_from_text(text: str) -> str:
+    """Найти российский госномер в свободном тексте (или пустую строку)."""
+    from .schemas import normalize_plate
+
+    for candidate in _PLATE_AUTO_RE.findall(text) + _PLATE_MOTO_RE.findall(text):
+        try:
+            return normalize_plate(candidate)
+        except ValueError:
+            continue
+    return ""
+
+
+def _extract_phone_from_text(text: str) -> str:
+    """Найти российский мобильный телефон в свободном тексте (или пустую строку).
+
+    Перебор всех подстрок 10-11 цифр: соседние цифры (например, «5» из «x5»)
+    не должны «съедать» начало номера, как это делает обычный finditer.
+    """
+    from .schemas import normalize_phone_digits
+
+    digits = re.sub(r"\D", "", text)
+    for start in range(max(0, len(digits) - 10)):
+        for length in (11, 10):
+            candidate = digits[start : start + length]
+            if len(candidate) != length:
+                continue
+            # 10-значный «мобильный» код России: 9xx (сотовые), 4xx (МТС/гор.)
+            if length == 10 and candidate[0] not in {"9", "4"}:
+                continue
+            try:
+                return normalize_phone_digits(candidate)
+            except ValueError:
+                continue
+    return ""
+
+
+def _extract_name_from_text(text: str) -> str:
+    """Найти имя клиента по словарю русских имён (или пустую строку)."""
+    for token in re.findall(r"[А-ЯЁа-яё]+", text):
+        normalized = token[:1].upper() + token[1:].lower()
+        if normalized in _COMMON_NAMES:
+            return normalized
+    return ""
+
+
+def _title_case_words(value: str) -> str:
+    """Привести каждое слово к виду «С заглавной», сохранив аббревиатуры.
+
+    «тойота камри» -> «Тойота Камри», «BMW x5» -> «BMW X5», «BMW» останется «BMW».
+    """
+    out: list[str] = []
+    for part in value.split():
+        if part.isalpha() and part == part.upper():
+            out.append(part)
+        else:
+            out.append(part[:1].upper() + part[1:].lower())
+    return " ".join(out)
+
+
+def _extract_vehicle_from_text(text: str) -> str:
+    """Найти марку и модель автомобиля в свободном тексте (или пустую строку)."""
+    from .schemas import normalize_vehicle_name
+
+    lowered = text.lower()
+    for brand in sorted(_CAR_BRANDS, key=len, reverse=True):
+        match = re.search(
+            r"(?<![0-9A-Za-zА-Яа-яЁё])" + re.escape(brand) + r"(?![0-9A-Za-zА-Яа-яЁё])",
+            lowered,
+        )
+        if not match:
+            continue
+        original_brand = text[match.start() : match.end()]
+        tail_words = re.findall(r"[0-9A-Za-zА-Яа-яЁё\-]+", lowered[match.end() :])
+        model_words: list[str] = []
+        for word in tail_words:
+            if (
+                word.lower() in _VEHICLE_STOP_WORDS
+                or word.lower() in _CAR_BRANDS
+                or word.title() in _COMMON_NAMES
+                or word.isdigit()
+            ):
+                break
+            model_words.append(word)
+            if len(model_words) >= 3:
+                break
+        candidate = (
+            _title_case_words(f"{original_brand} {' '.join(model_words)}")
+            if model_words
+            else _title_case_words(original_brand)
+        )
+        try:
+            return normalize_vehicle_name(candidate)
+        except ValueError:
+            continue
+    return ""
+
+
+def _normalize_for_match(value: str) -> str:
+    """Нижний регистр без «ё» и лишних пробелов — для сопоставления названий."""
+    return re.sub(r"\s+", " ", value.lower().replace("ё", "е")).strip()
+
+
+def _match_service_in_text(service_names: list[str], text: str) -> str:
+    """Найти название услуги из каталога в тексте; вернуть пусто, если нет."""
+    text_norm = _normalize_for_match(text or "")
+    best: tuple[int, int, str] | None = None
+    for name in service_names:
+        norm = _normalize_for_match(name)
+        if len(norm) < 3:
+            continue
+        match = re.search(
+            r"(?<![a-zа-яё0-9])" + re.escape(norm) + r"(?![a-zа-яё0-9])",
+            text_norm,
+        )
+        if match:
+            key = (match.start(), -len(norm), name)
+            if best is None or key < best:
+                best = key
+    return best[2] if best else ""
+
+
+def _parse_event_text_loose(text: Any, service_names: list[str]) -> dict[str, str]:
+    """Определить поля (госномер, телефон, имя, авто, услуга) из свободного текста.
+
+    Данные могут идти в любом порядке и без подписей «Ключ: значение».
+    Распознанные фрагменты вырезаются из рабочей копии, чтобы поля не
+    «перехватывали» друг друга (например, цифры госномера не путаются с
+    телефоном).
+    """
+    if not text:
+        return {}
+    original = str(text)
+    work = original
+    result: dict[str, str] = {}
+
+    plate = _extract_plate_from_text(work)
+    if plate:
+        result["plate"] = plate
+        work = _PLATE_AUTO_RE.sub(" ", work)
+        work = _PLATE_MOTO_RE.sub(" ", work)
+
+    phone = _extract_phone_from_text(work)
+    if phone:
+        result["phone"] = phone
+        work = _PHONE_FRAGMENT_RE.sub(" ", work)
+
+    name = _extract_name_from_text(work)
+    if name:
+        result["name"] = name
+        work = re.sub(
+            rf"(?<![0-9A-Za-zА-Яа-яЁё]){re.escape(name)}(?![0-9A-Za-zА-Яа-яЁё])",
+            " ",
+            work,
+            flags=re.IGNORECASE,
+        )
+
+    car = _extract_vehicle_from_text(work)
+    if car:
+        result["car"] = car
+
+    service = _match_service_in_text(service_names, original)
+    if service:
+        result["service"] = service
+    return result
+
+
+def _active_service_names(db: Any) -> list[str]:
+    """Названия активных услуг из каталога — для распознавания в тексте события."""
+    from .models import Service
+
+    return [row.name for row in db.query(Service).filter(Service.active.is_(True)).all()]
+
+
 def _booking_by_google_event(db: Any, event_id: str) -> Any | None:
     from .models import Booking
 
@@ -620,17 +877,20 @@ def _create_booking_from_event(
         else 30
     )
     fields = _parse_event_description(event.get("description"))
+    description_text = event.get("description") or ""
+    event_text = f"{event.get('summary') or ''}\n{description_text}"
+    loose = _parse_event_text_loose(event_text, _active_service_names(db))
     phone = ""
-    phone_raw = fields.get("Телефон") or ""
+    phone_raw = fields.get("Телефон") or loose.get("phone") or ""
     if phone_raw:
         try:
             phone = normalize_phone_digits(phone_raw)
         except ValueError:
             phone = ""
 
-    client_name = fields.get("Клиент") or "Из Google-календаря"
-    car = fields.get("Авто") or ""
-    plate = fields.get("Номер") or ""
+    client_name = fields.get("Клиент") or loose.get("name") or "Из Google-календаря"
+    car = fields.get("Авто") or loose.get("car") or ""
+    plate = fields.get("Номер") or loose.get("plate") or ""
     box = fields.get("Бокс") or ""
 
     client = None
@@ -653,7 +913,7 @@ def _create_booking_from_event(
         client_id=client.id,
         client_name=client_name,
         client_phone=phone,
-        service=event.get("summary") or "Запись из Google",
+        service=loose.get("service") or (event.get("summary") or "Запись из Google"),
         service_id="",
         date=start_local.strftime("%d.%m.%Y"),
         time=start_local.strftime("%H:%M"),
