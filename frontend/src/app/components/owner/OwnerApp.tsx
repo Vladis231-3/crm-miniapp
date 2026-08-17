@@ -1385,7 +1385,7 @@ export function OwnerApp() {
   const averageCheck = weeklyCompletedBookings.length > 0 ? Math.round(totalRevenue / weeklyCompletedBookings.length) : 0;
   const activeBookings = weeklyBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
   const pipelineCounts = {
-    new: weeklyBookings.filter((booking) => booking.status === 'new').length,
+    adminReview: weeklyBookings.filter((booking) => booking.status === 'admin_review').length,
     confirmed: weeklyBookings.filter((booking) => booking.status === 'confirmed').length,
     scheduled: weeklyBookings.filter((booking) => booking.status === 'scheduled').length,
     inProgress: weeklyBookings.filter((booking) => booking.status === 'in_progress').length,
@@ -3878,7 +3878,7 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { status: 'new' as BookingStatus, label: 'Новые', value: pipelineCounts.new, color: '#6366F1' },
+                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
                     { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
                     { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
                     { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-17 12:36 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-17 12:49 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -3197,16 +3197,16 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-17 15:49)
+- `scripts/.project-map-watch.lock` (2026-08-17 15:40)
 - `backend/app/main.py` (2026-08-17 15:25)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-17 15:24)
 - `frontend/src/app/components/client/ClientApp.tsx` (2026-08-17 15:20)
 - `frontend/src/app/components/ui/card.tsx` (2026-08-17 15:19)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-17 15:19)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-17 15:19)
 - `frontend/src/styles/theme.css` (2026-08-17 15:19)
 - `backend/app/schemas.py` (2026-08-17 14:43)
 - `backend/tests/test_booking_logic.py` (2026-08-17 14:24)
-- `scripts/.project-map-watch.lock` (2026-08-17 14:04)
 - `backend/tests/test_booking_money_split.py` (2026-08-14 15:57)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-14 15:53)
 - `backend/app/models.py` (2026-08-14 15:53)
