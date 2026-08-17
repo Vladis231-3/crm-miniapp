@@ -686,6 +686,15 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     count: todayBookings.filter((booking) => booking.time.startsWith(hour)).length,
   }));
   const handleStatusChange = async (id: string, status: BookingStatus) => {
+    const target = bookings.find((b) => b.id === id);
+    const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(status);
+    if (target && statusNeedsSlot && (!target.date || !target.time)) {
+      // Запись без даты/времени: статус изменить нельзя (сервер отвечает 400
+      // «Укажите дату и время записи») — отправляем в полное редактирование.
+      setSelectedBooking(target);
+      openEditModal(target, 'edit');
+      return;
+    }
     await updateBooking(id, { status });
     if (selectedBooking?.id === id) setSelectedBooking(prev => prev ? { ...prev, status } : null);
   };
@@ -3217,7 +3226,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   {!['completed', 'cancelled', 'no_show'].includes(selectedBooking.status) && (
                     <button onClick={() => openEditModal(selectedBooking, 'reschedule')} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-blue-500/15 text-blue-600"><Clock size={15} />Перенести</button>
                   )}
-                  {READY_TO_START_STATUSES.includes(selectedBooking.status) && (
+                  {READY_TO_START_STATUSES.includes(selectedBooking.status) && selectedBooking.date && selectedBooking.time && (
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} />Начать</button>
                   )}
                   {(selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (

@@ -3152,6 +3152,29 @@ setOwnerNewBookingWorkers([]);
     return nextErrors;
   };
 
+  const openOwnerFullEditMode = (initialStatus?: BookingStatus) => {
+    if (!selectedBooking) return;
+    setOwnerBookingEditMode('full');
+    setOwnerBookingEditError(null);
+    setOwnerBookingEditFull({
+      status: initialStatus || selectedBooking.status,
+      date: selectedBooking.date || todayLabel,
+      time: selectedBooking.time || '10:00',
+      box: selectedBooking.box || boxes[0]?.name || 'Бокс 1',
+      notes: selectedBooking.notes || '',
+      car: selectedBooking.car || '',
+      plate: selectedBooking.plate || '',
+      plateType: (selectedBooking.plateType as PlateType) || 'russian',
+      clientName: selectedBooking.clientName || '',
+      clientPhone: selectedBooking.clientPhone || '',
+      paymentType: selectedBooking.paymentType || 'cash',
+      paymentSettled: selectedBooking.paymentSettled ?? false,
+      serviceId: selectedBooking.serviceId || '',
+      price: Math.max(0, selectedBooking.price - (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+      duration: selectedBooking.duration,
+    });
+  };
+
   const handleSaveOwnerBookingEdit = async () => {
     if (!selectedBooking || !ownerBookingEditMode) return;
     setOwnerBookingEditSaving(true);
@@ -3195,6 +3218,12 @@ setOwnerNewBookingWorkers([]);
           price: Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         };
       } else if (ownerBookingEditMode === 'status') {
+        const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerBookingEditStatus);
+        if (statusNeedsSlot && (!selectedBooking.date || !selectedBooking.time)) {
+          setOwnerBookingEditError('Для этого статуса нужны дата и время — укажите их в режиме «Полное»');
+          openOwnerFullEditMode(ownerBookingEditStatus);
+          return;
+        }
         patch = { status: ownerBookingEditStatus, ...(ownerBookingEditStatus === 'completed' ? { paymentSettled: true } : {}) };
       } else if (ownerBookingEditMode === 'price') {
         const price = Number(ownerBookingEditPrice);
@@ -9973,25 +10002,7 @@ setOwnerNewBookingWorkers([]);
                         onClick={() => {
                           setOwnerBookingEditMode(mode);
                           setOwnerBookingEditError(null);
-                          if (mode === 'full') {
-                            setOwnerBookingEditFull({
-                              status: selectedBooking.status,
-                              date: selectedBooking.date || todayLabel,
-                              time: selectedBooking.time || '10:00',
-                              box: selectedBooking.box || boxes[0]?.name || 'Бокс 1',
-                              notes: selectedBooking.notes || '',
-                              car: selectedBooking.car || '',
-                              plate: selectedBooking.plate || '',
-                              plateType: (selectedBooking.plateType as PlateType) || 'russian',
-                              clientName: selectedBooking.clientName || '',
-                              clientPhone: selectedBooking.clientPhone || '',
-                              paymentType: selectedBooking.paymentType || 'cash',
-                              paymentSettled: selectedBooking.paymentSettled ?? false,
-                              serviceId: selectedBooking.serviceId || '',
-                              price: Math.max(0, selectedBooking.price - (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
-                              duration: selectedBooking.duration,
-                            });
-                          }
+                          if (mode === 'full') openOwnerFullEditMode();
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
                           if (mode === 'price') setOwnerBookingEditPrice(String(selectedBooking.price));
                           if (mode === 'workers') setOwnerBookingEditWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
