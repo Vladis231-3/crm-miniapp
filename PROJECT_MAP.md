@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-17 12:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-17 12:35 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -268,6 +268,7 @@ concept1.0/
 │   ├── postcss.config.mjs
 │   ├── README.md
 │   └── vite.config.ts
+├── .agent-inspect.txt
 ├── .dockerignore
 ├── .env.local
 ├── .gitignore
@@ -3197,6 +3198,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `.agent-inspect.txt` (2026-08-17 15:35)
 - `backend/app/main.py` (2026-08-17 15:25)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-17 15:24)
 - `frontend/src/app/components/client/ClientApp.tsx` (2026-08-17 15:20)
@@ -3211,4 +3213,3 @@ concept1.0/
 - `frontend/src/app/context/AppContext.tsx` (2026-08-14 15:53)
 - `backend/app/models.py` (2026-08-14 15:53)
 - `vercel.json` (2026-08-14 13:27)
-- `backend/tests/test_google_calendar_pull.py` (2026-08-14 13:19)

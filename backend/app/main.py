@@ -2041,11 +2041,18 @@ def _apply_runtime_migrations() -> None:
                 conn.commit()
         if "is_outsource" not in bas_cols:
             with engine.connect() as conn:
-                conn.execute(
-                    text(
-                        "ALTER TABLE booking_additional_services ADD COLUMN is_outsource BOOLEAN NOT NULL DEFAULT 0"
+                if engine.dialect.name == "postgresql":
+                    conn.execute(
+                        text(
+                            "ALTER TABLE booking_additional_services ADD COLUMN is_outsource BOOLEAN NOT NULL DEFAULT FALSE"
+                        )
                     )
-                )
+                else:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE booking_additional_services ADD COLUMN is_outsource BOOLEAN NOT NULL DEFAULT 0"
+                        )
+                    )
                 conn.commit()
         if "outsource_amount" not in bas_cols:
             with engine.connect() as conn:
