@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **274**
-- Строк кода: **98 976**
-- По расширениям: `.js`: 4, `.mjs`: 3, `.py`: 59, `.ts`: 19, `.tsx`: 189
+- Файлов кода: **272**
+- Строк кода: **98 801**
+- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 58, `.ts`: 19, `.tsx`: 189
 
 ## Архитектура
 
@@ -93,7 +93,6 @@ concept1.0/
 │   │   ├── test_worker_calendar.py
 │   │   └── test_worker_car_search.py
 │   ├── .env.example
-│   ├── _verify_booking_slot.py
 │   ├── bot.py
 │   ├── requirements.txt
 │   └── run.py
@@ -276,7 +275,6 @@ concept1.0/
 ├── .env.local
 ├── .gitignore
 ├── .python-version
-├── .tmp_check_head.js
 ├── .vercelignore
 ├── _admin_excerpt.txt
 ├── _client_excerpt.txt
@@ -300,14 +298,6 @@ concept1.0/
 ```
 
 ## Backend (Python)
-
-### backend/_verify_booking_slot.py (166 строк)
-
-Классы и функции (3):
-
-- `make_init_datadef make_init_data(telegram_id: str) -> str: user = {"id": int(telegram_id), "first_name": "Verifier"} pairs = { "auth_date": str(int(time.time())), "query_id": f"AAH{telegram_id}"` (стр. 39)
-- `maindef main() -> None: import sqlalchemy as sa from app.main import app from fastapi.testclient import TestClient failures = [] with TestClient(app) as client: admin_tg = "700100200" ` (стр. 54)
-- `post_bookingdef post_booking(**overrides) -> object: payload = { "clientId": "", "clientName": "Alice", "clientPhone": "+7 (999) 111-22-33", "service": "Мойка базовая", "serviceId": "s1", "dat` (стр. 80)
 
 ### backend/app/__init__.py (1 строк)
 
@@ -3448,16 +3438,13 @@ concept1.0/
 ## Скрипты и корневые файлы
 
 - `scripts/generate_project_map.py`
-- `.tmp_check_head.js`
 - `app.py`
 - `flip_push_permission.py`
 
 ## Недавно изменённые файлы
 
-- `.tmp_check_head.js` (2026-08-17 17:02)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-17 16:59)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-17 16:58)
-- `backend/_verify_booking_slot.py` (2026-08-17 16:56)
 - `frontend/src/styles/theme.css` (2026-08-17 16:53)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-17 16:53)
 - `backend/tests/test_booking_logic.py` (2026-08-17 16:53)
@@ -3469,3 +3456,5 @@ concept1.0/
 - `frontend/src/app/components/owner/_OwnerApp.work.bak.tsx` (2026-08-17 16:17)
 - `frontend/src/app/components/shared/Atmosfera.tsx` (2026-08-17 16:11)
 - `backend/tests/test_piggy_bank_adjust.py` (2026-08-17 16:05)
+- `_worker_excerpt.txt` (2026-08-17 16:05)
+- `_client_excerpt.txt` (2026-08-17 16:04)
