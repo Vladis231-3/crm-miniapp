@@ -712,6 +712,10 @@ export function OwnerApp() {
   const [walletDateFrom, setWalletDateFrom] = useState('');
   const [walletDateTo, setWalletDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
+  const [showPiggyAdjust, setShowPiggyAdjust] = useState(false);
+  const [piggyAdjustResourceGroup, setPiggyAdjustResourceGroup] = useState<'wash' | 'detailing'>('wash');
+  const [piggyAdjustCurrentBalance, setPiggyAdjustCurrentBalance] = useState(0);
+  const [piggyAdjustForm, setPiggyAdjustForm] = useState({ newBalance: '', purpose: '', date: todayLabel });
   const [showArchivesModal, setShowArchivesModal] = useState(false);
   const [selectedArchive, setSelectedArchive] = useState<WeeklyArchiveInfo | null>(null);
 
@@ -1162,6 +1166,48 @@ export function OwnerApp() {
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
     } catch (e: unknown) {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка');
+    }
+  }
+
+  const openPiggyAdjust = (resourceGroup: 'wash' | 'detailing') => {
+    const current = resourceGroup === 'wash'
+      ? (piggyBank?.remainingInPiggyBank ?? 0)
+      : (piggyBank?.detailing?.netPiggy ?? 0);
+    setPiggyAdjustResourceGroup(resourceGroup);
+    setPiggyAdjustCurrentBalance(Math.round(current));
+    setPiggyAdjustForm({ newBalance: String(Math.round(current)), purpose: '', date: todayLabel });
+    setShowPiggyAdjust(true);
+  };
+
+  async function handlePiggyAdjust() {
+    const newBalance = Number(piggyAdjustForm.newBalance);
+    if (!Number.isFinite(newBalance)) return;
+    const delta = Math.round(newBalance) - piggyAdjustCurrentBalance;
+    if (delta === 0) {
+      setShowPiggyAdjust(false);
+      setBottomToast('Сумма не изменилась');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+    try {
+      await apiRequest('/api/owner/piggy-bank/adjust', {
+        method: 'POST',
+        body: {
+          resourceGroup: piggyAdjustResourceGroup,
+          amount: delta,
+          purpose: piggyAdjustForm.purpose,
+          date: piggyAdjustForm.date,
+        },
+      });
+      setShowPiggyAdjust(false);
+      setPiggyAdjustForm({ newBalance: '', purpose: '', date: todayLabel });
+      await loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined);
+      await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
+      setBottomToast('Сумма копилки обновлена');
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (e: unknown) {
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка');
+      setTimeout(() => setBottomToast(null), 4000);
     }
   }
 
@@ -3878,8 +3924,8 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
                     { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
+                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
                     { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
                     { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
@@ -5319,7 +5365,15 @@ setOwnerNewBookingWorkers([]);
                   : 'Баланс · Детейлинг';
                 return (
                 <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
-                  <div className={`text-xs ${sub} mb-1`}>{tabLabel}</div>
+                  <div className={`text-xs ${sub} mb-1 flex items-center justify-center gap-2`}>
+                    {tabLabel}
+                    {piggyTab !== 'all' && (
+                      <button onClick={() => openPiggyAdjust(piggyTab)} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
+                        style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
+                        <Edit3 size={12} />
+                      </button>
+                    )}
+                  </div>
                   <div className="font-bold text-3xl" style={{ color: tabBalance >= 0 ? accent : '#FF6B6B' }}>
                     {tabBalance.toLocaleString('ru')} ₽
                   </div>
@@ -8981,6 +9035,49 @@ setOwnerNewBookingWorkers([]);
             </motion.div>
           </motion.div>
         )}
+
+        {/* ── PIGGY BANK ADJUST MODAL ── */}
+        {showPiggyAdjust && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">
+                  Изменить сумму · {piggyAdjustResourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}
+                </h3>
+                <button onClick={() => setShowPiggyAdjust(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+              </div>
+              <div className={`text-sm mb-4 p-3 rounded-xl ${glass} flex justify-between`}>
+                <span className={sub}>Текущий баланс</span>
+                <span className="font-semibold" style={{ color: piggyAdjustCurrentBalance >= 0 ? accent : '#FF6B6B' }}>
+                  {piggyAdjustCurrentBalance.toLocaleString('ru')} ₽
+                </span>
+              </div>
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Новая сумма (₽)</label>
+                  <input className={inputCls} type="number" placeholder="0" value={piggyAdjustForm.newBalance} onChange={e => setPiggyAdjustForm(p => ({ ...p, newBalance: e.target.value }))} />
+                </div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={piggyAdjustForm.purpose} onChange={e => setPiggyAdjustForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
+                  <input className={inputCls} type="date" value={toISODate(piggyAdjustForm.date)} onChange={e => {
+                    const val = parseFlexibleDate(e.target.value);
+                    setPiggyAdjustForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
+                  }} />
+                  {piggyAdjustForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null) && (
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => { void handlePiggyAdjust(); }} disabled={!piggyAdjustForm.newBalance || Number.isNaN(Number(piggyAdjustForm.newBalance)) || !piggyAdjustForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null}
+                className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+                Сохранить
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ── ARCHIVES MODAL ── */}
@@ -10383,7 +10480,7 @@ setOwnerNewBookingWorkers([]);
                 <div className="space-y-3">
                   {statusListItems.map(booking => (
                     <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
-                      onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }}
+                      onClick={() => { setSelectedBooking(booking); setShowStatusList(null); setShowBookingDetail(true); }}
                       className={`${glass} rounded-2xl p-4 w-full text-left`}>
                       <div className="flex items-start gap-3">
                         <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />

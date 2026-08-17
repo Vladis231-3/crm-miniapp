@@ -293,6 +293,8 @@ from .schemas import (
 
     PiggyBankResponse,
 
+    PiggyBankAdjustRequest,
+
     PiggyBankTransactionPayload,
 
     PiggyBankWashBreakdown,
@@ -13877,6 +13879,8 @@ def get_piggy_bank(
 
         booking_info = None
 
+        b = None
+
         if t.booking_id:
 
             b = db.get(Booking, t.booking_id)
@@ -14083,6 +14087,16 @@ def get_piggy_bank(
     general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "general")
     general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general")
     general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals
+
+    # Manual adjustments (transaction_type == "adjust") — affect every bucket
+    detailing_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "detailing")
+    wash_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "wash")
+    general_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "general")
+
+    remaining = remaining + wash_adjustments
+    net_piggy = net_piggy + detailing_adjustments
+    wash_net_piggy = wash_net_piggy + wash_adjustments
+    general_net_piggy = general_net_piggy + general_adjustments
 
     combined_balance = remaining + net_piggy + general_net_piggy
 
@@ -14405,6 +14419,118 @@ def piggy_bank_withdraw(
         bookingPrice=booking.price,
 
         bookingStatus=booking.status,
+
+    )
+
+
+
+
+
+@app.post("/api/owner/piggy-bank/adjust", response_model=PiggyBankTransactionPayload)
+
+def piggy_bank_adjust(
+
+    payload: PiggyBankAdjustRequest,
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> PiggyBankTransactionPayload:
+
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+
+
+
+    if payload.amount == 0:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_400_BAD_REQUEST,
+
+            detail="Сумма корректировки не может быть равна нулю",
+
+        )
+
+
+
+    date = payload.date or datetime.now().strftime("%d.%m.%Y")
+
+
+
+    transaction = PiggyBankTransaction(
+
+        id=f"pb-{uuid4()}",
+
+        booking_id=None,
+
+        amount=payload.amount,
+
+        transaction_type="adjust",
+
+        purpose=payload.purpose.strip() or "Корректировка копилки",
+
+        material_name=None,
+
+        material_cost=None,
+
+        date=date,
+
+        resource_group=payload.resourceGroup,
+
+        created_at=_now(),
+
+    )
+
+
+
+    db.add(transaction)
+
+    db.commit()
+
+    db.refresh(transaction)
+
+
+
+    return PiggyBankTransactionPayload(
+
+        id=transaction.id,
+
+        bookingId=transaction.booking_id,
+
+        amount=transaction.amount,
+
+        transactionType=transaction.transaction_type,
+
+        purpose=transaction.purpose,
+
+        materialName=transaction.material_name,
+
+        materialCost=transaction.material_cost,
+
+        date=transaction.date,
+
+        resourceGroup=transaction.resource_group,
+
+        createdAt=transaction.created_at,
+
+        bookingInfo=None,
+
+        bookingClientName=None,
+
+        bookingService=None,
+
+        bookingDate=None,
+
+        bookingTime=None,
+
+        bookingCar=None,
+
+        bookingPlate=None,
+
+        bookingPrice=None,
+
+        bookingStatus=None,
 
     )
 

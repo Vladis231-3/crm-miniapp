@@ -1498,6 +1498,21 @@ class PiggyBankWithdrawRequest(BaseModel):
         return value.strip()
 
 
+class PiggyBankAdjustRequest(BaseModel):
+    resourceGroup: str = Field(pattern=r"^(wash|detailing|general)$")
+    amount: float = Field(ge=-10_000_000, le=10_000_000)
+    purpose: str = ""
+    date: str = ""
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        stripped = value.strip()
+        if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return stripped
+
+
 class PiggyBankWashBreakdown(BaseModel):
     selfServiceRevenue: float = 0
     selfServiceMaster: float = 0
