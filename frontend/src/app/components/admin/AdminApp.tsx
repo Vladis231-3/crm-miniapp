@@ -1112,9 +1112,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     const detailingBooking = isDetailingService(editServiceId, services);
     const requiresScheduledSlot = !detailingBooking || editBookingDraft.status !== 'admin_review';
     if (requiresScheduledSlot) {
-      const dateChanged = editBookingDraft.date !== selectedBooking.date;
-      const timeChanged = editBookingDraft.time !== selectedBooking.time;
-      if (dateChanged || timeChanged) {
+      const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(editBookingDraft.status);
+      const slotChanged = editBookingDraft.date !== selectedBooking.date || editBookingDraft.time !== selectedBooking.time;
+      if (statusNeedsSlot || slotChanged) {
         const validationErrors = validateBookingDateForEdit(editBookingDraft.date, editBookingDraft.time, selectedBooking.duration);
         if (validationErrors.date || validationErrors.time) {
           setEditBookingError(validationErrors.date || validationErrors.time || 'Проверьте дату и время');

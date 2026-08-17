@@ -3063,6 +3063,39 @@ setOwnerNewBookingWorkers([]);
     }
   };
 
+  const validateOwnerEditSlot = (
+    dateValue: string,
+    timeValue: string,
+    durationMinutes: number,
+  ): { date?: string; time?: string } => {
+    const nextErrors: { date?: string; time?: string } = {};
+    const parsedDate = parseFlexibleDate(dateValue.trim());
+    if (!parsedDate) {
+      nextErrors.date = 'Укажите дату в формате ДД.ММ.ГГГГ';
+      return nextErrors;
+    }
+    const scheduleDay = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
+    if (!scheduleDay || !scheduleDay.active) {
+      nextErrors.date = 'На выбранную дату запись недоступна';
+    }
+    const slotStart = parseOwnerBookingMinutes(timeValue.trim());
+    if (slotStart === null) {
+      nextErrors.time = 'Укажите время в формате ЧЧ:ММ';
+      return nextErrors;
+    }
+    if (!nextErrors.date && scheduleDay) {
+      const openMinutes = parseOwnerBookingMinutes(scheduleDay.open);
+      const closeMinutes = parseOwnerBookingMinutes(scheduleDay.close);
+      const slotEnd = slotStart + Math.max(1, durationMinutes);
+      if (openMinutes === null || closeMinutes === null) {
+        nextErrors.time = 'Для этого дня не настроены часы работы';
+      } else if (slotStart < openMinutes || slotEnd > closeMinutes) {
+        nextErrors.time = `Рабочее время: ${scheduleDay.open}-${scheduleDay.close}`;
+      }
+    }
+    return nextErrors;
+  };
+
   const handleSaveOwnerBookingEdit = async () => {
     if (!selectedBooking || !ownerBookingEditMode) return;
     setOwnerBookingEditSaving(true);
@@ -3074,6 +3107,21 @@ setOwnerNewBookingWorkers([]);
         const svc = services.find(s => s.id === editServiceId);
         const isDetailing = svc?.category === 'Детейлинг';
         const requiresScheduledSlot = !isDetailing || ownerBookingEditFull.status !== 'admin_review';
+        const slotChanged = ownerBookingEditFull.date !== selectedBooking.date
+          || ownerBookingEditFull.time !== selectedBooking.time
+          || ownerBookingEditFull.duration !== selectedBooking.duration;
+        const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerBookingEditFull.status);
+        if (slotChanged || statusNeedsSlot) {
+          const slotErrors = validateOwnerEditSlot(ownerBookingEditFull.date, ownerBookingEditFull.time, ownerBookingEditFull.duration);
+          if (slotErrors.date || slotErrors.time) {
+            setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'Проверьте дату и время');
+            return;
+          }
+        }
+        if (requiresScheduledSlot && !ownerBookingEditFull.box.trim()) {
+          setOwnerBookingEditError('Укажите бокс для записи');
+          return;
+        }
         patch = {
           status: ownerBookingEditFull.status,
           date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : '',
@@ -3110,6 +3158,15 @@ setOwnerNewBookingWorkers([]);
         if (!ownerBookingEditDate || !parseFlexibleDate(ownerBookingEditDate)) {
           setOwnerBookingEditError('Введите корректную дату');
           return;
+        }
+        const slotChanged = ownerBookingEditDate !== selectedBooking.date || ownerBookingEditTime !== selectedBooking.time;
+        const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(selectedBooking.status);
+        if (slotChanged || statusNeedsSlot) {
+          const slotErrors = validateOwnerEditSlot(ownerBookingEditDate, ownerBookingEditTime, selectedBooking.duration);
+          if (slotErrors.date || slotErrors.time) {
+            setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'Проверьте дату и время');
+            return;
+          }
         }
         patch = { date: ownerBookingEditDate, time: ownerBookingEditTime };
       }
