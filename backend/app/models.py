@@ -243,6 +243,8 @@ class BookingAdditionalService(Base):
     duration: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(32), default="pending")
     price_mode: Mapped[str] = mapped_column(String(8), default="add")
+    is_outsource: Mapped[bool] = mapped_column(Boolean, default=False)
+    outsource_amount: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

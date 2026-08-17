@@ -2039,6 +2039,22 @@ def _apply_runtime_migrations() -> None:
                     )
                 )
                 conn.commit()
+        if "is_outsource" not in bas_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE booking_additional_services ADD COLUMN is_outsource BOOLEAN NOT NULL DEFAULT 0"
+                    )
+                )
+                conn.commit()
+        if "outsource_amount" not in bas_cols:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE booking_additional_services ADD COLUMN outsource_amount INTEGER DEFAULT NULL"
+                    )
+                )
+                conn.commit()
 
     if "owner_profit_shares" in inspector.get_table_names():
         ops_cols = {col["name"] for col in inspector.get_columns("owner_profit_shares")}
@@ -4146,6 +4162,10 @@ def _booking_payload(
             status=asvc.status,
 
             priceMode=asvc.price_mode or "add",
+
+            isOutsource=asvc.is_outsource,
+
+            outsourceAmount=asvc.outsource_amount,
 
             createdAt=asvc.created_at,
 
@@ -8552,21 +8572,7 @@ def _normalize_service_and_box_resources(db: Session) -> None:
 
     changed = False
 
-
-
-    services = db.scalars(select(Service)).all()
-
-    for service in services:
-
-        expected_group = _default_service_resource_group(service)
-
-        if _resource_group_key(service.resource_group) != expected_group:
-
-            service.resource_group = expected_group
-
-            changed = True
-
-
+    # Группа ресурсов услуг больше не привязывается к категории принудительно.
 
     boxes = db.scalars(select(Box).order_by(Box.name.asc())).all()
 
@@ -10190,15 +10196,8 @@ def create_booking(
 
             )
 
-        if service is None or not service.active:
-
-            raise HTTPException(
-
-                status_code=status.HTTP_404_NOT_FOUND,
-
-                detail="Услуга не найдена или недоступна",
-
-            )
+        # Ограничение на существование/активность услуги снято: клиент может
+        # записаться даже если услуги нет в каталоге или она неактивна.
 
         booking_client_name = client.name
 
@@ -10210,13 +10209,13 @@ def create_booking(
 
         booking_plate_type = payload.plateType or client.plate_type or "russian"
 
-        booking_service = service.name
+        booking_service = service.name if service is not None else (payload.service or "")
 
-        booking_service_id = service.id
+        booking_service_id = service.id if service is not None else (payload.serviceId or "")
 
-        booking_duration = service.duration
+        booking_duration = service.duration if service is not None else payload.duration
 
-        booking_price = service.price
+        booking_price = service.price if service is not None else payload.price
 
         if is_box_rental:
 
@@ -10758,6 +10757,19 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
     return 0
 
 
+def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
+    """Сколько уходит с доп. услуги: аутсорсеру или мастерам (фикс/процент)."""
+    if asvc.is_outsource:
+        return int(asvc.outsource_amount or 0)
+    total = 0
+    for alink in asvc.worker_links:
+        if alink.pay_type == "fixed":
+            total += int(alink.fixed_amount or 0)
+        else:
+            total += round(asvc.price * (alink.percent or 0) / 100)
+    return total
+
+
 def _booking_money_split(
     db: Session,
     booking: Booking,
@@ -10889,12 +10901,7 @@ def _booking_money_split(
     for asvc in (booking.additional_services or []):
         if asvc.price_mode != "subtract":
             continue
-        asvc_pays = 0
-        for alink in asvc.worker_links:
-            if alink.pay_type == "fixed":
-                asvc_pays += int(alink.fixed_amount or 0)
-            else:
-                asvc_pays += round(asvc.price * (alink.percent or 0) / 100)
+        asvc_pays = _asvc_paid_amount(asvc)
         asvc_deposit = max(0, int(asvc.price) - asvc_pays)
         if asvc_deposit > 0:
             asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
@@ -10914,12 +10921,7 @@ def _booking_money_split(
     for asvc in (booking.additional_services or []):
         if asvc.price_mode == "subtract":
             continue
-        asvc_pays = 0
-        for alink in asvc.worker_links:
-            if alink.pay_type == "fixed":
-                asvc_pays += int(alink.fixed_amount or 0)
-            else:
-                asvc_pays += round(asvc.price * (alink.percent or 0) / 100)
+        asvc_pays = _asvc_paid_amount(asvc)
         asvc_remainder = max(0, int(asvc.price) - asvc_pays)
         if asvc_remainder <= 0:
             continue
@@ -12226,7 +12228,6 @@ def add_booking_additional_service(
             status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
 
         )
-
     asvc = BookingAdditionalService(
 
         id=str(uuid4()),
@@ -12245,28 +12246,35 @@ def add_booking_additional_service(
 
         price_mode=payload.priceMode or "add",
 
+        is_outsource=payload.isOutsource,
+
+        outsource_amount=payload.outsourceAmount,
+
         created_at=_now(),
 
     )
 
-    for w in payload.workers:
+    if not payload.isOutsource:
 
-        asvc.worker_links.append(
+        for w in payload.workers:
 
-            AdditionalServiceWorker(
+            asvc.worker_links.append(
 
-                worker_id=w.workerId,
+                AdditionalServiceWorker(
 
-                worker_name=w.workerName,
+                    worker_id=w.workerId,
 
-                percent=clamp_worker_percent(w.percent),
-                pay_type=w.payType or "percent",
-                fixed_amount=w.fixedAmount,
+                    worker_name=w.workerName,
+
+                    percent=clamp_worker_percent(w.percent),
+
+                    pay_type=w.payType or "percent",
+
+                    fixed_amount=w.fixedAmount,
+
+                )
 
             )
-
-        )
-
     db.add(asvc)
 
     if (payload.priceMode or "add") != "subtract":
@@ -12390,18 +12398,26 @@ def update_booking_additional_service(
             status_code=status.HTTP_404_NOT_FOUND, detail="Additional service not found"
         )
 
+    if payload.isOutsource is not None:
+        asvc.is_outsource = payload.isOutsource
+        if payload.isOutsource:
+            asvc.worker_links.clear()
+    if payload.outsourceAmount is not None:
+        asvc.outsource_amount = payload.outsourceAmount
+
     if payload.workers is not None:
         asvc.worker_links.clear()
-        for w in payload.workers:
-            asvc.worker_links.append(
-                AdditionalServiceWorker(
-                    worker_id=w.workerId,
-                    worker_name=w.workerName,
-                    percent=clamp_worker_percent(w.percent),
-                    pay_type=w.payType or "percent",
-                    fixed_amount=w.fixedAmount,
+        if not asvc.is_outsource:
+            for w in payload.workers:
+                asvc.worker_links.append(
+                    AdditionalServiceWorker(
+                        worker_id=w.workerId,
+                        worker_name=w.workerName,
+                        percent=clamp_worker_percent(w.percent),
+                        pay_type=w.payType or "percent",
+                        fixed_amount=w.fixedAmount,
+                    )
                 )
-            )
 
     if payload.name is not None:
         asvc.name = payload.name
@@ -16339,17 +16355,9 @@ def save_services(
 
         service.duration = item.duration
 
-        # Категория — источник истины для resourceGroup.
+        # Группа ресурсов сохраняется как запрошено, без привязки к категории.
 
-        expected_group = _resource_group_for_service_category(item.category)
-
-        requested_group = _resource_group_key(item.resourceGroup)
-
-        service.resource_group = (
-
-            requested_group if requested_group == expected_group else expected_group
-
-        )
+        service.resource_group = _resource_group_key(item.resourceGroup)
 
         service.wash_type = item.washType or ""
 
@@ -17809,6 +17817,8 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
                 price=int(a.price),
                 priceMode=a.price_mode or "add",
                 duration=a.duration or 0,
+                isOutsource=a.is_outsource,
+                outsourceAmount=a.outsource_amount,
             )
             for a in add_services
         ],

@@ -405,8 +405,8 @@ class BookingWorkerPayload(BaseModel):
 class BookingServiceItem(BaseModel):
     name: str
     serviceId: str
-    price: float = Field(ge=0)
-    duration: int = Field(gt=0)
+    price: float
+    duration: int
 
 
 class AdditionalServiceWorkerPayload(BaseModel):
@@ -425,6 +425,8 @@ class AdditionalServicePayload(BaseModel):
     duration: int
     status: str = "pending"
     priceMode: str = "add"
+    isOutsource: bool = False
+    outsourceAmount: int | None = None
     createdAt: datetime
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
@@ -432,17 +434,21 @@ class AdditionalServicePayload(BaseModel):
 class AddAdditionalServiceRequest(BaseModel):
     serviceId: str | None = None
     name: str
-    price: int = Field(ge=0)
-    duration: int = Field(gt=0)
+    price: int
+    duration: int
     priceMode: str = "add"
+    isOutsource: bool = False
+    outsourceAmount: int | None = None
     workers: list[AdditionalServiceWorkerPayload] = Field(default_factory=list)
 
 
 class UpdateAdditionalServiceRequest(BaseModel):
     name: str | None = None
-    price: int | None = Field(default=None, ge=0)
-    duration: int | None = Field(default=None, gt=0)
+    price: int | None = None
+    duration: int | None = None
     priceMode: str | None = None
+    isOutsource: bool | None = None
+    outsourceAmount: int | None = None
     workers: list[AdditionalServiceWorkerPayload] | None = None
 
 
@@ -956,8 +962,8 @@ class BookingCreateRequest(BaseModel):
     serviceId: str
     date: str
     time: str
-    duration: int = Field(gt=0)
-    price: int = Field(ge=0)
+    duration: int
+    price: int
     status: BookingStatus
     workers: list[BookingWorkerPayload] = Field(default_factory=list)
     box: str
@@ -997,8 +1003,8 @@ class BookingCreateRequest(BaseModel):
 class AddBookingServiceRequest(BaseModel):
     name: str
     serviceId: str
-    price: int = Field(ge=0)
-    duration: int = Field(gt=0)
+    price: int
+    duration: int
 
 
 class BookingUpdateRequest(BaseModel):
@@ -1008,8 +1014,8 @@ class BookingUpdateRequest(BaseModel):
     serviceId: str | None = None
     date: str | None = None
     time: str | None = None
-    duration: int | None = Field(default=None, gt=0)
-    price: int | None = Field(default=None, ge=0)
+    duration: int | None = None
+    price: int | None = None
     status: BookingStatus | None = None
     workers: list[BookingWorkerPayload] | None = None
     box: str | None = None
@@ -1703,6 +1709,8 @@ class BookingAdditionalServiceItem(BaseModel):
     price: int
     priceMode: str = "add"
     duration: int = 0
+    isOutsource: bool = False
+    outsourceAmount: int | None = None
 
 
 class BookingAsvcPiggyItem(BaseModel):

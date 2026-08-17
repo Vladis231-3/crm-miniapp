@@ -83,7 +83,7 @@ interface MoneySplitWorkerItem {
 }
 interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; shareId?: string; }
 interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; resourceGroup: string; date: string; bookingId?: string | null; bookingInfo?: string | null; createdAt?: string; }
-interface AdditionalServiceItem { name: string; price: number; priceMode: string; duration: number; }
+interface AdditionalServiceItem { name: string; price: number; priceMode: string; duration: number; isOutsource?: boolean; outsourceAmount?: number; }
 interface AsvcPiggyItem { name: string; resourceGroup: string; amount: number; }
 interface AsvcWorkerItem {
   linkId: number; workerId: string; workerName: string; percent: number;
@@ -983,14 +983,14 @@ export function OwnerApp() {
 
   // Add additional service state
   const [showOwnerAddService, setShowOwnerAddService] = useState(false);
-  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract' });
+  const [ownerAddServiceDraft, setOwnerAddServiceDraft] = useState({ serviceId: '', price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0 });
   const [ownerAddServiceWorkers, setOwnerAddServiceWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerAddServiceSaving, setOwnerAddServiceSaving] = useState(false);
   const [ownerAddServiceError, setOwnerAddServiceError] = useState<string | null>(null);
 
   // Edit additional service state
   const [ownerEditAsvcId, setOwnerEditAsvcId] = useState<string | null>(null);
-  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract' });
+  const [ownerEditAsvcDraft, setOwnerEditAsvcDraft] = useState({ price: 0, duration: 30, priceMode: 'add' as 'add' | 'subtract', isOutsource: false, outsourceAmount: 0 });
   const [ownerEditAsvcWorkers, setOwnerEditAsvcWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerEditAsvcSaving, setOwnerEditAsvcSaving] = useState(false);
   const [ownerEditAsvcError, setOwnerEditAsvcError] = useState<string | null>(null);
@@ -2857,11 +2857,6 @@ export function OwnerApp() {
     const clientPhone = bookingForm.clientPhone.trim();
     const normalizedCar = normalizeVehicleInput(bookingForm.car);
     const normalizedPlate = normalizePlateInput(bookingForm.plate, bookingForm.plateType);
-    if (!svc) {
-      setBottomToast('Выберите услугу');
-      setTimeout(() => setBottomToast(null), 3000);
-      return;
-    }
     if (!clientName) {
       setBottomToast('Укажите имя клиента');
       setTimeout(() => setBottomToast(null), 3000);
@@ -2886,11 +2881,11 @@ export function OwnerApp() {
         clientId: bookingForm.clientId,
         clientName,
         clientPhone,
-        service: svc.name,
+        service: svc?.name || bookingForm.service,
         serviceId: bookingForm.service,
         date: bookingForm.date.trim(),
         time: bookingForm.time.trim(),
-        duration: bookingForm.duration || svc.duration,
+        duration: bookingForm.duration || svc?.duration || 30,
         price: bookingForm.price,
         status: bookingForm.status,        workers: selectedWorkers,
         box: bookingForm.box.trim(),
@@ -2905,7 +2900,7 @@ export function OwnerApp() {
         notifyWorkers: !bookingForm.isOutsource && notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
-        await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc.name} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
+        await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc?.name || bookingForm.service} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
         await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientName} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
       }
       setShowCreateBooking(false);
@@ -2993,9 +2988,7 @@ setOwnerNewBookingWorkers([]);
       if (!hasDate) nextErrors.date = 'Укажите дату или очистите дату и время';
       else if (!hasTime) nextErrors.time = 'Укажите время или очистите дату и время';
     }
-    if (!ownerNewBookingForm.serviceId) nextErrors.general = 'Выберите услугу';
     if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
-    if (!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) nextErrors.general = 'Сумма процентов мастеров не должна превышать 100%';
     setOwnerNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -3146,7 +3139,7 @@ setOwnerNewBookingWorkers([]);
   };
 
   const handleOpenOwnerAddService = () => {
-    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add' });
+    setOwnerAddServiceDraft({ serviceId: '', price: 0, duration: 30, priceMode: 'add', isOutsource: false, outsourceAmount: 0 });
     setOwnerAddServiceWorkers([]);
     setOwnerAddServiceError(null);
     setOwnerAddServiceSaving(false);
@@ -3154,10 +3147,7 @@ setOwnerNewBookingWorkers([]);
   };
 
   const handleAddOwnerService = async () => {
-    if (!selectedBooking || !ownerAddServiceDraft.serviceId) {
-      setOwnerAddServiceError('Выберите услугу');
-      return;
-    }
+    if (!selectedBooking) return;
     setOwnerAddServiceSaving(true);
     setOwnerAddServiceError(null);
     try {
@@ -3172,7 +3162,9 @@ setOwnerNewBookingWorkers([]);
         price: ownerAddServiceDraft.price,
         duration: ownerAddServiceDraft.duration,
         priceMode: ownerAddServiceDraft.priceMode,
-        workers: workersList,
+        isOutsource: ownerAddServiceDraft.isOutsource,
+        outsourceAmount: ownerAddServiceDraft.isOutsource ? ownerAddServiceDraft.outsourceAmount : 0,
+        workers: ownerAddServiceDraft.isOutsource ? [] : workersList,
       });
       setSelectedBooking(updatedBooking);
       setShowOwnerAddService(false);
@@ -3185,7 +3177,7 @@ setOwnerNewBookingWorkers([]);
 
   const handleOpenOwnerEditAsvc = (asvc: AdditionalService) => {
     setOwnerEditAsvcId(asvc.id);
-    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add' });
+    setOwnerEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add', isOutsource: !!asvc.isOutsource, outsourceAmount: asvc.outsourceAmount || 0 });
     setOwnerEditAsvcWorkers(asvc.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
     setOwnerEditAsvcError(null);
     setOwnerEditAsvcSaving(false);
@@ -3204,7 +3196,9 @@ setOwnerNewBookingWorkers([]);
         price: ownerEditAsvcDraft.price,
         duration: ownerEditAsvcDraft.duration,
         priceMode: ownerEditAsvcDraft.priceMode,
-        workers: workersList,
+        isOutsource: ownerEditAsvcDraft.isOutsource,
+        outsourceAmount: ownerEditAsvcDraft.isOutsource ? ownerEditAsvcDraft.outsourceAmount : 0,
+        workers: ownerEditAsvcDraft.isOutsource ? [] : workersList,
       });
       setSelectedBooking(updatedBooking);
       setOwnerEditAsvcId(null);
@@ -6275,7 +6269,7 @@ setOwnerNewBookingWorkers([]);
                       </div>
                       {splitDetail.additionalServices.map(a => (
                         <div key={`${a.name}-${a.price}`} className="flex justify-between text-xs">
-                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}</span>
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
                           <span className="font-medium">{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
@@ -6296,7 +6290,7 @@ setOwnerNewBookingWorkers([]);
                       <div className="flex justify-between text-xs"><span className={sub}>Основная услуга</span><span>{splitDetail.mainPrice.toLocaleString('ru')} ₽</span></div>
                       {splitDetail.additionalServices.map(a => (
                         <div key={`calc-${a.name}-${a.price}`} className="flex justify-between text-xs">
-                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}</span>
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
                           <span>{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
@@ -6751,7 +6745,7 @@ setOwnerNewBookingWorkers([]);
                             </div>
                             {b.additionalServices.map(a => (
                               <div key={`${b.id}-${a.name}`} className="flex justify-between text-[11px] mt-1">
-                                <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}</span>
+                                <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
                                 <span className="font-medium">{a.priceMode === 'subtract' ? '−' : '+'}{a.price.toLocaleString('ru')} ₽</span>
                               </div>
                             ))}
@@ -9915,15 +9909,22 @@ setOwnerNewBookingWorkers([]);
                             <span className="font-medium">{as.name}</span>
                             <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
-                          {as.workers.map(w => {
-                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
-                            return (
-                              <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
-                                <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
-                              </div>
-                            );
-                          })}
+                          {as.isOutsource ? (
+                            <div className="flex justify-between items-center mt-1">
+                              <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
+                              <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                            </div>
+                          ) : (
+                            as.workers.map(w => {
+                              const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
+                              return (
+                                <div key={w.workerId} className="flex justify-between items-center mt-1">
+                                  <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                                  <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
+                                </div>
+                              );
+                            })
+                          )}
                           <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">
                             Удалить
                           </button>
@@ -9956,7 +9957,7 @@ setOwnerNewBookingWorkers([]);
                       <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                         <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
                         {(selectedBooking.additionalServices || []).map(as => (
-                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
+                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}{as.isOutsource ? ' (аутсорс)' : ''}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                         {(selectedBooking.services || []).filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
                           <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
@@ -10445,6 +10446,31 @@ setOwnerNewBookingWorkers([]);
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
+              {/* ── Аутсорс ── */}
+              <div className="mb-2">
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Аутсорс</span>
+                  <input
+                    type="checkbox"
+                    checked={ownerAddServiceDraft.isOutsource}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setOwnerAddServiceDraft(p => ({ ...p, isOutsource: checked }));
+                      if (checked) setOwnerAddServiceWorkers([]);
+                    }}
+                  />
+                </label>
+                {ownerAddServiceDraft.isOutsource && (
+                  <div className="mt-2">
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
+                    <input className={inputCls} type="number" min={0} value={numberInputValue(ownerAddServiceDraft.outsourceAmount)}
+                      onChange={e => setOwnerAddServiceDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
+                  </div>
+                )}
+              </div>
+
+              {!ownerAddServiceDraft.isOutsource && (
+              <>
               {/* ── Мастера ── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -10499,6 +10525,8 @@ setOwnerNewBookingWorkers([]);
                   })}
                 </div>
               </div>
+              </>
+              )}
 
               {/* ── Итого ── */}
               {ownerAddServiceDraft.serviceId && (
@@ -10516,7 +10544,12 @@ setOwnerNewBookingWorkers([]);
                         <span className="text-sm font-semibold text-red-500">− {ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
                       </div>
                     )}
-                    {ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
+                    {ownerAddServiceDraft.isOutsource ? (
+                      <div className="flex justify-between items-center">
+                        <span className={`text-sm ${sub}`}>Аутсорсеру</span>
+                        <span className="text-sm font-medium text-red-500">− {ownerAddServiceDraft.outsourceAmount.toLocaleString('ru')} ₽</span>
+                      </div>
+                    ) : ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
                       const w = workers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
                       const earned = item.payType === 'fixed' ? (item.fixedAmount || 0) : Math.round(ownerAddServiceDraft.price * pct / 100);
@@ -10541,7 +10574,7 @@ setOwnerNewBookingWorkers([]);
 
               <div className="flex gap-2 mt-4">
                 <button onClick={() => setShowOwnerAddService(false)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
-                <button onClick={() => void handleAddOwnerService()} disabled={!ownerAddServiceDraft.serviceId || ownerAddServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
+                <button onClick={() => void handleAddOwnerService()} disabled={ownerAddServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
                   {ownerAddServiceSaving ? 'Добавление...' : 'Добавить'}
                 </button>
               </div>
@@ -10604,6 +10637,31 @@ setOwnerNewBookingWorkers([]);
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
+              {/* ── Аутсорс ── */}
+              <div className="mb-2">
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Аутсорс</span>
+                  <input
+                    type="checkbox"
+                    checked={ownerEditAsvcDraft.isOutsource}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setOwnerEditAsvcDraft(p => ({ ...p, isOutsource: checked }));
+                      if (checked) setOwnerEditAsvcWorkers([]);
+                    }}
+                  />
+                </label>
+                {ownerEditAsvcDraft.isOutsource && (
+                  <div className="mt-2">
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
+                    <input className={inputCls} type="number" min={0} value={numberInputValue(ownerEditAsvcDraft.outsourceAmount)}
+                      onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
+                  </div>
+                )}
+              </div>
+
+              {!ownerEditAsvcDraft.isOutsource && (
+              <>
               {/* ── Мастера ── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -10658,6 +10716,8 @@ setOwnerNewBookingWorkers([]);
                   })}
                 </div>
               </div>
+              </>
+              )}
 
               {ownerEditAsvcError && (
                 <div className="flex items-center gap-2 text-red-500 text-xs mt-2">

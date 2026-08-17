@@ -617,13 +617,19 @@ export function WorkerApp() {
                   <div className={`text-xs font-medium ${sub} mb-2`}>ДОП. УСЛУГИ</div>
                   {selectedTask.additionalServices.map(as => {
                     const isMyService = as.workers.some(w => w.workerId === workerId);
+                    const isOutsource = !!as.isOutsource;
                     return (
-                      <div key={as.id} className={`py-1.5 ${!isMyService ? 'opacity-50' : ''}`}>
+                      <div key={as.id} className={`py-1.5 ${!isMyService && !isOutsource ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium">{as.name}</span>
                           <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                         </div>
-                        {isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
+                        {isOutsource ? (
+                          <div className="flex justify-between items-center mt-0.5">
+                            <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
+                            <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                          </div>
+                        ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
                           <div key={w.workerId} className="flex justify-between items-center mt-0.5">
                             <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
                             <span className="text-xs font-medium text-green-500">+{(w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)).toLocaleString('ru')} ₽</span>

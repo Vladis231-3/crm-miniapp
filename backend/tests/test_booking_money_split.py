@@ -984,6 +984,178 @@ class BookingMoneySplitTests(unittest.TestCase):
             "вклад по add-услуге создан с пометкой услуги",
         )
 
+    def test_money_split_outsource_additional_service(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s1")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "percent"
+            svc.master_pay_value = 40
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 24
+            svc.split_order = []
+            svc.material_consumption = 0
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Outsource Add Client",
+                "clientPhone": "+7 (999) 555-66-77",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "15:00",
+                "duration": 30,
+                "price": 25000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        add_response = self.client.post(
+            f"/api/bookings/{booking['id']}/additional-services",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "serviceId": "s1",
+                "name": "Полировка фар",
+                "price": 5000,
+                "duration": 30,
+                "priceMode": "add",
+                "isOutsource": True,
+                "outsourceAmount": 2000,
+                "workers": [],
+            },
+        )
+        self.assertEqual(add_response.status_code, 200, add_response.text)
+        created_asvc = add_response.json()["additionalServices"][0]
+        self.assertTrue(created_asvc["isOutsource"], "флаг аутсорс сохраняется в ответе")
+        self.assertEqual(created_asvc["outsourceAmount"], 2000, "сумма аутсорсеру сохраняется в ответе")
+        self.assertEqual(created_asvc["workers"], [], "аутсорс не назначает мастеров")
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        split = self.get_split(booking["id"], self.owner_token)
+
+        self.assertEqual(split["price"], 30000, "add-услуга прибавляется к цене клиента")
+        self.assertEqual(split["mainPrice"], 25000)
+        self.assertEqual(split["splitBase"], 25000)
+        self.assertEqual(split["masterTotal"], 10000, "40% от 25 000 — аутсорсер не внутренний мастер")
+        self.assertEqual(split["asvcMasterPayTotal"], 0)
+        # Остаток add-услуги после выплаты аутсорсеру: 5000 − 2000 = 3000 → 24% = 720, владельцам 2280
+        self.assertEqual(split["asvcOwnerExtra"], 2280)
+        asvc_deposits = split["asvcPiggyDeposits"]
+        self.assertEqual(len(asvc_deposits), 1)
+        self.assertEqual(asvc_deposits[0]["amount"], 720)
+        self.assertEqual(split["piggyDeposit"], 6720, "24% от 25 000 + 720 за add-услугу")
+        self.assertEqual(split["ownersTotal"], 11280, "9000 остаток + 2280 доп. доля")
+        # Аутсорс-выплата не распределяется внутри: сумма = цена − сумма аутсорсеру
+        totalDistributed = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertEqual(totalDistributed, 28000, "распределено = цена (30000) − аутсорс (2000)")
+
+    def test_toggle_outsource_additional_service_via_patch(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Service
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s1")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "percent"
+            svc.master_pay_value = 40
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 24
+            svc.split_order = []
+            svc.material_consumption = 0
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Toggle Outsource Client",
+                "clientPhone": "+7 (999) 666-77-88",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "16:00",
+                "duration": 30,
+                "price": 25000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        add_response = self.client.post(
+            f"/api/bookings/{booking['id']}/additional-services",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "serviceId": "s1",
+                "name": "Полировка фар",
+                "price": 5000,
+                "duration": 30,
+                "priceMode": "add",
+                "isOutsource": True,
+                "outsourceAmount": 2000,
+                "workers": [],
+            },
+        )
+        self.assertEqual(add_response.status_code, 200, add_response.text)
+        asvc_id = add_response.json()["additionalServices"][0]["id"]
+
+        # Снять аутсорс и назначить мастера — мастера должны примениться
+        unset_response = self.client.patch(
+            f"/api/bookings/{booking['id']}/additional-services/{asvc_id}",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "isOutsource": False,
+                "outsourceAmount": 0,
+                "workers": [{"workerId": "w1", "workerName": "Иван", "payType": "fixed", "fixedAmount": 1200}],
+            },
+        )
+        self.assertEqual(unset_response.status_code, 200, unset_response.text)
+        patched = unset_response.json()["additionalServices"][0]
+        self.assertFalse(patched["isOutsource"])
+        self.assertEqual(len(patched["workers"]), 1, "при снятии аутсорса мастера назначаются")
+        self.assertEqual(patched["workers"][0]["fixedAmount"], 1200)
+
+        # Снова включить аутсорс — мастера очищаются
+        reoutsource_response = self.client.patch(
+            f"/api/bookings/{booking['id']}/additional-services/{asvc_id}",
+            headers=self.auth_headers(self.admin_token),
+            json={"isOutsource": True, "outsourceAmount": 2500},
+        )
+        self.assertEqual(reoutsource_response.status_code, 200, reoutsource_response.text)
+        reoutsourced = reoutsource_response.json()["additionalServices"][0]
+        self.assertTrue(reoutsourced["isOutsource"])
+        self.assertEqual(reoutsourced["outsourceAmount"], 2500)
+        self.assertEqual(reoutsourced["workers"], [], "аутсорс очищает назначенных мастеров")
+
     def test_service_mode_weights_respect_complaints(self) -> None:
         from datetime import timedelta, timezone
 

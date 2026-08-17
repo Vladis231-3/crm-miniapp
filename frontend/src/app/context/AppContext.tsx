@@ -152,6 +152,8 @@ export interface AdditionalService {
   duration: number;
   status: string;
   priceMode?: 'add' | 'subtract';
+  isOutsource?: boolean;
+  outsourceAmount?: number;
   createdAt: Date;
   workers: AdditionalServiceWorker[];
 }
@@ -162,6 +164,8 @@ export interface AddAdditionalServiceInput {
   price: number;
   duration: number;
   priceMode?: 'add' | 'subtract';
+  isOutsource?: boolean;
+  outsourceAmount?: number;
   workers: AdditionalServiceWorker[];
 }
 
