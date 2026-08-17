@@ -1365,7 +1365,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual([booking["id"] for booking in visible_bookings], [booking_id])
         self.assertEqual(visible_bookings[0]["status"], "completed")
 
-    def test_service_resource_group_syncs_from_service_type_on_save(self) -> None:
+    def test_service_resource_group_preserved_on_save(self) -> None:
         owner_token = self.login_staff("owner", "owner")
         bootstrap = self.client.get("/api/auth/session", headers=self.auth_headers(owner_token)).json()
         services = bootstrap["services"]
@@ -1380,7 +1380,7 @@ class BookingLogicTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         saved = next(service for service in response.json() if service["id"] == services[0]["id"])
-        self.assertEqual(saved["resourceGroup"], "detailing")
+        self.assertEqual(saved["resourceGroup"], "wash")
 
     def test_fired_worker_loses_access_and_future_assignments(self) -> None:
         admin_token = self.login_staff("admin", "admin")

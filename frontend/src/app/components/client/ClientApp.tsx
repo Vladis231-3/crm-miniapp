@@ -201,7 +201,8 @@ export function ClientApp() {
     setDetailingNote('');
   }, [selectedService?.id]);
 
-  const activeServices = services.filter((service) => service.active);
+  // Клиенту показываются все услуги, включая неактивные (ограничение снято).
+  const activeServices = services;
   const categories = ['Все', ...Array.from(new Set(activeServices.map((service) => service.category)))];
   const clientBookings = bookings.filter((booking) => booking.clientId === session?.actorId);
   const upcomingBookings = clientBookings.filter((booking) => UPCOMING_STATUSES.has(booking.status));

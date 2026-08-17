@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-17 11:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-17 12:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -276,7 +276,6 @@ concept1.0/
 ├── AGENTS.md
 ├── amvera.yml
 ├── app.py
-├── backup_outsource_asvc.patch
 ├── DEPLOY_AMVERA.md
 ├── DEPLOY_RENDER_SUPABASE.md
 ├── DEPLOY_VERCEL.md
@@ -3204,7 +3203,6 @@ concept1.0/
 - `backend/app/schemas.py` (2026-08-17 14:43)
 - `backend/app/main.py` (2026-08-17 14:37)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-17 14:36)
-- `backup_outsource_asvc.patch` (2026-08-17 14:35)
 - `backend/tests/test_booking_logic.py` (2026-08-17 14:24)
 - `scripts/.project-map-watch.lock` (2026-08-17 14:04)
 - `backend/tests/test_booking_money_split.py` (2026-08-14 15:57)
@@ -3213,3 +3211,4 @@ concept1.0/
 - `vercel.json` (2026-08-14 13:27)
 - `backend/tests/test_google_calendar_pull.py` (2026-08-14 13:19)
 - `backend/app/google_calendar.py` (2026-08-14 13:19)
+- `.gitignore` (2026-08-14 11:31)
