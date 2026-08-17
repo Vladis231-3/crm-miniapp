@@ -1312,6 +1312,81 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(client["name"], "")
         self.assertEqual(client["phone"], "")
 
+    def test_admin_cannot_create_scheduled_booking_without_date_and_time(self) -> None:
+        """Статус scheduled требует валидный слот при создании — иначе запись нельзя
+        впоследствии перевести в другой активный статус (400 «Укажите дату и время записи»)."""
+        admin_token = self.login_staff("admin", "admin")
+
+        response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Alice",
+                "clientPhone": "+7 (999) 111-22-33",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": "",
+                "time": "",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("Укажите корректные дату, время и длительность", response.json()["detail"])
+
+    def test_scheduled_booking_without_slot_cannot_be_moved_to_active_status(self) -> None:
+        """Слотless запись (устаревшие данные) не может быть переведена в активный статус:
+        PATCH отвечает 400 «Укажите дату и время записи» — фронтенд должен направлять
+        пользователя в полное редактирование, а не отправлять такой запрос."""
+        from app.database import SessionLocal
+        from app.models import Booking, Client
+
+        admin_token = self.login_staff("admin", "admin")
+        booking_id = f"b-{uuid4().hex}"
+        with SessionLocal() as db:
+            client = Client(
+                id=f"c-{uuid4().hex}",
+                name="Alice",
+                phone="+7 (999) 111-22-33",
+                registered=True,
+            )
+            booking = Booking(
+                id=booking_id,
+                client_id=client.id,
+                client_name=client.name,
+                client_phone=client.phone,
+                service="Мойка базовая",
+                service_id="s1",
+                date="",
+                time="",
+                duration=30,
+                price=1200,
+                status="scheduled",
+                box="Бокс 1",
+                payment_type="cash",
+                payment_settled=False,
+                services=[],
+                notes="",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add_all([client, booking])
+            db.commit()
+
+        response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={"status": "scheduled"},
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(response.json()["detail"], "Укажите дату и время записи")
+
     def test_owner_can_create_client_and_past_booking_visible_on_first_client_login(self) -> None:
         owner_token = self.login_staff("owner", "owner")
 

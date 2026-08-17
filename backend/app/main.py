@@ -10342,7 +10342,11 @@ def create_booking(
 
 
 
-    requires_scheduled_slot = _booking_requires_scheduled_slot(booking_status) and booking_status != "scheduled"
+    # Статусы из BOOKING_ACTIVE_STATUSES (включая "scheduled") требуют валидный слот при создании —
+    # иначе PATCH /api/bookings/{id} впоследствии не сможет перевести такую запись в другой активный
+    # статус (400 «Укажите дату и время записи»). Раньше "scheduled" был исключением из проверки,
+    # из-за чего появлялись записи без даты/времени, которые нельзя было редактировать.
+    requires_scheduled_slot = _booking_requires_scheduled_slot(booking_status)
 
     # Клиент всегда выбирает дату/время в интерфейсе — даже для записи «на уточнении»
     # сохраняем проверки слота (не в прошлом, в графике работы, свободный бокс)

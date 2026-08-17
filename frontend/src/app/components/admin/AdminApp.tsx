@@ -1475,6 +1475,43 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
           {/* CALENDAR */}
           {page === 'calendar' && (
+            <>
+            <section className="role-hero role-hero--admin mb-4">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div><div className="text-xs uppercase tracking-[.2em] opacity-70">Day command center</div><h2 className="mt-2 text-2xl font-semibold">╨г╨┐╤А╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨┤╨╜╤С╨╝</h2><p className="mt-1 text-sm opacity-80">╨а╨░╤Б╨┐╨╕╤Б╨░╨╜╨╕╨╡, ╨╕╤Б╨║╨╗╤О╤З╨╡╨╜╨╕╤П ╨╕ ╨▒╤Л╤Б╤В╤А╤Л╨╡ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╤П ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╨║╨╛╨╜╤В╤Г╤А╨╡.</p></div>
+                <div className="flex gap-2"><button onClick={() => setShowNewBooking(true)} className="semantic-primary-button bg-white text-slate-900"><Plus size={17}/> ╨Э╨╛╨▓╨░╤П ╨╖╨░╨┐╨╕╤Б╤М</button><button onClick={() => setPage(`clients`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm"><Search size={16} className="inline mr-2"/>╨Я╨╛╨╕╤Б╨║</button></div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 md:grid-cols-4">
+                <div><strong className="block text-2xl">{todayBookings.length}</strong><span className="text-xs opacity-70">╨╖╨░╨┐╨╕╤Б╨╡╨╣</span></div>
+                <div><strong className="block text-2xl">{todayBookings.filter(item => item.status === `in_progress`).length}</strong><span className="text-xs opacity-70">╨▓ ╤А╨░╨▒╨╛╤В╨╡</span></div>
+                <div><strong className="block text-2xl">{todayBookings.filter(item => item.status !== `completed` && item.status !== `in_progress`).length}</strong><span className="text-xs opacity-70">╨╛╨╢╨╕╨┤╨░╤О╤В</span></div>
+                <div><strong className="block text-2xl">{todayBookings.filter(item => item.status === `completed`).length}</strong><span className="text-xs opacity-70">╨│╨╛╤В╨╛╨▓╨╛</span></div>
+              </div>
+            </section>
+            <section className="mb-4 grid gap-3 md:grid-cols-2">
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Exception rail</div><h3 className="mt-1 font-semibold">╨в╤А╨╡╨▒╤Г╨╡╤В ╨▓╨╜╨╕╨╝╨░╨╜╨╕╤П</h3><button onClick={() => setPage(`calendar`)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-amber-500/10 p-3 text-left"><span>╨С╨╡╨╖ ╨╜╨░╨╖╨╜╨░╤З╨╡╨╜╨╜╨╛╨│╨╛ ╨╝╨░╤Б╤В╨╡╤А╨░</span><strong>{todayBookings.filter(item => !item.workers?.length).length}</strong></button><button onClick={() => setShowNotifications(true)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-red-500/10 p-3 text-left"><span>╨Э╨╡╨┐╤А╨╛╤З╨╕╤В╨░╨╜╨╜╤Л╨╡</span><strong>{unreadCount}</strong></button></div>
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Schedule pulse</div><h3 className="mt-1 font-semibold">╨С╨╗╨╕╨╢╨░╨╣╤И╨╕╨╡ ╤Б╨╗╨╛╤В╤Л</h3><div className="mt-3 space-y-2">{todayBookings.slice(0, 4).map(item => <button key={item.id} onClick={() => setSelectedBooking(item)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{item.time}</strong><span className="min-w-0 flex-1 truncate">{item.service}</span><ChevronRight size={16}/></button>)}</div></div>
+            </section>
+            <section className={`${glass} mb-4 rounded-2xl p-4`}>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Operational actions</div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <button onClick={() => setShowNewBooking(true)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <Plus size={18} />
+                  <strong className="mt-2 block">╨б╨╛╨╖╨┤╨░╤В╤М ╨╖╨░╨┐╨╕╤Б╤М</strong>
+                  <span className="text-xs text-muted-foreground">╨Ю╤В╨║╤А╤Л╤В╤М ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╤Г╤О ╤Д╨╛╤А╨╝╤Г</span>
+                </button>
+                <button onClick={() => setPage(`clients`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <Search size={18} />
+                  <strong className="mt-2 block">╨Э╨░╨╣╤В╨╕ ╨║╨╗╨╕╨╡╨╜╤В╨░</strong>
+                  <span className="text-xs text-muted-foreground">╨Я╨╡╤А╨╡╨╣╤В╨╕ ╨▓ ╨║╨╗╨╕╨╡╨╜╤В╤Б╨║╤Г╤О ╨▒╨░╨╖╤Г</span>
+                </button>
+                <button onClick={() => setPage(`stock`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <Package size={18} />
+                  <strong className="mt-2 block">╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╤Б╨║╨╗╨░╨┤</strong>
+                  <span className="text-xs text-muted-foreground">╨Ю╤Б╤В╨░╤В╨║╨╕ ╨╕ ╤Б╨┐╨╕╤Б╨░╨╜╨╕╤П</span>
+                </button>
+              </div>
+            </section>
             <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold">Сегодня — {todayLabel}</h2>
@@ -1538,6 +1575,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
               )}
             </motion.div>
+            </>
           )}
 
           {/* STATS */}

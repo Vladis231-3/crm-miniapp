@@ -2914,6 +2914,16 @@ export function OwnerApp() {
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
+    if (requiresScheduledSlot && !bookingForm.date.trim()) {
+      setBottomToast('Укажите дату записи');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+    if (requiresScheduledSlot && !bookingForm.time.trim()) {
+      setBottomToast('Укажите время записи');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
 
     const selectedWorkers = bookingWorkers
       .map((item) => {
@@ -3026,7 +3036,7 @@ setOwnerNewBookingWorkers([]);
     }
     const hasDate = Boolean(ownerNewBookingForm.date.trim());
     const hasTime = Boolean(ownerNewBookingForm.time.trim());
-    const requiresScheduledSlot = ['new', 'confirmed', 'in_progress'].includes(ownerNewBookingForm.status);
+    const requiresScheduledSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerNewBookingForm.status);
     if (requiresScheduledSlot) {
       if (!hasDate) nextErrors.date = 'Укажите дату записи';
       if (!hasTime) nextErrors.time = 'Укажите время записи';
@@ -3316,7 +3326,7 @@ setOwnerNewBookingWorkers([]);
     { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
     { label: 'Расходы за неделю', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
     { label: 'Прибыль за неделю', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
-    { label: 'На уточнении', value: pipelineCounts.adminReview, icon: Users, color: '#F59E0B' },
+    { label: 'На уточнении', value: pipelineCounts.adminReview, icon: Users, color: '#F59E0B', status: 'admin_review' as BookingStatus },
   ];
 
   const byService = services
@@ -3808,9 +3818,54 @@ setOwnerNewBookingWorkers([]);
 
           {/* ── DASHBOARD ── */}
           {page === 'dashboard' && (
+            <>
+            <section className="role-hero role-hero--owner mb-4">
+              <div className="flex flex-wrap items-end justify-between gap-4"><div><div className="text-xs uppercase tracking-[.2em] opacity-70">Executive command</div><h2 className="mt-2 text-3xl font-semibold">╨С╨╕╨╖╨╜╨╡╤Б ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╨║╨░╨┤╤А╨╡</h2><p className="mt-1 text-sm opacity-80">╨д╨╕╨╜╨░╨╜╤Б╤Л, ╤В╨╡╨╝╨┐ ╨╛╨┐╨╡╤А╨░╤Ж╨╕╨╣ ╨╕ ╤А╨╡╤И╨╡╨╜╨╕╤П ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░.</p></div><div className="flex gap-2"><button onClick={() => setPage(`reports`)} className="semantic-primary-button bg-white text-slate-900"><BarChart3 size={17}/> ╨Ю╤В╤З╤С╤В╤Л</button><button onClick={() => setPage(`calendar`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">╨Ю╨┐╨╡╤А╨░╤Ж╨╕╨╕</button></div></div>
+              <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 md:grid-cols-4"><div><span className="text-xs opacity-70">╨б╨╡╨│╨╛╨┤╨╜╤П</span><strong className="block text-2xl">{todayRevenue.toLocaleString(`ru`)} тВ╜</strong></div><div><span className="text-xs opacity-70">╨Э╨╡╨┤╨╡╨╗╤П</span><strong className="block text-2xl">{totalRevenue.toLocaleString(`ru`)} тВ╜</strong></div><div><span className="text-xs opacity-70">╨б╤А╨╡╨┤╨╜╨╕╨╣ ╤З╨╡╨║</span><strong className="block text-2xl">{averageCheck.toLocaleString(`ru`)} тВ╜</strong></div><div><span className="text-xs opacity-70">╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В</span><strong className="block text-2xl">{profit.toLocaleString(`ru`)} тВ╜</strong></div></div>
+            </section>
+            <section className="mb-4 grid gap-3 md:grid-cols-2">
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Approval & finance rail</div><h3 className="mt-1 font-semibold">╨в╤А╨╡╨▒╤Г╨╡╤В ╤А╨╡╤И╨╡╨╜╨╕╤П</h3><div className="mt-3 grid gap-2"><button onClick={() => setPage(`payroll`)} className="rounded-xl bg-amber-500/10 p-3 text-left">╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╨╜╨░╤З╨╕╤Б╨╗╨╡╨╜╨╕╤П ╨╕ ╨▓╤Л╨┐╨╗╨░╤В╤Л</button><button onClick={() => setPage(`piggy-bank`)} className="rounded-xl bg-emerald-500/10 p-3 text-left">╨Ю╤В╨║╤А╤Л╤В╤М ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╕╤П ╨╕ ╨┤╨▓╨╕╨╢╨╡╨╜╨╕╤П</button><div className="flex justify-between rounded-xl border border-current/10 p-3"><span>╨а╨░╤Б╤Е╨╛╨┤╤Л ╨╜╨╡╨┤╨╡╨╗╨╕</span><strong>{totalExpenses.toLocaleString(`ru`)} тВ╜</strong></div></div></div>
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Quick transitions</div><h3 className="mt-1 font-semibold">╨г╨┐╤А╨░╨▓╨╗╨╡╨╜╤З╨╡╤Б╨║╨╕╨╣ ╨╝╨░╤А╤И╤А╤Г╤В</h3><div className="mt-3 space-y-2"><button onClick={() => setPage(`stock`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>╨б╨║╨╗╨░╨┤ ╨╕ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕</span><ChevronRight size={17}/></button><button onClick={() => setPage(`clients`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>╨Ъ╨╗╨╕╨╡╨╜╤В╤Л</span><ChevronRight size={17}/></button><button onClick={() => setPage(`settings`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕</span><ChevronRight size={17}/></button></div></div>
+            </section>
+            <section className={`${glass} mb-4 rounded-2xl p-4`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Executive pulse</div>
+                  <h3 className="mt-1 font-semibold">╨Ю╨┐╨╡╤А╨░╤Ж╨╕╨╛╨╜╨╜╨░╤П ╨║╨░╤А╤В╨╕╨╜╨░ ╨┤╨╜╤П</h3>
+                </div>
+                <TrendingUp size={20} style={{ color: primary }} />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <button onClick={() => setPage(`calendar`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <strong className="block text-xl">{todayBookings.length}</strong>
+                  <span className="text-xs text-muted-foreground">╨╖╨░╨┐╨╕╤Б╨╡╨╣ ╤Б╨╡╨│╨╛╨┤╨╜╤П</span>
+                </button>
+                <button onClick={() => setPage(`reports`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <strong className="block text-xl">{weeklyCompletedBookings.length}</strong>
+                  <span className="text-xs text-muted-foreground">╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╛ ╨╖╨░ ╨╜╨╡╨┤╨╡╨╗╤О</span>
+                </button>
+                <button onClick={() => setPage(`clients`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <strong className="block text-xl">{clients.length}</strong>
+                  <span className="text-xs text-muted-foreground">╨║╨╗╨╕╨╡╨╜╤В╨╛╨▓ ╨▓ ╨▒╨░╨╖╨╡</span>
+                </button>
+                <button onClick={() => setPage(`stock`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
+                  <strong className="block text-xl">{workers.length}</strong>
+                  <span className="text-xs text-muted-foreground">╤Б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║╨╛╨▓ ╨▓ ╨║╨╛╨╜╤В╤Г╤А╨╡</span>
+                </button>
+              </div>
+            </section>
             <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="grid grid-cols-2 gap-3 mb-4">
-                {kpiCards.map(card => (
+                {kpiCards.map(card => card.status ? (
+                  <motion.button key={card.label} whileTap={{ scale: 0.96 }} onClick={() => setShowStatusList(card.status!)}
+                    className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <card.icon size={15} style={{ color: card.color }} />
+                      <span className={`text-xs ${sub}`}>{card.label}</span>
+                    </div>
+                    <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
+                  </motion.button>
+                ) : (
                   <div key={card.label} className={`${glass} rounded-2xl p-4`}>
                     <div className="flex items-center gap-2 mb-2">
                       <card.icon size={15} style={{ color: card.color }} />
@@ -3820,6 +3875,20 @@ setOwnerNewBookingWorkers([]);
                   </div>
                 ))}
               </div>
+              {/* Open shift */}
+              {!isAccountant && (
+                <button
+                  onClick={() => { setPage('settings'); setSettingsSection('shift'); }}
+                  className="w-full mb-4 rounded-2xl px-4 py-4 flex items-center justify-between text-white font-semibold active:opacity-90 transition-all"
+                  style={{ background: `linear-gradient(135deg, ${primary}, ${accent})` }}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Clock size={18} />
+                    Открытие смены
+                  </span>
+                  <ChevronRight size={18} />
+                </button>
+              )}
               {/* Today bookings */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
@@ -3904,8 +3973,8 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
                     { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
+                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
                     { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
                     { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
@@ -3984,6 +4053,7 @@ setOwnerNewBookingWorkers([]);
               )}
 
             </motion.div>
+            </>
           )}
 
           {/* ── PAYROLL ── */}
