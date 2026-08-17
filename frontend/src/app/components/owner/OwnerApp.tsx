@@ -3316,7 +3316,7 @@ setOwnerNewBookingWorkers([]);
     { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
     { label: 'Расходы за неделю', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
     { label: 'Прибыль за неделю', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
-    { label: 'Записей за неделю', value: weeklyBookings.length, icon: Users, color: '#A855F7' },
+    { label: 'На уточнении', value: pipelineCounts.adminReview, icon: Users, color: '#F59E0B' },
   ];
 
   const byService = services
@@ -3904,8 +3904,8 @@ setOwnerNewBookingWorkers([]);
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
                     { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
+                    { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
                     { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
                     { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
