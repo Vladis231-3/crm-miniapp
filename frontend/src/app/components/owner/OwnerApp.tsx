@@ -3509,9 +3509,9 @@ setOwnerNewBookingWorkers([]);
   );
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
       {/* Header */}
-      <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
+      <div className={`work-header ${glass} flex items-center justify-between`}>
         <div>
           <div className="font-semibold text-sm">{financeRoleTitle}</div>
           <div className={`text-xs ${sub}`}>ATMOSFERA</div>

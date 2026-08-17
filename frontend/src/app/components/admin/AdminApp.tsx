@@ -1439,9 +1439,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const tooltipStyle = { background: surface, border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 12, color: text };
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`}>
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
       {/* Header */}
-      <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
+      <div className={`work-header ${glass} flex items-center justify-between`}>
         <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} /></button>
         <div className="text-center">
           <div className="font-semibold text-sm">{staffRoleTitle}</div>

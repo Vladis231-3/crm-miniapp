@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bell, Sun, Moon, Calendar, CalendarDays, DollarSign, User, Play,
@@ -563,9 +563,9 @@ export function WorkerApp() {
     : 'Профиль';
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col`}>
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
       {/* Header */}
-      <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
+      <div className={`work-header ${glass} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           {(showDetail || profileSection) && (
             <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} /></button>
@@ -1415,9 +1415,7 @@ export function WorkerApp() {
         {[
           { id: 'today', icon: Clock, label: 'Сегодня' },
           { id: 'schedule', icon: Calendar, label: 'Расписание' },
-          { id: 'cars', icon: CarFront, label: 'Машины' },
-          { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
-          { id: 'earnings', icon: DollarSign, label: 'Заработок' },
+          { id: 'earnings', icon: DollarSign, label: 'Доход' },
           { id: 'profile', icon: User, label: 'Профиль' },
         ].map(t => (
           <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-1">

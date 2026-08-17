@@ -406,9 +406,9 @@ export function ClientApp() {
   );
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex flex-col relative`}>
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col relative`}>
       {/* Header */}
-      <div className={`sticky top-0 z-20 ${glass} px-4 py-3 flex items-center justify-between`}>
+      <div className={`work-header ${glass} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           {(page === 'detail' || page === 'slots' || page === 'confirm' || page === 'bookings') && (
             <button
@@ -453,7 +453,7 @@ export function ClientApp() {
       </div>
 
       {/* Bottom Nav */}
-      <div className={`fixed bottom-0 left-0 right-0 z-20 ${glass} flex border-t ${isDark ? 'border-white/10' : 'border-black/5'}`}>
+      <div className="role-nav"><div className="role-nav__scroll">
         <button
           onClick={() => setPage('catalog')}
           className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all`}
@@ -480,7 +480,7 @@ export function ClientApp() {
           <User size={20} style={{ color: page === 'profile' ? primary : undefined }} className={page !== 'profile' ? sub : ''} />
           <span className="text-xs" style={{ color: page === 'profile' ? primary : undefined }}>Профиль</span>
         </button>
-      </div>
+      </div></div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
