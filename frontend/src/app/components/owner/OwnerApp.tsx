@@ -1988,6 +1988,7 @@ export function OwnerApp() {
     setSalaryDateFrom(dateFrom);
     setSalaryDateTo(dateTo);
     setSalarySegment('all');
+    setEditingOverrideLinkId(null);
     setArchiveHighlight({ target: 'worker', workerId });
   };
 
@@ -4269,6 +4270,7 @@ setOwnerNewBookingWorkers([]);
                         setSalaryDetail(null);
                         setSalaryError(null);
                         setSalaryLoading(true);
+                        setEditingOverrideLinkId(null);
                         setPage('salary-detail');
                       }}
                     className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
