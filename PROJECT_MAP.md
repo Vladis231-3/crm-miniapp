@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-18 07:34 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-18 07:53 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **273**
-- Строк кода: **99 067**
+- Строк кода: **99 148**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 59, `.ts`: 19, `.tsx`: 189
 
 ## Архитектура
@@ -2590,7 +2590,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11924 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12005 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 220) — локальный
 - `STOCK_UNITS` (стр. 221) — локальный
@@ -2723,75 +2723,75 @@ concept1.0/
 - `unreadCount` (стр. 1320) — локальный
 - `completedBookings` (стр. 1321) — локальный
 - `todayBookings` (стр. 1322) — локальный
-- `latestShiftChecklists` (стр. 1323) — локальный
-- `latestAdminShiftInspections` (стр. 1324) — локальный
-- `latestAdminShiftInspectionKey` (стр. 1325) — локальный
-- `activeIds` (стр. 1341) — локальный
-- `currentPhotoUrls` (стр. 1354) — локальный
-- `missing` (стр. 1355) — локальный
-- `next` (стр. 1367) — локальный
-- `vv` (стр. 1389) — локальный
-- `handler` (стр. 1391) — локальный
-- `el` (стр. 1392) — локальный
-- `bookingFormBoxes` (стр. 1404) — локальный
-- `bookingFormLocationLabel` (стр. 1405) — локальный
-- `editBookingLocationLabel` (стр. 1406) — локальный
-- `todayRevenue` (стр. 1407) — локальный
-- `now` (стр. 1410) — локальный
-- `dayOfWeek` (стр. 1411) — локальный
-- `diffToSaturday` (стр. 1412) — локальный
-- `weekSaturday` (стр. 1413) — локальный
-- `weekFriday` (стр. 1416) — локальный
-- `isDateInWeek` (стр. 1419) — локальный
-- `d` (стр. 1420) — локальный
-- `weeklyCompletedBookings` (стр. 1423) — локальный
-- `weeklyBookings` (стр. 1424) — локальный
-- `weeklyExpenses` (стр. 1425) — локальный
-- `weeklyIncomes` (стр. 1426) — локальный
-- `totalRevenue` (стр. 1427) — локальный
-- `totalExpenses` (стр. 1428) — локальный
-- `totalIncomes` (стр. 1429) — локальный
-- `profit` (стр. 1430) — локальный
-- `averageCheck` (стр. 1431) — локальный
-- `activeBookings` (стр. 1432) — локальный
-- `pipelineCounts` (стр. 1433) — локальный
-- `statusListItems` (стр. 1440) — локальный
-- `totalStockValue` (стр. 1445) — локальный
-- `washRevenue` (стр. 1448) — локальный
-- `detailingRevenue` (стр. 1451) — локальный
-- `washExpenses` (стр. 1454) — локальный
-- `detailingExpenses` (стр. 1457) — локальный
-- `washIncomes` (стр. 1460) — локальный
-- `detailingIncomes` (стр. 1463) — локальный
-- `resourceGroupLabel` (стр. 1467) — локальный
-- `payrollRows` (стр. 1472) — локальный
-- `workerPenalties` (стр. 1473) — локальный
-- `complaintState` (стр. 1474) — локальный
-- `payrollTotal` (стр. 1482) — локальный
-- `formatComplaintDate` (стр. 1483) — локальный
-- `resetPreviewRows` (стр. 1484) — локальный
-- `resetExecuteLocked` (стр. 1498) — локальный
-- `glass` (стр. 1500) — локальный
-- `bg` (стр. 1501) — локальный
-- `text` (стр. 1502) — локальный
-- `sub` (стр. 1503) — локальный
-- `primary` (стр. 1504) — локальный
-- `accent` (стр. 1505) — локальный
-- `surface` (стр. 1506) — локальный
-- `inputCls` (стр. 1507) — локальный
-- `selectCls` (стр. 1508) — локальный
-- `tooltipStyle` (стр. 1509) — локальный
-- `createDraftId` (стр. 1510) — локальный
-- `handleAddBoxDraft` (стр. 1512) — локальный
-- `handleRemoveBoxDraft` (стр. 1526) — локальный
-- `handleAddServiceDraft` (стр. 1530) — локальный
-- `handleRemoveServiceDraft` (стр. 1559) — локальный
-- `handleHireWorker` (стр. 1563) — локальный
-- `name` (стр. 1564) — локальный
-- `login` (стр. 1565) — локальный
-- `password` (стр. 1566) — локальный
-- `employeeLabel` (стр. 1567) — локальный
-- `handleSaveSettings` (стр. 1610) — локальный
+- `activeMasters` (стр. 1324) — локальный
+- `masterCameOutTodayAt` (стр. 1329) — локальный
+- `times` (стр. 1330) — локальный
+- `mastersCameOutToday` (стр. 1339) — локальный
+- `latestShiftChecklists` (стр. 1340) — локальный
+- `latestAdminShiftInspections` (стр. 1341) — локальный
+- `latestAdminShiftInspectionKey` (стр. 1342) — локальный
+- `activeIds` (стр. 1358) — локальный
+- `currentPhotoUrls` (стр. 1371) — локальный
+- `missing` (стр. 1372) — локальный
+- `next` (стр. 1384) — локальный
+- `vv` (стр. 1406) — локальный
+- `handler` (стр. 1408) — локальный
+- `el` (стр. 1409) — локальный
+- `bookingFormBoxes` (стр. 1421) — локальный
+- `bookingFormLocationLabel` (стр. 1422) — локальный
+- `editBookingLocationLabel` (стр. 1423) — локальный
+- `todayRevenue` (стр. 1424) — локальный
+- `now` (стр. 1427) — локальный
+- `dayOfWeek` (стр. 1428) — локальный
+- `diffToSaturday` (стр. 1429) — локальный
+- `weekSaturday` (стр. 1430) — локальный
+- `weekFriday` (стр. 1433) — локальный
+- `isDateInWeek` (стр. 1436) — локальный
+- `d` (стр. 1437) — локальный
+- `weeklyCompletedBookings` (стр. 1440) — локальный
+- `weeklyBookings` (стр. 1441) — локальный
+- `weeklyExpenses` (стр. 1442) — локальный
+- `weeklyIncomes` (стр. 1443) — локальный
+- `totalRevenue` (стр. 1444) — локальный
+- `totalExpenses` (стр. 1445) — локальный
+- `totalIncomes` (стр. 1446) — локальный
+- `profit` (стр. 1447) — локальный
+- `averageCheck` (стр. 1448) — локальный
+- `activeBookings` (стр. 1449) — локальный
+- `pipelineCounts` (стр. 1450) — локальный
+- `statusListItems` (стр. 1457) — локальный
+- `totalStockValue` (стр. 1462) — локальный
+- `washRevenue` (стр. 1465) — локальный
+- `detailingRevenue` (стр. 1468) — локальный
+- `washExpenses` (стр. 1471) — локальный
+- `detailingExpenses` (стр. 1474) — локальный
+- `washIncomes` (стр. 1477) — локальный
+- `detailingIncomes` (стр. 1480) — локальный
+- `resourceGroupLabel` (стр. 1484) — локальный
+- `payrollRows` (стр. 1489) — локальный
+- `workerPenalties` (стр. 1490) — локальный
+- `complaintState` (стр. 1491) — локальный
+- `payrollTotal` (стр. 1499) — локальный
+- `formatComplaintDate` (стр. 1500) — локальный
+- `resetPreviewRows` (стр. 1501) — локальный
+- `resetExecuteLocked` (стр. 1515) — локальный
+- `glass` (стр. 1517) — локальный
+- `bg` (стр. 1518) — локальный
+- `text` (стр. 1519) — локальный
+- `sub` (стр. 1520) — локальный
+- `primary` (стр. 1521) — локальный
+- `accent` (стр. 1522) — локальный
+- `surface` (стр. 1523) — локальный
+- `inputCls` (стр. 1524) — локальный
+- `selectCls` (стр. 1525) — локальный
+- `tooltipStyle` (стр. 1526) — локальный
+- `createDraftId` (стр. 1527) — локальный
+- `handleAddBoxDraft` (стр. 1529) — локальный
+- `handleRemoveBoxDraft` (стр. 1543) — локальный
+- `handleAddServiceDraft` (стр. 1547) — локальный
+- `handleRemoveServiceDraft` (стр. 1576) — локальный
+- `handleHireWorker` (стр. 1580) — локальный
+- `name` (стр. 1581) — локальный
 
 ### frontend/src/app/components/shared/Atmosfera.tsx (7 строк)
 
@@ -3465,18 +3465,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 10:32)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 10:50)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-18 10:44)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-18 10:44)
+- `backend/app/schemas.py` (2026-08-18 10:44)
+- `backend/app/models.py` (2026-08-18 10:44)
+- `backend/app/main.py` (2026-08-18 10:44)
 - `backend/tests/test_worker_additional_services.py` (2026-08-18 10:22)
 - `backend/tests/test_content.py` (2026-08-18 10:19)
 - `backend/tests/test_worker_car_search.py` (2026-08-18 10:19)
 - `backend/tests/test_worker_calendar.py` (2026-08-18 10:19)
-- `backend/app/main.py` (2026-08-18 10:10)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-18 10:05)
 - `backend/tests/test_attendance_endpoints.py` (2026-08-18 09:58)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-18 09:58)
-- `backend/app/schemas.py` (2026-08-18 09:58)
 - `scripts/.project-map-watch.lock` (2026-08-18 09:31)
 - `frontend/src/styles/theme.css` (2026-08-17 16:53)
 - `backend/tests/test_booking_logic.py` (2026-08-17 16:53)
-- `booking.status` (2026-08-17 16:30)
-- `task.id` (2026-08-17 16:30)

@@ -1320,6 +1320,23 @@ export function OwnerApp() {
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
+  // Активные мастера для блока «Мастера сегодня» (Настройки → Смена)
+  const activeMasters = workers
+    .filter((worker) => worker.role === 'worker' && worker.active)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  // Выход мастера сегодня: отмечен (checked) в осмотре/открытии смены за сегодняшнюю дату.
+  // Та же логика, что у бэкенд-подсчёта выходов (_compute_shift_attendance).
+  const masterCameOutTodayAt = (workerId: string): string | null => {
+    const times = adminShiftInspections
+      .filter((inspection) => formatDate(inspection.createdAt) === todayLabel)
+      .filter((inspection) => inspection.masters.some((m) => m.workerId === workerId && m.checked))
+      .map((inspection) => inspection.createdAt.getTime())
+      .sort((a, b) => a - b);
+    return times.length > 0
+      ? new Date(times[0]).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+      : null;
+  };
+  const mastersCameOutToday = activeMasters.filter((master) => masterCameOutTodayAt(master.id) !== null).length;
   const latestShiftChecklists = shiftChecklists.slice(0, 10);
   const latestAdminShiftInspections = adminShiftInspections.slice(0, 8);
   const latestAdminShiftInspectionKey = latestAdminShiftInspections.map((inspection) => `${inspection.id}:${inspection.floorPhotoUrl}`).join('|');
@@ -5953,6 +5970,70 @@ setOwnerNewBookingWorkers([]);
                 <button onClick={() => { void handleOpenShiftForMasters(); }} disabled={shiftOpenSubmitting} className="mt-3 w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: primary }}>
                   {shiftOpenSubmitting ? 'Открываем смену...' : 'Открыть смену'}
                 </button>
+              </div>
+
+              {/* Мастера сегодня: услуги и выход */}
+              <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <div className="font-medium">Мастера сегодня</div>
+                  <span className={`text-xs font-medium ${sub}`}>
+                    Вышли: {mastersCameOutToday} из {activeMasters.length}
+                  </span>
+                </div>
+                <div className={`text-xs ${sub} mb-3`}>
+                  Услуги на {todayLabel} · выход — по открытым сменам и отметкам в осмотрах
+                </div>
+                {activeMasters.length === 0 ? (
+                  <div className={`text-sm ${sub}`}>Нет активных мастеров.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {activeMasters.map((master) => {
+                      const cameOutAt = masterCameOutTodayAt(master.id);
+                      const masterBookings = todayBookings.filter((booking) =>
+                        booking.workers.some((w) => w.workerId === master.id)
+                      );
+                      const masterTotal = masterBookings.reduce((sum, booking) => sum + booking.price, 0);
+                      return (
+                        <div key={master.id} className={`${glass} rounded-2xl p-3`}>
+                          <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="text-sm font-medium">{master.name}</div>
+                            {cameOutAt ? (
+                              <span className="text-[11px] px-2.5 py-1 rounded-full font-medium bg-green-500/15 text-green-600 whitespace-nowrap">
+                                Вышел в {cameOutAt}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] px-2.5 py-1 rounded-full font-medium bg-black/10 dark:bg-white/10 text-gray-500 whitespace-nowrap">
+                                Не вышел
+                              </span>
+                            )}
+                          </div>
+                          {masterBookings.length === 0 ? (
+                            <div className={`text-xs ${sub}`}>Нет записей на сегодня</div>
+                          ) : (
+                            <>
+                              <div className="space-y-1.5">
+                                {masterBookings.map((booking) => (
+                                  <div key={booking.id} className="flex items-start justify-between gap-2 text-xs">
+                                    <div className="min-w-0">
+                                      <span className="font-medium">{booking.time}</span>
+                                      <span className={sub}> · {booking.clientName}</span>
+                                      <div className={`${sub} truncate`}>{booking.service}</div>
+                                    </div>
+                                    <span className="font-semibold whitespace-nowrap">{booking.price.toLocaleString('ru')} ₽</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between text-xs pt-1.5 mt-1.5 border-t border-black/5 dark:border-white/10">
+                                <span className={sub}>Итого</span>
+                                <span className="font-semibold">{masterTotal.toLocaleString('ru')} ₽</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
