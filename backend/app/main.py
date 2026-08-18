@@ -3973,11 +3973,20 @@ def _worker_payroll_summaries(
     completed_bookings = (
         db.scalars(
             select(Booking)
-            .options(joinedload(Booking.worker_links))
-            .join(Booking.worker_links)
+            .options(
+                joinedload(Booking.worker_links),
+                joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+            )
             .where(
                 Booking.status == "completed",
-                BookingWorker.worker_id.in_(worker_ids),
+                or_(
+                    Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
+                    Booking.additional_services.any(
+                        BookingAdditionalService.worker_links.any(
+                            AdditionalServiceWorker.worker_id.in_(worker_ids)
+                        )
+                    ),
+                ),
             )
             .order_by(
                 Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
@@ -4030,9 +4039,14 @@ def _worker_payroll_summaries_from_data(
     for booking in completed_bookings:
         split = _booking_money_split(db, booking, complaints_by_worker)
         master_by_worker = split["master_by_worker"]
+        
+        # Track which workers we've already added via worker_links
+        processed_workers = set()
+        
         for link in booking.worker_links:
             if link.worker_id not in booking_items_by_worker:
                 continue
+            processed_workers.add(link.worker_id)
             percent = adjusted_booking_percent(
                 link.percent,
                 complaints_by_worker.get(link.worker_id, []),
@@ -4057,6 +4071,35 @@ def _worker_payroll_summaries_from_data(
                     plate=booking.plate,
                 )
             )
+        
+        # Now add workers who are ONLY on additional services
+        for asvc in booking.additional_services or []:
+            for alink in asvc.worker_links:
+                if alink.worker_id in booking_items_by_worker and alink.worker_id not in processed_workers:
+                    # This worker is on additional service but NOT on main service
+                    earned = master_by_worker.get(alink.worker_id, 0)
+                    percent = adjusted_booking_percent(
+                        alink.percent,
+                        complaints_by_worker.get(alink.worker_id, []),
+                        date_value=booking.date,
+                        time_value=booking.time,
+                        fallback=booking.created_at,
+                    )
+                    booking_items_by_worker[alink.worker_id].append(
+                        WorkerPayrollBookingPayload(
+                            bookingId=booking.id,
+                            service=booking.service,
+                            date=booking.date,
+                            time=booking.time,
+                            price=booking.price,
+                            percent=percent,
+                            earned=earned,
+                            overrideEarned=None,
+                            car=booking.car,
+                            plate=booking.plate,
+                        )
+                    )
+                    processed_workers.add(alink.worker_id)
     entry_payloads_by_worker: dict[str, list[PayrollEntryPayload]] = {
         worker_id: [] for worker_id in worker_ids
     }
@@ -17399,11 +17442,20 @@ def get_admin_workers_payroll(
     if period == "all":
         completed_bookings = db.scalars(
             select(Booking)
-            .options(joinedload(Booking.worker_links))
-            .join(Booking.worker_links)
+            .options(
+                joinedload(Booking.worker_links),
+                joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+            )
             .where(
                 Booking.status == "completed",
-                BookingWorker.worker_id.in_(worker_ids),
+                or_(
+                    Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
+                    Booking.additional_services.any(
+                        BookingAdditionalService.worker_links.any(
+                            AdditionalServiceWorker.worker_id.in_(worker_ids)
+                        )
+                    ),
+                ),
             )
             .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
         ).unique().all()
@@ -17417,11 +17469,20 @@ def get_admin_workers_payroll(
         )
         completed_bookings = db.scalars(
             select(Booking)
-            .options(joinedload(Booking.worker_links))
-            .join(Booking.worker_links)
+            .options(
+                joinedload(Booking.worker_links),
+                joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+            )
             .where(
                 Booking.status == "completed",
-                BookingWorker.worker_id.in_(worker_ids),
+                or_(
+                    Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
+                    Booking.additional_services.any(
+                        BookingAdditionalService.worker_links.any(
+                            AdditionalServiceWorker.worker_id.in_(worker_ids)
+                        )
+                    ),
+                ),
                 date_col_key >= date_from_key,
                 date_col_key <= date_to_key,
             )
@@ -18191,6 +18252,11 @@ def get_owner_bookings_history_totals(
     worker_bookings = [
         b for b in bookings
         if any(link.worker_id in worker_ids for link in b.worker_links)
+        or any(
+            alink.worker_id in worker_ids
+            for asvc in (b.additional_services or [])
+            for alink in asvc.worker_links
+        )
     ]
     entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
     if date_from and date_to:
@@ -18511,6 +18577,11 @@ def get_owner_archive(
     worker_bookings = [
         b for b in bookings
         if any(link.worker_id in worker_ids for link in b.worker_links)
+        or any(
+            alink.worker_id in worker_ids
+            for asvc in (b.additional_services or [])
+            for alink in asvc.worker_links
+        )
     ]
     entries = []
     shift_from = None
@@ -18897,10 +18968,19 @@ def _worker_period_balance(
 
     bookings_query = (
         select(Booking)
-        .options(joinedload(Booking.worker_links))
-        .join(BookingWorker)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
         .where(
-            BookingWorker.worker_id == worker.id,
+            or_(
+                Booking.worker_links.any(BookingWorker.worker_id == worker.id),
+                Booking.additional_services.any(
+                    BookingAdditionalService.worker_links.any(
+                        AdditionalServiceWorker.worker_id == worker.id
+                    )
+                ),
+            ),
             Booking.status == "completed",
             date_col_key >= date_from_key,
             date_col_key <= date_to_key,
@@ -19064,11 +19144,23 @@ def owner_worker_salary_detail(
 
         )
 
-        .join(BookingWorker)
-
         .where(
 
-            BookingWorker.worker_id == worker_id,
+            or_(
+
+                Booking.worker_links.any(BookingWorker.worker_id == worker_id),
+
+                Booking.additional_services.any(
+
+                    BookingAdditionalService.worker_links.any(
+
+                        AdditionalServiceWorker.worker_id == worker_id
+
+                    )
+
+                ),
+
+            ),
 
             Booking.status == "completed",
 
@@ -19111,22 +19203,24 @@ def owner_worker_salary_detail(
             None,
         )
 
-        if worker_link is None:
-            continue
+        # If worker is on main service, get their percent; else check if on additional services
+        if worker_link is not None:
+            percent = adjusted_booking_percent(
 
-        percent = adjusted_booking_percent(
+                worker_link.percent,
 
-            worker_link.percent,
+                worker_complaints,
 
-            worker_complaints,
+                date_value=b.date,
 
-            date_value=b.date,
+                time_value=b.time,
 
-            time_value=b.time,
+                fallback=b.created_at,
 
-            fallback=b.created_at,
-
-        )
+            )
+        else:
+            # Worker is only on additional services, use default percent
+            percent = worker.default_percent
 
         rg = _resource_group_for_service(db, b.service_id)
 
@@ -19138,7 +19232,7 @@ def owner_worker_salary_detail(
 
         split = _booking_money_split(db, b, complaints_by_worker)
 
-        if worker_link.override_earned is not None:
+        if worker_link and worker_link.override_earned is not None:
 
             earned = int(worker_link.override_earned)
 
@@ -19170,11 +19264,11 @@ def owner_worker_salary_detail(
 
                 percent=percent,
 
-                overrideEarned=worker_link.override_earned,
+                overrideEarned=worker_link.override_earned if worker_link else None,
 
-                linkId=worker_link.id,
+                linkId=worker_link.id if worker_link else None,
 
-                payType=worker_link.pay_type or "percent",
+                payType=worker_link.pay_type if worker_link else "percent",
 
                 resourceGroup=rg,
 

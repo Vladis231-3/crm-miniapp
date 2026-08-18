@@ -1868,9 +1868,25 @@ def _build_export_data(
 
     for worker in workers:
 
-        worker_completed = [booking for booking in completed if any(link.worker_id == worker.id for link in booking.worker_links)]
+        worker_completed = [
+            booking for booking in completed
+            if any(link.worker_id == worker.id for link in booking.worker_links)
+            or any(
+                alink.worker_id == worker.id
+                for asvc in (booking.additional_services or [])
+                for alink in asvc.worker_links
+            )
+        ]
 
-        worker_active = [booking for booking in active_assignments if any(link.worker_id == worker.id for link in booking.worker_links)]
+        worker_active = [
+            booking for booking in active_assignments
+            if any(link.worker_id == worker.id for link in booking.worker_links)
+            or any(
+                alink.worker_id == worker.id
+                for asvc in (booking.additional_services or [])
+                for alink in asvc.worker_links
+            )
+        ]
 
         worker_penalties = complaints_by_worker.get(worker.id, [])
 
