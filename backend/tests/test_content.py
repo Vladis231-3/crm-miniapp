@@ -33,7 +33,7 @@ def reset_app_modules() -> None:
 
 
 def build_init_data(telegram_id: str) -> str:
-    return urllib.parse.urlencode({"user": json.dumps({"id": telegram_id})})
+    return urllib.parse.urlencode({"user": json.dumps({"id": int(telegram_id)})})
 
 
 class ContentTests(unittest.TestCase):
