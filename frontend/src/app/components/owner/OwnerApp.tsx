@@ -1082,6 +1082,10 @@ export function OwnerApp() {
     }
     setSalaryLoading(true);
     setSalaryError(null);
+    // Close any open override-earned editor whenever salary data is (re)loaded,
+    // so the detail view never stays in edit mode after period/segment changes.
+    setEditingOverrideLinkId(null);
+    setEditingOverrideValue('');
     const params = new URLSearchParams({ period: salaryPeriod, segment: salarySegment });
     if (salaryPeriod === 'custom') {
       params.set('date_from', salaryDateFrom);
