@@ -37,6 +37,12 @@ import { REFERRAL_SOURCES } from '../../constants/referralSources';
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
 type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'deposit' | 'shift';
 type OwnerExportKind = 'report' | 'pdf';
+type KpiServiceItem = { name: string; revenue: number; count: number };
+type KpiModalData =
+  | { kind: 'bookings'; title: string; color: string; totalLabel: string; total: number; isMoney?: boolean; bookings: Booking[] }
+  | { kind: 'expenses'; title: string; color: string; total: number; expenses: Expense[] }
+  | { kind: 'services'; title: string; color: string; services: KpiServiceItem[] }
+  | { kind: 'finance'; title: string; color: string; revenue: number; incomes: number; expenses: number; profit: number };
 
 interface SalaryBookingItem {
   id: string; date: string; time: string; service: string; box: string;
@@ -665,6 +671,7 @@ export function OwnerApp() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetail, setShowBookingDetail] = useState(false);
   const [showStatusList, setShowStatusList] = useState<BookingStatus | null>(null);
+  const [kpiModal, setKpiModal] = useState<KpiModalData | null>(null);
   const [expenseAdded, setExpenseAdded] = useState(false);
   const [writeOffQty, setWriteOffQty] = useState('1');
   const [writeOffHistory, setWriteOffHistory] = useState<StockWriteOff[]>([]);
@@ -3369,10 +3376,55 @@ setOwnerNewBookingWorkers([]);
   };
 
   const kpiCards = [
-    { label: 'Выручка сегодня', value: `${todayRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: primary },
-    { label: 'Расходы за неделю', value: `${totalExpenses.toLocaleString('ru')} ₽`, icon: DollarSign, color: '#FF6B6B' },
-    { label: 'Прибыль за неделю', value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`, icon: BarChart3, color: profit >= 0 ? accent : '#FF6B6B' },
-    { label: 'На уточнении', value: pipelineCounts.adminReview, icon: Users, color: '#F59E0B', status: 'admin_review' as BookingStatus },
+    {
+      label: 'Выручка сегодня',
+      value: `${todayRevenue.toLocaleString('ru')} ₽`,
+      icon: TrendingUp,
+      color: primary,
+      action: () => setKpiModal({
+        kind: 'bookings',
+        title: 'Выручка сегодня',
+        color: primary,
+        totalLabel: 'выручка за сегодня',
+        total: todayRevenue,
+        bookings: todayBookings.filter(b => b.status === 'completed'),
+      }),
+    },
+    {
+      label: 'Расходы за неделю',
+      value: `${totalExpenses.toLocaleString('ru')} ₽`,
+      icon: DollarSign,
+      color: '#FF6B6B',
+      action: () => setKpiModal({
+        kind: 'expenses',
+        title: 'Расходы за неделю',
+        color: '#FF6B6B',
+        total: totalExpenses,
+        expenses: [...weeklyExpenses].sort((a, b) => b.date.localeCompare(a.date)),
+      }),
+    },
+    {
+      label: 'Прибыль за неделю',
+      value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`,
+      icon: BarChart3,
+      color: profit >= 0 ? accent : '#FF6B6B',
+      action: () => setKpiModal({
+        kind: 'finance',
+        title: 'Прибыль за неделю',
+        color: profit >= 0 ? accent : '#FF6B6B',
+        revenue: totalRevenue,
+        incomes: totalIncomes,
+        expenses: totalExpenses,
+        profit,
+      }),
+    },
+    {
+      label: 'На уточнении',
+      value: pipelineCounts.adminReview,
+      icon: Users,
+      color: '#F59E0B',
+      action: () => setShowStatusList('admin_review'),
+    },
   ];
 
   const byService = services
@@ -3392,12 +3444,12 @@ setOwnerNewBookingWorkers([]);
   });
 
   const statusData = [
-    { name: 'Новые', value: weeklyBookings.filter(b => b.status === 'new').length, color: '#6366F1' },
-    { name: 'Подтверждены', value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
-    { name: 'Запланировано', value: weeklyBookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
-    { name: 'В работе', value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
-    { name: 'Завершено', value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
-    { name: 'Не приехал', value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Новые', status: 'new' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', status: 'confirmed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Запланировано', status: 'scheduled' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
+    { name: 'В работе', status: 'in_progress' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
+    { name: 'Завершено', status: 'completed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'Не приехал', status: 'no_show' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
   const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
   const ownerCalendarRelevantBookings = bookings.filter((booking) => Boolean(booking.date?.trim()) && booking.status !== 'cancelled');
@@ -3867,23 +3919,17 @@ setOwnerNewBookingWorkers([]);
             <>
             <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="grid grid-cols-2 gap-3 mb-4">
-                {kpiCards.map(card => card.status ? (
-                  <motion.button key={card.label} whileTap={{ scale: 0.96 }} onClick={() => setShowStatusList(card.status!)}
+                {kpiCards.map(card => (
+                  <motion.button key={card.label} whileTap={{ scale: 0.96 }} onClick={card.action}
                     className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
                     <div className="flex items-center gap-2 mb-2">
                       <card.icon size={15} style={{ color: card.color }} />
                       <span className={`text-xs ${sub}`}>{card.label}</span>
+                      <ChevronRight size={12} className={`ml-auto ${sub}`} />
                     </div>
                     <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
+                    <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
                   </motion.button>
-                ) : (
-                  <div key={card.label} className={`${glass} rounded-2xl p-4`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <card.icon size={15} style={{ color: card.color }} />
-                      <span className={`text-xs ${sub}`}>{card.label}</span>
-                    </div>
-                    <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
-                  </div>
                 ))}
               </div>
               {/* Open shift */}
@@ -3964,15 +4010,48 @@ setOwnerNewBookingWorkers([]);
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'Средний чек', value: `${averageCheck.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Активных записей', value: activeBookings.length, color: accent },
-                  { label: 'Топ-услуга', value: topServiceName, color: '#A855F7' },
-                  { label: 'Не приехали', value: pipelineCounts.noShow, color: '#F97316' },
+                  {
+                    label: 'Средний чек',
+                    value: `${averageCheck.toLocaleString('ru')} ₽`,
+                    color: primary,
+                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: primary, services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
+                  },
+                  {
+                    label: 'Активных записей',
+                    value: activeBookings.length,
+                    color: accent,
+                    action: () => setKpiModal({
+                      kind: 'bookings',
+                      title: 'Активные записи',
+                      color: accent,
+                      totalLabel: 'активных записей',
+                      total: activeBookings.length,
+                      isMoney: false,
+                      bookings: activeBookings,
+                    }),
+                  },
+                  {
+                    label: 'Топ-услуга',
+                    value: topServiceName,
+                    color: '#A855F7',
+                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: '#A855F7', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
+                  },
+                  {
+                    label: 'Не приехали',
+                    value: pipelineCounts.noShow,
+                    color: '#F97316',
+                    action: () => setShowStatusList('no_show'),
+                  },
                 ].map((card) => (
-                  <div key={card.label} className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub}`}>{card.label}</div>
+                  <motion.button key={card.label} whileTap={{ scale: 0.96 }} onClick={card.action}
+                    className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
+                    <div className="flex items-center gap-1">
+                      <div className={`text-xs ${sub}`}>{card.label}</div>
+                      <ChevronRight size={12} className={`ml-auto ${sub}`} />
+                    </div>
                     <div className="font-bold mt-2" style={{ color: card.color }}>{card.value}</div>
-                  </div>
+                    <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
+                  </motion.button>
                 ))}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
@@ -4031,15 +4110,20 @@ setOwnerNewBookingWorkers([]);
                   </PieChart>
                   <div className="mt-2 space-y-1">
                     {statusData.map(s => (
-                      <div key={s.name} className="flex items-center gap-1">
+                      <button key={s.name} type="button" onClick={() => setShowStatusList(s.status)}
+                        className="flex items-center gap-1 w-full text-left rounded px-0.5 py-0.5 active:opacity-70">
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
                         <span className={`text-[10px] ${sub} truncate`}>{s.name} ({s.value})</span>
-                      </div>
+                        <ChevronRight size={10} className={`ml-auto shrink-0 ${sub}`} />
+                      </button>
                     ))}
                   </div>
                 </div>
-                <div className={`${glass} rounded-2xl p-3`}>
-                  <div className={`text-xs ${sub} mb-2`}>Склад</div>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => setPage('stock')} className={`${glass} rounded-2xl p-3 text-left active:opacity-80`}>
+                  <div className={`text-xs ${sub} mb-2 flex items-center gap-1`}>
+                    Склад
+                    <ChevronRight size={12} className={`ml-auto ${sub}`} />
+                  </div>
                   <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} ₽</div>
                   <div className={`text-xs ${sub} mb-2`}>{stockItems.length} позиций</div>
                   {stockItems.filter(s => s.qty <= 5).length > 0 && (
@@ -4048,17 +4132,19 @@ setOwnerNewBookingWorkers([]);
                       {stockItems.filter(s => s.qty <= 5).length} на исходе
                     </div>
                   )}
-                </div>
+                </motion.button>
               </div>
 
               {stockItems.filter(s => s.qty <= 5).length > 0 && (
                 <div className="mt-3">
                   <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Предупреждения склада</h3>
                   {stockItems.filter(s => s.qty <= 5).map(s => (
-                    <div key={s.id} className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-2 flex items-center gap-2">
+                    <motion.button key={s.id} whileTap={{ scale: 0.98 }} onClick={() => setPage('stock')}
+                      className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-2 flex items-center gap-2 w-full text-left active:opacity-80">
                       <AlertCircle size={15} className="text-red-500 shrink-0" />
                       <span className="text-sm">Низкий остаток: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
-                    </div>
+                      <ChevronRight size={14} className="ml-auto shrink-0 text-red-500/70" />
+                    </motion.button>
                   ))}
                 </div>
               )}
@@ -10398,6 +10484,148 @@ setOwnerNewBookingWorkers([]);
                         </div>
                       </div>
                     </motion.button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* KPI DETAIL MODAL */}
+      <AnimatePresence>
+        {kpiModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
+            onClick={(e) => { if (e.target === e.currentTarget) setKpiModal(null); }}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">{kpiModal.title}</h3>
+                <div className="flex items-center gap-2">
+                  {kpiModal.kind === 'bookings' && (
+                    <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
+                      {kpiModal.total.toLocaleString('ru')}{kpiModal.isMoney !== false ? ' ₽' : ''} · {kpiModal.bookings.length} {kpiModal.totalLabel}
+                    </span>
+                  )}
+                  {kpiModal.kind === 'expenses' && (
+                    <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
+                      {kpiModal.total.toLocaleString('ru')} ₽ · {kpiModal.expenses.length} расходов
+                    </span>
+                  )}
+                  {kpiModal.kind === 'services' && (
+                    <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
+                      {kpiModal.services.length} услуг
+                    </span>
+                  )}
+                  {kpiModal.kind === 'finance' && (
+                    <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
+                      {kpiModal.profit >= 0 ? '+' : ''}{kpiModal.profit.toLocaleString('ru')} ₽
+                    </span>
+                  )}
+                  <button onClick={() => setKpiModal(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                </div>
+              </div>
+
+              {kpiModal.kind === 'bookings' && (
+                kpiModal.bookings.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-8 text-center`}>
+                    <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <p className={sub}>Записей пока нет</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {kpiModal.bookings.map(booking => (
+                      <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
+                        onClick={() => { setSelectedBooking(booking); setKpiModal(null); setShowBookingDetail(true); }}
+                        className={`${glass} rounded-2xl p-4 w-full text-left`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
+                                <SourceBadge source={booking.source} />
+                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                            </div>
+                            <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
+                            {(booking.car || booking.plate) && (
+                              <div className={`text-xs ${sub} mt-0.5 truncate`}>
+                                {[booking.car, booking.plate].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                            <div className="flex justify-between mt-2">
+                              <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                              <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {kpiModal.kind === 'expenses' && (
+                kpiModal.expenses.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-8 text-center`}>
+                    <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <p className={sub}>Расходов за период нет</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {kpiModal.expenses.map(expense => (
+                      <div key={expense.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{expense.title}</div>
+                          <div className={`text-xs ${sub}`}>{expense.category} · {expense.date}</div>
+                        </div>
+                        <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>−{expense.amount.toLocaleString('ru')} ₽</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {kpiModal.kind === 'services' && (
+                kpiModal.services.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-8 text-center`}>
+                    <BarChart3 size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <p className={sub}>Нет данных по услугам</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {kpiModal.services.map((service, index) => (
+                      <div key={service.name} className={`${glass} rounded-xl p-3 flex items-center gap-3`}>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{service.name}</div>
+                          <div className={`text-xs ${sub}`}>{service.count} записей</div>
+                        </div>
+                        <div className="font-semibold text-sm shrink-0">{service.revenue.toLocaleString('ru')} ₽</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {kpiModal.kind === 'finance' && (
+                <div className="space-y-2">
+                  {[
+                    { label: 'Выручка за неделю', value: kpiModal.revenue, color: accent },
+                    { label: 'Доходы за неделю', value: kpiModal.incomes, color: '#06B6D4' },
+                    { label: 'Расходы за неделю', value: -kpiModal.expenses, color: '#FF6B6B' },
+                    { label: 'Прибыль за неделю', value: kpiModal.profit, color: kpiModal.color },
+                  ].map(row => (
+                    <div key={row.label} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
+                      <div className="text-sm">{row.label}</div>
+                      <div className="font-semibold text-sm" style={{ color: row.color }}>
+                        {row.value >= 0 ? '+' : ''}{row.value.toLocaleString('ru')} ₽
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
