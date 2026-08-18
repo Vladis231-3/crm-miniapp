@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-18 12:06 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-18 12:16 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **276**
-- Строк кода: **100 650**
+- Строк кода: **100 652**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 62, `.ts`: 19, `.tsx`: 189
 
 ## Архитектура
@@ -2650,7 +2650,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12286 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12288 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 226) — локальный
 - `STOCK_UNITS` (стр. 227) — локальный
@@ -3542,7 +3542,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 15:06)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 15:16)
+- `scripts/.project-map-watch.lock` (2026-08-18 15:10)
 - `backend/app/main.py` (2026-08-18 14:52)
 - `backend/tests/test_additional_service_validation.py` (2026-08-18 14:52)
 - `backend/tests/test_owner_salary_asvc_only.py` (2026-08-18 14:44)
@@ -3556,4 +3557,3 @@ concept1.0/
 - `backend/tests/test_owner_masters.py` (2026-08-18 12:12)
 - `frontend/src/app/components/client/ClientApp.tsx` (2026-08-18 10:44)
 - `backend/tests/test_worker_additional_services.py` (2026-08-18 10:22)
-- `backend/tests/test_content.py` (2026-08-18 10:19)

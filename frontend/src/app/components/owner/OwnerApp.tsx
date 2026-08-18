@@ -1989,6 +1989,7 @@ export function OwnerApp() {
     setSalaryDateTo(dateTo);
     setSalarySegment('all');
     setEditingOverrideLinkId(null);
+    setEditingOverrideValue('');
     setArchiveHighlight({ target: 'worker', workerId });
   };
 
@@ -4271,6 +4272,7 @@ setOwnerNewBookingWorkers([]);
                         setSalaryError(null);
                         setSalaryLoading(true);
                         setEditingOverrideLinkId(null);
+                        setEditingOverrideValue('');
                         setPage('salary-detail');
                       }}
                     className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
@@ -4559,7 +4561,7 @@ setOwnerNewBookingWorkers([]);
           {/* ── SALARY DETAIL ── */}
           {page === 'salary-detail' && (
             <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
+              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
                 <ArrowLeft size={16} />Назад к зарплатам
               </button>
 
