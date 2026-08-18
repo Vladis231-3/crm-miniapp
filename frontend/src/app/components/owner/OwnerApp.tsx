@@ -51,7 +51,7 @@ interface SalaryDetailResponse {
   workerId: string; workerName: string; salaryBase: number; salaryPerShift: number;
   defaultPercent: number; active: boolean;
   totalEarned: number; totalPaid: number; balanceToPay: number;
-  completedBookingsCount: number; shiftCount: number;
+  completedBookingsCount: number; shiftCount: number; shiftDates: string[];
   bookings: SalaryBookingItem[]; payouts: SalaryPayoutItem[];
   entries: PayrollEntry[];
 }
@@ -3849,37 +3849,37 @@ setOwnerNewBookingWorkers([]);
           {page === 'dashboard' && (
             <>
             <section className="role-hero role-hero--owner mb-4">
-              <div className="flex flex-wrap items-end justify-between gap-4"><div><div className="text-xs uppercase tracking-[.2em] opacity-70">Executive command</div><h2 className="mt-2 text-3xl font-semibold">╨С╨╕╨╖╨╜╨╡╤Б ╨▓ ╨╛╨┤╨╜╨╛╨╝ ╨║╨░╨┤╤А╨╡</h2><p className="mt-1 text-sm opacity-80">╨д╨╕╨╜╨░╨╜╤Б╤Л, ╤В╨╡╨╝╨┐ ╨╛╨┐╨╡╤А╨░╤Ж╨╕╨╣ ╨╕ ╤А╨╡╤И╨╡╨╜╨╕╤П ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░.</p></div><div className="flex gap-2"><button onClick={() => setPage(`reports`)} className="semantic-primary-button bg-white text-slate-900"><BarChart3 size={17}/> ╨Ю╤В╤З╤С╤В╤Л</button><button onClick={() => setPage(`calendar`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">╨Ю╨┐╨╡╤А╨░╤Ж╨╕╨╕</button></div></div>
-              <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 md:grid-cols-4"><div><span className="text-xs opacity-70">╨б╨╡╨│╨╛╨┤╨╜╤П</span><strong className="block text-2xl">{todayRevenue.toLocaleString(`ru`)} тВ╜</strong></div><div><span className="text-xs opacity-70">╨Э╨╡╨┤╨╡╨╗╤П</span><strong className="block text-2xl">{totalRevenue.toLocaleString(`ru`)} тВ╜</strong></div><div><span className="text-xs opacity-70">╨б╤А╨╡╨┤╨╜╨╕╨╣ ╤З╨╡╨║</span><strong className="block text-2xl">{averageCheck.toLocaleString(`ru`)} тВ╜</strong></div><div><span className="text-xs opacity-70">╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В</span><strong className="block text-2xl">{profit.toLocaleString(`ru`)} тВ╜</strong></div></div>
+              <div className="flex flex-wrap items-end justify-between gap-4"><div><div className="text-xs uppercase tracking-[.2em] opacity-70">Executive command</div><h2 className="mt-2 text-3xl font-semibold">Бизнес в одном кадре</h2><p className="mt-1 text-sm opacity-80">Финансы, темп операций и решения владельца.</p></div><div className="flex gap-2"><button onClick={() => setPage(`reports`)} className="semantic-primary-button bg-white text-slate-900"><BarChart3 size={17}/> Отчёты</button><button onClick={() => setPage(`calendar`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">Операции</button></div></div>
+              <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 md:grid-cols-4"><div><span className="text-xs opacity-70">Сегодня</span><strong className="block text-2xl">{todayRevenue.toLocaleString(`ru`)} ₽</strong></div><div><span className="text-xs opacity-70">Неделя</span><strong className="block text-2xl">{totalRevenue.toLocaleString(`ru`)} ₽</strong></div><div><span className="text-xs opacity-70">Средний чек</span><strong className="block text-2xl">{averageCheck.toLocaleString(`ru`)} ₽</strong></div><div><span className="text-xs opacity-70">Результат</span><strong className="block text-2xl">{profit.toLocaleString(`ru`)} ₽</strong></div></div>
             </section>
             <section className="mb-4 grid gap-3 md:grid-cols-2">
-              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Approval & finance rail</div><h3 className="mt-1 font-semibold">╨в╤А╨╡╨▒╤Г╨╡╤В ╤А╨╡╤И╨╡╨╜╨╕╤П</h3><div className="mt-3 grid gap-2"><button onClick={() => setPage(`payroll`)} className="rounded-xl bg-amber-500/10 p-3 text-left">╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╨╜╨░╤З╨╕╤Б╨╗╨╡╨╜╨╕╤П ╨╕ ╨▓╤Л╨┐╨╗╨░╤В╤Л</button><button onClick={() => setPage(`piggy-bank`)} className="rounded-xl bg-emerald-500/10 p-3 text-left">╨Ю╤В╨║╤А╤Л╤В╤М ╨╜╨░╨║╨╛╨┐╨╗╨╡╨╜╨╕╤П ╨╕ ╨┤╨▓╨╕╨╢╨╡╨╜╨╕╤П</button><div className="flex justify-between rounded-xl border border-current/10 p-3"><span>╨а╨░╤Б╤Е╨╛╨┤╤Л ╨╜╨╡╨┤╨╡╨╗╨╕</span><strong>{totalExpenses.toLocaleString(`ru`)} тВ╜</strong></div></div></div>
-              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Quick transitions</div><h3 className="mt-1 font-semibold">╨г╨┐╤А╨░╨▓╨╗╨╡╨╜╤З╨╡╤Б╨║╨╕╨╣ ╨╝╨░╤А╤И╤А╤Г╤В</h3><div className="mt-3 space-y-2"><button onClick={() => setPage(`stock`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>╨б╨║╨╗╨░╨┤ ╨╕ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕</span><ChevronRight size={17}/></button><button onClick={() => setPage(`clients`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>╨Ъ╨╗╨╕╨╡╨╜╤В╤Л</span><ChevronRight size={17}/></button><button onClick={() => setPage(`settings`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕</span><ChevronRight size={17}/></button></div></div>
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Approval & finance rail</div><h3 className="mt-1 font-semibold">Требует решения</h3><div className="mt-3 grid gap-2"><button onClick={() => setPage(`payroll`)} className="rounded-xl bg-amber-500/10 p-3 text-left">Проверить начисления и выплаты</button><button onClick={() => setPage(`piggy-bank`)} className="rounded-xl bg-emerald-500/10 p-3 text-left">Открыть накопления и движения</button><div className="flex justify-between rounded-xl border border-current/10 p-3"><span>Расходы недели</span><strong>{totalExpenses.toLocaleString(`ru`)} ₽</strong></div></div></div>
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Quick transitions</div><h3 className="mt-1 font-semibold">Управленческий маршрут</h3><div className="mt-3 space-y-2"><button onClick={() => setPage(`stock`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>Склад и проверки</span><ChevronRight size={17}/></button><button onClick={() => setPage(`clients`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>Клиенты</span><ChevronRight size={17}/></button><button onClick={() => setPage(`settings`)} className="flex w-full justify-between rounded-xl p-3" style={{ background: `${primary}0D` }}><span>Настройки</span><ChevronRight size={17}/></button></div></div>
             </section>
             <section className={`${glass} mb-4 rounded-2xl p-4`}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Executive pulse</div>
-                  <h3 className="mt-1 font-semibold">╨Ю╨┐╨╡╤А╨░╤Ж╨╕╨╛╨╜╨╜╨░╤П ╨║╨░╤А╤В╨╕╨╜╨░ ╨┤╨╜╤П</h3>
+                  <h3 className="mt-1 font-semibold">Операционная картина дня</h3>
                 </div>
                 <TrendingUp size={20} style={{ color: primary }} />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
                 <button onClick={() => setPage(`calendar`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
                   <strong className="block text-xl">{todayBookings.length}</strong>
-                  <span className="text-xs text-muted-foreground">╨╖╨░╨┐╨╕╤Б╨╡╨╣ ╤Б╨╡╨│╨╛╨┤╨╜╤П</span>
+                  <span className="text-xs text-muted-foreground">записей сегодня</span>
                 </button>
                 <button onClick={() => setPage(`reports`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
                   <strong className="block text-xl">{weeklyCompletedBookings.length}</strong>
-                  <span className="text-xs text-muted-foreground">╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╛ ╨╖╨░ ╨╜╨╡╨┤╨╡╨╗╤О</span>
+                  <span className="text-xs text-muted-foreground">завершено за неделю</span>
                 </button>
                 <button onClick={() => setPage(`clients`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
                   <strong className="block text-xl">{clients.length}</strong>
-                  <span className="text-xs text-muted-foreground">╨║╨╗╨╕╨╡╨╜╤В╨╛╨▓ ╨▓ ╨▒╨░╨╖╨╡</span>
+                  <span className="text-xs text-muted-foreground">клиентов в базе</span>
                 </button>
                 <button onClick={() => setPage(`stock`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
                   <strong className="block text-xl">{workers.length}</strong>
-                  <span className="text-xs text-muted-foreground">╤Б╨╛╤В╤А╤Г╨┤╨╜╨╕╨║╨╛╨▓ ╨▓ ╨║╨╛╨╜╤В╤Г╤А╨╡</span>
+                  <span className="text-xs text-muted-foreground">сотрудников в контуре</span>
                 </button>
               </div>
             </section>
@@ -4553,6 +4553,9 @@ setOwnerNewBookingWorkers([]);
                       <h3 className="font-semibold text-sm">Записи ({salaryDetail.completedBookingsCount})</h3>
                       <span className={`text-[11px] ${sub}`}>Смен: {salaryDetail.shiftCount}</span>
                     </div>
+                    {salaryDetail.shiftDates && salaryDetail.shiftDates.length > 0 && (
+                      <div className={`text-[11px] ${sub} mb-2`}>Выходы: {salaryDetail.shiftDates.join(', ')}</div>
+                    )}
                     {salaryDetail.bookings.length === 0 ? (
                       <div className={`text-xs ${sub} py-3 text-center`}>Нет записей за выбранный период</div>
                     ) : (

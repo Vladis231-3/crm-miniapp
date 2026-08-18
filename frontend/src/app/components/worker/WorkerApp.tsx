@@ -680,23 +680,23 @@ export function WorkerApp() {
               <div className="text-xs uppercase tracking-[.2em] opacity-70">Shift command</div>
               <div className="mt-3 flex items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-semibold">{todayTasks.find(task => task.status === `in_progress`)?.service || todayTasks.find(task => task.status !== `completed`)?.service || `╨б╨╝╨╡╨╜╨░ ╨┐╨╛╨┤ ╨║╨╛╨╜╤В╤А╨╛╨╗╨╡╨╝`}</h2>
-                  <p className="mt-1 text-sm opacity-80">{todayTasks.find(task => task.status === `in_progress`) ? `╨в╨╡╨║╤Г╤Й╨░╤П ╤А╨░╨▒╨╛╤В╨░ ┬╖ ${todayTasks.find(task => task.status === `in_progress`)?.time}` : `╨У╨╛╤В╨╛╨▓ ╨║ ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨╣ ╨╖╨░╨┤╨░╤З╨╡`}</p>
+                  <h2 className="text-2xl font-semibold">{todayTasks.find(task => task.status === `in_progress`)?.service || todayTasks.find(task => task.status !== `completed`)?.service || `Смена под контролем`}</h2>
+                  <p className="mt-1 text-sm opacity-80">{todayTasks.find(task => task.status === `in_progress`) ? `Текущая работа · ${todayTasks.find(task => task.status === `in_progress`)?.time}` : `Готов к следующей задаче`}</p>
                 </div>
-                <div className="text-right"><div className="text-3xl font-semibold">{todayTasks.filter(task => task.status === `completed`).length}/{todayTasks.length}</div><div className="text-xs opacity-70">╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜╨╛</div></div>
+                <div className="text-right"><div className="text-3xl font-semibold">{todayTasks.filter(task => task.status === `completed`).length}/{todayTasks.length}</div><div className="text-xs opacity-70">выполнено</div></div>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 border-y border-white/15 py-3 text-center">
-                <div><strong className="block text-xl">{todayTasks.length}</strong><span className="text-xs opacity-70">╨╜╨░ ╤Б╨╝╨╡╨╜╤Г</span></div>
-                <div><strong className="block text-xl">{todayTasks.filter(task => task.status === `in_progress`).length}</strong><span className="text-xs opacity-70">╨▓ ╤А╨░╨▒╨╛╤В╨╡</span></div>
-                <div><strong className="block text-xl">{todayTasks.filter(task => task.status === `completed`).length}</strong><span className="text-xs opacity-70">╨│╨╛╤В╨╛╨▓╨╛</span></div>
+                <div><strong className="block text-xl">{todayTasks.length}</strong><span className="text-xs opacity-70">на смену</span></div>
+                <div><strong className="block text-xl">{todayTasks.filter(task => task.status === `in_progress`).length}</strong><span className="text-xs opacity-70">в работе</span></div>
+                <div><strong className="block text-xl">{todayTasks.filter(task => task.status === `completed`).length}</strong><span className="text-xs opacity-70">готово</span></div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {todayTasks.find(task => task.status !== `completed`) && <button onClick={() => { const task = todayTasks.find(item => item.status !== `completed`); if (task) { setSelectedTask(task); setShowDetail(true); } }} className="semantic-primary-button bg-white text-slate-900">╨Ю╤В╨║╤А╤Л╤В╤М ╤В╨╡╨║╤Г╤Й╤Г╤О</button>}
-                <button onClick={() => setProfileSection(`shift`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">╨з╨╡╨║-╨╗╨╕╤Б╤В ╤Б╨╝╨╡╨╜╤Л</button>
+                {todayTasks.find(task => task.status !== `completed`) && <button onClick={() => { const task = todayTasks.find(item => item.status !== `completed`); if (task) { setSelectedTask(task); setShowDetail(true); } }} className="semantic-primary-button bg-white text-slate-900">Открыть текущую</button>}
+                <button onClick={() => setProfileSection(`shift`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">Чек-лист смены</button>
               </div>
             </section>
             <section className={`${glass} mb-4 rounded-2xl p-4`}>
-              <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Next work rail</div><h3 className="font-semibold">╨Ф╨░╨╗╤М╤И╨╡ ╨┐╨╛ ╨▓╤А╨╡╨╝╨╡╨╜╨╕</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">╨а╨░╤Б╨┐╨╕╤Б╨░╨╜╨╕╨╡</button></div>
+              <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Next work rail</div><h3 className="font-semibold">Дальше по времени</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">Расписание</button></div>
               <div className="mt-3 space-y-2">
                 {todayTasks.filter(task => task.status !== `completed`).slice(0, 3).map(task => <button key={task.id} onClick={() => { setSelectedTask(task); setShowDetail(true); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{task.time}</strong><span className="min-w-0 flex-1 truncate">{task.service}</span><ChevronRight size={16}/></button>)}
               </div>

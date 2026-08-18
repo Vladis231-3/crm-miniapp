@@ -373,6 +373,7 @@ class SalaryDetailResponse(BaseModel):
     balanceToPay: int
     completedBookingsCount: int
     shiftCount: int
+    shiftDates: list[str] = Field(default_factory=list)  # DD.MM.YYYY, по убыванию
     bookings: list[SalaryBookingItem] = Field(default_factory=list)
     payouts: list[SalaryPayoutItem] = Field(default_factory=list)
     entries: list[PayrollEntryPayload] = Field(default_factory=list)

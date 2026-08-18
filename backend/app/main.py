@@ -5085,10 +5085,17 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
         if role == "worker":
 
-            bookings_query = bookings_query.join(Booking.worker_links).where(
-
-                BookingWorker.worker_id == actor_id
-
+            # Мастер видит записи, где он назначен на основную услугу ИЛИ
+            # участвует в доп. услуге (AdditionalServiceWorker).
+            bookings_query = bookings_query.where(
+                or_(
+                    Booking.worker_links.any(BookingWorker.worker_id == actor_id),
+                    Booking.additional_services.any(
+                        BookingAdditionalService.worker_links.any(
+                            AdditionalServiceWorker.worker_id == actor_id
+                        )
+                    ),
+                )
             )
 
             notifications_query = notifications_query.where(
@@ -14042,7 +14049,7 @@ def get_piggy_bank(
 
         ed = parsed_to or date.today()
 
-        shift_count, _ = _compute_shift_attendance(inspections, w.id, sd, ed)
+        shift_count, shift_dates = _compute_shift_attendance(inspections, w.id, sd, ed)
 
         salary_per_shift = getattr(w, "salary_per_shift", 0) or 0
 
@@ -19183,7 +19190,7 @@ def owner_worker_salary_detail(
 
         inspections = _admin_shift_inspections_state(db)
 
-        shift_count, _ = _compute_shift_attendance(
+        shift_count, shift_dates = _compute_shift_attendance(
 
             inspections, worker.id, date(2000, 1, 1), date.today()
 
@@ -19197,7 +19204,7 @@ def owner_worker_salary_detail(
 
         inspections = _admin_shift_inspections_state(db)
 
-        shift_count, _ = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
+        shift_count, shift_dates = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
 
 
 
@@ -19255,6 +19262,8 @@ def owner_worker_salary_detail(
         completedBookingsCount=len(booking_items),
 
         shiftCount=shift_count,
+
+        shiftDates=shift_dates,
 
         bookings=booking_items,
 
@@ -19571,7 +19580,7 @@ def worker_my_salary_detail(
 
         inspections = _admin_shift_inspections_state(db)
 
-        shift_count, _ = _compute_shift_attendance(
+        shift_count, shift_dates = _compute_shift_attendance(
 
             inspections, worker.id, date(2000, 1, 1), date.today()
 
@@ -19585,7 +19594,7 @@ def worker_my_salary_detail(
 
         inspections = _admin_shift_inspections_state(db)
 
-        shift_count, _ = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
+        shift_count, shift_dates = _compute_shift_attendance(inspections, worker.id, d_from, d_to)
 
 
 
@@ -19643,6 +19652,8 @@ def worker_my_salary_detail(
         completedBookingsCount=len(booking_items),
 
         shiftCount=shift_count,
+
+        shiftDates=shift_dates,
 
         bookings=booking_items,
 

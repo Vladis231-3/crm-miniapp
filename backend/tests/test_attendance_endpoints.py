@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -217,6 +218,9 @@ class AttendanceEndpointTests(unittest.TestCase):
         self.assertEqual(salary_payload["shiftCount"], 1)
         self.assertEqual(salary_payload["salaryPerShift"], 1000)
         self.assertEqual(salary_payload["balanceToPay"], 1000)
+        # В salary-detail тоже возвращаются даты выходов
+        expected_date = datetime.strptime(payload["createdAt"][:10], "%Y-%m-%d").strftime("%d.%m.%Y")
+        self.assertEqual(salary_payload["shiftDates"], [expected_date])
 
     def test_new_worker_gets_default_shift_pay_1000(self) -> None:
         """Новый сотрудник получает оклад за выход 1000 ₽ по умолчанию."""
