@@ -812,6 +812,13 @@ export function OwnerApp() {
   const [ownerPayNote, setOwnerPayNote] = useState('');
   const [selectedShareDetail, setSelectedShareDetail] = useState<OwnerProfitShareItem | null>(null);
 
+  // Reset override-earned edit mode on any page change so salary detail
+  // always opens in view mode, no matter how the user navigated away.
+  useEffect(() => {
+    setEditingOverrideLinkId(null);
+    setEditingOverrideValue('');
+  }, [page]);
+
   // Bookings history state
   const [historyItems, setHistoryItems] = useState<BookingHistoryItem[]>([]);
   const [historyTotals, setHistoryTotals] = useState<BookingHistoryTotals | null>(null);
