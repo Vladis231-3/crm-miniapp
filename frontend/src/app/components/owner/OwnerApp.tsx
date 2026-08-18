@@ -3848,33 +3848,6 @@ setOwnerNewBookingWorkers([]);
           {/* ── DASHBOARD ── */}
           {page === 'dashboard' && (
             <>
-            <section className={`${glass} mb-4 rounded-2xl p-4`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Executive pulse</div>
-                  <h3 className="mt-1 font-semibold">Операционная картина дня</h3>
-                </div>
-                <TrendingUp size={20} style={{ color: primary }} />
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                <button onClick={() => setPage(`calendar`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <strong className="block text-xl">{todayBookings.length}</strong>
-                  <span className="text-xs text-muted-foreground">записей сегодня</span>
-                </button>
-                <button onClick={() => setPage(`reports`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <strong className="block text-xl">{weeklyCompletedBookings.length}</strong>
-                  <span className="text-xs text-muted-foreground">завершено за неделю</span>
-                </button>
-                <button onClick={() => setPage(`clients`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <strong className="block text-xl">{clients.length}</strong>
-                  <span className="text-xs text-muted-foreground">клиентов в базе</span>
-                </button>
-                <button onClick={() => setPage(`stock`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <strong className="block text-xl">{workers.length}</strong>
-                  <span className="text-xs text-muted-foreground">сотрудников в контуре</span>
-                </button>
-              </div>
-            </section>
             <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {kpiCards.map(card => card.status ? (

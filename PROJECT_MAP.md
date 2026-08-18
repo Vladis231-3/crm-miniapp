@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-18 07:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-18 07:34 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **273**
-- Строк кода: **99 094**
+- Строк кода: **99 067**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 59, `.ts`: 19, `.tsx`: 189
 
 ## Архитектура
@@ -2590,7 +2590,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11951 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11924 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 220) — локальный
 - `STOCK_UNITS` (стр. 221) — локальный
@@ -3465,12 +3465,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 10:32)
 - `backend/tests/test_worker_additional_services.py` (2026-08-18 10:22)
 - `backend/tests/test_content.py` (2026-08-18 10:19)
 - `backend/tests/test_worker_car_search.py` (2026-08-18 10:19)
 - `backend/tests/test_worker_calendar.py` (2026-08-18 10:19)
 - `backend/app/main.py` (2026-08-18 10:10)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 10:09)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-18 10:05)
 - `backend/tests/test_attendance_endpoints.py` (2026-08-18 09:58)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-18 09:58)
