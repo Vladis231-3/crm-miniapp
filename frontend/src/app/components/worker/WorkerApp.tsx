@@ -1604,7 +1604,7 @@ export function WorkerApp() {
           { id: 'earnings', icon: DollarSign, label: 'Доход' },
           { id: 'profile', icon: User, label: 'Профиль' },
         ].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-1">
+          <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); setSelectedCalDate(null); }} className="flex-1 py-3 flex flex-col items-center gap-1">
             <t.icon size={20} style={{ color: tab === t.id ? primary : undefined }} className={tab !== t.id ? sub : ''} />
             <span className="text-xs" style={{ color: tab === t.id ? primary : undefined }}>{t.label}</span>
           </button>

@@ -812,11 +812,11 @@ export function OwnerApp() {
   const [ownerPayNote, setOwnerPayNote] = useState('');
   const [selectedShareDetail, setSelectedShareDetail] = useState<OwnerProfitShareItem | null>(null);
 
-  // Reset override-earned edit mode on any page change so salary detail
+  // Reset ALL booking-editing states on any page change so salary detail
   // always opens in view mode, no matter how the user navigated away.
   // Also close the booking detail sheet and its edit modes: they are rendered
   // globally (outside page blocks) and used to stay open across navigation,
-  // looking like an auto-opened order edit in the salary menu.
+  // looking like an auto-opened order edit in the salary menu (especially for 11.08).
   useEffect(() => {
     setEditingOverrideLinkId(null);
     setEditingOverrideValue('');
@@ -824,6 +824,8 @@ export function OwnerApp() {
     setOwnerBookingEditMode(null);
     setOwnerBookingEditError(null);
     setShowOwnerAddService(false);
+    setSelectedBooking(null);
+    setOwnerEditAsvcId(null);
   }, [page]);
 
   // Bookings history state
