@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-18 07:03 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-18 07:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **272**
-- Строк кода: **98 820**
-- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 58, `.ts`: 19, `.tsx`: 189
+- Файлов кода: **273**
+- Строк кода: **99 094**
+- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 59, `.ts`: 19, `.tsx`: 189
 
 ## Архитектура
 
@@ -90,6 +90,7 @@ concept1.0/
 │   │   ├── test_piggy_bank_adjust.py
 │   │   ├── test_security_hardening.py
 │   │   ├── test_upload_security.py
+│   │   ├── test_worker_additional_services.py
 │   │   ├── test_worker_calendar.py
 │   │   └── test_worker_car_search.py
 │   ├── .env.example
@@ -453,7 +454,7 @@ concept1.0/
 - `pull_calendar_changesdef pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]: """Обратная синхронизация «Google Calendar -> CRM». Инкрементальная через syncToken (Google Calendar API).` (стр. 1301)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result: dict[str, Any] = { "ok": True, "skipped": False, "created": 0, "updated": 0, "cancelled": 0,` (стр. 1331)
 
-### backend/app/main.py (20820 строк)
+### backend/app/main.py (20832 строк)
 
 Роуты (119):
 
@@ -565,18 +566,18 @@ concept1.0/
   `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 18578)
   `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 18877)
   `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 19280)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 19670)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 19841)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 20093)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 20311)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 20449)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 20509)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 20703)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 20711)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 20723)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 20747)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 20755)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 20763)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 19682)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 19853)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 20105)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 20323)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 20461)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 20521)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 20715)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 20723)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 20735)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 20759)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 20767)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 20775)
 ```
 
 Классы и функции (225):
@@ -1441,7 +1442,7 @@ concept1.0/
 Классы и функции (11):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 24)
-- `build_init_datadef build_init_data(telegram_id: str) -> str: return urllib.parse.urlencode({"user": json.dumps({"id": telegram_id})})` (стр. 35)
+- `build_init_datadef build_init_data(telegram_id: str) -> str: return urllib.parse.urlencode({"user": json.dumps({"id": int(telegram_id)})})` (стр. 35)
 - `class ContentTests(unittest.TestCase):` (стр. 39)
 - `ContentTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_content_{uuid4().hex}.` (стр. 42)
 - `ContentTests.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 68)
@@ -1769,12 +1770,32 @@ concept1.0/
 - `test_db_failure_removes_final_and_temp_filesdef test_db_failure_removes_final_and_temp_files(monkeypatch, tmp_path) -> None: with pytest.raises(RuntimeError, match="db failure"):` (стр. 78)
 - `test_upload_headers_are_safedef test_upload_headers_are_safe() -> None: headers = main._upload_headers("safe.png") assert headers["X-Content-Type-Options"] == "nosniff" assert headers["Content-Disposition"] =` (стр. 84)
 
+### backend/tests/test_worker_additional_services.py (244 строк)
+
+Классы и функции (15):
+
+- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 25)
+- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": int` (стр. 37)
+- `class WorkerAdditionalServiceTests(unittest.TestCase):` (стр. 42)
+- `WorkerAdditionalServiceTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 48)
+- `WorkerAdditionalServiceTests.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 75)
+- `WorkerAdditionalServiceTests._set_staff_telegram_idsdef _set_staff_telegram_ids(self) -> None: from app.database import SessionLocal from app.models import StaffUser from sqlalchemy import select with SessionLocal() as db: ivan = db` (стр. 92)
+- `WorkerAdditionalServiceTests._auth_headersdef _auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 107)
+- `WorkerAdditionalServiceTests._todaydef _today() -> str: return datetime.now(timezone.utc).strftime("%d.%m.%Y")` (стр. 111)
+- `WorkerAdditionalServiceTests._create_clientdef _create_client(self) -> tuple[str, str]: from app.database import SessionLocal from app.models import Client client_id = f"c-{uuid4().hex[:12]}" phone = f"+7 (999) 000-{str(uui` (стр. 114)
+- `WorkerAdditionalServiceTests._create_bookingdef _create_booking( self, *, main_worker_id: str = "w2", status: str = "new", date: str | None = None,` (стр. 133)
+- `WorkerAdditionalServiceTests._add_additional_servicedef _add_additional_service( self, booking_id: str, *, name: str = "Полировка", price: int = 2000, percent: int = 50` (стр. 166)
+- `WorkerAdditionalServiceTests._worker_bootstrapdef _worker_bootstrap(self) -> dict: response = self.client.get( "/api/auth/session", headers=self._auth_headers(self.worker_token) ) self.assertEqual(response.status_code, 200, re` (стр. 184)
+- `WorkerAdditionalServiceTests.test_worker_sees_booking_with_only_additional_service_in_bootstrapdef test_worker_sees_booking_with_only_additional_service_in_bootstrap(self) -> None: booking_id = self._create_booking(main_worker_id="w2") payload = self._add_additional_service(` (стр. 195)
+- `WorkerAdditionalServiceTests.test_worker_without_links_does_not_see_bookingdef test_worker_without_links_does_not_see_booking(self) -> None: booking_id = self._create_booking(main_worker_id="w2") bootstrap = self._worker_bootstrap() ids = {item["id"] for ` (стр. 218)
+- `WorkerAdditionalServiceTests.test_worker_salary_detail_includes_additional_service_earningsdef test_worker_salary_detail_includes_additional_service_earnings(self) -> None: booking_id = self._create_booking(main_worker_id="w2", status="completed") self._add_additional_se` (стр. 225)
+
 ### backend/tests/test_worker_calendar.py (226 строк)
 
 Классы и функции (15):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 24)
-- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": tel` (стр. 36)
+- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": int` (стр. 36)
 - `class WorkerCalendarTests(unittest.TestCase):` (стр. 41)
 - `WorkerCalendarTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 47)
 - `WorkerCalendarTests.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 74)
@@ -1794,7 +1815,7 @@ concept1.0/
 Классы и функции (23):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 26)
-- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": tel` (стр. 37)
+- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": int` (стр. 37)
 - `class WorkerCarSearchTests(unittest.TestCase):` (стр. 42)
 - `WorkerCarSearchTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 48)
 - `WorkerCarSearchTests.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 75)
@@ -2569,7 +2590,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11959 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11951 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 220) — локальный
 - `STOCK_UNITS` (стр. 221) — локальный
@@ -2809,7 +2830,7 @@ concept1.0/
 - `SourceBadge` (стр. 13)
 - `badge` (стр. 14) — локальный
 
-### frontend/src/app/components/worker/WorkerApp.tsx (1692 строк)
+### frontend/src/app/components/worker/WorkerApp.tsx (1718 строк)
 
 - `workerStatusLabel` (стр. 22) — локальный
 - `workerStatusBadge` (стр. 45) — локальный
@@ -2841,56 +2862,57 @@ concept1.0/
 - `params` (стр. 372) — локальный
 - `myNotifications` (стр. 382) — локальный
 - `unreadCount` (стр. 383) — локальный
-- `allTasks` (стр. 385) — локальный
-- `todayTasks` (стр. 388) — локальный
-- `myEarnings` (стр. 390) — локальный
-- `w` (стр. 393) — локальный
-- `earned` (стр. 394) — локальный
-- `totalEarned` (стр. 401) — локальный
-- `payrollSummary` (стр. 402) — локальный
-- `earnedForDisplay` (стр. 403) — локальный
-- `myPenalties` (стр. 404) — локальный
-- `complaintState` (стр. 405) — локальный
-- `payoutAfterPenalties` (стр. 406) — локальный
-- `allMyTasks` (стр. 408) — локальный
-- `completedCount` (стр. 409) — локальный
-- `avgCheck` (стр. 410) — локальный
-- `chemistryItems` (стр. 411) — локальный
-- `formatTimer` (стр. 419) — локальный
-- `glass` (стр. 421) — локальный
-- `bg` (стр. 422) — локальный
-- `text` (стр. 423) — локальный
-- `sub` (стр. 424) — локальный
-- `primary` (стр. 425) — локальный
-- `accent` (стр. 426) — локальный
-- `surface` (стр. 427) — локальный
-- `inputCls` (стр. 428) — локальный
-- `formatComplaintDate` (стр. 429) — локальный
-- `handleStartTask` (стр. 431) — локальный
-- `openFinishModal` (стр. 438) — локальный
-- `handleFinish` (стр. 447) — локальный
-- `nextNote` (стр. 453) — локальный
-- `handleSaveProfile` (стр. 491) — локальный
-- `handleSubmitShiftChecklist` (стр. 497) — локальный
-- `saved` (стр. 500) — локальный
-- `handleSavePass` (стр. 515) — локальный
-- `handleGenerateTelegramCode` (стр. 542) — локальный
-- `handleSaveNotifications` (стр. 546) — локальный
-- `headerTitle` (стр. 552) — локальный
-- `isMyService` (стр. 619) — локальный
-- `isOutsource` (стр. 620) — локальный
-- `dayTasks` (стр. 751) — локальный
-- `assignedToMe` (стр. 814) — локальный
-- `shiftPay` (стр. 959) — локальный
-- `bonuses` (стр. 960) — локальный
-- `advances` (стр. 961) — локальный
-- `deductions` (стр. 962) — локальный
-- `adjustments` (стр. 963) — локальный
-- `totalAccrued` (стр. 964) — локальный
-- `totalDeducted` (стр. 965) — локальный
-- `w` (стр. 1349) — локальный
-- `earned` (стр. 1350) — локальный
-- `paymentLabel` (стр. 1353) — локальный
+- `isMyTask` (стр. 385) — локальный
+- `allTasks` (стр. 389) — локальный
+- `todayTasks` (стр. 392) — локальный
+- `myEarnings` (стр. 394) — локальный
+- `w` (стр. 397) — локальный
+- `earned` (стр. 398) — локальный
+- `totalEarned` (стр. 405) — локальный
+- `payrollSummary` (стр. 406) — локальный
+- `earnedForDisplay` (стр. 407) — локальный
+- `myPenalties` (стр. 408) — локальный
+- `complaintState` (стр. 409) — локальный
+- `payoutAfterPenalties` (стр. 410) — локальный
+- `allMyTasks` (стр. 412) — локальный
+- `completedCount` (стр. 413) — локальный
+- `avgCheck` (стр. 414) — локальный
+- `chemistryItems` (стр. 415) — локальный
+- `formatTimer` (стр. 423) — локальный
+- `glass` (стр. 425) — локальный
+- `bg` (стр. 426) — локальный
+- `text` (стр. 427) — локальный
+- `sub` (стр. 428) — локальный
+- `primary` (стр. 429) — локальный
+- `accent` (стр. 430) — локальный
+- `surface` (стр. 431) — локальный
+- `inputCls` (стр. 432) — локальный
+- `formatComplaintDate` (стр. 433) — локальный
+- `handleStartTask` (стр. 435) — локальный
+- `openFinishModal` (стр. 442) — локальный
+- `handleFinish` (стр. 451) — локальный
+- `nextNote` (стр. 457) — локальный
+- `handleSaveProfile` (стр. 495) — локальный
+- `handleSubmitShiftChecklist` (стр. 501) — локальный
+- `saved` (стр. 504) — локальный
+- `handleSavePass` (стр. 519) — локальный
+- `handleGenerateTelegramCode` (стр. 546) — локальный
+- `handleSaveNotifications` (стр. 550) — локальный
+- `headerTitle` (стр. 556) — локальный
+- `isMyService` (стр. 623) — локальный
+- `isOutsource` (стр. 624) — локальный
+- `dayTasks` (стр. 768) — локальный
+- `assignedToMe` (стр. 840) — локальный
+- `shiftPay` (стр. 985) — локальный
+- `bonuses` (стр. 986) — локальный
+- `advances` (стр. 987) — локальный
+- `deductions` (стр. 988) — локальный
+- `adjustments` (стр. 989) — локальный
+- `totalAccrued` (стр. 990) — локальный
+- `totalDeducted` (стр. 991) — локальный
+- `w` (стр. 1375) — локальный
+- `earned` (стр. 1376) — локальный
+- `paymentLabel` (стр. 1379) — локальный
 
 ### frontend/src/app/components/worker/WorkerCalendar.tsx (603 строк)
 
@@ -3443,10 +3465,14 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/app/main.py` (2026-08-18 10:00)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 09:59)
+- `backend/tests/test_worker_additional_services.py` (2026-08-18 10:22)
+- `backend/tests/test_content.py` (2026-08-18 10:19)
+- `backend/tests/test_worker_car_search.py` (2026-08-18 10:19)
+- `backend/tests/test_worker_calendar.py` (2026-08-18 10:19)
+- `backend/app/main.py` (2026-08-18 10:10)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-18 10:09)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-18 10:05)
 - `backend/tests/test_attendance_endpoints.py` (2026-08-18 09:58)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-18 09:58)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-18 09:58)
 - `backend/app/schemas.py` (2026-08-18 09:58)
 - `scripts/.project-map-watch.lock` (2026-08-18 09:31)
@@ -3454,7 +3480,3 @@ concept1.0/
 - `backend/tests/test_booking_logic.py` (2026-08-17 16:53)
 - `booking.status` (2026-08-17 16:30)
 - `task.id` (2026-08-17 16:30)
-- `task.status` (2026-08-17 16:30)
-- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-17 16:27)
-- `frontend/src/app/components/owner/_OwnerApp.work.bak.tsx` (2026-08-17 16:17)
-- `frontend/src/app/components/shared/Atmosfera.tsx` (2026-08-17 16:11)

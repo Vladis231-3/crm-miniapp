@@ -382,13 +382,17 @@ export function WorkerApp() {
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
+  const isMyTask = (b: Booking) =>
+    b.workers.some(w => w.workerId === workerId) ||
+    (b.additionalServices || []).some(as => as.workers.some(w => w.workerId === workerId));
+
   const allTasks = bookings.filter(b =>
-    filterMine ? b.workers.some(w => w.workerId === workerId) : true
+    filterMine ? isMyTask(b) : true
   );
   const todayTasks = allTasks.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
 
   const myEarnings = bookings
-    .filter(b => b.status === 'completed' && b.workers.some(w => w.workerId === workerId))
+    .filter(b => b.status === 'completed' && isMyTask(b))
     .map(b => {
       const w = b.workers.find(wk => wk.workerId === workerId);
       const earned = w?.payType === 'fixed'
@@ -405,7 +409,7 @@ export function WorkerApp() {
   const complaintState = getComplaintPenaltyState(staffProfile?.defaultPercent || 0, myPenalties);
   const payoutAfterPenalties = payrollSummary?.balance ?? Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
 
-  const allMyTasks = bookings.filter(b => b.workers.some(w => w.workerId === workerId));
+  const allMyTasks = bookings.filter(isMyTask);
   const completedCount = payrollSummary?.completedBookings ?? allMyTasks.filter(b => b.status === 'completed').length;
   const avgCheck = completedCount > 0 ? Math.round((payrollSummary?.accruedFromBookings ?? totalEarned) / completedCount) : 0;
   const chemistryItems = stockItems.filter((item) => item.category === 'Химия');
@@ -621,7 +625,11 @@ export function WorkerApp() {
                     return (
                       <div key={as.id} className={`py-1.5 ${!isMyService && !isOutsource ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">{as.name}</span>
+                          <span className="text-sm font-medium flex items-center gap-1.5">{as.name}{isMyService && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: `${accent}20`, color: accent }}>
+                              {selectedTask.status === 'completed' ? 'участвовали' : 'участвуете'}
+                            </span>
+                          )}</span>
                           <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                         </div>
                         {isOutsource ? (
@@ -717,6 +725,15 @@ export function WorkerApp() {
                           <div className={`text-sm ${sub}`}>{task.clientName}</div>
                           <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
                           {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
+                          {(task.additionalServices || []).some(as => as.workers.some(w => w.workerId === workerId)) && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {(task.additionalServices || []).filter(as => as.workers.some(w => w.workerId === workerId)).map(as => (
+                                <span key={as.id} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${accent}1A`, color: accent }}>
+                                  + {as.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(task.status)}`}>
                           {workerStatusLabel(task.status)}
@@ -748,7 +765,7 @@ export function WorkerApp() {
             <motion.div key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Расписание</h2>
               {upcomingDates.slice(0, 3).map(date => {
-                const dayTasks = bookings.filter(b => b.date === date && b.workers.some(w => w.workerId === workerId));
+                const dayTasks = bookings.filter(b => b.date === date && isMyTask(b));
                 return (
                   <div key={date} className="mb-4">
                     <div className={`text-xs font-medium ${sub} mb-2`}>{date}</div>
@@ -761,6 +778,15 @@ export function WorkerApp() {
                             <div className="text-sm font-medium">{task.time} — {task.service}</div>
                             <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}<SourceBadge source={task.source} className="ml-1.5 align-middle" /></div>
                             {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
+                            {(task.additionalServices || []).some(as => as.workers.some(w => w.workerId === workerId)) && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {(task.additionalServices || []).filter(as => as.workers.some(w => w.workerId === workerId)).map(as => (
+                                  <span key={as.id} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${accent}1A`, color: accent }}>
+                                    + {as.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
                             {task.status === 'completed' ? 'Выполнено' : workerStatusLabel(task.status)}

@@ -19381,11 +19381,23 @@ def worker_my_salary_detail(
 
         )
 
-        .join(BookingWorker)
-
         .where(
 
-            BookingWorker.worker_id == worker_id,
+            or_(
+
+                Booking.worker_links.any(BookingWorker.worker_id == worker_id),
+
+                Booking.additional_services.any(
+
+                    BookingAdditionalService.worker_links.any(
+
+                        AdditionalServiceWorker.worker_id == worker_id
+
+                    )
+
+                ),
+
+            ),
 
             Booking.status == "completed",
 
