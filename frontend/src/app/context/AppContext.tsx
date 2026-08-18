@@ -198,6 +198,8 @@ export interface Booking {
   materialsWrittenOff: boolean;
   /** Источник записи: 'bot' | 'google' | 'manual' | null */
   source?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
 }
 
 export interface BookingSlotAvailability {

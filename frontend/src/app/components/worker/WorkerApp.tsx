@@ -6,7 +6,7 @@ import {
   Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp, CarFront, Search
 } from 'lucide-react';
-import { getWorkerNotificationSettings, useApp, Booking, type PaymentType } from '../../context/AppContext';
+import { getWorkerNotificationSettings, useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
 import { SourceBadge } from '../shared/SourceBadge';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { AttendanceTable } from '../shared/AttendanceTable';
@@ -61,6 +61,34 @@ function workerStatusBadge(status: Booking['status']) {
     default:
       return 'bg-red-500/15 text-red-500';
   }
+}
+
+function workerPaymentLabel(paymentType: PaymentType, settled: boolean) {
+  if (!settled) return 'Не оплачено';
+  return { cash: 'Наличные', transfer: 'Перевод', invoice: 'По счёту' }[paymentType] || paymentType;
+}
+
+// Базовая цена основной услуги = итог − доп. услуги (в плюс) − работы в составе
+function bookingBasePrice(booking: Booking) {
+  const additionalTotal = (booking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0);
+  const servicesTotal = (booking.services || []).reduce((s, svc) => s + svc.price, 0);
+  return Math.max(0, booking.price - additionalTotal - servicesTotal);
+}
+
+// Доля мастера по основной услуге (та же логика, что во вкладке «Заработок»)
+function bookingBaseWorkerEarned(booking: Booking, workerId: string, services: Service[]) {
+  const link = booking.workers.find(w => w.workerId === workerId);
+  if (!link) return 0;
+  if (link.payType === 'fixed') return link.fixedAmount || 0;
+  if (isFixedMasterService(services, booking.serviceId, booking.service)) return FIXED_MASTER_EARNED;
+  return Math.round(booking.price * (link.percent || 0) / 100);
+}
+
+function formatBookingInstant(value: string | Date | null | undefined) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 const kindLabel: Record<string, string> = {
@@ -602,6 +630,15 @@ export function WorkerApp() {
           {showDetail && selectedTask ? (
             <motion.div key="detail" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 30 }} transition={{ duration: 0.22 }} className="px-4 py-4">
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${workerStatusBadge(selectedTask.status)}`}>{workerStatusLabel(selectedTask.status)}</span>
+                  <span className={`text-xs ${sub}`}>Заказ #{selectedTask.id.slice(0, 6).toUpperCase()}</span>
+                </div>
+                <div className="mt-2.5 font-semibold">{selectedTask.service}</div>
+                <div className={`text-sm ${sub} mt-1`}>{selectedTask.date} в {selectedTask.time} · {selectedTask.duration} мин</div>
+                <div className={`text-sm ${sub}`}>{selectedTask.box}</div>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className={`text-xs font-medium ${sub} mb-2`}>КЛИЕНТ</div>
                 <div className="font-semibold">{selectedTask.clientName}</div>
                 <div className="mt-1"><SourceBadge source={selectedTask.source} /></div>
@@ -611,41 +648,121 @@ export function WorkerApp() {
                 {selectedTask.car && <div className={`text-sm ${sub} mt-1`}>{selectedTask.car} · {selectedTask.plate}</div>}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                <div className={`text-xs font-medium ${sub} mb-2`}>ЗАДАЧА</div>
-                <div className="font-semibold">{selectedTask.service}</div>
-                <div className={`text-sm ${sub} mt-1`}>{selectedTask.date} в {selectedTask.time} · {selectedTask.duration} мин</div>
-                <div className={`text-sm ${sub}`}>{selectedTask.box}</div>
-              </div>
-              {selectedTask.additionalServices && selectedTask.additionalServices.length > 0 && (
-                <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className={`text-xs font-medium ${sub} mb-2`}>ДОП. УСЛУГИ</div>
-                  {selectedTask.additionalServices.map(as => {
-                    const isMyService = as.workers.some(w => w.workerId === workerId);
-                    const isOutsource = !!as.isOutsource;
-                    return (
-                      <div key={as.id} className={`py-1.5 ${!isMyService && !isOutsource ? 'opacity-50' : ''}`}>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium flex items-center gap-1.5">{as.name}{isMyService && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: `${accent}20`, color: accent }}>
-                              {selectedTask.status === 'completed' ? 'участвовали' : 'участвуете'}
-                            </span>
-                          )}</span>
-                          <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
+                <div className={`text-xs font-medium ${sub} mb-2`}>СОСТАВ ЗАКАЗА</div>
+                <div className="flex justify-between items-center text-sm py-0.5">
+                  <span className="font-medium">Базовая услуга «{selectedTask.service}»</span>
+                  <span className="font-semibold">{bookingBasePrice(selectedTask).toLocaleString('ru')} ₽</span>
+                </div>
+                {(selectedTask.services || []).map((svc, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-sm py-0.5">
+                    <span>+ {svc.name}</span>
+                    <span>{svc.price.toLocaleString('ru')} ₽</span>
+                  </div>
+                ))}
+                {selectedTask.additionalServices && selectedTask.additionalServices.length > 0 && (
+                  <>
+                    <div className={`text-[11px] font-medium ${sub} mt-2 mb-1`}>Доп. услуги</div>
+                    {selectedTask.additionalServices.map(as => {
+                      const isMyService = as.workers.some(w => w.workerId === workerId);
+                      const isOutsource = !!as.isOutsource;
+                      return (
+                        <div key={as.id} className={`py-1 ${!isMyService && !isOutsource ? 'opacity-50' : ''}`}>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium flex items-center gap-1.5">{as.name}{isMyService && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: `${accent}20`, color: accent }}>
+                                {selectedTask.status === 'completed' ? 'участвовали' : 'участвуете'}
+                              </span>
+                            )}</span>
+                            <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.price.toLocaleString('ru')} ₽</span>
+                          </div>
+                          {isOutsource ? (
+                            <div className="flex justify-between items-center mt-0.5">
+                              <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
+                              <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                            </div>
+                          ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
+                            <div key={w.workerId} className="flex justify-between items-center mt-0.5">
+                              <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                              <span className="text-xs font-medium text-green-500">+{(w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)).toLocaleString('ru')} ₽</span>
+                            </div>
+                          ))}
                         </div>
-                        {isOutsource ? (
-                          <div className="flex justify-between items-center mt-0.5">
-                            <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
-                            <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
-                          </div>
-                        ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
-                          <div key={w.workerId} className="flex justify-between items-center mt-0.5">
-                            <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
-                            <span className="text-xs font-medium text-green-500">+{(w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)).toLocaleString('ru')} ₽</span>
-                          </div>
-                        ))}
+                      );
+                    })}
+                  </>
+                )}
+                <div className="flex justify-between items-center mt-2 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                  <span className="text-sm font-semibold">Итоговая сумма</span>
+                  <span className="text-base font-bold" style={{ color: primary }}>{selectedTask.price.toLocaleString('ru')} ₽</span>
+                </div>
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                <div className={`text-xs font-medium ${sub} mb-2`}>ОПЛАТА</div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">{workerPaymentLabel(selectedTask.paymentType, selectedTask.paymentSettled)}</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${selectedTask.paymentSettled ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'}`}>
+                    {selectedTask.paymentSettled ? 'Оплачено' : 'Не оплачено'}
+                  </span>
+                </div>
+                {selectedTask.isOutsource && (
+                  <div className="flex justify-between items-center mt-1 text-sm">
+                    <span className={sub}>Аутсорс · аутсорсеру</span>
+                    <span className="text-red-500">− {(selectedTask.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                  </div>
+                )}
+              </div>
+              {(() => {
+                const myBaseLink = selectedTask.workers.find(w => w.workerId === workerId);
+                const myAdditionalServices = (selectedTask.additionalServices || []).filter(as => as.workers.some(w => w.workerId === workerId));
+                if (!myBaseLink && myAdditionalServices.length === 0) return null;
+                const baseEarned = bookingBaseWorkerEarned(selectedTask, workerId, services);
+                const additionalEarned = myAdditionalServices.reduce((sum, as) => sum + as.workers.filter(w => w.workerId === workerId).reduce((s, w) => s + (w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)), 0), 0);
+                const total = baseEarned + additionalEarned;
+                return (
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>ВАШ ДОХОД</div>
+                    {myBaseLink && (
+                      <div className="flex justify-between items-center text-sm py-0.5">
+                        <span>{myBaseLink.payType === 'fixed' ? 'Основная услуга · фикс' : isFixedMasterService(services, selectedTask.serviceId, selectedTask.service) ? 'Основная услуга · фикс' : `Основная услуга · ${myBaseLink.percent || 0}%`}</span>
+                        <span className="font-medium text-green-500">+{baseEarned.toLocaleString('ru')} ₽</span>
                       </div>
-                    );
-                  })}
+                    )}
+                    {myAdditionalServices.map(as => {
+                      const earned = as.workers.filter(w => w.workerId === workerId).reduce((s, w) => s + (w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)), 0);
+                      return (
+                        <div key={as.id} className="flex justify-between items-center text-sm py-0.5">
+                          <span>{as.name}</span>
+                          <span className="font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-between items-center pt-2.5 mt-2 border-t text-sm font-semibold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                      <span>Итого за заказ</span>
+                      <span style={{ color: accent }}>+{total.toLocaleString('ru')} ₽</span>
+                    </div>
+                  </div>
+                );
+              })()}
+              {(selectedTask.materials || []).length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <div className={`text-xs font-medium ${sub}`}>МАТЕРИАЛЫ</div>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${selectedTask.materialsWrittenOff ? 'text-green-500 bg-green-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
+                      {selectedTask.materialsWrittenOff ? 'Списаны' : 'Не списаны'}
+                    </span>
+                  </div>
+                  {selectedTask.materials.map(m => (
+                    <div key={m.id} className="flex justify-between items-center text-sm py-0.5">
+                      <span>{m.name} × {m.qty} {m.unit}</span>
+                      <span className={sub}>{(m.qty * m.unitPrice).toLocaleString('ru')} ₽</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedTask.notes?.trim() && (
+                <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div className={`text-xs font-medium ${sub} mb-2`}>ЗАМЕТКИ</div>
+                  <p className="text-sm whitespace-pre-wrap">{selectedTask.notes}</p>
                 </div>
               )}
               {selectedTask.workers.length > 0 && (
@@ -662,6 +779,22 @@ export function WorkerApp() {
                   ))}
                 </div>
               )}
+              {(() => {
+                const created = formatBookingInstant(selectedTask.createdAt);
+                const started = formatBookingInstant(selectedTask.startedAt);
+                const completed = formatBookingInstant(selectedTask.completedAt);
+                if (!created && !started && !completed) return null;
+                return (
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>ВРЕМЕНА</div>
+                    <div className="text-sm space-y-1">
+                      {created && <div className="flex justify-between"><span className={sub}>Заказ создан</span><span>{created}</span></div>}
+                      {started && <div className="flex justify-between"><span className={sub}>Работа начата</span><span>{started}</span></div>}
+                      {completed && <div className="flex justify-between"><span className={sub}>Работа завершена</span><span>{completed}</span></div>}
+                    </div>
+                  </div>
+                );
+              })()}
               {selectedTask.status === 'in_progress' && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-center`}>
                   <div className={`text-xs ${sub} mb-2`}>Время работы</div>
