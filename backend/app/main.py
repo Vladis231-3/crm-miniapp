@@ -41,7 +41,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from fastapi.staticfiles import StaticFiles
 
-from sqlalchemy import delete as sa_delete, inspect, or_, select, func, update as sa_update
+from sqlalchemy import String, and_, cast, delete as sa_delete, inspect, or_, select, func, update as sa_update
 
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -1134,6 +1134,28 @@ def _primary_owner(db: Session) -> StaffUser | None:
 
     )
 
+
+
+
+
+def _owner_master_condition() -> Any:
+
+    """Владелец, которому дополнительно выдана роль мастера (extra_roles != []).
+
+    Такие владельцы попадают в списки мастеров: назначение на записи,
+
+    зарплатная ведомость и зарплатное меню (выплаты/премии/штрафы).
+
+    """
+
+    return and_(StaffUser.role == "owner", cast(StaffUser.extra_roles, String) != "[]")
+
+
+
+
+def _is_owner_master(worker: StaffUser) -> bool:
+
+    return worker.role == "owner" and bool(worker.extra_roles)
 
 
 
@@ -4999,6 +5021,7 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
         .where(
             StaffUser.role.in_(("admin", "worker", "accountant"))
             | StaffUser.id.in_(owner_ids)
+            | _owner_master_condition()
         )
 
         .order_by(StaffUser.role.asc(), StaffUser.name.asc())
@@ -17359,7 +17382,7 @@ def get_admin_workers_payroll(
     date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
     workers_list = db.scalars(
         select(StaffUser)
-        .where(StaffUser.role == "worker")
+        .where(or_(StaffUser.role == "worker", _owner_master_condition()))
         .order_by(StaffUser.name.asc())
     ).all()
     worker_ids = [w.id for w in workers_list]
@@ -17436,9 +17459,7 @@ def save_admin_worker_payroll(
         worker.id: worker
 
         for worker in db.scalars(
-
-            select(StaffUser).where(StaffUser.role == "worker")
-
+            select(StaffUser).where(or_(StaffUser.role == "worker", _owner_master_condition()))
         ).all()
 
     }
@@ -17467,7 +17488,7 @@ def save_admin_worker_payroll(
 
         select(StaffUser)
 
-        .where(StaffUser.role == "worker")
+        .where(or_(StaffUser.role == "worker", _owner_master_condition()))
 
         .order_by(StaffUser.name.asc())
 
@@ -17505,7 +17526,9 @@ def create_payroll_entry(
 
     worker = db.get(StaffUser, payload.workerId)
 
-    if worker is None or worker.role not in {"admin", "worker", "accountant"}:
+    if worker is None or (
+        worker.role not in {"admin", "worker", "accountant"} and not _is_owner_master(worker)
+    ):
 
         raise HTTPException(
 
@@ -17513,7 +17536,9 @@ def create_payroll_entry(
 
         )
 
-    if session_data["role"] in {"admin", "accountant"} and worker.role != "worker":
+    if session_data["role"] in {"admin", "accountant"} and not (
+        worker.role == "worker" or _is_owner_master(worker)
+    ):
 
         raise HTTPException(
 
