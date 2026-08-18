@@ -2565,6 +2565,149 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("минимум 1000", response.text)
 
+    def _tg_headers(self, login: str, telegram_id: str) -> dict[str, str]:
+        """Авторизация текущего флоу (Telegram init data): привязываем
+        telegram_chat_id к сотруднику и возвращаем заголовок Authorization."""
+        from app.database import SessionLocal
+        from app.models import StaffUser
+
+        with SessionLocal() as db:
+            staff = db.scalar(select(StaffUser).where(StaffUser.login == login))
+            self.assertIsNotNone(staff)
+            assert staff is not None
+            staff.telegram_chat_id = telegram_id
+            db.commit()
+        import urllib.parse
+
+        init_data = urllib.parse.urlencode(
+            {"user": json.dumps({"id": int(telegram_id)})}
+        )
+        return {"Authorization": init_data}
+
+    def test_payroll_entries_with_period_are_attributed_to_selected_period(self) -> None:
+        """Премия/штраф/списание с выбранным периодом учитываются за этот период
+        (08.08–14.08), а не по дате создания; entryDate = конец периода."""
+        owner_headers = self._tg_headers("owner", "889013")
+        admin_headers = self._tg_headers("admin", "889011")
+        worker_headers = self._tg_headers("ivan", "889012")
+
+        for kind, amount in (("bonus", 500), ("deduction", 300)):
+            response = self.client.post(
+                "/api/payroll/entries",
+                headers=owner_headers,
+                json={
+                    "workerId": "w1",
+                    "kind": kind,
+                    "amount": amount,
+                    "note": f"Операция за период ({kind})",
+                    "period": "custom",
+                    "dateFrom": "2026-08-08",
+                    "dateTo": "2026-08-14",
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        # Период 08.08–14.08: обе операции видны, entryDate = 14.08.2026
+        detail = self.client.get(
+            "/api/owner/workers/w1/salary-detail?period=custom&date_from=2026-08-08&date_to=2026-08-14",
+            headers=owner_headers,
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        payload = detail.json()
+        self.assertEqual({e["kind"] for e in payload["entries"]}, {"bonus", "deduction"})
+        self.assertTrue(all(e["entryDate"] == "14.08.2026" for e in payload["entries"]))
+        self.assertEqual(payload["balanceToPay"], payload["salaryBase"] + 500 - 300)
+
+        # Период 15.08–21.08: операции за 08.08–14.08 не видны
+        other = self.client.get(
+            "/api/owner/workers/w1/salary-detail?period=custom&date_from=2026-08-15&date_to=2026-08-21",
+            headers=owner_headers,
+        )
+        self.assertEqual(other.status_code, 200, other.text)
+        self.assertEqual(other.json()["entries"], [])
+
+        # Мастер видит списание за свой период
+        worker_detail = self.client.get(
+            "/api/worker/salary-detail?period=custom&date_from=2026-08-08&date_to=2026-08-14",
+            headers=worker_headers,
+        )
+        self.assertEqual(worker_detail.status_code, 200, worker_detail.text)
+        self.assertEqual(
+            {e["kind"] for e in worker_detail.json()["entries"]},
+            {"bonus", "deduction"},
+        )
+
+        # Админская ведомость за период тоже видит операции
+        payroll = self.client.get(
+            "/api/admin/workers/payroll?period=custom&date_from=2026-08-08&date_to=2026-08-14",
+            headers=admin_headers,
+        )
+        self.assertEqual(payroll.status_code, 200, payroll.text)
+        w1_payload = next(item for item in payroll.json() if item["id"] == "w1")
+        self.assertEqual(
+            {e["kind"] for e in w1_payload["payrollSummary"]["entries"]},
+            {"bonus", "deduction"},
+        )
+
+    def test_payroll_entry_without_period_keeps_created_at_behavior(self) -> None:
+        """Операция без периода (legacy) учитывается по дате создания."""
+        owner_headers = self._tg_headers("owner", "889013")
+
+        response = self.client.post(
+            "/api/payroll/entries",
+            headers=owner_headers,
+            json={"workerId": "w1", "kind": "bonus", "amount": 100, "note": "Без периода"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        entry = next(
+            e for e in response.json()["payrollSummary"]["entries"] if e["note"] == "Без периода"
+        )
+        self.assertIsNone(entry["entryDate"])
+
+        today = datetime.now().date()
+        same_day_from = today.strftime("%Y-%m-%d")
+        detail = self.client.get(
+            f"/api/owner/workers/w1/salary-detail?period=custom&date_from={same_day_from}&date_to={same_day_from}",
+            headers=owner_headers,
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn("Без периода", [e["note"] for e in detail.json()["entries"]])
+
+        past_from = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+        past_to = (today - timedelta(days=24)).strftime("%Y-%m-%d")
+        other = self.client.get(
+            f"/api/owner/workers/w1/salary-detail?period=custom&date_from={past_from}&date_to={past_to}",
+            headers=owner_headers,
+        )
+        self.assertEqual(other.status_code, 200, other.text)
+        self.assertNotIn("Без периода", [e["note"] for e in other.json()["entries"]])
+
+    def test_owner_pay_salary_attributes_payout_to_selected_period(self) -> None:
+        """Выплата мастеру тоже привязывается к выбранному периоду."""
+        owner_headers = self._tg_headers("owner", "889013")
+
+        response = self.client.post(
+            "/api/owner/workers/w1/pay-salary",
+            headers=owner_headers,
+            json={
+                "period": "custom",
+                "dateFrom": "2026-08-08",
+                "dateTo": "2026-08-14",
+                "segment": "all",
+                "amount": 100,
+                "note": "Выплата за период",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+        detail = self.client.get(
+            "/api/owner/workers/w1/salary-detail?period=custom&date_from=2026-08-08&date_to=2026-08-14",
+            headers=owner_headers,
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        payout = next(e for e in detail.json()["entries"] if e["kind"] == "payout")
+        self.assertEqual(payout["entryDate"], "14.08.2026")
+
     def test_owner_pdf_export_returns_pdf_file(self) -> None:
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")

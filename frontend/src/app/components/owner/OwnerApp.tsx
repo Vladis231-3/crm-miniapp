@@ -793,6 +793,8 @@ export function OwnerApp() {
   const [bonusNote, setBonusNote] = useState('');
   const [fineAmount, setFineAmount] = useState('');
   const [fineNote, setFineNote] = useState('');
+  const [writeOffAmount, setWriteOffAmount] = useState('');
+  const [writeOffNote, setWriteOffNote] = useState('');
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
@@ -2642,6 +2644,8 @@ export function OwnerApp() {
         kind: 'bonus',
         amount: Math.round(amount),
         note: bonusNote.trim() || 'Премия',
+        period: salaryPeriod,
+        ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
       });
       setBonusAmount('');
       setBonusNote('');
@@ -2668,6 +2672,8 @@ export function OwnerApp() {
         kind: 'deduction',
         amount: Math.round(amount),
         note: fineNote.trim() || 'Штраф',
+        period: salaryPeriod,
+        ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
       });
       setFineAmount('');
       setFineNote('');
@@ -2676,6 +2682,34 @@ export function OwnerApp() {
       refreshSalaryDetail();
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось выписать штраф');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
+  const handleAddWriteOff = async () => {
+    if (!selectedSalaryWorkerId || !salaryDetail) return;
+    const amount = Number(writeOffAmount);
+    if (!Number.isFinite(amount) || amount < 1) {
+      setBottomToast('Укажите сумму списания');
+      setTimeout(() => setBottomToast(null), 3000);
+      return;
+    }
+    try {
+      await createPayrollEntry({
+        workerId: selectedSalaryWorkerId,
+        kind: 'deduction',
+        amount: Math.round(amount),
+        note: writeOffNote.trim() || 'Списание',
+        period: salaryPeriod,
+        ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
+      });
+      setWriteOffAmount('');
+      setWriteOffNote('');
+      setBottomToast(`Списание ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} проведено`);
+      setTimeout(() => setBottomToast(null), 3000);
+      refreshSalaryDetail();
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось провести списание');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -4707,6 +4741,23 @@ setOwnerNewBookingWorkers([]);
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
 
+                  {/* Write-off form */}
+                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Списание мастеру</h3>
+                    <div className="flex gap-2 mb-3">
+                      <input type="number" placeholder="Сумма" value={writeOffAmount}
+                        onChange={e => setWriteOffAmount(e.target.value)}
+                        className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                      <button onClick={handleAddWriteOff}
+                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#ef4444' }}>
+                        Списать
+                      </button>
+                    </div>
+                    <input type="text" placeholder="Примечание (за что списание)" value={writeOffNote}
+                      onChange={e => setWriteOffNote(e.target.value)}
+                      className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  </div>
+
                   {/* Payout form */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
                     <h3 className="font-semibold text-sm mb-3">Выплата мастеру</h3>
@@ -4795,7 +4846,7 @@ setOwnerNewBookingWorkers([]);
                                 </div>
                                 <div className="text-right shrink-0 flex items-center gap-1">
                                   <div>
-                                    <div className="text-[11px] font-medium">{new Date(e.createdAt).toLocaleDateString('ru')}</div>
+                                    <div className="text-[11px] font-medium">{e.entryDate || new Date(e.createdAt).toLocaleDateString('ru')}</div>
                                     <div className={`text-[10px] ${sub}`}>{e.createdByName}</div>
                                   </div>
                                   {canEdit && <button onClick={() => { setEditingEntryId(e.id); setEditAmount(String(e.amount)); setEditNote(e.note || ''); }} className="p-1 rounded hover:bg-white/10" style={{ color: sub }}><Edit3 size={12} /></button>}

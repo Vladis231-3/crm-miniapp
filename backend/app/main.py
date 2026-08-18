@@ -2208,6 +2208,14 @@ def _apply_runtime_migrations() -> None:
                 "ALTER TABLE payroll_entries ADD COLUMN income_id VARCHAR(64) DEFAULT NULL"
             )
 
+    if "entry_date" not in payroll_columns and "payroll_entries" in inspector.get_table_names():
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+                "ALTER TABLE payroll_entries ADD COLUMN entry_date VARCHAR(10) DEFAULT NULL"
+            )
+
 
 
     expense_columns = (
@@ -3940,6 +3948,8 @@ def _payroll_entry_payload(entry: PayrollEntry, actor_name: str) -> PayrollEntry
         createdByRole=entry.actor_role,  # type: ignore[arg-type]
 
         createdByName=actor_name,
+
+        entryDate=entry.entry_date,
 
     )
 
@@ -17419,10 +17429,10 @@ def get_admin_workers_payroll(
         ).unique().all()
     entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
     if period != "all":
-        _pf, _pt = _local_day_bounds(date_from), _local_day_bounds(date_to)
         entries_query = entries_query.where(
-            PayrollEntry.created_at >= _pf[0],
-            PayrollEntry.created_at <= _pt[1],
+            _payroll_entry_period_condition(
+                PayrollEntry.worker_id.in_(worker_ids), date_from, date_to
+            )
         )
     entries = db.scalars(entries_query.order_by(PayrollEntry.created_at.desc())).all()
     if period == "all":
@@ -17604,6 +17614,23 @@ def create_payroll_entry(
 
 
 
+    # Дата периода, к которому относится операция (конец выбранного периода).
+    # Операция без периода (или период "all") учитывается по дате создания.
+    entry_date = None
+    if payload.period in ("day", "week", "month", "custom"):
+        if payload.period == "custom":
+            if not payload.dateFrom or not payload.dateTo:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="dateFrom и dateTo обязательны для периода custom",
+                )
+            cf = _parse_booking_date_param(payload.dateFrom)
+            ct = _parse_booking_date_param(payload.dateTo)
+        else:
+            cf = ct = None
+        _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
+        entry_date = _dt
+
     entry = PayrollEntry(
 
         id=f"pay-{uuid4()}",
@@ -17620,6 +17647,8 @@ def create_payroll_entry(
 
         note=payload.note.strip(),
 
+        entry_date=entry_date,
+
         created_at=_now(),
 
     )
@@ -17627,7 +17656,7 @@ def create_payroll_entry(
     db.add(entry)
 
     # Budget integration: bonus/advance → expense, deduction → income, adjustment by sign
-    today_str = date.today().strftime("%d.%m.%Y")
+    op_date = entry_date or date.today().strftime("%d.%m.%Y")
     created_expense_id = None
     created_income_id = None
     if payload.kind in ("bonus", "advance"):
@@ -17636,7 +17665,7 @@ def create_payroll_entry(
             title=f"{'Премия' if payload.kind == 'bonus' else 'Аванс'}: {worker.name}",
             amount=amount,
             category="Зарплата",
-            date=today_str,
+            date=op_date,
             note=payload.note.strip() or ("Премия" if payload.kind == "bonus" else "Аванс"),
             resource_group="wash",
             created_at=_now(),
@@ -17650,7 +17679,7 @@ def create_payroll_entry(
             source=f"Штраф: {worker.name}",
             note=payload.note.strip() or "Штраф",
             created_by_id=session_data["actorId"],
-            date=today_str,
+            date=op_date,
             resource_group="wash",
             created_at=_now(),
         )
@@ -17663,7 +17692,7 @@ def create_payroll_entry(
                 title=f"Корректировка: {worker.name}",
                 amount=amount,
                 category="Зарплата",
-                date=today_str,
+                date=op_date,
                 note=payload.note.strip() or "Корректировка",
                 resource_group="wash",
                 created_at=_now(),
@@ -17677,7 +17706,7 @@ def create_payroll_entry(
                 source=f"Корректировка: {worker.name}",
                 note=payload.note.strip() or "Корректировка",
                 created_by_id=session_data["actorId"],
-                date=today_str,
+                date=op_date,
                 resource_group="wash",
                 created_at=_now(),
             )
@@ -18812,6 +18841,36 @@ def _resource_group_for_service(db: Session, service_id: str) -> str:
 
 
 
+def _payroll_entry_period_condition(
+    worker_condition: Any, date_from: str, date_to: str
+) -> Any:
+    """Условие выборки зарплатных операций за период (DD.MM.YYYY): операции с
+    entry_date попадают в период по своей дате, остальные (legacy) — по дате создания."""
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    entry_date_key = (
+        func.substr(PayrollEntry.entry_date, 7, 4)
+        .concat(func.substr(PayrollEntry.entry_date, 4, 2))
+        .concat(func.substr(PayrollEntry.entry_date, 1, 2))
+    )
+    return and_(
+        worker_condition,
+        or_(
+            and_(
+                PayrollEntry.entry_date.is_not(None),
+                entry_date_key >= date_from_key,
+                entry_date_key <= date_to_key,
+            ),
+            and_(
+                PayrollEntry.entry_date.is_(None),
+                PayrollEntry.created_at >= _local_day_bounds(date_from)[0],
+                PayrollEntry.created_at <= _local_day_bounds(date_to)[1],
+            ),
+        ),
+    )
+
+
+
 
 
 def _worker_period_balance(
@@ -18868,9 +18927,9 @@ def _worker_period_balance(
 
     entries = db.scalars(
         select(PayrollEntry).where(
-            PayrollEntry.worker_id == worker.id,
-            PayrollEntry.created_at >= _local_day_bounds(date_from)[0],
-            PayrollEntry.created_at <= _local_day_bounds(date_to)[1],
+            _payroll_entry_period_condition(
+                PayrollEntry.worker_id == worker.id, date_from, date_to
+            )
         )
     ).all()
 
@@ -19139,11 +19198,11 @@ def owner_worker_salary_detail(
 
         select(PayrollEntry).where(
 
-            PayrollEntry.worker_id == worker_id,
+            _payroll_entry_period_condition(
 
-            PayrollEntry.created_at >= _local_day_bounds(df)[0],
+                PayrollEntry.worker_id == worker_id, df, dt
 
-            PayrollEntry.created_at <= _local_day_bounds(dt)[1],
+            )
 
         )
 
@@ -19543,11 +19602,11 @@ def worker_my_salary_detail(
 
         select(PayrollEntry).where(
 
-            PayrollEntry.worker_id == worker_id,
+            _payroll_entry_period_condition(
 
-            PayrollEntry.created_at >= _local_day_bounds(df)[0],
+                PayrollEntry.worker_id == worker_id, df, dt
 
-            PayrollEntry.created_at <= _local_day_bounds(dt)[1],
+            )
 
         )
 
@@ -19752,6 +19811,24 @@ def owner_worker_pay_salary(
 
 
 
+    # Дата периода, к которому относится выплата (конец выбранного периода).
+    # Выплата без периода (или период "all") учитывается по дате создания.
+    payout_date = None
+    cf = ct = None
+    if payload.period in ("day", "week", "month", "custom"):
+        if payload.period == "custom":
+            if not payload.dateFrom or not payload.dateTo:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="dateFrom и dateTo обязательны для периода custom",
+                )
+            cf = _parse_booking_date_param(payload.dateFrom)
+            ct = _parse_booking_date_param(payload.dateTo)
+        else:
+            cf = ct = None
+        _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
+        payout_date = _dt
+
     # 1. Create PayrollEntry
 
     entry = PayrollEntry(
@@ -19770,6 +19847,8 @@ def owner_worker_pay_salary(
 
         note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
 
+        entry_date=payout_date,
+
         created_at=_now(),
 
     )
@@ -19780,7 +19859,7 @@ def owner_worker_pay_salary(
 
     # 2. Create Expense (auto-deduct from budget)
 
-    today_str = date.today().strftime("%d.%m.%Y")
+    op_date = payout_date or date.today().strftime("%d.%m.%Y")
 
     expense = Expense(
 
@@ -19792,7 +19871,7 @@ def owner_worker_pay_salary(
 
         category="Зарплата",
 
-        date=today_str,
+        date=op_date,
 
         note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
 
@@ -19836,7 +19915,7 @@ def owner_worker_pay_salary(
 
     # Recalculate balance за тот же период, что показывает экран ЗП
     date_from, date_to = _salary_date_range(
-        payload.period, custom_from=payload.dateFrom, custom_to=payload.dateTo
+        payload.period, custom_from=cf, custom_to=ct
     )
     all_penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(all_penalties)

@@ -1274,7 +1274,7 @@ export function WorkerApp() {
                             </div>
                             <div className="text-right">
                               <div className="font-semibold">{entry.amount.toLocaleString('ru')} ₽</div>
-                              <div className={`text-[11px] ${sub}`}>{new Date(entry.createdAt).toLocaleDateString('ru-RU')}</div>
+                              <div className={`text-[11px] ${sub}`}>{entry.entryDate || new Date(entry.createdAt).toLocaleDateString('ru-RU')}</div>
                             </div>
                           </div>
                         ))}

@@ -429,6 +429,9 @@ class PayrollEntry(Base):
     note: Mapped[str] = mapped_column(Text, default="")
     expense_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     income_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Дата периода (DD.MM.YYYY), к которому относится операция (если задана —
+    # операция учитывается в зарплате выбранного периода, а не по дате создания).
+    entry_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

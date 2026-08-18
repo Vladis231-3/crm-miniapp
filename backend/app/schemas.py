@@ -293,6 +293,7 @@ class PayrollEntryPayload(BaseModel):
     createdAt: datetime
     createdByRole: StaffRole
     createdByName: str
+    entryDate: str | None = None
 
 
 class WorkerPayrollBookingPayload(BaseModel):
@@ -844,6 +845,11 @@ class PayrollEntryCreateRequest(BaseModel):
     kind: PayrollEntryKind
     amount: float
     note: str = ""
+    # Период, к которому относится операция: операция будет учтена в зарплате
+    # выбранного периода (entry_date = конец периода), а не по дате создания.
+    period: SalaryPeriod | None = None
+    dateFrom: str | None = None
+    dateTo: str | None = None
 
     @field_validator("note")
     @classmethod

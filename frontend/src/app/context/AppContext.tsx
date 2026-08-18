@@ -99,6 +99,8 @@ export interface PayrollEntry {
   createdAt: Date;
   createdByRole: 'admin' | 'worker' | 'owner' | 'accountant';
   createdByName: string;
+  /** Дата периода (DD.MM.YYYY), к которому относится операция. */
+  entryDate?: string | null;
 }
 
 export interface WorkerPayrollBooking {
@@ -682,6 +684,10 @@ export interface PayrollEntryCreateInput {
   kind: PayrollEntryKind;
   amount: number;
   note: string;
+  /** Период, к которому относится операция (entry_date = конец периода). */
+  period?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface ContentStats {

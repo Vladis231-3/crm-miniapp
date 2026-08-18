@@ -1363,6 +1363,8 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         kind: draft.kind,
         amount: Math.round(amount),
         note: draft.note.trim(),
+        period: payrollPeriod,
+        ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
       });
       loadPayrollData();
       setPayrollDrafts((current) => ({
