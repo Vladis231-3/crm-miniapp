@@ -12301,6 +12301,13 @@ def add_booking_additional_service(
 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
+    # Validate: if not outsource, must have at least one worker
+    if not payload.isOutsource and not payload.workers:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нужно выбрать хотя бы одного мастера или отметить услугу как аутсорс"
+        )
+
     booking = db.scalar(
 
         select(Booking)
@@ -12474,6 +12481,13 @@ def update_booking_additional_service(
 ) -> BookingPayload:
     if session_data["role"] not in {"admin", "owner", "accountant"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    # Validate: if explicitly setting outsource=false with empty workers, reject
+    if payload.isOutsource is False and payload.workers is not None and not payload.workers:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нужно выбрать хотя бы одного мастера или отметить услугу как аутсорс"
+        )
 
     booking = db.scalar(
         select(Booking)

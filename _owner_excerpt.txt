@@ -1,0 +1,401 @@
+      getWriteOffHistory().then(setWriteOffHistory).catch(() => {});
+    }
+  }, [page, showWriteOffHistory]);
+  const bookingFormBoxes = ownerBookingBoxes(bookingForm.service, services, boxes);
+  const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
+  const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
+  const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
+
+  // Current week bounds (Saturday - Friday) for weekly KPI filtering
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diffToSaturday = (dayOfWeek + 1) % 7;
+  const weekSaturday = new Date(now);
+  weekSaturday.setDate(now.getDate() - diffToSaturday);
+  weekSaturday.setHours(0, 0, 0, 0);
+  const weekFriday = new Date(weekSaturday);
+  weekFriday.setDate(weekSaturday.getDate() + 6);
+  weekFriday.setHours(23, 59, 59, 999);
+  const isDateInWeek = (dateStr: string) => {
+    const d = parseFlexibleDate(dateStr);
+    return d ? d >= weekSaturday && d <= weekFriday : false;
+  };
+  const weeklyCompletedBookings = completedBookings.filter((b) => isDateInWeek(b.date));
+  const weeklyBookings = bookings.filter((b) => isDateInWeek(b.date));
+  const weeklyExpenses = expenses.filter((e) => isDateInWeek(e.date));
+  const weeklyIncomes = incomes.filter((i) => isDateInWeek(i.date));
+  const totalRevenue = weeklyCompletedBookings.reduce((s, b) => s + b.price, 0);
+  const totalExpenses = weeklyExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalIncomes = weeklyIncomes.reduce((s, i) => s + i.amount, 0);
+  const profit = totalRevenue + totalIncomes - totalExpenses;
+  const averageCheck = weeklyCompletedBookings.length > 0 ? Math.round(totalRevenue / weeklyCompletedBookings.length) : 0;
+  const activeBookings = weeklyBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
+  const pipelineCounts = {
+    adminReview: weeklyBookings.filter((booking) => booking.status === 'admin_review').length,
+    confirmed: weeklyBookings.filter((booking) => booking.status === 'confirmed').length,
+    scheduled: weeklyBookings.filter((booking) => booking.status === 'scheduled').length,
+    inProgress: weeklyBookings.filter((booking) => booking.status === 'in_progress').length,
+    noShow: weeklyBookings.filter((booking) => booking.status === 'no_show').length,
+  };
+  const statusListItems = showStatusList
+    ? bookings.filter((booking) => booking.status === showStatusList)
+      .slice()
+      .sort((left, right) => (left.date || '').localeCompare(right.date || '') || left.time.localeCompare(right.time))
+    : [];
+  const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+
+  // Finance breakdown by service category
+  const washRevenue = completedBookings
+    .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'wash')
+    .reduce((s, b) => s + b.price, 0);
+  const detailingRevenue = completedBookings
+    .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'detailing')
+    .reduce((s, b) => s + b.price, 0);
+  const washExpenses = expenses
+    .filter(e => e.resourceGroup === 'wash')
+    .reduce((s, e) => s + e.amount, 0);
+  const detailingExpenses = expenses
+    .filter(e => e.resourceGroup === 'detailing')
+    .reduce((s, e) => s + e.amount, 0);
+  const washIncomes = incomes
+---RETURN---
+    confirmed: 'bg-cyan-500/15 text-cyan-600',
+    scheduled: 'bg-blue-500/15 text-blue-600',
+    in_progress: 'bg-yellow-500/15 text-yellow-600',
+    completed: 'bg-green-500/15 text-green-600',
+    no_show: 'bg-orange-500/15 text-orange-600',
+    admin_review: 'bg-amber-500/15 text-amber-600',
+    cancelled: 'bg-red-500/15 text-red-500',
+  }[status] || 'bg-slate-500/15 text-slate-600');
+
+  const ownerStatusColor = (status: string) => ({
+    new: 'bg-indigo-500',
+    confirmed: 'bg-cyan-500',
+    scheduled: 'bg-blue-500',
+    in_progress: 'bg-yellow-500',
+    completed: 'bg-green-500',
+    no_show: 'bg-orange-500',
+    admin_review: 'bg-amber-500',
+    cancelled: 'bg-red-500',
+  }[status] || 'bg-slate-500');
+
+  const piggyBankLabel = (key: string) => ({
+    wash: 'копилка мойки',
+    detailing: 'копилка детейлинга',
+    self_service: 'копилка самообслуживания',
+    general: 'общая копилка',
+  }[key] || (key ? `копилка «${key}»` : 'копилка'));
+
+  const SwitchToggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
+    <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-all shrink-0"
+      style={{ background: value ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${value ? 'left-6' : 'left-1'}`} />
+    </button>
+  );
+
+  // Подпись источника записи: «Бот» / «Google» / «Вручную» (общий компонент SourceBadge).
+
+  const SettingRow = ({ label, desc, value, onChange }: { label: string; desc?: string; value: boolean; onChange: () => void }) => (
+    <div className={`${glass} rounded-xl p-4 mb-2 flex items-center justify-between`}>
+      <div className="flex-1 mr-3">
+        <div className="text-sm font-medium">{label}</div>
+        {desc && <div className={`text-xs ${sub}`}>{desc}</div>}
+      </div>
+      <SwitchToggle value={value} onChange={onChange} />
+    </div>
+  );
+
+  return (
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
+      {/* Header */}
+      <div className={`work-header ${glass} flex items-center justify-between`}>
+        <div>
+          <div className="font-semibold text-sm">{financeRoleTitle}</div>
+          <div className={`text-xs ${sub}`}>ATMOSFERA</div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {staffProfile?.extraRoles && staffProfile.extraRoles.length > 0 && (
+            <div className="relative">
+              <button onClick={() => {
+                const nextRole = staffProfile.extraRoles?.find(r => r !== session?.role) || staffProfile.role;
+                if (nextRole && nextRole !== session?.role) {
+                  void switchRole(nextRole as Role);
+                }
+              }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
+                {session?.role === 'owner' ? 'Владелец → Админ' : session?.role === 'admin' ? 'Админ → Владелец' : 'Сменить роль'}
+              </button>
+            </div>
+          )}
+          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead(financeNotificationRole); }} className={`p-2 rounded-xl ${glass} relative`}>
+            <Bell size={18} />
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
+          </button>
+          <button onClick={() => setShowFinancePanel(true)} className={`p-2 rounded-xl ${glass}`}><Wallet size={18} /></button>
+          <button onClick={() => setShowOwnerNewBooking(true)} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} /></button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto pb-20">
+        <AnimatePresence mode="wait">
+
+          {/* ── CALENDAR ── */}
+          {page === 'calendar' && (
+            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              {ownerCalendarView === 'month' ? (
+                <>
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setOwnerCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                        className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                        aria-label="Предыдущий месяц"
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <div className="text-center min-w-0">
+                        <div className="font-semibold">{ownerCalendarMonthLabel}</div>
+                        <div className={`text-xs ${sub} mt-0.5`}>Нажмите на день, чтобы открыть расписание по часам</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOwnerCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                        className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                        aria-label="Следующий месяц"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const today = parseFlexibleDate(todayLabel) || new Date();
+                        setOwnerCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                        setSelectedCalendarDate(todayLabel);
+                        setOwnerCalendarView('day');
+                      }}
+                      className="w-full mb-4 py-2.5 rounded-xl text-sm font-medium"
+                      style={{ background: `${primary}18`, color: primary }}
+                    >
+                      Сегодня · {todayLabel}
+                    </button>
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                      {OWNER_CALENDAR_WEEKDAYS.map((weekday) => (
+                        <div key={weekday} className={`text-center text-[11px] font-medium ${sub} py-1`}>{weekday}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {ownerCalendarMonthCells.map((cell, index) => {
+                        if (!cell.date || !cell.dateLabel) {
+                          return <div key={`empty-${index}`} className="aspect-square" />;
+                        }
+                        const dayBookings = ownerCalendarBookingsByDate[cell.dateLabel] || [];
+                        const loadTone = ownerCalendarLoadTone(dayBookings.length, ownerCalendarMonthMaxLoad);
+                        const loadWidth = dayBookings.length > 0
+                          ? `${Math.max(24, Math.round((dayBookings.length / ownerCalendarMonthMaxLoad) * 100))}%`
+                          : '100%';
+                        const isToday = cell.dateLabel === todayLabel;
+                        return (
+                          <button
+                            key={cell.dateLabel}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCalendarDate(cell.dateLabel);
+                              setOwnerCalendarView('day');
+                            }}
+                            className={`aspect-square rounded-xl p-1.5 flex flex-col items-stretch text-left transition-transform active:scale-[0.98] border ${
+                              isToday ? 'border-2' : 'border-transparent'
+                            }`}
+                            style={{
+                              background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                              borderColor: isToday ? primary : 'transparent',
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              <span className={`text-sm font-semibold ${isToday ? '' : ''}`} style={isToday ? { color: primary } : undefined}>
+                                {cell.date.getDate()}
+                              </span>
+                              {dayBookings.length > 0 && (
+                                <span
+                                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white min-w-[18px] text-center"
+                                  style={{ background: ownerCalendarLoadColors[loadTone] }}
+                                >
+                                  {dayBookings.length}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-auto pt-2">
+                              <div
+                                className="h-1.5 rounded-full transition-all"
+                                style={{
+                                  width: loadWidth,
+                                  background: ownerCalendarLoadColors[loadTone],
+                                }}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Загруженность</div>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {[
+                        { tone: 'empty' as const, label: 'Нет нагрузки' },
+                        { tone: 'medium' as const, label: 'Средняя' },
+                        { tone: 'heavy' as const, label: 'Высокая' },
+                      ].map((item) => (
+                        <div key={item.tone} className="flex items-center gap-2">
+                          <span className="w-8 h-2 rounded-full" style={{ background: ownerCalendarLoadColors[item.tone] }} />
+                          <span className={sub}>{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setOwnerCalendarView('month')}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
+                    >
+                      <ArrowLeft size={16} />
+                      Месяц
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCalendarDate(todayLabel);
+                        const today = parseFlexibleDate(todayLabel) || new Date();
+                        setOwnerCalendarMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                      }}
+                      className="px-3 py-2 rounded-xl text-sm"
+                      style={{ background: `${primary}18`, color: primary }}
+                    >
+                      Сегодня
+                    </button>
+                  </div>
+                  <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <div>
+                        <h2 className="font-semibold capitalize">{ownerCalendarSelectedDayTitle}</h2>
+                        <div className={`text-sm ${sub} mt-1`}>
+                          {calendarBookings.length} {calendarBookings.length === 1 ? 'запись' : calendarBookings.length < 5 ? 'записи' : 'записей'}
+                          {` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00–${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
+                        </div>
+                      </div>
+                      <CalendarDays size={22} style={{ color: primary }} />
+                    </div>
+                  </div>
+                  {calendarBookings.length === 0 ? (
+                    <div className={`${glass} rounded-2xl p-8 text-center`}>
+                      <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                      <p className={sub}>На этот день записей нет</p>
+                    </div>
+                  ) : (
+                    <div className={`${glass} rounded-2xl p-3`}>
+                      <div className="divide-y" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                        {ownerCalendarHourSlots.map((slot) => (
+                          <div key={slot.hourLabel} className="flex gap-3 py-2 first:pt-0 last:pb-0">
+                            <div className={`w-10 shrink-0 pt-0.5 text-[11px] font-medium tabular-nums ${sub}`}>
+                              {slot.hourLabel}
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-1">
+                              {slot.bookings.map((booking) => (
+                                <button
+                                  key={booking.id}
+                                  type="button"
+                                  onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
+                                  className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left min-w-0 ${
+                                    isDark ? 'bg-white/[0.04] hover:bg-white/[0.07]' : 'bg-black/[0.03] hover:bg-black/[0.05]'
+                                  }`}
+                                >
+                                  <span className={`w-0.5 self-stretch rounded-full shrink-0 ${ownerStatusColor(booking.status)}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-medium truncate">
+                                      <span className="tabular-nums">{booking.time}</span>
+                                      {' '}
+                                      <SourceBadge source={booking.source} className="mr-1" />
+                                      {booking.clientName || 'Без имени'}
+                                    </div>
+                                    <div className={`text-[11px] truncate ${sub}`}>
+                                      {booking.service}
+                                      {booking.box ? ` · ${booking.box}` : ''}
+                                    </div>
+                                    {(booking.car || booking.plate) && (
+                                      <div className={`text-[11px] truncate ${sub}`}>
+                                        {[booking.car, booking.plate].filter(Boolean).join(' · ')}
+                                      </div>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {ownerCalendarUntimedBookings.length > 0 && (
+                    <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без точного времени</div>
+                      <div className="space-y-2">
+                        {ownerCalendarUntimedBookings.map((booking) => (
+                          <button
+                            key={booking.id}
+                            type="button"
+                            onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
+                            className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
+                                <SourceBadge source={booking.source} />
+                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                {ownerStatusLabel(booking.status)}
+                              </span>
+                            </div>
+                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} · {booking.box}</div>
+                            {(booking.car || booking.plate) && (
+                              <div className={`text-xs ${sub} mt-0.5 truncate`}>
+                                {[booking.car, booking.plate].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+
+
+          {/* ── DASHBOARD ── */}
+          {page === 'dashboard' && (
+            <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {kpiCards.map(card => (
+                  <div key={card.label} className={`${glass} rounded-2xl p-4`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <card.icon size={15} style={{ color: card.color }} />
+                      <span className={`text-xs ${sub}`}>{card.label}</span>
+                    </div>
+                    <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Today bookings */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">Сегодня — {todayLabel}</h3>
+                  <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
+                </div>
+                <div className="space-y-3">
+                  {todayBookings.length === 0 ? (

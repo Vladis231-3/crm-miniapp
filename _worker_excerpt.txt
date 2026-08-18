@@ -1,0 +1,241 @@
+
+  const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
+  const unreadCount = myNotifications.filter(n => !n.read).length;
+
+  const allTasks = bookings.filter(b =>
+    filterMine ? b.workers.some(w => w.workerId === workerId) : true
+  );
+  const todayTasks = allTasks.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
+
+  const myEarnings = bookings
+    .filter(b => b.status === 'completed' && b.workers.some(w => w.workerId === workerId))
+    .map(b => {
+      const w = b.workers.find(wk => wk.workerId === workerId);
+      const earned = w?.payType === 'fixed'
+        ? (w.fixedAmount || 0)
+        : isFixedMasterService(services, b.serviceId, b.service)
+          ? FIXED_MASTER_EARNED
+          : Math.round(b.price * (w?.percent || 0) / 100);
+      return { ...b, earned, payType: w?.payType, fixedAmount: w?.fixedAmount };
+    });
+  const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
+  const payrollSummary = staffProfile?.payrollSummary;
+  const earnedForDisplay = payrollSummary?.accruedFromBookings ?? totalEarned;
+  const myPenalties = penalties.filter((penalty) => penalty.workerId === workerId && isComplaintActive(penalty));
+  const complaintState = getComplaintPenaltyState(staffProfile?.defaultPercent || 0, myPenalties);
+  const payoutAfterPenalties = payrollSummary?.balance ?? Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
+
+  const allMyTasks = bookings.filter(b => b.workers.some(w => w.workerId === workerId));
+  const completedCount = payrollSummary?.completedBookings ?? allMyTasks.filter(b => b.status === 'completed').length;
+  const avgCheck = completedCount > 0 ? Math.round((payrollSummary?.accruedFromBookings ?? totalEarned) / completedCount) : 0;
+  const chemistryItems = stockItems.filter((item) => item.category === 'Химия');
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (timerRunning) interval = setInterval(() => setTimer(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  const formatTimer = (s: number) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const accent = isDark ? '#5DD68F' : '#34C759';
+  const surface = isDark ? '#0E1624' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+---RETURN---
+    : profileSection === 'history' ? 'История задач'
+    : profileSection === 'security' ? 'Безопасность'
+    : 'Профиль';
+
+  return (
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
+      {/* Header */}
+      <div className={`work-header ${glass} flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          {(showDetail || profileSection) && (
+            <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} /></button>
+          )}
+          <div>
+            <div className="font-semibold text-sm">{headerTitle}</div>
+            {!showDetail && tab === 'today' && !profileSection && <div className={`text-xs ${sub}`}>{todayLabel}</div>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {tab === 'today' && !showDetail && !profileSection && (
+            <button onClick={() => setFilterMine(!filterMine)} className="px-3 py-1.5 rounded-lg text-xs transition-all"
+              style={filterMine ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}>
+              Только мои
+            </button>
+          )}
+          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead('worker'); }} className={`p-2 rounded-xl ${glass} relative`}>
+            <Bell size={18} />
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
+          </button>
+          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto pb-20">
+        <AnimatePresence mode="wait">
+
+          {/* ── TASK DETAIL ── */}
+          {showDetail && selectedTask ? (
+            <motion.div key="detail" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 30 }} transition={{ duration: 0.22 }} className="px-4 py-4">
+              <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                <div className={`text-xs font-medium ${sub} mb-2`}>КЛИЕНТ</div>
+                <div className="font-semibold">{selectedTask.clientName}</div>
+                <div className="mt-1"><SourceBadge source={selectedTask.source} /></div>
+                <a href={`tel:${selectedTask.clientPhone}`} className="flex items-center gap-2 mt-1" style={{ color: primary }}>
+                  <Phone size={14} /><span className="text-sm">{selectedTask.clientPhone}</span>
+                </a>
+                {selectedTask.car && <div className={`text-sm ${sub} mt-1`}>{selectedTask.car} · {selectedTask.plate}</div>}
+              </div>
+              <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                <div className={`text-xs font-medium ${sub} mb-2`}>ЗАДАЧА</div>
+                <div className="font-semibold">{selectedTask.service}</div>
+                <div className={`text-sm ${sub} mt-1`}>{selectedTask.date} в {selectedTask.time} · {selectedTask.duration} мин</div>
+                <div className={`text-sm ${sub}`}>{selectedTask.box}</div>
+              </div>
+              {selectedTask.additionalServices && selectedTask.additionalServices.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div className={`text-xs font-medium ${sub} mb-2`}>ДОП. УСЛУГИ</div>
+                  {selectedTask.additionalServices.map(as => {
+                    const isMyService = as.workers.some(w => w.workerId === workerId);
+                    const isOutsource = !!as.isOutsource;
+                    return (
+                      <div key={as.id} className={`py-1.5 ${!isMyService && !isOutsource ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">{as.name}</span>
+                          <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                        {isOutsource ? (
+                          <div className="flex justify-between items-center mt-0.5">
+                            <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
+                            <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                          </div>
+                        ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
+                          <div key={w.workerId} className="flex justify-between items-center mt-0.5">
+                            <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                            <span className="text-xs font-medium text-green-500">+{(w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)).toLocaleString('ru')} ₽</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedTask.workers.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div className={`text-xs font-medium ${sub} mb-2`}>КОЛЛЕГИ</div>
+                  {selectedTask.workers.map(w => (
+                    <div key={w.workerId} className="flex justify-between items-center py-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
+                        <span className="text-sm">{w.workerName}</span>
+                      </div>
+                      <span className={`text-sm ${sub}`}>{w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedTask.status === 'in_progress' && (
+                <div className={`${glass} rounded-2xl p-4 mb-3 text-center`}>
+                  <div className={`text-xs ${sub} mb-2`}>Время работы</div>
+                  <div className="text-3xl font-bold" style={{ color: primary }}>{formatTimer(timer)}</div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {READY_TO_START_STATUSES.includes(selectedTask.status) && (
+                  <button onClick={() => setShowStartConfirm(selectedTask)} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: accent }}>
+                    <Play size={18} />Начать задачу
+                  </button>
+                )}
+                {selectedTask.status === 'in_progress' && (
+                  <button onClick={() => openFinishModal(selectedTask)} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: primary }}>
+                    <Check size={18} />Завершить
+                  </button>
+                )}
+              </div>
+            </motion.div>
+
+          ) : tab === 'today' && !profileSection ? (
+            <motion.div key="today" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              {todayTasks.length === 0 ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <Clock size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <p className={sub}>Задач на сегодня нет</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todayTasks.map(task => (
+                    <motion.div key={task.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`${glass} rounded-2xl p-4`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">{task.time} · {task.service}<SourceBadge source={task.source} /></div>
+                          <div className={`text-sm ${sub}`}>{task.clientName}</div>
+                          <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
+                          {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(task.status)}`}>
+                          {workerStatusLabel(task.status)}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        {READY_TO_START_STATUSES.includes(task.status) && (
+                          <button onClick={() => setShowStartConfirm(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: accent }}>
+                            <Play size={14} />Начать
+                          </button>
+                        )}
+                        {task.status === 'in_progress' && (
+                          <button onClick={() => openFinishModal(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: primary }}>
+                            <Check size={14} />Завершить
+                          </button>
+                        )}
+                        <button onClick={() => { setSelectedTask(task); setShowDetail(true); }} className={`flex-1 py-2 rounded-xl text-sm ${glass} flex items-center justify-center gap-1`}>
+                          <Info size={14} />Детали
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+
+          ) : tab === 'schedule' && !profileSection ? (
+            <motion.div key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <h2 className="font-semibold mb-4">Расписание</h2>
+              {upcomingDates.slice(0, 3).map(date => {
+                const dayTasks = bookings.filter(b => b.date === date && b.workers.some(w => w.workerId === workerId));
+                return (
+                  <div key={date} className="mb-4">
+                    <div className={`text-xs font-medium ${sub} mb-2`}>{date}</div>
+                    {dayTasks.length === 0 ? (
+                      <div className={`${glass} rounded-xl p-3 text-sm ${sub}`}>Свободный день</div>
+                    ) : dayTasks.map(task => (
+                      <div key={task.id} className={`${glass} rounded-xl p-3 mb-2`}>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="text-sm font-medium">{task.time} — {task.service}</div>
+                            <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}<SourceBadge source={task.source} className="ml-1.5 align-middle" /></div>
+                            {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
+                            {task.status === 'completed' ? 'Выполнено' : workerStatusLabel(task.status)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </motion.div>
+
+          ) : tab === 'cars' && !profileSection ? (
+            <motion.div key="cars" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">

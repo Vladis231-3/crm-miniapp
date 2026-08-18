@@ -1,0 +1,211 @@
+
+  useEffect(() => {
+    if (page === 'stock' && showWriteOffHistory) {
+      getWriteOffHistory().then(setWriteOffHistory).catch(() => {});
+    }
+  }, [page, showWriteOffHistory]);
+
+  const staffRoleTitle = session?.role === 'accountant' ? 'Бухгалтер' : 'Администратор';
+  const staffNotificationsRole = session?.role === 'accountant' ? 'accountant' : 'admin';
+  const adminNotifications = notifications.filter((notification) =>
+    staffNotificationsRole === 'accountant'
+      ? notification.recipientRole === 'accountant' || notification.recipientRole === 'admin'
+      : notification.recipientRole === 'admin',
+  );
+  const unreadCount = adminNotifications.filter((notification) => !notification.read).length;
+  const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
+  const completedAll = bookings.filter(b => b.status === 'completed');
+  const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
+
+  const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const accent = '#34C759';
+  const surface = isDark ? '#0E1624' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const timeToMinutes = (value: string): number | null => {
+    const match = value.trim().match(/^(\d{2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours > 23 || minutes > 59) return null;
+    return hours * 60 + minutes;
+  };
+
+  // Stats calculations
+  const byService = services.map(s => ({
+    name: s.name.split(' ')[0],
+    count: bookings.filter(b => b.serviceId === s.id).length,
+    revenue: bookings.filter(b => b.serviceId === s.id && b.status === 'completed').reduce((acc, b) => acc + b.price, 0),
+  })).filter(s => s.count > 0);
+
+  const byStatus = [
+    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
+    { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
+    { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'На уточнении', value: bookings.filter(b => b.status === 'admin_review').length, color: '#F59E0B' },
+    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Отменено', value: bookings.filter(b => b.status === 'cancelled').length, color: '#EF4444' },
+  ].filter(s => s.value > 0);
+
+  const byPayment = [
+    { name: 'Наличные', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'cash').length, color: accent },
+    { name: 'Перевод', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'transfer').length, color: primary },
+    { name: 'По счёту', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'invoice').length, color: '#A855F7' },
+    { name: 'Не оплачено', value: bookings.filter(b => !b.paymentSettled).length, color: '#EF4444' },
+  ].filter(p => p.value > 0);
+
+  const workerStats = masterWorkers.map(w => ({
+    ...w,
+    tasks: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).length,
+    earned: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).reduce((s, b) => {
+      const bw = b.workers.find(bwk => bwk.workerId === w.id);
+      if (bw?.payType === 'fixed') return s + (bw.fixedAmount || 0);
+      if (isFixedMasterService(services, b.serviceId, b.service)) return s + FIXED_MASTER_EARNED;
+      return s + Math.round(b.price * (bw?.percent || 0) / 100);
+    }, 0),
+  }));
+
+  const avgCheck = completedAll.length > 0 ? Math.round(totalRevenue / completedAll.length) : 0;
+  const conversionRate = bookings.length > 0 ? Math.round((completedAll.length / bookings.length) * 100) : 0;
+  const scheduleSummary = schedule.filter((day) => day.active).map((day) => `${day.day} ${day.open}-${day.close}`).join(' · ') || 'График не задан';
+  const revenueData = getLastNDates(7).map((date) => {
+    const formatted = formatDate(date);
+    return {
+      day: date.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', ''),
+      revenue: bookings.filter((booking) => booking.date === formatted && booking.status === 'completed').reduce((sum, booking) => sum + booking.price, 0),
+    };
+  });
+  const hourData = Array.from(new Set(todayBookings.map((booking) => booking.time.slice(0, 2)))).sort().map((hour) => ({
+    hour: `${hour}:00`,
+    count: todayBookings.filter((booking) => booking.time.startsWith(hour)).length,
+  }));
+  const handleStatusChange = async (id: string, status: BookingStatus) => {
+    await updateBooking(id, { status });
+    if (selectedBooking?.id === id) setSelectedBooking(prev => prev ? { ...prev, status } : null);
+  };
+
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    const confirmed = window.confirm(`Удалить клиента "${clientName}"? Профиль и доступ в Mini App будут удалены, история записей останется.`);
+    if (!confirmed) return;
+    await deleteClient(clientId);
+  };
+
+  const handleCreateClient = async () => {
+    const nextErrors: { name?: string; phone?: string; car?: string; plate?: string; general?: string } = {};
+    const nameError = validateClientName(createClientForm.name);
+    if (nameError) nextErrors.name = nameError;
+    // Телефон необязателен — валидируем только если введён
+    if (createClientForm.phone.trim()) {
+      const phoneError = validateClientPhone(createClientForm.phone);
+      if (phoneError) nextErrors.phone = phoneError;
+    }
+    if (normalizeVehicleInput(createClientForm.car)) {
+      const carError = validateVehicleName(createClientForm.car);
+      if (carError) nextErrors.car = carError;
+---RETURN---
+  const totalPercent = assignedWorkers.reduce((s, w) => s + (w.percent === '' ? 0 : w.percent), 0);
+  const totalNewBookingPercent = newBookingWorkers.reduce((sum, worker) => sum + (worker.percent === '' ? 0 : worker.percent), 0);
+
+  const tooltipStyle = { background: surface, border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 12, color: text };
+
+  return (
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
+      {/* Header */}
+      <div className={`work-header ${glass} flex items-center justify-between`}>
+        <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} /></button>
+        <div className="text-center">
+          <div className="font-semibold text-sm">{staffRoleTitle}</div>
+          <div className={`text-xs ${sub}`}>{todayLabel}</div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {staffProfile?.extraRoles && staffProfile.extraRoles.length > 0 && (
+            <div className="relative">
+              <button onClick={() => {
+                const nextRole = staffProfile.extraRoles?.find(r => r !== session?.role) || staffProfile.role;
+                if (nextRole && nextRole !== session?.role) {
+                  void switchRole(nextRole as Role);
+                }
+              }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
+                {session?.role === 'admin' ? 'Админ → Владелец' : session?.role === 'owner' ? 'Владелец → Админ' : 'Сменить роль'}
+              </button>
+            </div>
+          )}
+          <button onClick={() => { setShowNotifPanel(true); markAllNotificationsRead(staffNotificationsRole); }} className={`p-2 rounded-xl ${glass} relative`}>
+            <Bell size={18} />
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
+          </button>
+          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
+          <button onClick={openNewBookingModal} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} /></button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto pb-20">
+        <AnimatePresence mode="wait">
+
+          {/* CALENDAR */}
+          {page === 'calendar' && (
+            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold">Сегодня — {todayLabel}</h2>
+                <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
+              </div>
+              <div className="space-y-3">
+                {todayBookings.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-8 text-center`}>
+                    <Calendar size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <p className={sub}>Записей на сегодня нет</p>
+                  </div>
+                ) : todayBookings.map(booking => (
+                  <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
+                    onClick={() => { setSelectedBooking(booking); setShowSlideOver(true); }}
+                    className={`${glass} rounded-2xl p-4 w-full text-left`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-1 self-stretch rounded-full ${STATUS_COLORS[booking.status]}`} />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="font-semibold text-sm truncate">{booking.time} · {booking.clientName}</div>
+                            <SourceBadge source={booking.source} />
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
+                        </div>
+                        <div className={`text-sm ${sub}`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
+                        <div className="flex justify-between mt-2">
+                          <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                          <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                        {booking.workers.length > 0 && (
+                          <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
+                            const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
+                            return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
+                          }).join(', ')}</div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+              {bookings.filter(b => b.date !== todayLabel).length > 0 && (
+                <div className="mt-6">
+                  <h3 className={`text-sm font-medium ${sub} mb-3`}>Другие записи</h3>
+                  {bookings.filter(b => b.date !== todayLabel).map(booking => (
+                    <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
+                      onClick={() => { setSelectedBooking(booking); setShowSlideOver(true); }}
+                      className={`${glass} rounded-2xl p-4 w-full text-left mb-3`}>
+                      <div className="flex justify-between items-center">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="text-sm font-medium truncate">{booking.clientName}</div>
+                            <SourceBadge source={booking.source} />
+                          </div>
+                          <div className={`text-xs ${sub} truncate`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1" style={{ color: primary }}> +{booking.services.length}</span> : ''} · {booking.date}</div>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
+                      </div>

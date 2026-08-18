@@ -1,0 +1,251 @@
+  return service?.category === 'Аренда бокса';
+}
+
+function isDetailingService(service: Service | null | undefined) {
+  return service?.category === 'Детейлинг';
+}
+
+function serviceResourceGroup(service: Service | null | undefined) {
+  return service?.resourceGroup || 'wash';
+}
+
+function bookingBoxesForService(service: Service | null | undefined, boxes: Array<{ name: string; resourceGroup: string; active: boolean }>) {
+  return serviceResourceGroup(service) === 'detailing'
+    ? boxes.filter((box) => box.active && box.resourceGroup === 'detailing')
+    : boxes.filter((box) => box.active && box.resourceGroup === 'wash');
+}
+
+function isManualSchedulingBooking(booking: Booking) {
+  return booking.status === 'admin_review' && (!booking.time || booking.time === '00:00');
+}
+
+export function ClientApp() {
+  const {
+    isDark,
+    toggleTheme,
+    bookings,
+    deleteBooking,
+    notifications,
+    markAllNotificationsRead,
+    clientProfile,
+    services,
+    boxes,
+    addBooking,
+    updateClientProfile,
+    logout,
+    upcomingDates,
+    schedule,
+    getBookingAvailabilityForDate,
+    refreshBootstrap,
+    session,
+  } = useApp();
+  const [page, setPage] = useState<Page>('catalog');
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(upcomingDates[0] || '');
+  const [activeCategory, setActiveCategory] = useState('Все');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+  const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
+  const [calendarAnim, setCalendarAnim] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
+  const [showSlotModal, setShowSlotModal] = useState(false);
+  const [slotAvailability, setSlotAvailability] = useState<BookingSlotAvailability[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [boxRentalHours, setBoxRentalHours] = useState(1);
+  const [selectedBookingVehicleIndex, setSelectedBookingVehicleIndex] = useState(0);
+  const [detailingNote, setDetailingNote] = useState('');
+  const [profileForm, setProfileForm] = useState(clientProfile);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
+  const [profileError, setProfileError] = useState('');
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  useEffect(() => {
+    if (!selectedDate && upcomingDates[0]) {
+      setSelectedDate(upcomingDates[0]);
+    }
+  }, [selectedDate, upcomingDates]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    const parsedSelectedDate = parseFlexibleDate(selectedDate);
+    if (parsedSelectedDate && parsedSelectedDate >= todayStart) return;
+    const nextAvailableDate = upcomingDates.find((dateValue) => {
+      const parsedDate = parseFlexibleDate(dateValue);
+      return parsedDate !== null && parsedDate >= todayStart;
+    });
+    if (nextAvailableDate && nextAvailableDate !== selectedDate) {
+      setSelectedDate(nextAvailableDate);
+      setSelectedSlot(null);
+---RETURN---
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{service.price.toLocaleString('ru')} ₽</div>
+                        <div className={`text-xs ${sub} flex items-center gap-1 justify-end mt-0.5`}>
+                          <Clock size={11} />
+                          {service.duration} мин
+                        </div>
+                      </div>
+                    </div>
+                    <p className={`text-sm ${sub} mb-3 line-clamp-2`}>{service.desc}</p>
+                    <button
+                      onClick={() => { setSelectedService(service); setPage('detail'); }}
+                      className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all active:scale-98 ${primaryBtn}`}
+                    >
+                      Записаться
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+              {filteredServices.length === 0 && activeServices.length > 0 && (
+                <div className={`px-4 py-6 text-sm text-center ${sub}`}>По запросу «{serviceSearchQuery.trim()}» услуг не найдено</div>
+              )}
+            </motion.div>
+          )}
+
+          {/* DETAIL PAGE */}
+          {page === 'detail' && selectedService && (
+            <motion.div
+              key="detail"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 30 }}
+              transition={{ duration: 0.22 }}
+              className="px-4 py-4"
+            >
+              <div className={`${glass} rounded-2xl p-5 mb-4`}>
+                <div className="w-full h-32 rounded-xl mb-4 flex items-center justify-center" style={{ background: `${primary}15` }}>
+                  <Star size={40} style={{ color: primary }} />
+                </div>
+                <h2 className="text-xl font-semibold mb-1">{selectedService.name}</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full inline-block mb-3" style={{ background: `${primary}20`, color: primary }}>
+                  {selectedService.category}
+                </span>
+                <p className={`text-sm ${sub} mb-4`}>{selectedService.desc}</p>
+                <div className="flex gap-4">
+                  <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
+                    <div className="font-semibold">{selectedPrice.toLocaleString('ru')} ₽</div>
+                    <div className={`text-xs ${sub}`}>Стоимость</div>
+                  </div>
+                  <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
+                    <div className="font-semibold">{selectedDuration} мин</div>
+                    <div className={`text-xs ${sub}`}>Длительность</div>
+                  </div>
+                </div>
+              </div>
+              {bookingVehicles.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-sm font-medium mb-2 ${text}`}>Автомобиль для записи</div>
+                  <select
+                    value={selectedBookingVehicleIndex}
+                    onChange={(event) => setSelectedBookingVehicleIndex(Number(event.target.value))}
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
+                  >
+                    {bookingVehicles.map((vehicle, index) => (
+                      <option key={`booking-vehicle-${index}`} value={index}>
+                        {vehicle.car || '\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}{vehicle.plate ? ` - ${vehicle.plate}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {selectedServiceIsBoxRental && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-sm font-medium mb-3 ${text}`}>Сколько часов нужен бокс</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => {
+                      const selected = boxRentalHours === hours;
+                      return (
+                        <button
+                          key={hours}
+                          onClick={() => setBoxRentalHours(hours)}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${selected ? 'text-white' : glass}`}
+                          style={selected ? { background: primary } : {}}
+                        >
+                          {hours} ч
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={`mt-3 text-xs ${sub}`}>
+                    Итог: {selectedDuration} мин, {selectedPrice.toLocaleString('ru')} ₽
+                  </div>
+                </div>
+              )}
+              {selectedServiceIsDetailing && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-sm font-medium mb-2 ${text}`}>Комментарий к детейлингу</div>
+                  <p className={`text-sm ${sub} mb-3`}>
+                    Можно сразу описать состояние авто, пожелания или важные детали по работе.
+                  </p>
+                  <textarea
+                    value={detailingNote}
+                    onChange={(event) => setDetailingNote(event.target.value)}
+                    placeholder="Опишите задачу, состояние авто или удобный способ связи"
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
+                  />
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  setPage('slots');
+                }}
+                className={`w-full py-3.5 rounded-2xl font-semibold transition-all active:scale-98 ${primaryBtn}`}
+              >
+                Выбрать время
+              </button>
+            </motion.div>
+          )}
+
+          {/* SLOTS PAGE */}
+          {page === 'slots' && selectedService && (
+            <motion.div
+              key="slots"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 30 }}
+              transition={{ duration: 0.22 }}
+              className="px-4 py-4"
+            >
+              <div className="flex gap-2 mb-4 overflow-x-auto">
+                {upcomingDates.map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDate(d)}
+                    className={`shrink-0 px-3 py-2 rounded-xl text-sm transition-all ${
+                      selectedDate === d ? `text-white` : `${glass} ${sub}`
+                    }`}
+                    style={selectedDate === d ? { background: primary } : {}}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              {selectedServiceIsBoxRental && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className={`text-sm font-medium ${text}`}>Длительность аренды</div>
+                      <div className={`text-xs ${sub} mt-1`}>
+                        Выберите, на сколько часов нужен бокс. Занятость ниже пересчитывается сразу.
+                      </div>
+                    </div>
+                    <div
+                      className="shrink-0 rounded-2xl px-3 py-2 text-right"
+                      style={{ background: `${primary}15`, color: primary }}
+                    >
+                      <div className="text-base font-semibold">{boxRentalHours} ч</div>
+                      <div className="text-[11px]">{selectedPrice.toLocaleString('ru')} ₽</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => {
+                      const selected = boxRentalHours === hours;
+                      return (
+                        <button
+                          key={hours}
+                          onClick={() => setBoxRentalHours(hours)}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${selected ? 'text-white' : glass}`}
+                          style={selected ? { background: primary } : {}}
+                        >
