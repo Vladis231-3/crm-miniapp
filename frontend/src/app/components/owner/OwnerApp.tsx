@@ -169,6 +169,12 @@ interface OwnerSalaryData {
   owners: OwnerProfitSummary[];
   totalAccrued: number; totalPaid: number; totalBalanceToPay: number;
 }
+interface OutsourcePayrollRow {
+  name: string; count: number; total: number;
+}
+interface OutsourcePayrollData {
+  name: string; total: number; rows: OutsourcePayrollRow[];
+}
 
 interface PiggyBankWashBreakdown {
   selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
@@ -801,6 +807,7 @@ export function OwnerApp() {
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
+  const [outsourcePayroll, setOutsourcePayroll] = useState<OutsourcePayrollData | null>(null);
   const [payrollData, setPayrollData] = useState<Worker[] | null>(null);
   const [ownerSalaryData, setOwnerSalaryData] = useState<OwnerSalaryData | null>(null);
   const [ownerSalaryPeriod, setOwnerSalaryPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
@@ -2634,6 +2641,7 @@ export function OwnerApp() {
   };
 
   const handleSaveOverrideEarned = async (linkId: number) => {
+    if (!linkId) return;
     const value = editingOverrideValue.trim();
     if (value === '') return;
     const num = Math.round(Number(value));
@@ -4701,7 +4709,7 @@ setOwnerNewBookingWorkers([]);
                             )}
                           </div>
                           <div className="text-right shrink-0">
-                            {editingOverrideLinkId === b.linkId ? (
+                            {b.linkId && editingOverrideLinkId === b.linkId ? (
                               <div className="flex items-center gap-1">
                                 <input type="number" value={editingOverrideValue}
                                   onChange={e => setEditingOverrideValue(e.target.value)}

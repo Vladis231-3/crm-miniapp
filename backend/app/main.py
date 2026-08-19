@@ -17594,6 +17594,75 @@ def save_admin_worker_payroll(
 
 
 
+@app.get("/api/owner/outsource/payroll")
+def get_owner_outsource_payroll(
+    period: str = "month",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Сумма, потраченная на аутсорс-исполнителей доп. услуг за период (по услугам).
+
+    Учитываются только завершённые записи (status=completed) и доп. услуги
+    с флагом is_outsource. Потраченная сумма = outsource_amount услуги.
+    """
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
+    valid_periods = {"day", "week", "month", "all", "custom"}
+    if period not in valid_periods:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    if period == "custom":
+        if not date_from or not date_to:
+            raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
+        date_from = _parse_booking_date_param(date_from)
+        date_to = _parse_booking_date_param(date_to)
+    else:
+        date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+
+    bookings_q = (
+        select(Booking)
+        .options(
+            joinedload(Booking.additional_services)
+            .joinedload(BookingAdditionalService.worker_links)
+        )
+        .where(
+            Booking.status == "completed",
+            Booking.additional_services.any(BookingAdditionalService.is_outsource.is_(True)),
+        )
+    )
+    if period == "all":
+        bookings = db.scalars(bookings_q).unique().all()
+    else:
+        date_col_key = (
+            func.substr(Booking.date, 7, 4)
+            .concat(func.substr(Booking.date, 4, 2))
+            .concat(func.substr(Booking.date, 1, 2))
+        )
+        bookings = db.scalars(
+            bookings_q.where(date_col_key >= date_from_key, date_col_key <= date_to_key)
+        ).unique().all()
+
+    agg: dict[str, dict] = {}
+    for booking in bookings:
+        for asvc in booking.additional_services or []:
+            if not asvc.is_outsource:
+                continue
+            amount = int(asvc.outsource_amount or 0)
+            row = agg.setdefault(asvc.name, {"name": asvc.name, "count": 0, "total": 0})
+            row["count"] += 1
+            row["total"] += amount
+
+    rows = sorted(agg.values(), key=lambda r: r["total"], reverse=True)
+    return {
+        "name": "Аутсорс",
+        "total": sum(r["total"] for r in rows),
+        "rows": rows,
+    }
+
+
+
 
 @app.post("/api/payroll/entries", response_model=WorkerPayload)
 
