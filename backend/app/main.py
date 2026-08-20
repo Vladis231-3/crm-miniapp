@@ -10779,7 +10779,8 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
             if stock_item:
                 print(f"[WRITE_OFF] stock '{stock_item.name}' before={stock_item.qty}, deducting {bm.qty}")
                 stock_item.qty = max(0, stock_item.qty - bm.qty)
-                total_cost += bm.qty * bm.unit_price
+                line_total = bm.qty * float(bm.unit_price)
+                total_cost += line_total
                 material_details.append(f"{bm.name} x{bm.qty} {bm.unit}")
                 worker_names = ", ".join(w.worker_name for w in booking.worker_links) if booking.worker_links else None
                 db.add(StockWriteOff(
@@ -10789,7 +10790,7 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                     qty=bm.qty,
                     unit=bm.unit,
                     unit_price=bm.unit_price,
-                    total_cost=bm.qty * bm.unit_price,
+                    total_cost=line_total,
                     source="booking",
                     booking_id=booking.id,
                     booking_service=booking.service,
@@ -10838,7 +10839,7 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
     """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада."""
     materials_cost = 0
     for bm in (booking.materials or []):
-        materials_cost += int(round((bm.qty or 0) * (bm.unit_price or 0)))
+        materials_cost += int(round((bm.qty or 0) * float(bm.unit_price or 0)))
     if materials_cost > 0:
         return materials_cost
     svc = db.get(Service, booking.service_id) if booking.service_id else None
@@ -10846,7 +10847,7 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
         for mat in (svc.materials or []):
             si = db.get(StockItem, mat.get("stockItemId")) if mat.get("stockItemId") else None
             if si:
-                materials_cost += int(round((mat.get("qty") or 0) * (si.unit_price or 0)))
+                materials_cost += int(round((mat.get("qty") or 0) * float(si.unit_price or 0)))
         if materials_cost > 0:
             return materials_cost
         return int(svc.material_consumption or 0)
@@ -12897,7 +12898,7 @@ def write_off_stock(
 
     item.qty = max(0, item.qty - payload.qty)
 
-    total_cost = payload.qty * item.unit_price
+    total_cost = payload.qty * float(item.unit_price)
 
     db.add(StockWriteOff(
         id=f"swo-{uuid4()}",

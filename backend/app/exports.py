@@ -1721,7 +1721,7 @@ def _build_export_data(
 
     cancellation_rate = round((len(cancelled) / len(bookings)) * 100) if bookings else 0
 
-    stock_value = sum(item.qty * item.unit_price for item in stock_items)
+    stock_value = sum(item.qty * float(item.unit_price) for item in stock_items)
 
 
 
@@ -2098,7 +2098,7 @@ def _build_export_data(
 
 
 
-    stock_rows = [[item.category, item.name, item.qty, item.unit, item.unit_price, item.qty * item.unit_price, "Да" if item.qty <= 5 else "Нет"] for item in stock_items]
+    stock_rows = [[item.category, item.name, item.qty, item.unit, item.unit_price, item.qty * float(item.unit_price), "Да" if item.qty <= 5 else "Нет"] for item in stock_items]
 
     stock_rows.sort(key=lambda item: (item[6] == "Да", item[5], item[1]), reverse=True)
 
