@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-20 08:07 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-20 09:13 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **276**
-- Строк кода: **100 917**
+- Строк кода: **100 923**
 - По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 62, `.ts`: 19, `.tsx`: 189
 
 ## Архитектура
@@ -2651,7 +2651,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12427 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12433 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 233) — локальный
 - `STOCK_UNITS` (стр. 234) — локальный
@@ -3543,7 +3543,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-20 11:07)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-20 12:12)
 - `backend/tests/test_owner_salary_asvc_only.py` (2026-08-20 10:33)
 - `scripts/.project-map-watch.lock` (2026-08-20 10:28)
 - `backend/app/schemas.py` (2026-08-20 10:25)

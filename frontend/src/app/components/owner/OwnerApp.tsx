@@ -4581,12 +4581,18 @@ setOwnerNewBookingWorkers([]);
                       </div>
                       {owner.shares.length > 0 && (
                         <div className="mb-3">
-                          <div className={`text-xs ${sub} mb-2`}>Последние начисления</div>
-                          {owner.shares.slice(0, 5).map(share => (
+                          <div className={`text-xs ${sub} mb-2`}>Начисления по заказам ({owner.shares.length})</div>
+                          {owner.shares.map(share => (
                             <div key={share.id} onClick={() => setSelectedShareDetail(share)} className="flex items-center justify-between py-1.5 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                              <div className="min-w-0">
+                              <div className="min-w-0 mr-2">
                                 <div className="text-xs font-medium truncate">{share.service || 'Заказ'}</div>
-                                {share.clientName && <div className={`text-[10px] ${sub}`}>{share.clientName}</div>}
+                                <div className={`text-[10px] ${sub}`}>
+                                  {share.date}{share.time ? ` ${share.time}` : ''}
+                                  {share.clientName ? ` · ${share.clientName}` : ''}
+                                </div>
+                                {share.price > 0 && (
+                                  <div className={`text-[10px] ${sub}`}>Стоимость заказа: {share.price.toLocaleString('ru')} ₽</div>
+                                )}
                               </div>
                               <div className="text-xs font-semibold shrink-0 ml-2">+{share.amount.toLocaleString('ru')} ₽</div>
                             </div>
