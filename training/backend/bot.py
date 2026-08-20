@@ -1,0 +1,701 @@
+from __future__ import annotations
+
+import hashlib
+import html
+import json
+import logging
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
+from urllib import error, request
+from uuid import uuid4
+
+try:
+    from app.config import get_settings
+    from app.database import session_scope
+    from app.models import AppSetting, Notification, StaffUser
+    from app.schemas import normalize_phone_digits
+    from app.telegram_linking import confirm_link_code
+except ImportError:
+    from backend.app.config import get_settings
+    from backend.app.database import session_scope
+    from backend.app.models import AppSetting, Notification, StaffUser
+    from backend.app.schemas import normalize_phone_digits
+    from backend.app.telegram_linking import confirm_link_code
+
+
+@dataclass(frozen=True)
+class BotRuntime:
+    token: str
+    webapp_url: str
+    api_base: str
+
+
+ADMIN_SHIFT_INSPECTIONS_KEY = "admin_shift_inspections"
+ADMIN_SHIFT_OWNER_BOT_STATE_KEY = "admin_shift_owner_bot_state"
+CLIENT_PHONE_VERIFICATIONS_KEY = "client_phone_verifications"
+
+
+def _build_runtime() -> BotRuntime:
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
+    if not settings.webapp_url:
+        raise RuntimeError("WEBAPP_URL is not configured")
+    return BotRuntime(
+        token=settings.telegram_bot_token,
+        webapp_url=settings.webapp_url,
+        api_base=f"https://api.telegram.org/bot{settings.telegram_bot_token}",
+    )
+
+
+def telegram_webhook_secret() -> str:
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
+    raw_secret = f"{settings.app_secret}:{settings.telegram_bot_token}".encode("utf-8")
+    return hashlib.sha256(raw_secret).hexdigest()
+
+
+def telegram_webhook_url() -> str:
+    settings = get_settings()
+    if not settings.webapp_url:
+        raise RuntimeError("WEBAPP_URL is not configured")
+    return f"{settings.webapp_url.rstrip('/')}{settings.telegram_webhook_path}"
+
+
+def _parse_retry_after(details: str) -> int | None:
+    try:
+        parsed = json.loads(details)
+    except json.JSONDecodeError:
+        return None
+    parameters = parsed.get("parameters")
+    if not isinstance(parameters, dict):
+        return None
+    retry_after = parameters.get("retry_after")
+    if isinstance(retry_after, int) and retry_after > 0:
+        return retry_after
+    return None
+
+
+def _telegram_call(
+    runtime: BotRuntime,
+    method: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    max_attempts: int = 3,
+) -> dict[str, Any]:
+    body = json.dumps(payload or {}).encode("utf-8")
+    req = request.Request(
+        url=f"{runtime.api_base}/{method}",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            with request.urlopen(req, timeout=60) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="ignore")
+            retry_after = _parse_retry_after(details)
+            if exc.code == 429 and retry_after is not None and attempt < max_attempts:
+                time.sleep(retry_after)
+                continue
+            raise RuntimeError(f"Telegram API HTTP error in {method}: {details or exc}") from exc
+        if not result.get("ok"):
+            raise RuntimeError(f"Telegram API error in {method}: {result}")
+        return result["result"]
+
+
+def _telegram_multipart_call(
+    runtime: BotRuntime,
+    method: str,
+    fields: dict[str, Any],
+    files: dict[str, tuple[str, str, bytes]],
+) -> dict[str, Any]:
+    boundary = f"----crmminiapp-{uuid4().hex}"
+    body = bytearray()
+
+    for name, value in fields.items():
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        body.extend(str(value).encode("utf-8"))
+        body.extend(b"\r\n")
+
+    for field_name, (file_name, mime_type, content) in files.items():
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(
+            f'Content-Disposition: form-data; name="{field_name}"; filename="{file_name}"\r\n'.encode("utf-8")
+        )
+        body.extend(f"Content-Type: {mime_type}\r\n\r\n".encode("utf-8"))
+        body.extend(content)
+        body.extend(b"\r\n")
+
+    body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+
+    req = request.Request(
+        url=f"{runtime.api_base}/{method}",
+        data=bytes(body),
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    try:
+        with request.urlopen(req, timeout=60) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Telegram API HTTP error in {method}: {details or exc}") from exc
+    if not result.get("ok"):
+        raise RuntimeError(f"Telegram API error in {method}: {result}")
+    return result["result"]
+
+
+def _welcome_reply_markup(webapp_url: str) -> dict[str, Any]:
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🎓 Обучающий тур", "web_app": {"url": webapp_url}},
+            ],
+            [
+                {"text": "✨ О нас", "web_app": {"url": f"{webapp_url}/about"}},
+                {"text": "📸 Наши работы", "web_app": {"url": f"{webapp_url}/works"}},
+            ],
+            [
+                {"text": "🚀 Войти", "web_app": {"url": webapp_url}},
+            ],
+        ]
+    }
+
+
+HELP_TEXT = (
+    '<b>\U0001f393 Обучающий режим ATMOSFERA</b>\n\n'
+    'Это обучающая версия приложения. При заходе вас встретит '
+    'мини-помощник \U0001f916 — он плавно проводит по экрану, '
+    'подсвечивает каждый элемент и объясняет, за что он отвечает, '
+    'а также расскажет о нашей студии.\n\n'
+    'Нажмите «\U0001f393 Открыть обучение», чтобы начать.'
+)
+
+
+def _help_reply_markup(webapp_url: str) -> dict[str, Any]:
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "\U0001f393 Открыть обучение", "web_app": {"url": webapp_url}},
+            ],
+        ]
+    }
+
+
+def _send_help_message(runtime: BotRuntime, chat_id: int) -> None:
+    _send_text_message(
+        runtime,
+        chat_id,
+        HELP_TEXT,
+        reply_markup=_help_reply_markup(runtime.webapp_url),
+        parse_mode="HTML",
+    )
+
+
+def _configure_bot_metadata(runtime: BotRuntime) -> str | None:
+    me = _telegram_call(runtime, "getMe")
+    _telegram_call(
+        runtime,
+        "setMyCommands",
+        {
+            "commands": [
+                {"command": "start", "description": "Главное меню ATMOSFERA"},
+                {"command": "help", "description": "Обучающий тур по приложению"},
+                {"command": "chatid", "description": "Показать chat id"},
+                {"command": "link", "description": "Привязать Telegram к CRM"},
+            ]
+        },
+    )
+    _telegram_call(
+        runtime,
+        "setChatMenuButton",
+        {
+            "menu_button": {
+                "type": "web_app",
+                "text": "Открыть CRM",
+                "web_app": {"url": runtime.webapp_url},
+            }
+        },
+    )
+    return me.get("username")
+
+
+def disable_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None:
+    runtime = _build_runtime()
+    username = _configure_bot_metadata(runtime)
+    _telegram_call(runtime, "deleteWebhook", {"drop_pending_updates": drop_pending_updates})
+    return username
+
+
+def sync_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None:
+    runtime = _build_runtime()
+    username = _configure_bot_metadata(runtime)
+    target_url = telegram_webhook_url()
+    target_secret = telegram_webhook_secret()
+    current = _telegram_call(runtime, "getWebhookInfo")
+    if (
+        current.get("url") == target_url
+        and current.get("has_custom_certificate") is False
+        and (current.get("pending_update_count") in {0, None} or not drop_pending_updates)
+        and (
+            current.get("secret_token") in {None, "", target_secret}
+            or str(current.get("last_error_message", "")).startswith("Wrong secret token")
+        )
+    ):
+        return username
+    _telegram_call(
+        runtime,
+        "setWebhook",
+        {
+            "url": target_url,
+            "secret_token": target_secret,
+            "allowed_updates": ["message", "callback_query"],
+            "drop_pending_updates": drop_pending_updates,
+        },
+    )
+    return username
+
+
+def _send_text_message(
+    runtime: BotRuntime,
+    chat_id: int,
+    text: str,
+    *,
+    reply_markup: dict[str, Any] | None = None,
+    parse_mode: str | None = None,
+) -> None:
+    payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "text": text,
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
+    _telegram_call(runtime, "sendMessage", payload)
+
+
+WELCOME_PHOTO_URL = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1000"
+
+WELCOME_CAPTION = (
+    '<b>Добро пожаловать в ATMOSFERA!</b>\n\n'
+    'Мы — профессиональный детейлинг-центр и мойка в Казани. '
+    'Качество, которое чувствуется с первого взгляда.\n\n'
+    '✨ Записывайтесь на услуги, отслеживайте историю и управляйте '
+    'бронированиями прямо в Telegram.\n\n'
+    'Нажмите «Войти», чтобы начать, или узнайте больше о нас и наших работах.'
+)
+
+
+def _send_start_message(runtime: BotRuntime, chat_id: int) -> None:
+    markup = _welcome_reply_markup(runtime.webapp_url)
+    try:
+        req = request.Request(WELCOME_PHOTO_URL)
+        with request.urlopen(req, timeout=10) as response:
+            photo_bytes = response.read()
+        send_telegram_photo(
+            chat_id,
+            file_name="welcome.jpg",
+            content=photo_bytes,
+            caption=WELCOME_CAPTION,
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
+    except Exception:
+        logging.warning("Failed to load welcome photo, falling back to text", exc_info=True)
+        _send_text_message(
+            runtime,
+            chat_id,
+            WELCOME_CAPTION,
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
+
+
+_ABOUT_TEXT_FALLBACK = (
+    '<b>\u2728 \u041e \u0441\u0442\u0443\u0434\u0438\u0438 ATMOSFERA</b>\n\n'
+    '\u041c\u044b \u2014 \u043f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u0434\u0435\u0442\u0435\u0439\u043b\u0438\u043d\u0433-\u0446\u0435\u043d\u0442\u0440 \u0432 \u041a\u0430\u0437\u0430\u043d\u0438.'
+)
+
+_WORKS_TEXT_FALLBACK = (
+    '<b>\U0001f4f8 \u041d\u0430\u0448\u0438 \u0440\u0430\u0431\u043e\u0442\u044b</b>\n\n'
+    '\u0421\u043a\u043e\u0440\u043e \u043c\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u043c \u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0438 \u043d\u0430\u0448\u0438\u0445 \u0440\u0430\u0431\u043e\u0442. '
+    '\u0410 \u043f\u043e\u043a\u0430 \u2014 \u043e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043c\u0438\u043d\u0438-\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u043a\u043d\u043e\u043f\u043a\u0443 \u00ab\u0412\u043e\u0439\u0442\u0438\u00bb.'
+)
+
+def _send_about_message(runtime: BotRuntime, chat_id: int) -> None:
+    with session_scope() as db:
+        row = db.get(AppSetting, "content")
+        if row and isinstance(row.value, dict):
+            about = row.value.get("about", {})
+            text = html.escape(str(about.get("text", ""))) if isinstance(about, dict) else ""
+        else:
+            text = ""
+    if not text:
+        text = _ABOUT_TEXT_FALLBACK
+    _send_text_message(runtime, chat_id, text, parse_mode="HTML")
+
+
+def _send_works_message(runtime: BotRuntime, chat_id: int) -> None:
+    with session_scope() as db:
+        row = db.get(AppSetting, "content")
+        works = (row.value or {}).get("works", []) if row else []
+    if works and isinstance(works, list):
+        lines = ["<b>\U0001f4f8 \u041d\u0430\u0448\u0438 \u0440\u0430\u0431\u043e\u0442\u044b</b>\n"]
+        for w in works:
+            if not isinstance(w, dict):
+                continue
+            title = w.get("title", "")
+            desc = w.get("description", "")
+            if title:
+                lines.append(f"<b>{html.escape(str(title))}</b>")
+            if desc:
+                lines.append(html.escape(str(desc)))
+            lines.append("")
+        text = "\n".join(lines).strip()
+    else:
+        text = _WORKS_TEXT_FALLBACK
+    _send_text_message(runtime, chat_id, text, parse_mode="HTML")
+
+
+def send_telegram_message(
+    chat_id: str | int, text: str, *, parse_mode: str | None = None
+) -> None:
+    runtime = _build_runtime()
+    _send_text_message(runtime, int(chat_id), text, parse_mode=parse_mode)
+
+
+def send_telegram_document(
+    chat_id: str | int,
+    *,
+    file_name: str,
+    content: bytes,
+    caption: str | None = None,
+    mime_type: str = "application/octet-stream",
+) -> None:
+    runtime = _build_runtime()
+    fields: dict[str, Any] = {"chat_id": int(chat_id)}
+    if caption:
+        fields["caption"] = caption
+    _telegram_multipart_call(
+        runtime,
+        "sendDocument",
+        fields=fields,
+        files={"document": (file_name, mime_type, content)},
+    )
+
+
+def send_telegram_photo(
+    chat_id: str | int,
+    *,
+    file_name: str,
+    content: bytes,
+    caption: str | None = None,
+    parse_mode: str | None = None,
+    mime_type: str = "image/jpeg",
+    reply_markup: dict[str, Any] | None = None,
+) -> None:
+    runtime = _build_runtime()
+    fields: dict[str, Any] = {"chat_id": int(chat_id)}
+    if caption:
+        fields["caption"] = caption
+    if parse_mode is not None:
+        fields["parse_mode"] = parse_mode
+    if reply_markup is not None:
+        fields["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
+    _telegram_multipart_call(
+        runtime,
+        "sendPhoto",
+        fields=fields,
+        files={"photo": (file_name, mime_type, content)},
+    )
+
+
+def _setting_dict(db, key: str, default: dict[str, Any]) -> dict[str, Any]:
+    row = db.get(AppSetting, key)
+    if row is None or not isinstance(row.value, dict):
+        return dict(default)
+    return dict(row.value)
+
+
+def _setting_list(db, key: str) -> list[dict[str, Any]]:
+    row = db.get(AppSetting, key)
+    if row is None or not isinstance(row.value, list):
+        return []
+    return list(row.value)
+
+
+def _upsert_setting(db, key: str, value: Any) -> None:
+    row = db.get(AppSetting, key)
+    if row is None:
+        row = AppSetting(key=key, value=value)
+        db.add(row)
+    else:
+        row.value = value
+
+
+def _serialize_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _owner_by_chat_id(db, chat_id: int) -> StaffUser | None:
+    return db.query(StaffUser).filter(StaffUser.role == "owner", StaffUser.telegram_chat_id == str(chat_id)).first()
+
+
+def _apply_shift_review_from_bot(chat_id: int, inspection_id: str, action: str, issue_note: str = "") -> str:
+    with session_scope() as db:
+        owner = _owner_by_chat_id(db, chat_id)
+        if owner is None:
+            return "Только владелец с привязанным Telegram может подтверждать смену."
+        entries = _setting_list(db, ADMIN_SHIFT_INSPECTIONS_KEY)
+        entry = next((item for item in entries if item.get("id") == inspection_id), None)
+        if entry is None:
+            return "Чек-лист смены не найден."
+        if str(entry.get("status") or "") != "pending":
+            return "По этому чек-листу уже принято решение."
+        if action == "rejected" and not issue_note.strip():
+            return "Опишите проблему текстом после нажатия кнопки отказа."
+
+        entry["status"] = action
+        entry["issueNote"] = issue_note.strip()
+        entry["reviewedAt"] = _serialize_now()
+        entry["ownerDecisionBy"] = owner.id
+        _upsert_setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, entries[-200:])
+
+        admin = db.get(StaffUser, str(entry.get("adminId") or ""))
+        verb = "подтвердил" if action == "approved" else "отклонил"
+        extra = f"\nПроблема: {issue_note.strip()}" if issue_note.strip() else ""
+        message = f"Владелец {verb} открытие смены администратора {entry.get('adminName')}.{extra}"
+        if admin is not None:
+            db.add(
+                Notification(
+                    id=f"n-{uuid4()}",
+                    recipient_role="admin",
+                    recipient_id=admin.id,
+                    message=message,
+                    read=False,
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+            if admin.telegram_chat_id:
+                send_telegram_message(admin.telegram_chat_id, message)
+        return "Смена подтверждена." if action == "approved" else "Отказ по смене отправлен администратору."
+
+
+def _remember_pending_issue(chat_id: int, inspection_id: str) -> None:
+    with session_scope() as db:
+        state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}})
+        pending = state.get("pendingIssueByChat")
+        if not isinstance(pending, dict):
+            pending = {}
+        pending[str(chat_id)] = inspection_id
+        state["pendingIssueByChat"] = pending
+        _upsert_setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, state)
+
+
+def _pop_pending_issue(chat_id: int) -> str | None:
+    with session_scope() as db:
+        state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}})
+        pending = state.get("pendingIssueByChat")
+        if not isinstance(pending, dict):
+            pending = {}
+        inspection_id = pending.pop(str(chat_id), None)
+        state["pendingIssueByChat"] = pending
+        _upsert_setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, state)
+        return inspection_id if isinstance(inspection_id, str) else None
+
+
+def _extract_contact_phone(update: dict[str, Any], chat_id: int) -> str | None:
+    message = update.get("message") or {}
+    contact = message.get("contact") or {}
+    phone_number = contact.get("phone_number")
+    contact_user_id = contact.get("user_id")
+    if not isinstance(phone_number, str) or not phone_number.strip():
+        return None
+    if contact_user_id is not None and str(contact_user_id) != str(chat_id):
+        return None
+    try:
+        return normalize_phone_digits(phone_number)
+    except ValueError:
+        return None
+
+
+def _store_client_phone_verification(chat_id: int, phone_digits: str) -> None:
+    with session_scope() as db:
+        current = _setting_dict(db, CLIENT_PHONE_VERIFICATIONS_KEY, {})
+        current[str(chat_id)] = {
+            "phoneDigits": phone_digits,
+            "updatedAt": _serialize_now(),
+        }
+        _upsert_setting(db, CLIENT_PHONE_VERIFICATIONS_KEY, current)
+
+
+def _extract_chat_id(update: dict[str, Any]) -> int | None:
+    callback = update.get("callback_query") or {}
+    callback_message = callback.get("message") or {}
+    callback_chat = callback_message.get("chat") or {}
+    if isinstance(callback_chat.get("id"), int):
+        return callback_chat["id"]
+    message = update.get("message") or {}
+    chat = message.get("chat") or {}
+    if isinstance(chat.get("id"), int):
+        return chat["id"]
+    return None
+
+
+def _extract_text(update: dict[str, Any]) -> str:
+    message = update.get("message") or {}
+    text = message.get("text")
+    return text.strip() if isinstance(text, str) else ""
+
+
+def _extract_callback(update: dict[str, Any]) -> tuple[str, str] | None:
+    callback = update.get("callback_query") or {}
+    callback_id = callback.get("id")
+    data = callback.get("data")
+    if isinstance(callback_id, str) and isinstance(data, str):
+        return callback_id, data
+    return None
+
+
+def _answer_callback_query(runtime: BotRuntime, callback_id: str, text: str) -> None:
+    _telegram_call(runtime, "answerCallbackQuery", {"callback_query_id": callback_id, "text": text})
+
+
+def _handle_link_command(chat_id: int, text: str) -> str:
+    parts = text.split(maxsplit=1)
+    code = parts[1].strip() if len(parts) == 2 else ""
+    if not code.isdigit():
+        return "Код введён неверно. Отправьте 6 цифр из CRM."
+    with session_scope() as db:
+        try:
+            staff = confirm_link_code(db, code, chat_id)
+        except ValueError as exc:
+            return str(exc)
+        if staff is None:
+            return "Код неверный или уже истёк. Создайте новый код в CRM."
+        role_labels = {
+            "admin": "администратор",
+            "worker": "мастер",
+            "owner": "владелец",
+        }
+        role_label = role_labels.get(staff.role, staff.role)
+        return f"Код введён правильно. Telegram привязан к роли: {role_label} ({staff.name})."
+
+
+def _handle_plain_code(chat_id: int, text: str) -> str:
+    code = text.strip()
+    if not (code.isdigit() and len(code) == 6):
+        return "Код должен состоять из 6 цифр."
+    with session_scope() as db:
+        try:
+            staff = confirm_link_code(db, code, chat_id)
+        except ValueError as exc:
+            return str(exc)
+        if staff is None:
+            return "Код неверный или уже истёк. Создайте новый код в CRM."
+        role_labels = {
+            "admin": "администратор",
+            "worker": "мастер",
+            "owner": "владелец",
+        }
+        role_label = role_labels.get(staff.role, staff.role)
+        return f"Код введён правильно. Telegram привязан к роли: {role_label} ({staff.name})."
+
+
+def _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> None:
+    text = _extract_text(update)
+    chat_id = _extract_chat_id(update)
+    if chat_id is None:
+        return
+    contact_phone = _extract_contact_phone(update, chat_id)
+    if contact_phone is not None:
+        _store_client_phone_verification(chat_id, contact_phone)
+        _send_text_message(runtime, chat_id, f"Номер подтверждён: +{contact_phone[0]} ({contact_phone[1:4]}) {contact_phone[4:7]}-{contact_phone[7:9]}-{contact_phone[9:11]}")
+        return
+
+    callback = _extract_callback(update)
+    if callback is not None:
+        callback_id, data = callback
+        if data == "btn_about":
+            _answer_callback_query(runtime, callback_id, "✨ О студии")
+            _send_about_message(runtime, chat_id)
+            return
+        if data == "btn_works":
+            _answer_callback_query(runtime, callback_id, "📸 Наши работы")
+            _send_works_message(runtime, chat_id)
+            return
+        if data.startswith("shiftapprove:"):
+            _answer_callback_query(runtime, callback_id, _apply_shift_review_from_bot(chat_id, data.split(":", 1)[1], "approved"))
+            return
+        if data.startswith("shiftreject:"):
+            _remember_pending_issue(chat_id, data.split(":", 1)[1])
+            _answer_callback_query(runtime, callback_id, "Опишите проблему следующим сообщением")
+            _send_text_message(runtime, chat_id, "Напишите сообщением, в чём проблема по открытию смены.")
+            return
+
+    pending_issue = _pop_pending_issue(chat_id) if text and not text.startswith("/") else None
+    if pending_issue is not None:
+        _send_text_message(runtime, chat_id, _apply_shift_review_from_bot(chat_id, pending_issue, "rejected", text))
+        return
+
+    if text.startswith("/start"):
+        _send_start_message(runtime, chat_id)
+    elif text.startswith("/help"):
+        _send_help_message(runtime, chat_id)
+    elif text.startswith("/chatid"):
+        _send_text_message(runtime, chat_id, f"Ваш chat id: {chat_id}")
+    elif text.startswith("/link"):
+        _send_text_message(runtime, chat_id, _handle_link_command(chat_id, text))
+    elif text.isdigit():
+        _send_text_message(runtime, chat_id, _handle_plain_code(chat_id, text))
+
+
+def process_telegram_update(update: dict[str, Any]) -> None:
+    runtime = _build_runtime()
+    _process_telegram_update(runtime, update)
+
+
+def run_polling() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    runtime = _build_runtime()
+    username = disable_telegram_webhook(drop_pending_updates=False)
+    logging.info("Bot started as @%s with mini app %s", username, runtime.webapp_url)
+
+    offset = 0
+    while True:
+        try:
+            updates = _telegram_call(
+                runtime,
+                "getUpdates",
+                {
+                    "offset": offset,
+                    "timeout": 30,
+                    "allowed_updates": ["message", "callback_query"],
+                },
+            )
+            for update in updates:
+                offset = max(offset, int(update["update_id"]) + 1)
+                _process_telegram_update(runtime, update)
+        except error.HTTPError as exc:
+            logging.error("Telegram HTTP error: %s", exc.read().decode("utf-8", errors="ignore"))
+            time.sleep(5)
+        except error.URLError as exc:
+            logging.error("Telegram network error: %s", exc)
+            time.sleep(5)
+        except Exception:
+            logging.exception("Bot loop crashed")
+            time.sleep(5)
+
+
+if __name__ == "__main__":
+    run_polling()

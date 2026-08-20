@@ -1,0 +1,317 @@
+Цель: сгенерировать набор экранов мобильного Telegram WebApp (размеры iPhone 14 / 390×844px — portrait) с полным набором страниц для ролей Клиент / Admin / Worker / Owner в стиле glass (iOS26), с поддержкой light & dark themes, локализацией на русском. Пожалуйста, создавай компоненты (Design System) с вариантами состояний (default/hover/pressed/disabled) и экспортируемыми ассетами (PNG+SVG). Построй проект как страницы / фреймы, подписанные по имени. Включи дизайн system page, components page и страницы пользовательских флоу.
+
+Общие требования:
+
+Canvas: создавай фреймы размером 390×844 px (портрет). Для Desktop-версий Owner/Admin можно сделать один 1280×800 макет в отдельном фрейме, но главный фокус — мобильный.
+
+Язык: все строки — русский. Формат дат: DD.MM.YYYY HH:mm. Валюта: ₽.
+
+Тема: две темы — Light и Dark. Экспортировать обе. Для каждой темы создай токены цветов (background, surface, glassOverlay, primary, secondary, textPrimary, textSecondary, accent, error).
+
+Шрифты: основной — SF Pro (если недоступен, использовать System UI / Inter) с вариантами: Regular 16, Medium 18, Semibold 20, Bold 24, Headline 28. Укажи fallback.
+
+Сетка / отступы: базовый шаг 8px; карточки с радиусом 24px (2xl), padding 16/20, shadow мягкий; border 1px полупрозрачный (glass).
+
+UI style: glass cards — background: rgba(255,255,255,0.08) в dark / rgba(255,255,255,0.65) в light с backdrop-blur(12px) и тонкой белой/чёрной границей 1px полупрозрачной.
+
+Touch targets: минимум 44×44 px.
+
+Все иконки — линейные, stroke 1.5–2px; поставь иконки: menu, bell, back, calendar, plus, edit, trash, pdf, dollar, clock, user, phone, box, worker, chart.
+
+Экземпляры компонентов: Buttons (primary, secondary, ghost), Inputs (text, phone mask), Selects, Sliders (percent), Chips (categories), Calendar slot chips, Modal, Slide-over panel, Toast.
+
+Содержимое дизайнерской системы (Pages / Components)
+
+Создай страницу Design System с токенами, цвета, шрифтами, spacing, кнопками, form controls, card variants, icons, avatar, status badges (scheduled/in_progress/completed/cancelled), and notification bell.
+
+Color tokens (пример):
+
+Light:
+
+bg: #F6F7FA
+
+surface: #FFFFFF
+
+glassOverlay: rgba(255,255,255,0.7)
+
+primary: #0A84FF
+
+accent: #34C759
+
+textPrimary: #0B1226
+
+textSecondary: #6B7280
+
+border: rgba(11,18,38,0.06)
+
+Dark:
+
+bg: #0B1226
+
+surface: #0E1624
+
+glassOverlay: rgba(255,255,255,0.06)
+
+primary: #4AA8FF
+
+accent: #5DD68F
+
+textPrimary: #E6EEF8
+
+textSecondary: #9AA6B2
+
+border: rgba(255,255,255,0.06)
+
+Создай компоненты с Variants:
+
+Button — Primary / Secondary / Ghost / Disabled (size: large (full-width), medium, small)
+
+Input — default / focused / error (with label and helper text)
+
+Card — Glass-small / Glass-medium / Glass-large
+
+CalendarSlot — available / selected / busy
+
+Modal — centered and bottom-sheet variants
+
+SlideOver — right-side panel
+
+Badge — status colors
+
+Bottom Tab Bar (Client & Worker)
+
+Left Drawer (Admin/Owner)
+
+Страницы (фреймы) — список и точное расположение элементов
+
+Создай отдельные фреймы для каждого экрана. Под каждым фреймом подпиши: Name — Role — Theme (напр. 01_Catalog_Client_Light). Ниже — подробная разметка.
+
+A. Клиент (Mini App) — мобильный (основной flow)
+
+01_Catalog_Client_Light (390×844)
+
+Header (height 64): left — small logo circle (glass) + текст ATMOSFERA (Semibold 18), right — icons: search, menu (each 40×40 glass icon).
+
+Under header: category chips horizontal scroll (height 44): [Все, Мойка, Детейлинг, Ремонт стекла, Аренда бокса]
+
+Main: grid cards (two columns on wide, single on mobile) — each card Glass-medium (rounded 20) with: service name (Semibold 16), category tag, price 1 200 ₽, duration 30 мин, small chevron button Записаться (Primary, full-width bottom of card).
+
+Footer: bottom safe area spacing + floating bottom tab bar hidden for client home.
+
+Interactions:
+
+Tap card → open 02_ServiceDetail_Client_Light.
+
+02_ServiceDetail_Client_Light
+
+Header back button ← and service name.
+
+Big glass card: big title, description (2 lines), price, duration, toggle options (checkbox list) for upsells.
+
+Bottom sticky: Выбрать время (Primary full-width). Under it small text: Минимум 1 ч для аренды бокса.
+
+03_CalendarSlots_Client_Light
+
+Header: back + service name + maybe selected date pill.
+
+Top filter row: Date picker (Today / Tomorrow / Select date), Duration dropdown, Box select (if category box_rent).
+
+Main: horizontal swipeable list of slot chips grouped by hour (each chip 86×44) — available (primary border), selected (primary filled), busy (muted glass with lock icon).
+
+When a slot selected: open bottom modal summary (height 320): shows date/time, price, duration, button Подтвердить запись (Primary) and Выбрать другой (ghost).
+
+Confirm triggers POST /api/bookings/ — show loading state; on success show 04_Confirm_Client_Light.
+
+04_Confirm_Client_Light
+
+Large success card: big check icon, Ваша запись подтверждена, details: дата, услуга, ID записи, buttons: Добавить в календарь (secondary), Поделиться (ghost). Small note: Напоминание за 60 минут будет отправлено.
+
+05_MyBookings_Client_Light (optionally accessible via menu)
+
+List with upcoming and past sections. Each item shows date/time, service, price, status badge, and small action Отменить for future bookings (confirm modal required).
+
+Создай аналогичные фреймы для Dark theme: 01_Catalog_Client_Dark, etc., with dark tokens and glass dark overlay.
+
+B. Admin — мобильно/расширенный (focus calendar + quick actions)
+
+Create mobile-first Admin screens and 1 desktop-wide Owner/Admin screen later.
+
+10_Admin_Calendar_Day_Light (390×844)
+
+Top bar: Drawer icon (left), Title Календарь — 12.03.2026, Today button, bell icon (notifications), add + action (create booking).
+
+Main: vertical list for each box (Box 1, Box 2, Box 3). Each box row: small label left (Box 1) and timeline to the right — show booking cards positioned by time (use fixed layout: list by time for mobile). Each booking card (Glass-small) includes: time 11:30-12:00, client Иван И., service Мойка, price 1000 ₽, icons for multiple workers, payment type, color status strip on left (green/yellow/red).
+
+Tap booking → open 11_Admin_BookingSlide_Light slide-over from right (width 320 px).
+
+11_Admin_BookingSlide_Light
+
+Slide-over content: Header: booking id + status badge.
+
+Sections:
+
+Клиент: name, phone (tap to call), car, plate.
+
+Услуги: list BookingService rows (service name, price_final, duration).
+
+Работники: current assigned workers (avatars + percent), button Назначить мастеров.
+
+Оплата: total_price, payment_type, quick action button Отметить оплату.
+
+Actions row (horizontal): Редактировать, Назначить мастеров, Начать, Завершить и чек, Отменить (icons with labels). Primary action depends on status (contextual).
+
+Bottom: small log (last actions).
+
+Modal Назначить мастеров:
+
+Modal center: multi-select worker chips (with availability indicator — green dot / busy), for each selected worker show percent input (numeric with slider). Validate percent input — show small warning if sum >100.
+
+Buttons: Назначить и уведомить (primary), Назначить без уведомления (secondary).
+
+12_Admin_NewBookingModal_Light
+
+Full modal with fields:
+
+Клиент: search or create (autocomplete)
+
+Услуга: select with typeahead
+
+Дата/время: date/time picker
+
+Бокс: dropdown
+
+Мастера: optional assign with percents
+
+Кнопки: Сохранить и уведомить (primary), Сохранить (secondary)
+
+Create desktop Admin calendar frame 13_Admin_DesktopCalendar_Light 1280×800 with full grid (Y axis boxes, X axis hours), draggable cards, and slide-over same content.
+
+Create dark theme variants for all Admin frames.
+
+C. Worker (мастер) — мобильный
+
+20_Worker_Today_Light
+
+Bottom tab bar: Today (active), Schedule, Earnings, Profile.
+
+Header: Сегодня + bell + filter toggle Только мои.
+
+List of tasks (stacked, grouped by time): each task card (Glass-medium) shows time window, service, client short, box, status badge.
+
+Each card has 2 action buttons: Начать (primary, green) and Подробности (ghost).
+
+21_Worker_TaskDetail_Light
+
+Header back + task title.
+
+Sections:
+
+Клиент (tap to call)
+
+Инструкции / Примечания
+
+Коллеги: avatars + percents
+
+Time tracking: started at (if not) + Start button; after start show timer and Завершить.
+
+On Завершить → open modal 22_Worker_FinishModal_Light.
+
+22_Worker_FinishModal_Light
+
+Fields: фактическая сумма (pre-filled), время завершения (now default), комментарий, checkbox Сгенерировать чек и отправить клиенту.
+
+Buttons: Подтвердить (primary), Отмена (ghost).
+
+On confirm — call API mark_done, show toast Успешно — чек отправлен and animation of PDF icon.
+
+Dark variants included.
+
+D. Owner — мобиль + desktop dashboard
+
+30_Owner_Dashboard_Mobile_Light (390×844)
+
+Top KPI strip (horiz scroll) with cards: Выручка сегодня, Зарплаты, Расходы, Прибыль.
+
+Below: compact line chart Выручка по дням (sparkline), bar chart Топ услуг, box occupancy mini-cards.
+
+Bottom quick actions row: Создать запись, Добавить расход, Экспорт отчета, Настройки.
+
+31_Owner_EmployeePayroll_Light
+
+List of employees with current period earned (card with button Открыть расчёт).
+
+Employee detail shows list of bookings with percent and salary_amount (table rows).
+
+32_Owner_Stock_Light
+
+Table of stock items: name, qty, unit price, total value, action Списать.
+
+Modal Списать to attach to booking or general expense.
+
+Desktop Owner 33_Owner_DesktopDashboard_Light 1280×800:
+
+Left navigation drawer (Dashboard, Финансы, Сотрудники, Календарь, Склад, Отчёты)
+
+Main area: KPIs, big charts (revenue by day, top services), table of recent bookings, alerts (low stock).
+
+Right sidebar: quick tasks, notifications.
+
+Dark variants included.
+
+Micro-interactions и анимации
+
+Page transitions: slide in from right for slide-over (duration 220ms, easing cubic-bezier(.22,.9,.39,1)); modals fade-up (180ms).
+
+Button pressed: scale 0.98, shadow reduce.
+
+Glass cards: subtle parallax blur on scroll (only visual).
+
+Calendar slot selection: chip scales to 1.06 and fills with primary color.
+
+Toasts: slide from top under header, auto-hide 4s.
+
+Data & Content (sample datasets)
+
+Populate each screen with realistic test data in Russian:
+
+Services: Мойка базовая — 1200 ₽ — 30 мин, Полировка стекла — 3500 ₽ — 60 мин, Ремонт лобового стекла — 7000 ₽ — 90 мин, Аренда бокса — 600 ₽/час.
+
+Clients: Иван Иванов, +7 (912) 345-67-89, Lada Vesta, A123BC, Мария Петрова.
+
+Workers: Иван — стаж 5 лет — деф. 30%, Олег — ученик — деф. 10%.
+
+Boxes: Бокс 1 (600 ₽/ч), Бокс 2 (600 ₽/ч), Бокс 3 (700 ₽/ч).
+
+Bookings: mix of scheduled, in_progress, completed; include one multi-worker booking (20%+20%).
+
+Exports / Deliverables from Figma
+
+Компонентная библиотека (Components page) с variants и README внутри файла (описание токенов).
+
+Все экраны (по списку) в Light и Dark, сгруппированные по роли.
+
+Экспорт ассетов: иконки в SVG (stroke), кнопки в PNG для preview.
+
+Прототип: кликабельные переходы (Catalog → Service → Slots → Confirm; Admin Calendar → SlideOver → Assign Workers modal; Worker Today → Task → Start → Finish modal; Owner Dashboard → Employee → Stock). Настрой ссылки Prototyping в Figma.
+
+Страница с CSS token suggestions (цвета, radius, spacing) и Tailwind-подсказками (напр., p-4, rounded-2xl, backdrop-blur-md) чтобы frontend dev мог напрямую применить.
+
+Экспорт экранов в PNG 2x и спецификация: размеры, отступы, font sizes, color hex, component props.
+
+Техничесные указания для реализации разработчиком (вставить в файл README в Figma)
+
+Указать API-контракты (пары endpoint → действие) как tooltips на кнопках (например, кнопка Подтвердить запись содержит POST /api/bookings/).
+
+Для каждого action-button добавить annotation с указанием запроса (method, path, payload example).
+
+Для календаря предусмотреть placeholder для drag&drop behaviour — note: drag behaviour handled by frontend lib react-big-calendar.
+
+Acceptance (проверка результата)
+
+В Figma должен быть один файл с clear pages: Design System, Components, Client (light+dark), Admin (light+dark), Worker (light+dark), Owner (mobile+desktop both themes).
+
+Все экраны кликабельны в прототипе для ключевых потоков (см. выше).
+
+Каждый компонент имеет variants; все тексты на русском; все цвета заданы токенами; export-ready SVG/icons.
+
+Размеры и spacing соответствуют указанной сетке (8px base) и touch targets ≥44×44 px.

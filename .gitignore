@@ -17,6 +17,11 @@ native/electron/node_modules/
 native/electron/dist/
 native/electron/out/
 
+training/frontend/node_modules/
+training/frontend/dist/
+training/backend/data/
+training/backend/.ruff_cache/
+
 backend/data/*.sqlite3
 backend/data/*.db
 backend/*.log

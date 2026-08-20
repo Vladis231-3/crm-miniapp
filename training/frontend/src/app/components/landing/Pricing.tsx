@@ -1,0 +1,87 @@
+import { useState } from 'react';
+import { Check } from 'lucide-react';
+import type { ContentService } from '../../context/AppContext';
+import { ServiceSearchInput } from '../shared/ServiceSearchInput';
+
+const FALLBACK_PLANS = [
+  { name: 'Базовый', tagline: 'Для регулярного ухода', price: 29, period: 'за мойку', color: '#6b7280', highlight: false, features: ['Наружная мойка', 'Чистка колёс', 'Мойка стёкол', 'Ароматизатор', 'Микрофибра'], notIncluded: ['Пылесос салона', 'Полировка'] },
+  { name: 'Премиум', tagline: 'Самый популярный пакет', price: 99, period: 'за детейлинг', color: '#2563eb', highlight: true, features: ['Всё из Базового', 'Пылесос салона', 'Кондиционирование кожи', 'Полировка панели', 'Чистка ковров'], notIncluded: ['Полировка кузова'] },
+  { name: 'Максимум', tagline: 'Полное восстановление', price: 249, period: 'за детейлинг', color: '#7c3aed', highlight: false, features: ['Всё из Премиум', 'Машинная полировка', 'Восковое покрытие', 'Чистка подкапотного', 'Полировка фар', 'Защита на 12 мес'], notIncluded: [] },
+];
+
+export function Pricing({ services }: { services: ContentService[] }) {
+  const plans = services.length > 0
+    ? services.map((s, i) => ({
+        name: s.title,
+        tagline: s.subtitle,
+        price: parseInt(s.price.replace(/\D/g, '')) || (i === 1 ? 99 : i === 2 ? 249 : 29),
+        period: 'per service',
+        color: s.accent,
+        highlight: i === 1,
+        features: s.features.slice(0, 5),
+        notIncluded: [] as string[],
+      }))
+    : FALLBACK_PLANS;
+
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const visiblePlans = q
+    ? plans.filter((p) => [p.name, p.tagline, ...p.features].some((v) => v && v.toLowerCase().includes(q)))
+    : plans;
+
+  return (
+    <section id="pricing" className="py-24 bg-white">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <div className="inline-block bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full mb-4"
+            style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em' }}>ЦЕНЫ</div>
+          <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.75rem)', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em', lineHeight: 1.15 }}>
+            Прозрачные цены</h2>
+        </div>
+        <div className="max-w-md mx-auto mb-10">
+          <ServiceSearchInput
+            value={query}
+            onChange={setQuery}
+            inputCls="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 w-full text-sm text-gray-900 placeholder-gray-400 outline-none shadow-sm focus:border-blue-500"
+            iconCls="text-gray-400"
+          />
+        </div>
+        {visiblePlans.length === 0 ? (
+          <div className="text-center text-gray-500 py-8" style={{ fontSize: '0.95rem' }}>
+            По запросу «{query.trim()}» услуг не найдено
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          {visiblePlans.map((plan) => (
+            <div key={plan.name}
+              className={`rounded-2xl p-8 flex flex-col border transition-all duration-300 ${plan.highlight ? 'shadow-xl scale-105 border-blue-200' : 'shadow-sm border-gray-100'}`}
+              style={{ backgroundColor: plan.highlight ? '#ffffff' : '#fafafa' }}>
+              {plan.highlight && <div className="text-white text-xs font-bold px-3 py-1 rounded-full self-start mb-4" style={{ backgroundColor: plan.color }}>ПОПУЛЯРНОЕ</div>}
+              <h3 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#0f172a' }}>{plan.name}</h3>
+              <p className="text-gray-500 mt-1" style={{ fontSize: '0.875rem' }}>{plan.tagline}</p>
+              <div className="my-6">
+                <span style={{ fontWeight: 800, fontSize: '2.5rem', color: '#0f172a' }}>${plan.price}</span>
+                <span className="text-gray-400" style={{ fontSize: '0.9rem' }}>/{plan.period}</span>
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-gray-900 mb-3">Включено:</div>
+                <ul className="space-y-2.5">
+                  {plan.features.map((feature: string) => (
+                    <li key={feature} className="flex items-start gap-3">
+                      <Check size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-600" style={{ fontSize: '0.875rem' }}>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <button onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}
+                className="w-full py-3 rounded-xl text-white font-semibold mt-6 transition-all duration-200 hover:opacity-90 cursor-pointer border-none"
+                style={{ backgroundColor: plan.color }}>Выбрать {plan.name}</button>
+            </div>
+          ))}
+        </div>
+        )}
+      </div>
+    </section>
+  );
+}

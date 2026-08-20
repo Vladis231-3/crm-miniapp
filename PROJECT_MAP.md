@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-20 11:39 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-20 20:43 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **277**
-- Строк кода: **101 455**
-- По расширениям: `.js`: 3, `.mjs`: 3, `.py`: 63, `.ts`: 19, `.tsx`: 189
+- Файлов кода: **426**
+- Строк кода: **189 933**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 124, `.ts`: 31, `.tsx`: 264
 
 ## Архитектура
 
@@ -276,6 +276,151 @@ concept1.0/
 │   ├── postcss.config.mjs
 │   ├── README.md
 │   └── vite.config.ts
+├── training/
+│   ├── backend/
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── complaints.py
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   ├── date_utils.py
+│   │   │   ├── exports.py
+│   │   │   ├── finance.py
+│   │   │   ├── finance_sync.py
+│   │   │   ├── google_calendar.py
+│   │   │   ├── main.py
+│   │   │   ├── models.py
+│   │   │   ├── schemas.py
+│   │   │   ├── security.py
+│   │   │   ├── seed.py
+│   │   │   └── telegram_linking.py
+│   │   ├── data/
+│   │   │   ├── diag_asvc.py
+│   │   │   └── diag_asvc2.py
+│   │   ├── migrations/
+│   │   │   ├── add_materials_written_off.py
+│   │   │   ├── add_pay_type_to_workers.py
+│   │   │   ├── add_plate_type.py
+│   │   │   ├── add_referral_source.py
+│   │   │   ├── add_service_times.py
+│   │   │   ├── add_stock_write_offs.py
+│   │   │   ├── add_write_off_booking_fields.py
+│   │   │   ├── change_int_to_float.py
+│   │   │   ├── finance_consistency.py
+│   │   │   ├── migrate_additional_services.py
+│   │   │   └── sync_client_schema.py
+│   │   ├── tests/
+│   │   │   ├── __init__.py
+│   │   │   ├── test_additional_service_validation.py
+│   │   │   ├── test_archive.py
+│   │   │   ├── test_attendance_endpoints.py
+│   │   │   ├── test_booking_logic.py
+│   │   │   ├── test_booking_money_split.py
+│   │   │   ├── test_broadcast_edge_cases.py
+│   │   │   ├── test_config.py
+│   │   │   ├── test_content.py
+│   │   │   ├── test_database_config.py
+│   │   │   ├── test_deposit.py
+│   │   │   ├── test_finance_batch3.py
+│   │   │   ├── test_finance_calculations.py
+│   │   │   ├── test_finance_edit.py
+│   │   │   ├── test_finance_integration_batch3.py
+│   │   │   ├── test_finance_migration.py
+│   │   │   ├── test_google_calendar.py
+│   │   │   ├── test_google_calendar_api.py
+│   │   │   ├── test_google_calendar_pull.py
+│   │   │   ├── test_html_and_headers.py
+│   │   │   ├── test_income_endpoints.py
+│   │   │   ├── test_owner_export_stock_decimal.py
+│   │   │   ├── test_owner_masters.py
+│   │   │   ├── test_owner_salary_asvc_only.py
+│   │   │   ├── test_piggy_bank_adjust.py
+│   │   │   ├── test_security_hardening.py
+│   │   │   ├── test_training_help.py
+│   │   │   ├── test_upload_security.py
+│   │   │   ├── test_worker_additional_services.py
+│   │   │   ├── test_worker_calendar.py
+│   │   │   └── test_worker_car_search.py
+│   │   ├── .env.example
+│   │   ├── bot.py
+│   │   ├── requirements.txt
+│   │   └── run.py
+│   └── frontend/
+│       ├── guidelines/
+│       │   └── Guidelines.md
+│       ├── public/
+│       │   └── google2855e110d983d030.html
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── components/
+│       │   │   │   ├── admin/
+│       │   │   │   │   ├── AdminApp.tsx
+│       │   │   │   │   └── ContentEditor.tsx
+│       │   │   │   ├── client/
+│       │   │   │   │   └── ClientApp.tsx
+│       │   │   │   ├── figma/
+│       │   │   │   │   └── ImageWithFallback.tsx
+│       │   │   │   ├── landing/
+│       │   │   │   │   ├── Contact.tsx
+│       │   │   │   │   ├── Footer.tsx
+│       │   │   │   │   ├── Hero.tsx
+│       │   │   │   │   ├── LandingPage.tsx
+│       │   │   │   │   ├── Navbar.tsx
+│       │   │   │   │   ├── Pricing.tsx
+│       │   │   │   │   ├── Services.tsx
+│       │   │   │   │   ├── StudioInfo.tsx
+│       │   │   │   │   ├── Testimonials.tsx
+│       │   │   │   │   ├── Works.tsx
+│       │   │   │   │   └── WorksPage.tsx
+│       │   │   │   ├── owner/
+│       │   │   │   │   ├── _OwnerApp.work.bak.tsx
+│       │   │   │   │   ├── DepositPanel.tsx
+│       │   │   │   │   └── OwnerApp.tsx
+│       │   │   │   ├── shared/
+│       │   │   │   │   ├── TrainingAssistant/
+│       │   │   │   │   │   ├── assistantScript.ts
+│       │   │   │   │   │   └── TrainingAssistant.tsx
+│       │   │   │   │   ├── Atmosfera.tsx
+│       │   │   │   │   ├── AttendanceTable.tsx
+│       │   │   │   │   ├── ServiceSearchInput.tsx
+│       │   │   │   │   ├── ServiceSearchSelect.tsx
+│       │   │   │   │   └── SourceBadge.tsx
+│       │   │   │   ├── ui/
+│       │   │   │   │   └── (48 shadcn/ui-файлов — не индексируются)
+│       │   │   │   └── worker/
+│       │   │   │       ├── WorkerApp.tsx
+│       │   │   │       └── WorkerCalendar.tsx
+│       │   │   ├── constants/
+│       │   │   │   └── referralSources.ts
+│       │   │   ├── context/
+│       │   │   │   └── AppContext.tsx
+│       │   │   ├── hooks/
+│       │   │   │   ├── useTelegramBackButton.ts
+│       │   │   │   └── useTelegramMainButton.ts
+│       │   │   ├── utils/
+│       │   │   │   ├── complaints.ts
+│       │   │   │   ├── date.ts
+│       │   │   │   ├── useVisualViewport.ts
+│       │   │   │   └── validation.ts
+│       │   │   ├── api.ts
+│       │   │   └── App.tsx
+│       │   ├── imports/
+│       │   │   └── pasted_text/
+│       │   │       └── telegram-webapp-design.txt
+│       │   ├── styles/
+│       │   │   ├── fonts.css
+│       │   │   ├── index.css
+│       │   │   ├── tailwind.css
+│       │   │   └── theme.css
+│       │   └── main.tsx
+│       ├── .env.desktop
+│       ├── .env.example
+│       ├── ATTRIBUTIONS.md
+│       ├── index.html
+│       ├── package.json
+│       ├── postcss.config.mjs
+│       ├── README.md
+│       └── vite.config.ts
 ├── .dockerignore
 ├── .env.local
 ├── .gitignore
@@ -3554,18 +3699,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-20 14:06)
-- `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-08-20 14:06)
-- `frontend/src/app/context/AppContext.tsx` (2026-08-20 14:06)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-20 14:06)
-- `backend/tests/test_owner_salary_asvc_only.py` (2026-08-20 14:06)
-- `backend/app/schemas.py` (2026-08-20 14:06)
-- `backend/app/models.py` (2026-08-20 14:06)
-- `backend/app/main.py` (2026-08-20 14:06)
-- `backend/app/exports.py` (2026-08-20 14:06)
-- `backend/tests/test_owner_export_stock_decimal.py` (2026-08-20 13:53)
-- `backend/tests/test_booking_money_split.py` (2026-08-20 13:37)
-- `backend/tests/test_booking_logic.py` (2026-08-20 12:48)
-- `scripts/.project-map-watch.lock` (2026-08-20 10:28)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-18 16:37)
-- `backend/tests/test_additional_service_validation.py` (2026-08-18 14:52)
+- `.gitignore` (2026-08-20 23:43)
+- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-20 23:39)
+- `training/backend/tests/test_training_help.py` (2026-08-20 23:37)
+- `training/backend/bot.py` (2026-08-20 23:35)
+- `training/frontend/src/app/App.tsx` (2026-08-20 23:35)
+- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-20 23:35)
+- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-20 23:34)
+- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-20 23:32)
+- `training/frontend/vite.config.ts` (2026-08-20 23:20)
+- `vercel.json` (2026-08-20 23:20)
+- `training/frontend/src/styles/tailwind.css` (2026-08-20 23:20)
+- `training/frontend/src/styles/theme.css` (2026-08-20 23:20)
+- `training/frontend/src/styles/fonts.css` (2026-08-20 23:20)
+- `training/frontend/src/styles/index.css` (2026-08-20 23:20)
+- `training/frontend/src/imports/pasted_text/telegram-webapp-design.txt` (2026-08-20 23:20)
