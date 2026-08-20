@@ -451,9 +451,11 @@ function serviceMoneySummary(service: MoneyServiceDraft) {
     ? `копилка: ${service.piggyPayValue ?? 0} ₽${piggyTargetLabel}`
     : service.piggyPayType === 'percent'
       ? `копилка: ${service.piggyPayValue ?? 0}%${piggyTargetLabel}`
-      : service.piggyPayType === 'none'
-        ? 'копилка: нет'
-        : `копилка: 24%${piggyTargetLabel}`;
+      : service.piggyPayType === 'rest'
+        ? `копилка: весь остаток${piggyTargetLabel}`
+        : service.piggyPayType === 'none'
+          ? 'копилка: нет'
+          : `копилка: 24%${piggyTargetLabel}`;
   const owners = service.ownerSplitEnabled === false
     ? 'владельцы: нет'
     : service.ownerPayType === 'percent'
@@ -490,13 +492,16 @@ function previewServiceSplit(
   const computePiggy = (base: number) => {
     if (piggyType === 'fixed') return { total: service.piggyPayValue ?? 0, label: 'фикс' };
     if (piggyType === 'percent') return { total: Math.round(base * (service.piggyPayValue ?? 0) / 100), label: `${service.piggyPayValue ?? 0}%` };
+    if (piggyType === 'rest') return { total: base, label: 'весь остаток' };
     if (piggyType === 'none') return { total: 0, label: 'нет' };
     return { total: Math.round(base * 24 / 100), label: '24%' };
   };
   if (!pipeline) {
     const m = computeMaster(net);
     master = m.total; masterLabel = m.label;
-    const p = computePiggy(net);
+    const p = piggyType === 'rest'
+      ? { total: Math.max(0, net - master), label: 'весь остаток' }
+      : computePiggy(net);
     piggy = p.total; piggyLabel = p.label;
     const afterMasterPiggy = Math.max(0, net - master - piggy);
     if (service.ownerSplitEnabled !== false && afterMasterPiggy > 0) {
@@ -6589,11 +6594,13 @@ setOwnerNewBookingWorkers([]);
                       {(() => {
                         const asvcPiggyTotal = splitDetail.asvcPiggyDeposits.reduce((s, d) => s + (d.amount || 0), 0);
                         const mainPiggyDeposit = Math.max(0, splitDetail.piggyDeposit - asvcPiggyTotal);
-                        const piggyHow = splitDetail.piggyPayValue > 0
-                          ? ` (${splitDetail.piggyPayValue}% от базы)`
-                          : splitDetail.piggyPayType === 'fixed'
-                            ? ` (фикс ${splitDetail.piggyPayValue.toLocaleString('ru')} ₽)`
-                            : '';
+                        const piggyHow = splitDetail.piggyPayType === 'rest'
+                          ? ' (весь остаток)'
+                          : splitDetail.piggyPayValue > 0
+                            ? ` (${splitDetail.piggyPayValue}% от базы)`
+                            : splitDetail.piggyPayType === 'fixed'
+                              ? ` (фикс ${splitDetail.piggyPayValue.toLocaleString('ru')} ₽)`
+                              : '';
                         return (
                           <>
                             <button className="flex justify-between text-xs w-full text-left hover:opacity-80"
@@ -12114,10 +12121,11 @@ setOwnerNewBookingWorkers([]);
                           <option value="">Стандарт (24%)</option>
                           <option value="percent">% от цены</option>
                           <option value="fixed">Фиксированная сумма</option>
+                          <option value="rest">Весь остаток</option>
                           <option value="none">Нет</option>
                         </select>
                       </div>
-                      {svc.piggyPayType && svc.piggyPayType !== 'none' && svc.piggyPayType !== '' && (
+                      {svc.piggyPayType && svc.piggyPayType !== 'none' && svc.piggyPayType !== 'rest' && svc.piggyPayType !== '' && (
                         <div>
                           <label className={`text-xs ${sub} block mb-1`}>Значение ({svc.piggyPayType === 'fixed' ? '₽' : '%'})</label>
                           <input className={inputCls} type="number" value={numberInputValue(svc.piggyPayValue ?? 0)} onChange={e => patch({ piggyPayValue: numberFromInput(e.target.value) })} />

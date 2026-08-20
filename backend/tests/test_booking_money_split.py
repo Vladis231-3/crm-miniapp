@@ -1268,6 +1268,80 @@ class BookingMoneySplitTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].amount, 552)
 
+    def test_money_split_rest_piggy_mode(self) -> None:
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction, Service
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            svc = db.get(Service, "s1")
+            self.assertIsNotNone(svc)
+            assert svc is not None
+            svc.master_pay_type = "fixed"
+            svc.master_pay_value = 100
+            svc.piggy_pay_type = "rest"
+            svc.piggy_pay_value = 0
+            svc.split_order = []
+            svc.material_consumption = 0
+            db.commit()
+
+        booking_date = self.next_active_date()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Rest Piggy Client",
+                "clientPhone": "+7 (999) 777-88-99",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "16:00",
+                "duration": 30,
+                "price": 1000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Lada Vesta",
+                "plate": "A123BC",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking = create_response.json()
+
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking['id']}",
+            headers=self.auth_headers(self.admin_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        split = self.get_split(booking["id"], self.owner_token)
+
+        # Услуга 1000₽, мастер фикс 100₽ → весь остаток 900₽ в копилку
+        self.assertEqual(split["piggyPayType"], "rest")
+        self.assertEqual(split["splitBase"], 1000)
+        self.assertEqual(split["masterTotal"], 100, "мастер получает фикс 100")
+        self.assertEqual(split["piggyDeposit"], 900, "весь остаток уходит в копилку")
+        self.assertEqual(split["ownersTotal"], 0, "владельцам ничего не остаётся")
+
+        totalDistributed = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertEqual(totalDistributed, 1000, "вся цена записи распределена")
+
+        with SessionLocal() as db:
+            deposits = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.booking_id == booking["id"],
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                )
+            ).all()
+        self.assertEqual(sum(t.amount for t in deposits), 900, "вклад в копилку = весь остаток")
+        self.assertTrue(
+            any(t.amount == 900 and "Остаток" in (t.purpose or "") for t in deposits),
+            "вклад в копилку создан с пометкой «Остаток»",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

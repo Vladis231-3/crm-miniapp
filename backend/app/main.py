@@ -11045,6 +11045,8 @@ def _booking_money_split(
             return piggy_pay_value
         if piggy_pay_type == "percent":
             return round(base * piggy_pay_value / 100)
+        if piggy_pay_type == "rest":
+            return base
         if piggy_pay_type == "none":
             return 0
         if rg in ("detailing", "wash"):
@@ -11116,7 +11118,11 @@ def _booking_money_split(
         # Классический порядок: материалы → мастера → копилка → владельцы
         split_base_report = split_base
         master_by_worker, master_total, main_master_total = _compute_master(split_base)
-        main_piggy = _compute_piggy(split_base)
+        if piggy_pay_type == "rest":
+            # Весь остаток после мастеров → в копилку (владельцам ничего)
+            main_piggy = max(0, split_base - main_master_total)
+        else:
+            main_piggy = _compute_piggy(split_base)
         # Вклад доп услуг в копилку — из carve-out цены доп услуги, долю владельцев не уменьшает
         piggy_deposit = main_piggy + asvc_piggy_total
         remaining = split_base - main_master_total - main_piggy
@@ -11294,6 +11300,10 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
         elif split["piggy_pay_type"] == "percent":
 
             purpose = f"{piggy_percent_value}% от заказа в копилку: {booking.service} ({booking.client_name})"
+
+        elif split["piggy_pay_type"] == "rest":
+
+            purpose = f"Остаток в копилку: {booking.service} ({booking.client_name})"
 
         else:
 
