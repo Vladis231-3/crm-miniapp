@@ -2526,6 +2526,16 @@ def _apply_runtime_migrations() -> None:
                 connection.exec_driver_sql(
                     "ALTER TABLE bookings ADD COLUMN source VARCHAR(32) DEFAULT NULL"
                 )
+        if "referral_source" not in booking_gc_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN referral_source VARCHAR(64) DEFAULT ''"
+                )
+        if "is_repeat_visit" not in booking_gc_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN is_repeat_visit BOOLEAN NOT NULL DEFAULT FALSE"
+                )
 
     # Миграция: привязка расхода к записи (списание материалов)
     if "expenses" in inspector.get_table_names():
@@ -4365,6 +4375,8 @@ def _booking_payload(
         startedAt=booking.started_at,
         completedAt=booking.completed_at,
         source=getattr(booking, "source", None),
+        referralSource=getattr(booking, "referral_source", None) or "",
+        isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
     )
 
 
@@ -10600,6 +10612,10 @@ def create_booking(
 
         plate_type=booking_plate_type,
 
+        referral_source=payload.referralSource or "",
+
+        is_repeat_visit=payload.isRepeatVisit,
+
         created_at=_now(),
 
     )
@@ -11630,7 +11646,7 @@ def update_booking(
 
     if booking.client_id and any(
 
-        field in updates for field in ("clientName", "clientPhone", "car", "plate", "plateType")
+        field in updates for field in ("clientName", "clientPhone", "car", "plate", "plateType", "referralSource")
 
     ):
 
@@ -11657,6 +11673,10 @@ def update_booking(
             if "plateType" in updates:
 
                 client.plate_type = updates["plateType"]
+
+            if "referralSource" in updates:
+
+                client.referral_source = updates["referralSource"] or ""
 
             client.registered = True
 
@@ -11843,6 +11863,10 @@ def update_booking(
             "isOutsource": "is_outsource",
 
             "outsourceAmount": "outsource_amount",
+
+            "referralSource": "referral_source",
+
+            "isRepeatVisit": "is_repeat_visit",
 
         }.get(field, field)
 
@@ -15959,6 +15983,10 @@ def get_worker_calendar_bookings(
 
             source=getattr(booking, "source", None) or None,
 
+            referralSource=getattr(booking, "referral_source", None) or "",
+
+            isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
+
         )
 
         for booking in bookings
@@ -16065,6 +16093,8 @@ def search_worker_cars(
             ],
             car=_safe_text(booking.car) or None,
             plate=_safe_text(booking.plate) or None,
+            referralSource=getattr(booking, "referral_source", None) or "",
+            isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
         )
         for booking in bookings
     ]
@@ -19402,9 +19432,35 @@ def owner_worker_salary_detail(
 
                 clientName=b.client_name,
 
+                clientPhone=b.client_phone,
+
                 paymentType=b.payment_type,
 
                 paymentSettled=b.payment_settled,
+
+                notes=b.notes,
+
+                additionalServices=[
+
+                    BookingAdditionalServiceItem(
+
+                        name=asvc.name,
+
+                        price=asvc.price,
+
+                        priceMode=asvc.price_mode,
+
+                        duration=asvc.duration,
+
+                        isOutsource=asvc.is_outsource,
+
+                        outsourceAmount=asvc.outsource_amount,
+
+                    )
+
+                    for asvc in b.additional_services
+
+                ],
 
             )
 

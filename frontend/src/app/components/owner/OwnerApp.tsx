@@ -50,6 +50,10 @@ interface SalaryBookingItem {
   price: number; earned: number; percent: number; resourceGroup: string;
   linkId?: number; overrideEarned?: number | null; payType?: string;
   car?: string; plate?: string;
+  clientName?: string | null; clientPhone?: string | null;
+  paymentType?: string | null; paymentSettled?: boolean | null;
+  notes?: string | null;
+  additionalServices?: Array<{ name: string; price: number; priceMode?: string; duration?: number; isOutsource?: boolean; outsourceAmount?: number | null }>;
 }
 interface SalaryPayoutItem {
   id: string; amount: number; note: string; createdAt: string; createdBy: string;
@@ -782,6 +786,7 @@ export function OwnerApp() {
     price: 0,
     duration: 30,
     referralSource: '',
+    isRepeatVisit: false,
   });
   const [notifyBookingWorkers, setNotifyBookingWorkers] = useState(true);
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
@@ -795,6 +800,7 @@ export function OwnerApp() {
   const [salaryDateFrom, setSalaryDateFrom] = useState('');
   const [salaryDateTo, setSalaryDateTo] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<SalaryDetailResponse | null>(null);
+  const [salaryBookingDetail, setSalaryBookingDetail] = useState<SalaryBookingItem | null>(null);
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
   const [salaryLoading, setSalaryLoading] = useState(false);
@@ -988,6 +994,7 @@ export function OwnerApp() {
       isOutsource: false,
       outsourceAmount: 0,
       referralSource: '',
+      isRepeatVisit: false,
     });
   const [ownerNewBookingWorkers, setOwnerNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [ownerNewBookingMaterials, setOwnerNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number | string; unit: string; unitPrice: number }[]>([]);
@@ -3084,6 +3091,7 @@ export function OwnerApp() {
         plate: normalizedPlate,
         plateType: bookingForm.plateType,
         referralSource: bookingForm.referralSource || undefined,
+        isRepeatVisit: bookingForm.isRepeatVisit,
         notifyWorkers: !bookingForm.isOutsource && notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
@@ -3135,10 +3143,11 @@ setOwnerNewBookingWorkers([]);
       notes: '',
       status: 'admin_review',
       paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
-      paymentSettled: false,
+paymentSettled: false,
       isOutsource: false,
       outsourceAmount: 0,
       referralSource: '',
+      isRepeatVisit: false,
     });
   };
 
@@ -3225,6 +3234,7 @@ setOwnerNewBookingWorkers([]);
         plateType: ownerNewBookingForm.plateType,
         notes: ownerNewBookingForm.notes,
         referralSource: ownerNewBookingForm.referralSource || undefined,
+        isRepeatVisit: ownerNewBookingForm.isRepeatVisit,
         notifyWorkers: !ownerNewBookingForm.isOutsource && notify,
         materials: ownerNewBookingMaterials.map(m => ({
           ...m,
@@ -3964,6 +3974,9 @@ setOwnerNewBookingWorkers([]);
                                       <span className="tabular-nums">{booking.time}</span>
                                       {' '}
                                       <SourceBadge source={booking.source} className="mr-1" />
+                                      {booking.isRepeatVisit && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                                      )}
                                       {booking.clientName || 'Без имени'}
                                     </div>
                                     <div className={`text-[11px] truncate ${sub}`}>
@@ -3999,6 +4012,9 @@ setOwnerNewBookingWorkers([]);
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
                                 <SourceBadge source={booking.source} />
+                                {booking.isRepeatVisit && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                                )}
                               </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
                                 {ownerStatusLabel(booking.status)}
@@ -4076,6 +4092,9 @@ setOwnerNewBookingWorkers([]);
                             <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">
                               <span className="truncate">{booking.time} · {booking.clientName}</span>
                               <SourceBadge source={booking.source} />
+                              {booking.isRepeatVisit && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                              )}
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
@@ -4748,26 +4767,13 @@ setOwnerNewBookingWorkers([]);
                       <div className={`text-xs ${sub} py-3 text-center`}>Нет записей за выбранный период</div>
                     ) : (
                       salaryDetail.bookings.map(b => (
-                        <div key={b.id} className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                        <div key={b.id} onClick={() => setSalaryBookingDetail(b)} className="flex items-center justify-between py-2 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex-1 min-w-0 mr-2">
                             <div className="text-xs font-medium truncate">
                               {b.date} {b.time} ·{' '}
-                              {b.serviceId ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const svc = services.find(s => s.id === b.serviceId);
-                                    if (svc) handleOpenServiceQuickEdit(svc, b.id);
-                                  }}
-                                  className="underline decoration-dotted underline-offset-2 truncate max-w-full"
-                                  style={{ color: primary }}
-                                  title="Редактировать услугу"
-                                >
-                                  {b.service}
-                                </button>
-                              ) : (
-                                b.service
-                              )}
+                              <span className="underline decoration-dotted underline-offset-2 truncate max-w-full" style={{ color: primary }} title="Подробнее об услуге">
+                                {b.service}
+                              </span>
                             </div>
                             <div className={`text-[10px] ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${b.earned.toLocaleString('ru')} ₽` : `${b.percent}%`}</div>
                             {(b.car || b.plate) && (
@@ -7848,6 +7854,9 @@ setOwnerNewBookingWorkers([]);
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <div className="font-medium text-sm truncate">{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
                                   <SourceBadge source={booking.source} />
+                                  {booking.isRepeatVisit && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                                  )}
                                 </div>
                                 <div className={`text-xs ${sub} mt-0.5`}>
                                   {booking.date} • {booking.time} • {booking.box || 'Без бокса'}
@@ -9974,6 +9983,14 @@ setOwnerNewBookingWorkers([]);
                     ))}
                   </select>
                 </div>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Повторный визит</span>
+                  <input
+                    type="checkbox"
+                    checked={bookingForm.isRepeatVisit}
+                    onChange={(event) => setBookingForm((current) => ({ ...current, isRepeatVisit: event.target.checked }))}
+                  />
+                </label>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
                   <select className={selectCls} value={bookingForm.paymentType} onChange={e => setBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
@@ -10176,10 +10193,16 @@ setOwnerNewBookingWorkers([]);
                     <div className="flex items-center gap-1.5 min-w-0">
                       <div className="font-medium text-sm">{selectedBooking.clientName || 'Клиент без имени'}</div>
                       <SourceBadge source={selectedBooking.source} />
+                      {selectedBooking.isRepeatVisit && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный визит</span>
+                      )}
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(selectedBooking.status)}`}>{ownerStatusLabel(selectedBooking.status)}</span>
                   </div>
                   <div className={`text-xs ${sub} mb-2`}>{selectedBooking.service} • {selectedBooking.date} • {selectedBooking.time}</div>
+                  {selectedBooking.referralSource && (
+                    <div className={`text-xs ${sub} mb-2`}>Откуда узнал: {selectedBooking.referralSource}</div>
+                  )}
                   {(() => {
                     const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0);
                     const legacyServicesTotal = (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0);
@@ -10632,6 +10655,9 @@ setOwnerNewBookingWorkers([]);
                             <div className="flex items-center gap-1.5 min-w-0">
                               <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
                               <SourceBadge source={booking.source} />
+                              {booking.isRepeatVisit && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                              )}
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
@@ -10710,6 +10736,9 @@ setOwnerNewBookingWorkers([]);
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
                                 <SourceBadge source={booking.source} />
+                                {booking.isRepeatVisit && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                                )}
                               </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                             </div>
@@ -11628,6 +11657,14 @@ setOwnerNewBookingWorkers([]);
                     ))}
                   </select>
                 </div>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Повторный визит</span>
+                  <input
+                    type="checkbox"
+                    checked={ownerNewBookingForm.isRepeatVisit}
+                    onChange={(event) => setOwnerNewBookingForm((current) => ({ ...current, isRepeatVisit: event.target.checked }))}
+                  />
+                </label>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
                   <select className={selectCls} value={ownerNewBookingForm.paymentType} onChange={e => setOwnerNewBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
@@ -12300,6 +12337,130 @@ setOwnerNewBookingWorkers([]);
                 </button>
               </motion.div>
             </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* ── MODAL: SALARY BOOKING DETAIL ── */}
+      <AnimatePresence>
+        {salaryBookingDetail && (() => {
+          const b = salaryBookingDetail;
+          const svc = b.serviceId ? services.find(s => s.id === b.serviceId) : undefined;
+          const paymentLabel = b.paymentType === 'cash' ? 'Наличные' : b.paymentType === 'transfer' ? 'Перевод' : b.paymentType === 'invoice' ? 'По счёту' : b.paymentType || 'Не указан';
+          const segmentLabel = b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг';
+          return (
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] bg-black/50" onClick={() => setSalaryBookingDetail(null)} />
+              <motion.div
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
+              >
+                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-2 mb-1" />
+                <div className="flex justify-between items-center px-5 py-3 sticky top-0" style={{ background: surface }}>
+                  <h3 className="font-semibold">Детали услуги</h3>
+                  <button onClick={() => setSalaryBookingDetail(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} /></button>
+                </div>
+                <div className="px-5 pb-6 space-y-3">
+                  {/* Service */}
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Услуга</div>
+                    <div className="font-semibold">{b.service}</div>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${b.resourceGroup === 'wash' ? 'bg-cyan-500/15 text-cyan-600' : 'bg-purple-500/15 text-purple-600'}`}>{segmentLabel}</span>
+                      {svc?.duration ? <span className={`text-[10px] px-2 py-0.5 rounded-full ${glass}`}>⏱ {svc.duration} мин</span> : null}
+                    </div>
+                    {svc?.desc && <div className={`text-xs ${sub} mt-2`}>{svc.desc}</div>}
+                  </div>
+
+                  {/* Client */}
+                  {(b.clientName || b.clientPhone) && (
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                      <div className={`text-xs ${sub} mb-1`}>Клиент</div>
+                      <div className="font-semibold">{b.clientName || '—'}</div>
+                      {b.clientPhone && (
+                        <a href={`tel:${b.clientPhone}`} className={`text-sm flex items-center gap-1 mt-0.5`} style={{ color: primary }}>
+                          <Phone size={11} />{b.clientPhone}
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Car */}
+                  {(b.car || b.plate) && (
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                      <div className={`text-xs ${sub} mb-1`}>Автомобиль</div>
+                      <div className="font-semibold">{b.car || '—'}</div>
+                      {b.plate && <div className={`text-sm ${sub}`}>Гос. номер: {b.plate}</div>}
+                    </div>
+                  )}
+
+                  {/* Date & time */}
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Дата и время</div>
+                    <div className="font-semibold">{b.date} · {b.time}</div>
+                    {b.box && <div className={`text-sm ${sub}`}>Бокс: {b.box}</div>}
+                  </div>
+
+                  {/* Payment */}
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Оплата</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-lg" style={{ color: accent }}>{b.price.toLocaleString('ru')} ₽</div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${b.paymentSettled ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
+                        {b.paymentSettled ? 'Оплачено' : 'Не оплачено'}
+                      </span>
+                    </div>
+                    {b.paymentType && <div className={`text-sm ${sub} mt-1`}>Способ: {paymentLabel}</div>}
+                  </div>
+
+                  {/* Worker earnings */}
+                  <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                    <div className={`text-xs ${sub} mb-1`}>Заработок мастера</div>
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-lg" style={{ color: primary }}>{b.earned.toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>
+                        {b.payType === 'fixed'
+                          ? `фикс ${b.earned.toLocaleString('ru')} ₽`
+                          : `${b.percent}%${b.overrideEarned != null ? ' (вручную)' : ''}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional services */}
+                  {(b.additionalServices?.length || 0) > 0 && (
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                      <div className={`text-xs ${sub} mb-1`}>Доп. услуги</div>
+                      {b.additionalServices!.map((asvc, i) => (
+                        <div key={i} className="flex justify-between text-sm py-0.5">
+                          <span className="truncate pr-2">{asvc.name}</span>
+                          <span className="shrink-0">{asvc.priceMode === 'subtract' ? '−' : '+'}{asvc.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {b.notes && (
+                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
+                      <div className={`text-xs ${sub} mb-1`}>Комментарий</div>
+                      <div className="text-sm">{b.notes}</div>
+                    </div>
+                  )}
+
+                  {/* Quick edit shortcut */}
+                  {svc && (
+                    <button
+                      onClick={() => { setSalaryBookingDetail(null); handleOpenServiceQuickEdit(svc, b.id); }}
+                      className="w-full py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2"
+                      style={{ background: `${primary}18`, color: primary }}
+                    >
+                      <Edit3 size={15} /> Изменить услугу
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            </>
           );
         })()}
       </AnimatePresence>

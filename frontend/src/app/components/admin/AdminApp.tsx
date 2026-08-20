@@ -359,6 +359,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     isOutsource: false,
     outsourceAmount: 0,
     referralSource: '',
+    isRepeatVisit: false,
   });
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [addServiceTargetBooking, setAddServiceTargetBooking] = useState<Booking | null>(null);
@@ -975,6 +976,8 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       paymentSettled: false,
       isOutsource: false,
       outsourceAmount: 0,
+      referralSource: '',
+      isRepeatVisit: false,
     });
   };
 
@@ -999,6 +1002,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     const clientVehicles = (client.vehicles?.length ? client.vehicles : [{ car: client.car, plate: client.plate, plateType: client.plateType }])
       .filter((vehicle) => vehicle.car || vehicle.plate);
     const mainVehicle = clientVehicles.find((vehicle) => (vehicle as any).isMain) ?? clientVehicles[0];
+    const hasPriorVisits = bookings.some((booking) => booking.clientId === client.id && booking.status !== 'cancelled');
     setNewBookingForm((current) => ({
       ...current,
       clientId: client.id,
@@ -1007,6 +1011,8 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       car: mainVehicle?.car || client.car || '',
       plate: mainVehicle?.plate || client.plate || '',
       plateType: ((mainVehicle?.plateType || client.plateType) as PlateType) || 'russian',
+      referralSource: client.referralSource || '',
+      isRepeatVisit: hasPriorVisits,
       status,
       date: status === 'completed' ? formatDate(historyDate) : current.date,
       time: status === 'completed' ? '10:00' : current.time,
@@ -1255,6 +1261,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         plateType: newBookingForm.plateType,
         notes: newBookingForm.notes,
         referralSource: newBookingForm.referralSource || undefined,
+        isRepeatVisit: newBookingForm.isRepeatVisit,
         notifyWorkers: !newBookingForm.isOutsource && notify,
         materials: newBookingMaterials.map(m => ({
           ...m,
@@ -1545,6 +1552,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className="font-semibold text-sm truncate">{booking.time} · {booking.clientName}</div>
                             <SourceBadge source={booking.source} />
+                            {booking.isRepeatVisit && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                            )}
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
                         </div>
@@ -1576,6 +1586,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className="text-sm font-medium truncate">{booking.clientName}</div>
                             <SourceBadge source={booking.source} />
+                            {booking.isRepeatVisit && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                            )}
                           </div>
                           <div className={`text-xs ${sub} truncate`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1" style={{ color: primary }}> +{booking.services.length}</span> : ''} · {booking.date}</div>
                         </div>
@@ -3115,7 +3128,15 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} mb-2`}>КЛИЕНТ</div>
                   <div className="font-semibold">{selectedBooking.clientName}</div>
-                  <div className="mt-1"><SourceBadge source={selectedBooking.source} /></div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <SourceBadge source={selectedBooking.source} />
+                    {selectedBooking.isRepeatVisit && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600">Повторный визит</span>
+                    )}
+                  </div>
+                  {selectedBooking.referralSource && (
+                    <div className={`text-xs ${sub} mt-1`}>Откуда узнал: {selectedBooking.referralSource}</div>
+                  )}
                   <a href={`tel:${selectedBooking.clientPhone}`} className="flex items-center gap-2 mt-1" style={{ color: primary }}>
                     <Phone size={13} /><span className="text-sm">{selectedBooking.clientPhone}</span>
                   </a>
@@ -4506,6 +4527,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     ))}
                   </select>
                 </div>
+                <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
+                  <span>Повторный визит</span>
+                  <input
+                    type="checkbox"
+                    checked={newBookingForm.isRepeatVisit}
+                    onChange={(event) => setNewBookingForm((current) => ({ ...current, isRepeatVisit: event.target.checked }))}
+                  />
+                </label>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
                   <select className={selectCls} value={newBookingForm.paymentType} onChange={e => setNewBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>

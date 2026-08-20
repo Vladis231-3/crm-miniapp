@@ -107,9 +107,10 @@ class OwnerSalaryAsvcOnlyTest(unittest.TestCase):
     def _create_client(self) -> tuple[str, str]:
         from app.database import SessionLocal
         from app.models import Client
+        from app.schemas import normalize_phone
 
         client_id = f"c-{uuid4().hex[:12]}"
-        phone = f"+7 (999) 000-{str(uuid4().int)[-4:]}"
+        phone = normalize_phone(f"+7 (999) 000-{str(uuid4().int)[-4:]}")
         with SessionLocal() as db:
             db.add(
                 Client(
@@ -148,6 +149,7 @@ class OwnerSalaryAsvcOnlyTest(unittest.TestCase):
                 "paymentSettled": True,
                 "car": "BMW",
                 "plate": "M001AA",
+                "notes": "Срочно, клиент ждёт",
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -186,6 +188,16 @@ class OwnerSalaryAsvcOnlyTest(unittest.TestCase):
         my_items = [item for item in payload["bookings"] if item["id"] == booking_id]
         self.assertEqual(len(my_items), 1, "Ivan should see the booking in his salary detail")
         self.assertEqual(my_items[0]["earned"], 1000)
+        # Detailed fields for the detail modal: client, payment, notes, additional services
+        self.assertEqual(my_items[0]["clientName"], "Тест Клиент")
+        self.assertEqual(my_items[0]["clientPhone"], client_phone)
+        self.assertEqual(my_items[0]["paymentType"], "cash")
+        self.assertTrue(my_items[0]["paymentSettled"])
+        self.assertEqual(my_items[0]["notes"], "Срочно, клиент ждёт")
+        self.assertEqual(
+            [asvc["name"] for asvc in my_items[0]["additionalServices"]],
+            ["Полировка"],
+        )
 
         # The row must show the additional service Ivan actually performed (not the main service)
         self.assertEqual(
@@ -206,6 +218,16 @@ class OwnerSalaryAsvcOnlyTest(unittest.TestCase):
         self.assertEqual(len(w2_items), 1)
         self.assertEqual(w2_items[0]["service"], "Мойка базовая")
         self.assertEqual(w2_items[0]["serviceId"], "s1")
+        # Main worker row also carries full booking details
+        self.assertEqual(w2_items[0]["clientName"], "Тест Клиент")
+        self.assertEqual(w2_items[0]["clientPhone"], client_phone)
+        self.assertEqual(w2_items[0]["paymentType"], "cash")
+        self.assertTrue(w2_items[0]["paymentSettled"])
+        self.assertEqual(w2_items[0]["notes"], "Срочно, клиент ждёт")
+        self.assertEqual(
+            [(asvc["name"], asvc["price"]) for asvc in w2_items[0]["additionalServices"]],
+            [("Полировка", 2000)],
+        )
 
 
 if __name__ == "__main__":

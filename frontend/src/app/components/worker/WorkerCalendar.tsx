@@ -19,6 +19,8 @@ export interface WorkerCalendarBooking {
   car?: string | null;
   plate?: string | null;
   source?: string | null;
+  referralSource?: string;
+  isRepeatVisit?: boolean;
 }
 
 const WORKER_CALENDAR_WEEKDAYS = ['Сб', 'Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
@@ -446,6 +448,9 @@ export function WorkerCalendar({
                                 <span className="tabular-nums">{booking.time}</span>
                                 {' '}
                                 {booking.clientName || 'Без имени'}
+                                {booking.isRepeatVisit && (
+                                  <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600">Повторный</span>
+                                )}
                                 {isMine(booking) && (
                                   <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
                                     Моя
@@ -523,6 +528,9 @@ export function WorkerCalendar({
                                         <div className="font-medium text-sm truncate flex items-center gap-1.5 min-w-0">
                                           {booking.clientName}
                                           <SourceBadge source={booking.source} />
+                                          {booking.isRepeatVisit && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                                          )}
                                           {isMine(booking) && (
                                             <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
                                               Моя
@@ -573,6 +581,9 @@ export function WorkerCalendar({
                                       <Clock size={12} className="inline mr-1 -mt-0.5 shrink-0" style={{ color: primary }} />
                                       <span className="tabular-nums">{booking.time}</span> · {booking.clientName}
                                       <SourceBadge source={booking.source} />
+                                      {booking.isRepeatVisit && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
+                                      )}
                                       {isMine(booking) && (
                                         <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
                                           Моя

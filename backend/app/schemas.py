@@ -351,8 +351,11 @@ class SalaryBookingItem(BaseModel):
     car: str | None = None
     plate: str | None = None
     clientName: str | None = None
+    clientPhone: str | None = None
     paymentType: str | None = None
     paymentSettled: bool | None = None
+    notes: str | None = None
+    additionalServices: list[BookingAdditionalServiceItem] = Field(default_factory=list)
 
 
 class SalaryPayoutItem(BaseModel):
@@ -483,6 +486,8 @@ class BookingPayload(BaseModel):
     startedAt: datetime | None = None
     completedAt: datetime | None = None
     source: str | None = None
+    referralSource: str = ""
+    isRepeatVisit: bool = False
 
 
 class WorkerCalendarBookingPayload(BaseModel):
@@ -499,6 +504,8 @@ class WorkerCalendarBookingPayload(BaseModel):
     car: str | None = None
     plate: str | None = None
     source: str | None = None
+    referralSource: str = ""
+    isRepeatVisit: bool = False
 
 
 class BookingAvailabilitySlotPayload(BaseModel):
@@ -982,6 +989,7 @@ class BookingCreateRequest(BaseModel):
     plate: str | None = None
     plateType: str = "russian"
     referralSource: str = ""
+    isRepeatVisit: bool = False
     notifyWorkers: bool = False
     materials: list[BookingMaterialPayload] = Field(default_factory=list)
 
@@ -1036,6 +1044,8 @@ class BookingUpdateRequest(BaseModel):
     notifyWorkers: bool | None = None
     isOutsource: bool | None = None
     materials: list[BookingMaterialPayload] | None = None
+    referralSource: str | None = None
+    isRepeatVisit: bool | None = None
 
     @field_validator("clientName")
     @classmethod

@@ -200,6 +200,10 @@ export interface Booking {
   materialsWrittenOff: boolean;
   /** Источник записи: 'bot' | 'google' | 'manual' | null */
   source?: string | null;
+  /** Откуда о нас узнал (уровень визита) */
+  referralSource?: string;
+  /** Повторный визит */
+  isRepeatVisit?: boolean;
   startedAt?: string | null;
   completedAt?: string | null;
 }

@@ -201,6 +201,11 @@ class Booking(Base):
     # "manual" (создана вручную в админке). NULL — исторические записи.
     source: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
 
+    # «Откуда о нас узнал» — на уровне визита (дублируется в карточку клиента).
+    referral_source: Mapped[str] = mapped_column(String(64), default="")
+    # Повторный визит (клиент уже был раньше).
+    is_repeat_visit: Mapped[bool] = mapped_column(Boolean, default=False)
+
     client: Mapped[Client] = relationship(back_populates="bookings")
     worker_links: Mapped[list["BookingWorker"]] = relationship(
         back_populates="booking",
