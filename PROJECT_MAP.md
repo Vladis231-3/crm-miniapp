@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-20 21:22 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-20 21:40 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -3719,6 +3719,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 00:40)
 - `training/frontend/.env.local` (2026-08-21 00:22)
 - `training/frontend/.gitignore` (2026-08-21 00:10)
 - `training/frontend/.env.production` (2026-08-21 00:09)
@@ -3728,7 +3729,6 @@ concept1.0/
 - `backend/bot.py` (2026-08-20 23:51)
 - `backend/app/config.py` (2026-08-20 23:50)
 - `.gitignore` (2026-08-20 23:43)
-- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-20 23:39)
 - `training/backend/tests/test_training_help.py` (2026-08-20 23:37)
 - `training/backend/bot.py` (2026-08-20 23:35)
 - `training/frontend/src/app/App.tsx` (2026-08-20 23:35)

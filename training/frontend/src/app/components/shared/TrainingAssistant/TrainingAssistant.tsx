@@ -69,18 +69,6 @@ export function TrainingAssistant() {
     [],
   );
 
-  /* ── Автозапуск при заходе ─────────────────────────────────────────── */
-  useEffect(() => {
-    if (mode !== 'boot') return;
-    later(() => {
-      if (localStorage.getItem(LS_KEY) === '1') {
-        setMode('idle');
-      } else {
-        startIntro();
-      }
-    }, 1100);
-  }, [mode, later, startIntro]);
-
   /* ── Старт вступления (рассказ о продукте) ─────────────────────────── */
   const startIntro = useCallback(() => {
     setIntroIdx(0);
@@ -100,6 +88,18 @@ export function TrainingAssistant() {
     }, 70);
     setMode('intro');
   }, [later]);
+
+  /* ── Автозапуск при заходе ─────────────────────────────────────────── */
+  useEffect(() => {
+    if (mode !== 'boot') return;
+    later(() => {
+      if (localStorage.getItem(LS_KEY) === '1') {
+        setMode('idle');
+      } else {
+        startIntro();
+      }
+    }, 1100);
+  }, [mode, later, startIntro]);
 
   /* ── Старт тура: отфильтровываем шаги, элементы которых нет на экране ── */
   const startTour = useCallback(() => {
