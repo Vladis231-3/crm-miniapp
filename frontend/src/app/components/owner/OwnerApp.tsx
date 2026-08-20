@@ -819,6 +819,7 @@ export function OwnerApp() {
   const [ownerPayAmount, setOwnerPayAmount] = useState('');
   const [ownerPayNote, setOwnerPayNote] = useState('');
   const [selectedShareDetail, setSelectedShareDetail] = useState<OwnerProfitShareItem | null>(null);
+  const [expandedOwnerShares, setExpandedOwnerShares] = useState<Record<string, boolean>>({});
 
   // Reset ALL booking-editing states on any page change so salary detail
   // always opens in view mode, no matter how the user navigated away.
@@ -4581,8 +4582,13 @@ setOwnerNewBookingWorkers([]);
                       </div>
                       {owner.shares.length > 0 && (
                         <div className="mb-3">
-                          <div className={`text-xs ${sub} mb-2`}>Начисления по заказам ({owner.shares.length})</div>
-                          {owner.shares.map(share => (
+                          <button
+                            onClick={() => setExpandedOwnerShares(prev => ({ ...prev, [owner.ownerId]: !prev[owner.ownerId] }))}
+                            className="w-full flex items-center gap-1.5 text-left mb-2 active:opacity-70">
+                            <ChevronRight size={14} className={`${sub} transition-transform ${expandedOwnerShares[owner.ownerId] ? 'rotate-90' : ''}`} />
+                            <span className={`text-xs ${sub}`}>Начисления по заказам ({owner.shares.length})</span>
+                          </button>
+                          {expandedOwnerShares[owner.ownerId] && owner.shares.map(share => (
                             <div key={share.id} onClick={() => setSelectedShareDetail(share)} className="flex items-center justify-between py-1.5 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                               <div className="min-w-0 mr-2">
                                 <div className="text-xs font-medium truncate">{share.service || 'Заказ'}</div>
