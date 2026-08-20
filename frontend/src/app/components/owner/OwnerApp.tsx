@@ -6637,6 +6637,7 @@ setOwnerNewBookingWorkers([]);
                         const expectedTotal = splitDetail.splitBase + asvcMasterPayTotal + asvcPiggyTotal;
                         const diff = totalDistributed - expectedTotal;
                         const ok = Math.abs(diff) <= 1;
+                        const undistributed = Math.max(0, expectedTotal - totalDistributed);
                         return (
                           <>
                             <div className="flex justify-between text-xs border-t border-white/10 pt-1">
@@ -6649,6 +6650,12 @@ setOwnerNewBookingWorkers([]);
                                 {ok ? '✓ сходится' : `разница ${diff.toLocaleString('ru')} ₽`}
                               </span>
                             </div>
+                            {!ok && undistributed > 1 && (
+                              <div className="flex justify-between text-xs">
+                                <span className={sub}>Не распределено</span>
+                                <span className="font-medium text-red-500">{undistributed.toLocaleString('ru')} ₽</span>
+                              </div>
+                            )}
                           </>
                         );
                       })()}
@@ -12273,6 +12280,12 @@ setOwnerNewBookingWorkers([]);
                           <span className={sub}>Итого распределено</span>
                           <span className="font-medium">{distributed.toLocaleString('ru')} ₽</span>
                         </div>
+                        {distributed < samplePrice - 1 && (
+                          <div className="flex justify-between text-xs">
+                            <span className={sub}>Не распределено</span>
+                            <span className="font-medium text-red-500">{(samplePrice - distributed).toLocaleString('ru')} ₽</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <p className={`text-xs ${sub} mt-2`}>
