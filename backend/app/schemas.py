@@ -339,6 +339,7 @@ class SalaryBookingItem(BaseModel):
     date: str
     time: str
     service: str
+    serviceId: str | None = None
     box: str
     price: int
     earned: int

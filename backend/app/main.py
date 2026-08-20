@@ -18995,6 +18995,30 @@ def _resource_group_for_service(db: Session, service_id: str) -> str:
 
 
 
+def _salary_booking_actual_service(
+    b: Booking,
+    worker_id: str,
+    worker_link: BookingWorker | None,
+) -> tuple[str, str | None]:
+    """Возвращает (название, service_id) услуги, которую мастер реально выполнял.
+
+    Если мастер не назначен на основную услугу записи, но назначен на
+    дополнительные — показываем их (то, что он фактически делал), а не
+    основную услугу. Иначе — основную услугу."""
+    if worker_link is None:
+        performed = [
+            asvc
+            for asvc in b.additional_services
+            if any(asw.worker_id == worker_id for asw in asvc.worker_links)
+        ]
+        if performed:
+            name = ", ".join(a.name for a in performed)
+            service_id = next((a.service_id for a in performed if a.service_id), None)
+            return name, service_id
+    return b.service, b.service_id
+
+
+
 def _payroll_entry_period_condition(
     worker_condition: Any, date_from: str, date_to: str
 ) -> Any:
@@ -19327,6 +19351,10 @@ def owner_worker_salary_detail(
 
         shift_dates.add(b.date)
 
+        actual_service, actual_service_id = _salary_booking_actual_service(
+            b, worker_id, worker_link
+        )
+
         booking_items.append(
 
             SalaryBookingItem(
@@ -19337,7 +19365,9 @@ def owner_worker_salary_detail(
 
                 time=b.time,
 
-                service=b.service,
+                service=actual_service,
+
+                serviceId=actual_service_id,
 
                 box=b.box,
 
@@ -19733,6 +19763,10 @@ def worker_my_salary_detail(
 
         shift_dates.add(b.date)
 
+        actual_service, actual_service_id = _salary_booking_actual_service(
+            b, worker_id, worker_link
+        )
+
         booking_items.append(
 
             SalaryBookingItem(
@@ -19743,7 +19777,9 @@ def worker_my_salary_detail(
 
                 time=b.time,
 
-                service=b.service,
+                service=actual_service,
+
+                serviceId=actual_service_id,
 
                 box=b.box,
 

@@ -187,6 +187,26 @@ class OwnerSalaryAsvcOnlyTest(unittest.TestCase):
         self.assertEqual(len(my_items), 1, "Ivan should see the booking in his salary detail")
         self.assertEqual(my_items[0]["earned"], 1000)
 
+        # The row must show the additional service Ivan actually performed (not the main service)
+        self.assertEqual(
+            my_items[0]["service"],
+            "Полировка",
+            "Row should show the additional service the worker actually performed, not the main service",
+        )
+        # Custom additional service has no catalog service id -> serviceId is None (not clickable)
+        self.assertIsNone(my_items[0]["serviceId"])
+
+        # Worker on the MAIN service keeps seeing the main service name and its id
+        w2_salary = self.client.get(
+            "/api/owner/workers/w2/salary-detail?period=all",
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(w2_salary.status_code, 200, w2_salary.text)
+        w2_items = [item for item in w2_salary.json()["bookings"] if item["id"] == booking_id]
+        self.assertEqual(len(w2_items), 1)
+        self.assertEqual(w2_items[0]["service"], "Мойка базовая")
+        self.assertEqual(w2_items[0]["serviceId"], "s1")
+
 
 if __name__ == "__main__":
     unittest.main()
