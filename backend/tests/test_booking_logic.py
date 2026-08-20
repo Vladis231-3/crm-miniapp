@@ -2708,6 +2708,34 @@ class BookingLogicTests(unittest.TestCase):
         payout = next(e for e in detail.json()["entries"] if e["kind"] == "payout")
         self.assertEqual(payout["entryDate"], "14.08.2026")
 
+    def test_owner_salary_detail_lists_db_owners_without_config(self) -> None:
+        """Доходы владельцев видны без PERMANENT_TELEGRAM_OWNERS — владельцы берутся из БД."""
+        owner_headers = self._tg_headers("owner", "889013")
+
+        detail = self.client.get(
+            "/api/owner/owners/salary-detail?period=all",
+            headers=owner_headers,
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        payload = detail.json()
+        owner_ids = {o["ownerId"] for o in payload["owners"]}
+        self.assertIn(
+            "owner-1",
+            owner_ids,
+            "Владелец из БД должен попадать в отчёт даже без PERMANENT_TELEGRAM_OWNERS",
+        )
+
+        # Выплата владельцу из БД не блокируется конфигом (владелец существует, роль owner)
+        pay = self.client.post(
+            "/api/owner/owners/pay-salary",
+            headers=owner_headers,
+            json={"ownerId": "owner-1", "amount": 1, "note": "Тестовая выплата"},
+        )
+        self.assertNotEqual(pay.status_code, 403, "выплата не должна блокироваться конфигом")
+        self.assertNotEqual(pay.status_code, 404, "владелец существует в БД")
+        # Начислений у seed-владельца нет → отказ «больше накопленного», но сам флоу работоспособен
+        self.assertIn(pay.status_code, (200, 400), pay.text)
+
     def test_owner_pdf_export_returns_pdf_file(self) -> None:
         self.disable_owner_two_factor()
         owner_token = self.login_staff("owner", "owner")

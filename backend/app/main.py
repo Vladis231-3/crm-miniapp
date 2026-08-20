@@ -20185,15 +20185,11 @@ def owner_salary_detail(
 
     _ensure_staff_role(session_data, {"owner", "admin"})
 
-    owner_ids = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
-
     owners = db.scalars(
 
-        select(StaffUser).where(StaffUser.id.in_(owner_ids))
+        select(StaffUser).where(StaffUser.role == "owner").order_by(StaffUser.name)
 
     ).all()
-
-    owner_map = {o.id: o.name for o in owners}
 
 
 
@@ -20440,12 +20436,6 @@ def owner_pay_salary(
     if owner is None or owner.role != "owner":
 
         raise HTTPException(status_code=404, detail="Владелец не найден")
-
-
-
-    if payload.ownerId not in [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]:
-
-        raise HTTPException(status_code=403, detail="Нельзя выплатить ЗП этому владельцу")
 
 
 
