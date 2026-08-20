@@ -934,6 +934,7 @@ export function OwnerApp() {
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [showServiceSettings, setShowServiceSettings] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceEditDraft, setServiceEditDraft] = useState<{ id: string; name: string; category: string; price: number; duration: number; desc: string; sourceBookingId: number } | null>(null);
   const [serviceEditSearchQuery, setServiceEditSearchQuery] = useState('');
   const [showServiceMaterialPicker, setShowServiceMaterialPicker] = useState(false);
   const [serviceMaterialPickerCategory, setServiceMaterialPickerCategory] = useState<string | null>(null);
@@ -2663,6 +2664,37 @@ export function OwnerApp() {
   const handleCancelOverrideEarned = () => {
     setEditingOverrideLinkId(null);
     setEditingOverrideValue('');
+  };
+
+  const handleOpenServiceQuickEdit = (svc: Service, sourceBookingId: number) => {
+    setServiceEditDraft({ id: svc.id, name: svc.name, category: svc.category, price: svc.price, duration: svc.duration, desc: svc.desc || '', sourceBookingId });
+  };
+
+  const handleSaveServiceQuickEdit = async () => {
+    if (!serviceEditDraft) return;
+    const draft = serviceEditDraft;
+    const next = services.map(s => s.id === draft.id
+      ? {
+          ...s,
+          name: draft.name.trim() || s.name,
+          category: draft.category,
+          resourceGroup: draft.category !== s.category ? serviceResourceGroupForCategory(draft.category) : s.resourceGroup,
+          price: Math.max(0, Number(draft.price) || 0),
+          duration: Math.max(1, Number(draft.duration) || 1),
+          desc: draft.desc,
+        }
+      : s);
+    setServicesState(next);
+    try {
+      await saveServices(next);
+      setServiceEditDraft(null);
+      setSalaryDetail(prev => prev ? { ...prev, bookings: prev.bookings.map(b => b.id === draft.sourceBookingId ? { ...b, service: draft.name.trim() || b.service } : b) } : prev);
+      setBottomToast('Услуга сохранена');
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (e) {
+      setBottomToast(e instanceof Error ? e.message : 'Не удалось сохранить услугу');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
   };
 
   const handleAddBonus = async () => {
@@ -4706,10 +4738,13 @@ setOwnerNewBookingWorkers([]);
                               {b.serviceId ? (
                                 <button
                                   type="button"
-                                  onClick={() => { setEditingServiceId(b.serviceId!); setShowServiceSettings(true); }}
+                                  onClick={() => {
+                                    const svc = services.find(s => s.id === b.serviceId);
+                                    if (svc) handleOpenServiceQuickEdit(svc, b.id);
+                                  }}
                                   className="underline decoration-dotted underline-offset-2 truncate max-w-full"
                                   style={{ color: primary }}
-                                  title="Открыть карточку услуги"
+                                  title="Редактировать услугу"
                                 >
                                   {b.service}
                                 </button>
@@ -12230,6 +12265,62 @@ setOwnerNewBookingWorkers([]);
                 <button onClick={() => void handleServiceSettingsDone()} disabled={serviceSettingsSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-60" style={{ background: primary }}>
                   {serviceSettingsSaving ? 'Сохранение...' : 'Готово'}
                 </button>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* ── MODAL: QUICK SERVICE EDIT ── */}
+      <AnimatePresence>
+        {serviceEditDraft && (() => {
+          const svc = services.find(s => s.id === serviceEditDraft.id);
+          if (!svc) return null;
+          const patchDraft = (partial: Partial<typeof serviceEditDraft>) => setServiceEditDraft(d => d && { ...d, ...partial });
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50" onClick={() => setServiceEditDraft(null)}>
+              <motion.div
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+              >
+                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold">Редактирование услуги</h3>
+                  <button onClick={() => setServiceEditDraft(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} /></button>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Название</label>
+                    <input className={inputCls} value={serviceEditDraft.name} onChange={e => patchDraft({ name: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
+                    <select className={selectCls} value={serviceEditDraft.category} onChange={e => patchDraft({ category: e.target.value })}>
+                      {SERVICE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                      <input className={inputCls} type="number" value={numberInputValue(serviceEditDraft.price)} onChange={e => patchDraft({ price: numberFromInput(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
+                      <input className={inputCls} type="number" value={numberInputValue(serviceEditDraft.duration)} onChange={e => patchDraft({ duration: numberFromInput(e.target.value) })} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`text-xs ${sub} block mb-1`}>Описание</label>
+                    <input className={inputCls} value={serviceEditDraft.desc} onChange={e => patchDraft({ desc: e.target.value })} />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={() => setServiceEditDraft(null)} className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}>Отмена</button>
+                  <button onClick={() => void handleSaveServiceQuickEdit()} className="flex-[2] py-3 rounded-2xl font-semibold text-sm text-white" style={{ background: primary }}>Сохранить</button>
+                </div>
               </motion.div>
             </motion.div>
           );
