@@ -38,6 +38,7 @@ class Settings:
     app_secret: str
     telegram_bot_token: str | None
     webapp_url: str | None
+    training_webapp_url: str | None
     telegram_delivery_mode: str
     sync_telegram_webhook: bool
     telegram_webhook_path: str
@@ -233,6 +234,7 @@ def get_settings() -> Settings:
         app_secret=app_secret,
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN") or None,
         webapp_url=os.getenv("WEBAPP_URL") or None,
+        training_webapp_url=(os.getenv("TRAINING_WEBAPP_URL") or "").strip() or None,
         telegram_delivery_mode=_parse_telegram_delivery_mode(os.getenv("TELEGRAM_DELIVERY_MODE")),
         sync_telegram_webhook=_parse_bool(os.getenv("SYNC_TELEGRAM_WEBHOOK"), False),
         telegram_webhook_path=_normalize_webhook_path(os.getenv("TELEGRAM_WEBHOOK_PATH")),

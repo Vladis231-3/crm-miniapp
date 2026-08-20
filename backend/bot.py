@@ -30,6 +30,7 @@ class BotRuntime:
     token: str
     webapp_url: str
     api_base: str
+    training_webapp_url: str | None = None
 
 
 ADMIN_SHIFT_INSPECTIONS_KEY = "admin_shift_inspections"
@@ -47,6 +48,7 @@ def _build_runtime() -> BotRuntime:
         token=settings.telegram_bot_token,
         webapp_url=settings.webapp_url,
         api_base=f"https://api.telegram.org/bot{settings.telegram_bot_token}",
+        training_webapp_url=settings.training_webapp_url,
     )
 
 
@@ -168,6 +170,36 @@ def _welcome_reply_markup(webapp_url: str) -> dict[str, Any]:
     }
 
 
+HELP_TEXT = (
+    "🎓 <b>Обучающая версия ATMOSFERA</b>\n\n"
+    "Хотите разобраться в CRM? Откройте обучающий минапп — внутри вас встретит "
+    "мини-помощник 🤖, который плавно проведёт по экранам входа, клиентского "
+    "кабинета и админ-панели, подсвечивая и объясняя каждый элемент.\n\n"
+    "В рабочем боте команда /start открывает обычную CRM — обучение живёт отдельно."
+)
+
+
+def _help_reply_markup(runtime: BotRuntime) -> dict[str, Any]:
+    training_url = runtime.training_webapp_url or runtime.webapp_url
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🎓 Открыть обучение", "web_app": {"url": training_url}},
+            ]
+        ]
+    }
+
+
+def _send_help_message(runtime: BotRuntime, chat_id: int) -> None:
+    _send_text_message(
+        runtime,
+        chat_id,
+        HELP_TEXT,
+        reply_markup=_help_reply_markup(runtime),
+        parse_mode="HTML",
+    )
+
+
 def _configure_bot_metadata(runtime: BotRuntime) -> str | None:
     me = _telegram_call(runtime, "getMe")
     _telegram_call(
@@ -176,6 +208,7 @@ def _configure_bot_metadata(runtime: BotRuntime) -> str | None:
         {
             "commands": [
                 {"command": "start", "description": "Главное меню ATMOSFERA"},
+                {"command": "help", "description": "🎓 Обучающий тур по CRM"},
                 {"command": "chatid", "description": "Показать chat id"},
                 {"command": "link", "description": "Привязать Telegram к CRM"},
             ]
@@ -616,6 +649,8 @@ def _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> Non
 
     if text.startswith("/start"):
         _send_start_message(runtime, chat_id)
+    elif text.startswith("/help"):
+        _send_help_message(runtime, chat_id)
     elif text.startswith("/chatid"):
         _send_text_message(runtime, chat_id, f"Ваш chat id: {chat_id}")
     elif text.startswith("/link"):
