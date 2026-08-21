@@ -14,7 +14,9 @@ from functools import lru_cache
 
 from pathlib import Path
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+from .finance import money_int
 
 from xml.sax.saxutils import escape
 
@@ -27,6 +29,9 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from reportlab.lib import colors
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 from reportlab.lib.pagesizes import A4, landscape
 
@@ -1190,7 +1195,7 @@ def _build_owner_summary_export_data(
 
                     )
 
-                    worker_row["earned"] += round(booking.price * percent / 100)
+                    worker_row["earned"] += money_int(booking.price * percent / 100)
 
             elif booking.status in {"scheduled", "in_progress"}:
 

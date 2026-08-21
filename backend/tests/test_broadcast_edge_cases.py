@@ -107,7 +107,7 @@ class BroadcastEdgeCaseTests(unittest.TestCase):
 
     @staticmethod
     def auth_headers(token: str) -> dict[str, str]:
-        return {"Authorization": f"Bearer {token}"}
+        return {"Authorization": token}
 
     # ------------------------------------------------------------------
     # Requirement 2.3: no owners with telegram_chat_id → HTTP 503

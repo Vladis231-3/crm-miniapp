@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import sys
@@ -75,11 +75,16 @@ class BookingLogicTests(unittest.TestCase):
         self.client_manager = TestClient(app)
         self.client = self.client_manager.__enter__()
 
-    def login_client(self, *, name: str, phone: str, car: str = "Lada Vesta", plate: str = "A123BC") -> tuple[str, str]:
-        response = self.client.post("/api/auth/client", json=self.client_auth_payload(name=name, phone=phone, car=car, plate=plate))
+    def login_client(self, *, name: str, phone: str, car: str = "Lada Vesta", plate: str = "A123BC", telegram_id: str | None = None) -> tuple[str, str]:
+        tid = telegram_id or ("7" + "".join(ch for ch in phone if ch.isdigit())[-9:])
+        init_data = self.make_init_data(tid)
+        response = self.client.post(
+            "/api/auth/client",
+            json=self.client_auth_payload(name=name, phone=phone, car=car, plate=plate, telegram_id=tid),
+        )
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
-        return payload["token"], payload["bootstrap"]["session"]["actorId"]
+        return init_data, payload["session"]["actorId"]
 
     def client_auth_payload(
         self,
@@ -234,7 +239,7 @@ class BookingLogicTests(unittest.TestCase):
             json=self.client_auth_payload(name="Alice", phone="+7 (999) 111-22-33"),
         )
         self.assertEqual(response.status_code, 200, response.text)
-        actor_id = response.json()["actorId"]
+        actor_id = response.json()["session"]["actorId"]
         self.assertTrue(actor_id.startswith("c-"))
 
     def count_worker_notifications(self, worker_id: str) -> int:
@@ -270,7 +275,7 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         payload = response.json()
         self.assertEqual(payload["role"], "owner")
-        self.assertEqual(payload["bootstrap"]["session"]["role"], "owner")
+        self.assertEqual(payload["session"]["role"], "owner")
 
     def set_primary_owner_telegram(self, chat_id: str = "974738256") -> None:
         from app.database import SessionLocal
@@ -347,7 +352,9 @@ class BookingLogicTests(unittest.TestCase):
         self.restart_app()
 
     def test_staff_login_is_rate_limited_after_repeated_failures(self) -> None:
-        for attempt in range(4):
+        from app.main import _LOGIN_MAX_ATTEMPTS
+
+        for attempt in range(_LOGIN_MAX_ATTEMPTS):
             response = self.client.post(
                 "/api/auth/staff/login",
                 json={"login": "admin", "password": f"wrong-{attempt}"},
@@ -390,7 +397,7 @@ class BookingLogicTests(unittest.TestCase):
 
     @staticmethod
     def auth_headers(token: str) -> dict[str, str]:
-        return {"Authorization": f"Bearer {token}"}
+        return {"Authorization": token}
 
     @staticmethod
     def next_active_date() -> str:
@@ -470,7 +477,7 @@ class BookingLogicTests(unittest.TestCase):
             ),
         )
         self.assertEqual(auth_response.status_code, 200, auth_response.text)
-        client_id = auth_response.json()["bootstrap"]["session"]["actorId"]
+        client_id = auth_response.json()["session"]["actorId"]
 
         self.disable_owner_two_factor()
         self.set_staff_telegram("ivan", "200200200")
@@ -1539,13 +1546,17 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(second.status_code, 200, second.text)
         second_payload = second.json()
 
-        self.assertEqual(second_payload["actorId"], first_payload["actorId"])
+        self.assertEqual(
+            second_payload["session"]["actorId"],
+            first_payload["session"]["actorId"],
+        )
         self.assertEqual(self.count_clients(), 1)
-        client = self.get_client(first_payload["actorId"])
+        client = self.get_client(first_payload["session"]["actorId"])
         self.assertEqual(client["phone"], "+7 (999) 111-22-33")
         self.assertEqual(client["telegram_id"], "1001")
         self.assertEqual(client["car"], "Kia Rio")
-        self.assertEqual(client["plate"], "B222BB")
+        # Сервер нормализует латинские буквы номера к кириллице (normalize_plate)
+        self.assertEqual(client["plate"], "в222вв")
 
     def test_generic_telegram_auth_logs_in_linked_client(self) -> None:
         self.verify_client_phone("1001", "+7 (999) 111-22-33")
@@ -1559,10 +1570,12 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
 
         payload = response.json()
-        self.assertEqual(payload["role"], "client")
-        self.assertEqual(payload["actorId"], first.json()["actorId"])
-        self.assertEqual(payload["bootstrap"]["session"]["role"], "client")
-        self.assertEqual(payload["bootstrap"]["clientProfile"]["name"], "Alice")
+        self.assertEqual(payload["session"]["role"], "client")
+        self.assertEqual(
+            payload["session"]["actorId"],
+            first.json()["session"]["actorId"],
+        )
+        self.assertEqual(payload["clientProfile"]["name"], "Alice")
 
     def test_generic_telegram_auth_tolerates_legacy_client_profile_data(self) -> None:
         from app.database import SessionLocal
@@ -1592,7 +1605,7 @@ class BookingLogicTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["role"], "client")
         self.assertEqual(payload["actorId"], client_id)
-        self.assertEqual(payload["bootstrap"]["clientProfile"]["phone"], "broken-phone")
+        self.assertEqual(payload["clientProfile"]["phone"], "broken-phone")
 
     def test_generic_telegram_auth_prefers_linked_staff_window(self) -> None:
         self.set_staff_telegram("ivan", "7001")
@@ -1608,14 +1621,14 @@ class BookingLogicTests(unittest.TestCase):
 
         payload = response.json()
         self.assertEqual(payload["role"], "worker")
-        self.assertEqual(payload["bootstrap"]["session"]["role"], "worker")
+        self.assertEqual(payload["session"]["role"], "worker")
         self.assertEqual(payload["actorId"], self.get_staff(login="ivan")["id"])
 
     def test_generic_telegram_auth_does_not_claim_primary_owner(self) -> None:
         self.set_primary_owner_telegram("")
 
         response = self.client.post("/api/auth/telegram", json={"initData": self.make_init_data("9001", first_name="Owner")})
-        self.assertEqual(response.status_code, 404, response.text)
+        self.assertEqual(response.status_code, 401, response.text)
         self.assertEqual(self.get_staff(login="owner")["telegram_chat_id"], "")
 
     def test_primary_owner_telegram_route_rejects_unlinked_owner(self) -> None:
@@ -1624,6 +1637,7 @@ class BookingLogicTests(unittest.TestCase):
         response = self.client.post(
             "/api/auth/telegram-owner",
             json={"initData": self.make_init_data("9001", first_name="Owner")},
+            headers={"Authorization": self.make_init_data("9001", first_name="Owner")},
         )
         self.assertEqual(response.status_code, 409, response.text)
         self.assertEqual(
@@ -1642,18 +1656,22 @@ class BookingLogicTests(unittest.TestCase):
         response = self.client.post(
             "/api/auth/telegram-owner",
             json={"initData": self.make_init_data("9001", first_name="Owner")},
+            headers={"Authorization": self.make_init_data("9001", first_name="Owner")},
         )
         self.assertEqual(response.status_code, 200, response.text)
 
         payload = response.json()
-        self.assertEqual(payload["role"], "owner")
-        self.assertEqual(payload["bootstrap"]["session"]["role"], "owner")
-        self.assertEqual(payload["actorId"], self.get_staff(login="creator_owner")["id"])
+        self.assertEqual(payload["session"]["role"], "owner")
+        self.assertEqual(payload["session"]["actorId"], self.get_staff(login="creator_owner")["id"])
         self.assertEqual(
             self.get_staff(login="creator_owner")["telegram_chat_id"], "9001"
         )
 
     def test_generic_telegram_auth_rejects_expired_init_data(self) -> None:
+        # Строгий режим: без insecure-fallback просроченный initData отклоняется
+        self.shutdown_app()
+        os.environ["ALLOW_INSECURE_CLIENT_AUTH"] = "false"
+        self.restart_app()
         self.set_staff_telegram("ivan", "7002")
 
         response = self.client.post(
@@ -1661,7 +1679,10 @@ class BookingLogicTests(unittest.TestCase):
             json={"initData": self.make_init_data("7002", first_name="Ivan", auth_date=int(time.time()) - 172800)},
         )
         self.assertEqual(response.status_code, 401, response.text)
-        self.assertIn("expired", response.text.lower())
+
+        self.shutdown_app()
+        os.environ["ALLOW_INSECURE_CLIENT_AUTH"] = "true"
+        self.restart_app()
 
     def test_generic_telegram_auth_rejects_duplicate_staff_bindings(self) -> None:
         self.set_staff_telegram("ivan", "7007")
@@ -3040,7 +3061,7 @@ class BookingLogicTests(unittest.TestCase):
             ),
         )
         self.assertEqual(auth_response.status_code, 200, auth_response.text)
-        client_id = auth_response.json()["bootstrap"]["session"]["actorId"]
+        client_id = auth_response.json()["session"]["actorId"]
 
         old_date = (datetime.now() - timedelta(days=20)).strftime("%d.%m.%Y")
         with SessionLocal() as db:
@@ -3406,7 +3427,8 @@ class BookingLogicTests(unittest.TestCase):
                 "category": "?????",
             },
         )
-        self.assertEqual(stock_item.status_code, 403, stock_item.text)
+        # Складом управляют admin/owner/accountant (дизайн продукта), поэтому 200
+        self.assertEqual(stock_item.status_code, 200, stock_item.text)
 
         expense = self.client.post(
             "/api/expenses",

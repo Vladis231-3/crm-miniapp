@@ -1249,6 +1249,11 @@ class OwnerReminderDispatchPayload(BaseModel):
     telegramDelivered: int
 
 
+class StaffLoginRequest(BaseModel):
+    login: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
+
+
 class ChangePasswordRequest(BaseModel):
     currentPassword: str = Field(max_length=128)
     newPassword: str = Field(max_length=128)

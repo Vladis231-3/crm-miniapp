@@ -96,9 +96,11 @@ class FinanceEditTestBase(unittest.TestCase):
 
     @staticmethod
     def _auth_headers(token: str) -> dict[str, str]:
-        return {"Authorization": f"Bearer {token}"}
+        return {"Authorization": token}
 
     def _login_client(self, name: str = "Алиса Иванова", phone: str = "+7 (999) 111-22-33") -> str:
+        telegram_id = "7" + "".join(ch for ch in phone if ch.isdigit())[-9:]
+        init_data = f"user=%7B%22id%22%3A{telegram_id}%7D"
         response = self.client.post(
             "/api/auth/client",
             json={
@@ -108,10 +110,11 @@ class FinanceEditTestBase(unittest.TestCase):
                     "car": "Toyota Camry",
                     "plate": "A123BC",
                 },
+                "initData": init_data,
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
-        return response.json()["token"]
+        return init_data
 
     def _create_worker_and_login(
         self,

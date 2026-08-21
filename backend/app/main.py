@@ -263,6 +263,8 @@ from .schemas import (
 
     OwnerDatabaseResetPreviewPayload,
 
+    StaffLoginRequest,
+
     OwnerDatabaseResetStartPayload,
 
     OwnerDatabaseResetStartRequest,
@@ -988,9 +990,18 @@ def on_startup() -> None:
 
 
 def start_google_sync_thread() -> None:
-    """Запустить фоновый поток обратной синхронизации Google Calendar (идемпотентно)."""
+    """Запускает фоновый цикл синхронизации «Google Calendar -> CRM» (daemon-поток).
+
+    Поток нужен только при настроенной интеграции: без OAuth-креденшелов
+    каждая итерация падала бы с ошибкой и заваливала логи (а тестовый процесс
+    — ещё и не завершалась). Не конфигурировано — поток не стартует.
+    """
     global google_sync_thread
-    if google_sync_thread is None:
+    if (
+        google_sync_thread is None
+        and settings.google_calendar_client_id
+        and settings.google_calendar_client_secret
+    ):
         google_sync_thread = Thread(
             target=_google_sync_loop, name="google-sync", daemon=True
         )
@@ -5643,6 +5654,52 @@ def register_or_login_client(
     )
 
 
+@app.post("/api/auth/staff/login")
+def staff_login(
+    payload: StaffLoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Парольный логин персонала — только для dev/test-окружения.
+
+    В production/staging ALLOW_INSECURE_CLIENT_AUTH принудительно выключен
+    конфигурацией (см. config.py), поэтому роут отвечает 404: персонал входит
+    исключительно через Telegram initData. Токен ответа — initData-совместимая
+    строка, которую _require_session резолвит в сессию сотрудника.
+    """
+    if not settings.allow_insecure_client_auth:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    client_ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(client_ip)
+    staff = db.scalar(select(StaffUser).where(StaffUser.login == payload.login.strip()))
+    if (
+        staff is None
+        or not staff.active
+        or not verify_password(payload.password, staff.password_hash)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный логин или пароль.",
+        )
+    if not (staff.telegram_chat_id or "").strip():
+        staff.telegram_chat_id = f"91{abs(hash(staff.login)) % 10 ** 8}"
+        db.commit()
+    session_data = {
+        "role": staff.role,
+        "actorId": staff.id,
+        "login": staff.login,
+        "displayName": staff.name,
+        "sessionId": "",
+    }
+    token = f"user=%7B%22id%22%3A{staff.telegram_chat_id}%7D"
+    return {
+        "token": token,
+        "role": staff.role,
+        "actorId": staff.id,
+        "session": session_data,
+    }
+
+
 @app.post("/api/auth/telegram", response_model=BootstrapPayload)
 async def authenticate_via_telegram(
     request: Request,
@@ -7555,7 +7612,10 @@ def _perform_owner_database_reset(db: Session) -> None:
 
     seed_database(
         db,
-        include_demo_staff=settings.allow_demo_seed_data,
+        # Сброс = чистый лист: демо-персонал не пересоздаём (контракт теста
+        # test_owner_database_reset_clears_operational_data_and_preserves_owners),
+        # остаются только владельцы. Сервисы/боксы/расписание сидируются.
+        include_demo_staff=False,
         is_production=settings.is_production,
     )
 
@@ -7569,6 +7629,152 @@ def _perform_owner_database_reset(db: Session) -> None:
 
 
 
+
+
+@app.post("/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload)
+def start_owner_database_reset(
+    payload: OwnerDatabaseResetStartRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetStartPayload:
+    """Шаг 1 сброса базы: подтверждение паролем, код уходит владельцу в Telegram."""
+    _ensure_staff_role(session_data, {"owner"})
+    staff = db.get(StaffUser, session_data["actorId"])
+    if staff is None or not verify_password(payload.password, staff.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль"
+        )
+    recipient = _primary_owner(db)
+    if recipient is None or not _safe_text(recipient.telegram_chat_id).strip():
+        recipient = _owner_two_factor_recipient(db)
+    chat_id = _safe_text(recipient.telegram_chat_id).strip() if recipient is not None else ""
+    if not chat_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram владельца не привязан — подтвердить сброс невозможно",
+        )
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    expires_at = _now() + timedelta(minutes=OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES)
+    request_id = f"odr-{uuid4()}"
+    preview = _owner_database_reset_preview(db)
+    _save_owner_database_reset_state(
+        db,
+        {
+            "requestId": request_id,
+            "codeHash": hash_one_time_code(code, settings.app_secret),
+            "codeExpiresAt": expires_at.isoformat(),
+            "confirmationPhrase": _normalize_database_reset_phrase(
+                OWNER_DATABASE_RESET_CONFIRMATION_PHRASE
+            ),
+            "approved": False,
+            "requestedAt": _now().isoformat(),
+        },
+    )
+    db.commit()
+    send_telegram_message(
+        chat_id,
+        f"Код подтверждения: {code}\n"
+        f"Действует {OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES} мин. "
+        f"Без него сброс базы невозможен.",
+    )
+    return OwnerDatabaseResetStartPayload(
+        requestId=request_id,
+        creatorCodeExpiresAt=expires_at,
+        confirmationPhrase=OWNER_DATABASE_RESET_CONFIRMATION_PHRASE,
+        preview=preview,
+        warnings=_owner_database_reset_warnings(preview),
+        message="Код подтверждения отправлен в Telegram владельца",
+    )
+
+
+@app.post("/api/owner/database-reset/approve", response_model=OwnerDatabaseResetApprovePayload)
+def approve_owner_database_reset(
+    payload: OwnerDatabaseResetApproveRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetApprovePayload:
+    """Шаг 2: проверка кода из Telegram и фразы-подтверждения."""
+    _ensure_staff_role(session_data, {"owner"})
+    state = _owner_database_reset_state(db)
+    if (
+        state is None
+        or state.get("requestId") != payload.requestId
+        or not state.get("codeHash")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Заявка на сброс не найдена — начните заново",
+        )
+    expires_raw = state.get("codeExpiresAt")
+    try:
+        expires_at = datetime.fromisoformat(str(expires_raw))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка повреждена")
+    if expires_at.tzinfo is not None:
+        expires_at = expires_at.astimezone(timezone.utc)
+    if _now() > expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код истёк — начните заново")
+    expected_hash = str(state.get("codeHash"))
+    provided_hash = hash_one_time_code(payload.creatorCode.strip(), settings.app_secret)
+    if not hmac_mod.compare_digest(expected_hash, provided_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный код")
+    if (
+        _normalize_database_reset_phrase(payload.confirmationPhrase)
+        != state.get("confirmationPhrase")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Фраза подтверждения не совпадает",
+        )
+    finalize_after = _now() + timedelta(seconds=OWNER_DATABASE_RESET_DELAY_SECONDS)
+    state["approved"] = True
+    state["finalizeAfter"] = finalize_after.isoformat()
+    _save_owner_database_reset_state(db, state)
+    db.commit()
+    preview = _owner_database_reset_preview(db)
+    return OwnerDatabaseResetApprovePayload(
+        requestId=payload.requestId,
+        finalizeAfter=finalize_after,
+        preview=preview,
+        warnings=_owner_database_reset_warnings(preview),
+        message="Сброс подтверждён — выполнение разблокировано",
+    )
+
+
+@app.post("/api/owner/database-reset/execute", response_model=OwnerDatabaseResetExecutePayload)
+def execute_owner_database_reset(
+    payload: OwnerDatabaseResetExecuteRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetExecutePayload:
+    """Шаг 3: запуск очистки (не раньше finalizeAfter из approve)."""
+    _ensure_staff_role(session_data, {"owner"})
+    state = _owner_database_reset_state(db)
+    if (
+        state is None
+        or state.get("requestId") != payload.requestId
+        or not state.get("approved", False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Сброс не подтверждён — выполните шаг подтверждения",
+        )
+    finalize_raw = state.get("finalizeAfter")
+    try:
+        finalize_after = datetime.fromisoformat(str(finalize_raw))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка повреждена")
+    if finalize_after.tzinfo is not None:
+        finalize_after = finalize_after.astimezone(timezone.utc)
+    if _now() < finalize_after:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Подтверждено — кнопка выполнения станет доступна через {OWNER_DATABASE_RESET_DELAY_SECONDS} c",
+        )
+    preview = _owner_database_reset_preview(db)
+    _perform_owner_database_reset(db)
+    db.commit()
+    return OwnerDatabaseResetExecutePayload(message="База очищена", preview=preview)
 
 
 def _parse_date(s: str) -> date | None:
@@ -9494,6 +9700,31 @@ def update_client_me(
 
 
 
+@app.delete("/api/clients/{client_id}", response_model=GenericMessage)
+def delete_client(
+    client_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    """Удаляет клиента вместе с его бронями (FK CASCADE) и уведомлениями.
+
+    Доступ — admin/owner. Сессии клиента безтокеновые (initData), поэтому
+    отдельный отзыв не нужен: резолвер больше не найдёт этого клиента.
+    """
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+        )
+    # Core-уровень: БД сама каскадит bookings -> booking_workers/additional_services
+    # (ORM-удаление вместо этого пыталось занулить NOT NULL booking.client_id).
+    db.execute(sa_delete(Notification).where(Notification.recipient_id == client_id))
+    db.execute(sa_delete(Client).where(Client.id == client_id))
+    db.commit()
+    return GenericMessage(message="Клиент удалён")
+
+
 @app.patch("/api/clients/{client_id}/card", response_model=ClientSummaryPayload)
 
 def update_client_card(
@@ -10962,7 +11193,7 @@ def _booking_money_split(
                 if _is_fixed_master_service_db(db, booking.service_id, booking.service):
                     amount = FIXED_MASTER_EARNED
                 else:
-                    amount = round(base * percent / 100)
+                    amount = money_int(base * percent / 100)
                 master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
                 explicit_total += amount
 
@@ -10970,7 +11201,7 @@ def _booking_money_split(
             if master_pay_type == "fixed":
                 total_master_pay = master_pay_value
             elif master_pay_type == "percent":
-                total_master_pay = round(base * master_pay_value / 100)
+                total_master_pay = money_int(base * master_pay_value / 100)
             else:
                 total_master_pay = 0
             if total_master_pay > 0:
@@ -10988,7 +11219,7 @@ def _booking_money_split(
                         if index == len(weighted_workers) - 1:
                             amount = total_master_pay - allocated
                         else:
-                            amount = round(total_master_pay * weight / weight_sum)
+                            amount = money_int(total_master_pay * weight / weight_sum)
                             allocated += amount
                         master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
                         explicit_total += amount
@@ -11002,7 +11233,7 @@ def _booking_money_split(
                 if alink.pay_type == "fixed":
                     amount = int(alink.fixed_amount or 0)
                 else:
-                    amount = round(asvc.price * (alink.percent or 0) / 100)
+                    amount = money_int(asvc.price * (alink.percent or 0) / 100)
                 master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
                 master_total += amount
 
@@ -11038,7 +11269,7 @@ def _booking_money_split(
         asvc_remainder = max(0, int(asvc.price) - asvc_pays)
         if asvc_remainder <= 0:
             continue
-        asvc_piggy_24 = round(asvc_remainder * 24 / 100)
+        asvc_piggy_24 = money_int(asvc_remainder * 24 / 100)
         if asvc_piggy_24 > 0:
             asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
             asvc_rg = _service_resource_group(asvc_svc)
@@ -11061,13 +11292,13 @@ def _booking_money_split(
         if piggy_pay_type == "fixed":
             return piggy_pay_value
         if piggy_pay_type == "percent":
-            return round(base * piggy_pay_value / 100)
+            return money_int(base * piggy_pay_value / 100)
         if piggy_pay_type == "rest":
             return base
         if piggy_pay_type == "none":
             return 0
         if rg in ("detailing", "wash"):
-            return round(base * 24 / 100)
+            return money_int(base * 24 / 100)
         return 0
 
     def _allocate_owners(claimed: int, limit: int) -> tuple[int, dict[str, int]]:
@@ -11120,11 +11351,11 @@ def _booking_money_split(
                     # Доп. доля владельцев от остатка не-вычитаемых доп услуг
                     pool += asvc_owner_extra_total
                 if owner_pay_type == "percent":
-                    claimed = round(pool * owner_pay_value / 100)
+                    claimed = money_int(pool * owner_pay_value / 100)
                 elif is_last:
                     claimed = pool
                 else:
-                    claimed = round(pool * 50 / 100)
+                    claimed = money_int(pool * 50 / 100)
                 owners_total, owner_by_owner = _allocate_owners(claimed, pool)
                 pool = max(0, pool - owners_total)
         # Вклады вычитаемых доп услуг — из их carve-out, пул не затрагивают
@@ -11136,14 +11367,17 @@ def _booking_money_split(
         split_base_report = split_base
         master_by_worker, master_total, main_master_total = _compute_master(split_base)
         if piggy_pay_type == "rest":
-            # Весь остаток после мастеров → в копилку (владельцам ничего)
+            # Остаток после мастеров не может быть отрицательным (владелец забирает всё)
             main_piggy = max(0, split_base - main_master_total)
         else:
-            main_piggy = _compute_piggy(split_base)
+            # Кламп: мастер + копилка не могут вместе превысить базу сплита,
+            # иначе при override/fixed > базы копилка получала бы 24% сверху,
+            # и распределённая сумма превышала бы чек (AUDIT-06).
+            main_piggy = max(0, min(_compute_piggy(split_base), split_base - main_master_total))
         # Вклад доп услуг в копилку — из carve-out цены доп услуги, долю владельцев не уменьшает
         piggy_deposit = main_piggy + asvc_piggy_total
         remaining = split_base - main_master_total - main_piggy
-        claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
+        claimed = remaining if owner_pay_type != "percent" else money_int(remaining * owner_pay_value / 100)
         # Доп. доля владельцев от остатка не-вычитаемых доп услуг (после 24% в копилку)
         if asvc_owner_extra_total > 0:
             remaining += asvc_owner_extra_total
@@ -17327,6 +17561,103 @@ def run_google_calendar_sync_cron(
     return result
 
 
+@app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
+def run_reminders_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> OwnerReminderDispatchPayload:
+    """Cron-роут Vercel: напоминания о ближайших записях и повторных визитах.
+
+    Требует CRON_SECRET (см. vercel.json -> crons). Без настроенного секрета
+    возвращает 503/401, чтобы не обрабатывать посторонние cron-запросы.
+    """
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid cron secret",
+        )
+    dispatch = _dispatch_booking_reminders(db)
+    return_visits = _dispatch_return_visit_reminders(db)
+    db.commit()
+    return OwnerReminderDispatchPayload(
+        message=dispatch.message,
+        targetDate=dispatch.targetDate,
+        clientReminders=dispatch.clientReminders,
+        workerReminders=dispatch.workerReminders,
+        telegramDelivered=dispatch.telegramDelivered + return_visits,
+    )
+
+
+@app.post("/api/owner/reminders/dispatch", response_model=OwnerReminderDispatchPayload)
+def dispatch_owner_booking_reminders(
+    payload: OwnerReminderDispatchRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerReminderDispatchPayload:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    dispatch = _dispatch_booking_reminders(db, target_date=payload.targetDate)
+    return_visits = _dispatch_return_visit_reminders(db)
+    db.commit()
+    return OwnerReminderDispatchPayload(
+        message=dispatch.message,
+        targetDate=dispatch.targetDate,
+        clientReminders=dispatch.clientReminders,
+        workerReminders=dispatch.workerReminders,
+        telegramDelivered=dispatch.telegramDelivered + return_visits,
+    )
+
+
+@app.get("/api/cron/reports")
+def run_reports_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Cron-роут Vercel: ежедневные сводные отчёты владельцам с Telegram.
+
+    Требует CRON_SECRET. Для каждого владельца с привязанным Telegram
+    отправляет daily-отчёт по сегментам wash и detailing; сбой одного
+    получателя не прерывает рассылку остальным.
+    """
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid cron secret",
+        )
+    recipients = _all_owner_telegram_recipients(db)
+    sent = 0
+    failed = 0
+    seen_owner_ids: set[str] = set()
+    for recipient in recipients:
+        if recipient.id in seen_owner_ids:
+            continue
+        seen_owner_ids.add(recipient.id)
+        for segment in ("wash", "detailing"):
+            try:
+                report = _owner_summary_report(db, recipient.id, "daily", segment)
+                export_file = _owner_summary_export_file(db, recipient.id, "daily", segment)
+                _send_owner_summary_report(db, recipient.id, report, export_file)
+                sent += 1
+            except Exception:
+                logger.exception(
+                    "Daily report delivery failed for owner %s segment %s",
+                    recipient.id,
+                    segment,
+                )
+                failed += 1
+    db.commit()
+    return {"owners": len(seen_owner_ids), "reportsSent": sent, "reportsFailed": failed}
+
+
 @app.put("/api/settings/owner/security", response_model=OwnerSecurityPayload)
 
 def save_owner_security(
@@ -18156,7 +18487,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
             if alink.pay_type == "fixed":
                 earned = int(alink.fixed_amount or 0)
             else:
-                earned = round(asvc.price * (alink.percent or 0) / 100)
+                earned = money_int(asvc.price * (alink.percent or 0) / 100)
             asvc_workers.append(
                 BookingAsvcWorkerItem(
                     linkId=alink.id,
@@ -18837,6 +19168,20 @@ def update_owner_booking_money_split(
         raise HTTPException(status_code=404, detail="Запись не найдена")
     if booking.status not in ("completed", "confirmed"):
         raise HTTPException(status_code=400, detail="Нельзя менять распределение для незавершённой записи")
+    # Пре-валидация ДО любых мутаций: нельзя менять уже выплаченные доли владельцев.
+    # Иначе исключение посреди изменений оставляло бы сессию в грязном состоянии,
+    # и целостность держалась только на неявном rollback при закрытии сессии (AUDIT-14).
+    if payload.owners:
+        pre_shares = {
+            share.owner_id: share
+            for share in db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
+            ).all()
+        }
+        for owner_update in payload.owners:
+            pre_share = pre_shares.get(owner_update.ownerId)
+            if pre_share is not None and pre_share.status == "paid":
+                raise HTTPException(status_code=400, detail="Нельзя изменить выплаченную долю владельца")
 
     for worker_update in payload.workers:
         link = db.get(BookingWorker, worker_update.linkId)

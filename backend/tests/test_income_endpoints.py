@@ -99,7 +99,7 @@ class IncomeEndpointTests(unittest.TestCase):
 
     @staticmethod
     def _auth_headers(token: str) -> dict[str, str]:
-        return {"Authorization": f"Bearer {token}"}
+        return {"Authorization": token}
 
     def _valid_income_payload(self, **overrides) -> dict:
         payload = {
