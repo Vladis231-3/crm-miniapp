@@ -181,10 +181,11 @@ HELP_TEXT = (
 
 def _help_reply_markup(runtime: BotRuntime) -> dict[str, Any]:
     training_url = runtime.training_webapp_url or runtime.webapp_url
+    help_url = f"{training_url}?help=1" if "?" not in training_url else f"{training_url}&help=1"
     return {
         "inline_keyboard": [
             [
-                {"text": "🎓 Открыть обучение", "web_app": {"url": training_url}},
+                {"text": "🎓 Открыть обучение", "web_app": {"url": help_url}},
             ]
         ]
     }

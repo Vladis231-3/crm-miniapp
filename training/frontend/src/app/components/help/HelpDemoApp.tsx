@@ -151,8 +151,13 @@ function useHelpMockContext(helpRole: HelpRole, isDark: boolean, toggleTheme: ()
 
 export function isHelpMode(): boolean {
   if (typeof window === 'undefined') return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.has('help') || params.has('training') || params.get('demo') === '1' || window.location.pathname === '/help';
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('help') || params.has('training') || params.get('demo') === '1') return true;
+    if (window.location.pathname === '/help' || window.location.pathname.endsWith('/help')) return true;
+    if (window.location.href.includes('help=1') || window.location.href.includes('help')) return true;
+  } catch {}
+  return false;
 }
 
 export function HelpDemoApp() {

@@ -100,10 +100,13 @@ function isHelpMode(): boolean {
   try {
     if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
-    return params.has('help') || params.has('training') || window.location.pathname === '/help';
+    if (params.has('help') || params.has('training') || params.get('demo') === '1') return true;
+    if (window.location.pathname === '/help' || window.location.pathname.endsWith('/help')) return true;
+    if (window.location.href.includes('help=1') || window.location.href.includes('?help') || window.location.href.includes('&help')) return true;
   } catch {
     return false;
   }
+  return false;
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
