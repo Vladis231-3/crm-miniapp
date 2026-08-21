@@ -160,12 +160,40 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       stub.shiftCount = 0;
     }
     if (path.includes('piggy-bank')) {
+      // Полная заглушка чтобы не падать на toLocaleString / map
       stub.balance = 12345;
       stub.transactions = [];
-      stub.remainingInPiggyBank = 12345;
+      stub.piggyTransactions = [];
+      stub.remainingInPiggyBank = 8000;
       stub.combinedBalance = 12345;
-      stub.wash = { balance: 8000 };
-      stub.detailing = { balance: 4000 };
+      stub.masterDailyOutputs = 0;
+      stub.washExpenses = 0;
+      stub.washIncomes = 0;
+      stub.detailingExpenses = 0;
+      stub.detailingIncomes = 0;
+      stub.wash = {
+        selfServiceRevenue: 10000,
+        selfServiceMaster: 1000,
+        selfServicePiggy: 9000,
+        classicRevenue: 40000,
+        classicMaster: 12000,
+        classicPiggy: 28000,
+        totalRevenue: 50000,
+        totalMaster: 13000,
+        totalPiggy: 37000,
+        washNetPiggy: 37000,
+      };
+      stub.detailing = {
+        detailingRevenue: 30000,
+        detailingMaster: 9000,
+        deposits24Percent: 7200,
+        materialWithdrawals: 2000,
+        materialRepayments: 500,
+        netPiggy: 5700,
+        detailingExpenses: 0,
+        detailingIncomes: 0,
+      };
+      return stub as unknown as T;
     }
     if (path.includes('wallet')) {
       stub.weekStart = '15.08.2026';
@@ -179,6 +207,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       stub.expenses = [];
       stub.piggyBankBalance = 0;
       stub.archives = [];
+      return stub as unknown as T;
     }
     if (path.includes('archive')) {
       stub.dateFrom = '01.08.2026';
@@ -190,6 +219,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       stub.piggyTransactions = [];
       stub.payroll = [];
       stub.owners = [];
+      return stub as unknown as T;
     }
     if (path.includes('bookings-history')) {
       stub.workers = [];
