@@ -662,9 +662,12 @@ function AppContent() {
   }
 
   if (!session) {
-    // Для обучения — убираем привязку к TG ID: гость без регистрации сразу видит демо без БД
-    // (только фронт + заглушки, реальные данные не тянутся)
-    return <HelpDemoApp />;
+    return (
+      <>
+        <WelcomeScreen />
+        <TrainingAssistant />
+      </>
+    );
   }
 
   if (consentNeeded) {
@@ -725,7 +728,11 @@ function LandingWrapper() {
 export default function App() {
   // /help — фронт без БД, только заглушки (не требует регистрации, не тянет реальные данные)
   if (isHelpMode()) {
-    return <HelpDemoApp />;
+    return (
+      <ErrorBoundary>
+        <HelpDemoApp />
+      </ErrorBoundary>
+    );
   }
 
   const path = usePath();
@@ -739,7 +746,11 @@ export default function App() {
   }
 
   if (path === '/help') {
-    return <HelpDemoApp />;
+    return (
+      <ErrorBoundary>
+        <HelpDemoApp />
+      </ErrorBoundary>
+    );
   }
 
   return (
