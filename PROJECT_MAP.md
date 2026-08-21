@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 18:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 18:12 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -581,9 +581,6 @@ concept1.0/
 ├── DEPLOY_VERCEL.md
 ├── Dockerfile
 ├── flip_push_permission.py
-├── npm-audit.txt
-├── npm-audit2.txt
-├── npm-audit3.txt
 ├── render.yaml
 ├── requirements.txt
 ├── start-native.bat

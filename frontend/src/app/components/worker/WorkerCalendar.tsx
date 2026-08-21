@@ -257,7 +257,7 @@ export function WorkerCalendar({
                 className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                 aria-label="Предыдущий месяц"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={18} strokeWidth={1.75} />
               </button>
               <div className="text-center min-w-0">
                 <div className="font-semibold">{monthLabel}</div>
@@ -270,7 +270,7 @@ export function WorkerCalendar({
                   className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                   aria-label="Обновить"
                 >
-                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                  <RefreshCw size={16} strokeWidth={1.75} className={loading ? 'animate-spin' : ''} />
                 </button>
                 <button
                   type="button"
@@ -278,7 +278,7 @@ export function WorkerCalendar({
                   className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                   aria-label="Следующий месяц"
                 >
-                  <ChevronRight size={18} />
+                  <ChevronRight size={18} strokeWidth={1.75} />
                 </button>
               </div>
             </div>
@@ -378,7 +378,7 @@ export function WorkerCalendar({
               onClick={() => setView('month')}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={16} strokeWidth={1.75} />
               Месяц
             </button>
             <button
@@ -399,7 +399,7 @@ export function WorkerCalendar({
               className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
               aria-label="Обновить"
             >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} strokeWidth={1.75} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
           <div className={`${glass} rounded-2xl p-4 mb-4`}>
@@ -411,18 +411,18 @@ export function WorkerCalendar({
                   {` · ${Math.floor(dayHours.open / 60)}:00–${Math.floor(dayHours.close / 60)}:00`}
                 </div>
               </div>
-              <CalendarDays size={22} style={{ color: primary }} />
+              <CalendarDays size={22} strokeWidth={1.75} style={{ color: primary }} />
             </div>
           </div>
 
           {loading ? (
             <div className={`${glass} rounded-2xl p-8 text-center`}>
-              <RefreshCw size={28} className={`mx-auto mb-3 animate-spin ${sub}`} />
+              <RefreshCw size={28} strokeWidth={1.75} className={`mx-auto mb-3 animate-spin ${sub}`} />
               <p className={sub}>Загрузка расписания…</p>
             </div>
           ) : dayBookings.length === 0 ? (
             <div className={`${glass} rounded-2xl p-8 text-center`}>
-              <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+              <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
               <p className={sub}>На этот день записей нет</p>
             </div>
           ) : (
@@ -505,7 +505,7 @@ export function WorkerCalendar({
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className={sub}>
-                          <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>Время</th>
+                          <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#131316' : '#F7F7F8' }}>Время</th>
                           {activeMasters.map((worker) => (
                             <th key={worker.id} className="text-left py-2 px-2 font-medium min-w-[150px]">{worker.name}</th>
                           ))}
@@ -514,7 +514,7 @@ export function WorkerCalendar({
                       <tbody>
                         {workerGrid.map((row) => (
                           <tr key={`worker-grid-${row.time}`} className="align-top">
-                            <td className="py-2 pr-3 text-xs font-semibold sticky left-0 z-10" style={{ background: isDark ? '#0B1226' : '#F6F7FA' }}>{row.time}</td>
+                            <td className="py-2 pr-3 text-xs font-semibold sticky left-0 z-10" style={{ background: isDark ? '#131316' : '#F7F7F8' }}>{row.time}</td>
                             {row.cells.map((cell) => (
                               <td key={`${row.time}-${cell.id}`} className="px-2 py-2">
                                 {cell.bookings.length === 0 ? (
@@ -578,7 +578,7 @@ export function WorkerCalendar({
                                 <div key={`${worker.id}-${booking.id}`} className="flex items-center justify-between gap-2 w-full text-left">
                                   <div className="min-w-0">
                                     <div className="text-sm font-medium truncate flex items-center gap-1.5 min-w-0">
-                                      <Clock size={12} className="inline mr-1 -mt-0.5 shrink-0" style={{ color: primary }} />
+                                      <Clock size={12} strokeWidth={1.75} className="inline mr-1 -mt-0.5 shrink-0" style={{ color: primary }} />
                                       <span className="tabular-nums">{booking.time}</span> · {booking.clientName}
                                       <SourceBadge source={booking.source} />
                                       {booking.isRepeatVisit && (

@@ -21,7 +21,7 @@ export function ServiceSearchInput({
 }: ServiceSearchInputProps) {
   return (
     <div className="relative">
-      <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${iconCls}`} />
+      <Search size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${iconCls}`} />
       <input
         className={`${inputCls} pl-9`}
         type="text"

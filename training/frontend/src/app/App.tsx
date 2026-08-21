@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, Component, useCallback, useRef } from 'react';
+import React, { useState, useEffect, Component, useCallback, useRef } from 'react';
 import { LandingPage } from './components/landing/LandingPage';
 import { WorksPage } from './components/landing/WorksPage';
 
@@ -13,10 +13,10 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 24, fontFamily: 'monospace', background: '#1a1a2e', color: '#ff6b6b', minHeight: '100vh' }}>
+        <div style={{ padding: 24, fontFamily: 'monospace', background: '#131316', color: '#ff6b6b', minHeight: '100vh' }}>
           <h2 style={{ color: '#ff6b6b', marginBottom: 12 }}>Ошибка приложения</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: '#e6eef8' }}>{this.state.error.message}</pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', background: '#0a84ff', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: '#E4E4E7' }}>{this.state.error.message}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
             Перезагрузить
           </button>
         </div>
@@ -55,10 +55,10 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
   const [consentLoading, setConsentLoading] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
 
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
 
   const handleAgree = async () => {
     try {
@@ -80,9 +80,9 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm max-h-[85vh] overflow-y-auto"
       >
-        <div className={`${isDark ? 'bg-[#0E1624] border-white/10' : 'bg-white border-black/10'} border rounded-3xl p-6 shadow-2xl`}>
+        <div className={`${isDark ? 'bg-[#1C1C1F] border-white/10' : 'bg-white border-black/10'} border rounded-3xl p-6 shadow-2xl`}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}18` }}>
-            <Shield size={22} style={{ color: primary }} />
+            <Shield size={22} strokeWidth={1.75} style={{ color: primary }} />
           </div>
           <h2 className="text-lg font-bold text-center mb-1">Политика конфиденциальности</h2>
           <p className={`text-xs ${sub} text-center mb-4`}>г. Казань «02» июня 2026 г.</p>
@@ -255,7 +255,7 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
 
           {consentError && (
             <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 bg-red-500/10 text-red-500 text-xs px-3 py-2 rounded-xl mb-3">
-              <AlertCircle size={13} />
+              <AlertCircle size={13} strokeWidth={1.75} />
               {consentError}
             </motion.div>
           )}
@@ -266,7 +266,7 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
               onClick={handleAgree}
               disabled={consentLoading}
               className="w-full py-3.5 rounded-2xl font-semibold text-white text-sm shadow-lg disabled:opacity-60"
-              style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
+              style={{ background: `linear-gradient(135deg, ${primary}, #3730A3)` }}
             >
               {consentLoading ? 'Сохранение...' : 'Согласен'}
             </motion.button>
@@ -304,14 +304,14 @@ function WelcomeScreen() {
 
   const [form, setForm] = useState({ name: '', car: '', plate: '' });
 
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
   const glass = isDark
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-lg';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white/90 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 transition-all`;
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white/90 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 transition-all`;
 
   const validate = () => {
     const errors: Record<string, string> = {};
@@ -384,13 +384,13 @@ function WelcomeScreen() {
           <span className="font-bold tracking-wide text-sm">ATMOSFERA</span>
         </div>
         <div className="flex items-center gap-2">
-          <button data-training="welcome-theme" onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
+          <button data-training="welcome-theme" onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}</button>
           <button
             data-training="welcome-staff"
             onClick={() => setShowStaffModal(true)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs ${glass} ${sub} transition-all hover:opacity-80`}
           >
-            <Shield size={13} />
+            <Shield size={13} strokeWidth={1.75} />
             <span>Служебный</span>
           </button>
         </div>
@@ -405,7 +405,7 @@ function WelcomeScreen() {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
                 className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl text-white text-4xl font-bold"
-                style={{ background: `linear-gradient(135deg, ${primary}, #A855F7)` }}
+                style={{ background: `linear-gradient(135deg, ${primary}, #312E81)` }}
               >
                 A
               </motion.div>
@@ -440,10 +440,10 @@ function WelcomeScreen() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setStep('form')}
                 className="w-full py-4 rounded-2xl font-semibold text-white text-base shadow-lg flex items-center justify-center gap-2"
-                style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
+                style={{ background: `linear-gradient(135deg, ${primary}, #3730A3)` }}
               >
                 Начать
-                <ChevronRight size={18} />
+                <ChevronRight size={18} strokeWidth={1.75} />
               </motion.button>
               <button
                 onClick={() => { window.location.href = `${window.location.pathname}?help=1`; }}
@@ -466,7 +466,7 @@ function WelcomeScreen() {
               <div className="space-y-3">
                 <div>
                   <div className="relative">
-                    <User size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
+                    <User size={16} strokeWidth={1.75} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input
                       data-training="welcome-name"
                       className={`${inputCls} pl-11 ${formErrors.name ? 'border-red-400 ring-red-400/20' : ''}`}
@@ -484,7 +484,7 @@ function WelcomeScreen() {
 
                 <div>
                   <div className="relative">
-                    <Car size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
+                    <Car size={16} strokeWidth={1.75} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input
                       data-training="welcome-car"
                       className={`${inputCls} pl-11 ${formErrors.car ? 'border-red-400' : ''}`}
@@ -502,7 +502,7 @@ function WelcomeScreen() {
 
                 <div>
                   <div className="relative">
-                    <Hash size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
+                    <Hash size={16} strokeWidth={1.75} className={`absolute left-4 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input
                       data-training="welcome-plate"
                       className={`${inputCls} pl-11 uppercase ${formErrors.plate ? 'border-red-400' : ''}`}
@@ -522,7 +522,7 @@ function WelcomeScreen() {
 
               {clientError && (
                 <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-xs mt-4 mb-1">
-                  <AlertCircle size={13} />
+                  <AlertCircle size={13} strokeWidth={1.75} />
                   {clientError}
                 </motion.div>
               )}
@@ -536,7 +536,7 @@ function WelcomeScreen() {
                   className="w-full py-3.5 rounded-2xl font-semibold text-white shadow flex items-center justify-center gap-2"
                   style={{ background: primary }}
                 >
-                  Сохранить и продолжить <ChevronRight size={16} />
+                  Сохранить и продолжить <ChevronRight size={16} strokeWidth={1.75} />
                 </button>
                 <button
                   onClick={() => { window.location.href = `${window.location.pathname}?help=1`; }}
@@ -561,11 +561,11 @@ function WelcomeScreen() {
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="fixed inset-0 z-50 flex items-center justify-center px-5"
             >
-              <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
+              <div className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${primary}18` }}>
-                      <Shield size={18} style={{ color: primary }} />
+                      <Shield size={18} strokeWidth={1.75} style={{ color: primary }} />
                     </div>
                     <div>
                       <div className="font-semibold">Привязка сотрудника</div>
@@ -581,7 +581,7 @@ function WelcomeScreen() {
                     }}
                     className={`p-1.5 rounded-xl ${glass}`}
                   >
-                    <X size={16} />
+                    <X size={16} strokeWidth={1.75} />
                   </button>
                 </div>
 
@@ -589,7 +589,7 @@ function WelcomeScreen() {
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Логин</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       placeholder="Логин, выданный администратором"
                       value={staffLogin}
                       onChange={(e) => {
@@ -603,7 +603,7 @@ function WelcomeScreen() {
                     <label className={`text-xs ${sub} block mb-1.5`}>Пароль</label>
                     <div className="relative">
                       <input
-                        className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none pr-10`}
+                        className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none pr-10`}
                         placeholder="Пароль"
                         type={showPass ? 'text' : 'password'}
                         value={staffPassword}
@@ -614,7 +614,7 @@ function WelcomeScreen() {
                         onKeyDown={(e) => e.key === 'Enter' && handleStaffLink()}
                       />
                       <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {showPass ? <EyeOff size={14} className={sub} /> : <Eye size={14} className={sub} />}
+                        {showPass ? <EyeOff size={14} strokeWidth={1.75} className={sub} /> : <Eye size={14} strokeWidth={1.75} className={sub} />}
                       </button>
                     </div>
                   </div>
@@ -622,7 +622,7 @@ function WelcomeScreen() {
 
                 {staffError && (
                   <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-xs mb-3">
-                    <AlertCircle size={13} />
+                    <AlertCircle size={13} strokeWidth={1.75} />
                     {staffError}
                   </motion.div>
                 )}
@@ -644,7 +644,7 @@ function WelcomeScreen() {
                   className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
                   style={{ background: primary }}
                 >
-                  <LogIn size={16} />
+                  <LogIn size={16} strokeWidth={1.75} />
                   {authLoading ? 'Сохранение...' : 'Привязать аккаунт'}
                 </button>
               </div>
@@ -679,7 +679,7 @@ function AppContent() {
   }, [checkConsent, session]);
 
   if (loading || !consentReady) {
-    return <div className={`${isDark ? 'dark bg-[#0B1226] text-[#E6EEF8]' : 'bg-[#F6F7FA] text-[#0B1226]'} min-h-screen flex items-center justify-center text-sm`}>Загрузка...</div>;
+    return <div className={`${isDark ? 'dark bg-[#131316] text-[#E4E4E7]' : 'bg-[#F7F7F8] text-[#131316]'} min-h-screen flex items-center justify-center text-sm`}>Загрузка...</div>;
   }
 
   if (!session) {
@@ -699,24 +699,24 @@ function AppContent() {
     <div className={`${isDark ? 'dark' : ''} relative`}>
       <AnimatePresence mode="wait">
         {session.role === 'client' && (
-          <motion.div key="client" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
+          <motion.div key="client" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
             <ClientApp />
           </motion.div>
         )}
         {session.role === 'admin' && (
-          <motion.div key="admin" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
+          <motion.div key="admin" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
             <ErrorBoundary>
               <AdminApp />
             </ErrorBoundary>
           </motion.div>
         )}
         {session.role === 'worker' && (
-          <motion.div key="worker" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
+          <motion.div key="worker" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
             <WorkerApp />
           </motion.div>
         )}
         {(session.role === 'owner' || session.role === 'accountant') && (
-          <motion.div key="owner" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.22 }}>
+          <motion.div key="owner" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
             <ErrorBoundary>
               <OwnerApp />
             </ErrorBoundary>

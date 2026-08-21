@@ -157,7 +157,7 @@ class HelpErrorBoundary extends Component<{ children: React.ReactNode }, { error
       return <div style={{ padding: 24, fontFamily: 'monospace', background: '#1a1a2e', color: '#ff6b6b', minHeight: '40vh' }}>
         <h3 style={{ color: '#ff6b6b' }}>Ошибка демо-роли</h3>
         <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{this.state.error.message}</pre>
-        <button onClick={() => this.setState({ error: null })} style={{ marginTop: 12, padding: '8px 16px', background: '#0a84ff', color: '#fff', border: 'none', borderRadius: 8 }}>Попробовать снова</button>
+        <button onClick={() => this.setState({ error: null })} style={{ marginTop: 12, padding: '8px 16px', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: 8 }}>Попробовать снова</button>
       </div>;
     }
     return this.props.children;
@@ -213,7 +213,7 @@ export function HelpDemoApp() {
     <AppContext.Provider value={ctx}>
       <div className={`${isDark ? 'dark' : ''}`}>
         {/* Бейдж демо-режима */}
-        <div className={`sticky top-0 z-20 flex items-center justify-between px-3 py-2 text-xs border-b ${isDark ? 'bg-[#0E1624] border-white/10 text-[#E6EEF8]' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+        <div className={`sticky top-0 z-20 flex items-center justify-between px-3 py-2 text-xs border-b ${isDark ? 'bg-[#1C1C1F] border-white/10 text-[#E4E4E7]' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
           <div className="flex items-center gap-2">
             <Shield size={14} className="opacity-70" />
             <span className="font-semibold">ДЕМО без БД</span>
@@ -229,13 +229,13 @@ export function HelpDemoApp() {
         </div>
 
         {/* Переключатель ролей демо */}
-        <div className={`flex gap-1.5 px-3 py-2 overflow-x-auto border-b ${isDark ? 'bg-[#0B1226] border-white/5' : 'bg-white border-black/5'}`}>
+        <div className={`flex gap-1.5 px-3 py-2 overflow-x-auto border-b ${isDark ? 'bg-[#131316] border-white/5' : 'bg-white border-black/5'}`}>
           {roles.map(r => (
             <button
               key={r.id}
               onClick={() => setHelpRole(r.id)}
               className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${helpRole === r.id ? 'text-white border-transparent shadow' : isDark ? 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10' : 'border-black/10 bg-white hover:bg-gray-50'}`}
-              style={helpRole === r.id ? { background: isDark ? '#4AA8FF' : '#0A84FF' } : {}}
+              style={helpRole === r.id ? { background: isDark ? '#6E76F2' : '#4F46E5' } : {}}
             >
               <span>{r.icon}</span> {r.label}
             </button>
@@ -255,7 +255,7 @@ export function HelpDemoApp() {
           <TrainingAssistant />
         </div>
 
-        <div className={`px-4 py-3 text-center text-[11px] border-t ${isDark ? 'bg-[#0B1226] border-white/5 text-white/40' : 'bg-gray-50 border-black/5 text-gray-500'}`}>
+        <div className={`px-4 py-3 text-center text-[11px] border-t ${isDark ? 'bg-[#131316] border-white/5 text-white/40' : 'bg-gray-50 border-black/5 text-gray-500'}`}>
           <GraduationCap size={12} className="inline mr-1" />
           Демо-данные: 2 клиента, 3 записи, 2 мастера. Сохранение отключено. Для работы с реальными данными — войдите через Telegram.
         </div>

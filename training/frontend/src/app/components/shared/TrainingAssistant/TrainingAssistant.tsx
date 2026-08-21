@@ -49,8 +49,8 @@ export function TrainingAssistant() {
   const timers = useRef<number[]>([]);
   const skipGreetingRef = useRef(false);
 
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const surface = isDark ? 'bg-[#0E1624] text-[#E6EEF8] border-white/10' : 'bg-white text-[#0B1226] border-black/10';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const surface = isDark ? 'bg-[#1C1C1F] text-[#E4E4E7] border-white/10' : 'bg-white text-[#131316] border-black/10';
 
   const later = useCallback((fn: () => void, ms: number) => {
     const id = window.setTimeout(fn, ms);
@@ -529,7 +529,7 @@ export function TrainingAssistant() {
           transition={{ duration: 2.3, repeat: Infinity, ease: 'easeInOut' }}
           className="w-full h-full rounded-full flex items-center justify-center text-[26px] shadow-xl select-none"
           style={{
-            background: isDark ? 'linear-gradient(135deg, #16233F, #1B2A4A)' : 'linear-gradient(135deg, #FFFFFF, #EAF2FF)',
+            background: isDark ? 'linear-gradient(135deg, #1E1E24, #26262E)' : 'linear-gradient(135deg, #FFFFFF, #F2F2F7)',
             border: `2px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(10,132,255,0.4)'}`,
           }}
         >

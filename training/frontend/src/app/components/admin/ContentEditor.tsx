@@ -50,7 +50,7 @@ function ImageUploader({ current, onUpload, label, glass, sub }: { current: stri
           {current ? (
             <img src={src} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           ) : (
-            <Image size={24} className={sub} />
+            <Image size={24} strokeWidth={1.75} className={sub} />
           )}
         </div>
         <div className="flex-1 space-y-2">
@@ -68,7 +68,7 @@ function ImageUploader({ current, onUpload, label, glass, sub }: { current: stri
               disabled={uploading}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl ${glass} cursor-pointer disabled:opacity-50`}
             >
-              {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+              {uploading ? <Loader2 size={12} strokeWidth={1.75} className="animate-spin" /> : <Upload size={12} strokeWidth={1.75} />}
               {uploading ? 'Загрузка...' : 'Загрузить файл'}
             </button>
             {current && (
@@ -77,7 +77,7 @@ function ImageUploader({ current, onUpload, label, glass, sub }: { current: stri
                 onClick={() => onUpload('')}
                 className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl ${glass} cursor-pointer`}
               >
-                <X size={12} /> Очистить
+                <X size={12} strokeWidth={1.75} /> Очистить
               </button>
             )}
           </div>
@@ -306,12 +306,12 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
                   updateAbout({ features: next });
                 }} placeholder="Преимущество" />
                 <button onClick={() => updateAbout({ features: content.about.features.filter((_, j) => j !== i) })} className={`p-2 rounded-xl ${glass}`}>
-                  <X size={14} />
+                  <X size={14} strokeWidth={1.75} />
                 </button>
               </div>
             ))}
             <button onClick={() => updateAbout({ features: [...content.about.features, ''] })} className={`flex items-center gap-1 text-xs ${sub} ${glass} px-3 py-2 rounded-xl`}>
-              <Plus size={12} /> Добавить преимущество
+              <Plus size={12} strokeWidth={1.75} /> Добавить преимущество
             </button>
           </div>
         </div>
@@ -336,7 +336,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
             <div key={i} className={`${glass} rounded-2xl p-4`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium">{svc.title || `Услуга ${i + 1}`}</span>
-                <button onClick={() => removeService(i)} className={`p-1.5 rounded-xl ${glass}`}><X size={14} /></button>
+                <button onClick={() => removeService(i)} className={`p-1.5 rounded-xl ${glass}`}><X size={14} strokeWidth={1.75} /></button>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
@@ -367,11 +367,11 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
                 {svc.features.map((f, fi) => (
                   <div key={fi} className="flex items-center gap-2 mb-1">
                     <input className={`${inputCls} flex-1`} value={f} onChange={(e) => updateFeature(i, fi, e.target.value)} />
-                    <button onClick={() => removeFeature(i, fi)} className={`p-1.5 rounded-xl ${glass}`}><X size={12} /></button>
+                    <button onClick={() => removeFeature(i, fi)} className={`p-1.5 rounded-xl ${glass}`}><X size={12} strokeWidth={1.75} /></button>
                   </div>
                 ))}
                 <button onClick={() => addFeature(i)} className={`flex items-center gap-1 text-xs ${sub} px-2 py-1 rounded-xl`}>
-                  <Plus size={10} /> Добавить
+                  <Plus size={10} strokeWidth={1.75} /> Добавить
                 </button>
               </div>
             </div>
@@ -384,7 +384,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
             <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>По запросу «{serviceSearchQuery.trim()}» услуг не найдено</div>
           )}
           <button onClick={addService} className={`flex items-center gap-2 ${glass} rounded-2xl p-4 w-full text-left ${sub} text-sm`}>
-            <Plus size={16} /> Добавить услугу
+            <Plus size={16} strokeWidth={1.75} /> Добавить услугу
           </button>
         </div>
       )}
@@ -396,7 +396,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
             <div key={i} className={`${glass} rounded-2xl p-4`}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium">{work.title || `Работа ${i + 1}`}</span>
-                <button onClick={() => removeWork(i)} className={`p-1.5 rounded-xl ${glass}`}><X size={14} /></button>
+                <button onClick={() => removeWork(i)} className={`p-1.5 rounded-xl ${glass}`}><X size={14} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-2">
                 <div>
@@ -412,7 +412,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
             </div>
           ))}
           <button onClick={addWork} className={`flex items-center gap-2 ${glass} rounded-2xl p-4 w-full text-left ${sub} text-sm`}>
-            <Plus size={16} /> Добавить работу
+            <Plus size={16} strokeWidth={1.75} /> Добавить работу
           </button>
         </div>
       )}
@@ -420,7 +420,7 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
       {/* Save error */}
       {saveError && (
         <div className="flex items-start gap-2 text-red-500 text-xs mt-3 p-3 rounded-xl bg-red-500/10">
-          <AlertCircle size={14} className="mt-0.5 shrink-0" />
+          <AlertCircle size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
           <span>{saveError}</span>
         </div>
       )}
@@ -431,9 +431,9 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
         onClick={handleSave}
         disabled={saving}
         className="w-full py-3.5 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4 disabled:opacity-60"
-        style={{ background: `linear-gradient(135deg, ${primary}, #0066CC)` }}
+        style={{ background: `linear-gradient(135deg, ${primary}, #3730A3)` }}
       >
-        <Save size={16} />
+        <Save size={16} strokeWidth={1.75} />
         {saving ? 'Сохранение...' : saved ? 'Сохранено!' : 'Сохранить контент'}
       </motion.button>
     </div>

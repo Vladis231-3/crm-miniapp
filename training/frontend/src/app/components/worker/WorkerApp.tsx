@@ -166,13 +166,13 @@ function WorkerEarningsCalendar({
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => setMonthOffset(m => m - 1)} className="p-1 rounded-lg hover:bg-white/10">
-          <ChevronLeft size={16} className={sub} />
+          <ChevronLeft size={16} strokeWidth={1.75} className={sub} />
         </button>
         <div className="font-semibold text-sm">
           {MONTH_NAMES[calMonth]} {calYear}
         </div>
         <button onClick={() => setMonthOffset(m => m + 1)} className="p-1 rounded-lg hover:bg-white/10">
-          <ChevronRight size={16} className={sub} />
+          <ChevronRight size={16} strokeWidth={1.75} className={sub} />
         </button>
       </div>
 
@@ -465,13 +465,13 @@ export function WorkerApp() {
   const formatTimer = (s: number) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = isDark ? '#5DD68F' : '#34C759';
-  const surface = isDark ? '#0E1624' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const accent = isDark ? '#34D399' : '#10B981';
+  const surface = isDark ? '#1C1C1F' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   const handleStartTask = (task: Booking) => {
@@ -614,7 +614,7 @@ export function WorkerApp() {
       <div data-training="worker-header" className={`work-header ${glass} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           {(showDetail || profileSection) && (
-            <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} /></button>
+            <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} strokeWidth={1.75} /></button>
           )}
           <div>
             <div className="font-semibold text-sm">{headerTitle}</div>
@@ -629,10 +629,10 @@ export function WorkerApp() {
             </button>
           )}
           <button onClick={() => { setShowNotifications(true); markAllNotificationsRead('worker'); }} className={`p-2 rounded-xl ${glass} relative`}>
-            <Bell size={18} />
+            <Bell size={18} strokeWidth={1.75} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
+          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}</button>
         </div>
       </div>
 
@@ -657,7 +657,7 @@ export function WorkerApp() {
                 <div className="font-semibold">{selectedTask.clientName}</div>
                 <div className="mt-1"><SourceBadge source={selectedTask.source} /></div>
                 <a href={`tel:${selectedTask.clientPhone}`} className="flex items-center gap-2 mt-1" style={{ color: primary }}>
-                  <Phone size={14} /><span className="text-sm">{selectedTask.clientPhone}</span>
+                  <Phone size={14} strokeWidth={1.75} /><span className="text-sm">{selectedTask.clientPhone}</span>
                 </a>
                 {selectedTask.car && <div className={`text-sm ${sub} mt-1`}>{selectedTask.car} · {selectedTask.plate}</div>}
               </div>
@@ -818,12 +818,12 @@ export function WorkerApp() {
               <div className="space-y-2">
                 {READY_TO_START_STATUSES.includes(selectedTask.status) && (
                   <button onClick={() => setShowStartConfirm(selectedTask)} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: accent }}>
-                    <Play size={18} />Начать задачу
+                    <Play size={18} strokeWidth={1.75} />Начать задачу
                   </button>
                 )}
                 {selectedTask.status === 'in_progress' && (
                   <button onClick={() => openFinishModal(selectedTask)} className="w-full py-3.5 rounded-2xl font-semibold text-white flex items-center justify-center gap-2" style={{ background: primary }}>
-                    <Check size={18} />Завершить
+                    <Check size={18} strokeWidth={1.75} />Завершить
                   </button>
                 )}
               </div>
@@ -853,13 +853,13 @@ export function WorkerApp() {
             <section data-training="worker-next" className={`${glass} mb-4 rounded-2xl p-4`}>
               <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Next work rail</div><h3 className="font-semibold">Дальше по времени</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">Расписание</button></div>
               <div className="mt-3 space-y-2">
-                {todayTasks.filter(task => task.status !== `completed`).slice(0, 3).map(task => <button key={task.id} onClick={() => { setSelectedTask(task); setShowDetail(true); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{task.time}</strong><span className="min-w-0 flex-1 truncate">{task.service}</span><ChevronRight size={16}/></button>)}
+                {todayTasks.filter(task => task.status !== `completed`).slice(0, 3).map(task => <button key={task.id} onClick={() => { setSelectedTask(task); setShowDetail(true); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{task.time}</strong><span className="min-w-0 flex-1 truncate">{task.service}</span><ChevronRight size={16} strokeWidth={1.75}/></button>)}
               </div>
             </section>
             <motion.div data-training="worker-today-list" key="today" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {todayTasks.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <Clock size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <Clock size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Задач на сегодня нет</p>
                 </div>
               ) : (
@@ -889,16 +889,16 @@ export function WorkerApp() {
                       <div className="flex gap-2 mt-3">
                         {READY_TO_START_STATUSES.includes(task.status) && (
                           <button onClick={() => setShowStartConfirm(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: accent }}>
-                            <Play size={14} />Начать
+                            <Play size={14} strokeWidth={1.75} />Начать
                           </button>
                         )}
                         {task.status === 'in_progress' && (
                           <button onClick={() => openFinishModal(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: primary }}>
-                            <Check size={14} />Завершить
+                            <Check size={14} strokeWidth={1.75} />Завершить
                           </button>
                         )}
                         <button onClick={() => { setSelectedTask(task); setShowDetail(true); }} className={`flex-1 py-2 rounded-xl text-sm ${glass} flex items-center justify-center gap-1`}>
-                          <Info size={14} />Детали
+                          <Info size={14} strokeWidth={1.75} />Детали
                         </button>
                       </div>
                     </motion.div>
@@ -950,7 +950,7 @@ export function WorkerApp() {
             <motion.div data-training="worker-cars" key="cars" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className={`${glass} rounded-2xl p-3 mb-3`}>
                 <div className="relative">
-                  <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                  <Search size={16} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                   <input
                     autoFocus
                     className={`${inputCls} pl-9`}
@@ -960,7 +960,7 @@ export function WorkerApp() {
                   />
                   {carQuery && (
                     <button onClick={() => setCarQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1">
-                      <X size={14} className={sub} />
+                      <X size={14} strokeWidth={1.75} className={sub} />
                     </button>
                   )}
                 </div>
@@ -975,7 +975,7 @@ export function WorkerApp() {
                 </div>
               ) : carResults.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <CarFront size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <CarFront size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className="text-sm font-medium">Ничего не найдено</p>
                   <p className={`text-xs ${sub} mt-1`}>
                     {carQuery.trim() ? 'Похоже, машина ещё не заведена' : 'На сегодня записей нет'}
@@ -1085,12 +1085,12 @@ export function WorkerApp() {
                 </div>
               ) : salaryError ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <AlertCircle size={36} className={`mx-auto mb-3 text-red-400`} />
+                  <AlertCircle size={36} strokeWidth={1.75} className={`mx-auto mb-3 text-red-400`} />
                   <p className="text-sm text-red-400 mb-2">{salaryError}</p>
                 </div>
               ) : !salaryDetail ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <DollarSign size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Нет данных за выбранный период</p>
                 </div>
               ) : (
@@ -1217,7 +1217,7 @@ export function WorkerApp() {
                       ))}
                       {(salaryDetail.bookings || []).length === 0 && (
                         <div className={`${glass} rounded-2xl p-8 text-center`}>
-                          <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
+                          <DollarSign size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                           <p className={sub}>Нет завершённых задач</p>
                         </div>
                       )}
@@ -1306,11 +1306,11 @@ export function WorkerApp() {
               <div className={`${glass} rounded-2xl p-5 mb-4`}>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="relative">
-                    <div className="w-18 h-18 w-[72px] h-[72px] rounded-full flex items-center justify-center text-2xl font-bold text-white" style={{ background: `linear-gradient(135deg, ${primary}, #A855F7)` }}>
+                    <div className="w-18 h-18 w-[72px] h-[72px] rounded-full flex items-center justify-center text-2xl font-bold text-white" style={{ background: `linear-gradient(135deg, ${primary}, #312E81)` }}>
                       {profile.name.charAt(0)}
                     </div>
                     <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ background: primary }}>
-                      <Camera size={12} />
+                      <Camera size={12} strokeWidth={1.75} />
                     </button>
                   </div>
                   <div className="flex-1">
@@ -1352,9 +1352,9 @@ export function WorkerApp() {
               <div className="space-y-2">
                 {[
                   { id: 'personal', icon: Edit3, label: 'Личные данные', desc: profile.phone, color: primary },
-                  { id: 'shift', icon: Check, label: 'Чек-лист смены', desc: 'Химия на начало и конец', color: '#34C759' },
+                  { id: 'shift', icon: Check, label: 'Чек-лист смены', desc: 'Химия на начало и конец', color: '#10B981' },
                   { id: 'attendance', icon: TrendingUp, label: 'Мои выходы', desc: 'Посещаемость за период', color: '#8B5CF6' },
-                  { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Управление оповещениями', color: '#A855F7' },
+                  { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Управление оповещениями', color: '#312E81' },
                   { id: 'history', icon: History, label: 'История задач', desc: `${allMyTasks.length} всего`, color: '#F59E0B' },
                   { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Пароль и сессии', color: '#EF4444' },
                 ].map(item => (
@@ -1362,13 +1362,13 @@ export function WorkerApp() {
                     onClick={() => setProfileSection(item.id as ProfileSection)}
                     className={`${glass} rounded-2xl p-4 w-full text-left flex items-center gap-3`}>
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}15` }}>
-                      <item.icon size={16} style={{ color: item.color }} />
+                      <item.icon size={16} strokeWidth={1.75} style={{ color: item.color }} />
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium">{item.label}</div>
                       <div className={`text-xs ${sub}`}>{item.desc}</div>
                     </div>
-                    <ChevronRight size={15} className={sub} />
+                    <ChevronRight size={15} strokeWidth={1.75} className={sub} />
                   </motion.button>
                 ))}
               </div>
@@ -1389,7 +1389,7 @@ export function WorkerApp() {
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
                     <div className="relative">
-                      <f.icon size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                      <f.icon size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                       <input className={`${inputCls} pl-9`} placeholder={f.placeholder}
                         value={(profile as any)[f.key]} onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value }))} />
                     </div>
@@ -1423,7 +1423,7 @@ export function WorkerApp() {
                 </div>
               </div>
               <button onClick={handleSaveProfile} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{profileSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{profileSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
 
@@ -1500,13 +1500,13 @@ export function WorkerApp() {
                   </div>
                   <button onClick={() => setNotifPrefs(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))}
                     className="w-11 h-6 rounded-full relative transition-all shrink-0"
-                    style={{ background: notifPrefs[item.key as keyof typeof notifPrefs] ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                    style={{ background: notifPrefs[item.key as keyof typeof notifPrefs] ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifPrefs[item.key as keyof typeof notifPrefs] ? 'left-6' : 'left-1'}`} />
                   </button>
                 </div>
               ))}
               <button onClick={handleSaveNotifications} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{profileSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{profileSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
 
@@ -1515,7 +1515,7 @@ export function WorkerApp() {
             <motion.div key="profile-history" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {allMyTasks.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <History size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <History size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Нет выполненных задач</p>
                 </div>
               ) : allMyTasks.map(task => {
@@ -1562,7 +1562,7 @@ export function WorkerApp() {
                           setPassword(p => ({ ...p, [f.key]: e.target.value }));
                         }} />
                       <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {showPass ? <EyeOff size={14} className={sub} /> : <Eye size={14} className={sub} />}
+                        {showPass ? <EyeOff size={14} strokeWidth={1.75} className={sub} /> : <Eye size={14} strokeWidth={1.75} className={sub} />}
                       </button>
                     </div>
                   </div>
@@ -1594,13 +1594,13 @@ export function WorkerApp() {
                 disabled={!password.current || !password.new_ || password.new_ !== password.confirm}
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: '#EF4444' }}>
-                <Shield size={16} />{passSaved ? 'Изменён!' : 'Изменить пароль'}
+                <Shield size={16} strokeWidth={1.75} />{passSaved ? 'Изменён!' : 'Изменить пароль'}
               </button>
             </motion.div>
 
           ) : tab === 'profile' && profileSection === 'attendance' ? (
             <motion.div key="profile-attendance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setProfileSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setProfileSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-2">Мои выходы на смену</h2>
               <p className={`text-xs ${sub} mb-4`}>Количество выходов за выбранный период.</p>
               <AttendanceTable mode="worker" workerId={session?.actorId} primary={primary} />
@@ -1618,9 +1618,12 @@ export function WorkerApp() {
           { id: 'earnings', icon: DollarSign, label: 'Доход' },
           { id: 'profile', icon: User, label: 'Профиль' },
         ].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); setSelectedCalDate(null); }} className="flex-1 py-3 flex flex-col items-center gap-1">
-            <t.icon size={20} style={{ color: tab === t.id ? primary : undefined }} className={tab !== t.id ? sub : ''} />
-            <span className="text-xs" style={{ color: tab === t.id ? primary : undefined }}>{t.label}</span>
+          <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); setSelectedCalDate(null); }} className="relative flex-1 py-3 flex flex-col items-center gap-1">
+            {tab === t.id && (
+              <motion.span layoutId="worker-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1.5 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+            )}
+            <t.icon size={20} strokeWidth={1.75} style={{ color: tab === t.id ? primary : undefined }} className={`relative ${tab !== t.id ? sub : ''}`} />
+            <span className="relative text-xs" style={{ color: tab === t.id ? primary : undefined }}>{t.label}</span>
           </button>
         ))}
       </div>
@@ -1629,10 +1632,10 @@ export function WorkerApp() {
       <AnimatePresence>
         {showStartConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
               <div className="flex justify-between items-start mb-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `${accent}20` }}><Play size={18} style={{ color: accent }} /></div>
-                <button onClick={() => setShowStartConfirm(null)} className={`p-1 rounded-lg ${glass}`}><X size={16} /></button>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `${accent}20` }}><Play size={18} strokeWidth={1.75} style={{ color: accent }} /></div>
+                <button onClick={() => setShowStartConfirm(null)} className={`p-1 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <h3 className="font-semibold mb-1">Начать задачу?</h3>
               <p className={`text-sm ${sub} mb-1`}>{showStartConfirm.service}</p>
@@ -1651,7 +1654,7 @@ export function WorkerApp() {
         {showFinishModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <AnimatePresence>
                 {finishSuccess && (
@@ -1661,7 +1664,7 @@ export function WorkerApp() {
                     <div className="text-center">
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}
                         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${accent}20` }}>
-                        <Check size={28} style={{ color: accent }} />
+                        <Check size={28} strokeWidth={1.75} style={{ color: accent }} />
                       </motion.div>
                       <div className="font-semibold">Задача завершена!</div>
                       {sendCheck && <div className={`text-sm ${sub} mt-1`}>Чек отправлен клиенту</div>}
@@ -1724,7 +1727,7 @@ export function WorkerApp() {
                 {finishError && <div className="text-xs text-red-500">{finishError}</div>}
                 <label className="flex items-center gap-3 cursor-pointer">
                   <div onClick={() => setSendCheck(!sendCheck)} className="w-10 h-6 rounded-full relative transition-all"
-                    style={{ background: sendCheck ? primary : isDark ? 'rgba(255,255,255,0.2)' : '#CBD5E1' }}>
+                    style={{ background: sendCheck ? primary : isDark ? 'rgba(255,255,255,0.2)' : '#D4D4D8' }}>
                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${sendCheck ? 'left-5' : 'left-1'}`} />
                   </div>
                   <span className="text-sm">Отправить чек клиенту</span>
@@ -1743,11 +1746,11 @@ export function WorkerApp() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifications(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Уведомления</h3>
-                <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-2">
                 {myNotifications.length === 0 ? (
@@ -1756,7 +1759,7 @@ export function WorkerApp() {
                   <div key={n.id} onClick={() => markNotificationRead(n.id)}
                     className={`${glass} rounded-xl p-3 cursor-pointer border-l-2`} style={{ borderLeftColor: n.read ? 'transparent' : primary }}>
                     <div className="flex items-start gap-2">
-                      <Bell size={13} style={{ color: primary }} className="mt-0.5 shrink-0" />
+                      <Bell size={13} strokeWidth={1.75} style={{ color: primary }} className="mt-0.5 shrink-0" />
                       <div>
                         <p className="text-sm">{n.message}</p>
                         <p className={`text-xs ${sub} mt-1`}>{n.createdAt.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</p>
@@ -1776,11 +1779,11 @@ export function WorkerApp() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setSelectedCompletedOrder(null)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Детали заказа</h3>
-                <button onClick={() => setSelectedCompletedOrder(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setSelectedCompletedOrder(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-3">
                 {/* Service */}
@@ -1855,7 +1858,7 @@ export function WorkerApp() {
           <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -50 }}
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${accent}40` }}>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} style={{ color: accent }} /></div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} strokeWidth={1.75} style={{ color: accent }} /></div>
             <span className="text-sm font-medium">Профиль обновлён</span>
           </motion.div>
         )}

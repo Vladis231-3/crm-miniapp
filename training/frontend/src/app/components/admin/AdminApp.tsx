@@ -632,14 +632,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = '#34C759';
-  const surface = isDark ? '#0E1624' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const accent = '#10B981';
+  const surface = isDark ? '#1C1C1F' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7]' : 'bg-white border-black/10 text-[#131316]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const timeToMinutes = (value: string): number | null => {
     const match = value.trim().match(/^(\d{2}):(\d{2})$/);
     if (!match) return null;
@@ -670,7 +670,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const byPayment = [
     { name: 'Наличные', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'cash').length, color: accent },
     { name: 'Перевод', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'transfer').length, color: primary },
-    { name: 'По счёту', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'invoice').length, color: '#A855F7' },
+    { name: 'По счёту', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'invoice').length, color: '#312E81' },
     { name: 'Не оплачено', value: bookings.filter(b => !b.paymentSettled).length, color: '#EF4444' },
   ].filter(p => p.value > 0);
 
@@ -1473,7 +1473,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
       {/* Header */}
       <div className={`work-header ${glass} flex items-center justify-between`}>
-        <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} /></button>
+        <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} strokeWidth={1.75} /></button>
         <div className="text-center">
           <div className="font-semibold text-sm">{staffRoleTitle}</div>
           <div className={`text-xs ${sub}`}>{todayLabel}</div>
@@ -1492,11 +1492,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
             </div>
           )}
           <button data-training="admin-bell" onClick={() => { setShowNotifPanel(true); markAllNotificationsRead(staffNotificationsRole); }} className={`p-2 rounded-xl ${glass} relative`}>
-            <Bell size={18} />
+            <Bell size={18} strokeWidth={1.75} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
-          <button data-training="admin-plus" onClick={openNewBookingModal} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} /></button>
+          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}</button>
+          <button data-training="admin-plus" onClick={openNewBookingModal} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
         </div>
       </div>
 
@@ -1510,7 +1510,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
             <section data-training="admin-hero" className="role-hero role-hero--admin mb-4">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div><div className="text-xs uppercase tracking-[.2em] opacity-70">Day command center</div><h2 className="mt-2 text-2xl font-semibold">Управление днём</h2><p className="mt-1 text-sm opacity-80">Расписание, исключения и быстрые действия в одном контуре.</p></div>
-                <div className="flex gap-2"><button data-training="admin-new-booking" onClick={() => setShowNewBooking(true)} className="semantic-primary-button bg-white text-slate-900"><Plus size={17}/> Новая запись</button><button onClick={() => setPage(`clients`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm"><Search size={16} className="inline mr-2"/>Поиск</button></div>
+                <div className="flex gap-2"><button data-training="admin-new-booking" onClick={() => setShowNewBooking(true)} className="semantic-primary-button bg-white text-slate-900"><Plus size={17} strokeWidth={1.75}/> Новая запись</button><button onClick={() => setPage(`clients`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm"><Search size={16} strokeWidth={1.75} className="inline mr-2"/>Поиск</button></div>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 md:grid-cols-4">
                 <div><strong className="block text-2xl">{todayBookings.length}</strong><span className="text-xs opacity-70">записей</span></div>
@@ -1521,23 +1521,23 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
             </section>
             <section className="mb-4 grid gap-3 md:grid-cols-2">
               <div data-training="admin-exceptions" className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Exception rail</div><h3 className="mt-1 font-semibold">Требует внимания</h3><button onClick={() => setPage(`calendar`)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-amber-500/10 p-3 text-left"><span>Без назначенного мастера</span><strong>{todayBookings.filter(item => !item.workers?.length).length}</strong></button><button onClick={() => setShowNotifications(true)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-red-500/10 p-3 text-left"><span>Непрочитанные</span><strong>{unreadCount}</strong></button></div>
-              <div data-training="admin-pulse" className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Schedule pulse</div><h3 className="mt-1 font-semibold">Ближайшие слоты</h3><div className="mt-3 space-y-2">{todayBookings.slice(0, 4).map(item => <button key={item.id} onClick={() => setSelectedBooking(item)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{item.time}</strong><span className="min-w-0 flex-1 truncate">{item.service}</span><ChevronRight size={16}/></button>)}</div></div>
+              <div data-training="admin-pulse" className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Schedule pulse</div><h3 className="mt-1 font-semibold">Ближайшие слоты</h3><div className="mt-3 space-y-2">{todayBookings.slice(0, 4).map(item => <button key={item.id} onClick={() => setSelectedBooking(item)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{item.time}</strong><span className="min-w-0 flex-1 truncate">{item.service}</span><ChevronRight size={16} strokeWidth={1.75}/></button>)}</div></div>
             </section>
             <section className={`${glass} mb-4 rounded-2xl p-4`}>
               <div className="text-xs uppercase tracking-wider text-muted-foreground">Operational actions</div>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 <button onClick={() => setShowNewBooking(true)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <Plus size={18} />
+                  <Plus size={18} strokeWidth={1.75} />
                   <strong className="mt-2 block">Создать запись</strong>
                   <span className="text-xs text-muted-foreground">Открыть существующую форму</span>
                 </button>
                 <button onClick={() => setPage(`clients`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <Search size={18} />
+                  <Search size={18} strokeWidth={1.75} />
                   <strong className="mt-2 block">Найти клиента</strong>
                   <span className="text-xs text-muted-foreground">Перейти в клиентскую базу</span>
                 </button>
                 <button onClick={() => setPage(`stock`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <Package size={18} />
+                  <Package size={18} strokeWidth={1.75} />
                   <strong className="mt-2 block">Проверить склад</strong>
                   <span className="text-xs text-muted-foreground">Остатки и списания</span>
                 </button>
@@ -1551,7 +1551,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               <div className="space-y-3">
                 {todayBookings.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <Calendar size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <Calendar size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                     <p className={sub}>Записей на сегодня нет</p>
                   </div>
                 ) : todayBookings.map(booking => (
@@ -1625,7 +1625,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 {[
                   { label: 'Всего записей', value: bookings.length, icon: Calendar, color: primary },
                   { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: accent },
-                  { label: 'Средний чек', value: `${avgCheck.toLocaleString('ru')} ₽`, icon: CreditCard, color: '#A855F7' },
+                  { label: 'Средний чек', value: `${avgCheck.toLocaleString('ru')} ₽`, icon: CreditCard, color: '#312E81' },
                   { label: 'Конверсия', value: `${conversionRate}%`, icon: BarChart3, color: '#FF9500' },
                   { label: 'Завершено', value: completedAll.length, icon: CheckCircle, color: '#22C55E' },
                   { label: 'Отменено', value: bookings.filter(b => b.status === 'cancelled').length, icon: XCircle, color: '#EF4444' },
@@ -1634,7 +1634,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 ].map(item => (
                   <div key={item.label} className={`${glass} rounded-2xl p-3`}>
                     <div className="flex items-center gap-1.5 mb-1">
-                      <item.icon size={13} style={{ color: item.color }} />
+                      <item.icon size={13} strokeWidth={1.75} style={{ color: item.color }} />
                       <span className={`text-xs ${sub}`}>{item.label}</span>
                     </div>
                     <div className="font-bold" style={{ color: item.color }}>{item.value}</div>
@@ -1661,7 +1661,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white"
                       style={{ background: primary }}
                     >
-                      <Plus size={14} />
+                      <Plus size={14} strokeWidth={1.75} />
                       Новый
                     </button>
                   )}
@@ -1670,7 +1670,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       onClick={() => { setSelectedClientId(null); setClientHistoryServiceFilter(''); }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
-                      <ArrowLeft size={14} />
+                      <ArrowLeft size={14} strokeWidth={1.75} />
                       Назад
                     </button>
                   )}
@@ -1708,7 +1708,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               )}
               {registeredClients.length === 0 && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <Users size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <Users size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Пока нет зарегистрированных клиентов</p>
                 </div>
               )}
@@ -1751,7 +1751,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                         {client.plate && <div className={`text-xs ${sub} font-mono`}>{client.plate}</div>}
                         {clientPhone ? (
                           <a href={`tel:${clientPhone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }}>
-                            <Phone size={10} />{clientPhone}
+                            <Phone size={10} strokeWidth={1.75} />{clientPhone}
                           </a>
                         ) : (
                           <div className={`text-xs ${sub} mt-0.5`}>Телефон не указан</div>
@@ -1769,9 +1769,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                           className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
                           aria-label={`Удалить клиента ${client.name}`}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={16} strokeWidth={1.75} />
                         </button>
-                        <ChevronRight size={16} className={sub} />
+                        <ChevronRight size={16} strokeWidth={1.75} className={sub} />
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
@@ -1819,7 +1819,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                         </div>
                         {selectedClient.phone.trim() ? (
                           <a href={`tel:${selectedClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
-                            <Phone size={12} />{selectedClient.phone}
+                            <Phone size={12} strokeWidth={1.75} />{selectedClient.phone}
                           </a>
                         ) : (
                           <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
@@ -1830,7 +1830,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                         className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
                         aria-label={`Удалить клиента ${selectedClient.name}`}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} strokeWidth={1.75} />
                       </button>
                     </div>
                     {selectedClient.adminNote && (
@@ -1845,7 +1845,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       className="w-full mb-4 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
                       style={{ background: primary }}
                     >
-                      <Plus size={16} />
+                      <Plus size={16} strokeWidth={1.75} />
                       Добавить прошлую запись
                     </button>
 
@@ -2055,7 +2055,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <h2 className="font-semibold">Склад</h2>
                 <div className="flex gap-2">
                   <button onClick={() => setShowAddStock(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
-                    <Plus size={14} />Добавить товар
+                    <Plus size={14} strokeWidth={1.75} />Добавить товар
                   </button>
                   <button onClick={() => setShowCategoryManager(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${glass}`}>
                     <span>Категории</span>
@@ -2104,7 +2104,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                               <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} ₽</div>
                             </div>
                           </div>
-                          {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />Низкий остаток</div>}
+                          {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} strokeWidth={1.75} />Низкий остаток</div>}
                           <div className="h-1.5 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                             <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (item.qty / 30) * 100)}%`, background: item.qty <= 5 ? '#EF4444' : primary }} />
                           </div>
@@ -2138,7 +2138,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               })}
               {stockItems.length === 0 && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <Box size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <Box size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Склад пуст. Добавьте первый товар.</p>
                 </div>
               )}
@@ -2147,7 +2147,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <button onClick={() => { setShowWriteOffHistory(!showWriteOffHistory); if (!showWriteOffHistory) getWriteOffHistory().then(setWriteOffHistory).catch(() => {}); }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${glass}`}>
                   <span className="flex items-center gap-2">
-                    <History size={15} />История списаний
+                    <History size={15} strokeWidth={1.75} />История списаний
                   </span>
                   <span className={`text-xs ${sub}`}>{showWriteOffHistory ? '▲' : '▼'}</span>
                 </button>
@@ -2186,11 +2186,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 {showAddStock && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
                     <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+                      className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
                       <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="font-semibold">Добавить товар</h3>
-                        <button onClick={() => setShowAddStock(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                        <button onClick={() => setShowAddStock(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                       </div>
                       <div className="space-y-3 mb-4">
                         <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Автошампунь..." value={stockForm.name} onChange={e => setStockForm(p => ({ ...p, name: e.target.value }))} /></div>
@@ -2257,11 +2257,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 {showCategoryManager && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
                     <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+                      className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
                       <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="font-semibold">Категории склада</h3>
-                        <button onClick={() => setShowCategoryManager(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                        <button onClick={() => setShowCategoryManager(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                       </div>
                       <div className="space-y-3 mb-4">
                         {stockCategories.filter(c => !c.parentId).map(parent => (
@@ -2322,7 +2322,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               <AnimatePresence>
                 {showWriteOff && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
                       <h3 className="font-semibold mb-1">Списать товар</h3>
                       <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
                        <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
@@ -2344,11 +2344,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               {[
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${settingsBoxes.filter(box => box.active).length} активных бокса`, color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
-                { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
+                { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#10B981' },
                 { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
                 { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#0EA5E9' },
                 { id: 'attendance', icon: TrendingUp, label: 'Посещаемость', desc: 'Выходы мастеров на смену', color: '#8B5CF6' },
-                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#A855F7' },
+                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#312E81' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },
                 { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#EF4444' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'О студии, услуги, портфолио', color: '#06B6D4' },
@@ -2357,13 +2357,13 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   onClick={() => setSettingsSection(item.id as SettingsSection)}
                   className={`${glass} rounded-2xl p-4 w-full text-left mb-3 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
-                    <item.icon size={18} style={{ color: item.color }} />
+                    <item.icon size={18} strokeWidth={1.75} style={{ color: item.color }} />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">{item.label}</div>
                     <div className={`text-xs ${sub}`}>{item.desc}</div>
                   </div>
-                  <ChevronRight size={16} className={sub} />
+                  <ChevronRight size={16} strokeWidth={1.75} className={sub} />
                 </motion.button>
               ))}
             </motion.div>
@@ -2372,7 +2372,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: PRICING */}
           {page === 'settings' && settingsSection === 'pricing' && (
             <motion.div key="settings-pricing" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Цены на услуги</h2>
               <p className={`text-xs ${sub} mb-4`}>Изменения отображаются у клиентов после сохранения</p>
               <div className="relative mb-3">
@@ -2391,7 +2391,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <div key={svc.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex justify-end -mt-1 -mr-1 mb-1">
                     <button onClick={() => handleRemoveService(svc.id)} className="p-1.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors">
-                      <Trash2 size={15} />
+                      <Trash2 size={15} strokeWidth={1.75} />
                     </button>
                   </div>
                   <div className="space-y-2">
@@ -2441,14 +2441,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>По запросу «{pricingSearchQuery.trim()}» услуг не найдено</div>
               )}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить цены'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить цены'}
               </button>
             </motion.div>
           )}
 
           {page === 'settings' && settingsSection === 'shift' && (
             <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Открытие смены</h2>
               <p className={`text-xs ${sub} mb-4`}>Перед стартом смены загрузи фото по всем нужным категориям. Чекбоксы убраны, теперь подтверждение идёт через фотофиксацию.</p>
 
@@ -2572,7 +2572,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: ATTENDANCE */}
           {page === 'settings' && settingsSection === 'attendance' && (
             <motion.div key="settings-attendance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Посещаемость мастеров</h2>
               <p className={`text-xs ${sub} mb-4`}>Количество выходов каждого мастера на смену за выбранный период.</p>
               <AttendanceTable mode="admin" primary={primary} />
@@ -2582,14 +2582,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: BOXES */}
           {page === 'settings' && settingsSection === 'boxes' && (
             <motion.div data-training="admin-settings" key="settings-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Управление боксами</h2>
               {settingsBoxes.map((box) => (
                 <div key={box.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="font-medium">{box.name}</div>
                     <button onClick={() => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, active: !b.active } : b))}
-                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: box.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: box.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${box.active ? 'left-6' : 'left-1'}`} />
                     </button>
                   </div>
@@ -2601,7 +2601,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -2609,14 +2609,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: SCHEDULE */}
           {page === 'settings' && settingsSection === 'schedule' && (
             <motion.div key="settings-schedule" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Расписание работы</h2>
               {schedule.map((day, i) => (
                 <div key={day.day} className={`${glass} rounded-2xl p-4 mb-2`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">{day.day}</span>
                     <button onClick={() => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, active: !d.active } : d))}
-                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: day.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: day.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${day.active ? 'left-6' : 'left-1'}`} />
                     </button>
                   </div>
@@ -2635,7 +2635,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -2643,7 +2643,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: NOTIFICATIONS */}
           {page === 'settings' && settingsSection === 'notifications' && (
             <motion.div key="settings-notifs" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Уведомления</h2>
               {[
                 { key: 'newBooking', label: 'Новая запись', desc: 'При создании новой записи' },
@@ -2654,7 +2654,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               ].map(item => (
                 <div key={item.key} className={`${glass} rounded-2xl p-4 mb-2 flex items-center justify-between`}>
                   <div className="flex items-center gap-3">
-                    <Bell size={16} style={{ color: primary }} />
+                    <Bell size={16} strokeWidth={1.75} style={{ color: primary }} />
                     <div>
                       <div className="text-sm font-medium">{item.label}</div>
                       <div className={`text-xs ${sub}`}>{item.desc}</div>
@@ -2663,13 +2663,13 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   <button
                     onClick={() => setNotifSettings(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof prev] }))}
                     className="w-11 h-6 rounded-full relative transition-all"
-                    style={{ background: notifSettings[item.key as keyof typeof notifSettings] ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                    style={{ background: notifSettings[item.key as keyof typeof notifSettings] ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifSettings[item.key as keyof typeof notifSettings] ? 'left-6' : 'left-1'}`} />
                   </button>
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -2677,7 +2677,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: PROFILE */}
           {page === 'settings' && settingsSection === 'profile' && (
             <motion.div key="settings-profile" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Профиль</h2>
               <div className="flex flex-col items-center mb-6">
                 <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold mb-2" style={{ background: primary }}>
@@ -2725,7 +2725,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
               </div>
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить изменения'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить изменения'}
               </button>
             </motion.div>
           )}
@@ -2733,7 +2733,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: SECURITY */}
           {page === 'settings' && settingsSection === 'security' && (
             <motion.div key="settings-security" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Безопасность</h2>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className={`text-xs font-medium ${sub} mb-3`}>СМЕНА ПАРОЛЯ</div>
@@ -2754,7 +2754,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                             setPassword(p => ({ ...p, [field.key]: e.target.value }));
                           }} />
                         <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {showPass ? <EyeOff size={14} className={sub} /> : <Eye size={14} className={sub} />}
+                          {showPass ? <EyeOff size={14} strokeWidth={1.75} className={sub} /> : <Eye size={14} strokeWidth={1.75} className={sub} />}
                         </button>
                       </div>
                     </div>
@@ -2788,7 +2788,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 disabled={!password.current || !password.new_ || password.new_ !== password.confirm}
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: '#EF4444' }}>
-                <Shield size={16} />{securitySaved ? 'Пароль изменён!' : 'Изменить пароль'}
+                <Shield size={16} strokeWidth={1.75} />{securitySaved ? 'Пароль изменён!' : 'Изменить пароль'}
               </button>
             </motion.div>
           )}
@@ -2796,7 +2796,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           {/* SETTINGS: CONTENT */}
           {page === 'settings' && settingsSection === 'content' && (
             <motion.div key="settings-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <ContentEditor
                 initialContent={content}
                 onSave={saveContent}
@@ -2811,7 +2811,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
           {page === 'settings' && settingsSection === 'payroll' && (
             <motion.div key="settings-payroll" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Контроль зарплат мастеров</h2>
               <p className={`text-xs ${sub} mb-2`}>Администратор может менять процент, оклад, активность и вести операции по зарплате мастеров с примечанием</p>
               <div className="flex gap-1.5 mb-2">
@@ -2826,7 +2826,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               {payrollPeriod === 'custom' && (
                 <div className={`${glass} rounded-xl p-3 mb-4`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <Calendar size={14} className={sub} />
+                    <Calendar size={14} strokeWidth={1.75} className={sub} />
                     <span className={`text-xs ${sub}`}>Выберите период</span>
                   </div>
                   <div className="flex gap-2">
@@ -2892,7 +2892,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       <button
                         onClick={() => setPayrollSettings((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, active: !item.active } : item))}
                         className="w-11 h-6 rounded-full relative transition-all"
-                        style={{ background: worker.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}
+                        style={{ background: worker.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}
                       >
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${worker.active ? 'left-6' : 'left-1'}`} />
                       </button>
@@ -2999,7 +2999,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 );
               })}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить зарплаты'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить зарплаты'}
               </button>
             </motion.div>
           )}
@@ -3027,9 +3027,12 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
             }
             setPage(tab.id as AdminPage);
             setSettingsSection(null);
-          }} className="flex-1 py-3 flex flex-col items-center gap-1">
-            <tab.icon size={20} style={{ color: isActive ? primary : undefined }} className={!isActive ? sub : ''} />
-            <span className="text-[11px]" style={{ color: isActive ? primary : undefined }}>{tab.label}</span>
+          }} className="relative flex-1 py-3 flex flex-col items-center gap-1">
+            {isActive && (
+              <motion.span layoutId="admin-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+            )}
+            <tab.icon size={20} strokeWidth={1.75} style={{ color: isActive ? primary : undefined }} className={`relative ${!isActive ? sub : ''}`} />
+            <span className="relative text-[11px]" style={{ color: isActive ? primary : undefined }}>{tab.label}</span>
           </button>
         )})}
       </div>
@@ -3040,7 +3043,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowMenu(false)} />
             <motion.div initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed left-0 top-0 bottom-0 z-50 w-72 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} shadow-2xl flex flex-col`}>
+              className={`fixed left-0 top-0 bottom-0 z-50 w-72 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} shadow-2xl flex flex-col`}>
               <div className="p-5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -3050,7 +3053,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       <div className={`text-xs ${sub}`}>admin@atmosfera.ru</div>
                     </div>
                   </div>
-                  <button onClick={() => setShowMenu(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setShowMenu(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
               </div>
               <div className="flex-1 p-4 space-y-4 overflow-y-auto">
@@ -3061,7 +3064,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
-                      <CheckCircle size={20} />
+                      <CheckCircle size={20} strokeWidth={1.75} />
                     </div>
                     <div>
                       <div className="text-sm font-semibold">Старт смены</div>
@@ -3082,7 +3085,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   { icon: Settings, label: 'Настройки', action: () => { setPage('settings'); setSettingsSection(null); setShowMenu(false); } },
                 ].map(item => (
                   <button key={item.label} onClick={item.action} className={`w-full flex items-center gap-3 p-3 rounded-xl text-sm transition-colors text-left`} style={{ color: text }}>
-                    <item.icon size={18} style={{ color: primary }} />
+                    <item.icon size={18} strokeWidth={1.75} style={{ color: primary }} />
                     {item.label}
                   </button>
                 ))}
@@ -3098,10 +3101,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifPanel(false)} />
             <motion.div initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed right-0 top-0 bottom-0 z-50 w-80 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} shadow-2xl flex flex-col`}>
+              className={`fixed right-0 top-0 bottom-0 z-50 w-80 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} shadow-2xl flex flex-col`}>
               <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <h3 className="font-semibold">Уведомления</h3>
-                <button onClick={() => setShowNotifPanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowNotifPanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {adminNotifications.length === 0 ? (
@@ -3109,7 +3112,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 ) : adminNotifications.map(n => (
                   <div key={n.id} onClick={() => markNotificationRead(n.id)} className={`${glass} rounded-xl p-3 cursor-pointer border-l-2`} style={{ borderLeftColor: n.read ? 'transparent' : primary }}>
                     <div className="flex items-start gap-2">
-                      <Bell size={13} style={{ color: primary }} className="mt-0.5 shrink-0" />
+                      <Bell size={13} strokeWidth={1.75} style={{ color: primary }} className="mt-0.5 shrink-0" />
                       <div>
                         <p className="text-sm">{n.message}</p>
                         <p className={`text-xs ${sub} mt-1`}>{n.createdAt.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</p>
@@ -3129,13 +3132,13 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowSlideOver(false)} />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm ${isDark ? 'bg-[#0E1624]' : 'bg-white'} shadow-2xl flex flex-col overflow-y-auto`}>
+              className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} shadow-2xl flex flex-col overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0 z-10" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', background: surface }}>
                 <div>
                   <div className="font-semibold text-sm">#{selectedBooking.id.toUpperCase()}</div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[selectedBooking.status]}`}>{STATUS_LABELS[selectedBooking.status]}</span>
                 </div>
-                <button onClick={() => setShowSlideOver(false)} className={`p-2 rounded-xl ${glass}`}><X size={18} /></button>
+                <button onClick={() => setShowSlideOver(false)} className={`p-2 rounded-xl ${glass}`}><X size={18} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-3">
                 <div className={`${glass} rounded-2xl p-4`}>
@@ -3151,7 +3154,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <div className={`text-xs ${sub} mt-1`}>Откуда узнал: {selectedBooking.referralSource}</div>
                   )}
                   <a href={`tel:${selectedBooking.clientPhone}`} className="flex items-center gap-2 mt-1" style={{ color: primary }}>
-                    <Phone size={13} /><span className="text-sm">{selectedBooking.clientPhone}</span>
+                    <Phone size={13} strokeWidth={1.75} /><span className="text-sm">{selectedBooking.clientPhone}</span>
                   </a>
                   {selectedBooking.car && <div className={`text-sm ${sub} mt-1`}>{selectedBooking.car} · {selectedBooking.plate}</div>}
                 </div>
@@ -3258,24 +3261,24 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   )) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => openEditModal(selectedBooking, 'edit')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} />Редактировать</button>
+                  <button onClick={() => openEditModal(selectedBooking, 'edit')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} strokeWidth={1.75} />Редактировать</button>
                   {!['completed', 'cancelled', 'no_show'].includes(selectedBooking.status) && (
-                    <button onClick={() => openEditModal(selectedBooking, 'reschedule')} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-blue-500/15 text-blue-600"><Clock size={15} />Перенести</button>
+                    <button onClick={() => openEditModal(selectedBooking, 'reschedule')} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-blue-500/15 text-blue-600"><Clock size={15} strokeWidth={1.75} />Перенести</button>
                   )}
                   {READY_TO_START_STATUSES.includes(selectedBooking.status) && selectedBooking.date && selectedBooking.time && (
-                    <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} />Начать</button>
+                    <button onClick={() => { void handleStatusChange(selectedBooking.id, 'in_progress'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-yellow-500/15 text-yellow-600"><Play size={15} strokeWidth={1.75} />Начать</button>
                   )}
                   {(selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
-                    <button onClick={() => openAdditionalServiceModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-violet-500/15 text-violet-600"><Plus size={15} />Доп. услуга</button>
+                    <button onClick={() => openAdditionalServiceModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-violet-500/15 text-violet-600"><Plus size={15} strokeWidth={1.75} />Доп. услуга</button>
                   )}
                   {(selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
-                    <button onClick={() => openCompleteModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><CheckCircle size={15} />Закрыть</button>
+                    <button onClick={() => openCompleteModal(selectedBooking)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><CheckCircle size={15} strokeWidth={1.75} />Закрыть</button>
                   )}
                   {(READY_TO_START_STATUSES.includes(selectedBooking.status) || selectedBooking.status === 'in_progress' || selectedBooking.status === 'admin_review') && (
-                    <button onClick={() => { void handleStatusChange(selectedBooking.id, 'cancelled'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-red-500/15 text-red-500"><XCircle size={15} />Отменить</button>
+                    <button onClick={() => { void handleStatusChange(selectedBooking.id, 'cancelled'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-red-500/15 text-red-500"><XCircle size={15} strokeWidth={1.75} />Отменить</button>
                   )}
                   {selectedBooking.status === 'completed' && (
-                    <button className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><Check size={15} />Завершено</button>
+                    <button className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><Check size={15} strokeWidth={1.75} />Завершено</button>
                   )}
                 </div>
               </div>
@@ -3288,7 +3291,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       <AnimatePresence>
         {showAddServiceModal && addServiceTargetBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-[#0E1624]' : 'bg-white'}`}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'}`}>
               <h3 className={`text-lg font-semibold ${text} mb-1`}>Добавить услугу</h3>
               <p className={`text-xs ${sub} mb-4`}>Для: {addServiceTargetBooking.clientName} ({addServiceTargetBooking.service})</p>
 
@@ -3503,11 +3506,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setEditAsvcId(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Изменить доп. услугу</h3>
-                <button onClick={() => setEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
 
@@ -3648,10 +3651,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       <AnimatePresence>
         {showAssignModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-sm`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-sm`}>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Назначить мастеров</h3>
-                <button onClick={() => setShowAssignModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowAssignModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 {masterWorkers.map(worker => {
@@ -3702,7 +3705,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 })}
               </div>
               {!isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) && assignedWorkers.some(aw => aw.payType !== 'fixed') && totalPercent > 100 && (
-                <div className="flex items-center gap-2 text-red-500 text-xs mb-3"><AlertCircle size={14} />Сумма процентов превышает 100%</div>
+                <div className="flex items-center gap-2 text-red-500 text-xs mb-3"><AlertCircle size={14} strokeWidth={1.75} />Сумма процентов превышает 100%</div>
               )}
               <button onClick={() => { void handleAssignWorkers(true); }} className="w-full py-3 rounded-xl text-sm text-white font-medium mb-2" style={{ background: primary }}>Назначить и уведомить</button>
               <button onClick={() => { void handleAssignWorkers(false); }} className={`w-full py-3 rounded-xl text-sm ${glass}`}>Назначить без уведомления</button>
@@ -3715,11 +3718,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showCompleteModal && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Завершить запись</h3>
-                <button onClick={() => setShowCompleteModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowCompleteModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -3777,11 +3780,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showEditModal && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{editModalMode === 'reschedule' ? 'Перенести запись' : 'Редактировать запись'}</h3>
-                <button onClick={() => setShowEditModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowEditModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 {editModalMode === 'reschedule' && (
@@ -3979,7 +3982,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               </button>
               {editModalMode !== 'reschedule' && (
                 <button onClick={handleDeleteBooking} className={`w-full mt-2 py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
-                  <Trash2 size={15} className="inline mr-1.5 -mt-0.5" />Удалить запись
+                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Удалить запись
                 </button>
               )}
             </motion.div>
@@ -3992,7 +3995,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showCreateClient && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0 z-10" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <h3 className="font-semibold">Новый клиент</h3>
                 <button
@@ -4002,7 +4005,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   }}
                   className={`p-2 rounded-xl ${glass}`}
                 >
-                  <X size={16} />
+                  <X size={16} strokeWidth={1.75} />
                 </button>
               </div>
               <div className="p-4 space-y-3">
@@ -4082,7 +4085,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   Клиент сможет войти в Mini App по этому телефону и увидит записи, созданные для этой карточки.
                 </div>
                 {createClientErrors.general && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />{createClientErrors.general}</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />{createClientErrors.general}</div>
                 )}
               </div>
               <div className="p-4">
@@ -4105,12 +4108,12 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showNewBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
               {/* Sticky header — always visible while scrolling */}
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center shrink-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Новая запись</h3>
-                <button onClick={closeNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={closeNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               {/* Scrollable content container */}
               <div
@@ -4124,7 +4127,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     <div className="text-center">
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
                         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}20` }}>
-                        <Check size={28} style={{ color: primary }} />
+                        <Check size={28} strokeWidth={1.75} style={{ color: primary }} />
                       </motion.div>
                       <div className="font-semibold">Запись сохранена!</div>
                       <div className={`text-sm ${sub} mt-1`}>{saveSuccess === 'notify' ? 'Мастера уведомлены' : STATUS_LABELS[newBookingForm.status]}</div>
@@ -4447,7 +4450,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                               {STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
                             <button onClick={() => setNewBookingMaterials(current => current.filter((_, i) => i !== idx))}
-                              className="p-1 rounded text-red-500"><X size={14} /></button>
+                              className="p-1 rounded text-red-500"><X size={14} strokeWidth={1.75} /></button>
                           </div>
                         </div>
                         );
@@ -4465,11 +4468,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       onClick={() => setShowMaterialPicker(false)}>
                       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                         <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                           <div className="flex justify-between items-center mb-2">
                             <h3 className="font-semibold">Выбрать материал</h3>
-                            <button onClick={() => setShowMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                            <button onClick={() => setShowMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                           </div>
                           <div className="flex gap-1.5 flex-wrap">
                             <button onClick={() => setMaterialPickerCategory(null)}
@@ -4519,10 +4522,10 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                   )}
                 </AnimatePresence>
                 {!isFixedMasterService(services, newBookingForm.serviceId, services.find(s => s.id === newBookingForm.serviceId)?.name) && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100 && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {newBookingErrors.general && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />{newBookingErrors.general}</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />{newBookingErrors.general}</div>
                 )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
@@ -4585,11 +4588,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
-                  <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="text-xs" style={{ color: sub }}>
                   {(() => {
@@ -4645,7 +4648,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${accent}40` }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}>
-              <Check size={14} style={{ color: accent }} />
+              <Check size={14} strokeWidth={1.75} style={{ color: accent }} />
             </div>
             <span className="text-sm font-medium">Настройки сохранены</span>
           </motion.div>
@@ -4658,9 +4661,9 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             className="fixed bottom-20 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${accent}40` }}>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} style={{ color: accent }} /></div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} strokeWidth={1.75} style={{ color: accent }} /></div>
             <div className="flex-1 text-sm">{bottomToast}</div>
-            <button onClick={() => setBottomToast(null)}><X size={14} className={sub} /></button>
+            <button onClick={() => setBottomToast(null)}><X size={14} strokeWidth={1.75} className={sub} /></button>
           </motion.div>
         )}
       </AnimatePresence>

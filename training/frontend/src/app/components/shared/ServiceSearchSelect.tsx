@@ -73,11 +73,11 @@ export function ServiceSearchSelect({
           onClick={() => { setIsOpen(true); setQuery(''); }}
         >
           <span>{selectedService.name}</span>
-          <Search size={14} className={sub} />
+          <Search size={14} strokeWidth={1.75} className={sub} />
         </div>
       ) : (
         <div className="relative">
-          <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+          <Search size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
           <input
             ref={inputRef}
             className={`${inputCls} pl-9`}
@@ -93,7 +93,7 @@ export function ServiceSearchSelect({
 
       {isOpen && (
         <div
-          className={`absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'bg-[#0E1624] border border-white/10' : 'bg-white border border-black/5 shadow-sm'}`}
+          className={`absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'bg-[#1C1C1F] border border-white/10' : 'bg-white border border-black/5 shadow-sm'}`}
         >
           {filtered.length === 0 ? (
             <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>

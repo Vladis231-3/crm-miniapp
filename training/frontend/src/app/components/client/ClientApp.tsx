@@ -275,12 +275,12 @@ export function ClientApp() {
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
 
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const primaryBtn = isDark ? 'bg-[#4AA8FF] text-white' : 'bg-[#0A84FF] text-white';
-  const secondaryBtn = isDark ? 'bg-white/10 text-[#E6EEF8] border border-white/20' : 'bg-white text-[#0B1226] border border-black/10';
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const primaryBtn = isDark ? 'bg-[#6E76F2] text-white' : 'bg-[#4F46E5] text-white';
+  const secondaryBtn = isDark ? 'bg-white/10 text-[#E4E4E7] border border-white/20' : 'bg-white text-[#131316] border border-black/10';
   const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
   const availableSlotCards = slotCards.filter((slot) => slot.available).length;
   const occupiedSlotCards = slotCards.filter((slot) => !slot.available).length;
@@ -432,7 +432,7 @@ export function ClientApp() {
               }}
               className={`p-2 rounded-xl ${glass} mr-1`}
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={18} strokeWidth={1.75} />
             </button>
           )}
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: primary }}>
@@ -454,13 +454,13 @@ export function ClientApp() {
             }}
             className={`p-2 rounded-xl ${glass} relative`}
           >
-            <Bell size={18} />
+            <Bell size={18} strokeWidth={1.75} />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>
             )}
           </button>
           <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            {isDark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}
           </button>
         </div>
       </div>
@@ -471,14 +471,14 @@ export function ClientApp() {
           onClick={() => setPage('catalog')}
           className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all`}
         >
-          <LayoutGrid size={20} style={{ color: page === 'catalog' ? primary : undefined }} className={page !== 'catalog' ? sub : ''} />
+          <LayoutGrid size={20} strokeWidth={1.75} style={{ color: page === 'catalog' ? primary : undefined }} className={page !== 'catalog' ? sub : ''} />
           <span className="text-xs" style={{ color: page === 'catalog' ? primary : undefined }}>Каталог</span>
         </button>
         <button
           onClick={() => setPage('bookings')}
           className="flex-1 py-3 flex flex-col items-center gap-1 relative"
         >
-          <CalendarDays size={20} style={{ color: page === 'bookings' ? primary : undefined }} className={page !== 'bookings' ? sub : ''} />
+          <CalendarDays size={20} strokeWidth={1.75} style={{ color: page === 'bookings' ? primary : undefined }} className={page !== 'bookings' ? sub : ''} />
           <span className="text-xs" style={{ color: page === 'bookings' ? primary : undefined }}>Мои записи</span>
           {upcomingBookings.length > 0 && (
             <span className="absolute top-2 right-8 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
@@ -490,7 +490,7 @@ export function ClientApp() {
           onClick={() => setPage('profile')}
           className="flex-1 py-3 flex flex-col items-center gap-1"
         >
-          <User size={20} style={{ color: page === 'profile' ? primary : undefined }} className={page !== 'profile' ? sub : ''} />
+          <User size={20} strokeWidth={1.75} style={{ color: page === 'profile' ? primary : undefined }} className={page !== 'profile' ? sub : ''} />
           <span className="text-xs" style={{ color: page === 'profile' ? primary : undefined }}>Профиль</span>
         </button>
       </div></div>
@@ -512,7 +512,7 @@ export function ClientApp() {
                 <ServiceSearchInput
                   value={serviceSearchQuery}
                   onChange={(v) => { setServiceSearchQuery(v); if (v.trim()) setActiveCategory('Все'); }}
-                  inputCls={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                  inputCls={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                   iconCls={sub}
                 />
               </div>
@@ -554,7 +554,7 @@ export function ClientApp() {
                       <div className="text-right">
                         <div className="font-semibold">{service.price.toLocaleString('ru')} ₽</div>
                         <div className={`text-xs ${sub} flex items-center gap-1 justify-end mt-0.5`}>
-                          <Clock size={11} />
+                          <Clock size={11} strokeWidth={1.75} />
                           {service.duration} мин
                         </div>
                       </div>
@@ -588,7 +588,7 @@ export function ClientApp() {
             >
               <div className={`${glass} rounded-2xl p-5 mb-4`}>
                 <div className="w-full h-32 rounded-xl mb-4 flex items-center justify-center" style={{ background: `${primary}15` }}>
-                  <Star size={40} style={{ color: primary }} />
+                  <Star size={40} strokeWidth={1.75} style={{ color: primary }} />
                 </div>
                 <h2 className="text-xl font-semibold mb-1">{selectedService.name}</h2>
                 <span className="text-xs px-2 py-0.5 rounded-full inline-block mb-3" style={{ background: `${primary}20`, color: primary }}>
@@ -612,7 +612,7 @@ export function ClientApp() {
                   <select
                     value={selectedBookingVehicleIndex}
                     onChange={(event) => setSelectedBookingVehicleIndex(Number(event.target.value))}
-                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7]' : 'bg-white border-black/10 text-[#131316]'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
                   >
                     {bookingVehicles.map((vehicle, index) => (
                       <option key={`booking-vehicle-${index}`} value={index}>
@@ -655,7 +655,7 @@ export function ClientApp() {
                     value={detailingNote}
                     onChange={(event) => setDetailingNote(event.target.value)}
                     placeholder="Опишите задачу, состояние авто или удобный способ связи"
-                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
                   />
                 </div>
               )}
@@ -843,7 +843,7 @@ export function ClientApp() {
                 className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
                 style={{ background: `${primary}20` }}
               >
-                <Check size={36} style={{ color: primary }} />
+                <Check size={36} strokeWidth={1.75} style={{ color: primary }} />
               </motion.div>
               <h2 className="text-xl font-semibold mb-2 text-center">
                 Заявка отправлена!
@@ -874,7 +874,7 @@ export function ClientApp() {
                 onClick={handleAddToCalendar}
                 className={`w-full py-3 rounded-2xl font-medium mb-3 ${secondaryBtn} flex items-center justify-center gap-2`}
               >
-                <Calendar size={18} />
+                <Calendar size={18} strokeWidth={1.75} />
                 Добавить в календарь
               </motion.button>
               <button
@@ -900,7 +900,7 @@ export function ClientApp() {
               <h2 className="text-lg font-semibold mb-4">Мои записи</h2>
               {clientBookings.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <CalendarDays size={40} className={`mx-auto mb-3 ${sub}`} />
+                  <CalendarDays size={40} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>У вас пока нет записей</p>
                   <button
                     onClick={() => setPage('catalog')}
@@ -1017,7 +1017,7 @@ export function ClientApp() {
                 <div className="space-y-3">
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Имя</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.name ? 'border-red-400' : ''}`} value={profileForm.name} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.name ? 'border-red-400' : ''}`} value={profileForm.name} onChange={(e) => {
                       setProfileForm((current) => ({ ...current, name: e.target.value }));
                       setProfileErrors((current) => ({ ...current, name: '' }));
                       setProfileError('');
@@ -1026,7 +1026,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
                       setProfileForm((current) => ({ ...current, phone: e.target.value }));
                       setProfileErrors((current) => ({ ...current, phone: '' }));
                       setProfileError('');
@@ -1035,7 +1035,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{'\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
                       const nextCar = e.target.value;
                       setProfileForm((current) => {
                         const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
@@ -1052,7 +1052,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
                       const nextPlate = normalizePlateInput(e.target.value);
                       setProfileForm((current) => {
                         const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
@@ -1089,7 +1089,7 @@ export function ClientApp() {
                       {profileVehicles.slice(1).map((vehicle, index) => (
                         <div key={`profile-vehicle-${index + 1}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                           <input
-                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                             placeholder={'\u041c\u0430\u0440\u043a\u0430'}
                             value={vehicle.car}
                             onChange={(e) => {
@@ -1105,7 +1105,7 @@ export function ClientApp() {
                             }}
                           />
                           <input
-                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                             placeholder={'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}
                             maxLength={9}
                             value={vehicle.plate}
@@ -1174,7 +1174,7 @@ export function ClientApp() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-6 w-full max-w-sm`}
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-6 w-full max-w-sm`}
               onClick={e => e.stopPropagation()}
             >
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-5" />
@@ -1222,7 +1222,7 @@ export function ClientApp() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}
               onClick={e => e.stopPropagation()}
             >
               <h3 className="font-semibold mb-2">Отменить запись?</h3>
@@ -1253,10 +1253,10 @@ export function ClientApp() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
-            style={{ background: isDark ? '#0E1624' : '#ffffff', border: `1px solid ${primary}40` }}
+            style={{ background: isDark ? '#1C1C1F' : '#ffffff', border: `1px solid ${primary}40` }}
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}>
-              <Check size={14} style={{ color: primary }} />
+              <Check size={14} strokeWidth={1.75} style={{ color: primary }} />
             </div>
             <span className="text-sm font-medium">Профиль обновлен</span>
           </motion.div>
@@ -1307,7 +1307,7 @@ function BookingCard({
           onClick={onCancel}
           className={`w-full py-2 rounded-xl text-sm border flex items-center justify-center gap-2 ${isDark ? 'border-red-400/30 text-red-400' : 'border-red-500/30 text-red-500'}`}
         >
-          <Trash2 size={14} />
+          <Trash2 size={14} strokeWidth={1.75} />
           Отменить запись
         </button>
       )}

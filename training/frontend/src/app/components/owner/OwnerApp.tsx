@@ -1579,14 +1579,14 @@ export function OwnerApp() {
   const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = isDark ? '#5DD68F' : '#34C759';
-  const surface = isDark ? '#0E1624' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const accent = isDark ? '#34D399' : '#10B981';
+  const surface = isDark ? '#1C1C1F' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7]' : 'bg-white border-black/10 text-[#131316]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const tooltipStyle = { background: surface, border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 12, color: text };
   const createDraftId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -3755,7 +3755,7 @@ paymentSettled: false,
 
   const SwitchToggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-all shrink-0"
-      style={{ background: value ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+      style={{ background: value ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${value ? 'left-6' : 'left-1'}`} />
     </button>
   );
@@ -3794,11 +3794,11 @@ paymentSettled: false,
             </div>
           )}
           <button onClick={() => { setShowNotifications(true); markAllNotificationsRead(financeNotificationRole); }} className={`p-2 rounded-xl ${glass} relative`}>
-            <Bell size={18} />
+            <Bell size={18} strokeWidth={1.75} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={() => setShowFinancePanel(true)} className={`p-2 rounded-xl ${glass}`}><Wallet size={18} /></button>
-          <button onClick={() => setShowOwnerNewBooking(true)} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} /></button>
+          <button onClick={() => setShowFinancePanel(true)} className={`p-2 rounded-xl ${glass}`}><Wallet size={18} strokeWidth={1.75} /></button>
+          <button onClick={() => setShowOwnerNewBooking(true)} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
         </div>
       </div>
 
@@ -3819,7 +3819,7 @@ paymentSettled: false,
                         className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                         aria-label="Предыдущий месяц"
                       >
-                        <ChevronLeft size={18} />
+                        <ChevronLeft size={18} strokeWidth={1.75} />
                       </button>
                       <div className="text-center min-w-0">
                         <div className="font-semibold">{ownerCalendarMonthLabel}</div>
@@ -3831,7 +3831,7 @@ paymentSettled: false,
                         className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                         aria-label="Следующий месяц"
                       >
-                        <ChevronRight size={18} />
+                        <ChevronRight size={18} strokeWidth={1.75} />
                       </button>
                     </div>
                     <button
@@ -3930,7 +3930,7 @@ paymentSettled: false,
                       onClick={() => setOwnerCalendarView('month')}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
-                      <ArrowLeft size={16} />
+                      <ArrowLeft size={16} strokeWidth={1.75} />
                       Месяц
                     </button>
                     <button
@@ -3955,12 +3955,12 @@ paymentSettled: false,
                           {` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00–${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
                         </div>
                       </div>
-                      <CalendarDays size={22} style={{ color: primary }} />
+                      <CalendarDays size={22} strokeWidth={1.75} style={{ color: primary }} />
                     </div>
                   </div>
                   {calendarBookings.length === 0 ? (
                     <div className={`${glass} rounded-2xl p-8 text-center`}>
-                      <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                      <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                       <p className={sub}>На этот день записей нет</p>
                     </div>
                   ) : (
@@ -4059,9 +4059,9 @@ paymentSettled: false,
                   <motion.button key={card.label} whileTap={{ scale: 0.96 }} onClick={card.action}
                     className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <card.icon size={15} style={{ color: card.color }} />
+                      <card.icon size={15} strokeWidth={1.75} style={{ color: card.color }} />
                       <span className={`text-xs ${sub}`}>{card.label}</span>
-                      <ChevronRight size={12} className={`ml-auto ${sub}`} />
+                      <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
                     </div>
                     <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
                     <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
@@ -4076,10 +4076,10 @@ paymentSettled: false,
                   style={{ background: `linear-gradient(135deg, ${primary}, ${accent})` }}
                 >
                   <span className="flex items-center gap-2.5">
-                    <Clock size={18} />
+                    <Clock size={18} strokeWidth={1.75} />
                     Открытие смены
                   </span>
-                  <ChevronRight size={18} />
+                  <ChevronRight size={18} strokeWidth={1.75} />
                 </button>
               )}
               {/* Today bookings */}
@@ -4091,7 +4091,7 @@ paymentSettled: false,
                 <div className="space-y-3">
                   {todayBookings.length === 0 ? (
                     <div className={`${glass} rounded-2xl p-8 text-center`}>
-                      <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                      <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                       <p className={sub}>Записей на сегодня нет</p>
                     </div>
                   ) : todayBookings.map(booking => (
@@ -4139,8 +4139,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Выручка" />
                     <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Расходы" />
@@ -4172,8 +4172,8 @@ paymentSettled: false,
                   {
                     label: 'Топ-услуга',
                     value: topServiceName,
-                    color: '#A855F7',
-                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: '#A855F7', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
+                    color: '#312E81',
+                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: '#312E81', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
                   },
                   {
                     label: 'Не приехали',
@@ -4186,7 +4186,7 @@ paymentSettled: false,
                     className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
                     <div className="flex items-center gap-1">
                       <div className={`text-xs ${sub}`}>{card.label}</div>
-                      <ChevronRight size={12} className={`ml-auto ${sub}`} />
+                      <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
                     </div>
                     <div className="font-bold mt-2" style={{ color: card.color }}>{card.value}</div>
                     <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
@@ -4230,10 +4230,10 @@ paymentSettled: false,
                         { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
                         { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
                         { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
-                        { label: 'Настройки', icon: Settings, color: '#A855F7', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
+                        { label: 'Настройки', icon: Settings, color: '#312E81', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
                       ]).map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} style={{ color: a.color }} /></div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} strokeWidth={1.75} style={{ color: a.color }} /></div>
                     <span className="text-xs font-medium">{a.label}</span>
                   </motion.button>
                 ))}
@@ -4253,7 +4253,7 @@ paymentSettled: false,
                         className="flex items-center gap-1 w-full text-left rounded px-0.5 py-0.5 active:opacity-70">
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
                         <span className={`text-[10px] ${sub} truncate`}>{s.name} ({s.value})</span>
-                        <ChevronRight size={10} className={`ml-auto shrink-0 ${sub}`} />
+                        <ChevronRight size={10} strokeWidth={1.75} className={`ml-auto shrink-0 ${sub}`} />
                       </button>
                     ))}
                   </div>
@@ -4261,13 +4261,13 @@ paymentSettled: false,
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => setPage('stock')} className={`${glass} rounded-2xl p-3 text-left active:opacity-80`}>
                   <div className={`text-xs ${sub} mb-2 flex items-center gap-1`}>
                     Склад
-                    <ChevronRight size={12} className={`ml-auto ${sub}`} />
+                    <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
                   </div>
                   <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} ₽</div>
                   <div className={`text-xs ${sub} mb-2`}>{stockItems.length} позиций</div>
                   {stockItems.filter(s => s.qty <= 5).length > 0 && (
                     <div className="flex items-center gap-1 text-red-500 text-xs">
-                      <AlertCircle size={11} />
+                      <AlertCircle size={11} strokeWidth={1.75} />
                       {stockItems.filter(s => s.qty <= 5).length} на исходе
                     </div>
                   )}
@@ -4280,9 +4280,9 @@ paymentSettled: false,
                   {stockItems.filter(s => s.qty <= 5).map(s => (
                     <motion.button key={s.id} whileTap={{ scale: 0.98 }} onClick={() => setPage('stock')}
                       className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-2 flex items-center gap-2 w-full text-left active:opacity-80">
-                      <AlertCircle size={15} className="text-red-500 shrink-0" />
+                      <AlertCircle size={15} strokeWidth={1.75} className="text-red-500 shrink-0" />
                       <span className="text-sm">Низкий остаток: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
-                      <ChevronRight size={14} className="ml-auto shrink-0 text-red-500/70" />
+                      <ChevronRight size={14} strokeWidth={1.75} className="ml-auto shrink-0 text-red-500/70" />
                     </motion.button>
                   ))}
                 </div>
@@ -4334,7 +4334,7 @@ paymentSettled: false,
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
               </div>}
               <button onClick={() => { void handleSavePayrollSettings(); }} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-4" style={{ background: primary }}>
-                <Save size={16} />Сохранить настройки зарплат
+                <Save size={16} strokeWidth={1.75} />Сохранить настройки зарплат
               </button>
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-2`}>Жалобы мастерам</div>
@@ -4443,7 +4443,7 @@ paymentSettled: false,
                           <button
                             onClick={() => setEmployeeSettings((current) => current.map((item) => item.id === worker.id ? { ...item, active: !item.active } : item))}
                             className="w-11 h-6 rounded-full relative transition-all"
-                            style={{ background: payrollDraft.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}
+                            style={{ background: payrollDraft.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}
                           >
                             <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${payrollDraft.active ? 'left-6' : 'left-1'}`} />
                           </button>
@@ -4546,7 +4546,7 @@ paymentSettled: false,
                                   adjustment: 'Корректировка',
                                 }[entry.kind]}
                               </div>
-                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#E6EEF8' : '#0B1226') }}>
+                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#E4E4E7' : '#131316') }}>
                                 {entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽
                               </div>
                             </div>
@@ -4622,7 +4622,7 @@ paymentSettled: false,
                           <button
                             onClick={() => setExpandedOwnerShares(prev => ({ ...prev, [owner.ownerId]: !prev[owner.ownerId] }))}
                             className="w-full flex items-center gap-1.5 text-left mb-2 active:opacity-70">
-                            <ChevronRight size={14} className={`${sub} transition-transform ${expandedOwnerShares[owner.ownerId] ? 'rotate-90' : ''}`} />
+                            <ChevronRight size={14} strokeWidth={1.75} className={`${sub} transition-transform ${expandedOwnerShares[owner.ownerId] ? 'rotate-90' : ''}`} />
                             <span className={`text-xs ${sub}`}>Начисления по заказам ({owner.shares.length})</span>
                           </button>
                           {expandedOwnerShares[owner.ownerId] && owner.shares.map(share => (
@@ -4676,7 +4676,7 @@ paymentSettled: false,
           {page === 'salary-detail' && (
             <motion.div data-training="owner-payroll-detail" key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
-                <ArrowLeft size={16} />Назад к зарплатам
+                <ArrowLeft size={16} strokeWidth={1.75} />Назад к зарплатам
               </button>
 
               {/* Filter bar — always visible when worker is selected */}
@@ -4737,7 +4737,7 @@ paymentSettled: false,
 
               {!salaryLoading && !salaryDetail && selectedSalaryWorkerId && salaryError && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <AlertCircle size={36} className={`mx-auto mb-3 text-red-400`} />
+                  <AlertCircle size={36} strokeWidth={1.75} className={`mx-auto mb-3 text-red-400`} />
                   <p className="text-sm text-red-400 mb-2">{salaryError}</p>
                   <button onClick={refreshSalaryDetail} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: primary, color: '#fff' }}>Повторить</button>
                 </div>
@@ -4943,7 +4943,7 @@ paymentSettled: false,
                           advance: 'Аванс', adjustment: 'Корректировка',
                         };
                         const kindColor: Record<string, string> = {
-                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E6EEF8' : '#0B1226',
+                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
                           advance: '#f59e0b', adjustment: '#3b82f6',
                         };
                         const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'bonus';
@@ -4953,8 +4953,8 @@ paymentSettled: false,
                               <div className="flex-1 min-w-0">
                                 <div className="flex gap-2 mb-1">
                                   <input type="number" value={editAmount} onChange={e2 => setEditAmount(e2.target.value)} className={`${inputCls} flex-1 text-xs py-1 px-2 rounded-lg`} />
-                                  <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} /></button>
-                                  <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: sub }}><X size={14} /></button>
+                                  <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} strokeWidth={1.75} /></button>
+                                  <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: sub }}><X size={14} strokeWidth={1.75} /></button>
                                 </div>
                                 <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="Примечание" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />
                               </div>
@@ -4972,7 +4972,7 @@ paymentSettled: false,
                                     <div className="text-[11px] font-medium">{e.entryDate || new Date(e.createdAt).toLocaleDateString('ru')}</div>
                                     <div className={`text-[10px] ${sub}`}>{e.createdByName}</div>
                                   </div>
-                                  {canEdit && <button onClick={() => { setEditingEntryId(e.id); setEditAmount(String(e.amount)); setEditNote(e.note || ''); }} className="p-1 rounded hover:bg-white/10" style={{ color: sub }}><Edit3 size={12} /></button>}
+                                  {canEdit && <button onClick={() => { setEditingEntryId(e.id); setEditAmount(String(e.amount)); setEditNote(e.note || ''); }} className="p-1 rounded hover:bg-white/10" style={{ color: sub }}><Edit3 size={12} strokeWidth={1.75} /></button>}
                                 </div>
                               </>
                             )}
@@ -4993,7 +4993,7 @@ paymentSettled: false,
                 <h2 className="font-semibold">Склад</h2>
                 <div className="flex gap-2">
                   <button onClick={() => setShowAddStock(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
-                    <Plus size={14} />Добавить товар
+                    <Plus size={14} strokeWidth={1.75} />Добавить товар
                   </button>
                   <button onClick={() => setShowCategoryManager(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm ${glass}`}>
                     <span>Категории</span>
@@ -5042,7 +5042,7 @@ paymentSettled: false,
                               <div className={`text-xs ${sub}`}>{(item.qty * item.unitPrice).toLocaleString('ru')} ₽</div>
                             </div>
                           </div>
-                          {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} />Низкий остаток</div>}
+                          {item.qty <= 5 && <div className="flex items-center gap-1 text-red-500 text-xs mb-2"><AlertCircle size={12} strokeWidth={1.75} />Низкий остаток</div>}
                           <div className="h-1.5 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                             <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (item.qty / 30) * 100)}%`, background: item.qty <= 5 ? '#EF4444' : primary }} />
                           </div>
@@ -5050,7 +5050,7 @@ paymentSettled: false,
                             <button onClick={() => { setShowWriteOff(item.id); setWriteOffQty('1'); }}
                               className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
                               style={{ borderColor: `${primary}30`, color: primary }}>
-                              <Package size={12} />Списать
+                              <Package size={12} strokeWidth={1.75} />Списать
                             </button>
                             <button onClick={async () => {
                               if (!window.confirm(`Удалить «${item.name}» со склада?`)) return;
@@ -5065,7 +5065,7 @@ paymentSettled: false,
                             }}
                               className="py-2 rounded-lg text-xs border flex items-center justify-center gap-1.5"
                               style={{ borderColor: 'rgba(239,68,68,0.3)', color: '#EF4444' }}>
-                              <X size={12} />Удалить
+                              <X size={12} strokeWidth={1.75} />Удалить
                             </button>
                           </div>
                         </motion.div>
@@ -5076,7 +5076,7 @@ paymentSettled: false,
               })}
               {stockItems.length === 0 && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <Box size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <Box size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Склад пуст. Добавьте первый товар.</p>
                 </div>
               )}
@@ -5085,7 +5085,7 @@ paymentSettled: false,
                 <button onClick={() => { setShowWriteOffHistory(!showWriteOffHistory); if (!showWriteOffHistory) getWriteOffHistory().then(setWriteOffHistory).catch(() => {}); }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${glass}`}>
                   <span className="flex items-center gap-2">
-                    <History size={15} />История списаний
+                    <History size={15} strokeWidth={1.75} />История списаний
                   </span>
                   <span className={`text-xs ${sub}`}>{showWriteOffHistory ? '▲' : '▼'}</span>
                 </button>
@@ -5255,12 +5255,12 @@ paymentSettled: false,
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {page === 'settings' && (
-                    <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} text-sm`}><ArrowLeft size={16} /></button>
+                    <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} text-sm`}><ArrowLeft size={16} strokeWidth={1.75} /></button>
                   )}
                   <h2 className="font-semibold">Кошелёк</h2>
                 </div>
                 <button onClick={() => { void loadWallet(walletDateFrom || undefined, walletDateTo || undefined); }} disabled={walletLoading} className={`p-2 rounded-xl ${glass}`}>
-                  <RefreshCw size={16} className={walletLoading ? 'animate-spin' : ''} />
+                  <RefreshCw size={16} strokeWidth={1.75} className={walletLoading ? 'animate-spin' : ''} />
                 </button>
               </div>
 
@@ -5327,7 +5327,7 @@ paymentSettled: false,
                               <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
                               {session?.role === 'owner' && (
                                 <button onClick={() => openEditIncome(i)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
-                                  <Edit3 size={13} className={sub} />
+                                  <Edit3 size={13} strokeWidth={1.75} className={sub} />
                                 </button>
                               )}
                             </div>
@@ -5362,7 +5362,7 @@ paymentSettled: false,
                               <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                               {(session?.role === 'owner' || session?.role === 'accountant') && (
                                 <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
-                                  <Edit3 size={13} className={sub} />
+                                  <Edit3 size={13} strokeWidth={1.75} className={sub} />
                                 </button>
                               )}
                             </div>
@@ -5443,7 +5443,7 @@ paymentSettled: false,
                   )}
                 </div>
                 <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
-                  <RefreshCw size={16} className={piggyBankLoading ? 'animate-spin' : ''} />
+                  <RefreshCw size={16} strokeWidth={1.75} className={piggyBankLoading ? 'animate-spin' : ''} />
                 </button>
               </div>
 
@@ -5477,7 +5477,7 @@ paymentSettled: false,
                     {piggyTab !== 'all' && (
                       <button onClick={() => openPiggyAdjust(piggyTab)} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
                         style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
-                        <Edit3 size={12} />
+                        <Edit3 size={12} strokeWidth={1.75} />
                       </button>
                     )}
                   </div>
@@ -5570,7 +5570,7 @@ paymentSettled: false,
 
                   {/* Withdraw button */}
                   <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mb-4" style={{ background: accent }}>
-                    <Plus size={16} className="inline mr-1.5" />Снять на материалы
+                    <Plus size={16} strokeWidth={1.75} className="inline mr-1.5" />Снять на материалы
                   </button>
                 </>
               )}
@@ -5665,7 +5665,7 @@ paymentSettled: false,
                     </span>
                   </div>
                   <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mt-4" style={{ background: accent }}>
-                    <Plus size={16} className="inline mr-1.5" />Снять на материалы
+                    <Plus size={16} strokeWidth={1.75} className="inline mr-1.5" />Снять на материалы
                   </button>
                 </div>
               )}
@@ -5677,7 +5677,7 @@ paymentSettled: false,
                   {!piggyTxExpanded && (
                     <span className={`text-[11px] ${sub}`}>{piggyBankTxs.length} операций</span>
                   )}
-                  <ChevronRight size={14} className={`${sub} transition-transform ${piggyTxExpanded ? 'rotate-90' : ''}`} />
+                  <ChevronRight size={14} strokeWidth={1.75} className={`${sub} transition-transform ${piggyTxExpanded ? 'rotate-90' : ''}`} />
                 </div>
               </button>
               {piggyTxExpanded && (() => {
@@ -5771,7 +5771,7 @@ paymentSettled: false,
                                 = {txRunningBalance.toLocaleString('ru')} ₽
                               </div>
                               {tx.bookingId && (
-                                <ChevronRight size={12} className={`mt-0.5 ${sub}`} />
+                                <ChevronRight size={12} strokeWidth={1.75} className={`mt-0.5 ${sub}`} />
                               )}
                             </div>
                           </div>
@@ -5789,7 +5789,7 @@ paymentSettled: false,
                     <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Архив недель</div>
                     <div className="flex items-center gap-1.5">
                       <span className={`text-[10px] ${sub}`}>{piggyBank.archives.length} шт.</span>
-                      <ChevronRight size={14} className={sub} />
+                      <ChevronRight size={14} strokeWidth={1.75} className={sub} />
                     </div>
                   </button>
                 </div>
@@ -5850,15 +5850,15 @@ paymentSettled: false,
                 <h2 className="font-semibold">Отчёты</h2>
                 <div className="flex gap-1.5">
                   <button onClick={() => openExportModal('report')} disabled={exportingKind !== null} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
-                    <Download size={12} />{exportingKind === 'report' ? '...' : 'Excel'}
+                    <Download size={12} strokeWidth={1.75} />{exportingKind === 'report' ? '...' : 'Excel'}
                   </button>
                   <button onClick={() => openExportModal('pdf')} disabled={exportingKind !== null} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
-                    <Download size={12} />{exportingKind === 'pdf' ? '...' : 'PDF'}
+                    <Download size={12} strokeWidth={1.75} />{exportingKind === 'pdf' ? '...' : 'PDF'}
                   </button>
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#6B7280] mb-3">Сводные Telegram-отчёты</div>
+                <div className="text-xs text-[#71717A] mb-3">Сводные Telegram-отчёты</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { period: 'daily', segment: 'wash', label: 'День · мойка' },
@@ -5884,7 +5884,7 @@ paymentSettled: false,
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
                   { label: 'Средний чек', value: `${reportAverageCheck.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Топ-услуга', value: reportTopServiceName, color: '#A855F7' },
+                  { label: 'Топ-услуга', value: reportTopServiceName, color: '#312E81' },
                   { label: 'Активных клиентов', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
                   { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
                 ].map((item) => (
@@ -5901,7 +5901,7 @@ paymentSettled: false,
                   { label: 'Доп. доходы', value: `${reportTotalIncomes.toLocaleString('ru')} ₽`, color: primary },
                   { label: 'Расходы', value: `${reportTotalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
                   { label: 'Прибыль', value: `${Math.abs(reportProfit).toLocaleString('ru')} ₽${reportProfit < 0 ? ' (убыток)' : ''}`, color: reportProfit >= 0 ? accent : '#FF6B6B' },
-                  { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#A855F7' },
+                  { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#312E81' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className="text-sm">{r.label}</span>
@@ -5960,8 +5960,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={reportByService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
@@ -6011,7 +6011,7 @@ paymentSettled: false,
                     className="px-3 py-2 rounded-xl text-xs font-medium text-white flex items-center gap-1.5"
                     style={{ background: primary }}
                   >
-                    <Plus size={14} />
+                    <Plus size={14} strokeWidth={1.75} />
                     Новый клиент
                   </button>
                 </div>
@@ -6142,7 +6142,7 @@ paymentSettled: false,
                 { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' · ') || 'График не задан', color: '#F59E0B' },
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
-                { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#A855F7' },
+                { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#312E81' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
                 { id: 'shift', icon: Clock, label: 'Открытие смены', desc: 'Открыть смену для мастеров', color: accent },
                 { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
@@ -6164,13 +6164,13 @@ paymentSettled: false,
                   }}
                   className={`${glass} rounded-2xl p-4 w-full text-left mb-2 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
-                    <item.icon size={18} style={{ color: item.color }} />
+                    <item.icon size={18} strokeWidth={1.75} style={{ color: item.color }} />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">{item.label}</div>
                     <div className={`text-xs ${sub}`}>{item.desc}</div>
                   </div>
-                  <ChevronRight size={16} className={sub} />
+                  <ChevronRight size={16} strokeWidth={1.75} className={sub} />
                 </motion.button>
               ))}
             </motion.div>
@@ -6179,7 +6179,7 @@ paymentSettled: false,
           {/* ── SETTINGS: SHIFT OPENING ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'shift' && (
             <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Открытие смены</h2>
               <p className={`text-xs ${sub} mb-4`}>Отметь мастеров, которые вышли на смену. Смена сразу открыта и попадает в посещаемость — подтверждение не требуется.</p>
 
@@ -6327,7 +6327,7 @@ paymentSettled: false,
           {/* ── SETTINGS: BOOKINGS HISTORY ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'bookings-history' && !selectedHistoryBookingId && (
             <motion.div key="s-bookings-history" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">История записей</h2>
 
               <div className="flex flex-wrap gap-2 mb-3">
@@ -6377,7 +6377,7 @@ paymentSettled: false,
 
               <div className="flex gap-2 mb-4">
                 <div className={`relative flex-1 ${glass} rounded-xl`}>
-                  <Search size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                  <Search size={15} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                   <input
                     className="w-full bg-transparent outline-none pl-9 pr-3 py-2.5 text-sm"
                     placeholder="Клиент, телефон, услуга, авто..."
@@ -6501,7 +6501,7 @@ paymentSettled: false,
                                 </span>
                               </div>
                             </div>
-                            <ChevronRight size={15} className={`mt-1 shrink-0 ${sub}`} />
+                            <ChevronRight size={15} strokeWidth={1.75} className={`mt-1 shrink-0 ${sub}`} />
                           </div>
                         </motion.button>
                       ))}
@@ -6515,7 +6515,7 @@ paymentSettled: false,
           {/* ── SETTINGS: BOOKINGS HISTORY DETAIL ── */}
           {!isAccountant && page === 'settings' && (settingsSection === 'bookings-history' || settingsSection === 'archive') && selectedHistoryBookingId && (
             <motion.div key="s-booking-split" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
 
               {splitLoading || !splitDetail ? (
                 <div className={`text-center py-10 text-sm ${sub}`}>Загрузка...</div>
@@ -6645,7 +6645,7 @@ paymentSettled: false,
                           <span className={`${sub} truncate`}>
                             · {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}
                           </span>
-                          <span className="font-medium shrink-0" style={{ color: '#A855F7' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
+                          <span className="font-medium shrink-0" style={{ color: '#312E81' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
 
@@ -6818,14 +6818,14 @@ paymentSettled: false,
                         disabled={splitSaving}
                         className="w-full py-3.5 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-3 disabled:opacity-60"
                         style={{ background: primary }}>
-                        <Save size={16} />{splitSaving ? 'Сохраняем...' : 'Сохранить изменения'}
+                        <Save size={16} strokeWidth={1.75} />{splitSaving ? 'Сохраняем...' : 'Сохранить изменения'}
                       </button>
                       {splitDetail.hasCustom && (
                         <button onClick={() => void handleResetMoneySplit()}
                           disabled={splitSaving}
                           className="w-full py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60 mb-4"
                           style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
-                          <RefreshCw size={15} />Сбросить к автоматическому расчёту
+                          <RefreshCw size={15} strokeWidth={1.75} />Сбросить к автоматическому расчёту
                         </button>
                       )}
                     </>
@@ -6838,7 +6838,7 @@ paymentSettled: false,
           {/* ── SETTINGS: ARCHIVE ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'archive' && !selectedHistoryBookingId && (
             <motion.div key="s-archive" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => { setSettingsSection(null); setArchiveHighlight(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => { setSettingsSection(null); setArchiveHighlight(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Архив</h2>
               <div className={`text-xs ${sub} mb-4`}>Главная библиотека и картотека: все записи, доходы, расходы и расчёты за период</div>
 
@@ -6860,7 +6860,7 @@ paymentSettled: false,
                 ))}
                 <button onClick={() => { setArchiveCalendarStep('year'); setArchiveCalendarOpen(true); }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${glass} ${sub}`}>
-                  <CalendarDays size={14} />Календарь
+                  <CalendarDays size={14} strokeWidth={1.75} />Календарь
                 </button>
               </div>
 
@@ -6885,7 +6885,7 @@ paymentSettled: false,
                           : archiveCalendarStep === 'month' ? `Год ${archiveCalendarYear}`
                           : `${archiveCalendarYear} · ${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][archiveCalendarMonth]}`}
                       </h3>
-                      <button onClick={() => setArchiveCalendarOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10"><X size={16} /></button>
+                      <button onClick={() => setArchiveCalendarOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10"><X size={16} strokeWidth={1.75} /></button>
                     </div>
 
                     {archiveCalendarStep === 'year' && (
@@ -6909,9 +6909,9 @@ paymentSettled: false,
                     {archiveCalendarStep === 'month' && (
                       <>
                         <div className="flex items-center justify-between mb-2">
-                          <button onClick={() => setArchiveCalendarYear(y => y - 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronLeft size={16} /></button>
+                          <button onClick={() => setArchiveCalendarYear(y => y - 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronLeft size={16} strokeWidth={1.75} /></button>
                           <span className="text-sm font-semibold">{archiveCalendarYear}</span>
-                          <button onClick={() => setArchiveCalendarYear(y => y + 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronRight size={16} /></button>
+                          <button onClick={() => setArchiveCalendarYear(y => y + 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronRight size={16} strokeWidth={1.75} /></button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           {['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'].map((m, idx) => (
@@ -6963,7 +6963,7 @@ paymentSettled: false,
                       { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#10B981', onClick: gotoHistory, hint: 'История записей' },
                       { label: 'Прибыль', value: archiveData.summary.profit, color: accent, onClick: gotoWallet, hint: 'Кошелёк' },
                       { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#6366F1', onClick: gotoPayroll, hint: 'Зарплаты' },
-                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#A855F7', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#312E81', onClick: gotoPayroll, hint: 'Зарплаты' },
                       { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#22C55E', onClick: gotoWallet, hint: 'Кошелёк' },
                       { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#EF4444', onClick: gotoWallet, hint: 'Кошелёк' },
                       { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#F59E0B', onClick: () => gotoPiggyBank(), hint: 'Копилка' },
@@ -7031,7 +7031,7 @@ paymentSettled: false,
                                 </span>
                               )}
                               <span className={sub}>Копилка: <b className="font-semibold" style={{ color: '#F59E0B' }}>+{b.piggyDeposit.toLocaleString('ru')} ₽</b></span>
-                              <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#A855F7' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#312E81' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
                               <span className={sub}>Нетто: <b className="font-semibold" style={{ color: '#10B981' }}>{b.net.toLocaleString('ru')} ₽</b></span>
                             </div>
                             {b.additionalServices.map(a => (
@@ -7187,7 +7187,7 @@ paymentSettled: false,
                                 <div className="text-sm font-medium truncate">{o.ownerName}</div>
                                 <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} записей · начислено: +{o.totalAccrued.toLocaleString('ru')} ₽ · выплачено: −{o.totalPaid.toLocaleString('ru')} ₽</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#A855F7' }}>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#312E81' }}>
                                 {(o.totalAccrued - o.totalPaid).toLocaleString('ru')} ₽
                               </div>
                             </div>
@@ -7203,7 +7203,7 @@ paymentSettled: false,
 
           {/* ── SETTINGS: COMPANY ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'company' && (            <motion.div data-training="owner-settings" key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Профиль компании</h2>
               <div className="flex flex-col items-center mb-5">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mb-2" style={{ background: primary }}>A</div>
@@ -7226,7 +7226,7 @@ paymentSettled: false,
               </div>
 
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7234,14 +7234,14 @@ paymentSettled: false,
           {/* ── SETTINGS: SCHEDULE ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'schedule' && (
             <motion.div key="s-schedule" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Расписание работы</h2>
               {scheduleState.map((day, i) => (
                 <div key={day.day} className={`${glass} rounded-2xl p-4 mb-2`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">{day.day}</span>
                     <button onClick={() => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, active: !d.active } : d))}
-                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: day.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: day.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${day.active ? 'left-6' : 'left-1'}`} />
                     </button>
                   </div>
@@ -7260,14 +7260,14 @@ paymentSettled: false,
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
 
           {!isAccountant && page === 'settings' && settingsSection === 'clients' && (
             <motion.div data-training="owner-settings-clients" key="s-clients" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => { setSettingsSection(null); setSettingsClientId(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => { setSettingsSection(null); setSettingsClientId(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
                   <h2 className="font-semibold">Клиенты</h2>
@@ -7282,7 +7282,7 @@ paymentSettled: false,
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white"
                       style={{ background: primary }}
                     >
-                      <Plus size={14} />
+                      <Plus size={14} strokeWidth={1.75} />
                       Новый
                     </button>
                   )}
@@ -7291,7 +7291,7 @@ paymentSettled: false,
                       onClick={() => { setSettingsClientId(null); setNewVehicleCar(''); setNewVehiclePlate(''); setClientHistoryServiceFilter(''); }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
-                      <ArrowLeft size={14} />
+                      <ArrowLeft size={14} strokeWidth={1.75} />
                       Назад
                     </button>
                   )}
@@ -7330,7 +7330,7 @@ paymentSettled: false,
               )}
               {clients.length === 0 && (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <Users size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <Users size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Пока нет зарегистрированных клиентов</p>
                 </div>
               )}
@@ -7373,7 +7373,7 @@ paymentSettled: false,
                         {client.plate && <div className={`text-xs ${sub} font-mono`}>{client.plate}</div>}
                         {clientPhone ? (
                           <a href={`tel:${clientPhone}`} className="text-xs flex items-center gap-1 mt-0.5" style={{ color: primary }} onClick={(event) => event.stopPropagation()}>
-                            <Phone size={10} />{clientPhone}
+                            <Phone size={10} strokeWidth={1.75} />{clientPhone}
                           </a>
                         ) : (
                           <div className={`text-xs ${sub} mt-0.5`}>Телефон не указан</div>
@@ -7391,9 +7391,9 @@ paymentSettled: false,
                           className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
                           aria-label={`Удалить клиента ${client.name}`}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={16} strokeWidth={1.75} />
                         </button>
-                        <ChevronRight size={16} className={sub} />
+                        <ChevronRight size={16} strokeWidth={1.75} className={sub} />
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
@@ -7518,7 +7518,7 @@ paymentSettled: false,
                             </div>
                             {selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone ? (
                               <a href={`tel:${selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone}`} className="text-sm flex items-center gap-1 mt-1" style={{ color: primary }}>
-                                <Phone size={12} />{selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone}
+                                <Phone size={12} strokeWidth={1.75} />{selectedSettingsClientCardDraft?.phone ?? selectedSettingsClient.phone}
                               </a>
                             ) : (
                               <div className={`text-sm ${sub} mt-1`}>Телефон не указан</div>
@@ -7535,14 +7535,14 @@ paymentSettled: false,
                           className={`p-2 rounded-xl ${isDark ? 'bg-white/10 text-white/60 hover:bg-white/20' : 'bg-black/5 text-black/40 hover:bg-black/10'}`}
                           aria-label="Редактировать карточку"
                         >
-                          <Edit3 size={16} />
+                          <Edit3 size={16} strokeWidth={1.75} />
                         </button>
                         <button
                           onClick={() => void handleDeleteSettingsClient(selectedSettingsClient.id, selectedSettingsClient.name)}
                           className={`p-2 rounded-xl ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
                           aria-label={`Удалить клиента ${selectedSettingsClient.name}`}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={16} strokeWidth={1.75} />
                         </button>
                       </div>
                     </div>
@@ -7559,7 +7559,7 @@ paymentSettled: false,
                         className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
                         style={{ background: primary }}
                       >
-                        <Plus size={16} />
+                        <Plus size={16} strokeWidth={1.75} />
                         Прошлая запись
                       </button>
                       <button
@@ -7568,7 +7568,7 @@ paymentSettled: false,
                         className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2"
                         style={{ background: primary }}
                       >
-                        <Plus size={16} />
+                        <Plus size={16} strokeWidth={1.75} />
                         Новая запись
                       </button>
                     </div>
@@ -7781,7 +7781,7 @@ paymentSettled: false,
                                   }}
                                   className={`p-1.5 rounded-lg ${isDark ? 'bg-red-500/10 text-red-300' : 'bg-red-50 text-red-500'}`}
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={14} strokeWidth={1.75} />
                                 </button>
                               </div>
                             </div>
@@ -7827,7 +7827,7 @@ paymentSettled: false,
                           className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-sm font-medium disabled:opacity-40"
                           style={{ color: primary }}
                         >
-                          <Plus size={14} />
+                          <Plus size={14} strokeWidth={1.75} />
                           Добавить авто
                         </button>
                       </div>
@@ -7884,7 +7884,7 @@ paymentSettled: false,
                                 className={`p-1.5 rounded-lg shrink-0 ${isDark ? 'bg-white/10 text-white/60 hover:bg-white/20' : 'bg-black/5 text-black/40 hover:bg-black/10'}`}
                                 title="Редактировать запись"
                               >
-                                <Edit3 size={14} />
+                                <Edit3 size={14} strokeWidth={1.75} />
                               </button>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -7929,7 +7929,7 @@ paymentSettled: false,
           {/* ── SETTINGS: BOXES ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'boxes' && (
             <motion.div key="s-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 className="font-semibold">Управление боксами</h2>
                 <button
@@ -7937,7 +7937,7 @@ paymentSettled: false,
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
-                  <Plus size={15} />
+                  <Plus size={15} strokeWidth={1.75} />
                   Добавить бокс
                 </button>
               </div>
@@ -7951,17 +7951,17 @@ paymentSettled: false,
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${primary}18` }}>
-                        <Box size={14} style={{ color: primary }} />
+                        <Box size={14} strokeWidth={1.75} style={{ color: primary }} />
                       </div>
                       <span className="font-medium">{box.name || `Бокс ${i + 1}`}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleRemoveBoxDraft(box.id)} className={`p-2 rounded-xl ${glass} text-red-500`}>
-                        <X size={14} />
+                        <X size={14} strokeWidth={1.75} />
                       </button>
                       <button onClick={() => setBoxes(p => p.map((b, j) => j === i ? { ...b, active: !b.active } : b))}
                         className="w-11 h-6 rounded-full relative transition-all shrink-0"
-                        style={{ background: box.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                        style={{ background: box.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${box.active ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
@@ -7993,7 +7993,7 @@ paymentSettled: false,
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -8001,7 +8001,7 @@ paymentSettled: false,
           {/* ── SETTINGS: SERVICES ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'services' && (
             <motion.div key="s-services" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 className="font-semibold">Услуги и цены</h2>
                 <button
@@ -8009,12 +8009,12 @@ paymentSettled: false,
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
-                  <Plus size={15} />
+                  <Plus size={15} strokeWidth={1.75} />
                   Добавить услугу
                 </button>
               </div>
               <div className="relative mb-3">
-                <Search size={15} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                <Search size={15} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                 <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={servicesSearchQuery} onChange={e => setServicesSearchQuery(e.target.value)} />
               </div>
               {services.length === 0 && (
@@ -8040,7 +8040,7 @@ paymentSettled: false,
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${primary}18` }}>
-                        <Sliders size={14} style={{ color: primary }} />
+                        <Sliders size={14} strokeWidth={1.75} style={{ color: primary }} />
                       </div>
                       <div className="min-w-0">
                         <div className="font-medium truncate text-sm">{service.name || `Услуга ${i + 1}`}</div>
@@ -8056,14 +8056,14 @@ paymentSettled: false,
                         className="p-2 rounded-xl"
                         style={{ background: `${primary}14`, color: primary }}
                       >
-                        <Settings size={15} />
+                        <Settings size={15} strokeWidth={1.75} />
                       </button>
                       <button onClick={() => handleRemoveServiceDraft(service.id)} className={`p-2 rounded-xl ${glass} text-red-500`}>
-                        <X size={14} />
+                        <X size={14} strokeWidth={1.75} />
                       </button>
                       <button onClick={() => setServicesState(p => p.map((item, j) => j === i ? { ...item, active: !item.active } : item))}
                         className="w-11 h-6 rounded-full relative transition-all shrink-0"
-                        style={{ background: service.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                        style={{ background: service.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${service.active ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
@@ -8080,14 +8080,14 @@ paymentSettled: false,
                       className="mt-1 text-xs font-medium flex items-center gap-1"
                       style={{ color: primary }}
                     >
-                      <Settings size={11} /> Тонкая настройка расчёта
+                      <Settings size={11} strokeWidth={1.75} /> Тонкая настройка расчёта
                     </button>
                   </div>
                 </div>
               );
               })}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
               <p className={`text-xs ${sub} text-center mt-2`}>Изменения применяются к новым завершённым записям</p>
             </motion.div>
@@ -8096,7 +8096,7 @@ paymentSettled: false,
           {/* ── SETTINGS: EMPLOYEES ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'employees' && (
             <motion.div key="s-employees" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Сотрудники</h2>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
@@ -8105,7 +8105,7 @@ paymentSettled: false,
                     <div className={`text-xs ${sub}`}>Создайте логин и пароль для нового мастера</div>
                   </div>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${accent}18` }}>
-                    <Plus size={18} style={{ color: accent }} />
+                    <Plus size={18} strokeWidth={1.75} style={{ color: accent }} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -8155,7 +8155,7 @@ paymentSettled: false,
                   </div>
                 </div>
                 <button onClick={() => void handleHireWorker()} disabled={employeeActionLoading?.type === 'hire'} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-3 disabled:opacity-60" style={{ background: accent }}>
-                  <Plus size={16} />
+                  <Plus size={16} strokeWidth={1.75} />
                   Нанять сотрудника
                 </button>
               </div>
@@ -8212,7 +8212,7 @@ paymentSettled: false,
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -8220,7 +8220,7 @@ paymentSettled: false,
           {/* ── SETTINGS: NOTIFICATIONS ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'notifications' && (
             <motion.div key="s-notifs" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Уведомления</h2>
               <div className={`text-xs font-medium ${sub} mb-2 uppercase tracking-wider`}>Каналы</div>
               {[
@@ -8248,7 +8248,7 @@ paymentSettled: false,
                 onChange={() => setNotifSettings((current) => ({ ...current, bookingReminders: !current.bookingReminders }))}
               />
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -8256,7 +8256,7 @@ paymentSettled: false,
           {/* ── SETTINGS: INTEGRATIONS ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'integrations' && (
             <motion.div key="s-integrations" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Интеграции</h2>
               {[
                 { key: 'telegram', label: 'Telegram Bot', desc: 'Уведомления и управление через Telegram', color: '#229ED9' },
@@ -8265,7 +8265,7 @@ paymentSettled: false,
               ].map(item => (
                 <div key={item.key} className={`${glass} rounded-2xl p-4 mb-2 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
-                    <Globe size={18} style={{ color: item.color }} />
+                    <Globe size={18} strokeWidth={1.75} style={{ color: item.color }} />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">{item.label}</div>
@@ -8273,7 +8273,7 @@ paymentSettled: false,
                   </div>
                   <button onClick={() => setIntegrations(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))}
                     className="w-11 h-6 rounded-full relative transition-all shrink-0"
-                    style={{ background: integrations[item.key as keyof typeof integrations] ? item.color : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                    style={{ background: integrations[item.key as keyof typeof integrations] ? item.color : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${integrations[item.key as keyof typeof integrations] ? 'left-6' : 'left-1'}`} />
                   </button>
                 </div>
@@ -8281,7 +8281,7 @@ paymentSettled: false,
               <div className={`${glass} rounded-2xl p-4 mb-2`}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#4285F418' }}>
-                    <Globe size={18} style={{ color: '#4285F4' }} />
+                    <Globe size={18} strokeWidth={1.75} style={{ color: '#4285F4' }} />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">Google Календарь</div>
@@ -8309,7 +8309,7 @@ paymentSettled: false,
                       onClick={e => { e.preventDefault(); openExternal('https://console.cloud.google.com/apis/credentials'); }}
                       className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-medium"
                       style={{ background: '#4285F4' }}>
-                      Создать OAuth-клиент в Google <ExternalLink size={12} />
+                      Создать OAuth-клиент в Google <ExternalLink size={12} strokeWidth={1.75} />
                     </a>
                     <div className={`text-[11px] ${sub}`}>
                       Если Google откроет меню с проектами: создайте проект (это бесплатно),
@@ -8398,7 +8398,7 @@ paymentSettled: false,
                         onClick={() => openExternal('https://console.cloud.google.com/apis/credentials/consent')}
                         className="flex items-center justify-center gap-1.5 mt-1.5 w-full py-2 rounded-xl text-[11px] font-medium"
                         style={{ color: '#4285F4', background: '#4285F418' }}>
-                        Открыть OAuth consent screen <ExternalLink size={11} />
+                        Открыть OAuth consent screen <ExternalLink size={11} strokeWidth={1.75} />
                       </button>
                     </div>
                   </div>
@@ -8455,7 +8455,7 @@ paymentSettled: false,
                 )}
               </div>
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -8463,7 +8463,7 @@ paymentSettled: false,
           {/* ── SETTINGS: CONTENT ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'content' && (
             <motion.div data-training="owner-settings-content" key="s-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <ContentEditor
                 initialContent={content}
                 onSave={saveContent}
@@ -8479,7 +8479,7 @@ paymentSettled: false,
           {/* ── SETTINGS: SECURITY ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'security' && (
             <motion.div key="s-security" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Безопасность</h2>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className={`text-xs font-medium ${sub} mb-3`}>СМЕНА ПАРОЛЯ</div>
@@ -8496,7 +8496,7 @@ paymentSettled: false,
                             setPassword(p => ({ ...p, [f.key]: e.target.value }));
                           }} />
                         <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {showPass ? <EyeOff size={14} className={sub} /> : <Eye size={14} className={sub} />}
+                          {showPass ? <EyeOff size={14} strokeWidth={1.75} className={sub} /> : <Eye size={14} strokeWidth={1.75} className={sub} />}
                         </button>
                       </div>
                     </div>
@@ -8518,7 +8518,7 @@ paymentSettled: false,
                       setTwoFactor(!twoFactor);
                     }}
                     className="w-11 h-6 rounded-full relative transition-all shrink-0"
-                    style={{ background: twoFactor ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1' }}>
+                    style={{ background: twoFactor ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${twoFactor ? 'left-6' : 'left-1'}`} />
                   </button>
                 </div>
@@ -8531,7 +8531,7 @@ paymentSettled: false,
               <div className={`${glass} rounded-2xl p-4 mb-3 border ${isDark ? 'border-red-400/20' : 'border-red-200'}`}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: isDark ? 'rgba(239,68,68,0.16)' : '#FEE2E2', color: '#EF4444' }}>
-                    <AlertCircle size={18} />
+                    <AlertCircle size={18} strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold">Опасная зона: полная очистка CRM</div>
@@ -8560,7 +8560,7 @@ paymentSettled: false,
                 {resetWarnings.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {resetWarnings.map((warning) => (
-                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#E6EEF8]' : 'bg-black/[0.03] text-[#0B1226]'}`}>
+                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#E4E4E7]' : 'bg-black/[0.03] text-[#131316]'}`}>
                         {warning}
                       </div>
                     ))}
@@ -8598,7 +8598,7 @@ paymentSettled: false,
                         type="button"
                         onClick={clearOwnerResetFlow}
                         disabled={Boolean(resetLoadingStep)}
-                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E6EEF8]' : 'border-black/10 text-[#0B1226]'} disabled:opacity-60`}
+                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E4E4E7]' : 'border-black/10 text-[#131316]'} disabled:opacity-60`}
                       >
                         Сбросить сценарий
                       </button>
@@ -8713,7 +8713,7 @@ paymentSettled: false,
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: '#EF4444' }}
               >
-                <Shield size={16} />{securitySaved ? 'Сохранено!' : password.current || password.new_ || password.confirm ? 'Изменить пароль' : 'Сохранить безопасность'}
+                <Shield size={16} strokeWidth={1.75} />{securitySaved ? 'Сохранено!' : password.current || password.new_ || password.confirm ? 'Изменить пароль' : 'Сохранить безопасность'}
               </button>
             </motion.div>
           )}
@@ -8721,7 +8721,7 @@ paymentSettled: false,
           {/* ── SETTINGS: FINANCE ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'finance' && (
             <motion.div data-training="owner-settings-finance" key="s-finance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Финансы</h2>
 
               {/* Общий итог */}
@@ -8881,7 +8881,7 @@ paymentSettled: false,
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                           <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
-                            <Edit3 size={13} className={sub} />
+                            <Edit3 size={13} strokeWidth={1.75} className={sub} />
                           </button>
                         </div>
                       </div>
@@ -8904,7 +8904,7 @@ paymentSettled: false,
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
                           <button onClick={() => openEditIncome(i)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
-                            <Edit3 size={13} className={sub} />
+                            <Edit3 size={13} strokeWidth={1.75} className={sub} />
                           </button>
                         </div>
                       </div>
@@ -8922,7 +8922,7 @@ paymentSettled: false,
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
           onClick={() => setSelectedShareDetail(null)}>
           <div className="w-full max-w-md rounded-t-3xl p-5 pb-8"
-            style={{ background: isDark ? '#1a1d23' : '#fff' }}
+            style={{ background: isDark ? '#1C1C1F' : '#fff' }}
             onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }} />
             <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'Услуга'}</h3>
@@ -8997,17 +8997,23 @@ paymentSettled: false,
           if (t.id === 'clients') {
             const isActive = page === 'settings' && settingsSection === 'clients';
             return (
-              <button key={t.id} onClick={() => { setPage('settings'); setSettingsSection('clients'); }} className="flex-1 py-3 flex flex-col items-center gap-0.5">
-                <t.icon size={18} style={{ color: isActive ? primary : undefined }} className={!isActive ? sub : ''} />
-                <span className="text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
+              <button key={t.id} onClick={() => { setPage('settings'); setSettingsSection('clients'); }} className="relative flex-1 py-3 flex flex-col items-center gap-0.5">
+                {isActive && (
+                  <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+                )}
+                <t.icon size={18} strokeWidth={1.75} style={{ color: isActive ? primary : undefined }} className={`relative ${!isActive ? sub : ''}`} />
+                <span className="relative text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
               </button>
             );
           }
           const isActive = t.id === 'settings' ? (page === 'settings' && settingsSection === null) : (page === t.id);
           return (
-          <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className="flex-1 py-3 flex flex-col items-center gap-0.5">
-            <t.icon size={18} style={{ color: isActive ? primary : undefined }} className={!isActive ? sub : ''} />
-            <span className="text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
+          <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className="relative flex-1 py-3 flex flex-col items-center gap-0.5">
+            {isActive && (
+              <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+            )}
+            <t.icon size={18} strokeWidth={1.75} style={{ color: isActive ? primary : undefined }} className={`relative ${!isActive ? sub : ''}`} />
+            <span className="relative text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
           </button>
           );
         })}
@@ -9019,13 +9025,13 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowExportModal(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
                   {exportModalStep === 'segment' ? 'За что отчёт?' : exportModalStep === 'period' ? 'За какой период?' : 'Выберите даты'}
                 </h3>
-                <button onClick={() => setShowExportModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowExportModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
 
               {exportModalStep === 'segment' && (
@@ -9060,7 +9066,7 @@ paymentSettled: false,
                     ))}
                   </div>
                   <button onClick={() => setExportModalStep('segment')} className={`mt-4 text-xs ${sub} flex items-center gap-1`}>
-                    <ArrowLeft size={12} /> Назад
+                    <ArrowLeft size={12} strokeWidth={1.75} /> Назад
                   </button>
                 </>
               )}
@@ -9083,7 +9089,7 @@ paymentSettled: false,
                     Сформировать отчёт
                   </button>
                   <button onClick={() => setExportModalStep('period')} className={`mt-3 text-xs ${sub} flex items-center gap-1`}>
-                    <ArrowLeft size={12} /> Назад
+                    <ArrowLeft size={12} strokeWidth={1.75} /> Назад
                   </button>
                 </>
               )}
@@ -9098,11 +9104,11 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifications(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Уведомления</h3>
-                <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-2">
                 {ownerNotifications.length === 0 ? (
@@ -9124,7 +9130,7 @@ paymentSettled: false,
         {showAddExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative overflow-hidden`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative overflow-hidden`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <AnimatePresence>
                 {expenseAdded && (
@@ -9134,7 +9140,7 @@ paymentSettled: false,
                     <div className="text-center">
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}
                         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${accent}20` }}>
-                        <Check size={28} style={{ color: accent }} />
+                        <Check size={28} strokeWidth={1.75} style={{ color: accent }} />
                       </motion.div>
                       <div className="font-semibold">Расход добавлен!</div>
                     </div>
@@ -9143,7 +9149,7 @@ paymentSettled: false,
               </AnimatePresence>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить расход</h3>
-                <button onClick={() => setShowAddExpense(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowAddExpense(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Закупка химии..." value={expenseForm.title} onChange={e => setExpenseForm(p => ({ ...p, title: e.target.value }))} /></div>
@@ -9181,11 +9187,11 @@ paymentSettled: false,
         {showPiggyWithdraw && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Снять на материалы</h3>
-                <button onClick={() => setShowPiggyWithdraw(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowPiggyWithdraw(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -9223,13 +9229,13 @@ paymentSettled: false,
         {showPiggyAdjust && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
                   Изменить сумму · {piggyAdjustResourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}
                 </h3>
-                <button onClick={() => setShowPiggyAdjust(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowPiggyAdjust(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className={`text-sm mb-4 p-3 rounded-xl ${glass} flex justify-between`}>
                 <span className={sub}>Текущий баланс</span>
@@ -9269,18 +9275,18 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#1C1C1F' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Архив недель</h3>
-                <button onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-3">
                 {selectedArchive ? (
                   /* Expanded week detail */
                   <div>
                     <button onClick={() => setSelectedArchive(null)} className="flex items-center gap-1 text-sm mb-4" style={{ color: primary }}>
-                      <ChevronLeft size={16} /> Назад к списку
+                      <ChevronLeft size={16} strokeWidth={1.75} /> Назад к списку
                     </button>
                     <div className={`${glass} rounded-2xl p-4`}>
                       <div className="text-sm font-medium mb-3">
@@ -9339,7 +9345,7 @@ paymentSettled: false,
                               <div className="text-sm font-medium">
                                 {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
                               </div>
-                              <ChevronRight size={14} className={sub} />
+                              <ChevronRight size={14} strokeWidth={1.75} className={sub} />
                             </div>
                             <div className="grid grid-cols-4 gap-1 text-center mb-2">
                               <div>
@@ -9387,11 +9393,11 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => setShowFinancePanel(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#1C1C1F' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Финансы</h3>
-                <button onClick={() => setShowFinancePanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowFinancePanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-4">
                 {/* Сводка */}
@@ -9419,7 +9425,7 @@ paymentSettled: false,
                 {/* Копилка */}
                 <div className={`${glass} rounded-2xl p-3 flex items-center justify-between cursor-pointer`} onClick={() => { setShowFinancePanel(false); setPage('piggy-bank'); }}>
                   <div className="flex items-center gap-2">
-                    <PiggyBank size={18} style={{ color: accent }} />
+                    <PiggyBank size={18} strokeWidth={1.75} style={{ color: accent }} />
                     <span className="text-sm font-medium">Копилка</span>
                   </div>
                   <div className="font-bold text-sm" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
@@ -9433,7 +9439,7 @@ paymentSettled: false,
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
                     style={{ background: 'rgba(255,107,107,0.12)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,107,107,0.2)' }}>
-                      <DollarSign size={20} style={{ color: '#FF6B6B' }} />
+                      <DollarSign size={20} strokeWidth={1.75} style={{ color: '#FF6B6B' }} />
                     </div>
                     <span className="text-sm font-medium" style={{ color: '#FF6B6B' }}>Добавить расход</span>
                   </button>
@@ -9441,7 +9447,7 @@ paymentSettled: false,
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
                     style={{ background: `${primary}12` }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${primary}20` }}>
-                      <TrendingUp size={20} style={{ color: primary }} />
+                      <TrendingUp size={20} strokeWidth={1.75} style={{ color: primary }} />
                     </div>
                     <span className="text-sm font-medium" style={{ color: primary }}>Добавить доход</span>
                   </button>
@@ -9466,7 +9472,7 @@ paymentSettled: false,
                                 className={`p-1.5 rounded-lg ${glass}`}
                                 title="Редактировать расход"
                               >
-                                <Edit3 size={13} className={sub} />
+                                <Edit3 size={13} strokeWidth={1.75} className={sub} />
                               </button>
                             )}
                           </div>
@@ -9495,7 +9501,7 @@ paymentSettled: false,
                                 className={`p-1.5 rounded-lg ${glass}`}
                                 title="Редактировать доход"
                               >
-                                <Edit3 size={13} className={sub} />
+                                <Edit3 size={13} strokeWidth={1.75} className={sub} />
                               </button>
                             )}
                           </div>
@@ -9515,11 +9521,11 @@ paymentSettled: false,
         {showAddIncome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доход</h3>
-                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -9584,11 +9590,11 @@ paymentSettled: false,
         {showAddStock && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить товар</h3>
-                <button onClick={() => setShowAddStock(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowAddStock(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Автошампунь..." value={stockForm.name} onChange={e => setStockForm(p => ({ ...p, name: e.target.value }))} /></div>
@@ -9657,11 +9663,11 @@ paymentSettled: false,
         {showCategoryManager && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Категории склада</h3>
-                <button onClick={() => setShowCategoryManager(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowCategoryManager(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 {stockCategories.filter(c => !c.parentId).map(parent => (
@@ -9724,7 +9730,7 @@ paymentSettled: false,
       <AnimatePresence>
         {showWriteOff && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
               <h3 className="font-semibold mb-1">Списать товар</h3>
               <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
               <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
@@ -9742,11 +9748,11 @@ paymentSettled: false,
         {showComplaintsWorkerId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Активные жалобы</h3>
-                <button onClick={() => setShowComplaintsWorkerId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowComplaintsWorkerId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3">
                 {penalties.filter(p => p.workerId === showComplaintsWorkerId && isComplaintActive(p)).map(penalty => {
@@ -9781,7 +9787,7 @@ paymentSettled: false,
         {showCreateClient && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Новый клиент</h3>
@@ -9792,7 +9798,7 @@ paymentSettled: false,
                   }}
                   className={`p-1.5 rounded-lg ${glass}`}
                 >
-                  <X size={16} />
+                  <X size={16} strokeWidth={1.75} />
                 </button>
               </div>
               <div className="space-y-3 mb-4">
@@ -9872,7 +9878,7 @@ paymentSettled: false,
                   После создания откроется форма прошлой записи для истории клиента.
                 </div>
                 {createClientErrors.general && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />{createClientErrors.general}</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />{createClientErrors.general}</div>
                 )}
               </div>
               <button
@@ -9894,13 +9900,13 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowCreateBooking(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-4`}
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-4`}
               style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             >
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-base">Создать запись</h3>
-                <button onClick={() => setShowCreateBooking(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowCreateBooking(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4 pb-32">
                 <div><label className={`text-xs ${sub} block mb-1`}>Клиент</label><div className="flex gap-1.5 items-center"><input className={`${inputCls} flex-1`} placeholder="Иван Иванов" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /><button type="button" onClick={() => setShowClientSearch(true)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ background: `${primary}20`, color: primary }}>?</button></div></div>
@@ -10138,11 +10144,11 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
-                  <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className={`text-xs ${sub}`}>
                   {(() => {
@@ -10193,11 +10199,11 @@ paymentSettled: false,
         {showBookingDetail && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Запись</h3>
-                <button onClick={() => { setShowBookingDetail(false); setOwnerBookingEditMode(null); setOwnerBookingEditError(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => { setShowBookingDetail(false); setOwnerBookingEditMode(null); setOwnerBookingEditError(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3">
                 {/* Info card */}
@@ -10349,7 +10355,7 @@ paymentSettled: false,
                         className="py-2.5 rounded-xl text-sm font-medium"
                         style={ownerBookingEditMode === mode
                           ? { background: primary, color: '#fff' }
-                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#E6EEF8' : '#0B1226' }}
+                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#E4E4E7' : '#131316' }}
                       >
                         {label}
                       </button>
@@ -10364,7 +10370,7 @@ paymentSettled: false,
                     className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
                     style={{ background: `${primary}15`, color: primary }}
                   >
-                    <Plus size={15} />Добавить доп. услугу
+                    <Plus size={15} strokeWidth={1.75} />Добавить доп. услугу
                   </button>
                 </div>
 
@@ -10623,11 +10629,11 @@ paymentSettled: false,
 
                 {ownerBookingEditError && (
                   <div className="flex items-center gap-2 text-red-500 text-xs px-1">
-                    <AlertCircle size={14} />{ownerBookingEditError}
+                    <AlertCircle size={14} strokeWidth={1.75} />{ownerBookingEditError}
                   </div>
                 )}
                 <button onClick={handleDeleteOwnerBooking} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
-                  <Trash2 size={15} className="inline mr-1.5 -mt-0.5" />Удалить запись
+                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Удалить запись
                 </button>
               </div>
             </motion.div>
@@ -10641,18 +10647,18 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setShowStatusList(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{ownerStatusLabel(showStatusList)}</h3>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(showStatusList)}`}>{statusListItems.length} записей</span>
-                  <button onClick={() => setShowStatusList(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setShowStatusList(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
               </div>
               {statusListItems.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                  <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                   <p className={sub}>Нет записей со статусом «{ownerStatusLabel(showStatusList)}»</p>
                 </div>
               ) : (
@@ -10701,7 +10707,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setKpiModal(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{kpiModal.title}</h3>
@@ -10726,14 +10732,14 @@ paymentSettled: false,
                       {kpiModal.profit >= 0 ? '+' : ''}{kpiModal.profit.toLocaleString('ru')} ₽
                     </span>
                   )}
-                  <button onClick={() => setKpiModal(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setKpiModal(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
               </div>
 
               {kpiModal.kind === 'bookings' && (
                 kpiModal.bookings.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <CalendarDays size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                     <p className={sub}>Записей пока нет</p>
                   </div>
                 ) : (
@@ -10776,7 +10782,7 @@ paymentSettled: false,
               {kpiModal.kind === 'expenses' && (
                 kpiModal.expenses.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <DollarSign size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <DollarSign size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                     <p className={sub}>Расходов за период нет</p>
                   </div>
                 ) : (
@@ -10797,7 +10803,7 @@ paymentSettled: false,
               {kpiModal.kind === 'services' && (
                 kpiModal.services.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <BarChart3 size={36} className={`mx-auto mb-3 ${sub}`} />
+                    <BarChart3 size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
                     <p className={sub}>Нет данных по услугам</p>
                   </div>
                 ) : (
@@ -10846,11 +10852,11 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setShowOwnerAddService(false); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доп. услугу</h3>
-                <button onClick={() => setShowOwnerAddService(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setShowOwnerAddService(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
 
@@ -11049,7 +11055,7 @@ paymentSettled: false,
 
               {ownerAddServiceError && (
                 <div className="flex items-center gap-2 text-red-500 text-xs mt-2">
-                  <AlertCircle size={14} />{ownerAddServiceError}
+                  <AlertCircle size={14} strokeWidth={1.75} />{ownerAddServiceError}
                 </div>
               )}
 
@@ -11070,11 +11076,11 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setOwnerEditAsvcId(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Изменить доп. услугу</h3>
-                <button onClick={() => setOwnerEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setOwnerEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
 
@@ -11202,7 +11208,7 @@ paymentSettled: false,
 
               {ownerEditAsvcError && (
                 <div className="flex items-center gap-2 text-red-500 text-xs mt-2">
-                  <AlertCircle size={14} />{ownerEditAsvcError}
+                  <AlertCircle size={14} strokeWidth={1.75} />{ownerEditAsvcError}
                 </div>
               )}
 
@@ -11223,11 +11229,11 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) closeOwnerNewBookingModal(); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Новая запись</h3>
-                <button onClick={closeOwnerNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={closeOwnerNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               {/* Scrollable content container */}
               <div
@@ -11241,7 +11247,7 @@ paymentSettled: false,
                       <div className="text-center">
                         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
                           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}20` }}>
-                          <Check size={28} style={{ color: primary }} />
+                          <Check size={28} strokeWidth={1.75} style={{ color: primary }} />
                         </motion.div>
                         <div className="font-semibold">Запись сохранена!</div>
                         <div className={`text-sm ${sub} mt-1`}>{ownerNewBookingSaveSuccess === 'notify' ? 'Мастера уведомлены' : OWNER_BOOKING_STATUS_OPTIONS.find((o) => o.value === ownerNewBookingForm.status)?.label || ownerNewBookingForm.status}</div>
@@ -11581,7 +11587,7 @@ paymentSettled: false,
                               {STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
                             <button onClick={() => setOwnerNewBookingMaterials(current => current.filter((_, i) => i !== idx))}
-                              className="p-1 rounded text-red-500"><X size={14} /></button>
+                              className="p-1 rounded text-red-500"><X size={14} strokeWidth={1.75} /></button>
                           </div>
                         </div>
                         );
@@ -11599,11 +11605,11 @@ paymentSettled: false,
                       onClick={() => setShowOwnerMaterialPicker(false)}>
                       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                         <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                           <div className="flex justify-between items-center mb-2">
                             <h3 className="font-semibold">Выбрать материал</h3>
-                            <button onClick={() => setShowOwnerMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                            <button onClick={() => setShowOwnerMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                           </div>
                           <div className="flex gap-1.5 flex-wrap">
                             <button onClick={() => setOwnerMaterialPickerCategory(null)}
@@ -11653,10 +11659,10 @@ paymentSettled: false,
                   )}
                 </AnimatePresence>
                 {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100 && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />Сумма процентов мастеров превышает 100%</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} />{ownerNewBookingErrors.general}</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />{ownerNewBookingErrors.general}</div>
                 )}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
@@ -11715,11 +11721,11 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowOwnerClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
-                  <button onClick={() => setShowOwnerClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setShowOwnerClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className={`text-xs ${sub}`}>
                   {(() => {
@@ -11771,7 +11777,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0, y: -60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -60 }}
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${accent}40` }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={16} style={{ color: accent }} /></div>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={16} strokeWidth={1.75} style={{ color: accent }} /></div>
               <div>
                 <div className="text-sm font-medium">{exportSuccess.title}</div>
                 <div className={`text-xs ${sub}`}>{exportSuccess.subtitle}</div>
@@ -11785,11 +11791,11 @@ paymentSettled: false,
         {editingExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Редактировать расход</h3>
-                <button onClick={() => setEditingExpense(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setEditingExpense(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -11834,7 +11840,7 @@ paymentSettled: false,
               </div>
               {editFinanceError && (
                 <div className="flex items-center gap-2 text-xs mb-3" style={{ color: '#FF6B6B' }}>
-                  <AlertCircle size={13} />
+                  <AlertCircle size={13} strokeWidth={1.75} />
                   {editFinanceError}
                 </div>
               )}
@@ -11852,7 +11858,7 @@ paymentSettled: false,
                   style={{ background: '#FF6B6B' }}
                 >
                   {editFinanceLoading ? (
-                    <><RefreshCw size={14} className="animate-spin" /> Сохранение...</>
+                    <><RefreshCw size={14} strokeWidth={1.75} className="animate-spin" /> Сохранение...</>
                   ) : 'Сохранить'}
                 </button>
               </div>
@@ -11866,11 +11872,11 @@ paymentSettled: false,
         {editingIncome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Редактировать доход</h3>
-                <button onClick={() => setEditingIncome(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                <button onClick={() => setEditingIncome(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
@@ -11906,7 +11912,7 @@ paymentSettled: false,
               </div>
               {editFinanceError && (
                 <div className="flex items-center gap-2 text-xs mb-3" style={{ color: '#FF6B6B' }}>
-                  <AlertCircle size={13} />
+                  <AlertCircle size={13} strokeWidth={1.75} />
                   {editFinanceError}
                 </div>
               )}
@@ -11924,7 +11930,7 @@ paymentSettled: false,
                   style={{ background: primary }}
                 >
                   {editFinanceLoading ? (
-                    <><RefreshCw size={14} className="animate-spin" /> Сохранение...</>
+                    <><RefreshCw size={14} strokeWidth={1.75} className="animate-spin" /> Сохранение...</>
                   ) : 'Сохранить'}
                 </button>
               </div>
@@ -11981,16 +11987,16 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+                className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold">Настройка услуги</h3>
-                  <button onClick={() => setShowServiceSettings(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setShowServiceSettings(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="mb-4">
                   <div className="relative">
-                    <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+                    <Search size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                     <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={serviceEditSearchQuery} onChange={e => { setServiceEditSearchQuery(e.target.value); setShowServiceMaterialPicker(false); }} />
                   </div>
                   {(() => {
@@ -12000,7 +12006,7 @@ paymentSettled: false,
                       : [];
                     if (!q) return null;
                     return (
-                      <div className={`${isDark ? 'bg-[#0E1624] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
+                      <div className={`${isDark ? 'bg-[#1C1C1F] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
                         {matches.length === 0 ? (
                           <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>
                         ) : (
@@ -12133,9 +12139,9 @@ paymentSettled: false,
                                     {insufficient && <div className="text-xs text-red-500">На складе только {stockItem!.qty} {stockItem!.unit}</div>}
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
+                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7]' : 'bg-white border-black/10 text-[#131316]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
                                     <span className={`text-xs ${sub} shrink-0`}>{mat.unit}</span>
-                                    <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500 shrink-0"><X size={14} /></button>
+                                    <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500 shrink-0"><X size={14} strokeWidth={1.75} /></button>
                                   </div>
                                 </div>
                               );
@@ -12143,7 +12149,7 @@ paymentSettled: false,
                           </div>
                         )}
                         <button onClick={() => setShowServiceMaterialPicker(true)} className={`w-full py-2 rounded-xl text-sm ${glass} flex items-center justify-center gap-1.5`} style={{ color: primary }}>
-                          <Plus size={14} /> Добавить материал
+                          <Plus size={14} strokeWidth={1.75} /> Добавить материал
                         </button>
                         {svcMaterialsCost > 0 && (
                           <div className={`text-xs mt-1.5 flex justify-between ${sub}`}>
@@ -12259,8 +12265,8 @@ paymentSettled: false,
                         };
                         return (
                           <div key={step.id} className="flex items-center gap-2">
-                            <button onClick={() => move(-1)} disabled={si === 0} className={`p-1 rounded-lg disabled:opacity-30 ${glass}`}><ChevronUp size={14} /></button>
-                            <button onClick={() => move(1)} disabled={si === effectiveOrder.length - 1} className={`p-1 rounded-lg disabled:opacity-30 ${glass}`}><ChevronDown size={14} /></button>
+                            <button onClick={() => move(-1)} disabled={si === 0} className={`p-1 rounded-lg disabled:opacity-30 ${glass}`}><ChevronUp size={14} strokeWidth={1.75} /></button>
+                            <button onClick={() => move(1)} disabled={si === effectiveOrder.length - 1} className={`p-1 rounded-lg disabled:opacity-30 ${glass}`}><ChevronDown size={14} strokeWidth={1.75} /></button>
                             <span className="flex-1 text-sm">{step.label}</span>
                           </div>
                         );
@@ -12367,12 +12373,12 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
+                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-2 mb-1" />
                 <div className="flex justify-between items-center px-5 py-3 sticky top-0" style={{ background: surface }}>
                   <h3 className="font-semibold">Детали услуги</h3>
-                  <button onClick={() => setSalaryBookingDetail(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setSalaryBookingDetail(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="px-5 pb-6 space-y-3">
                   {/* Service */}
@@ -12393,7 +12399,7 @@ paymentSettled: false,
                       <div className="font-semibold">{b.clientName || '—'}</div>
                       {b.clientPhone && (
                         <a href={`tel:${b.clientPhone}`} className={`text-sm flex items-center gap-1 mt-0.5`} style={{ color: primary }}>
-                          <Phone size={11} />{b.clientPhone}
+                          <Phone size={11} strokeWidth={1.75} />{b.clientPhone}
                         </a>
                       )}
                     </div>
@@ -12468,7 +12474,7 @@ paymentSettled: false,
                       className="w-full py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2"
                       style={{ background: `${primary}18`, color: primary }}
                     >
-                      <Edit3 size={15} /> Изменить услугу
+                      <Edit3 size={15} strokeWidth={1.75} /> Изменить услугу
                     </button>
                   )}
                 </div>
@@ -12489,12 +12495,12 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+                className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold">Редактирование услуги</h3>
-                  <button onClick={() => setServiceEditDraft(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} /></button>
+                  <button onClick={() => setServiceEditDraft(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="space-y-2">
                   <div>
@@ -12540,9 +12546,9 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0, y: 80 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 80 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             className="fixed bottom-20 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${accent}40` }}>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} style={{ color: accent }} /></div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${accent}20` }}><Check size={14} strokeWidth={1.75} style={{ color: accent }} /></div>
             <div className="flex-1 text-sm">{bottomToast}</div>
-            <button onClick={() => setBottomToast(null)}><X size={14} className={sub} /></button>
+            <button onClick={() => setBottomToast(null)}><X size={14} strokeWidth={1.75} className={sub} /></button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -12553,7 +12559,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -50 }}
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${primary}40` }}>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}><Check size={14} style={{ color: primary }} /></div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}><Check size={14} strokeWidth={1.75} style={{ color: primary }} /></div>
             <span className="text-sm font-medium">Настройки сохранены</span>
           </motion.div>
         )}
@@ -12569,11 +12575,11 @@ paymentSettled: false,
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="fixed inset-0 z-50 flex items-center justify-center px-5">
-              <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
+              <div className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${accent}18` }}>
-                      <Shield size={18} style={{ color: accent }} />
+                      <Shield size={18} strokeWidth={1.75} style={{ color: accent }} />
                     </div>
                     <div>
                       <div className="font-semibold">Сброс пароля</div>
@@ -12581,14 +12587,14 @@ paymentSettled: false,
                     </div>
                   </div>
                   <button onClick={() => { setResetPasswordTarget(null); setResetPasswordError(''); }}
-                    className={`p-1.5 rounded-xl ${glass}`}><X size={16} /></button>
+                    className={`p-1.5 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
 
                 <div className="space-y-3 mb-4">
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Новый пароль</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
                       placeholder="Минимум 8 символов"
                       value={resetPasswordValue}
@@ -12598,7 +12604,7 @@ paymentSettled: false,
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Подтверждение</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
                       placeholder="Повторите пароль"
                       value={resetPasswordConfirm}
@@ -12610,7 +12616,7 @@ paymentSettled: false,
                 {resetPasswordError && (
                   <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
                     className="flex items-center gap-2 text-red-500 text-xs mb-3">
-                    <AlertCircle size={13} />{resetPasswordError}
+                    <AlertCircle size={13} strokeWidth={1.75} />{resetPasswordError}
                   </motion.div>
                 )}
 

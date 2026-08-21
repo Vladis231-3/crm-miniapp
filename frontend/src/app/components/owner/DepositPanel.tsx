@@ -135,13 +135,13 @@ function Sheet({ title, isDark, onClose, children }: SheetProps) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         className="absolute bottom-0 left-0 right-0 rounded-t-3xl p-4 pb-6 max-h-[85vh] overflow-y-auto"
-        style={{ background: isDark ? '#0E1624' : '#ffffff' }}
+        style={{ background: isDark ? '#1C1C1F' : '#ffffff' }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-base">{title}</h3>
           <button onClick={onClose} className="p-1">
-            <X size={18} className="opacity-60" />
+            <X size={18} strokeWidth={1.75} className="opacity-60" />
           </button>
         </div>
         {children}
@@ -169,12 +169,12 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
   } = useApp();
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = isDark ? '#5DD68F' : '#34C759';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const accent = isDark ? '#34D399' : '#10B981';
   const danger = '#EF4444';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7]' : 'bg-white border-black/10 text-[#131316]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
 
   const [summaries, setSummaries] = useState<DepositSummaryItem[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -446,7 +446,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
   return (
     <motion.div key="s-deposit" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
       <button onClick={onBack} className={`flex items-center gap-2 ${sub} mb-1 text-sm`}>
-        <ArrowLeft size={16} />
+        <ArrowLeft size={16} strokeWidth={1.75} />
         Назад
       </button>
       <div className="flex items-center justify-between gap-3 mb-3">
@@ -460,7 +460,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white"
             style={{ background: primary }}
           >
-            <Download size={14} />
+            <Download size={14} strokeWidth={1.75} />
             Excel
           </button>
         </div>
@@ -468,14 +468,14 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
       {error && (
         <div className={`${glass} rounded-2xl p-3 mb-3 text-sm flex items-start gap-2`} style={{ color: danger }}>
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <AlertCircle size={16} strokeWidth={1.75} className="shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
       {toast && (
         <div className="rounded-2xl p-3 mb-3 text-sm flex items-start gap-2" style={{ background: `${accent}18`, color: accent }}>
-          <Check size={16} className="shrink-0 mt-0.5" />
+          <Check size={16} strokeWidth={1.75} className="shrink-0 mt-0.5" />
           <span>{toast}</span>
         </div>
       )}
@@ -487,7 +487,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             className={`${glass} rounded-2xl p-4 w-full mb-3 flex items-center justify-center gap-2 text-sm`}
             style={{ color: primary }}
           >
-            <Plus size={16} />
+            <Plus size={16} strokeWidth={1.75} />
             Сделать клиента абонентом
           </button>
 
@@ -497,7 +497,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
           {!loading && summaries.length === 0 && (
             <div className={`${glass} rounded-2xl p-6 text-center`}>
-              <Wallet size={36} className={`mx-auto mb-2 ${sub}`} />
+              <Wallet size={36} strokeWidth={1.75} className={`mx-auto mb-2 ${sub}`} />
               <p className={`text-sm ${sub}`}>Пока нет абонентских клиентов</p>
             </div>
           )}
@@ -510,7 +510,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
               className={`${glass} rounded-2xl p-4 w-full text-left mb-2 flex items-center gap-3`}
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${primary}18` }}>
-                <Wallet size={18} style={{ color: primary }} />
+                <Wallet size={18} strokeWidth={1.75} style={{ color: primary }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{item.clientName}</div>
@@ -537,7 +537,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   )}
                 </div>
               </div>
-              <ChevronRight size={16} className={sub} />
+              <ChevronRight size={16} strokeWidth={1.75} className={sub} />
             </motion.button>
           ))}
         </>
@@ -547,7 +547,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             onClick={() => { setSelectedClientId(null); setOverview(null); }}
             className={`flex items-center gap-2 ${sub} mb-3 text-sm`}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} strokeWidth={1.75} />
             К списку абонентов
           </button>
 
@@ -620,14 +620,14 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
               {overview.needsTopUp && (
                 <div className="rounded-xl p-3 mb-2 text-xs flex items-start gap-2" style={{ background: '#F59E0B18', color: '#F59E0B' }}>
-                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <AlertTriangle size={14} strokeWidth={1.75} className="shrink-0 mt-0.5" />
                   Баланс ниже порога — рекомендуется пополнить депозит
                 </div>
               )}
 
               {overview.monthPending && (
                 <div className="rounded-xl p-3 mb-2 text-xs flex items-start gap-2" style={{ background: `${primary}14`, color: primary }}>
-                  <CalendarDays size={14} className="shrink-0 mt-0.5" />
+                  <CalendarDays size={14} strokeWidth={1.75} className="shrink-0 mt-0.5" />
                   Месяц {overview.monthLabel} ещё не закрыт — после окончания расчётов нажмите «Закрыть месяц»
                 </div>
               )}
@@ -638,7 +638,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm text-white"
                   style={{ background: primary }}
                 >
-                  <Plus size={14} />
+                  <Plus size={14} strokeWidth={1.75} />
                   Пополнить
                 </button>
                 <button
@@ -646,7 +646,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm text-white"
                   style={{ background: accent }}
                 >
-                  <Plus size={14} />
+                  <Plus size={14} strokeWidth={1.75} />
                   Записать мойку
                 </button>
                 <button
@@ -654,7 +654,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm"
                   style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
                 >
-                  <Settings size={14} />
+                  <Settings size={14} strokeWidth={1.75} />
                   Коррекция
                 </button>
                 <button
@@ -662,7 +662,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm"
                   style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
                 >
-                  <Settings size={14} />
+                  <Settings size={14} strokeWidth={1.75} />
                   Настройки
                 </button>
                 <button
@@ -671,7 +671,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm disabled:opacity-40"
                   style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
                 >
-                  <Check size={14} />
+                  <Check size={14} strokeWidth={1.75} />
                   Закрыть {overview.monthLabel}
                 </button>
                 <button
@@ -679,7 +679,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm"
                   style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
                 >
-                  <Send size={14} />
+                  <Send size={14} strokeWidth={1.75} />
                   Excel
                 </button>
               </div>
@@ -773,9 +773,9 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                         style={{ background: txn.amount >= 0 ? `${accent}18` : `${danger}18` }}
                       >
                         {txn.amount >= 0 ? (
-                          <ArrowUp size={14} style={{ color: accent }} />
+                          <ArrowUp size={14} strokeWidth={1.75} style={{ color: accent }} />
                         ) : (
-                          <ArrowDown size={14} style={{ color: danger }} />
+                          <ArrowDown size={14} strokeWidth={1.75} style={{ color: danger }} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -902,7 +902,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   type="checkbox"
                   checked={activateCarryover}
                   onChange={(event) => setActivateCarryover(event.target.checked)}
-                  className="w-4 h-4 accent-blue-500"
+                  className="w-4 h-4 accent-indigo-600"
                 />
                 Переносить неиспользованные мойки на следующий месяц
               </label>
@@ -938,7 +938,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                 type="checkbox"
                 checked={activateActive}
                 onChange={(event) => setActivateActive(event.target.checked)}
-                className="w-4 h-4 accent-blue-500"
+                className="w-4 h-4 accent-indigo-600"
               />
               Абонентская подписка активна
             </label>
@@ -1026,7 +1026,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
           <Sheet title="Записать мойку в долг" isDark={isDark} onClose={() => setSheet(null)}>
             {overview && overview.depositPlan === 'washes' && (
               <div className="rounded-xl p-3 mb-3 text-xs flex items-start gap-2" style={{ background: `${primary}14`, color: primary }}>
-                <Wallet size={14} className="shrink-0 mt-0.5" />
+                <Wallet size={14} strokeWidth={1.75} className="shrink-0 mt-0.5" />
                 <span>
                   Абонемент: использовано {overview.monthWashCount} из {overview.planWashLimit} моек
                   {overview.washesLeft > 0
@@ -1037,7 +1037,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             )}
             {overview && overview.depositPlan === 'per_wash' && overview.depositWashPrice > 0 && (
               <div className="rounded-xl p-3 mb-3 text-xs flex items-start gap-2" style={{ background: `${primary}14`, color: primary }}>
-                <Wallet size={14} className="shrink-0 mt-0.5" />
+                <Wallet size={14} strokeWidth={1.75} className="shrink-0 mt-0.5" />
                 <span>Тариф «оплата за мойку»: {formatMoney(overview.depositWashPrice)} за мойку</span>
               </div>
             )}

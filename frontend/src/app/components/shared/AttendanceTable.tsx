@@ -94,7 +94,7 @@ export function AttendanceTable({ mode, workerId, primary }: AttendanceTableProp
       {loading && (
         <div className="flex items-center justify-center py-10">
           <Loader2
-            size={28}
+            size={28} strokeWidth={1.75}
             className="animate-spin"
             style={{ color: primary }}
           />
@@ -105,7 +105,7 @@ export function AttendanceTable({ mode, workerId, primary }: AttendanceTableProp
       {!loading && error && (
         <div className="flex flex-col items-center gap-3 py-8">
           <div className="flex items-center gap-2 text-red-500 text-sm">
-            <AlertCircle size={18} />
+            <AlertCircle size={18} strokeWidth={1.75} />
             <span>{error}</span>
           </div>
           <button
@@ -113,7 +113,7 @@ export function AttendanceTable({ mode, workerId, primary }: AttendanceTableProp
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
             style={{ background: primary }}
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={15} strokeWidth={1.75} />
             Повторить
           </button>
         </div>
