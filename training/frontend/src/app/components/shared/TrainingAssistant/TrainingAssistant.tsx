@@ -47,6 +47,7 @@ export function TrainingAssistant() {
   const [flyMs, setFlyMs] = useState(900);
   const [justFinishedRole, setJustFinishedRole] = useState<TourRole | null>(null);
   const timers = useRef<number[]>([]);
+  const skipGreetingRef = useRef(false);
 
   const primary = isDark ? '#4AA8FF' : '#0A84FF';
   const surface = isDark ? 'bg-[#0E1624] text-[#E6EEF8] border-white/10' : 'bg-white text-[#0B1226] border-black/10';
@@ -164,6 +165,22 @@ export function TrainingAssistant() {
   /* ── Idle: Муся приветствует, а не просто летает ── */
   useEffect(() => {
     if (mode !== 'idle') return;
+    if (skipGreetingRef.current) {
+      skipGreetingRef.current = false;
+      setBubble(null);
+      setSpot(null);
+      setFlyMs(600);
+      setPos({ x: window.innerWidth - ROBOT_SIZE - 16, y: window.innerHeight - ROBOT_SIZE - 16 });
+      const wander = () => {
+        setFlyMs(3200);
+        setPos({
+          x: clamp(24 + Math.random() * (window.innerWidth - ROBOT_SIZE - 64), 8, window.innerWidth - ROBOT_SIZE - 8),
+          y: clamp(90 + Math.random() * (window.innerHeight - ROBOT_SIZE - 210), 40, window.innerHeight - ROBOT_SIZE - 40),
+        });
+      };
+      const id = window.setInterval(wander, 5200);
+      return () => window.clearInterval(id);
+    }
     // Сразу приветствие от Муси при входе в idle
     setFlyMs(600);
     const vw = window.innerWidth;
@@ -272,6 +289,16 @@ export function TrainingAssistant() {
   }, [selectedRole, startRolePicker]);
 
   const skipAll = useCallback(() => {
+    skipGreetingRef.current = false;
+    setMode('idle');
+  }, []);
+  const goToCorner = useCallback(() => {
+    skipGreetingRef.current = true;
+    setMenuOpen(false);
+    setSpot(null);
+    setBubble(null);
+    setFlyMs(600);
+    setPos({ x: window.innerWidth - ROBOT_SIZE - 16, y: window.innerHeight - ROBOT_SIZE - 16 });
     setMode('idle');
   }, []);
 
@@ -366,7 +393,7 @@ export function TrainingAssistant() {
         <button onClick={() => startTour('welcome')} className={`flex items-center gap-1 text-xs px-3 py-2 rounded-xl border ${isDark ? 'border-white/10 hover:bg-white/10' : 'border-black/10 hover:bg-gray-50'}`}>
           <Sparkles size={12} /> Только приветствие
         </button>
-        <button onClick={skipAll} className="text-xs opacity-60 hover:opacity-100 px-2 py-1">Позже</button>
+        <button onClick={goToCorner} className="text-xs opacity-60 hover:opacity-100 px-2 py-1">Позже</button>
       </div>
       {justFinishedRole && <div className="mt-2 text-[11px] opacity-50 text-center">Хотите повторить? Просто выберите роль снова — я покажу тур заново.</div>}
     </div>

@@ -149,15 +149,27 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       stub.workerId = 'w1';
       stub.workerName = 'Иван';
       stub.salaryBase = 0;
-      stub.salaryPerShift = 0;
+      stub.salaryPerShift = 1500;
+      stub.defaultPercent = 30;
+      stub.active = true;
       stub.bookings = [];
       stub.payouts = [];
       stub.entries = [];
       stub.totalAccrued = 0;
       stub.totalPaid = 0;
+      stub.totalEarned = 0;
       stub.balanceToPay = 0;
+      stub.balance = 0;
       stub.completedBookingsCount = 0;
       stub.shiftCount = 0;
+      stub.shiftDates = [];
+      stub.totalEarned = 0;
+      stub.totalPaid = 0;
+      // для owner salary-detail
+      stub.owners = [];
+      stub.totalAccrued = 0;
+      stub.totalPaid = 0;
+      stub.totalBalanceToPay = 0;
     }
     if (path.includes('piggy-bank')) {
       // Полная заглушка чтобы не падать на toLocaleString / map
