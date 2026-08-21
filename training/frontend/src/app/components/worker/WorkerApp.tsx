@@ -1611,21 +1611,25 @@ export function WorkerApp() {
       </div>
 
       {/* Bottom Nav */}
-      <div data-training="worker-nav" className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
+      <div data-training="worker-nav" className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
         {[
           { id: 'today', icon: Clock, label: 'Сегодня' },
           { id: 'schedule', icon: Calendar, label: 'Расписание' },
           { id: 'earnings', icon: DollarSign, label: 'Доход' },
           { id: 'profile', icon: User, label: 'Профиль' },
-        ].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); setSelectedCalDate(null); }} className="relative flex-1 py-3 flex flex-col items-center gap-1">
-            {tab === t.id && (
-              <motion.span layoutId="worker-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1.5 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+        ].map(t => {
+          const isActive = tab === t.id;
+          return (
+          <button key={t.id} onClick={() => { setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); setSelectedCalDate(null); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`}>
+            {isActive && (
+              <motion.span layoutId="worker-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
             )}
-            <t.icon size={20} strokeWidth={1.75} style={{ color: tab === t.id ? primary : undefined }} className={`relative ${tab !== t.id ? sub : ''}`} />
-            <span className="relative text-xs" style={{ color: tab === t.id ? primary : undefined }}>{t.label}</span>
+            <t.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+            <span className={`relative whitespace-nowrap ${isActive ? '' : 'hidden'}`} style={{ color: isActive ? '#fff' : undefined }}>{t.label}</span>
+            {!isActive && <span className="sr-only">{t.label}</span>}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── START CONFIRMATION ── */}

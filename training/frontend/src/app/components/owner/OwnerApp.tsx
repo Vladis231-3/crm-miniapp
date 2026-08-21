@@ -8975,7 +8975,7 @@ paymentSettled: false,
       )}
 
       {/* Bottom Nav */}
-      <div data-training="owner-nav" className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
+      <div data-training="owner-nav" className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
         {(isAccountant
           ? [
               { id: 'dashboard', icon: Home, label: 'Главная' },
@@ -8997,23 +8997,25 @@ paymentSettled: false,
           if (t.id === 'clients') {
             const isActive = page === 'settings' && settingsSection === 'clients';
             return (
-              <button key={t.id} onClick={() => { setPage('settings'); setSettingsSection('clients'); }} className="relative flex-1 py-3 flex flex-col items-center gap-0.5">
+              <button key={t.id} onClick={() => { setPage('settings'); setSettingsSection('clients'); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label="Клиенты">
                 {isActive && (
-                  <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+                  <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
                 )}
-                <t.icon size={18} strokeWidth={1.75} style={{ color: isActive ? primary : undefined }} className={`relative ${!isActive ? sub : ''}`} />
-                <span className="relative text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
+                <t.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+                {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{t.label}</span>}
+                {!isActive && <span className="sr-only">{t.label}</span>}
               </button>
             );
           }
           const isActive = t.id === 'settings' ? (page === 'settings' && settingsSection === null) : (page === t.id);
           return (
-          <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className="relative flex-1 py-3 flex flex-col items-center gap-0.5">
+          <button key={t.id} onClick={() => { setPage(t.id as OwnerPage); setSettingsSection(null); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label={t.label}>
             {isActive && (
-              <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-x-1 top-1 bottom-1 rounded-xl" style={{ background: isDark ? 'rgba(110, 118, 242, 0.16)' : 'rgba(79, 70, 229, 0.09)' }} />
+              <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
             )}
-            <t.icon size={18} strokeWidth={1.75} style={{ color: isActive ? primary : undefined }} className={`relative ${!isActive ? sub : ''}`} />
-            <span className="relative text-[10px]" style={{ color: isActive ? primary : undefined }}>{t.label}</span>
+            <t.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+            {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{t.label}</span>}
+            {!isActive && <span className="sr-only">{t.label}</span>}
           </button>
           );
         })}
