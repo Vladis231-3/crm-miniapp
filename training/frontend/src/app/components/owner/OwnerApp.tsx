@@ -5,7 +5,8 @@ import {
   Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink
+  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink,
+  LayoutDashboard, UsersRound, Settings2, FileChartColumn
  } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -3776,9 +3777,9 @@ paymentSettled: false,
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
       {/* Header */}
       <div data-training="owner-header" className={`work-header ${glass} flex items-center justify-between`}>
-        <div>
-          <div className="font-semibold text-sm">{financeRoleTitle}</div>
-          <div className={`text-xs ${sub}`}>ATMOSFERA</div>
+        <div className="min-w-0">
+          <div className="text-[16px] font-bold tracking-tight leading-tight">{financeRoleTitle}</div>
+          <div className={`text-[11px] uppercase tracking-[.14em] ${sub}`}>ATMOSFERA</div>
         </div>
         <div className="flex items-center gap-1.5">
           {staffProfile?.extraRoles && staffProfile.extraRoles.length > 0 && (
@@ -8978,21 +8979,21 @@ paymentSettled: false,
       <div data-training="owner-nav" className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
         {(isAccountant
           ? [
-              { id: 'dashboard', icon: Home, label: 'Главная' },
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Главная' },
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
-              { id: 'payroll', icon: Users, label: 'Зарплаты' },
+              { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
-              { id: 'stock', icon: Box, label: 'Склад' },
-              { id: 'reports', icon: FileText, label: 'Отчёты' },
+              { id: 'stock', icon: Package, label: 'Склад' },
+              { id: 'reports', icon: FileChartColumn, label: 'Отчёты' },
             ]
           : [
-              { id: 'dashboard', icon: Home, label: 'Главная' },
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Главная' },
               { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
-              { id: 'payroll', icon: Users, label: 'Зарплаты' },
+              { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
               { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
-              { id: 'stock', icon: Box, label: 'Склад' },
-              { id: 'clients', icon: Users, label: 'Клиенты' },
-              { id: 'settings', icon: Settings, label: 'Настройки' },
+              { id: 'stock', icon: Package, label: 'Склад' },
+              { id: 'clients', icon: UsersRound, label: 'Клиенты' },
+              { id: 'settings', icon: Settings2, label: 'Настройки' },
             ]).map(t => {
           if (t.id === 'clients') {
             const isActive = page === 'settings' && settingsSection === 'clients';
@@ -9001,7 +9002,7 @@ paymentSettled: false,
                 {isActive && (
                   <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
                 )}
-                <t.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+                <t.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
                 {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{t.label}</span>}
                 {!isActive && <span className="sr-only">{t.label}</span>}
               </button>
@@ -9013,7 +9014,7 @@ paymentSettled: false,
             {isActive && (
               <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
             )}
-            <t.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+            <t.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
             {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{t.label}</span>}
             {!isActive && <span className="sr-only">{t.label}</span>}
           </button>

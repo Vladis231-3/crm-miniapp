@@ -4,7 +4,8 @@ import {
   Bell, Sun, Moon, Calendar, CalendarDays, DollarSign, User, Play,
   Info, ArrowLeft, Phone, X, Check, Clock, ChevronRight, ChevronLeft, AlertCircle,
   Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
-  Mail, MapPin, Award, Eye, EyeOff, TrendingUp, CarFront, Search
+  Mail, MapPin, Award, Eye, EyeOff, TrendingUp, CarFront, Search,
+  CalendarClock, Wallet, UserRound
 } from 'lucide-react';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
 import { SourceBadge } from '../shared/SourceBadge';
@@ -617,8 +618,8 @@ export function WorkerApp() {
             <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} strokeWidth={1.75} /></button>
           )}
           <div>
-            <div className="font-semibold text-sm">{headerTitle}</div>
-            {!showDetail && tab === 'today' && !profileSection && <div className={`text-xs ${sub}`}>{todayLabel}</div>}
+            <div className="text-[15px] font-bold tracking-tight leading-tight">{headerTitle}</div>
+            {!showDetail && tab === 'today' && !profileSection && <div className={`text-[11px] ${sub}`}>{todayLabel}</div>}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -1613,10 +1614,10 @@ export function WorkerApp() {
       {/* Bottom Nav */}
       <div data-training="worker-nav" className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
         {[
-          { id: 'today', icon: Clock, label: 'Сегодня' },
-          { id: 'schedule', icon: Calendar, label: 'Расписание' },
-          { id: 'earnings', icon: DollarSign, label: 'Доход' },
-          { id: 'profile', icon: User, label: 'Профиль' },
+          { id: 'today', icon: CalendarClock, label: 'Сегодня' },
+          { id: 'schedule', icon: CalendarDays, label: 'Расписание' },
+          { id: 'earnings', icon: Wallet, label: 'Доход' },
+          { id: 'profile', icon: UserRound, label: 'Профиль' },
         ].map(t => {
           const isActive = tab === t.id;
           return (
@@ -1624,7 +1625,7 @@ export function WorkerApp() {
             {isActive && (
               <motion.span layoutId="worker-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
             )}
-            <t.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+            <t.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
             <span className={`relative whitespace-nowrap ${isActive ? '' : 'hidden'}`} style={{ color: isActive ? '#fff' : undefined }}>{t.label}</span>
             {!isActive && <span className="sr-only">{t.label}</span>}
           </button>

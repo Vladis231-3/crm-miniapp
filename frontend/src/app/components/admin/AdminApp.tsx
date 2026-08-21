@@ -6,7 +6,8 @@ import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
   Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
-  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History, Package
+  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
+  CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -1476,9 +1477,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       {/* Header */}
       <div className={`work-header ${glass} flex items-center justify-between`}>
         <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} strokeWidth={1.75} /></button>
-        <div className="text-center">
-          <div className="font-semibold text-sm">{staffRoleTitle}</div>
-          <div className={`text-xs ${sub}`}>{todayLabel}</div>
+        <div className="text-center min-w-0">
+          <div className="text-[15px] font-bold tracking-tight leading-tight">{staffRoleTitle}</div>
+          <div className={`text-[11px] tracking-wide ${sub}`}>{todayLabel}</div>
         </div>
         <div className="flex items-center gap-1.5">
           {staffProfile?.extraRoles && staffProfile.extraRoles.length > 0 && (
@@ -3011,12 +3012,12 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       {/* Bottom nav */}
       <div className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`}>
         {[
-          { id: 'calendar', icon: Calendar, label: 'Календарь' },
-          { id: 'stats', icon: BarChart3, label: 'Статистика' },
-          { id: 'clients', icon: Users, label: 'Клиенты' },
-          { id: 'stock', icon: Box, label: 'Склад' },
-          { id: 'payroll', icon: DollarSign, label: 'Зарплаты', action: () => { setPage('settings'); setSettingsSection('payroll'); } },
-          { id: 'settings', icon: Settings, label: 'Настройки' },
+          { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
+          { id: 'stats', icon: ChartNoAxesColumn, label: 'Статистика' },
+          { id: 'clients', icon: UsersRound, label: 'Клиенты' },
+          { id: 'stock', icon: Package, label: 'Склад' },
+          { id: 'payroll', icon: Wallet, label: 'Зарплаты', action: () => { setPage('settings'); setSettingsSection('payroll'); } },
+          { id: 'settings', icon: Settings2, label: 'Настройки' },
         ].map(tab => {
           const isActive = tab.id === 'payroll'
             ? page === 'settings' && settingsSection === 'payroll'
@@ -3033,7 +3034,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
             {isActive && (
               <motion.span layoutId="admin-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
             )}
-            <tab.icon size={19} strokeWidth={1.75} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+            <tab.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
             {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{tab.label}</span>}
             {!isActive && <span className="sr-only">{tab.label}</span>}
           </button>

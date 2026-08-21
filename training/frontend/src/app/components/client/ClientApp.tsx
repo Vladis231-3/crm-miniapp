@@ -438,10 +438,10 @@ export function ClientApp() {
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: primary }}>
             {clientProfile.name ? clientProfile.name.charAt(0).toUpperCase() : 'A'}
           </div>
-          <div>
-            <span className="font-semibold text-sm">{clientProfile.name || 'ATMOSFERA'}</span>
+          <div className="min-w-0">
+            <span className="text-base font-bold tracking-tight leading-tight block truncate">{clientProfile.name || 'ATMOSFERA'}</span>
             {clientProfile.car && page === 'catalog' && (
-              <div className={`text-xs ${sub}`}>{clientProfile.car} · {clientProfile.plate}</div>
+              <div className={`text-[11px] ${sub}`}>{clientProfile.car} · {clientProfile.plate}</div>
             )}
           </div>
         </div>
