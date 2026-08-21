@@ -414,12 +414,12 @@ export function WorkerApp() {
     b.workers.some(w => w.workerId === workerId) ||
     (b.additionalServices || []).some(as => as.workers.some(w => w.workerId === workerId));
 
-  const allTasks = bookings.filter(b =>
+  const allTasks = (bookings || []).filter(b =>
     filterMine ? isMyTask(b) : true
   );
-  const todayTasks = allTasks.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
+  const todayTasks = (allTasks || []).filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
 
-  const myEarnings = bookings
+  const myEarnings = (bookings || [])
     .filter(b => b.status === 'completed' && isMyTask(b))
     .map(b => {
       const w = b.workers.find(wk => wk.workerId === workerId);
@@ -433,14 +433,14 @@ export function WorkerApp() {
   const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
   const payrollSummary = staffProfile?.payrollSummary;
   const earnedForDisplay = payrollSummary?.accruedFromBookings ?? totalEarned;
-  const myPenalties = penalties.filter((penalty) => penalty.workerId === workerId && isComplaintActive(penalty));
+  const myPenalties = (penalties || []).filter((penalty) => penalty.workerId === workerId && isComplaintActive(penalty));
   const complaintState = getComplaintPenaltyState(staffProfile?.defaultPercent || 0, myPenalties);
   const payoutAfterPenalties = payrollSummary?.balance ?? Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
 
-  const allMyTasks = bookings.filter(isMyTask);
+  const allMyTasks = (bookings || []).filter(isMyTask);
   const completedCount = payrollSummary?.completedBookings ?? allMyTasks.filter(b => b.status === 'completed').length;
   const avgCheck = completedCount > 0 ? Math.round((payrollSummary?.accruedFromBookings ?? totalEarned) / completedCount) : 0;
-  const chemistryItems = stockItems.filter((item) => item.category === 'Химия');
+  const chemistryItems = (stockItems || []).filter((item) => item.category === 'Химия');
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
