@@ -445,6 +445,12 @@ function WelcomeScreen() {
                 Начать
                 <ChevronRight size={18} />
               </motion.button>
+              <button
+                onClick={() => { window.location.href = `${window.location.pathname}?help=1`; }}
+                className={`w-full mt-3 py-3 rounded-2xl text-sm font-medium border ${isDark ? 'border-white/15 text-white/80 hover:bg-white/10' : 'border-black/10 text-gray-700 hover:bg-gray-50'}`}
+              >
+                🎓 Демо без регистрации — только фронт и заглушки
+              </button>
             </motion.div>
           )}
 
@@ -521,9 +527,24 @@ function WelcomeScreen() {
                 </motion.div>
               )}
 
-              <p className={`text-xs ${sub} text-center mt-4 mb-5 leading-relaxed`}>
+              <p className={`text-xs ${sub} text-center mt-4 mb-3 leading-relaxed`}>
                 Данные используются только для записи на услуги и не передаются третьим лицам
               </p>
+              <div className="space-y-2">
+                <button
+                  onClick={handleClientSubmit}
+                  className="w-full py-3.5 rounded-2xl font-semibold text-white shadow flex items-center justify-center gap-2"
+                  style={{ background: primary }}
+                >
+                  Сохранить и продолжить <ChevronRight size={16} />
+                </button>
+                <button
+                  onClick={() => { window.location.href = `${window.location.pathname}?help=1`; }}
+                  className={`w-full py-3 rounded-2xl text-sm font-medium border ${isDark ? 'border-white/15 text-white/80 hover:bg-white/10' : 'border-black/10 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  🎓 Открыть демо без регистрации
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
