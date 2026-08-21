@@ -243,6 +243,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       }
       return [] as unknown as T;
     }
+    if (path.includes('/api/worker/shift-attendance')) {
+      return { workerId: 'w1', workerName: 'Иван', shiftCount: 3, shiftDates: ['15.08.2026', '14.08.2026', '10.08.2026'] } as unknown as T;
+    }
+    if (path.includes('/api/owner/shift-attendance')) {
+      return [{ workerId: 'w1', workerName: 'Иван', shiftCount: 3, shiftDates: ['15.08.2026'] }, { workerId: 'w2', workerName: 'Олег', shiftCount: 1, shiftDates: ['15.08.2026'] }] as unknown as T;
+    }
     if (path.includes('/payroll') || path.includes('/workers')) return [] as unknown as T;
     if (path.includes('/stock') || path.includes('/shift') || path.includes('/content') || path.includes('/notifications') || path.includes('/calendar') || path.includes('/cars')) return [] as unknown as T;
     // Для остальных — вернуть универсальную заглушку (и массив и объект)
