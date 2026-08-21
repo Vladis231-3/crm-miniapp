@@ -40,3 +40,6 @@ Thumbs.db
 scripts/.project-map-watch.lock
 .vercel
 .env*
+
+.backups/
+.skill-staging/
