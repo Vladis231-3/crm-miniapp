@@ -135,7 +135,7 @@ function Sheet({ title, isDark, onClose, children }: SheetProps) {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         className="absolute bottom-0 left-0 right-0 rounded-t-3xl p-4 pb-6 max-h-[85vh] overflow-y-auto"
-        style={{ background: isDark ? '#0E1624' : '#ffffff' }}
+        style={{ background: isDark ? '#191D18' : '#ffffff' }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -169,12 +169,12 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
   } = useApp();
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = isDark ? '#5DD68F' : '#34C759';
+  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
+  const primary = isDark ? '#B9DF55' : '#587817';
+  const accent = isDark ? '#71BF93' : '#2E7552';
   const danger = '#EF4444';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
 
   const [summaries, setSummaries] = useState<DepositSummaryItem[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);

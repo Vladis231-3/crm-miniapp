@@ -451,13 +451,13 @@ export function WorkerApp() {
   const formatTimer = (s: number) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = isDark ? '#5DD68F' : '#34C759';
-  const surface = isDark ? '#0E1624' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#121511]' : 'bg-[#F3F3EF]';
+  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
+  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
+  const primary = isDark ? '#B9DF55' : '#587817';
+  const accent = isDark ? '#71BF93' : '#2E7552';
+  const surface = isDark ? '#191D18' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   const handleStartTask = (task: Booking) => {
@@ -837,7 +837,7 @@ export function WorkerApp() {
               </div>
             </section>
             <section className={`${glass} mb-4 rounded-2xl p-4`}>
-              <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Next work rail</div><h3 className="font-semibold">Дальше по времени</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">Расписание</button></div>
+              <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Следующая задача</div><h3 className="font-semibold">Дальше по времени</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">Расписание</button></div>
               <div className="mt-3 space-y-2">
                 {todayTasks.filter(task => task.status !== `completed`).slice(0, 3).map(task => <button key={task.id} onClick={() => { setSelectedTask(task); setShowDetail(true); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{task.time}</strong><span className="min-w-0 flex-1 truncate">{task.service}</span><ChevronRight size={16}/></button>)}
               </div>
@@ -1338,7 +1338,7 @@ export function WorkerApp() {
               <div className="space-y-2">
                 {[
                   { id: 'personal', icon: Edit3, label: 'Личные данные', desc: profile.phone, color: primary },
-                  { id: 'shift', icon: Check, label: 'Чек-лист смены', desc: 'Химия на начало и конец', color: '#34C759' },
+                  { id: 'shift', icon: Check, label: 'Чек-лист смены', desc: 'Химия на начало и конец', color: '#2E7552' },
                   { id: 'attendance', icon: TrendingUp, label: 'Мои выходы', desc: 'Посещаемость за период', color: '#8B5CF6' },
                   { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Управление оповещениями', color: '#A855F7' },
                   { id: 'history', icon: History, label: 'История задач', desc: `${allMyTasks.length} всего`, color: '#F59E0B' },
@@ -1615,7 +1615,7 @@ export function WorkerApp() {
       <AnimatePresence>
         {showStartConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
               <div className="flex justify-between items-start mb-3">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `${accent}20` }}><Play size={18} style={{ color: accent }} /></div>
                 <button onClick={() => setShowStartConfirm(null)} className={`p-1 rounded-lg ${glass}`}><X size={16} /></button>
@@ -1637,7 +1637,7 @@ export function WorkerApp() {
         {showFinishModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <AnimatePresence>
                 {finishSuccess && (
@@ -1729,7 +1729,7 @@ export function WorkerApp() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifications(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Уведомления</h3>
@@ -1762,7 +1762,7 @@ export function WorkerApp() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setSelectedCompletedOrder(null)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Детали заказа</h3>

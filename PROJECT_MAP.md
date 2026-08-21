@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 08:10 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 10:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **430**
-- Строк кода: **191 363**
+- Строк кода: **191 402**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
@@ -202,6 +202,7 @@ concept1.0/
 │   │   │   └── pasted_text/
 │   │   │       └── telegram-webapp-design.txt
 │   │   ├── styles/
+│   │   │   ├── atmosfera-redesign.css
 │   │   │   ├── fonts.css
 │   │   │   ├── index.css
 │   │   │   ├── tailwind.css
@@ -210,10 +211,12 @@ concept1.0/
 │   ├── .env.desktop
 │   ├── .env.example
 │   ├── ATTRIBUTIONS.md
+│   ├── DESIGN_SYSTEM.md
 │   ├── index.html
 │   ├── package.json
 │   ├── postcss.config.mjs
 │   ├── README.md
+│   ├── REDESIGN_REPORT.md
 │   └── vite.config.ts
 ├── native/
 │   └── electron/
@@ -3035,12 +3038,13 @@ concept1.0/
 - `handleHireWorker` (стр. 1631) — локальный
 - `name` (стр. 1632) — локальный
 
-### frontend/src/app/components/shared/Atmosfera.tsx (7 строк)
+### frontend/src/app/components/shared/Atmosfera.tsx (46 строк)
 
-- `RoleNavigation` (стр. 4)
-- `WorkspaceHeader` (стр. 5)
-- `MetricSurface` (стр. 6)
-- `StatusPill` (стр. 7)
+- `RoleNavigation` (стр. 13)
+- `selected` (стр. 18) — локальный
+- `WorkspaceHeader` (стр. 31)
+- `MetricSurface` (стр. 40)
+- `StatusPill` (стр. 44)
 
 ### frontend/src/app/components/shared/AttendanceTable.tsx (199 строк)
 
@@ -3724,18 +3728,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 11:10)
-- `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 11:07)
-- `training/frontend/src/app/api.ts` (2026-08-21 10:56)
-- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 10:46)
-- `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 10:30)
-- `training/backend/bot.py` (2026-08-21 10:29)
-- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 10:28)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 10:18)
-- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 10:18)
-- `frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
-- `training/frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
-- `training/frontend/src/app/App.tsx` (2026-08-21 09:59)
-- `backend/bot.py` (2026-08-21 08:39)
-- `training/backend/tests/test_training_help.py` (2026-08-21 08:30)
-- `training/frontend/src/app/context/AppContext.tsx` (2026-08-21 08:28)
+- `scripts/.project-map-watch.lock` (2026-08-21 13:04)
+- `frontend/src/styles/atmosfera-redesign.css` (2026-08-21 12:43)
+- `frontend/DESIGN_SYSTEM.md` (2026-08-21 12:41)
+- `frontend/REDESIGN_REPORT.md` (2026-08-21 12:41)
+- `frontend/src/app/App.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-08-21 12:34)
+- `frontend/src/app/components/shared/Atmosfera.tsx` (2026-08-21 12:34)
+- `frontend/src/styles/index.css` (2026-08-21 12:34)
+- `frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 12:33)

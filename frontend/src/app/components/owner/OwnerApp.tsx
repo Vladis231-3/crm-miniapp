@@ -1566,14 +1566,14 @@ export function OwnerApp() {
   const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
-  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
-  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
-  const primary = isDark ? '#4AA8FF' : '#0A84FF';
-  const accent = isDark ? '#5DD68F' : '#34C759';
-  const surface = isDark ? '#0E1624' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#121511]' : 'bg-[#F3F3EF]';
+  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
+  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
+  const primary = isDark ? '#B9DF55' : '#587817';
+  const accent = isDark ? '#71BF93' : '#2E7552';
+  const surface = isDark ? '#191D18' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const tooltipStyle = { background: surface, border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 12, color: text };
   const createDraftId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -4126,8 +4126,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Выручка" />
                     <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Расходы" />
@@ -4533,7 +4533,7 @@ paymentSettled: false,
                                   adjustment: 'Корректировка',
                                 }[entry.kind]}
                               </div>
-                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#E6EEF8' : '#0B1226') }}>
+                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#EEF1E9' : '#121511') }}>
                                 {entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽
                               </div>
                             </div>
@@ -4930,7 +4930,7 @@ paymentSettled: false,
                           advance: 'Аванс', adjustment: 'Корректировка',
                         };
                         const kindColor: Record<string, string> = {
-                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E6EEF8' : '#0B1226',
+                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#EEF1E9' : '#121511',
                           advance: '#f59e0b', adjustment: '#3b82f6',
                         };
                         const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'bonus';
@@ -5845,7 +5845,7 @@ paymentSettled: false,
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#6B7280] mb-3">Сводные Telegram-отчёты</div>
+                <div className="text-xs text-[#596057] mb-3">Сводные Telegram-отчёты</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { period: 'daily', segment: 'wash', label: 'День · мойка' },
@@ -5947,8 +5947,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={reportByService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
@@ -8547,7 +8547,7 @@ paymentSettled: false,
                 {resetWarnings.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {resetWarnings.map((warning) => (
-                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#E6EEF8]' : 'bg-black/[0.03] text-[#0B1226]'}`}>
+                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#EEF1E9]' : 'bg-black/[0.03] text-[#121511]'}`}>
                         {warning}
                       </div>
                     ))}
@@ -8585,7 +8585,7 @@ paymentSettled: false,
                         type="button"
                         onClick={clearOwnerResetFlow}
                         disabled={Boolean(resetLoadingStep)}
-                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E6EEF8]' : 'border-black/10 text-[#0B1226]'} disabled:opacity-60`}
+                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#EEF1E9]' : 'border-black/10 text-[#121511]'} disabled:opacity-60`}
                       >
                         Сбросить сценарий
                       </button>
@@ -9006,7 +9006,7 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowExportModal(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
@@ -9085,7 +9085,7 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifications(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Уведомления</h3>
@@ -9111,7 +9111,7 @@ paymentSettled: false,
         {showAddExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative overflow-hidden`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative overflow-hidden`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <AnimatePresence>
                 {expenseAdded && (
@@ -9168,7 +9168,7 @@ paymentSettled: false,
         {showPiggyWithdraw && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Снять на материалы</h3>
@@ -9210,7 +9210,7 @@ paymentSettled: false,
         {showPiggyAdjust && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
@@ -9256,8 +9256,8 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#191D18' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Архив недель</h3>
                 <button onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
@@ -9374,8 +9374,8 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => setShowFinancePanel(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#191D18' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Финансы</h3>
                 <button onClick={() => setShowFinancePanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
@@ -9502,7 +9502,7 @@ paymentSettled: false,
         {showAddIncome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доход</h3>
@@ -9571,7 +9571,7 @@ paymentSettled: false,
         {showAddStock && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить товар</h3>
@@ -9644,7 +9644,7 @@ paymentSettled: false,
         {showCategoryManager && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Категории склада</h3>
@@ -9711,7 +9711,7 @@ paymentSettled: false,
       <AnimatePresence>
         {showWriteOff && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
               <h3 className="font-semibold mb-1">Списать товар</h3>
               <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
               <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
@@ -9729,7 +9729,7 @@ paymentSettled: false,
         {showComplaintsWorkerId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Активные жалобы</h3>
@@ -9768,7 +9768,7 @@ paymentSettled: false,
         {showCreateClient && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Новый клиент</h3>
@@ -9881,7 +9881,7 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowCreateBooking(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-4`}
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-4`}
               style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             >
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
@@ -10125,7 +10125,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
@@ -10180,7 +10180,7 @@ paymentSettled: false,
         {showBookingDetail && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Запись</h3>
@@ -10336,7 +10336,7 @@ paymentSettled: false,
                         className="py-2.5 rounded-xl text-sm font-medium"
                         style={ownerBookingEditMode === mode
                           ? { background: primary, color: '#fff' }
-                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#E6EEF8' : '#0B1226' }}
+                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#EEF1E9' : '#121511' }}
                       >
                         {label}
                       </button>
@@ -10628,7 +10628,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setShowStatusList(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{ownerStatusLabel(showStatusList)}</h3>
@@ -10688,7 +10688,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setKpiModal(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{kpiModal.title}</h3>
@@ -10833,7 +10833,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setShowOwnerAddService(false); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доп. услугу</h3>
@@ -11057,7 +11057,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setOwnerEditAsvcId(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Изменить доп. услугу</h3>
@@ -11210,7 +11210,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) closeOwnerNewBookingModal(); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Новая запись</h3>
@@ -11586,7 +11586,7 @@ paymentSettled: false,
                       onClick={() => setShowOwnerMaterialPicker(false)}>
                       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                         <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                           <div className="flex justify-between items-center mb-2">
                             <h3 className="font-semibold">Выбрать материал</h3>
@@ -11702,7 +11702,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowOwnerClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
@@ -11772,7 +11772,7 @@ paymentSettled: false,
         {editingExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Редактировать расход</h3>
@@ -11853,7 +11853,7 @@ paymentSettled: false,
         {editingIncome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Редактировать доход</h3>
@@ -11968,7 +11968,7 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+                className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
@@ -11987,7 +11987,7 @@ paymentSettled: false,
                       : [];
                     if (!q) return null;
                     return (
-                      <div className={`${isDark ? 'bg-[#0E1624] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
+                      <div className={`${isDark ? 'bg-[#191D18] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
                         {matches.length === 0 ? (
                           <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>
                         ) : (
@@ -12120,7 +12120,7 @@ paymentSettled: false,
                                     {insufficient && <div className="text-xs text-red-500">На складе только {stockItem!.qty} {stockItem!.unit}</div>}
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
+                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
                                     <span className={`text-xs ${sub} shrink-0`}>{mat.unit}</span>
                                     <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500 shrink-0"><X size={14} /></button>
                                   </div>
@@ -12354,7 +12354,7 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
+                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-2 mb-1" />
                 <div className="flex justify-between items-center px-5 py-3 sticky top-0" style={{ background: surface }}>
@@ -12476,7 +12476,7 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+                className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
@@ -12556,7 +12556,7 @@ paymentSettled: false,
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="fixed inset-0 z-50 flex items-center justify-center px-5">
-              <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
+              <div className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${accent}18` }}>
@@ -12575,7 +12575,7 @@ paymentSettled: false,
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Новый пароль</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
                       placeholder="Минимум 8 символов"
                       value={resetPasswordValue}
@@ -12585,7 +12585,7 @@ paymentSettled: false,
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Подтверждение</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
                       placeholder="Повторите пароль"
                       value={resetPasswordConfirm}
