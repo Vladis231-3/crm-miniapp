@@ -347,10 +347,13 @@ export function AdminApp() {
   const parentCategories = stockCategories.filter(c => !c.parentId);
   const [stockForm, setStockForm] = useState({ name: '', qty: '', unit: 'шт', unitPrice: '', priceMode: 'unit' as 'unit' | 'total', category: parentCategories[0]?.name || 'Химия', categoryId: '' });
 const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
-const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+  const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
   const [newBookingMaterials, setNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number | string; unit: string; unitPrice: number }[]>([]);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [materialPickerCategory, setMaterialPickerCategory] = useState<string | null>(null);
+  const [editBookingMaterials, setEditBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number | string; unit: string; unitPrice: number }[]>([]);
+  const [showEditMaterialPicker, setShowEditMaterialPicker] = useState(false);
+  const [editMaterialPickerCategory, setEditMaterialPickerCategory] = useState<string | null>(null);
   const [newBookingForm, setNewBookingForm] = useState({
     clientId: '', clientName: '', clientPhone: '', service: '', serviceId: '', date: '',
     time: '', box: '', price: 0, duration: 30, car: '', plate: '', plateType: 'russian' as PlateType, notes: '', status: 'admin_review' as BookingStatus,
@@ -619,14 +622,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#121511]' : 'bg-[#F3F3EF]';
-  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
-  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
-  const primary = isDark ? '#B9DF55' : '#587817';
-  const accent = '#2E7552';
-  const surface = isDark ? '#191D18' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const accent = '#34C759';
+  const surface = isDark ? '#0E1624' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const timeToMinutes = (value: string): number | null => {
     const match = value.trim().match(/^(\d{2}):(\d{2})$/);
     if (!match) return null;
@@ -1115,6 +1118,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       price: Math.max(0, booking.price - (booking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (booking.services || []).reduce((s, svc) => s + svc.price, 0)),
       duration: booking.duration,
     });
+    setEditBookingMaterials((booking.materials || []).map((m: any) => ({ stockItemId: m.stockItemId, name: m.name, qty: m.qty, unit: m.unit, unitPrice: Number(m.unitPrice) })));
     setEditBookingError(null);
     setEditBookingSaving(false);
     setEditModalMode(mode);
@@ -1145,6 +1149,14 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
     try {
       setEditBookingSaving(true);
       setEditBookingError(null);
+      const normalizedEditMaterials = editBookingMaterials.map(m => ({
+        id: '',
+        stockItemId: m.stockItemId || null,
+        name: m.name,
+        qty: typeof m.qty === 'string' ? (parseFloat(m.qty) || 0) : m.qty,
+        unit: m.unit,
+        unitPrice: m.unitPrice,
+      })).filter(m => m.qty > 0 && m.name.trim());
       await updateBooking(selectedBooking.id, {
         status: editBookingDraft.status,
         date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
@@ -1158,6 +1170,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
         serviceId: editBookingDraft.serviceId || undefined,
         price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+        materials: normalizedEditMaterials as any,
       });
       setSelectedBooking((current) => (current ? {
         ...current,
@@ -1175,6 +1188,8 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         service: liveServices.find(s => s.id === editBookingDraft.serviceId)?.name || current.service,
         price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         duration: editBookingDraft.duration,
+        materials: normalizedEditMaterials.map((m: any, i: number) => ({ id: `tmp-${i}`, stockItemId: m.stockItemId, name: m.name, qty: m.qty, unit: m.unit, unitPrice: m.unitPrice })) as any,
+        materialsWrittenOff: current.materialsWrittenOff,
       } : null));
       setShowEditModal(false);
     } catch (error) {
@@ -1496,7 +1511,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
             <>
             <section className="role-hero role-hero--admin mb-4">
               <div className="flex flex-wrap items-end justify-between gap-4">
-                <div><div className="text-xs uppercase tracking-[.2em] opacity-70">Центр управления</div><h2 className="mt-2 text-2xl font-semibold">Управление днём</h2><p className="mt-1 text-sm opacity-80">Расписание, исключения и быстрые действия в одном контуре.</p></div>
+                <div><div className="text-xs uppercase tracking-[.2em] opacity-70">Day command center</div><h2 className="mt-2 text-2xl font-semibold">Управление днём</h2><p className="mt-1 text-sm opacity-80">Расписание, исключения и быстрые действия в одном контуре.</p></div>
                 <div className="flex gap-2"><button onClick={() => setShowNewBooking(true)} className="semantic-primary-button bg-white text-slate-900"><Plus size={17}/> Новая запись</button><button onClick={() => setPage(`clients`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm"><Search size={16} className="inline mr-2"/>Поиск</button></div>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 md:grid-cols-4">
@@ -1507,11 +1522,11 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               </div>
             </section>
             <section className="mb-4 grid gap-3 md:grid-cols-2">
-              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Требует внимания</div><h3 className="mt-1 font-semibold">Требует внимания</h3><button onClick={() => setPage(`calendar`)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-amber-500/10 p-3 text-left"><span>Без назначенного мастера</span><strong>{todayBookings.filter(item => !item.workers?.length).length}</strong></button><button onClick={() => setShowNotifications(true)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-red-500/10 p-3 text-left"><span>Непрочитанные</span><strong>{unreadCount}</strong></button></div>
-              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Ближайшее расписание</div><h3 className="mt-1 font-semibold">Ближайшие слоты</h3><div className="mt-3 space-y-2">{todayBookings.slice(0, 4).map(item => <button key={item.id} onClick={() => setSelectedBooking(item)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{item.time}</strong><span className="min-w-0 flex-1 truncate">{item.service}</span><ChevronRight size={16}/></button>)}</div></div>
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Exception rail</div><h3 className="mt-1 font-semibold">Требует внимания</h3><button onClick={() => setPage(`calendar`)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-amber-500/10 p-3 text-left"><span>Без назначенного мастера</span><strong>{todayBookings.filter(item => !item.workers?.length).length}</strong></button><button onClick={() => setShowNotifications(true)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-red-500/10 p-3 text-left"><span>Непрочитанные</span><strong>{unreadCount}</strong></button></div>
+              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Schedule pulse</div><h3 className="mt-1 font-semibold">Ближайшие слоты</h3><div className="mt-3 space-y-2">{todayBookings.slice(0, 4).map(item => <button key={item.id} onClick={() => setSelectedBooking(item)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{item.time}</strong><span className="min-w-0 flex-1 truncate">{item.service}</span><ChevronRight size={16}/></button>)}</div></div>
             </section>
             <section className={`${glass} mb-4 rounded-2xl p-4`}>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Быстрые действия</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Operational actions</div>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 <button onClick={() => setShowNewBooking(true)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
                   <Plus size={18} />
@@ -2173,7 +2188,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 {showAddStock && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
                     <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+                      className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
                       <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="font-semibold">Добавить товар</h3>
@@ -2244,7 +2259,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 {showCategoryManager && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
                     <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+                      className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
                       <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="font-semibold">Категории склада</h3>
@@ -2309,7 +2324,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               <AnimatePresence>
                 {showWriteOff && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
                       <h3 className="font-semibold mb-1">Списать товар</h3>
                       <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
                        <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
@@ -2331,7 +2346,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
               {[
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${settingsBoxes.filter(box => box.active).length} активных бокса`, color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
-                { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#2E7552' },
+                { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#34C759' },
                 { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
                 { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#0EA5E9' },
                 { id: 'attendance', icon: TrendingUp, label: 'Посещаемость', desc: 'Выходы мастеров на смену', color: '#8B5CF6' },
@@ -3027,7 +3042,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowMenu(false)} />
             <motion.div initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed left-0 top-0 bottom-0 z-50 w-72 ${isDark ? 'bg-[#191D18]' : 'bg-white'} shadow-2xl flex flex-col`}>
+              className={`fixed left-0 top-0 bottom-0 z-50 w-72 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} shadow-2xl flex flex-col`}>
               <div className="p-5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -3085,7 +3100,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifPanel(false)} />
             <motion.div initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed right-0 top-0 bottom-0 z-50 w-80 ${isDark ? 'bg-[#191D18]' : 'bg-white'} shadow-2xl flex flex-col`}>
+              className={`fixed right-0 top-0 bottom-0 z-50 w-80 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} shadow-2xl flex flex-col`}>
               <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <h3 className="font-semibold">Уведомления</h3>
                 <button onClick={() => setShowNotifPanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
@@ -3116,7 +3131,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowSlideOver(false)} />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm ${isDark ? 'bg-[#191D18]' : 'bg-white'} shadow-2xl flex flex-col overflow-y-auto`}>
+              className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm ${isDark ? 'bg-[#0E1624]' : 'bg-white'} shadow-2xl flex flex-col overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0 z-10" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', background: surface }}>
                 <div>
                   <div className="font-semibold text-sm">#{selectedBooking.id.toUpperCase()}</div>
@@ -3224,6 +3239,25 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </div>
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-center mb-2">
+                    <div className={`text-xs font-medium ${sub}`}>МАТЕРИАЛЫ {selectedBooking.materialsWrittenOff ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600">списано</span> : (selectedBooking.materials?.length ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600">не списано</span> : null)}</div>
+                    <button onClick={() => openEditModal(selectedBooking, 'edit')} className="text-xs px-2 py-1 rounded-lg" style={{ color: primary, background: `${primary}15` }}>Править</button>
+                  </div>
+                  {selectedBooking.materials && selectedBooking.materials.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selectedBooking.materials.map((m: any) => (
+                        <div key={m.id} className="flex justify-between items-center text-sm">
+                          <span>{m.name} · {m.qty} {m.unit}</span>
+                          <span className={`text-xs ${sub}`}>{(Number(m.qty) * Number(m.unitPrice)).toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                      <div className={`text-xs ${sub} pt-1 border-t`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>Итого: {selectedBooking.materials.reduce((s: number, m: any) => s + Number(m.qty) * Number(m.unitPrice), 0).toLocaleString('ru')} ₽</div>
+                    </div>
+                  ) : (
+                    <p className={`text-sm ${sub}`}>Материалы не указаны — добавь в «Редактировать»</p>
+                  )}
+                </div>
+                <div className={`${glass} rounded-2xl p-4`}>
+                  <div className="flex justify-between items-center mb-2">
                     <div className={`text-xs font-medium ${sub}`}>МАСТЕРА</div>
                     <button onClick={() => { setAssignedWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount }))); setShowAssignModal(true); }}
                       className="text-xs px-2 py-1 rounded-lg" style={{ color: primary, background: `${primary}15` }}>Назначить</button>
@@ -3275,7 +3309,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       <AnimatePresence>
         {showAddServiceModal && addServiceTargetBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-[#191D18]' : 'bg-white'}`}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className={`w-full max-w-sm mx-4 rounded-3xl p-5 max-h-[85vh] overflow-y-auto ${isDark ? 'bg-[#0E1624]' : 'bg-white'}`}>
               <h3 className={`text-lg font-semibold ${text} mb-1`}>Добавить услугу</h3>
               <p className={`text-xs ${sub} mb-4`}>Для: {addServiceTargetBooking.clientName} ({addServiceTargetBooking.service})</p>
 
@@ -3490,7 +3524,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setEditAsvcId(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Изменить доп. услугу</h3>
@@ -3635,7 +3669,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       <AnimatePresence>
         {showAssignModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-2xl p-5 w-full max-w-sm`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-sm`}>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Назначить мастеров</h3>
                 <button onClick={() => setShowAssignModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
@@ -3702,7 +3736,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showCompleteModal && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Завершить запись</h3>
@@ -3764,7 +3798,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showEditModal && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{editModalMode === 'reschedule' ? 'Перенести запись' : 'Редактировать запись'}</h3>
@@ -3954,6 +3988,116 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                     </div>
                   </div>
                 </div>
+                {/* Materials */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className={`text-xs ${sub} block`}>Материалы (списание при сохранении)</label>
+                    <button onClick={() => { setEditMaterialPickerCategory(null); setShowEditMaterialPicker(true); }}
+                      className="px-3 py-1 rounded-lg text-xs shrink-0" style={{ background: `${primary}15`, color: primary }}>+ Добавить</button>
+                  </div>
+                  {editBookingMaterials.length > 0 ? (
+                    <div className="space-y-2 mb-2">
+                      {editBookingMaterials.map((mat, idx) => {
+                        const parsedQty = typeof mat.qty === 'string' ? parseFloat(mat.qty) : mat.qty;
+                        const safeQty = (!isNaN(parsedQty as number) && (parsedQty as number) > 0) ? (parsedQty as number) : 0;
+                        return (
+                          <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium truncate">{mat.name}</div>
+                              <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(safeQty * mat.unitPrice).toLocaleString('ru')} ₽</div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <input type="text" inputMode="decimal"
+                                value={typeof mat.qty === 'string' ? mat.qty : (mat.qty === 0 ? '' : String(mat.qty))}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(',', '.');
+                                  setEditBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: raw } : m));
+                                }}
+                                onBlur={() => {
+                                  if (typeof mat.qty === 'string') {
+                                    const val = parseFloat(mat.qty);
+                                    setEditBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: (!isNaN(val) && val > 0) ? val : 1 } : m));
+                                  }
+                                }}
+                                className="w-14 text-center text-xs py-1 rounded-lg" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                              <select value={mat.unit}
+                                onChange={e => setEditBookingMaterials(current => current.map((m, i) => i === idx ? { ...m, unit: e.target.value } : m))}
+                                className="text-xs py-1 rounded-lg px-1" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }}>
+                                {STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                              <button onClick={() => setEditBookingMaterials(current => current.filter((_, i) => i !== idx))}
+                                className="p-1 rounded text-red-500"><X size={14} /></button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={`text-xs ${sub} mb-2`}>Не указаны</div>
+                  )}
+                  {selectedBooking.materialsWrittenOff && (
+                    <div className={`text-xs mb-2 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено — изменения сохранятся, но повторного списания со склада не будет.</div>
+                  )}
+                </div>
+                <AnimatePresence>
+                  {showEditMaterialPicker && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+                      onClick={() => setShowEditMaterialPicker(false)}>
+                      <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-semibold">Выбрать материал</h3>
+                            <button onClick={() => setShowEditMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap">
+                            <button onClick={() => setEditMaterialPickerCategory(null)}
+                              className={`text-xs px-2.5 py-1 rounded-full ${!editMaterialPickerCategory ? 'text-white font-medium' : glass}`}
+                              style={!editMaterialPickerCategory ? { background: primary } : {}}>Все</button>
+                            {stockCategories.filter(c => !c.parentId).map(cat => (
+                              <button key={cat.id} onClick={() => setEditMaterialPickerCategory(cat.id)}
+                                className={`text-xs px-2.5 py-1 rounded-full ${editMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
+                                style={editMaterialPickerCategory === cat.id ? { background: primary } : {}}>{cat.name}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="overflow-y-auto p-4 space-y-2">
+                          {stockItems
+                            .filter(item => {
+                              if (!editMaterialPickerCategory) return true;
+                              const catIds = [editMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === editMaterialPickerCategory).map(c => c.id)];
+                              return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === editMaterialPickerCategory)?.name;
+                            })
+                            .filter(item => item.qty > 0)
+                            .map(item => (
+                              <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-medium">{item.name}</div>
+                                  <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
+                                </div>
+                                <button onClick={() => {
+                                  if (!editBookingMaterials.find(m => m.stockItemId === item.id)) {
+                                    setEditBookingMaterials(current => [...current, { stockItemId: item.id, name: item.name, qty: '', unit: item.unit, unitPrice: item.unitPrice }]);
+                                  }
+                                  setShowEditMaterialPicker(false);
+                                }}
+                                  className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
+                                  style={{ background: primary }}>Выбрать</button>
+                              </div>
+                            ))}
+                          {stockItems.filter(item => {
+                            if (!editMaterialPickerCategory) return true;
+                            const catIds = [editMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === editMaterialPickerCategory).map(c => c.id)];
+                            return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === editMaterialPickerCategory)?.name;
+                          }).filter(item => item.qty > 0).length === 0 && (
+                            <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {editBookingError && <div className="text-xs text-red-500">{editBookingError}</div>}
               </div>
               <button
@@ -3979,7 +4123,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showCreateClient && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0 z-10" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <h3 className="font-semibold">Новый клиент</h3>
                 <button
@@ -4092,7 +4236,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
         {showNewBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
               {/* Sticky header — always visible while scrolling */}
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center shrink-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
@@ -4452,7 +4596,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                       onClick={() => setShowMaterialPicker(false)}>
                       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                         <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                           <div className="flex justify-between items-center mb-2">
                             <h3 className="font-semibold">Выбрать материал</h3>
@@ -4572,7 +4716,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>

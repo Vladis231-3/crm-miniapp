@@ -1006,12 +1006,15 @@ export function OwnerApp() {
   const [ownerNewBookingSaveSuccess, setOwnerNewBookingSaveSuccess] = useState<'notify' | 'silent' | null>(null);
 
   // Owner booking detail edit state
-  const [ownerBookingEditMode, setOwnerBookingEditMode] = useState<null | 'status' | 'price' | 'workers' | 'datetime' | 'full'>(null);
+  const [ownerBookingEditMode, setOwnerBookingEditMode] = useState<null | 'status' | 'price' | 'workers' | 'datetime' | 'full' | 'materials'>(null);
   const [ownerBookingEditStatus, setOwnerBookingEditStatus] = useState<BookingStatus>('confirmed');
   const [ownerBookingEditPrice, setOwnerBookingEditPrice] = useState('');
   const [ownerBookingEditDate, setOwnerBookingEditDate] = useState('');
   const [ownerBookingEditTime, setOwnerBookingEditTime] = useState('');
   const [ownerBookingEditWorkers, setOwnerBookingEditWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
+  const [ownerBookingEditMaterials, setOwnerBookingEditMaterials] = useState<{ stockItemId?: string; name: string; qty: number | string; unit: string; unitPrice: number }[]>([]);
+  const [showOwnerEditMaterialPicker, setShowOwnerEditMaterialPicker] = useState(false);
+  const [ownerEditMaterialPickerCategory, setOwnerEditMaterialPickerCategory] = useState<string | null>(null);
   const [ownerBookingEditSaving, setOwnerBookingEditSaving] = useState(false);
   const [ownerBookingEditError, setOwnerBookingEditError] = useState<string | null>(null);
   const [ownerBookingEditFull, setOwnerBookingEditFull] = useState({
@@ -1566,14 +1569,14 @@ export function OwnerApp() {
   const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
   const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#121511]' : 'bg-[#F3F3EF]';
-  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
-  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
-  const primary = isDark ? '#B9DF55' : '#587817';
-  const accent = isDark ? '#71BF93' : '#2E7552';
-  const surface = isDark ? '#191D18' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const accent = isDark ? '#5DD68F' : '#34C759';
+  const surface = isDark ? '#0E1624' : '#ffffff';
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
+  const selectCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const tooltipStyle = { background: surface, border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 12, color: text };
   const createDraftId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -3395,14 +3398,26 @@ paymentSettled: false,
           }
         }
         patch = { date: ownerBookingEditDate, time: ownerBookingEditTime };
+      } else if (ownerBookingEditMode === 'materials') {
+        const normalized = ownerBookingEditMaterials.map(m => ({
+          id: '',
+          stockItemId: m.stockItemId || null,
+          name: m.name,
+          qty: typeof m.qty === 'string' ? (parseFloat(m.qty) || 0) : m.qty,
+          unit: m.unit,
+          unitPrice: m.unitPrice,
+        })).filter(m => m.qty > 0 && m.name.trim());
+        // allow empty list to clear materials
+        patch = { materials: normalized } as any;
       }
-      await updateBooking(selectedBooking.id, patch);
+      await updateBooking(selectedBooking.id, patch as any);
       setSelectedBooking(prev => prev ? {
         ...prev,
         ...patch,
-        service: patch.serviceId ? (services.find(s => s.id === patch.serviceId)?.name || prev.service) : prev.service,
-        price: patch.serviceId ? Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)) : prev.price,
-        duration: patch.serviceId ? (ownerBookingEditFull.duration || prev.duration) : prev.duration,
+        ...(patch as any).materials ? { materials: (patch as any).materials.map((m: any, i: number) => ({ id: `tmp-${i}-${m.stockItemId || m.name}`, stockItemId: m.stockItemId, name: m.name, qty: m.qty, unit: m.unit, unitPrice: m.unitPrice })) } : {},
+        service: (patch as any).serviceId ? (services.find(s => s.id === (patch as any).serviceId)?.name || prev.service) : prev.service,
+        price: (patch as any).serviceId ? Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)) : prev.price,
+        duration: (patch as any).serviceId ? (ownerBookingEditFull.duration || prev.duration) : prev.duration,
       } as typeof prev : null);
       setOwnerBookingEditMode(null);
     } catch (error) {
@@ -4126,8 +4141,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Выручка" />
                     <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Расходы" />
@@ -4533,7 +4548,7 @@ paymentSettled: false,
                                   adjustment: 'Корректировка',
                                 }[entry.kind]}
                               </div>
-                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#EEF1E9' : '#121511') }}>
+                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#E6EEF8' : '#0B1226') }}>
                                 {entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽
                               </div>
                             </div>
@@ -4930,7 +4945,7 @@ paymentSettled: false,
                           advance: 'Аванс', adjustment: 'Корректировка',
                         };
                         const kindColor: Record<string, string> = {
-                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#EEF1E9' : '#121511',
+                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E6EEF8' : '#0B1226',
                           advance: '#f59e0b', adjustment: '#3b82f6',
                         };
                         const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'bonus';
@@ -5845,7 +5860,7 @@ paymentSettled: false,
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#596057] mb-3">Сводные Telegram-отчёты</div>
+                <div className="text-xs text-[#6B7280] mb-3">Сводные Telegram-отчёты</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { period: 'daily', segment: 'wash', label: 'День · мойка' },
@@ -5947,8 +5962,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={reportByService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#AEB6A9' : '#596057' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#9AA6B2' : '#6B7280' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
@@ -8547,7 +8562,7 @@ paymentSettled: false,
                 {resetWarnings.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {resetWarnings.map((warning) => (
-                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#EEF1E9]' : 'bg-black/[0.03] text-[#121511]'}`}>
+                      <div key={warning} className={`rounded-xl px-3 py-2 text-xs ${isDark ? 'bg-white/5 text-[#E6EEF8]' : 'bg-black/[0.03] text-[#0B1226]'}`}>
                         {warning}
                       </div>
                     ))}
@@ -8585,7 +8600,7 @@ paymentSettled: false,
                         type="button"
                         onClick={clearOwnerResetFlow}
                         disabled={Boolean(resetLoadingStep)}
-                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#EEF1E9]' : 'border-black/10 text-[#121511]'} disabled:opacity-60`}
+                        className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E6EEF8]' : 'border-black/10 text-[#0B1226]'} disabled:opacity-60`}
                       >
                         Сбросить сценарий
                       </button>
@@ -9006,7 +9021,7 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowExportModal(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm mx-auto overflow-hidden`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
@@ -9085,7 +9100,7 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowNotifications(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Уведомления</h3>
@@ -9111,7 +9126,7 @@ paymentSettled: false,
         {showAddExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative overflow-hidden`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative overflow-hidden`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <AnimatePresence>
                 {expenseAdded && (
@@ -9168,7 +9183,7 @@ paymentSettled: false,
         {showPiggyWithdraw && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Снять на материалы</h3>
@@ -9210,7 +9225,7 @@ paymentSettled: false,
         {showPiggyAdjust && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
@@ -9256,8 +9271,8 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#191D18' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Архив недель</h3>
                 <button onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
@@ -9374,8 +9389,8 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => setShowFinancePanel(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#191D18' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
+              <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#0E1624' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Финансы</h3>
                 <button onClick={() => setShowFinancePanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
@@ -9502,7 +9517,7 @@ paymentSettled: false,
         {showAddIncome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доход</h3>
@@ -9571,7 +9586,7 @@ paymentSettled: false,
         {showAddStock && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить товар</h3>
@@ -9644,7 +9659,7 @@ paymentSettled: false,
         {showCategoryManager && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Категории склада</h3>
@@ -9711,7 +9726,7 @@ paymentSettled: false,
       <AnimatePresence>
         {showWriteOff && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
               <h3 className="font-semibold mb-1">Списать товар</h3>
               <p className={`text-sm ${sub} mb-4`}>{stockItems.find(s => s.id === showWriteOff)?.name}</p>
               <div className="mb-4"><label className={`text-xs ${sub} block mb-1`}>Количество</label><input className={inputCls} type="text" inputMode="decimal" value={writeOffQty} onChange={e => setWriteOffQty(e.target.value)} /></div>
@@ -9729,7 +9744,7 @@ paymentSettled: false,
         {showComplaintsWorkerId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Активные жалобы</h3>
@@ -9768,7 +9783,7 @@ paymentSettled: false,
         {showCreateClient && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Новый клиент</h3>
@@ -9881,7 +9896,7 @@ paymentSettled: false,
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowCreateBooking(false)} />
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-4`}
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-4`}
               style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             >
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
@@ -10125,7 +10140,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
@@ -10180,7 +10195,7 @@ paymentSettled: false,
         {showBookingDetail && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Запись</h3>
@@ -10308,6 +10323,31 @@ paymentSettled: false,
                   })()}
                 </div>
 
+                {/* Materials card */}
+                <div className={`${glass} rounded-2xl p-4`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>МАТЕРИАЛЫ {selectedBooking.materialsWrittenOff ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600">списано</span> : (selectedBooking.materials?.length ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600">не списано</span> : null)}</div>
+                    {selectedBooking.materialsWrittenOff && (
+                      <span className={`text-[10px] ${sub}`}>редактирование возможно — списание уже выполнено</span>
+                    )}
+                  </div>
+                  {selectedBooking.materials && selectedBooking.materials.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selectedBooking.materials.map((m: any) => (
+                        <div key={m.id} className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{m.name}</div>
+                            <div className={`text-xs ${sub}`}>{m.qty} {m.unit} × {Number(m.unitPrice).toLocaleString('ru')} ₽ = {(Number(m.qty) * Number(m.unitPrice)).toLocaleString('ru')} ₽</div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className={`text-xs ${sub} pt-1`}>Итого: {selectedBooking.materials.reduce((s: number, m: any) => s + Number(m.qty) * Number(m.unitPrice), 0).toLocaleString('ru')} ₽</div>
+                    </div>
+                  ) : (
+                    <div className={`text-xs ${sub}`}>Материалы не указаны. Добавь списание через «Материалы».</div>
+                  )}
+                </div>
+
                 {/* Edit buttons */}
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РЕДАКТИРОВАТЬ</div>
@@ -10318,6 +10358,7 @@ paymentSettled: false,
                       { mode: 'price' as const, label: 'Цена' },
                       { mode: 'workers' as const, label: 'Мастера' },
                       { mode: 'datetime' as const, label: 'Дата и время' },
+                      { mode: 'materials' as const, label: 'Материалы' },
                     ].map(({ mode, label }) => (
                       <button
                         key={mode}
@@ -10328,6 +10369,7 @@ paymentSettled: false,
                           if (mode === 'status') setOwnerBookingEditStatus(selectedBooking.status);
                           if (mode === 'price') setOwnerBookingEditPrice(String(selectedBooking.price));
                           if (mode === 'workers') setOwnerBookingEditWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount })));
+                          if (mode === 'materials') setOwnerBookingEditMaterials((selectedBooking.materials || []).map((m: any) => ({ stockItemId: m.stockItemId, name: m.name, qty: m.qty, unit: m.unit, unitPrice: Number(m.unitPrice) })));
                           if (mode === 'datetime') {
                             setOwnerBookingEditDate(selectedBooking.date);
                             setOwnerBookingEditTime(selectedBooking.time);
@@ -10336,7 +10378,7 @@ paymentSettled: false,
                         className="py-2.5 rounded-xl text-sm font-medium"
                         style={ownerBookingEditMode === mode
                           ? { background: primary, color: '#fff' }
-                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#EEF1E9' : '#121511' }}
+                          : { background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: isDark ? '#E6EEF8' : '#0B1226' }}
                       >
                         {label}
                       </button>
@@ -10471,6 +10513,124 @@ paymentSettled: false,
                         {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {ownerBookingEditMode === 'materials' && (
+                  <div className={`${glass} rounded-2xl p-4`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`text-xs font-medium ${sub}`}>Материалы (списание)</div>
+                      <button onClick={() => { setOwnerEditMaterialPickerCategory(null); setShowOwnerEditMaterialPicker(true); }}
+                        className="px-3 py-1 rounded-lg text-xs shrink-0" style={{ background: `${primary}15`, color: primary }}>+ Добавить</button>
+                    </div>
+                    {ownerBookingEditMaterials.length > 0 ? (
+                      <div className="space-y-2 mb-3">
+                        {ownerBookingEditMaterials.map((mat, idx) => {
+                          const parsedQty = typeof mat.qty === 'string' ? parseFloat(mat.qty) : mat.qty;
+                          const safeQty = (!isNaN(parsedQty as number) && (parsedQty as number) > 0) ? (parsedQty as number) : 0;
+                          return (
+                            <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium truncate">{mat.name}</div>
+                                <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(safeQty * mat.unitPrice).toLocaleString('ru')} ₽</div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <input type="text" inputMode="decimal"
+                                  value={typeof mat.qty === 'string' ? mat.qty : (mat.qty === 0 ? '' : String(mat.qty))}
+                                  onChange={e => {
+                                    const raw = e.target.value.replace(',', '.');
+                                    setOwnerBookingEditMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: raw } : m));
+                                  }}
+                                  onBlur={() => {
+                                    if (typeof mat.qty === 'string') {
+                                      const val = parseFloat(mat.qty);
+                                      setOwnerBookingEditMaterials(current => current.map((m, i) => i === idx ? { ...m, qty: (!isNaN(val) && val > 0) ? val : 1 } : m));
+                                    }
+                                  }}
+                                  className="w-14 text-center text-xs py-1 rounded-lg" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }} />
+                                <select value={mat.unit}
+                                  onChange={e => setOwnerBookingEditMaterials(current => current.map((m, i) => i === idx ? { ...m, unit: e.target.value } : m))}
+                                  className="text-xs py-1 rounded-lg px-1" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }}>
+                                  {STOCK_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                </select>
+                                <button onClick={() => setOwnerBookingEditMaterials(current => current.filter((_, i) => i !== idx))}
+                                  className="p-1 rounded text-red-500"><X size={14} /></button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className={`text-xs ${sub} mb-3`}>Пока не выбрано. Нажми «Добавить» и выбери со склада.</div>
+                    )}
+                    {selectedBooking.materialsWrittenOff && (
+                      <div className={`text-xs mb-3 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено. Новые материалы будут учтены, но повторного автоматического списания со склада не будет — при необходимости спиши вручную через склад.</div>
+                    )}
+                    <div className="flex gap-2">
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
+                      <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
+                      </button>
+                    </div>
+                    <AnimatePresence>
+                      {showOwnerEditMaterialPicker && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
+                          onClick={() => setShowOwnerEditMaterialPicker(false)}>
+                          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                            <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                              <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-semibold">Выбрать материал</h3>
+                                <button onClick={() => setShowOwnerEditMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} /></button>
+                              </div>
+                              <div className="flex gap-1.5 flex-wrap">
+                                <button onClick={() => setOwnerEditMaterialPickerCategory(null)}
+                                  className={`text-xs px-2.5 py-1 rounded-full ${!ownerEditMaterialPickerCategory ? 'text-white font-medium' : glass}`}
+                                  style={!ownerEditMaterialPickerCategory ? { background: primary } : {}}>Все</button>
+                                {stockCategories.filter(c => !c.parentId).map(cat => (
+                                  <button key={cat.id} onClick={() => setOwnerEditMaterialPickerCategory(cat.id)}
+                                    className={`text-xs px-2.5 py-1 rounded-full ${ownerEditMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
+                                    style={ownerEditMaterialPickerCategory === cat.id ? { background: primary } : {}}>{cat.name}</button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="overflow-y-auto p-4 space-y-2">
+                              {stockItems
+                                .filter(item => {
+                                  if (!ownerEditMaterialPickerCategory) return true;
+                                  const catIds = [ownerEditMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === ownerEditMaterialPickerCategory).map(c => c.id)];
+                                  return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === ownerEditMaterialPickerCategory)?.name;
+                                })
+                                .filter(item => item.qty > 0)
+                                .map(item => (
+                                  <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-medium">{item.name}</div>
+                                      <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
+                                    </div>
+                                    <button onClick={() => {
+                                      if (!ownerBookingEditMaterials.find(m => m.stockItemId === item.id)) {
+                                        setOwnerBookingEditMaterials(current => [...current, { stockItemId: item.id, name: item.name, qty: '', unit: item.unit, unitPrice: item.unitPrice }]);
+                                      }
+                                      setShowOwnerEditMaterialPicker(false);
+                                    }}
+                                      className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
+                                      style={{ background: primary }}>Выбрать</button>
+                                  </div>
+                                ))}
+                              {stockItems.filter(item => {
+                                if (!ownerEditMaterialPickerCategory) return true;
+                                const catIds = [ownerEditMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === ownerEditMaterialPickerCategory).map(c => c.id)];
+                                return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === ownerEditMaterialPickerCategory)?.name;
+                              }).filter(item => item.qty > 0).length === 0 && (
+                                <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
+                              )}
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
@@ -10628,7 +10788,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setShowStatusList(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{ownerStatusLabel(showStatusList)}</h3>
@@ -10688,7 +10848,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setKpiModal(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{kpiModal.title}</h3>
@@ -10833,7 +10993,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setShowOwnerAddService(false); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Добавить доп. услугу</h3>
@@ -11057,7 +11217,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) setOwnerEditAsvcId(null); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Изменить доп. услугу</h3>
@@ -11210,7 +11370,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50"
             onClick={(e) => { if (e.target === e.currentTarget) closeOwnerNewBookingModal(); }}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                 <h3 className="font-semibold mt-2">Новая запись</h3>
@@ -11586,7 +11746,7 @@ paymentSettled: false,
                       onClick={() => setShowOwnerMaterialPicker(false)}>
                       <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
+                        className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                         <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                           <div className="flex justify-between items-center mb-2">
                             <h3 className="font-semibold">Выбрать материал</h3>
@@ -11702,7 +11862,7 @@ paymentSettled: false,
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setShowOwnerClientSearch(false)}>
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold">Найденные клиенты</h3>
@@ -11772,7 +11932,7 @@ paymentSettled: false,
         {editingExpense && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Редактировать расход</h3>
@@ -11853,7 +12013,7 @@ paymentSettled: false,
         {editingIncome && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Редактировать доход</h3>
@@ -11968,7 +12128,7 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
@@ -11987,7 +12147,7 @@ paymentSettled: false,
                       : [];
                     if (!q) return null;
                     return (
-                      <div className={`${isDark ? 'bg-[#191D18] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
+                      <div className={`${isDark ? 'bg-[#0E1624] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
                         {matches.length === 0 ? (
                           <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>
                         ) : (
@@ -12120,7 +12280,7 @@ paymentSettled: false,
                                     {insufficient && <div className="text-xs text-red-500">На складе только {stockItem!.qty} {stockItem!.unit}</div>}
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
+                                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
                                     <span className={`text-xs ${sub} shrink-0`}>{mat.unit}</span>
                                     <button onClick={() => removeMaterial(mi)} className="p-1 text-red-500 shrink-0"><X size={14} /></button>
                                   </div>
@@ -12354,7 +12514,7 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
+                className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-2 mb-1" />
                 <div className="flex justify-between items-center px-5 py-3 sticky top-0" style={{ background: surface }}>
@@ -12476,7 +12636,7 @@ paymentSettled: false,
               <motion.div
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
+                className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
@@ -12556,7 +12716,7 @@ paymentSettled: false,
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="fixed inset-0 z-50 flex items-center justify-center px-5">
-              <div className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
+              <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${accent}18` }}>
@@ -12575,7 +12735,7 @@ paymentSettled: false,
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Новый пароль</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
                       placeholder="Минимум 8 символов"
                       value={resetPasswordValue}
@@ -12585,7 +12745,7 @@ paymentSettled: false,
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Подтверждение</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
                       placeholder="Повторите пароль"
                       value={resetPasswordConfirm}
