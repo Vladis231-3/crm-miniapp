@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 07:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 07:22 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **430**
-- Строк кода: **191 133**
+- Строк кода: **191 135**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
@@ -3724,6 +3724,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 10:21)
+- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 10:19)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 10:18)
+- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 10:18)
 - `frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
 - `training/frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
 - `training/frontend/src/app/App.tsx` (2026-08-21 09:59)
@@ -3734,8 +3738,4 @@ concept1.0/
 - `training/backend/bot.py` (2026-08-21 08:29)
 - `training/frontend/src/app/context/AppContext.tsx` (2026-08-21 08:28)
 - `training/frontend/src/app/mocks/trainingStubs.ts` (2026-08-21 08:28)
-- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 08:17)
-- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 08:16)
 - `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 08:15)
-- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 08:15)
-- `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 08:14)

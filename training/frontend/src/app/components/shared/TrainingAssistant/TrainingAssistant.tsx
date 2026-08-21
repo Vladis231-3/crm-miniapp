@@ -105,7 +105,7 @@ export function TrainingAssistant() {
     setJustFinishedRole(finishedRole);
     setMenuOpen(false);
     setSpot(null);
-    setFlyMs(900);
+    setFlyMs(550);
     setPos({ x: (window.innerWidth - ROBOT_SIZE) / 2, y: window.innerHeight - ROBOT_SIZE - 240 });
     setBubble({ x: (window.innerWidth - BUBBLE_MAX_W) / 2, y: window.innerHeight - 500, w: Math.min(BUBBLE_MAX_W, window.innerWidth - 32) });
     setMode('rolePicker');
@@ -118,7 +118,7 @@ export function TrainingAssistant() {
     setBubble(null);
     setPos({ x: window.innerWidth + 20, y: window.innerHeight - ROBOT_SIZE - 110 });
     later(() => {
-      setFlyMs(1100);
+      setFlyMs(700);
       setPos({ x: window.innerWidth - ROBOT_SIZE - 20, y: window.innerHeight - ROBOT_SIZE - 110 });
       setBubble({
         x: (window.innerWidth - BUBBLE_MAX_W) / 2,
@@ -137,7 +137,7 @@ export function TrainingAssistant() {
       } else {
         startIntro();
       }
-    }, 1100);
+    }, 650);
   }, [mode, later, startIntro]);
 
   const startTour = useCallback((role: TourRole) => {
@@ -161,21 +161,21 @@ export function TrainingAssistant() {
   useEffect(() => {
     if (mode !== 'idle') return;
     const wander = () => {
-      setFlyMs(4200);
+      setFlyMs(3200);
       setPos({
         x: clamp(24 + Math.random() * (window.innerWidth - ROBOT_SIZE - 64), 8, window.innerWidth - ROBOT_SIZE - 8),
         y: clamp(90 + Math.random() * (window.innerHeight - ROBOT_SIZE - 210), 40, window.innerHeight - ROBOT_SIZE - 40),
       });
     };
     wander();
-    const id = window.setInterval(wander, 5400);
+    const id = window.setInterval(wander, 5200);
     return () => window.clearInterval(id);
   }, [mode]);
 
   /* ── RolePicker positioning ── */
   useEffect(() => {
     if (mode !== 'rolePicker') return;
-    setFlyMs(900);
+    setFlyMs(550);
     placeCenter(window.innerHeight - 520);
     const onResize = () => placeCenter(window.innerHeight - 520);
     window.addEventListener('resize', onResize);
@@ -197,7 +197,7 @@ export function TrainingAssistant() {
     setBubble(null);
 
     if (!current.target) {
-      setFlyMs(900);
+      setFlyMs(550);
       placeCenter(window.innerHeight - 460);
       return;
     }
@@ -214,24 +214,24 @@ export function TrainingAssistant() {
       });
     }
 
-    // Ждём появления элемента (до 1.2с, с учётом анимации перехода)
+    // Ждём появления элемента (до ~0.85с, с учётом анимации перехода)
     let attempts = 0;
     const tryFind = () => {
       const el = document.querySelector(current.target!);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        later(() => placeAround(el), 420);
+        later(() => placeAround(el), 260);
         return;
       }
       attempts += 1;
-      if (attempts < 12) {
-        later(tryFind, 110);
+      if (attempts < 9) {
+        later(tryFind, 90);
       } else {
         // Не нашли — пропускаем шаг
-        later(() => setStepIdx(i => i + 1), 200);
+        later(() => setStepIdx(i => i + 1), 150);
       }
     };
-    later(tryFind, current.navigate ? 460 : 100);
+    later(tryFind, current.navigate ? 280 : 80);
 
     // Re-place on resize/scroll while step active
     const onRecalc = () => {
@@ -414,7 +414,7 @@ export function TrainingAssistant() {
             pointerEvents: 'none',
             border: `2px solid ${primary}`,
             boxShadow: '0 0 0 9999px rgba(2, 8, 23, 0.45), 0 0 24px rgba(10, 132, 255, 0.35)',
-            transition: 'all 0.45s ease',
+            transition: 'all 0.32s ease',
           }}
         />
       )}

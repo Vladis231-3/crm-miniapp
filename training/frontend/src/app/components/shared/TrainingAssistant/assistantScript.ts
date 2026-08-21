@@ -259,9 +259,10 @@ export const TRAINING_SCRIPT: TourStep[] = [
   },
   {
     role: 'worker',
-    target: '[data-training="worker-task-detail"]',
+    navigate: { app: 'worker', tab: 'today' },
+    target: '[data-training="worker-today-list"]',
     title: 'Детали заказа',
-    text: 'Состав заказа, оплата, материалы, коллеги и времена. Здесь же — таймер работы.',
+    text: 'Нажмите «Детали» на карточке — откроется состав заказа, оплата, материалы, коллеги и таймер. Сейчас подсвечен список задач.',
   },
   {
     role: 'worker',
@@ -355,6 +356,7 @@ export const TRAINING_SCRIPT: TourStep[] = [
   },
   {
     role: 'owner',
+    navigate: { app: 'owner', page: 'salary-detail' },
     target: '[data-training="owner-payroll-detail"]',
     title: 'Детализация мастера',
     text: 'Записи, выплаты и корректировки. Можно начислить премию, аванс, штраф или скорректировать выплату.',
