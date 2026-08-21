@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 07:00 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 07:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **430**
-- Строк кода: **191 123**
+- Строк кода: **191 133**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
@@ -3442,7 +3442,7 @@ concept1.0/
 - `tg` (стр. 6) — локальный
 - `btn` (стр. 7) — локальный
 
-### frontend/src/app/hooks/useTelegramMainButton.ts (34 строк)
+### frontend/src/app/hooks/useTelegramMainButton.ts (39 строк)
 
 - `useTelegramMainButton` (стр. 4)
 - `tg` (стр. 11) — локальный
@@ -3724,6 +3724,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
+- `training/frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
 - `training/frontend/src/app/App.tsx` (2026-08-21 09:59)
 - `training/frontend/src/app/api.ts` (2026-08-21 08:39)
 - `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 08:39)
@@ -3737,5 +3739,3 @@ concept1.0/
 - `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 08:15)
 - `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 08:15)
 - `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 08:14)
-- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-21 08:13)
-- `training/frontend/src/app/components/shared/TrainingAssistant/tourTypes.ts` (2026-08-21 08:06)

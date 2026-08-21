@@ -12,12 +12,17 @@ export function useTelegramMainButton(
     const btn = tg?.MainButton;
     if (!btn) return;
 
-    if (!show) {
-      btn.hide();
+    if (!show || !text || !text.trim()) {
+      try { btn.hide(); } catch {}
       return;
     }
 
-    btn.setText(text);
+    try {
+      btn.setText(text);
+    } catch {
+      try { btn.hide(); } catch {}
+      return;
+    }
     btn.onClick(onClick);
     if (enabled) {
       btn.enable();
