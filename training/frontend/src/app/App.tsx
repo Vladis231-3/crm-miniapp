@@ -662,12 +662,9 @@ function AppContent() {
   }
 
   if (!session) {
-    return (
-      <>
-        <WelcomeScreen />
-        <TrainingAssistant />
-      </>
-    );
+    // Для обучения — убираем привязку к TG ID: гость без регистрации сразу видит демо без БД
+    // (только фронт + заглушки, реальные данные не тянутся)
+    return <HelpDemoApp />;
   }
 
   if (consentNeeded) {

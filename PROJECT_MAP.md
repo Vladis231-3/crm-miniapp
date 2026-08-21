@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 05:39 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 06:43 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **430**
-- Строк кода: **191 094**
+- Строк кода: **191 091**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
@@ -3724,12 +3724,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `training/frontend/src/app/App.tsx` (2026-08-21 09:42)
 - `training/frontend/src/app/api.ts` (2026-08-21 08:39)
 - `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 08:39)
 - `backend/bot.py` (2026-08-21 08:39)
 - `training/backend/tests/test_training_help.py` (2026-08-21 08:30)
 - `training/backend/bot.py` (2026-08-21 08:29)
-- `training/frontend/src/app/App.tsx` (2026-08-21 08:29)
 - `training/frontend/src/app/context/AppContext.tsx` (2026-08-21 08:28)
 - `training/frontend/src/app/mocks/trainingStubs.ts` (2026-08-21 08:28)
 - `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 08:17)
