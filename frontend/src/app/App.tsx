@@ -53,10 +53,10 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
   const [consentLoading, setConsentLoading] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
 
-  const primary = isDark ? '#B9DF55' : '#587817';
-  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
-  const bg = isDark ? 'bg-[#121511]' : 'bg-gradient-to-br from-[#E5EFC9] via-[#F3F3EF] to-[#EEF0E9]';
-  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
 
   const handleAgree = async () => {
     try {
@@ -78,7 +78,7 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm max-h-[85vh] overflow-y-auto"
       >
-        <div className={`${isDark ? 'bg-[#191D18] border-white/10' : 'bg-white border-black/10'} border rounded-3xl p-6 shadow-2xl`}>
+        <div className={`${isDark ? 'bg-[#0E1624] border-white/10' : 'bg-white border-black/10'} border rounded-3xl p-6 shadow-2xl`}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}18` }}>
             <Shield size={22} style={{ color: primary }} />
           </div>
@@ -302,14 +302,14 @@ function WelcomeScreen() {
 
   const [form, setForm] = useState({ name: '', car: '', plate: '' });
 
-  const bg = isDark ? 'bg-[#121511]' : 'bg-gradient-to-br from-[#E5EFC9] via-[#F3F3EF] to-[#EEF0E9]';
-  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
-  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
-  const primary = isDark ? '#B9DF55' : '#587817';
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-gradient-to-br from-[#E8F0FE] via-[#F6F7FA] to-[#E0F2FE]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
   const glass = isDark
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-lg';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white/90 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 transition-all`;
+  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white/90 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 transition-all`;
 
   const validate = () => {
     const errors: Record<string, string> = {};
@@ -533,7 +533,7 @@ function WelcomeScreen() {
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="fixed inset-0 z-50 flex items-center justify-center px-5"
             >
-              <div className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
+              <div className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-3xl p-6 w-full max-w-sm shadow-2xl`}>
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${primary}18` }}>
@@ -561,7 +561,7 @@ function WelcomeScreen() {
                   <div>
                     <label className={`text-xs ${sub} block mb-1.5`}>Логин</label>
                     <input
-                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                      className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       placeholder="Логин, выданный администратором"
                       value={staffLogin}
                       onChange={(e) => {
@@ -575,7 +575,7 @@ function WelcomeScreen() {
                     <label className={`text-xs ${sub} block mb-1.5`}>Пароль</label>
                     <div className="relative">
                       <input
-                        className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none pr-10`}
+                        className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none pr-10`}
                         placeholder="Пароль"
                         type={showPass ? 'text' : 'password'}
                         value={staffPassword}
@@ -651,7 +651,7 @@ function AppContent() {
   }, [checkConsent, session]);
 
   if (loading || !consentReady) {
-    return <div className={`${isDark ? 'dark bg-[#121511] text-[#EEF1E9]' : 'bg-[#F3F3EF] text-[#121511]'} min-h-screen flex items-center justify-center text-sm`}>Загрузка...</div>;
+    return <div className={`${isDark ? 'dark bg-[#0B1226] text-[#E6EEF8]' : 'bg-[#F6F7FA] text-[#0B1226]'} min-h-screen flex items-center justify-center text-sm`}>Загрузка...</div>;
   }
 
   if (!session) {

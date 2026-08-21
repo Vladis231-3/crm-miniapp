@@ -263,12 +263,12 @@ export function ClientApp() {
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
 
-  const bg = isDark ? 'bg-[#121511]' : 'bg-[#F3F3EF]';
-  const text = isDark ? 'text-[#EEF1E9]' : 'text-[#121511]';
-  const sub = isDark ? 'text-[#AEB6A9]' : 'text-[#596057]';
-  const primary = isDark ? '#B9DF55' : '#587817';
-  const primaryBtn = isDark ? 'bg-[#B9DF55] text-white' : 'bg-[#587817] text-white';
-  const secondaryBtn = isDark ? 'bg-white/10 text-[#EEF1E9] border border-white/20' : 'bg-white text-[#121511] border border-black/10';
+  const bg = isDark ? 'bg-[#0B1226]' : 'bg-[#F6F7FA]';
+  const text = isDark ? 'text-[#E6EEF8]' : 'text-[#0B1226]';
+  const sub = isDark ? 'text-[#9AA6B2]' : 'text-[#6B7280]';
+  const primary = isDark ? '#4AA8FF' : '#0A84FF';
+  const primaryBtn = isDark ? 'bg-[#4AA8FF] text-white' : 'bg-[#0A84FF] text-white';
+  const secondaryBtn = isDark ? 'bg-white/10 text-[#E6EEF8] border border-white/20' : 'bg-white text-[#0B1226] border border-black/10';
   const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
   const availableSlotCards = slotCards.filter((slot) => slot.available).length;
   const occupiedSlotCards = slotCards.filter((slot) => !slot.available).length;
@@ -499,7 +499,7 @@ export function ClientApp() {
                 <ServiceSearchInput
                   value={serviceSearchQuery}
                   onChange={(v) => { setServiceSearchQuery(v); if (v.trim()) setActiveCategory('Все'); }}
-                  inputCls={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                  inputCls={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                   iconCls={sub}
                 />
               </div>
@@ -598,7 +598,7 @@ export function ClientApp() {
                   <select
                     value={selectedBookingVehicleIndex}
                     onChange={(event) => setSelectedBookingVehicleIndex(Number(event.target.value))}
-                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9]' : 'bg-white border-black/10 text-[#121511]'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8]' : 'bg-white border-black/10 text-[#0B1226]'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
                   >
                     {bookingVehicles.map((vehicle, index) => (
                       <option key={`booking-vehicle-${index}`} value={index}>
@@ -641,7 +641,7 @@ export function ClientApp() {
                     value={detailingNote}
                     onChange={(event) => setDetailingNote(event.target.value)}
                     placeholder="Опишите задачу, состояние авто или удобный способ связи"
-                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
+                    className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
                   />
                 </div>
               )}
@@ -1000,7 +1000,7 @@ export function ClientApp() {
                 <div className="space-y-3">
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Имя</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.name ? 'border-red-400' : ''}`} value={profileForm.name} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.name ? 'border-red-400' : ''}`} value={profileForm.name} onChange={(e) => {
                       setProfileForm((current) => ({ ...current, name: e.target.value }));
                       setProfileErrors((current) => ({ ...current, name: '' }));
                       setProfileError('');
@@ -1009,7 +1009,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
                       setProfileForm((current) => ({ ...current, phone: e.target.value }));
                       setProfileErrors((current) => ({ ...current, phone: '' }));
                       setProfileError('');
@@ -1018,7 +1018,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{'\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
                       const nextCar = e.target.value;
                       setProfileForm((current) => {
                         const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
@@ -1035,7 +1035,7 @@ export function ClientApp() {
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}</label>
-                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
+                    <input className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
                       const nextPlate = normalizePlateInput(e.target.value);
                       setProfileForm((current) => {
                         const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
@@ -1072,7 +1072,7 @@ export function ClientApp() {
                       {profileVehicles.slice(1).map((vehicle, index) => (
                         <div key={`profile-vehicle-${index + 1}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                           <input
-                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                             placeholder={'\u041c\u0430\u0440\u043a\u0430'}
                             value={vehicle.car}
                             onChange={(e) => {
@@ -1088,7 +1088,7 @@ export function ClientApp() {
                             }}
                           />
                           <input
-                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#EEF1E9] placeholder-white/30' : 'bg-white border-black/10 text-[#121511] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
+                            className={`${isDark ? 'bg-white/5 border-white/10 text-[#E6EEF8] placeholder-white/30' : 'bg-white border-black/10 text-[#0B1226] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                             placeholder={'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}
                             maxLength={9}
                             value={vehicle.plate}
@@ -1157,7 +1157,7 @@ export function ClientApp() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-t-3xl p-6 w-full max-w-sm`}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-t-3xl p-6 w-full max-w-sm`}
               onClick={e => e.stopPropagation()}
             >
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-5" />
@@ -1205,7 +1205,7 @@ export function ClientApp() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`${isDark ? 'bg-[#191D18]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}
+              className={`${isDark ? 'bg-[#0E1624]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}
               onClick={e => e.stopPropagation()}
             >
               <h3 className="font-semibold mb-2">Отменить запись?</h3>
@@ -1236,7 +1236,7 @@ export function ClientApp() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
-            style={{ background: isDark ? '#191D18' : '#ffffff', border: `1px solid ${primary}40` }}
+            style={{ background: isDark ? '#0E1624' : '#ffffff', border: `1px solid ${primary}40` }}
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}>
               <Check size={14} style={{ color: primary }} />
