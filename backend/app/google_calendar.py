@@ -183,6 +183,61 @@ def clear_tokens(db: Any) -> None:
     db.flush()
 
 
+# Подстроки, указывающие на отзыв/истечение refresh-токена (invalid_grant).
+_REVOKED_DETAILS_SUBSTRINGS = (
+    "expired or revoked",
+    "invalid_grant",
+    "token has been expired",
+    "revoked",
+)
+
+
+def _is_token_revoked_error(exc: _GoogleApiError) -> bool:
+    """True, если ошибка — истёкший/отозванный токен (нужен повторный OAuth).
+
+    Google возвращает 400 invalid_grant с описанием
+    "Token has been expired or revoked." — это не временный сбой,
+    а требование переподключить календарь.
+    """
+    # _GoogleApiError может быть ещё не определён при импорте — проверяем
+    # наличие атрибутов безопасно.
+    reason = getattr(exc, "reason", None) or ""
+    details = getattr(exc, "details", None) or ""
+    msg = str(exc) or ""
+    haystack = f"{reason} {details} {msg}".lower()
+    for substr in _REVOKED_DETAILS_SUBSTRINGS:
+        if substr in haystack:
+            return True
+    # Явный 400+invalid_grant с любого места ответа
+    if getattr(exc, "status", None) == 400 and "invalid_grant" in haystack:
+        return True
+    return False
+
+
+def _disable_integration_on_revoked(db: Any) -> None:
+    """Отключить Google Calendar при отозванном токене: чистим токены и флаг.
+
+    Вызывается, когда refresh_token истёк/отозван — дальнейшие попытки
+    синхронизации бессмысленны до повторного OAuth. Чистим токены и
+    сбрасываем owner_integrations.googleCalendar, чтобы UI показал
+    «требуется подключение», а фоновый sync стал no-op (skipped=True).
+    """
+    try:
+        clear_tokens(db)
+    except Exception:
+        logger.exception("Failed to clear Google tokens after revocation")
+    try:
+        AppSetting = _appsetting_model()
+        row = db.get(AppSetting, "owner_integrations")
+        if row is not None and isinstance(row.value, dict) and row.value.get("googleCalendar"):
+            new_val = dict(row.value)
+            new_val["googleCalendar"] = False
+            row.value = new_val
+            db.flush()
+    except Exception:
+        logger.exception("Failed to disable googleCalendar flag after token revocation")
+
+
 def _client_config(settings: Settings) -> dict[str, Any]:
     """Базовый client_config для построения OAuth-запросов."""
     redirect_uri = settings.google_calendar_redirect_uri
@@ -235,9 +290,10 @@ def exchange_code(
         raise _GoogleApiError(resp.status_code, "token_exchange_failed")
     data = resp.json()
     # Нормализуем ответ Google: остальной код ожидает ключ "token"
-    # (access_token из ответа token-эндпоинта Google).
+    # (access_token из ответа token-эндпоинта Google). Поддерживаем
+    # и "token" для совместимости с моками/старыми тестами.
     return {
-        "token": data.get("access_token", ""),
+        "token": data.get("access_token") or data.get("token", ""),
         "refresh_token": data.get("refresh_token", ""),
         "expires_in": data.get("expires_in", 3600),
         "scope": data.get("scope", ""),
@@ -340,7 +396,23 @@ def _calendar_request(
     headers = {"Authorization": f"Bearer {tokens['token']}"}
     resp = requests.request(method, url, params=params, json=body, headers=headers, timeout=30)
     if resp.status_code in (401, 403) and not _retried and tokens.get("refresh_token"):
-        save_tokens(db, _refresh_access_token(settings, tokens, db=db))
+        try:
+            new_tokens = _refresh_access_token(settings, tokens, db=db)
+        except _GoogleApiError as refresh_exc:
+            if _is_token_revoked_error(refresh_exc):
+                _disable_integration_on_revoked(db)
+                logger.warning(
+                    "Google Calendar refresh token revoked/expired, integration disabled. Please reconnect. Details: %s",
+                    refresh_exc.details or refresh_exc,
+                )
+                raise _GoogleApiError(
+                    401,
+                    "invalid_grant",
+                    reason="invalid_grant",
+                    details="Token has been expired or revoked. Please reconnect Google Calendar.",
+                ) from refresh_exc
+            raise
+        save_tokens(db, new_tokens)
         return _calendar_request(db, settings, method, path, params=params, body=body, _retried=True)
     if resp.status_code >= 400:
         reason, details = _google_error_from_response(resp)
@@ -414,6 +486,20 @@ def sync_booking_to_calendar(
     """
     try:
         return _sync_booking_to_calendar_impl(db, settings, booking, action=action)
+    except _GoogleApiError as exc:
+        if _is_token_revoked_error(exc):
+            try:
+                _disable_integration_on_revoked(db)
+            except Exception:
+                pass
+            logger.warning(
+                "Google Calendar sync skipped - token revoked/expired (booking=%s). Please reconnect. Details: %s",
+                getattr(booking, "id", None),
+                exc.details or exc,
+            )
+            return getattr(booking, "google_event_id", None), False
+        logger.exception("Google Calendar sync failed (booking=%s)", getattr(booking, "id", None))
+        return getattr(booking, "google_event_id", None), False
     except Exception:
         logger.exception("Google Calendar sync failed (booking=%s)", getattr(booking, "id", None))
         return getattr(booking, "google_event_id", None), False
@@ -1316,6 +1402,37 @@ def pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]:
     """
     try:
         return _pull_calendar_changes_impl(db, settings)
+    except _GoogleApiError as exc:
+        if _is_token_revoked_error(exc):
+            try:
+                _disable_integration_on_revoked(db)
+            except Exception:
+                pass
+            logger.warning(
+                "Google Calendar pull failed - token revoked/expired: %s",
+                exc.details or exc,
+            )
+            return {
+                "ok": False,
+                "skipped": False,
+                "created": 0,
+                "updated": 0,
+                "cancelled": 0,
+                "error": "auth_failed",
+                "errorDetails": (
+                    "Токен Google Calendar истёк или был отозван. "
+                    "Подключите календарь заново в настройках (Интеграции → Google Calendar)."
+                ),
+            }
+        logger.exception("Google Calendar pull failed")
+        return {
+            "ok": False,
+            "skipped": False,
+            "created": 0,
+            "updated": 0,
+            "cancelled": 0,
+            "error": "pull_failed",
+        }
     except Exception:
         logger.exception("Google Calendar pull failed")
         return {
@@ -1377,6 +1494,19 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         if next_sync_token:
             _save_sync_token(db, next_sync_token)
     except _GoogleApiError as exc:
+        # Отозванный/истёкший refresh_token (invalid_grant) — отключаем интеграцию.
+        if _is_token_revoked_error(exc):
+            _disable_integration_on_revoked(db)
+            logger.warning(
+                "Google Calendar pull token revoked/expired, integration disabled: %s",
+                exc.details or exc,
+            )
+            result.update(ok=False, error="auth_failed")
+            result["errorDetails"] = (
+                "Токен Google Calendar истёк или был отозван. "
+                "Подключите календарь заново в настройках (Интеграции → Google Calendar)."
+            )
+            return result
         # 410 GONE: syncToken устарел (календарь пересоздан) — полный рескан.
         if exc.status == 410:
             _save_sync_token(db, None)
