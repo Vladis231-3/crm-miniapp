@@ -13,6 +13,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
 } from 'recharts';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
+import { TRAINING_NAVIGATE_EVENT, type TrainingNavigateDetail } from '../shared/TrainingAssistant/tourTypes';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
@@ -585,6 +586,18 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
       void listAdminShiftInspections().then(setShiftInspections);
     }
   }, [page, settingsSection]);
+
+  // Training tour auto-navigation
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TrainingNavigateDetail>).detail;
+      if (!detail || detail.app !== 'admin') return;
+      if (detail.page) setPage(detail.page as typeof page);
+      if ('section' in detail) setSettingsSection((detail.section as typeof settingsSection) ?? null);
+    };
+    window.addEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+  }, []);
 
   const modalMaxHeight = useVisualViewport();
 
@@ -1530,7 +1543,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
                 </button>
               </div>
             </section>
-            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="admin-calendar" key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold">Сегодня — {todayLabel}</h2>
                 <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
@@ -1604,7 +1617,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
           {/* STATS */}
           {page === 'stats' && (
-            <motion.div key="stats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4 space-y-4">
+            <motion.div data-training="admin-stats" key="stats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4 space-y-4">
               <h2 className="font-semibold">Статистика</h2>
 
               {/* KPI row */}
@@ -1633,7 +1646,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
           {/* CLIENTS */}
           {page === 'clients' && (
-            <motion.div key="clients" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="admin-clients" key="clients" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex items-center justify-between mb-4 gap-3">
                 <div>
                   <h2 className="font-semibold">Клиенты</h2>
@@ -2037,7 +2050,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
           {/* STOCK */}
           {page === 'stock' && (
-            <motion.div key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="admin-stock" key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Склад</h2>
                 <div className="flex gap-2">
@@ -2568,7 +2581,7 @@ const [newBookingWorkers, setNewBookingWorkers] = useState<{ id: string; percent
 
           {/* SETTINGS: BOXES */}
           {page === 'settings' && settingsSection === 'boxes' && (
-            <motion.div key="settings-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+            <motion.div data-training="admin-settings" key="settings-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Управление боксами</h2>
               {settingsBoxes.map((box) => (

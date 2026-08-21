@@ -41,7 +41,8 @@ def test_help_command_sends_training_message_with_webapp_button() -> None:
     assert len(keyboard) == 1
     button = keyboard[0][0]
     assert button["text"] == "🎓 Открыть обучение"
-    assert button["web_app"]["url"] == "https://training.example"
+    # /help — фронт без БД: открываем демо с заглушками (?help=1), реальные данные не тянутся
+    assert button["web_app"]["url"] == "https://training.example?help=1"
 
 
 def test_help_command_ignores_extra_argument_text() -> None:
@@ -79,4 +80,5 @@ def test_welcome_markup_has_training_button() -> None:
     markup = _welcome_reply_markup("https://training.example")
     first_row = markup["inline_keyboard"][0]
     assert first_row[0]["text"] == "🎓 Обучающий тур"
-    assert first_row[0]["web_app"]["url"] == "https://training.example"
+    # Обучающий тур — демо без БД (?help=1)
+    assert first_row[0]["web_app"]["url"] == "https://training.example?help=1"

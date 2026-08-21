@@ -155,10 +155,12 @@ def _telegram_multipart_call(
 
 
 def _welcome_reply_markup(webapp_url: str) -> dict[str, Any]:
+    # Обучающий тур — фронт без БД (?help=1), чтобы гость без регистрации не тянул реальные данные
+    help_url = f"{webapp_url}?help=1" if "?" not in webapp_url else f"{webapp_url}&help=1"
     return {
         "inline_keyboard": [
             [
-                {"text": "🎓 Обучающий тур", "web_app": {"url": webapp_url}},
+                {"text": "🎓 Обучающий тур", "web_app": {"url": help_url}},
             ],
             [
                 {"text": "✨ О нас", "web_app": {"url": f"{webapp_url}/about"}},
@@ -182,10 +184,11 @@ HELP_TEXT = (
 
 
 def _help_reply_markup(webapp_url: str) -> dict[str, Any]:
+    help_url = f"{webapp_url}?help=1" if "?" not in webapp_url else f"{webapp_url}&help=1"
     return {
         "inline_keyboard": [
             [
-                {"text": "\U0001f393 Открыть обучение", "web_app": {"url": webapp_url}},
+                {"text": "\U0001f393 Открыть обучение", "web_app": {"url": help_url}},
             ],
         ]
     }

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-20 21:40 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 05:31 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **427**
-- Строк кода: **190 059**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 31, `.tsx`: 264
+- Файлов кода: **430**
+- Строк кода: **191 085**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
 
@@ -361,6 +361,8 @@ concept1.0/
 │       │   │   │   │   └── ClientApp.tsx
 │       │   │   │   ├── figma/
 │       │   │   │   │   └── ImageWithFallback.tsx
+│       │   │   │   ├── help/
+│       │   │   │   │   └── HelpDemoApp.tsx
 │       │   │   │   ├── landing/
 │       │   │   │   │   ├── Contact.tsx
 │       │   │   │   │   ├── Footer.tsx
@@ -380,6 +382,7 @@ concept1.0/
 │       │   │   │   ├── shared/
 │       │   │   │   │   ├── TrainingAssistant/
 │       │   │   │   │   │   ├── assistantScript.ts
+│       │   │   │   │   │   ├── tourTypes.ts
 │       │   │   │   │   │   └── TrainingAssistant.tsx
 │       │   │   │   │   ├── Atmosfera.tsx
 │       │   │   │   │   ├── AttendanceTable.tsx
@@ -398,6 +401,8 @@ concept1.0/
 │       │   │   ├── hooks/
 │       │   │   │   ├── useTelegramBackButton.ts
 │       │   │   │   └── useTelegramMainButton.ts
+│       │   │   ├── mocks/
+│       │   │   │   └── trainingStubs.ts
 │       │   │   ├── utils/
 │       │   │   │   ├── complaints.ts
 │       │   │   │   ├── date.ts
@@ -3719,18 +3724,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 00:40)
-- `training/frontend/.env.local` (2026-08-21 00:22)
-- `training/frontend/.gitignore` (2026-08-21 00:10)
-- `training/frontend/.env.production` (2026-08-21 00:09)
-- `training/frontend/vercel.json` (2026-08-20 23:58)
-- `backend/tests/test_bot_help.py` (2026-08-20 23:52)
-- `backend/.env.example` (2026-08-20 23:52)
-- `backend/bot.py` (2026-08-20 23:51)
-- `backend/app/config.py` (2026-08-20 23:50)
-- `.gitignore` (2026-08-20 23:43)
-- `training/backend/tests/test_training_help.py` (2026-08-20 23:37)
-- `training/backend/bot.py` (2026-08-20 23:35)
-- `training/frontend/src/app/App.tsx` (2026-08-20 23:35)
-- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-20 23:35)
-- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-20 23:34)
+- `training/frontend/src/app/api.ts` (2026-08-21 08:31)
+- `training/backend/tests/test_training_help.py` (2026-08-21 08:30)
+- `training/backend/bot.py` (2026-08-21 08:29)
+- `training/frontend/src/app/App.tsx` (2026-08-21 08:29)
+- `training/frontend/src/app/context/AppContext.tsx` (2026-08-21 08:28)
+- `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 08:28)
+- `training/frontend/src/app/mocks/trainingStubs.ts` (2026-08-21 08:28)
+- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 08:17)
+- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 08:16)
+- `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 08:15)
+- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 08:15)
+- `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 08:14)
+- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-21 08:13)
+- `training/frontend/src/app/components/shared/TrainingAssistant/tourTypes.ts` (2026-08-21 08:06)
+- `scripts/.project-map-watch.lock` (2026-08-21 07:48)

@@ -951,7 +951,7 @@ function timeRangesOverlap(startA: number, endA: number, startB: number, endB: n
   return startA < endB && endA > startB;
 }
 
-const AppContext = createContext<AppContextType | null>(null);
+export const AppContext = createContext<AppContextType | null>(null);
 
 function normalizeWorker(worker: Worker) {
   return {

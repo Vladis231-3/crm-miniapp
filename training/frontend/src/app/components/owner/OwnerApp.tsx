@@ -33,6 +33,7 @@ import {
 import { useVisualViewport } from '../../utils/useVisualViewport';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
+import { TRAINING_NAVIGATE_EVENT, type TrainingNavigateDetail } from '../shared/TrainingAssistant/tourTypes';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
 type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'deposit' | 'shift';
@@ -1341,6 +1342,18 @@ export function OwnerApp() {
       void listAdminShiftInspections().then(setAdminShiftInspections);
     }
   }, [isAccountant, page, settingsSection]);
+
+  // ── Training tour auto-navigation (робот сам переключает страницы) ──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TrainingNavigateDetail>).detail;
+      if (!detail || detail.app !== 'owner') return;
+      if (detail.page) setPage(detail.page as typeof page);
+      if ('section' in detail) setSettingsSection((detail.section as typeof settingsSection) ?? null);
+    };
+    window.addEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+  }, []);
 
   const handleOpenShiftForMasters = async () => {
     setShiftOpenError(null);
@@ -3762,7 +3775,7 @@ paymentSettled: false,
   return (
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
       {/* Header */}
-      <div className={`work-header ${glass} flex items-center justify-between`}>
+      <div data-training="owner-header" className={`work-header ${glass} flex items-center justify-between`}>
         <div>
           <div className="font-semibold text-sm">{financeRoleTitle}</div>
           <div className={`text-xs ${sub}`}>ATMOSFERA</div>
@@ -3795,7 +3808,7 @@ paymentSettled: false,
 
           {/* ── CALENDAR ── */}
           {page === 'calendar' && (
-            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-calendar" key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {ownerCalendarView === 'month' ? (
                 <>
                   <div className={`${glass} rounded-2xl p-4 mb-4`}>
@@ -4040,8 +4053,8 @@ paymentSettled: false,
           {/* ── DASHBOARD ── */}
           {page === 'dashboard' && (
             <>
-            <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <div className="grid grid-cols-2 gap-3 mb-4">
+            <motion.div data-training="owner-dashboard" key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <div data-training="owner-kpi" className="grid grid-cols-2 gap-3 mb-4">
                 {kpiCards.map(card => (
                   <motion.button key={card.label} whileTap={{ scale: 0.96 }} onClick={card.action}
                     className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
@@ -4122,7 +4135,7 @@ paymentSettled: false,
               </div>
               {/* Revenue chart */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} mb-3`}>ВЫРУЧКА VS РАСХОДЫ (НЕДЕЛЯ)</div>
+                <div data-training="owner-charts" className={`text-xs font-medium ${sub} mb-3`}>ВЫРУЧКА VS РАСХОДЫ (НЕДЕЛЯ)</div>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
@@ -4281,7 +4294,7 @@ paymentSettled: false,
 
           {/* ── PAYROLL ── */}
           {page === 'payroll' && (
-            <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-payroll" key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-2">Зарплаты сотрудников</h2>
 
               {/* Search */}
@@ -4661,7 +4674,7 @@ paymentSettled: false,
 
           {/* ── SALARY DETAIL ── */}
           {page === 'salary-detail' && (
-            <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-payroll-detail" key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
                 <ArrowLeft size={16} />Назад к зарплатам
               </button>
@@ -4975,7 +4988,7 @@ paymentSettled: false,
 
           {/* ── STOCK ── */}
           {page === 'stock' && (
-            <motion.div key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-stock" key="stock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Склад</h2>
                 <div className="flex gap-2">
@@ -5237,7 +5250,7 @@ paymentSettled: false,
 
           {/* ── WALLET ── */}
           {(page === 'wallet' || (page === 'settings' && settingsSection === 'wallet')) && (
-            <motion.div key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-settings-wallet" key="wallet" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -5417,7 +5430,7 @@ paymentSettled: false,
 
           {/* ── PIGGY BANK / FINANCE HUB ── */}
           {page === 'piggy-bank' && (
-            <motion.div key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-piggy" key="piggy-bank" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Header */}
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
@@ -5832,7 +5845,7 @@ paymentSettled: false,
                 };
               }).sort((left, right) => right.revenue - left.revenue);
               return (
-            <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-reports" key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Отчёты</h2>
                 <div className="flex gap-1.5">
@@ -6123,7 +6136,7 @@ paymentSettled: false,
 
           {/* ── SETTINGS MAIN ── */}
           {!isAccountant && page === 'settings' && !settingsSection && (
-            <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-settings" key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
                 { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
@@ -7189,7 +7202,7 @@ paymentSettled: false,
           )}
 
           {/* ── SETTINGS: COMPANY ── */}
-          {!isAccountant && page === 'settings' && settingsSection === 'company' && (            <motion.div key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+          {!isAccountant && page === 'settings' && settingsSection === 'company' && (            <motion.div data-training="owner-settings" key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Профиль компании</h2>
               <div className="flex flex-col items-center mb-5">
@@ -7253,7 +7266,7 @@ paymentSettled: false,
           )}
 
           {!isAccountant && page === 'settings' && settingsSection === 'clients' && (
-            <motion.div key="s-clients" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-settings-clients" key="s-clients" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => { setSettingsSection(null); setSettingsClientId(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
@@ -8449,7 +8462,7 @@ paymentSettled: false,
 
           {/* ── SETTINGS: CONTENT ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'content' && (
-            <motion.div key="s-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
+            <motion.div data-training="owner-settings-content" key="s-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <ContentEditor
                 initialContent={content}
@@ -8707,7 +8720,7 @@ paymentSettled: false,
 
           {/* ── SETTINGS: FINANCE ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'finance' && (
-            <motion.div key="s-finance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="owner-settings-finance" key="s-finance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} />Назад</button>
               <h2 className="font-semibold mb-4">Финансы</h2>
 
@@ -8962,7 +8975,7 @@ paymentSettled: false,
       )}
 
       {/* Bottom Nav */}
-      <div className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
+      <div data-training="owner-nav" className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
         {(isAccountant
           ? [
               { id: 'dashboard', icon: Home, label: 'Главная' },

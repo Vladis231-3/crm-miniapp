@@ -13,6 +13,7 @@ import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { apiRequest } from '../../api';
 import { WorkerCalendar, type WorkerCalendarBooking } from './WorkerCalendar';
+import { TRAINING_NAVIGATE_EVENT, type TrainingNavigateDetail } from '../shared/TrainingAssistant/tourTypes';
 
 type WorkerTab = 'today' | 'schedule' | 'calendar' | 'cars' | 'earnings' | 'profile';
 type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift' | 'attendance';
@@ -359,6 +360,19 @@ export function WorkerApp() {
     }
   }, [tab, profileSection]);
 
+  // Training tour auto-navigation
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TrainingNavigateDetail>).detail;
+      if (!detail || detail.app !== 'worker') return;
+      if (detail.tab) setTab(detail.tab as typeof tab);
+      if ('section' in detail) setProfileSection((detail.section as typeof profileSection) ?? null);
+      if (detail.tab === 'calendar' || detail.tab === 'cars') setShowDetail(false);
+    };
+    window.addEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+  }, []);
+
   useEffect(() => {
     if (tab !== 'earnings') return;
     if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
@@ -597,7 +611,7 @@ export function WorkerApp() {
   return (
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
       {/* Header */}
-      <div className={`work-header ${glass} flex items-center justify-between`}>
+      <div data-training="worker-header" className={`work-header ${glass} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           {(showDetail || profileSection) && (
             <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} /></button>
@@ -628,7 +642,7 @@ export function WorkerApp() {
 
           {/* ── TASK DETAIL ── */}
           {showDetail && selectedTask ? (
-            <motion.div key="detail" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 30 }} transition={{ duration: 0.22 }} className="px-4 py-4">
+            <motion.div data-training="worker-task-detail" key="detail" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 30 }} transition={{ duration: 0.22 }} className="px-4 py-4">
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${workerStatusBadge(selectedTask.status)}`}>{workerStatusLabel(selectedTask.status)}</span>
@@ -817,7 +831,7 @@ export function WorkerApp() {
 
           ) : tab === 'today' && !profileSection ? (
             <>
-            <section className="role-hero role-hero--worker mb-4">
+            <section data-training="worker-hero" className="role-hero role-hero--worker mb-4">
               <div className="text-xs uppercase tracking-[.2em] opacity-70">Shift command</div>
               <div className="mt-3 flex items-end justify-between gap-4">
                 <div>
@@ -836,13 +850,13 @@ export function WorkerApp() {
                 <button onClick={() => setProfileSection(`shift`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">Чек-лист смены</button>
               </div>
             </section>
-            <section className={`${glass} mb-4 rounded-2xl p-4`}>
+            <section data-training="worker-next" className={`${glass} mb-4 rounded-2xl p-4`}>
               <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Next work rail</div><h3 className="font-semibold">Дальше по времени</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">Расписание</button></div>
               <div className="mt-3 space-y-2">
                 {todayTasks.filter(task => task.status !== `completed`).slice(0, 3).map(task => <button key={task.id} onClick={() => { setSelectedTask(task); setShowDetail(true); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{task.time}</strong><span className="min-w-0 flex-1 truncate">{task.service}</span><ChevronRight size={16}/></button>)}
               </div>
             </section>
-            <motion.div key="today" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="worker-today-list" key="today" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {todayTasks.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <Clock size={36} className={`mx-auto mb-3 ${sub}`} />
@@ -895,7 +909,7 @@ export function WorkerApp() {
             </>
 
           ) : tab === 'schedule' && !profileSection ? (
-            <motion.div key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="worker-schedule" key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Расписание</h2>
               {upcomingDates.slice(0, 3).map(date => {
                 const dayTasks = bookings.filter(b => b.date === date && isMyTask(b));
@@ -933,7 +947,7 @@ export function WorkerApp() {
             </motion.div>
 
           ) : tab === 'cars' && !profileSection ? (
-            <motion.div key="cars" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="worker-cars" key="cars" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className={`${glass} rounded-2xl p-3 mb-3`}>
                 <div className="relative">
                   <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
@@ -1010,7 +1024,7 @@ export function WorkerApp() {
             </motion.div>
 
           ) : tab === 'calendar' && !profileSection ? (
-            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="worker-calendar" key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <WorkerCalendar
                 bookings={calendarBookings}
                 loading={calendarLoading}
@@ -1028,7 +1042,7 @@ export function WorkerApp() {
             </motion.div>
 
           ) : tab === 'earnings' && !profileSection ? (
-            <motion.div key="earnings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="worker-earnings" key="earnings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Period + Segment filters */}
               <div className={`${glass} rounded-2xl p-3 mb-3`}>
                 <div className="flex gap-1.5 mb-1.5">
@@ -1287,7 +1301,7 @@ export function WorkerApp() {
 
           ) : tab === 'profile' && !profileSection ? (
             /* ── PROFILE MAIN ── */
-            <motion.div key="profile-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+            <motion.div data-training="worker-profile" key="profile-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               {/* Avatar + name */}
               <div className={`${glass} rounded-2xl p-5 mb-4`}>
                 <div className="flex items-center gap-4 mb-4">
@@ -1597,7 +1611,7 @@ export function WorkerApp() {
       </div>
 
       {/* Bottom Nav */}
-      <div className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
+      <div data-training="worker-nav" className={`fixed bottom-0 left-0 right-0 z-10 ${glass} border-t ${isDark ? 'border-white/10' : 'border-black/5'} flex`}>
         {[
           { id: 'today', icon: Clock, label: 'Сегодня' },
           { id: 'schedule', icon: Calendar, label: 'Расписание' },

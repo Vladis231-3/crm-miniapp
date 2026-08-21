@@ -96,7 +96,33 @@ export function getTelegramInitData() {
   return window.Telegram?.WebApp?.initData || '';
 }
 
+function isHelpMode(): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.has('help') || params.has('training') || window.location.pathname === '/help';
+  } catch {
+    return false;
+  }
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  // /help — фронт без БД: никаких запросов к бэку, только заглушки
+  if (isHelpMode()) {
+    // Стабы для самых частых путей, остальное — пустой массив/объект чтобы не падать
+    if (path.startsWith('/api/auth/session') || path.startsWith('/api/auth/client') || path.startsWith('/api/auth/staff')) {
+      throw new Error('Демо-режим (/help) — авторизация отключена, используются заглушки');
+    }
+    if (path.includes('/api/worker/calendar') || path.includes('/api/worker/cars/search')) return [] as unknown as T;
+    if (path.includes('/api/worker/salary-detail')) return { bookings: [], entries: [], balance: 0 } as unknown as T;
+    if (path.includes('/api/owner/piggy-bank') || path.includes('/api/owner/wallet') || path.includes('/api/owner/archive') || path.includes('/api/owner/bookings-history')) {
+      return { balance: 0, transactions: [], bookings: [], archives: [] } as unknown as T;
+    }
+    if (path.includes('/api/stock') || path.includes('/api/shift') || path.includes('/api/content') || path.includes('/api/notifications')) return [] as unknown as T;
+    // Для остальных — пустой объект чтобы не тянуть реальные данные
+    if (path.includes('/api/')) return {} as unknown as T;
+  }
+
   const { method = 'GET', body } = options;
 
   const headers: Record<string, string> = {
@@ -128,6 +154,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export async function apiDownload(path: string, fallbackFileName: string): Promise<string> {
+  if (isHelpMode()) throw new Error('Демо-режим (/help) — выгрузка отключена');
   const headers: Record<string, string> = {};
   const initData = getInitData();
   if (initData) {
@@ -157,6 +184,7 @@ export async function apiDownload(path: string, fallbackFileName: string): Promi
 }
 
 export async function apiUploadFile(file: File): Promise<{ url: string }> {
+  if (isHelpMode()) throw new Error('Демо-режим (/help) — загрузка отключена');
   const initData = getInitData();
   const formData = new FormData();
   formData.append('file', file);
@@ -172,6 +200,7 @@ export async function apiUploadFile(file: File): Promise<{ url: string }> {
 }
 
 export async function apiBlobUrl(path: string): Promise<string> {
+  if (isHelpMode()) throw new Error('Демо-режим (/help) — фото недоступно');
   const headers: Record<string, string> = {};
   const initData = getInitData();
   if (initData) {

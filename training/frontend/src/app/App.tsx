@@ -38,6 +38,7 @@ import { AdminApp } from './components/admin/AdminApp';
 import { WorkerApp } from './components/worker/WorkerApp';
 import { OwnerApp } from './components/owner/OwnerApp';
 import { TrainingAssistant } from './components/shared/TrainingAssistant/TrainingAssistant';
+import { HelpDemoApp, isHelpMode } from './components/help/HelpDemoApp';
 import {
   normalizePersonName,
   normalizePlateInput,
@@ -725,6 +726,11 @@ function LandingWrapper() {
 }
 
 export default function App() {
+  // /help — фронт без БД, только заглушки (не требует регистрации, не тянет реальные данные)
+  if (isHelpMode()) {
+    return <HelpDemoApp />;
+  }
+
   const path = usePath();
 
   if (path === '/works') {
@@ -733,6 +739,10 @@ export default function App() {
 
   if (path === '/about') {
     return <LandingWrapper />;
+  }
+
+  if (path === '/help') {
+    return <HelpDemoApp />;
   }
 
   return (

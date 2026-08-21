@@ -17,6 +17,7 @@ import {
 import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
 import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
 import { ServiceSearchInput } from '../shared/ServiceSearchInput';
+import { TRAINING_NAVIGATE_EVENT, type TrainingNavigateDetail } from '../shared/TrainingAssistant/tourTypes';
 
 const NOOP = () => {};
 
@@ -134,6 +135,17 @@ export function ClientApp() {
   useEffect(() => {
     setSelectedSlot(null);
   }, [selectedDate, selectedService?.id, boxRentalHours]);
+
+  // Training tour auto-navigation
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TrainingNavigateDetail>).detail;
+      if (!detail || detail.app !== 'client') return;
+      if (detail.page) setPage(detail.page as typeof page);
+    };
+    window.addEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TRAINING_NAVIGATE_EVENT, handler as EventListener);
+  }, []);
 
   useEffect(() => {
     if (page !== 'slots' || session?.role !== 'client') return;
@@ -566,6 +578,7 @@ export function ClientApp() {
           {/* DETAIL PAGE */}
           {page === 'detail' && selectedService && (
             <motion.div
+              data-training="client-detail"
               key="detail"
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
@@ -660,6 +673,7 @@ export function ClientApp() {
           {/* SLOTS PAGE */}
           {page === 'slots' && selectedService && (
             <motion.div
+              data-training="client-slots"
               key="slots"
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
@@ -875,6 +889,7 @@ export function ClientApp() {
           {/* MY BOOKINGS PAGE */}
           {page === 'bookings' && (
             <motion.div
+              data-training="client-bookings"
               key="bookings"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -946,6 +961,7 @@ export function ClientApp() {
 
           {page === 'profile' && (
             <motion.div
+              data-training="client-profile"
               key="profile"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
