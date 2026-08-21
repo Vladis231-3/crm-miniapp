@@ -132,22 +132,26 @@ export function TrainingAssistant() {
   useEffect(() => {
     if (mode !== 'boot') return;
     later(() => {
+      // Муся всегда приветствует при заходе, не ждёт клика
       if (localStorage.getItem(LS_KEY) === '1') {
-        setMode('idle');
+        startRolePicker(null);
       } else {
         startIntro();
       }
     }, 650);
-  }, [mode, later, startIntro]);
+  }, [mode, later, startIntro, startRolePicker]);
 
   const startTour = useCallback((role: TourRole) => {
     const all = getStepsForRole(role);
-    // Фильтруем только те, что имеют смысл: без target — показываем, с target — попробуем найти позже (автонавигация)
-    // Не фильтруем заранее по document.querySelector, т.к. многие элементы появятся после navigate
     if (all.length === 0) {
       setMode('idle');
       return;
     }
+    // Переключить и демо-роль в HelpDemoApp (без TG ID)
+    try {
+      window.dispatchEvent(new CustomEvent('training:switch-help-role', { detail: { role } }));
+      dispatchTrainingNavigate({ app: role } as any);
+    } catch {}
     setSelectedRole(role);
     setSteps(all);
     setStepIdx(0);
@@ -157,19 +161,34 @@ export function TrainingAssistant() {
     setMode('tour');
   }, []);
 
-  /* ── Idle wander ── */
+  /* ── Idle: Муся приветствует, а не просто летает ── */
   useEffect(() => {
     if (mode !== 'idle') return;
+    // Сразу приветствие от Муси при входе в idle
+    setFlyMs(600);
+    const vw = window.innerWidth;
+    const bw = Math.min(BUBBLE_MAX_W, vw - 32);
+    setPos({ x: (vw - ROBOT_SIZE) / 2, y: window.innerHeight - ROBOT_SIZE - 220 });
+    setBubble({ x: (vw - bw) / 2, y: window.innerHeight - 380, w: bw });
+    // Муся не просто летает — показывает приветствие 4с, затем начинает прогулку
     const wander = () => {
       setFlyMs(3200);
       setPos({
         x: clamp(24 + Math.random() * (window.innerWidth - ROBOT_SIZE - 64), 8, window.innerWidth - ROBOT_SIZE - 8),
         y: clamp(90 + Math.random() * (window.innerHeight - ROBOT_SIZE - 210), 40, window.innerHeight - ROBOT_SIZE - 40),
       });
+      setBubble(null);
+      setSpot(null);
     };
-    wander();
+    const hideTimer = window.setTimeout(() => {
+      setBubble(null);
+      wander();
+    }, 4200);
     const id = window.setInterval(wander, 5200);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearInterval(id);
+    };
   }, [mode]);
 
   /* ── RolePicker positioning ── */
@@ -272,8 +291,23 @@ export function TrainingAssistant() {
   const suggestedRole = currentRoleFromSession();
 
   const progress = inTour && current ? { idx: stepIdx + 1, total: steps.length, pct: Math.round(((stepIdx + 1) / steps.length) * 100) } : null;
+  const inIdleGreeting = mode === 'idle' && !!bubble && !menuOpen;
 
-  const bubbleBody = inIntro ? (
+  const bubbleBody = inIdleGreeting ? (
+    <div className={`rounded-2xl p-4 shadow-2xl border ${surface}`}>
+      <div className="flex items-start gap-2.5">
+        <span className="text-xl leading-none mt-0.5">🤖</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-bold mb-1">Привет! Я — Муся</div>
+          <div className="text-xs leading-relaxed opacity-80">Я твой помощник. Нажми на меня, чтобы выбрать роль — я полечу по всем окнам, подсветю нужные места и всё объясню.</div>
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <button onClick={() => setMode('hidden')} className="text-xs opacity-60 px-2 py-1">Скрыть</button>
+        <button onClick={() => startRolePicker(null)} className="text-xs font-semibold px-3.5 py-2 rounded-xl text-white shadow" style={{ background: primary }}>Выбрать роль</button>
+      </div>
+    </div>
+  ) : inIntro ? (
     <div className={`rounded-2xl p-4 shadow-2xl border ${surface}`}>
       <div className="flex items-start gap-2.5">
         <span className="text-xl leading-none mt-0.5">🤖</span>
@@ -305,7 +339,7 @@ export function TrainingAssistant() {
             {justFinishedRole ? `Готово — тур «${TOUR_SECTIONS.find(s => s.id === justFinishedRole)?.label}» завершён!` : 'Выберите роль для обучения'}
           </div>
           <div className="text-xs leading-relaxed opacity-80">
-            {justFinishedRole ? 'Куда полетим дальше? Выберите следующую роль — я подсветю все её окна и объясню каждый элемент.' : 'Я летаю по всем окнам и подсвечиваю места, о которых рассказываю. Выберите, с чего начать — в любой момент можно переключиться.'}
+            {justFinishedRole ? 'Куда полетим дальше? Выберите следующую роль — я, Муся, подсветю все её окна и объясню каждый элемент.' : 'Я — Муся, летаю по всем окнам и подсвечиваю места, о которых рассказываю. Выберите, с чего начать — в любой момент можно переключиться.'}
           </div>
         </div>
         <button onClick={skipAll} className="opacity-50 hover:opacity-100 transition-opacity shrink-0"><X size={14} /></button>
@@ -385,7 +419,7 @@ export function TrainingAssistant() {
 
   const menuBody = menuOpen && mode === 'idle' ? (
     <div className={`rounded-2xl p-2 shadow-2xl border w-64 ${surface}`}>
-      <div className="text-[11px] font-bold px-3 py-1.5 opacity-60">Привет! Я — мини-помощник</div>
+      <div className="text-[11px] font-bold px-3 py-1.5 opacity-60">Привет! Я — Муся 🤖</div>
       <button onClick={() => startRolePicker(null)} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium hover:opacity-75 transition-opacity text-left">
         <GraduationCap size={15} style={{ color: primary }} /> Выбрать роль и начать тур
       </button>

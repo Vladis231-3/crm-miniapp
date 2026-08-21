@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 07:22 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-21 07:32 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **430**
-- Строк кода: **191 135**
+- Строк кода: **191 288**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 125, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
@@ -3724,18 +3724,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 10:21)
-- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 10:19)
+- `training/frontend/src/app/api.ts` (2026-08-21 10:31)
+- `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 10:30)
+- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 10:30)
+- `training/backend/bot.py` (2026-08-21 10:29)
+- `training/frontend/src/app/components/shared/TrainingAssistant/assistantScript.ts` (2026-08-21 10:28)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 10:18)
 - `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 10:18)
 - `frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
 - `training/frontend/src/app/hooks/useTelegramMainButton.ts` (2026-08-21 10:08)
 - `training/frontend/src/app/App.tsx` (2026-08-21 09:59)
-- `training/frontend/src/app/api.ts` (2026-08-21 08:39)
-- `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 08:39)
 - `backend/bot.py` (2026-08-21 08:39)
 - `training/backend/tests/test_training_help.py` (2026-08-21 08:30)
-- `training/backend/bot.py` (2026-08-21 08:29)
 - `training/frontend/src/app/context/AppContext.tsx` (2026-08-21 08:28)
 - `training/frontend/src/app/mocks/trainingStubs.ts` (2026-08-21 08:28)
 - `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 08:15)

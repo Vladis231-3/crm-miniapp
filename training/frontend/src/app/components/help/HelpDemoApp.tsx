@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Component, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Shield, Eye, GraduationCap } from 'lucide-react';
 import { AppContext, type AppContextType, type Role } from '../../context/AppContext';
@@ -149,6 +149,21 @@ function useHelpMockContext(helpRole: HelpRole, isDark: boolean, toggleTheme: ()
   } as unknown as AppContextType;
 }
 
+class HelpErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return <div style={{ padding: 24, fontFamily: 'monospace', background: '#1a1a2e', color: '#ff6b6b', minHeight: '40vh' }}>
+        <h3 style={{ color: '#ff6b6b' }}>Ошибка демо-роли</h3>
+        <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{this.state.error.message}</pre>
+        <button onClick={() => this.setState({ error: null })} style={{ marginTop: 12, padding: '8px 16px', background: '#0a84ff', color: '#fff', border: 'none', borderRadius: 8 }}>Попробовать снова</button>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 export function isHelpMode(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -164,6 +179,27 @@ export function HelpDemoApp() {
   const [helpRole, setHelpRole] = useState<HelpRole>('client');
   const [isDark, setIsDark] = useState(false);
   const toggleTheme = () => setIsDark(v => !v);
+  // Муся может переключать роль из тура
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const d = (e as CustomEvent).detail as { app?: string };
+      if (d?.app && ['client', 'admin', 'worker', 'owner'].includes(d.app)) {
+        setHelpRole(d.app as HelpRole);
+      }
+    };
+    const onSwitch = (e: Event) => {
+      const d = (e as CustomEvent).detail as { role?: string };
+      if (d?.role && ['client', 'admin', 'worker', 'owner'].includes(d.role)) {
+        setHelpRole(d.role as HelpRole);
+      }
+    };
+    window.addEventListener('training:navigate', onNavigate as EventListener);
+    window.addEventListener('training:switch-help-role', onSwitch as EventListener);
+    return () => {
+      window.removeEventListener('training:navigate', onNavigate as EventListener);
+      window.removeEventListener('training:switch-help-role', onSwitch as EventListener);
+    };
+  }, []);
   const ctx = useHelpMockContext(helpRole, isDark, toggleTheme);
 
   const roles: { id: HelpRole; label: string; icon: string; desc: string }[] = [
@@ -210,10 +246,12 @@ export function HelpDemoApp() {
         </div>
 
         <div className="relative">
-          {helpRole === 'client' && <ClientApp />}
-          {helpRole === 'admin' && <AdminApp />}
-          {helpRole === 'worker' && <WorkerApp />}
-          {helpRole === 'owner' && <OwnerApp />}
+          <HelpErrorBoundary>
+            {helpRole === 'client' && <ClientApp />}
+            {helpRole === 'admin' && <AdminApp />}
+            {helpRole === 'worker' && <WorkerApp />}
+            {helpRole === 'owner' && <OwnerApp />}
+          </HelpErrorBoundary>
           <TrainingAssistant />
         </div>
 

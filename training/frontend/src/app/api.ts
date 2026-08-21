@@ -112,18 +112,99 @@ function isHelpMode(): boolean {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   // /help — фронт без БД: никаких запросов к бэку, только заглушки
   if (isHelpMode()) {
-    // Стабы для самых частых путей, остальное — пустой массив/объект чтобы не падать
     if (path.startsWith('/api/auth/session') || path.startsWith('/api/auth/client') || path.startsWith('/api/auth/staff')) {
       throw new Error('Демо-режим (/help) — авторизация отключена, используются заглушки');
     }
-    if (path.includes('/api/worker/calendar') || path.includes('/api/worker/cars/search')) return [] as unknown as T;
-    if (path.includes('/api/worker/salary-detail')) return { bookings: [], entries: [], balance: 0 } as unknown as T;
-    if (path.includes('/api/owner/piggy-bank') || path.includes('/api/owner/wallet') || path.includes('/api/owner/archive') || path.includes('/api/owner/bookings-history')) {
-      return { balance: 0, transactions: [], bookings: [], archives: [] } as unknown as T;
+    // Универсальная заглушка: и массив (для .map) и объект (для .owners/.balance)
+    const stub: any = [];
+    stub.balance = 0;
+    stub.transactions = [];
+    stub.bookings = [];
+    stub.owners = [];
+    stub.workers = [];
+    stub.incomes = [];
+    stub.expenses = [];
+    stub.archives = [];
+    stub.piggyTransactions = [];
+    stub.payroll = [];
+    stub.clients = [];
+    stub.services = [];
+    stub.boxes = [];
+    stub.penalties = [];
+    stub.notifications = [];
+    stub.stockItems = [];
+    stub.stockCategories = [];
+    stub.boxes = [];
+    stub.schedule = [];
+    stub.entries = [];
+    stub.payouts = [];
+    stub.workers = [];
+    stub.owners = [];
+    stub.incomes = [];
+    stub.expenses = [];
+    stub.piggyTransactions = [];
+    stub.archives = [];
+    // Специфичные поля
+    if (path.includes('salary-detail')) {
+      stub.workerId = 'w1';
+      stub.workerName = 'Иван';
+      stub.salaryBase = 0;
+      stub.salaryPerShift = 0;
+      stub.bookings = [];
+      stub.payouts = [];
+      stub.entries = [];
+      stub.totalAccrued = 0;
+      stub.totalPaid = 0;
+      stub.balanceToPay = 0;
+      stub.completedBookingsCount = 0;
+      stub.shiftCount = 0;
     }
-    if (path.includes('/api/stock') || path.includes('/api/shift') || path.includes('/api/content') || path.includes('/api/notifications')) return [] as unknown as T;
-    // Для остальных — пустой объект чтобы не тянуть реальные данные
-    if (path.includes('/api/')) return {} as unknown as T;
+    if (path.includes('piggy-bank')) {
+      stub.balance = 12345;
+      stub.transactions = [];
+      stub.remainingInPiggyBank = 12345;
+      stub.combinedBalance = 12345;
+      stub.wash = { balance: 8000 };
+      stub.detailing = { balance: 4000 };
+    }
+    if (path.includes('wallet')) {
+      stub.weekStart = '15.08.2026';
+      stub.weekEnd = '22.08.2026';
+      stub.revenue = 0;
+      stub.totalIncome = 0;
+      stub.totalExpense = 0;
+      stub.profit = 0;
+      stub.bookingCount = 0;
+      stub.incomes = [];
+      stub.expenses = [];
+      stub.piggyBankBalance = 0;
+      stub.archives = [];
+    }
+    if (path.includes('archive')) {
+      stub.dateFrom = '01.08.2026';
+      stub.dateTo = '15.08.2026';
+      stub.summary = { revenue: 0, net: 0, totalIncome: 0, totalExpense: 0, profit: 0, masterTotal: 0, piggyDeposit: 0, ownersAccrued: 0, ownersPaid: 0, bookingCount: 0, incomeCount: 0, expenseCount: 0, piggyTxCount: 0 };
+      stub.bookings = [];
+      stub.incomes = [];
+      stub.expenses = [];
+      stub.piggyTransactions = [];
+      stub.payroll = [];
+      stub.owners = [];
+    }
+    if (path.includes('bookings-history')) {
+      stub.workers = [];
+      stub.owners = [];
+      stub.piggy = [];
+      // для totals
+      if (path.includes('/totals')) {
+        return { workers: [], owners: [], piggy: [] } as unknown as T;
+      }
+      return [] as unknown as T;
+    }
+    if (path.includes('/payroll') || path.includes('/workers')) return [] as unknown as T;
+    if (path.includes('/stock') || path.includes('/shift') || path.includes('/content') || path.includes('/notifications') || path.includes('/calendar') || path.includes('/cars')) return [] as unknown as T;
+    // Для остальных — вернуть универсальную заглушку (и массив и объект)
+    if (path.includes('/api/')) return stub as unknown as T;
   }
 
   const { method = 'GET', body } = options;
