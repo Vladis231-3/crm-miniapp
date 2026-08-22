@@ -8,6 +8,7 @@ import {
   CalendarClock, Wallet, UserRound
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
+import { SkeletonRows } from '../shared/Skeleton';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
 import { SourceBadge } from '../shared/SourceBadge';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
@@ -972,9 +973,7 @@ export function WorkerApp() {
               </div>
 
               {carLoading ? (
-                <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <div className={`text-sm ${sub}`}>Поиск...</div>
-                </div>
+                <SkeletonRows count={3} />
               ) : carResults.length === 0 ? (
                 <EmptyState
                   icon={CarFront}

@@ -5,6 +5,7 @@ import {
   Calendar, Share2, Trash2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
+import { Skeleton } from '../shared/Skeleton';
 import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
@@ -750,8 +751,8 @@ export function ClientApp() {
                 <div className="font-medium mt-1">{selectedDayWorkingHours}</div>
               </div>
               {slotsLoading ? (
-                <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
-                  {slotAvailabilityLoadingLabel}
+                <div className="grid grid-cols-2 gap-3 mb-6" aria-busy="true">
+                  {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-14 rounded-2xl" />)}
                 </div>
               ) : slotCards.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>

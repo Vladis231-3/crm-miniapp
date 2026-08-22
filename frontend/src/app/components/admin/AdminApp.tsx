@@ -10,10 +10,6 @@ import {
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid
-} from 'recharts';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
