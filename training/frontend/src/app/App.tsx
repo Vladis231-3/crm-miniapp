@@ -27,8 +27,8 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
 }
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Sun, Moon, Shield, X, Car, User, Hash, Eye, EyeOff,
-  ChevronRight, AlertCircle, Check, LogIn,
+Sun, Moon, Shield, X, Car, User, Hash, Eye, EyeOff,
+ChevronRight, AlertCircle, Check, LogIn, Wrench, Sparkles, CarFront,
 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { useTelegramMainButton } from './hooks/useTelegramMainButton';
@@ -404,8 +404,8 @@ function WelcomeScreen() {
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl text-white text-4xl font-bold"
-                style={{ background: `linear-gradient(135deg, ${primary}, #312E81)` }}
+                className="w-24 h-24 rounded-[1.75rem] flex items-center justify-center mx-auto mb-6 text-white text-4xl font-bold"
+                style={{ background: primary }}
               >
                 A
               </motion.div>
@@ -421,13 +421,13 @@ function WelcomeScreen() {
 
               <motion.div data-training="welcome-features" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="grid grid-cols-3 gap-2 mb-8">
                 {[
-                  { icon: '🔧', label: 'Ремонт' },
-                  { icon: '✨', label: 'Детейлинг' },
-                  { icon: '🚗', label: 'Мойка' },
-                ].map((feature) => (
-                  <div key={feature.label} className={`${glass} rounded-2xl p-3 flex flex-col items-center gap-1`}>
-                    <span className="text-xl">{feature.icon}</span>
-                    <span className={`text-xs ${sub}`}>{feature.label}</span>
+                  { Icon: Wrench, label: 'Ремонт' },
+                  { Icon: Sparkles, label: 'Детейлинг' },
+                  { Icon: CarFront, label: 'Мойка' },
+                ].map(({ Icon, label }) => (
+                  <div key={label} className="rounded-2xl border border-black/[.06] bg-white p-3 flex flex-col items-center gap-1.5 dark:border-white/10 dark:bg-white/[.04]">
+                    <Icon size={20} strokeWidth={1.75} style={{ color: primary }} />
+                    <span className={`text-xs ${sub}`}>{label}</span>
                   </div>
                 ))}
               </motion.div>
@@ -440,7 +440,7 @@ function WelcomeScreen() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setStep('form')}
                 className="w-full py-4 rounded-2xl font-semibold text-white text-base shadow-lg flex items-center justify-center gap-2"
-                style={{ background: `linear-gradient(135deg, ${primary}, #3730A3)` }}
+                style={{ background: primary }}
               >
                 Начать
                 <ChevronRight size={18} strokeWidth={1.75} />
