@@ -311,7 +311,7 @@ function WelcomeScreen() {
   const glass = isDark
     ? 'bg-white/5 backdrop-blur-md border border-white/10'
     : 'bg-white/80 backdrop-blur-md border border-white/60 shadow-lg';
-  const inputCls = `${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-white/90 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 transition-all`;
+  const inputCls = `${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:bg-white/[.09] focus:border-indigo-400/50' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50'} border rounded-2xl px-4 py-3.5 w-full text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all`;
 
   const validate = () => {
     const errors: Record<string, string> = {};

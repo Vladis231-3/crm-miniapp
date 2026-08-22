@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-21 19:11 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-22 07:15 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **449**
-- Строк кода: **200 086**
+- Строк кода: **200 088**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 33, `.tsx`: 265
 
 ## Архитектура
@@ -2291,7 +2291,7 @@ concept1.0/
 - `App` (стр. 715)
 - `path` (стр. 716) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (4805 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (4806 строк)
 
 - `SERVICE_TYPE_OPTIONS` (стр. 68) — локальный
 - `adminServiceResourceGroupForCategory` (стр. 74) — локальный
@@ -3867,18 +3867,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-21 22:11)
-- `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 22:10)
-- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 22:08)
-- `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 22:06)
-- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-21 21:59)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-21 21:59)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-21 21:58)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-21 21:58)
-- `backend/tests/test_booking_logic.py` (2026-08-21 21:56)
-- `backend/app/main.py` (2026-08-21 21:52)
-- `frontend/src/styles/theme.css` (2026-08-21 21:24)
-- `training/frontend/src/styles/theme.css` (2026-08-21 21:24)
-- `AUDIT_REPORT.md` (2026-08-21 21:08)
-- `training/frontend/src/app/components/help/HelpDemoApp.tsx` (2026-08-21 21:07)
-- `training/frontend/src/app/components/shared/TrainingAssistant/TrainingAssistant.tsx` (2026-08-21 21:07)
+- `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-22 10:15)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-22 10:15)
+- `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 10:15)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 10:15)
+- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-22 10:13)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-22 10:13)
+- `training/frontend/src/app/App.tsx` (2026-08-22 10:11)
+- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-22 10:11)
+- `training/frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-22 10:11)
+- `frontend/src/app/App.tsx` (2026-08-22 10:10)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-22 10:09)
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-22 10:09)
+- `scripts/.project-map-watch.lock` (2026-08-22 10:04)
+- `.env.local` (2026-08-21 22:23)
+- `backend/app/main.py` (2026-08-21 22:20)
