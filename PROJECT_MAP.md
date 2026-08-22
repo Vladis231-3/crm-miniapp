@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-22 15:07 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-22 15:29 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **453**
-- Строк кода: **200 369**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 33, `.tsx`: 265
+- Файлов кода: **451**
+- Строк кода: **200 204**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 145, `.ts`: 33, `.tsx`: 266
 
 ## Архитектура
 
@@ -232,9 +232,7 @@ concept1.0/
 │   ├── .env.example
 │   ├── bot.py
 │   ├── requirements.txt
-│   ├── run.py
-│   ├── tmp_repro_slot_bug.py
-│   └── tmp_verify_fix.py
+│   └── run.py
 ├── carwash/
 │   ├── guidelines/
 │   │   └── Guidelines.md
@@ -309,6 +307,7 @@ concept1.0/
 │   │   │   │   ├── shared/
 │   │   │   │   │   ├── Atmosfera.tsx
 │   │   │   │   │   ├── AttendanceTable.tsx
+│   │   │   │   │   ├── EmptyState.tsx
 │   │   │   │   │   ├── ServiceSearchInput.tsx
 │   │   │   │   │   ├── ServiceSearchSelect.tsx
 │   │   │   │   │   └── SourceBadge.tsx
@@ -588,8 +587,10 @@ concept1.0/
 ├── start-native.bat
 ├── task.id
 ├── task.status
-├── tmp_list_routes.py
-├── tmp_seed_view.py
+├── tmp_commit_msg.txt
+├── tmp_extract_hunks.py
+├── tmp_main.patch
+├── tmp_tests.patch
 └── vercel.json
 ```
 
@@ -2227,19 +2228,6 @@ concept1.0/
 - `WorkerCarSearchTests.test_worker_search_forbidden_for_ownerdef test_worker_search_forbidden_for_owner(self) -> None: response = self.client.get( "/api/worker/cars/search", headers=self._auth_headers(self.owner_token), params={"q": "M001AA"` (стр. 349)
 - `WorkerCarSearchTests.test_worker_search_forbidden_without_authdef test_worker_search_forbidden_without_auth(self) -> None: response = self.client.get("/api/worker/cars/search", params={"q": "M001AA"}) self.assertEqual(response.status_code, 40` (стр. 357)
 
-### backend/tmp_repro_slot_bug.py (119 строк)
-
-Классы и функции (2):
-
-- `create_bookingdef create_booking(client, H, *, name, phone, service_id, service_name, price, duration, date, time_, box): r = client.post( "/api/bookings", headers=H, json={ "clientId": "", "cli` (стр. 37)
-- `maindef main() -> None: with TestClient(app) as client: r = client.post("/api/auth/staff/login", json={"login": "admin", "password": "admin"}) assert r.status_code == 200, r.text token` (стр. 62)
-
-### backend/tmp_verify_fix.py (95 строк)
-
-Классы и функции (1):
-
-- `maindef main() -> None: with TestClient(app) as client: r = client.post("/api/auth/staff/login", json={"login": "admin", "password": "admin"}) token = r.json()["token"] H = {"Authoriza` (стр. 37)
-
 ## Frontend — CRM-минапп (frontend/src)
 
 ### frontend/src/app/api.ts (192 строк)
@@ -2540,7 +2528,7 @@ concept1.0/
 - `matchesQuery` (стр. 333) — локальный
 - `q` (стр. 381) — локальный
 
-### frontend/src/app/components/client/ClientApp.tsx (1300 строк)
+### frontend/src/app/components/client/ClientApp.tsx (1301 строк)
 
 - `NOOP` (стр. 21) — локальный
 - `UPCOMING_STATUSES` (стр. 45) — локальный
@@ -2622,17 +2610,17 @@ concept1.0/
 - `selected` (стр. 702) — локальный
 - `selected` (стр. 747) — локальный
 - `slotClass` (стр. 748) — локальный
-- `nextCar` (стр. 1022) — локальный
-- `baseVehicles` (стр. 1024) — локальный
-- `nextPlate` (стр. 1039) — локальный
-- `baseVehicles` (стр. 1041) — локальный
-- `nextCar` (стр. 1079) — локальный
-- `baseVehicles` (стр. 1081) — локальный
-- `nextPlate` (стр. 1096) — локальный
-- `baseVehicles` (стр. 1098) — локальный
-- `baseVehicles` (стр. 1111) — локальный
-- `BookingCard` (стр. 1252) — локальный
-- `manualScheduling` (стр. 1262) — локальный
+- `nextCar` (стр. 1023) — локальный
+- `baseVehicles` (стр. 1025) — локальный
+- `nextPlate` (стр. 1040) — локальный
+- `baseVehicles` (стр. 1042) — локальный
+- `nextCar` (стр. 1080) — локальный
+- `baseVehicles` (стр. 1082) — локальный
+- `nextPlate` (стр. 1097) — локальный
+- `baseVehicles` (стр. 1099) — локальный
+- `baseVehicles` (стр. 1112) — локальный
+- `BookingCard` (стр. 1253) — локальный
+- `manualScheduling` (стр. 1263) — локальный
 
 ### frontend/src/app/components/figma/ImageWithFallback.tsx (27 строк)
 
@@ -3209,6 +3197,10 @@ concept1.0/
 - `result` (стр. 52) — локальный
 - `result` (стр. 56) — локальный
 
+### frontend/src/app/components/shared/EmptyState.tsx (18 строк)
+
+- `EmptyState` (стр. 8)
+
 ### frontend/src/app/components/shared/ServiceSearchInput.tsx (34 строк)
 
 - `ServiceSearchInput` (стр. 15)
@@ -3232,107 +3224,107 @@ concept1.0/
 - `SourceBadge` (стр. 13)
 - `badge` (стр. 14) — локальный
 
-### frontend/src/app/components/worker/WorkerApp.tsx (1859 строк)
+### frontend/src/app/components/worker/WorkerApp.tsx (1858 строк)
 
-- `workerStatusLabel` (стр. 23) — локальный
-- `workerStatusBadge` (стр. 46) — локальный
-- `workerPaymentLabel` (стр. 67) — локальный
-- `bookingBasePrice` (стр. 73) — локальный
-- `additionalTotal` (стр. 74) — локальный
-- `servicesTotal` (стр. 75) — локальный
-- `bookingBaseWorkerEarned` (стр. 80) — локальный
-- `link` (стр. 81) — локальный
-- `formatBookingInstant` (стр. 88) — локальный
-- `date` (стр. 90) — локальный
-- `DAY_NAMES` (стр. 103) — локальный
-- `MONTH_NAMES` (стр. 104) — локальный
-- `groupBookingsByDate` (стр. 106) — локальный
-- `WorkerEarningsCalendar` (стр. 117) — локальный
-- `now` (стр. 139) — локальный
-- `calYear` (стр. 140) — локальный
-- `calMonth` (стр. 141) — локальный
-- `datesWithBookings` (стр. 143) — локальный
-- `firstDay` (стр. 145) — локальный
-- `lastDay` (стр. 146) — локальный
-- `startPad` (стр. 147) — локальный
-- `totalDays` (стр. 148) — локальный
-- `selectedDayBookings` (стр. 154) — локальный
-- `formatDateKey` (стр. 158) — локальный
-- `mm` (стр. 159) — локальный
-- `dd` (стр. 160) — локальный
-- `dateKey` (стр. 190) — локальный
-- `hasBooking` (стр. 191) — локальный
-- `isSelected` (стр. 192) — локальный
-- `isToday` (стр. 193) — локальный
-- `WorkerApp` (стр. 241)
-- `workerId` (стр. 271) — локальный
-- `params` (стр. 372) — локальный
-- `loadCalendar` (стр. 383) — локальный
-- `timer` (стр. 399) — локальный
-- `params` (стр. 401) — локальный
-- `myNotifications` (стр. 411) — локальный
-- `unreadCount` (стр. 412) — локальный
-- `isMyTask` (стр. 414) — локальный
-- `allTasks` (стр. 418) — локальный
-- `todayTasks` (стр. 421) — локальный
-- `myEarnings` (стр. 423) — локальный
-- `w` (стр. 426) — локальный
-- `earned` (стр. 427) — локальный
-- `totalEarned` (стр. 434) — локальный
-- `payrollSummary` (стр. 435) — локальный
-- `earnedForDisplay` (стр. 436) — локальный
-- `myPenalties` (стр. 437) — локальный
-- `complaintState` (стр. 438) — локальный
-- `payoutAfterPenalties` (стр. 439) — локальный
-- `allMyTasks` (стр. 441) — локальный
-- `completedCount` (стр. 442) — локальный
-- `avgCheck` (стр. 443) — локальный
-- `chemistryItems` (стр. 444) — локальный
-- `formatTimer` (стр. 452) — локальный
-- `glass` (стр. 454) — локальный
-- `bg` (стр. 455) — локальный
-- `text` (стр. 456) — локальный
-- `sub` (стр. 457) — локальный
-- `primary` (стр. 458) — локальный
-- `accent` (стр. 459) — локальный
-- `surface` (стр. 460) — локальный
-- `inputCls` (стр. 461) — локальный
-- `formatComplaintDate` (стр. 462) — локальный
-- `handleStartTask` (стр. 464) — локальный
-- `openFinishModal` (стр. 471) — локальный
-- `handleFinish` (стр. 480) — локальный
-- `nextNote` (стр. 486) — локальный
-- `handleSaveProfile` (стр. 524) — локальный
-- `handleSubmitShiftChecklist` (стр. 530) — локальный
-- `saved` (стр. 533) — локальный
-- `handleSavePass` (стр. 548) — локальный
-- `handleGenerateTelegramCode` (стр. 575) — локальный
-- `handleSaveNotifications` (стр. 579) — локальный
-- `headerTitle` (стр. 585) — локальный
-- `isMyService` (стр. 667) — локальный
-- `isOutsource` (стр. 668) — локальный
-- `myBaseLink` (стр. 716) — локальный
-- `myAdditionalServices` (стр. 717) — локальный
-- `baseEarned` (стр. 719) — локальный
-- `additionalEarned` (стр. 720) — локальный
-- `total` (стр. 721) — локальный
-- `earned` (стр. 732) — локальный
-- `created` (стр. 784) — локальный
-- `started` (стр. 785) — локальный
-- `completed` (стр. 786) — локальный
-- `dayTasks` (стр. 902) — локальный
-- `assignedToMe` (стр. 974) — локальный
-- `shiftPay` (стр. 1119) — локальный
-- `bonuses` (стр. 1120) — локальный
-- `advances` (стр. 1121) — локальный
-- `deductions` (стр. 1122) — локальный
-- `adjustments` (стр. 1123) — локальный
-- `totalAccrued` (стр. 1124) — локальный
-- `totalDeducted` (стр. 1125) — локальный
-- `w` (стр. 1509) — локальный
-- `earned` (стр. 1510) — локальный
-- `paymentLabel` (стр. 1513) — локальный
-- `isActive` (стр. 1608) — локальный
+- `workerStatusLabel` (стр. 24) — локальный
+- `workerStatusBadge` (стр. 47) — локальный
+- `workerPaymentLabel` (стр. 68) — локальный
+- `bookingBasePrice` (стр. 74) — локальный
+- `additionalTotal` (стр. 75) — локальный
+- `servicesTotal` (стр. 76) — локальный
+- `bookingBaseWorkerEarned` (стр. 81) — локальный
+- `link` (стр. 82) — локальный
+- `formatBookingInstant` (стр. 89) — локальный
+- `date` (стр. 91) — локальный
+- `DAY_NAMES` (стр. 104) — локальный
+- `MONTH_NAMES` (стр. 105) — локальный
+- `groupBookingsByDate` (стр. 107) — локальный
+- `WorkerEarningsCalendar` (стр. 118) — локальный
+- `now` (стр. 140) — локальный
+- `calYear` (стр. 141) — локальный
+- `calMonth` (стр. 142) — локальный
+- `datesWithBookings` (стр. 144) — локальный
+- `firstDay` (стр. 146) — локальный
+- `lastDay` (стр. 147) — локальный
+- `startPad` (стр. 148) — локальный
+- `totalDays` (стр. 149) — локальный
+- `selectedDayBookings` (стр. 155) — локальный
+- `formatDateKey` (стр. 159) — локальный
+- `mm` (стр. 160) — локальный
+- `dd` (стр. 161) — локальный
+- `dateKey` (стр. 191) — локальный
+- `hasBooking` (стр. 192) — локальный
+- `isSelected` (стр. 193) — локальный
+- `isToday` (стр. 194) — локальный
+- `WorkerApp` (стр. 242)
+- `workerId` (стр. 272) — локальный
+- `params` (стр. 373) — локальный
+- `loadCalendar` (стр. 384) — локальный
+- `timer` (стр. 400) — локальный
+- `params` (стр. 402) — локальный
+- `myNotifications` (стр. 412) — локальный
+- `unreadCount` (стр. 413) — локальный
+- `isMyTask` (стр. 415) — локальный
+- `allTasks` (стр. 419) — локальный
+- `todayTasks` (стр. 422) — локальный
+- `myEarnings` (стр. 424) — локальный
+- `w` (стр. 427) — локальный
+- `earned` (стр. 428) — локальный
+- `totalEarned` (стр. 435) — локальный
+- `payrollSummary` (стр. 436) — локальный
+- `earnedForDisplay` (стр. 437) — локальный
+- `myPenalties` (стр. 438) — локальный
+- `complaintState` (стр. 439) — локальный
+- `payoutAfterPenalties` (стр. 440) — локальный
+- `allMyTasks` (стр. 442) — локальный
+- `completedCount` (стр. 443) — локальный
+- `avgCheck` (стр. 444) — локальный
+- `chemistryItems` (стр. 445) — локальный
+- `formatTimer` (стр. 453) — локальный
+- `glass` (стр. 455) — локальный
+- `bg` (стр. 456) — локальный
+- `text` (стр. 457) — локальный
+- `sub` (стр. 458) — локальный
+- `primary` (стр. 459) — локальный
+- `accent` (стр. 460) — локальный
+- `surface` (стр. 461) — локальный
+- `inputCls` (стр. 462) — локальный
+- `formatComplaintDate` (стр. 463) — локальный
+- `handleStartTask` (стр. 465) — локальный
+- `openFinishModal` (стр. 472) — локальный
+- `handleFinish` (стр. 481) — локальный
+- `nextNote` (стр. 487) — локальный
+- `handleSaveProfile` (стр. 525) — локальный
+- `handleSubmitShiftChecklist` (стр. 531) — локальный
+- `saved` (стр. 534) — локальный
+- `handleSavePass` (стр. 549) — локальный
+- `handleGenerateTelegramCode` (стр. 576) — локальный
+- `handleSaveNotifications` (стр. 580) — локальный
+- `headerTitle` (стр. 586) — локальный
+- `isMyService` (стр. 668) — локальный
+- `isOutsource` (стр. 669) — локальный
+- `myBaseLink` (стр. 717) — локальный
+- `myAdditionalServices` (стр. 718) — локальный
+- `baseEarned` (стр. 720) — локальный
+- `additionalEarned` (стр. 721) — локальный
+- `total` (стр. 722) — локальный
+- `earned` (стр. 733) — локальный
+- `created` (стр. 785) — локальный
+- `started` (стр. 786) — локальный
+- `completed` (стр. 787) — локальный
+- `dayTasks` (стр. 903) — локальный
+- `assignedToMe` (стр. 973) — локальный
+- `shiftPay` (стр. 1118) — локальный
+- `bonuses` (стр. 1119) — локальный
+- `advances` (стр. 1120) — локальный
+- `deductions` (стр. 1121) — локальный
+- `adjustments` (стр. 1122) — локальный
+- `totalAccrued` (стр. 1123) — локальный
+- `totalDeducted` (стр. 1124) — локальный
+- `w` (стр. 1508) — локальный
+- `earned` (стр. 1509) — локальный
+- `paymentLabel` (стр. 1512) — локальный
+- `isActive` (стр. 1607) — локальный
 
 ### frontend/src/app/components/worker/WorkerCalendar.tsx (614 строк)
 
@@ -3882,23 +3874,22 @@ concept1.0/
 - `scripts/generate_project_map.py`
 - `app.py`
 - `flip_push_permission.py`
-- `tmp_list_routes.py`
-- `tmp_seed_view.py`
+- `tmp_extract_hunks.py`
 
 ## Недавно изменённые файлы
 
+- `tmp_commit_msg.txt` (2026-08-22 18:29)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-22 18:29)
+- `tmp_tests.patch` (2026-08-22 18:28)
+- `tmp_main.patch` (2026-08-22 18:28)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 18:28)
+- `tmp_extract_hunks.py` (2026-08-22 18:27)
+- `frontend/src/app/components/shared/EmptyState.tsx` (2026-08-22 18:26)
 - `backend/tests/test_booking_logic.py` (2026-08-22 18:07)
 - `training/frontend/src/app/App.tsx` (2026-08-22 18:04)
 - `frontend/src/app/App.tsx` (2026-08-22 18:02)
-- `backend/tmp_verify_fix.py` (2026-08-22 17:53)
 - `backend/app/main.py` (2026-08-22 17:52)
-- `backend/tmp_repro_slot_bug.py` (2026-08-22 17:50)
-- `tmp_seed_view.py` (2026-08-22 17:48)
-- `tmp_list_routes.py` (2026-08-22 17:46)
 - `scripts/.project-map-watch.lock` (2026-08-22 17:43)
 - `training/frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-22 10:15)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-22 10:15)
 - `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 10:15)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 10:15)
-- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-22 10:13)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-22 10:13)

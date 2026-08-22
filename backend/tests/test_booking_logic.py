@@ -1394,6 +1394,57 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400, response.text)
         self.assertEqual(response.json()["detail"], "Укажите дату и время записи")
 
+    def test_patch_can_clear_slot_when_moving_to_non_active_status(self) -> None:
+        """Регресс: перевод детейлинг-записи со слотом в «на уточнении» (admin_review)
+        фронтенд отправляет с намеренной очисткой date/time. Раньше PATCH отвечал
+        400 «Укажите дату и время записи», хотя дата/время были заполнены и сброс
+        был осознанным. Неактивный статус не требует слот — очистка должна работать."""
+        admin_token = self.login_staff("admin", "admin")
+
+        response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(admin_token),
+            json={
+                "clientId": "",
+                "clientName": "Bob",
+                "clientPhone": "+7 (999) 555-11-22",
+                "service": "Полировка стекла",
+                "serviceId": "s2",
+                "date": "07.09.2026",
+                "time": "14:00",
+                "duration": 60,
+                "price": 3500,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Детейлинг зона",
+                "paymentType": "cash",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        booking_id = response.json()["id"]
+
+        # Ровно такой payload отправляет форма полного редактирования при
+        # requiresScheduledSlot === false (детейлинг + admin_review).
+        response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={"status": "admin_review", "date": "", "time": "", "box": "По согласованию"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["status"], "admin_review")
+        self.assertEqual(payload["date"], "")
+        self.assertEqual(payload["time"], "")
+
+        # Обратный перевод в активный статус без слота по-прежнему запрещён.
+        response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self.auth_headers(admin_token),
+            json={"status": "scheduled"},
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(response.json()["detail"], "Укажите дату и время записи")
+
     def test_owner_can_create_client_and_past_booking_visible_on_first_client_login(self) -> None:
         owner_token = self.login_staff("owner", "owner")
 

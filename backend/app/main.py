@@ -11960,27 +11960,31 @@ def update_booking(
 
     slot_fields_updated = _booking_slot_fields_changed(booking, updates)
 
-    should_validate_slot = _booking_requires_scheduled_slot(next_status) or slot_fields_updated
+    # Активные статусы (BOOKING_ACTIVE_STATUSES) всегда требуют заполненный слот.
+    # Изменение слота валидируем только пока он остаётся заполненным: перевод записи
+    # в неактивный статус (admin_review/cancelled/no_show/completed) вправе ОЧИСТИТЬ
+    # дату/время (фронтенд так делает для детейлинг-заявок «на уточнении») — раньше
+    # такой запрос падал с 400 «Укажите дату и время записи», хотя дата/время были
+    # видны в форме и намеренно сбрасывались.
+    next_requires_slot = _booking_requires_scheduled_slot(next_status)
 
     has_candidate_slot = bool(next_date and next_time)
 
-    if should_validate_slot:
+    if next_requires_slot and not has_candidate_slot:
 
-        if not has_candidate_slot:
+        raise HTTPException(
 
-            raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
 
-                status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите дату и время записи",
 
-                detail="Укажите дату и время записи",
+        )
 
-            )
+    if slot_fields_updated and has_candidate_slot:
 
-        if slot_fields_updated:
+        _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
 
-            _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
-
-            _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
+        _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
 
     if _booking_requires_scheduled_slot(next_status):
 
