@@ -4,6 +4,7 @@ import {
   Menu, ChevronRight, Clock, Star, ArrowLeft, Check,
   Calendar, Share2, Trash2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
+import { EmptyState } from '../shared/EmptyState';
 import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
@@ -899,16 +900,17 @@ export function ClientApp() {
             >
               <h2 className="text-lg font-semibold mb-4">Мои записи</h2>
               {clientBookings.length === 0 ? (
-                <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <CalendarDays size={40} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                  <p className={sub}>У вас пока нет записей</p>
-                  <button
-                    onClick={() => setPage('catalog')}
-                    className={`mt-4 px-6 py-2 rounded-xl text-sm text-white`}
-                    style={{ background: primary }}
-                  >
-                    Записаться
-                  </button>
+                <div className="rounded-2xl border border-black/[.06] dark:border-white/10" data-training="client-empty-bookings">
+                  <EmptyState icon={CalendarDays} title="У вас пока нет записей" subtitle="Выберите услугу и удобное время — это займёт минуту" />
+                  <div className="flex justify-center pb-6 -mt-2">
+                    <button
+                      onClick={() => setPage('catalog')}
+                      className={`px-6 py-2.5 rounded-full text-sm font-medium text-white`}
+                      style={{ background: primary }}
+                    >
+                      Записаться
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">

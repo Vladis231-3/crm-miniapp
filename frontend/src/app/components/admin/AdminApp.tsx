@@ -9,6 +9,7 @@ import {
   Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
+import { EmptyState } from '../shared/EmptyState';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
@@ -4764,9 +4765,11 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                       })()}
                     </button>
                   )) : (
-                    <div className={`text-sm ${sub} text-center py-8`}>
-                      {q ? 'Ничего не найдено' : 'Начните вводить имя клиента'}
-                    </div>
+                    <EmptyState
+                      icon={Search}
+                      title={q ? 'Ничего не найдено' : 'Поиск клиентов'}
+                      subtitle={q ? 'Проверьте написание имени или телефона' : 'Начните вводить имя клиента'}
+                    />
                   );
                 })()}
               </div>

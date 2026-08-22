@@ -7,6 +7,7 @@ import {
   Mail, MapPin, Award, Eye, EyeOff, TrendingUp, CarFront, Search,
   CalendarClock, Wallet, UserRound
 } from 'lucide-react';
+import { EmptyState } from '../shared/EmptyState';
 import { getWorkerNotificationSettings, useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
 import { SourceBadge } from '../shared/SourceBadge';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
@@ -975,13 +976,11 @@ export function WorkerApp() {
                   <div className={`text-sm ${sub}`}>Поиск...</div>
                 </div>
               ) : carResults.length === 0 ? (
-                <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <CarFront size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                  <p className="text-sm font-medium">Ничего не найдено</p>
-                  <p className={`text-xs ${sub} mt-1`}>
-                    {carQuery.trim() ? 'Похоже, машина ещё не заведена' : 'На сегодня записей нет'}
-                  </p>
-                </div>
+                <EmptyState
+                  icon={CarFront}
+                  title="Ничего не найдено"
+                  subtitle={carQuery.trim() ? 'Попробуйте изменить запрос' : 'На сегодня записей нет'}
+                />
               ) : (
                 <div className="space-y-3">
                   {carResults.map(b => {
