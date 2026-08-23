@@ -16,6 +16,7 @@ import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { apiRequest } from '../../api';
 import { CarSearch } from './shared/CarSearch';
+import { WorkerTodayScreen } from './screens/WorkerTodayScreen';
 import { Button, Dialog, FormRow, Input, Money, Sheet } from '../atmosfera';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
@@ -788,84 +789,15 @@ export function WorkerApp() {
             </motion.div>
 
           ) : tab === 'today' && !profileSection ? (
-            <>
-            <section className="role-hero role-hero--worker mb-4">
-              <div className="text-xs uppercase tracking-[.2em] opacity-70">Shift command</div>
-              <div className="mt-3 flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-semibold">{todayTasks.find(task => task.status === `in_progress`)?.service || todayTasks.find(task => task.status !== `completed`)?.service || `Смена под контролем`}</h2>
-                  <p className="mt-1 text-sm opacity-80">{todayTasks.find(task => task.status === `in_progress`) ? `Текущая работа · ${todayTasks.find(task => task.status === `in_progress`)?.time}` : `Готов к следующей задаче`}</p>
-                </div>
-                <div className="text-right"><div className="text-3xl font-semibold">{todayTasks.filter(task => task.status === `completed`).length}/{todayTasks.length}</div><div className="text-xs opacity-70">выполнено</div></div>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 border-y border-white/15 py-3 text-center">
-                <div><strong className="block text-xl">{todayTasks.length}</strong><span className="text-xs opacity-70">на смену</span></div>
-                <div><strong className="block text-xl">{todayTasks.filter(task => task.status === `in_progress`).length}</strong><span className="text-xs opacity-70">в работе</span></div>
-                <div><strong className="block text-xl">{todayTasks.filter(task => task.status === `completed`).length}</strong><span className="text-xs opacity-70">готово</span></div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {todayTasks.find(task => task.status !== `completed`) && <button onClick={() => { const task = todayTasks.find(item => item.status !== `completed`); if (task) { setSelectedTask(task); setShowDetail(true); } }} className="semantic-primary-button bg-white text-slate-900">Открыть текущую</button>}
-                <button onClick={() => setProfileSection(`shift`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm">Чек-лист смены</button>
-              </div>
-            </section>
-            <section className={`${glass} mb-4 rounded-2xl p-4`}>
-              <div className="flex items-center justify-between"><div><div className="text-xs uppercase tracking-wider text-muted-foreground">Next work rail</div><h3 className="font-semibold">Дальше по времени</h3></div><button onClick={() => setTab(`schedule`)} style={{ color: primary }} className="text-sm">Расписание</button></div>
-              <div className="mt-3 space-y-2">
-                {todayTasks.filter(task => task.status !== `completed`).slice(0, 3).map(task => <button key={task.id} onClick={() => { setSelectedTask(task); setShowDetail(true); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{task.time}</strong><span className="min-w-0 flex-1 truncate">{task.service}</span><ChevronRight size={16} strokeWidth={1.75}/></button>)}
-              </div>
-            </section>
-            <motion.div key="today" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <CarSearch workerId={workerId} />
-              {todayTasks.length === 0 ? (
-                <div className={`${glass} rounded-2xl p-8 text-center`}>
-                  <Clock size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                  <p className={sub}>Задач на сегодня нет</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {todayTasks.map(task => (
-                    <motion.div key={task.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`${glass} rounded-2xl p-4`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">{task.time} · {task.service}<SourceBadge source={task.source} /></div>
-                          <div className={`text-sm ${sub}`}>{task.clientName}</div>
-                          <div className={`text-xs ${sub}`}>{task.box} · {task.duration} мин</div>
-                          {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
-                          {(task.additionalServices || []).some(as => as.workers.some(w => w.workerId === workerId)) && (
-                            <div className="mt-1.5 flex flex-wrap gap-1">
-                              {(task.additionalServices || []).filter(as => as.workers.some(w => w.workerId === workerId)).map(as => (
-                                <span key={as.id} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${accent}1A`, color: accent }}>
-                                  + {as.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerStatusBadge(task.status)}`}>
-                          {workerStatusLabel(task.status)}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 mt-3">
-                        {READY_TO_START_STATUSES.includes(task.status) && (
-                          <button onClick={() => setShowStartConfirm(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: accent }}>
-                            <Play size={14} strokeWidth={1.75} />Начать
-                          </button>
-                        )}
-                        {task.status === 'in_progress' && (
-                          <button onClick={() => openFinishModal(task)} className="flex-1 py-2 rounded-xl text-sm font-medium text-white flex items-center justify-center gap-1" style={{ background: primary }}>
-                            <Check size={14} strokeWidth={1.75} />Завершить
-                          </button>
-                        )}
-                        <button onClick={() => { setSelectedTask(task); setShowDetail(true); }} className={`flex-1 py-2 rounded-xl text-sm ${glass} flex items-center justify-center gap-1`}>
-                          <Info size={14} strokeWidth={1.75} />Детали
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-            </>
+            <WorkerTodayScreen
+              tasks={todayTasks}
+              workerId={workerId}
+              onOpenTask={(task) => { setSelectedTask(task); setShowDetail(true); }}
+              onStartRequest={setShowStartConfirm}
+              onFinishRequest={openFinishModal}
+              onOpenChecklist={() => setProfileSection(`shift`)}
+              onGoSchedule={() => setTab(`schedule`)}
+            />
 
           ) : tab === 'schedule' && !profileSection ? (
             <motion.div key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
