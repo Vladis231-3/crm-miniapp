@@ -691,4 +691,5 @@ Strangler-паттерн, строгими шагами по одному экр
 | 2026-08-23 | Фаза 3 (вырезка №2): Start-confirm → DS Dialog; Finish → DS Sheet с FormRow/Input/Money, success-блок вместо overlay; кнопки оплаты на токенах (−#EF4444); haptics: impact на Начать, notificationOccurred('success') на Завершить | см. push | Build ✅ 16.4s |
 | 2026-08-23 | Фаза 3 (вырезка №3): WorkerTodayScreen — hero «Shift command»+rail+список задач в `worker/screens/` на токенах/StatusBadge; доп-услуги чипы → primary-soft; WorkerApp 1730→1662 | см. push | Build ✅ 14.0s |
 | 2026-08-23 | Фаза 3 (вырезка №4): WorkerScheduleScreen — сегмент «Список · Календарь»; календарь месяца возвращён (WorkerCalendar: недели Сб→Пн, цвета загрузки → токены статусов, self-load с error-состоянием); WorkerApp 1662→1635 | см. push | Build ✅ 13.9s |
+| 2026-08-23 | Фаза 3 (вырезка №5): WorkerEarningsScreen self-contained (периоды/сегменты/fetch внутри); EarningsCalendar вынесен в shared; цвета ЗП → токены (danger/success/warning), суммы через Money; WorkerApp 1635→1208 | см. push | Build ✅ 13.7s. Остался Profile воркера |
 | | | | |

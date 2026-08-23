@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-23 05:30 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-23 06:00 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **477**
-- Строк кода: **201 655**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 291
+- Файлов кода: **479**
+- Строк кода: **201 710**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 293
 
 ## Архитектура
 
@@ -343,10 +343,12 @@ concept1.0/
 │   │   │   │   │   └── (48 shadcn/ui-файлов — не индексируются)
 │   │   │   │   └── worker/
 │   │   │   │       ├── screens/
+│   │   │   │       │   ├── WorkerEarningsScreen.tsx
 │   │   │   │       │   ├── WorkerScheduleScreen.tsx
 │   │   │   │       │   └── WorkerTodayScreen.tsx
 │   │   │   │       ├── shared/
-│   │   │   │       │   └── CarSearch.tsx
+│   │   │   │       │   ├── CarSearch.tsx
+│   │   │   │       │   └── EarningsCalendar.tsx
 │   │   │   │       ├── WorkerApp.tsx
 │   │   │   │       └── WorkerCalendar.tsx
 │   │   │   ├── constants/
@@ -3376,6 +3378,26 @@ concept1.0/
 - `SourceBadge` (стр. 13)
 - `badge` (стр. 14) — локальный
 
+### frontend/src/app/components/worker/screens/WorkerEarningsScreen.tsx (345 строк)
+
+- `DANGER` (стр. 19) — локальный
+- `SUCCESS` (стр. 20) — локальный
+- `WARNING` (стр. 21) — локальный
+- `groupBookingsByDate` (стр. 23) — локальный
+- `WorkerEarningsScreen` (стр. 45)
+- `params` (стр. 66) — локальный
+- `myPenalties` (стр. 82) — локальный
+- `complaintState` (стр. 83) — локальный
+- `glass` (стр. 87) — локальный
+- `sub` (стр. 88) — локальный
+- `shiftPay` (стр. 172) — локальный
+- `bonuses` (стр. 173) — локальный
+- `advances` (стр. 174) — локальный
+- `deductions` (стр. 175) — локальный
+- `adjustments` (стр. 176) — локальный
+- `totalAccrued` (стр. 177) — локальный
+- `totalDeducted` (стр. 178) — локальный
+
 ### frontend/src/app/components/worker/screens/WorkerScheduleScreen.tsx (168 строк)
 
 - `WorkerScheduleScreen` (стр. 28)
@@ -3401,102 +3423,96 @@ concept1.0/
 - `params` (стр. 31) — локальный
 - `assignedToMe` (стр. 109) — локальный
 
-### frontend/src/app/components/worker/WorkerApp.tsx (1635 строк)
+### frontend/src/app/components/worker/shared/EarningsCalendar.tsx (138 строк)
 
-- `workerStatusLabel` (стр. 28) — локальный
-- `workerStatusBadge` (стр. 51) — локальный
-- `workerPaymentLabel` (стр. 72) — локальный
-- `bookingBasePrice` (стр. 78) — локальный
-- `additionalTotal` (стр. 79) — локальный
-- `servicesTotal` (стр. 80) — локальный
-- `bookingBaseWorkerEarned` (стр. 85) — локальный
-- `link` (стр. 86) — локальный
-- `formatBookingInstant` (стр. 93) — локальный
-- `date` (стр. 95) — локальный
-- `DAY_NAMES` (стр. 108) — локальный
-- `MONTH_NAMES` (стр. 109) — локальный
-- `groupBookingsByDate` (стр. 111) — локальный
-- `WorkerEarningsCalendar` (стр. 122) — локальный
-- `now` (стр. 144) — локальный
-- `calYear` (стр. 145) — локальный
-- `calMonth` (стр. 146) — локальный
-- `datesWithBookings` (стр. 148) — локальный
-- `firstDay` (стр. 150) — локальный
-- `lastDay` (стр. 151) — локальный
-- `startPad` (стр. 152) — локальный
-- `totalDays` (стр. 153) — локальный
-- `selectedDayBookings` (стр. 159) — локальный
-- `formatDateKey` (стр. 163) — локальный
-- `mm` (стр. 164) — локальный
-- `dd` (стр. 165) — локальный
-- `dateKey` (стр. 195) — локальный
-- `hasBooking` (стр. 196) — локальный
-- `isSelected` (стр. 197) — локальный
-- `isToday` (стр. 198) — локальный
-- `WorkerApp` (стр. 246)
-- `workerId` (стр. 276) — локальный
-- `params` (стр. 371) — локальный
-- `myNotifications` (стр. 384) — локальный
-- `unreadCount` (стр. 385) — локальный
-- `isMyTask` (стр. 387) — локальный
-- `allTasks` (стр. 391) — локальный
-- `todayTasks` (стр. 394) — локальный
-- `myEarnings` (стр. 396) — локальный
-- `w` (стр. 399) — локальный
-- `earned` (стр. 400) — локальный
-- `totalEarned` (стр. 407) — локальный
-- `payrollSummary` (стр. 408) — локальный
-- `earnedForDisplay` (стр. 409) — локальный
-- `myPenalties` (стр. 410) — локальный
-- `complaintState` (стр. 411) — локальный
-- `payoutAfterPenalties` (стр. 412) — локальный
-- `allMyTasks` (стр. 414) — локальный
-- `completedCount` (стр. 415) — локальный
-- `avgCheck` (стр. 416) — локальный
-- `chemistryItems` (стр. 417) — локальный
-- `formatTimer` (стр. 425) — локальный
-- `glass` (стр. 427) — локальный
-- `bg` (стр. 428) — локальный
-- `text` (стр. 429) — локальный
-- `sub` (стр. 430) — локальный
-- `primary` (стр. 431) — локальный
-- `accent` (стр. 432) — локальный
-- `surface` (стр. 433) — локальный
-- `inputCls` (стр. 434) — локальный
-- `formatComplaintDate` (стр. 435) — локальный
-- `handleStartTask` (стр. 437) — локальный
-- `openFinishModal` (стр. 445) — локальный
-- `handleFinish` (стр. 454) — локальный
-- `nextNote` (стр. 460) — локальный
-- `handleSaveProfile` (стр. 499) — локальный
-- `handleSubmitShiftChecklist` (стр. 505) — локальный
-- `saved` (стр. 508) — локальный
-- `handleSavePass` (стр. 523) — локальный
-- `handleGenerateTelegramCode` (стр. 550) — локальный
-- `handleSaveNotifications` (стр. 554) — локальный
-- `headerTitle` (стр. 560) — локальный
-- `isMyService` (стр. 640) — локальный
-- `isOutsource` (стр. 641) — локальный
-- `myBaseLink` (стр. 689) — локальный
-- `myAdditionalServices` (стр. 690) — локальный
-- `baseEarned` (стр. 692) — локальный
-- `additionalEarned` (стр. 693) — локальный
-- `total` (стр. 694) — локальный
-- `earned` (стр. 705) — локальный
-- `created` (стр. 757) — локальный
-- `started` (стр. 758) — локальный
-- `completed` (стр. 759) — локальный
-- `shiftPay` (стр. 902) — локальный
-- `bonuses` (стр. 903) — локальный
-- `advances` (стр. 904) — локальный
-- `deductions` (стр. 905) — локальный
-- `adjustments` (стр. 906) — локальный
-- `totalAccrued` (стр. 907) — локальный
-- `totalDeducted` (стр. 908) — локальный
-- `w` (стр. 1292) — локальный
-- `earned` (стр. 1293) — локальный
-- `paymentLabel` (стр. 1296) — локальный
-- `isActive` (стр. 1391) — локальный
+- `DAY_NAMES` (стр. 4) — локальный
+- `MONTH_NAMES` (стр. 5) — локальный
+- `formatDateKey` (стр. 7) — локальный
+- `mm` (стр. 8) — локальный
+- `dd` (стр. 9) — локальный
+- `EarningsCalendar` (стр. 29)
+- `now` (стр. 41) — локальный
+- `calYear` (стр. 42) — локальный
+- `calMonth` (стр. 43) — локальный
+- `datesWithBookings` (стр. 45) — локальный
+- `firstDay` (стр. 47) — локальный
+- `lastDay` (стр. 48) — локальный
+- `startPad` (стр. 49) — локальный
+- `totalDays` (стр. 50) — локальный
+- `selectedDayBookings` (стр. 56) — локальный
+- `dateKey` (стр. 84) — локальный
+- `hasBooking` (стр. 85) — локальный
+- `isSelected` (стр. 86) — локальный
+- `isToday` (стр. 87) — локальный
+
+### frontend/src/app/components/worker/WorkerApp.tsx (1207 строк)
+
+- `workerStatusLabel` (стр. 29) — локальный
+- `workerStatusBadge` (стр. 52) — локальный
+- `workerPaymentLabel` (стр. 73) — локальный
+- `bookingBasePrice` (стр. 79) — локальный
+- `additionalTotal` (стр. 80) — локальный
+- `servicesTotal` (стр. 81) — локальный
+- `bookingBaseWorkerEarned` (стр. 86) — локальный
+- `link` (стр. 87) — локальный
+- `formatBookingInstant` (стр. 94) — локальный
+- `date` (стр. 96) — локальный
+- `WorkerApp` (стр. 102)
+- `workerId` (стр. 132) — локальный
+- `myNotifications` (стр. 211) — локальный
+- `unreadCount` (стр. 212) — локальный
+- `isMyTask` (стр. 214) — локальный
+- `allTasks` (стр. 218) — локальный
+- `todayTasks` (стр. 221) — локальный
+- `myEarnings` (стр. 223) — локальный
+- `w` (стр. 226) — локальный
+- `earned` (стр. 227) — локальный
+- `totalEarned` (стр. 234) — локальный
+- `payrollSummary` (стр. 235) — локальный
+- `earnedForDisplay` (стр. 236) — локальный
+- `myPenalties` (стр. 237) — локальный
+- `complaintState` (стр. 238) — локальный
+- `payoutAfterPenalties` (стр. 239) — локальный
+- `allMyTasks` (стр. 241) — локальный
+- `completedCount` (стр. 242) — локальный
+- `avgCheck` (стр. 243) — локальный
+- `chemistryItems` (стр. 244) — локальный
+- `formatTimer` (стр. 252) — локальный
+- `glass` (стр. 254) — локальный
+- `bg` (стр. 255) — локальный
+- `text` (стр. 256) — локальный
+- `sub` (стр. 257) — локальный
+- `primary` (стр. 258) — локальный
+- `accent` (стр. 259) — локальный
+- `surface` (стр. 260) — локальный
+- `inputCls` (стр. 261) — локальный
+- `formatComplaintDate` (стр. 262) — локальный
+- `handleStartTask` (стр. 264) — локальный
+- `openFinishModal` (стр. 272) — локальный
+- `handleFinish` (стр. 281) — локальный
+- `nextNote` (стр. 287) — локальный
+- `handleSaveProfile` (стр. 326) — локальный
+- `handleSubmitShiftChecklist` (стр. 332) — локальный
+- `saved` (стр. 335) — локальный
+- `handleSavePass` (стр. 350) — локальный
+- `handleGenerateTelegramCode` (стр. 377) — локальный
+- `handleSaveNotifications` (стр. 381) — локальный
+- `headerTitle` (стр. 387) — локальный
+- `isMyService` (стр. 467) — локальный
+- `isOutsource` (стр. 468) — локальный
+- `myBaseLink` (стр. 516) — локальный
+- `myAdditionalServices` (стр. 517) — локальный
+- `baseEarned` (стр. 519) — локальный
+- `additionalEarned` (стр. 520) — локальный
+- `total` (стр. 521) — локальный
+- `earned` (стр. 532) — локальный
+- `created` (стр. 584) — локальный
+- `started` (стр. 585) — локальный
+- `completed` (стр. 586) — локальный
+- `w` (стр. 864) — локальный
+- `earned` (стр. 865) — локальный
+- `paymentLabel` (стр. 868) — локальный
+- `isActive` (стр. 963) — локальный
 
 ### frontend/src/app/components/worker/WorkerCalendar.tsx (615 строк)
 
@@ -4056,8 +4072,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `REDESIGN_PLAN.md` (2026-08-23 08:30)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-23 08:29)
+- `REDESIGN_PLAN.md` (2026-08-23 09:00)
+- `frontend/src/app/components/worker/screens/WorkerEarningsScreen.tsx` (2026-08-23 08:59)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-23 08:57)
+- `frontend/src/app/components/worker/shared/EarningsCalendar.tsx` (2026-08-23 08:51)
+- `backend/tests/test_bot_help.py` (2026-08-23 08:50)
 - `frontend/src/app/components/worker/screens/WorkerScheduleScreen.tsx` (2026-08-23 08:28)
 - `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-08-23 08:26)
 - `frontend/src/app/components/worker/screens/WorkerTodayScreen.tsx` (2026-08-23 08:21)
@@ -4068,6 +4087,3 @@ concept1.0/
 - `frontend/src/app/context/AppContext.tsx` (2026-08-23 07:54)
 - `frontend/src/app/components/client/screens/SlotsScreen.tsx` (2026-08-23 07:43)
 - `frontend/src/app/components/client/ClientApp.tsx` (2026-08-23 07:41)
-- `frontend/src/app/components/atmosfera/index.ts` (2026-08-23 07:35)
-- `frontend/src/app/components/client/screens/ConfirmSuccessScreen.tsx` (2026-08-23 07:34)
-- `frontend/src/app/components/atmosfera/SummaryRows.tsx` (2026-08-23 07:32)
