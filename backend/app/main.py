@@ -2577,6 +2577,22 @@ def _apply_runtime_migrations() -> None:
                     connection.exec_driver_sql(
                         f"ALTER TABLE stock_write_offs ADD COLUMN {column} {column_type} DEFAULT NULL"
                     )
+    # Горячие индексы (AUDIT-16): create_all их не добавляет в существующие БД.
+    # CREATE INDEX IF NOT EXISTS валиден и в SQLite, и в PostgreSQL.
+    for index_statement in (
+        "CREATE INDEX IF NOT EXISTS ix_bookings_date ON bookings (date)",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_status ON bookings (status)",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_client_id ON bookings (client_id)",
+        "CREATE INDEX IF NOT EXISTS ix_bookings_deleted_at ON bookings (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_notifications_recipient ON notifications (recipient_role, recipient_id)",
+        "CREATE INDEX IF NOT EXISTS ix_expenses_date ON expenses (date)",
+        "CREATE INDEX IF NOT EXISTS ix_incomes_date ON incomes (date)",
+    ):
+        try:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(index_statement)
+        except Exception:
+            logger.warning("Index creation skipped: %s", index_statement)
 
 
 
@@ -15784,35 +15800,48 @@ def get_wallet(
 
     week_end_iso = friday.isoformat()
 
-    # Filter incomes for current week — proper date comparison
-    all_incomes_wallet = db.scalars(select(Income)).all()
-    incomes = [
-        i for i in all_incomes_wallet
-        if i.date and _stored_date_in_range(i.date, saturday, friday)
-    ]
-    incomes.sort(key=lambda i: (i.date, i.created_at), reverse=True)
+    # DD.MM.YYYY -> YYYYMMDD ????? ? SQL (AUDIT-07): ?? ????? ??? ???????
+    # ? ?????? ???? ??????? ?? ??????. ???????? ? SQLite ? PostgreSQL.
+    def _stored_date_iso_expr(column):
+        # "||" ? ????????????; "+" ?? ????????? ???????? ? SQLite ??? ?? ????? ?????
+        return (
+            func.substr(column, 7, 4)
+            .op("||")(func.substr(column, 4, 2))
+            .op("||")(func.substr(column, 1, 2))
+        )
 
-    # Filter expenses for current week
-    all_expenses_wallet = db.scalars(select(Expense)).all()
-    expenses = [
-        e for e in all_expenses_wallet
-        if e.date and _stored_date_in_range(e.date, saturday, friday)
-    ]
-    expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
+    week_iso_min = min(week_start_iso, week_end_iso).replace("-", "")
+    week_iso_max = max(week_start_iso, week_end_iso).replace("-", "")
 
-    # Completed bookings for current week
-    all_bookings_wallet = db.scalars(
+    incomes = db.scalars(
+        select(Income)
+        .where(
+            Income.date.is_not(None),
+            _stored_date_iso_expr(Income.date) >= week_iso_min,
+            _stored_date_iso_expr(Income.date) <= week_iso_max,
+        )
+        .order_by(Income.date.desc(), Income.created_at.desc())
+    ).all()
+
+    expenses = db.scalars(
+        select(Expense)
+        .where(
+            Expense.date.is_not(None),
+            _stored_date_iso_expr(Expense.date) >= week_iso_min,
+            _stored_date_iso_expr(Expense.date) <= week_iso_max,
+        )
+        .order_by(Expense.date.desc(), Expense.created_at.desc())
+    ).all()
+
+    completed_bookings = db.scalars(
         select(Booking).where(
             Booking.status == "completed",
             Booking.deleted_at.is_(None),
+            Booking.date.is_not(None),
+            _stored_date_iso_expr(Booking.date) >= week_iso_min,
+            _stored_date_iso_expr(Booking.date) <= week_iso_max,
         )
     ).all()
-    completed_bookings = [
-        b for b in all_bookings_wallet
-        if b.date and _stored_date_in_range(b.date, saturday, friday)
-    ]
-
-
 
     revenue = sum(b.price for b in completed_bookings)
 
@@ -18742,6 +18771,7 @@ def get_owner_bookings_history(
     date_to: str | None = None,
     status: str | None = None,
     q: str | None = None,
+    limit: int = Query(default=500, ge=1, le=5000),
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[BookingHistoryItem]:
@@ -18779,11 +18809,18 @@ def get_owner_bookings_history(
             )
         )
 
-    bookings = db.scalars(query).unique().all()
     if parsed_from or parsed_to:
-        lower = parsed_from or date.min
-        upper = parsed_to or date.max
-        bookings = [b for b in bookings if _stored_date_in_range(b.date, lower, upper)]
+        # DD.MM.YYYY -> YYYYMMDD ????? ? SQL (AUDIT-07)
+        def _iso_expr(col):
+            return (
+                func.substr(col, 7, 4)
+                .op("||")(func.substr(col, 4, 2))
+                .op("||")(func.substr(col, 1, 2))
+            )
+        lower = (parsed_from or date.min).strftime("%Y%m%d")
+        upper = (parsed_to or date.max).strftime("%Y%m%d")
+        query = query.where(_iso_expr(Booking.date) >= lower, _iso_expr(Booking.date) <= upper)
+    bookings = db.scalars(query.limit(limit)).unique().all()
 
     return [
         BookingHistoryItem(
@@ -19023,12 +19060,21 @@ def get_owner_archive(
         .where(Booking.deleted_at.is_(None), Booking.status == "completed")
         .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
     )
-    bookings = db.scalars(booking_query).unique().all()
     if parsed_from or parsed_to:
-        bookings = [
-            b for b in bookings
-            if _stored_date_in_range(b.date, parsed_from or date.min, parsed_to or date.max)
-        ]
+        # DD.MM.YYYY -> YYYYMMDD ? SQL (AUDIT-07): ?????? ?? ???????? ?????.
+        def _archive_iso_expr(col):
+            return (
+                func.substr(col, 7, 4)
+                .op("||")(func.substr(col, 4, 2))
+                .op("||")(func.substr(col, 1, 2))
+            )
+        lower_iso = (parsed_from or date.min).strftime("%Y%m%d")
+        upper_iso = (parsed_to or date.max).strftime("%Y%m%d")
+        booking_query = booking_query.where(
+            _archive_iso_expr(Booking.date) >= lower_iso,
+            _archive_iso_expr(Booking.date) <= upper_iso,
+        )
+    bookings = db.scalars(booking_query).unique().all()
 
     penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(penalties)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Component, useCallback, useRef } from 'react';
+import React, { useState, useEffect, Component, useCallback, useRef, lazy, Suspense } from 'react';
 import { LandingPage } from './components/landing/LandingPage';
 import { WorksPage } from './components/landing/WorksPage';
 
@@ -33,10 +33,10 @@ ChevronRight, AlertCircle, Check, LogIn, Wrench, Sparkles, CarFront,
 import { AppProvider, useApp } from './context/AppContext';
 import { useTelegramMainButton } from './hooks/useTelegramMainButton';
 import { useTelegramBackButton } from './hooks/useTelegramBackButton';
-import { ClientApp } from './components/client/ClientApp';
-import { AdminApp } from './components/admin/AdminApp';
-import { WorkerApp } from './components/worker/WorkerApp';
-import { OwnerApp } from './components/owner/OwnerApp';
+const ClientApp = lazy(() => import('./components/client/ClientApp').then(m => ({ default: m.ClientApp })));
+const AdminApp = lazy(() => import('./components/admin/AdminApp').then(m => ({ default: m.AdminApp })));
+const WorkerApp = lazy(() => import('./components/worker/WorkerApp').then(m => ({ default: m.WorkerApp })));
+const OwnerApp = lazy(() => import('./components/owner/OwnerApp').then(m => ({ default: m.OwnerApp })));
 import {
   normalizePersonName,
   normalizePlateInput,
@@ -664,6 +664,7 @@ function AppContent() {
 
   return (
     <div className={`${isDark ? 'dark' : ''} relative`}>
+      <Suspense fallback={<div className="p-6 text-sm text-gray-500">?????????</div>}>
       <AnimatePresence mode="wait">
         {session.role === 'client' && (
           <motion.div key="client" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
@@ -690,6 +691,7 @@ function AppContent() {
           </motion.div>
         )}
       </AnimatePresence>
+      </Suspense>
     </div>
   );
 }
