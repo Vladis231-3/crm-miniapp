@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
 import { AdminPayrollPage } from './screens/AdminPayrollPage';
+import { AdminStatsPage } from './screens/AdminStatsPage';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
@@ -1613,33 +1614,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           )}
 
           {/* STATS */}
-          {page === 'stats' && (
-            <motion.div key="stats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4 space-y-4">
-              <h2 className="font-semibold">Статистика</h2>
-
-              {/* KPI row */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Всего записей', value: bookings.length, icon: Calendar, color: primary },
-                  { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, icon: TrendingUp, color: accent },
-                  { label: 'Средний чек', value: `${avgCheck.toLocaleString('ru')} ₽`, icon: CreditCard, color: '#312E81' },
-                  { label: 'Конверсия', value: `${conversionRate}%`, icon: BarChart3, color: '#FF9500' },
-                  { label: 'Завершено', value: completedAll.length, icon: CheckCircle, color: '#22C55E' },
-                  { label: 'Отменено', value: bookings.filter(b => b.status === 'cancelled').length, icon: XCircle, color: '#EF4444' },
-                  { label: 'На сегодня', value: todayBookings.length, icon: Clock, color: '#F59E0B' },
-                  { label: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, icon: Play, color: '#EC4899' },
-                ].map(item => (
-                  <div key={item.label} className={`${glass} rounded-2xl p-3`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <item.icon size={13} strokeWidth={1.75} style={{ color: item.color }} />
-                      <span className={`text-xs ${sub}`}>{item.label}</span>
-                    </div>
-                    <div className="font-bold" style={{ color: item.color }}>{item.value}</div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
+          {page === 'stats' && <AdminStatsPage />}
 
           {/* CLIENTS */}
           {page === 'clients' && (
