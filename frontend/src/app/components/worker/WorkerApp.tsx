@@ -16,6 +16,7 @@ import { AttendanceTable } from '../shared/AttendanceTable';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { apiRequest } from '../../api';
 import { CarSearch } from './shared/CarSearch';
+import { Button, Dialog, FormRow, Input, Money, Sheet } from '../atmosfera';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
 type ProfileSection = null | 'personal' | 'notifications' | 'history' | 'security' | 'shift' | 'attendance';
@@ -432,6 +433,7 @@ export function WorkerApp() {
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   const handleStartTask = (task: Booking) => {
+    (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
     updateBooking(task.id, { status: 'in_progress' });
     setTimerRunning(true);
     setTimer(0);
@@ -479,6 +481,7 @@ export function WorkerApp() {
         message: `Ваш заказ #${selectedTask.id.toUpperCase()} завершён. Чек отправлен.`, read: false,
       });
     }
+    (window as any).Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
     setFinishSuccess(true);
     setTimeout(() => {
       setFinishSuccess(false);
@@ -1494,117 +1497,110 @@ export function WorkerApp() {
         })}
       </div>
 
-      {/* ── START CONFIRMATION ── */}
-      <AnimatePresence>
+      {/* ── START CONFIRMATION — DS Dialog ── */}
+      <Dialog
+        open={Boolean(showStartConfirm)}
+        onClose={() => setShowStartConfirm(null)}
+        title="Начать задачу?"
+        footer={
+          <>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowStartConfirm(null)}>
+              Отмена
+            </Button>
+            <Button className="flex-1" onClick={() => showStartConfirm && handleStartTask(showStartConfirm)}>
+              Начать
+            </Button>
+          </>
+        }
+      >
         {showStartConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }} className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}>
-              <div className="flex justify-between items-start mb-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `${accent}20` }}><Play size={18} strokeWidth={1.75} style={{ color: accent }} /></div>
-                <button onClick={() => setShowStartConfirm(null)} className={`p-1 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
-              </div>
-              <h3 className="font-semibold mb-1">Начать задачу?</h3>
-              <p className={`text-sm ${sub} mb-1`}>{showStartConfirm.service}</p>
-              <p className={`text-sm ${sub} mb-5`}>{showStartConfirm.clientName} · {showStartConfirm.time}</p>
-              <div className="flex gap-3">
-                <button onClick={() => setShowStartConfirm(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
-                <button onClick={() => handleStartTask(showStartConfirm)} className="flex-1 py-2.5 rounded-xl text-sm text-white font-medium" style={{ background: accent }}>Начать</button>
-              </div>
-            </motion.div>
-          </motion.div>
+          <>
+            <span className="block font-medium text-foreground">{showStartConfirm.service}</span>
+            <span className="mt-0.5 block">{showStartConfirm.clientName} · {showStartConfirm.time}</span>
+          </>
         )}
-      </AnimatePresence>
+      </Dialog>
 
-      {/* ── FINISH MODAL ── */}
-      <AnimatePresence>
-        {showFinishModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm relative`}>
-              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
-              <AnimatePresence>
-                {finishSuccess && (
-                  <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{ background: isDark ? 'rgba(14,22,36,0.97)' : 'rgba(255,255,255,0.97)', borderRadius: '1.5rem 1.5rem 0 0' }}>
-                    <div className="text-center">
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}
-                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${accent}20` }}>
-                        <Check size={28} strokeWidth={1.75} style={{ color: accent }} />
-                      </motion.div>
-                      <div className="font-semibold">Задача завершена!</div>
-                      {sendCheck && <div className={`text-sm ${sub} mt-1`}>Чек отправлен клиенту</div>}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <h3 className="font-semibold mb-4">Завершить задачу</h3>
-              <div className="space-y-3 mb-4">
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Сумма услуги</label>
-                  <div className={`${inputCls} flex items-center justify-between`}>
-                    <span>{selectedTask?.price.toLocaleString('ru')} ₽</span>
-                    <span className={`text-xs ${sub}`}>Фиксировано</span>
-                  </div>
-                </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-2`}>Клиент оплатил?</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => { setFinishError(null); setFinishPaymentSettled(true); }}
-                      className={`rounded-xl border px-3 py-2 text-sm font-medium ${finishPaymentSettled ? 'text-white' : ''}`}
-                      style={{
-                        background: finishPaymentSettled ? primary : 'transparent',
-                        borderColor: finishPaymentSettled ? primary : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'),
-                      }}
-                    >
-                      Да, оплатил
-                    </button>
-                    <button
-                      onClick={() => { setFinishError(null); setFinishPaymentSettled(false); }}
-                      className={`rounded-xl border px-3 py-2 text-sm font-medium ${!finishPaymentSettled ? 'text-white' : ''}`}
-                      style={{
-                        background: !finishPaymentSettled ? '#EF4444' : 'transparent',
-                        borderColor: !finishPaymentSettled ? '#EF4444' : (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'),
-                      }}
-                    >
-                      Нет, не оплатил
-                    </button>
-                  </div>
-                </div>
-                {finishPaymentSettled && (
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
-                    <select
-                      className={inputCls}
-                      value={finishPaymentType}
-                      onChange={e => { setFinishError(null); setFinishPaymentType(e.target.value as PaymentType); }}
-                    >
-                      <option value="cash">Наличные</option>
-                      <option value="transfer">Перевод</option>
-                      <option value="invoice">По счёту</option>
-                    </select>
-                  </div>
-                )}
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Комментарий</label>
-                  <input className={inputCls} placeholder="Добавьте комментарий..." value={finishNote} onChange={e => { setFinishError(null); setFinishNote(e.target.value); }} />
-                </div>
-                {finishError && <div className="text-xs text-red-500">{finishError}</div>}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <div onClick={() => setSendCheck(!sendCheck)} className="w-10 h-6 rounded-full relative transition-all"
-                    style={{ background: sendCheck ? primary : isDark ? 'rgba(255,255,255,0.2)' : '#D4D4D8' }}>
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${sendCheck ? 'left-5' : 'left-1'}`} />
-                  </div>
-                  <span className="text-sm">Отправить чек клиенту</span>
-                </label>
-              </div>
-              <button onClick={() => { void handleFinish(); }} className="w-full py-3.5 rounded-2xl font-semibold text-white mb-2" style={{ background: primary }}>Подтвердить</button>
-              <button onClick={() => { setShowFinishModal(false); setFinishError(null); }} className={`w-full py-2 text-sm ${sub}`}>Отмена</button>
+      {/* ── FINISH — DS Sheet ── */}
+      <Sheet
+        open={showFinishModal}
+        onClose={() => { if (!finishSuccess) { setShowFinishModal(false); setFinishError(null); } }}
+        title="Завершить задачу"
+      >
+        {finishSuccess ? (
+          <div className="flex flex-col items-center py-10 text-center">
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}
+              className="mb-3 flex size-16 items-center justify-center rounded-full bg-[var(--status-success-soft)]">
+              <Check size={28} strokeWidth={1.75} style={{ color: 'var(--status-success)' }} aria-hidden />
             </motion.div>
-          </motion.div>
+            <div className="font-semibold">Задача завершена!</div>
+            {sendCheck && <div className="mt-1 text-sm text-[var(--fg-secondary,#5A6072)]">Отметка о чеке отправлена администратору</div>}
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <FormRow label="Сумма услуги">
+                <div className="flex items-center justify-between rounded-xl border border-border bg-[var(--sunken,#EEEFF3)] px-3.5 py-2.5 text-sm dark:bg-white/5">
+                  <Money amount={selectedTask?.price ?? 0} />
+                  <span className="text-xs text-[var(--fg-secondary,#5A6072)]">Фиксировано</span>
+                </div>
+              </FormRow>
+              <FormRow label="Клиент оплатил?">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => { setFinishError(null); setFinishPaymentSettled(true); }}
+                    className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${finishPaymentSettled ? 'text-white' : 'text-[var(--fg-secondary,#5A6072)]'}`}
+                    style={{ background: finishPaymentSettled ? 'var(--primary-600)' : 'transparent', borderColor: finishPaymentSettled ? 'var(--primary-600)' : 'var(--border-strong)' }}
+                  >
+                    Да, оплатил
+                  </button>
+                  <button
+                    onClick={() => { setFinishError(null); setFinishPaymentSettled(false); }}
+                    className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${!finishPaymentSettled ? 'text-white' : 'text-[var(--fg-secondary,#5A6072)]'}`}
+                    style={{ background: !finishPaymentSettled ? 'var(--status-danger)' : 'transparent', borderColor: !finishPaymentSettled ? 'var(--status-danger)' : 'var(--border-strong)' }}
+                  >
+                    Нет, не оплатил
+                  </button>
+                </div>
+              </FormRow>
+              {finishPaymentSettled && (
+                <FormRow label="Способ оплаты">
+                  <select
+                    className="w-full rounded-xl border border-[var(--input,var(--border))] bg-[var(--input-background,#EEEFF3)] px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-[var(--ring)] dark:bg-white/[.06]"
+                    value={finishPaymentType ?? 'cash'}
+                    onChange={(e) => { setFinishError(null); setFinishPaymentType(e.target.value as PaymentType); }}
+                  >
+                    <option value="cash">Наличные</option>
+                    <option value="transfer">Перевод</option>
+                    <option value="invoice">По счёту</option>
+                  </select>
+                </FormRow>
+              )}
+              <FormRow label="Комментарий">
+                <Input placeholder="Добавьте комментарий..." value={finishNote} onChange={(e) => { setFinishError(null); setFinishNote(e.target.value); }} />
+              </FormRow>
+              {finishError && <div className="text-xs text-[var(--status-danger)]">{finishError}</div>}
+              <label className="flex cursor-pointer items-center gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={sendCheck}
+                  onClick={() => setSendCheck(!sendCheck)}
+                  className="relative h-6 w-10 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--ring)] outline-none"
+                  style={{ background: sendCheck ? 'var(--primary-600)' : 'var(--switch-background, #D4D4D8)' }}
+                >
+                  <span className={`absolute top-1 size-4 rounded-full bg-white transition-all ${sendCheck ? 'left-5' : 'left-1'}`} />
+                </button>
+                <span className="text-sm">Отправить чек клиенту</span>
+              </label>
+            </div>
+            <div className="mt-5 space-y-2 pb-2">
+              <Button size="lg" onClick={() => { void handleFinish(); }}>Подтвердить</Button>
+              <button onClick={() => { setShowFinishModal(false); setFinishError(null); }} className="w-full py-2 text-sm text-[var(--fg-secondary,#5A6072)]">Отмена</button>
+            </div>
+          </>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* ── NOTIFICATIONS ── */}
       <AnimatePresence>
