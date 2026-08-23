@@ -8,17 +8,12 @@ import { EmptyState } from '../shared/EmptyState';
 import { Skeleton } from '../shared/Skeleton';
 import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
-import {
-  normalizePersonName,
-  normalizePlateInput,
-  normalizeVehicleInput,
-  validatePersonName,
-  validatePlateValue,
-  validateVehicleName,
-} from '../../utils/validation';
+import { normalizePlateInput } from '../../utils/validation';
 import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
 import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
 import { ServiceSearchInput } from '../shared/ServiceSearchInput';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { Toaster } from '../atmosfera';
 
 const NOOP = () => {};
 
@@ -106,10 +101,6 @@ export function ClientApp() {
   const [boxRentalHours, setBoxRentalHours] = useState(1);
   const [selectedBookingVehicleIndex, setSelectedBookingVehicleIndex] = useState(0);
   const [detailingNote, setDetailingNote] = useState('');
-  const [profileForm, setProfileForm] = useState(clientProfile);
-  const [profileSaved, setProfileSaved] = useState(false);
-  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
-  const [profileError, setProfileError] = useState('');
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
@@ -184,17 +175,8 @@ export function ClientApp() {
   }, [boxRentalHours, getBookingAvailabilityForDate, page, selectedDate, selectedService]);
 
   useEffect(() => {
-    const raw = clientProfile.vehicles?.length
-      ? clientProfile.vehicles
-      : [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }];
-    const hasMain = raw.some((v) => v.isMain);
-    const vehicles = raw.map((v, i) => ({ ...v, isMain: hasMain ? v.isMain : i === 0 }));
-    setProfileForm({
-      ...clientProfile,
-      vehicles,
-    });
-    setProfileErrors({});
-    setProfileError('');
+    // Сброс выбора авто для флоу записи при обновлении профиля
+    // (синхронизация самой формы профиля переехала в screens/ProfileScreen.tsx)
     setSelectedBookingVehicleIndex(0);
   }, [clientProfile]);
 
@@ -251,14 +233,9 @@ export function ClientApp() {
       : 'Выходной'
     : 'Не настроено';
 
-  const profileVehicles = profileForm.vehicles?.length
-    ? profileForm.vehicles
-    : [{ car: profileForm.car || '', plate: profileForm.plate || '', isMain: true }];
-  const primaryProfileVehicle = profileVehicles[0] || { car: '', plate: '' };
   const bookingVehicles = clientProfile.vehicles?.length
     ? clientProfile.vehicles.filter((vehicle) => vehicle.car || vehicle.plate)
     : (clientProfile.car || clientProfile.plate ? [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }] : []);
-  const visibleProfileVehicles = profileVehicles.filter((vehicle) => vehicle.car || vehicle.plate);
   const selectedBookingVehicle = bookingVehicles[selectedBookingVehicleIndex] || bookingVehicles[0] || { car: clientProfile.car || '', plate: clientProfile.plate || '' };
 
   const glass = isDark
@@ -324,47 +301,6 @@ export function ClientApp() {
     setPage('confirm');
   };
 
-  const handleSaveProfile = async () => {
-    const nextErrors: Record<string, string> = {};
-    const nameError = validatePersonName(profileForm.name);
-    const primaryVehicle = profileForm.vehicles?.[0] || { car: profileForm.car, plate: profileForm.plate };
-    const carError = validateVehicleName(primaryVehicle.car);
-    const plateError = validatePlateValue(primaryVehicle.plate);
-    if (nameError) nextErrors.name = nameError;
-    if (carError) nextErrors.car = carError;
-    if (plateError) nextErrors.plate = plateError;
-    setProfileErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    const normalizedVehicles = (profileForm.vehicles || [])
-        .map((vehicle) => ({
-          car: normalizeVehicleInput(vehicle.car),
-          plate: normalizePlateInput(vehicle.plate),
-          isMain: vehicle.isMain,
-        }))
-        .filter((vehicle) => vehicle.car || vehicle.plate);
-    if (normalizedVehicles.length > 0 && !normalizedVehicles.some((v) => v.isMain)) {
-      normalizedVehicles[0] = { ...normalizedVehicles[0], isMain: true };
-    }
-    const normalizedProfile = {
-      ...profileForm,
-      name: normalizePersonName(profileForm.name),
-      phone: profileForm.phone.trim(),
-      car: normalizeVehicleInput(primaryVehicle.car),
-      plate: normalizePlateInput(primaryVehicle.plate),
-      vehicles: normalizedVehicles,
-    };
-    try {
-      setProfileError('');
-      setProfileForm(normalizedProfile);
-      await updateClientProfile(normalizedProfile);
-      setProfileSaved(true);
-      setTimeout(() => setProfileSaved(false), 2000);
-    } catch (error) {
-      setProfileError(error instanceof Error ? error.message : 'Не удалось сохранить профиль');
-    }
-  };
-
   const handleCancelBooking = useCallback(() => {
     if (showCancelConfirm) deleteBooking(showCancelConfirm);
   }, [showCancelConfirm, deleteBooking]);
@@ -375,9 +311,6 @@ export function ClientApp() {
     }
     if (showCancelConfirm) {
       return { text: 'Отменить запись', onClick: handleCancelBooking, enabled: true };
-    }
-    if (page === 'profile') {
-      return { text: 'Сохранить изменения', onClick: handleSaveProfile, enabled: true };
     }
     return null;
   })();
@@ -947,200 +880,7 @@ export function ClientApp() {
           )}
 
           {page === 'profile' && (
-            <motion.div
-              key="profile"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.25 }}
-              className="px-4 py-4"
-            >
-              <h2 className="text-lg font-semibold mb-4">Профиль</h2>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {[
-                  { label: 'Активные', value: upcomingBookings.length },
-                  { label: 'Завершено', value: completedBookings.length },
-                  { label: 'Средний чек', value: completedBookings.length ? `${Math.round(totalSpent / completedBookings.length).toLocaleString('ru')} ₽` : '0 ₽' },
-                ].map((item) => (
-                  <div key={item.label} className={`${glass} rounded-2xl px-3 py-3`}>
-                    <div className={`text-[11px] ${sub}`}>{item.label}</div>
-                    <div className="font-semibold text-sm mt-1">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
-                    {(profileForm.name || 'A').charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="font-semibold">{profileForm.name || 'Клиент'}</div>
-                    <div className={`text-xs ${sub}`}>{profileForm.phone || 'Укажите телефон'}</div>
-                  </div>
-                </div>
-                <div className={`${isDark ? 'bg-white/4' : 'bg-black/3'} rounded-2xl p-3 mb-4`}>
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div>
-                      <div className="text-sm font-semibold">Все автомобили</div>
-                      <div className={`text-xs ${sub}`}>Здесь отображаются все машины из профиля</div>
-                    </div>
-                    <div className={`text-xs px-2.5 py-1 rounded-full ${glass}`}>{visibleProfileVehicles.length || 0}</div>
-                  </div>
-                  <div className="space-y-2">
-                    {visibleProfileVehicles.length > 0 ? visibleProfileVehicles.map((vehicle, index) => (
-                      <div key={`vehicle-card-${index}`} className={`${glass} rounded-xl px-3 py-3 flex items-center justify-between gap-3`}>
-                        <div>
-                          <div className="text-sm font-medium">{vehicle.car || 'Автомобиль'}</div>
-                          <div className={`text-xs ${sub} mt-1`}>{vehicle.plate || 'Госномер не указан'}</div>
-                        </div>
-                        <div className={`text-[11px] ${sub}`}>#{index + 1}</div>
-                      </div>
-                    )) : (
-                      <div className={`text-xs ${sub}`}>После добавления второго авто они будут собраны здесь отдельным списком.</div>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Имя</label>
-                    <input className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.name ? 'border-red-400' : ''}`} value={profileForm.name} onChange={(e) => {
-                      setProfileForm((current) => ({ ...current, name: e.target.value }));
-                      setProfileErrors((current) => ({ ...current, name: '' }));
-                      setProfileError('');
-                    }} />
-                    {profileErrors.name && <div className="mt-1 text-xs text-red-500">{profileErrors.name}</div>}
-                  </div>
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
-                    <input className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.phone ? 'border-red-400' : ''}`} value={profileForm.phone} onChange={(e) => {
-                      setProfileForm((current) => ({ ...current, phone: e.target.value }));
-                      setProfileErrors((current) => ({ ...current, phone: '' }));
-                      setProfileError('');
-                    }} />
-                    {profileErrors.phone && <div className="mt-1 text-xs text-red-500">{profileErrors.phone}</div>}
-                  </div>
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>{'\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}</label>
-                    <input className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.car ? 'border-red-400' : ''}`} placeholder="Lada Vesta" value={primaryProfileVehicle.car} onChange={(e) => {
-                      const nextCar = e.target.value;
-                      setProfileForm((current) => {
-                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
-                        return {
-                          ...current,
-                          car: nextCar,
-                          vehicles: baseVehicles.map((item, index) => index === 0 ? { ...item, car: nextCar } : item),
-                        };
-                      });
-                      setProfileErrors((current) => ({ ...current, car: '' }));
-                      setProfileError('');
-                    }} />
-                    {profileErrors.car && <div className="mt-1 text-xs text-red-500">{profileErrors.car}</div>}
-                  </div>
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}</label>
-                    <input className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none ${profileErrors.plate ? 'border-red-400' : ''}`} placeholder="а123вс777" maxLength={9} value={primaryProfileVehicle.plate} onChange={(e) => {
-                      const nextPlate = normalizePlateInput(e.target.value);
-                      setProfileForm((current) => {
-                        const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
-                        return {
-                          ...current,
-                          plate: nextPlate,
-                          vehicles: baseVehicles.map((item, index) => index === 0 ? { ...item, plate: nextPlate } : item),
-                        };
-                      });
-                      setProfileErrors((current) => ({ ...current, plate: '' }));
-                      setProfileError('');
-                    }} />
-                    {profileErrors.plate && <div className="mt-1 text-xs text-red-500">{profileErrors.plate}</div>}
-                  </div>
-                  <div className={`${glass} rounded-2xl p-3`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="text-sm font-semibold">{'\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0430\u0432\u0442\u043e'}</div>
-                        <div className={`text-xs ${sub}`}>{'\u041c\u0430\u0440\u043a\u0430 \u0438 \u0433\u043e\u0441\u043d\u043e\u043c\u0435\u0440 \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u0442\u0441\u044f \u0432 \u043f\u0440\u043e\u0444\u0438\u043b\u044c'}</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="text-xs font-medium"
-                        style={{ color: primary }}
-                        onClick={() => setProfileForm((current) => ({
-                          ...current,
-                          vehicles: [...(current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }]), { car: '', plate: '' }],
-                        }))}
-                      >
-                        + {'\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0430\u0432\u0442\u043e'}
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {profileVehicles.slice(1).map((vehicle, index) => (
-                        <div key={`profile-vehicle-${index + 1}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                          <input
-                            className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                            placeholder={'\u041c\u0430\u0440\u043a\u0430'}
-                            value={vehicle.car}
-                            onChange={(e) => {
-                              const nextCar = e.target.value;
-                              setProfileForm((current) => {
-                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
-                                return {
-                                  ...current,
-                                  vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, car: nextCar } : item),
-                                };
-                              });
-                              setProfileError('');
-                            }}
-                          />
-                          <input
-                            className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                            placeholder={'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440'}
-                            maxLength={9}
-                            value={vehicle.plate}
-                            onChange={(e) => {
-                              const nextPlate = normalizePlateInput(e.target.value);
-                              setProfileForm((current) => {
-                                const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
-                                return {
-                                  ...current,
-                                  vehicles: baseVehicles.map((item, vehicleIndex) => vehicleIndex === index + 1 ? { ...item, plate: nextPlate } : item),
-                                };
-                              });
-                              setProfileError('');
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className={`px-3 rounded-xl ${glass} text-red-500 text-xs`}
-                            onClick={() => setProfileForm((current) => {
-                              const baseVehicles = current.vehicles?.length ? current.vehicles : [{ car: current.car || '', plate: current.plate || '', isMain: true }];
-                              return {
-                                ...current,
-                                vehicles: baseVehicles.filter((_, vehicleIndex) => vehicleIndex !== index + 1),
-                              };
-                            })}
-                          >
-                            {'\u0423\u0434\u0430\u043b\u0438\u0442\u044c'}
-                          </button>
-                        </div>
-                      ))}
-                      {profileVehicles.length <= 1 && <div className={`text-xs ${sub}`}>{'\u0414\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0445 \u0430\u0432\u0442\u043e \u043f\u043e\u043a\u0430 \u043d\u0435\u0442'}</div>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {profileError && <div className="mb-3 text-sm text-red-500">{profileError}</div>}
-              <button
-                onClick={handleSaveProfile}
-                className={`w-full py-3.5 rounded-2xl font-semibold mb-3 ${primaryBtn}`}
-              >
-                {profileSaved ? 'Сохранено' : 'Сохранить изменения'}
-              </button>
-              <button
-                onClick={logout}
-                className={`w-full py-3 rounded-2xl text-sm ${secondaryBtn}`}
-              >
-                Выйти
-              </button>
-            </motion.div>
+            <ProfileScreen upcomingCount={upcomingBookings.length} completedCount={completedBookings.length} totalSpent={totalSpent} />
           )}
         </AnimatePresence>
       </div>
@@ -1232,22 +972,7 @@ export function ClientApp() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {profileSaved && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
-            style={{ background: isDark ? '#1C1C1F' : '#ffffff', border: `1px solid ${primary}40` }}
-          >
-            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}>
-              <Check size={14} strokeWidth={1.75} style={{ color: primary }} />
-            </div>
-            <span className="text-sm font-medium">Профиль обновлен</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Toaster />
     </div>
   );
 }
