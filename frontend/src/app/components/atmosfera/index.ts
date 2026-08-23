@@ -15,6 +15,7 @@ export {
 } from './Sheet';
 export { StatTile, type StatTileProps } from './StatTile';
 export { StatusBadge, type StatusBadgeProps } from './StatusBadge';
+export { SummaryRows, type SummaryRowsProps } from './SummaryRows';
 export { Toaster, toast, type ToastItem, type ToastType } from './Toaster';
 export {
   BOOKING_STATUSES,

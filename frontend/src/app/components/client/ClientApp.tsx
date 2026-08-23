@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Menu, ChevronRight, ArrowLeft, Check,
-  Calendar, Share2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
+  ArrowLeft,
+  Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
-import { Skeleton } from '../shared/Skeleton';
 import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import { normalizePlateInput } from '../../utils/validation';
@@ -14,7 +13,9 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { DetailScreen } from './screens/DetailScreen';
-import { Button, Dialog, Toaster } from '../atmosfera';
+import { SlotsScreen } from './screens/SlotsScreen';
+import { ConfirmSuccessScreen } from './screens/ConfirmSuccessScreen';
+import { Button, Dialog, Money, Sheet, SummaryRows, Toaster } from '../atmosfera';
 
 const NOOP = () => {};
 
@@ -70,7 +71,6 @@ export function ClientApp() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(upcomingDates[0] || '');
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
-  const [calendarAnim, setCalendarAnim] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [slotAvailability, setSlotAvailability] = useState<BookingSlotAvailability[]>([]);
@@ -214,21 +214,9 @@ export function ClientApp() {
   const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
   const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
   const primary = isDark ? '#6E76F2' : '#4F46E5';
-  const primaryBtn = isDark ? 'bg-[#6E76F2] text-white' : 'bg-[#4F46E5] text-white';
-  const secondaryBtn = isDark ? 'bg-white/10 text-[#E4E4E7] border border-white/20' : 'bg-white text-[#131316] border border-black/10';
   const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
   const availableSlotCards = slotCards.filter((slot) => slot.available).length;
   const occupiedSlotCards = slotCards.filter((slot) => !slot.available).length;
-  const slotAvailabilityLoadingLabel = selectedServiceIsDetailing ? 'Обновляем свободные окна для детейлинга...' : 'Обновляем занятость по боксам...';
-  const slotAvailabilityEmptyLabel = selectedServiceIsDetailing ? 'На выбранную дату свободных окон для детейлинга пока нет.' : 'На выбранную дату подходящих слотов пока нет.';
-
-  const handleAddToCalendar = () => {
-    setCalendarAnim(true);
-    setTimeout(() => {
-      setCalendarAnim(false);
-      setPage('bookings');
-    }, 700);
-  };
 
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
@@ -417,217 +405,38 @@ export function ClientApp() {
 
           {/* SLOTS PAGE */}
           {page === 'slots' && selectedService && (
-            <motion.div
-              key="slots"
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 30 }}
-              transition={{ duration: 0.22 }}
-              className="px-4 py-4"
-            >
-              <div className="flex gap-2 mb-4 overflow-x-auto">
-                {upcomingDates.map(d => (
-                  <button
-                    key={d}
-                    onClick={() => setSelectedDate(d)}
-                    className={`shrink-0 px-3 py-2 rounded-xl text-sm transition-all ${
-                      selectedDate === d ? `text-white` : `${glass} ${sub}`
-                    }`}
-                    style={selectedDate === d ? { background: primary } : {}}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-              {selectedServiceIsBoxRental && (
-                <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <div className={`text-sm font-medium ${text}`}>Длительность аренды</div>
-                      <div className={`text-xs ${sub} mt-1`}>
-                        Выберите, на сколько часов нужен бокс. Занятость ниже пересчитывается сразу.
-                      </div>
-                    </div>
-                    <div
-                      className="shrink-0 rounded-2xl px-3 py-2 text-right"
-                      style={{ background: `${primary}15`, color: primary }}
-                    >
-                      <div className="text-base font-semibold">{boxRentalHours} ч</div>
-                      <div className="text-[11px]">{selectedPrice.toLocaleString('ru')} ₽</div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 mb-3">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => {
-                      const selected = boxRentalHours === hours;
-                      return (
-                        <button
-                          key={hours}
-                          onClick={() => setBoxRentalHours(hours)}
-                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${selected ? 'text-white' : glass}`}
-                          style={selected ? { background: primary } : {}}
-                        >
-                          {hours} ч
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl px-3 py-2`}>
-                      <div className={`text-[11px] ${sub}`}>Длительность</div>
-                      <div className="text-sm font-semibold mt-1">{selectedDuration} мин</div>
-                    </div>
-                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl px-3 py-2`}>
-                      <div className={`text-[11px] ${sub}`}>Свободно</div>
-                      <div className="text-sm font-semibold mt-1">{availableSlotCards}</div>
-                    </div>
-                    <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl px-3 py-2`}>
-                      <div className={`text-[11px] ${sub}`}>Занято</div>
-                      <div className="text-sm font-semibold mt-1">{occupiedSlotCards}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <h3 className={`text-sm font-medium ${sub} mb-3`}>Доступное время</h3>
-              <div className={`${glass} rounded-2xl p-3 mb-4`}>
-                <div className={`text-xs ${sub}`}>Часы работы на {selectedDate || formatDate(new Date())}</div>
-                <div className="font-medium mt-1">{selectedDayWorkingHours}</div>
-              </div>
-              {slotsLoading ? (
-                <div className="grid grid-cols-2 gap-3 mb-6" aria-busy="true">
-                  {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-14 rounded-2xl" />)}
-                </div>
-              ) : slotCards.length === 0 ? (
-                <div className={`${glass} rounded-2xl p-4 text-sm ${sub}`}>
-                  {slotAvailabilityEmptyLabel}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  {slotCards.map((slot) => {
-                    const selected = selectedSlot === slot.time;
-                    const slotClass = selected
-                      ? 'text-white'
-                      : slot.available
-                        ? glass
-                        : isDark
-                          ? 'bg-red-500/15 border border-red-400/50 text-red-100 shadow-[0_0_0_1px_rgba(248,113,113,0.25)]'
-                          : 'bg-red-50 border-2 border-red-300 text-red-800 shadow-[0_8px_24px_rgba(239,68,68,0.12)]';
-                    return (
-                      <motion.button
-                        key={slot.time}
-                        onClick={() => {
-                          if (!slot.available) return;
-                          setSelectedSlot(slot.time);
-                          setShowSlotModal(true);
-                        }}
-                        whileTap={slot.available ? { scale: 0.96 } : undefined}
-                        animate={{ scale: selected ? 1.03 : 1 }}
-                        className={`rounded-2xl p-3 text-left transition-all ${slotClass} ${slot.available ? '' : 'relative overflow-hidden cursor-not-allowed'}`}
-                        style={selected ? { background: primary } : {}}
-                        disabled={!slot.available}
-                      >
-                        {!slot.available && (
-                          <div className={`absolute inset-x-0 top-0 h-1 ${isDark ? 'bg-red-400/80' : 'bg-red-500'}`} />
-                        )}
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-base font-semibold">{slot.time}</div>
-                            <div className={`mt-1 text-xs ${selected ? 'text-white/80' : sub}`}>
-                              {selectedServiceIsDetailing
-                                ? slot.available
-                                  ? 'Свободное окно детейлинга'
-                                  : 'Окно детейлинга занято'
-                                : slot.available
-                                  ? `Свободно боксов: ${slot.freeBoxes}`
-                                  : `Занято боксов: ${slot.occupiedBoxes}`}
-                            </div>
-                            {!slot.available && (
-                              <div className={`mt-2 text-[11px] font-medium ${isDark ? 'text-red-100' : 'text-red-700'}`}>
-                                Это окно уже занято на выбранные {boxRentalHours} ч
-                              </div>
-                            )}
-                          </div>
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
-                              selected
-                                ? 'bg-white/20 text-white'
-                                : slot.available
-                                  ? isDark
-                                    ? 'bg-emerald-500/15 text-emerald-300'
-                                    : 'bg-emerald-50 text-emerald-700'
-                                  : isDark
-                                    ? 'bg-red-500/25 text-red-100 border border-red-400/40'
-                                    : 'bg-red-100 text-red-800 border border-red-200'
-                            }`}
-                          >
-                            {slot.available ? 'Свободно' : 'Занято'}
-                          </span>
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
+            <SlotsScreen
+              dates={upcomingDates}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              dateLabel={selectedDate || formatDate(new Date())}
+              workingHoursLabel={selectedDayWorkingHours}
+              isBoxRental={selectedServiceIsBoxRental}
+              boxHours={boxRentalHours}
+              onBoxHoursChange={setBoxRentalHours}
+              durationMinutes={selectedDuration}
+              price={selectedPrice}
+              availableCount={availableSlotCards}
+              occupiedCount={occupiedSlotCards}
+              isDetailing={selectedServiceIsDetailing}
+              slots={slotAvailability}
+              loading={slotsLoading}
+              emptyLabel={slotAvailabilityEmptyLabel}
+              selectedSlot={selectedSlot}
+              onSelectSlot={(time) => { setSelectedSlot(time); setShowSlotModal(true); }}
+            />
           )}
 
-          {/* CONFIRM PAGE */}
           {page === 'confirm' && selectedService && (
-            <motion.div
-              key="confirm"
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="px-4 py-8 flex flex-col items-center"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-                className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                style={{ background: `${primary}20` }}
-              >
-                <Check size={36} strokeWidth={1.75} style={{ color: primary }} />
-              </motion.div>
-              <h2 className="text-xl font-semibold mb-2 text-center">
-                Заявка отправлена!
-              </h2>
-              <p className={`text-sm ${sub} mb-6 text-center`}>
-                Администратор свяжется с вами для уточнения деталей
-              </p>
-              <div className={`${glass} rounded-2xl p-4 w-full mb-6`}>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Услуга', value: selectedService.name },
-                    { label: 'Дата', value: selectedDate },
-                    { label: 'Время', value: selectedSlot || '—' },
-                    { label: 'Стоимость', value: `${selectedPrice.toLocaleString('ru')} ₽` },
-                    { label: 'Длительность', value: `${selectedDuration} мин` },
-                  ].map(item => (
-                    <div key={item.label} className="flex justify-between">
-                      <span className={`text-sm ${sub}`}>{item.label}</span>
-                      <span className="text-sm font-medium">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                animate={calendarAnim ? { scale: [1, 1.1, 0.9, 1.05, 1], y: [0, -10, 5, -5, 0] } : {}}
-                transition={{ duration: 0.6 }}
-                onClick={handleAddToCalendar}
-                className={`w-full py-3 rounded-2xl font-medium mb-3 ${secondaryBtn} flex items-center justify-center gap-2`}
-              >
-                <Calendar size={18} strokeWidth={1.75} />
-                Добавить в календарь
-              </motion.button>
-              <button
-                onClick={() => setPage('catalog')}
-                className={`w-full py-3 rounded-2xl text-sm ${sub}`}
-              >
-                На главную
-              </button>
-            </motion.div>
+            <ConfirmSuccessScreen
+              serviceName={selectedService.name}
+              date={selectedDate}
+              time={selectedSlot}
+              price={selectedPrice}
+              durationMinutes={selectedDuration}
+              onGoHome={() => setPage('catalog')}
+              onMyBookings={() => setPage('bookings')}
+            />
           )}
 
           {/* MY BOOKINGS PAGE */}
@@ -654,54 +463,32 @@ export function ClientApp() {
         </AnimatePresence>
       </div>
 
-      {/* Slot confirmation modal */}
-      <AnimatePresence>
-        {showSlotModal && selectedService && selectedSlot && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-            onClick={() => setShowSlotModal(false)}
-          >
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-6 w-full max-w-sm`}
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-5" />
-              <h3 className="font-semibold text-lg mb-4">Подтверждение записи</h3>
-              <div className="space-y-3 mb-6">
-                {[
-                  { label: 'Услуга', value: selectedService.name },
-                  { label: 'Дата', value: selectedDate },
-                  { label: 'Время', value: selectedSlot },
-                  { label: 'Стоимость', value: `${selectedPrice.toLocaleString('ru')} ₽` },
-                  { label: 'Длительность', value: `${selectedDuration} мин` },
-                ].map(item => (
-                  <div key={item.label} className="flex justify-between">
-                    <span className={`text-sm ${sub}`}>{item.label}</span>
-                    <span className="text-sm font-medium">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => { setShowSlotModal(false); handleConfirmBooking(); }}
-                className={`w-full py-3.5 rounded-2xl font-semibold mb-3 text-white`}
-                style={{ background: primary }}
-              >
-                Подтвердить запись
-              </button>
-              <button onClick={() => setShowSlotModal(false)} className={`w-full py-2 text-sm ${sub}`}>
-                Выбрать другой
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Slot confirmation — DS Sheet (состояние в ClientApp: TG MainButton/BackButton) */}
+      <Sheet
+        open={showSlotModal && Boolean(selectedService && selectedSlot)}
+        onClose={() => setShowSlotModal(false)}
+        title="Подтверждение записи"
+        footer={
+          <>
+            <Button size="lg" className="flex-1" onClick={() => { setShowSlotModal(false); handleConfirmBooking(); }}>
+              Подтвердить запись
+            </Button>
+          </>
+        }
+      >
+        <SummaryRows
+          rows={[
+            { label: 'Услуга', value: selectedService?.name || '' },
+            { label: 'Дата', value: selectedDate },
+            { label: 'Время', value: selectedSlot || '' },
+            { label: 'Стоимость', value: <Money amount={selectedPrice} /> },
+            { label: 'Длительность', value: `${selectedDuration} мин` },
+          ]}
+        />
+        <button onClick={() => setShowSlotModal(false)} className="mt-4 w-full py-2 text-sm text-[var(--fg-secondary,#5A6072)]">
+          Выбрать другой
+        </button>
+      </Sheet>
 
       {/* Cancel confirm — DS Dialog (состояние в ClientApp: TG MainButton/BackButton) */}
       <Dialog
