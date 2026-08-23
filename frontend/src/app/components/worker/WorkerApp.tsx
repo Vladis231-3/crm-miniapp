@@ -17,6 +17,7 @@ import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from
 import { apiRequest } from '../../api';
 import { CarSearch } from './shared/CarSearch';
 import { WorkerTodayScreen } from './screens/WorkerTodayScreen';
+import { WorkerScheduleScreen } from './screens/WorkerScheduleScreen';
 import { Button, Dialog, FormRow, Input, Money, Sheet } from '../atmosfera';
 
 type WorkerTab = 'today' | 'schedule' | 'earnings' | 'profile';
@@ -800,42 +801,14 @@ export function WorkerApp() {
             />
 
           ) : tab === 'schedule' && !profileSection ? (
-            <motion.div key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">Расписание</h2>
-              {upcomingDates.slice(0, 3).map(date => {
-                const dayTasks = bookings.filter(b => b.date === date && isMyTask(b));
-                return (
-                  <div key={date} className="mb-4">
-                    <div className={`text-xs font-medium ${sub} mb-2`}>{date}</div>
-                    {dayTasks.length === 0 ? (
-                      <div className={`${glass} rounded-xl p-3 text-sm ${sub}`}>Свободный день</div>
-                    ) : dayTasks.map(task => (
-                      <div key={task.id} className={`${glass} rounded-xl p-3 mb-2`}>
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="text-sm font-medium">{task.time} — {task.service}</div>
-                            <div className={`text-xs ${sub}`}>{task.box} · {task.clientName}<SourceBadge source={task.source} className="ml-1.5 align-middle" /></div>
-                            {task.car && <div className={`text-xs ${sub}`}>{task.car}{task.plate ? ` (${task.plate})` : ''}</div>}
-                            {(task.additionalServices || []).some(as => as.workers.some(w => w.workerId === workerId)) && (
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {(task.additionalServices || []).filter(as => as.workers.some(w => w.workerId === workerId)).map(as => (
-                                  <span key={as.id} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${accent}1A`, color: accent }}>
-                                    + {as.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${task.status === 'completed' ? 'bg-green-500/15 text-green-600' : workerStatusBadge(task.status)}`}>
-                            {task.status === 'completed' ? 'Выполнено' : workerStatusLabel(task.status)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </motion.div>
+            <WorkerScheduleScreen
+              upcomingDates={upcomingDates}
+              bookings={bookings}
+              workerId={workerId}
+              isDark={isDark}
+              workers={workers}
+              schedule={schedule}
+            />
 
 
           ) : tab === 'earnings' && !profileSection ? (

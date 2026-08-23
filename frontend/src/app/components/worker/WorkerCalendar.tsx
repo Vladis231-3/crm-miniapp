@@ -23,7 +23,7 @@ export interface WorkerCalendarBooking {
   isRepeatVisit?: boolean;
 }
 
-const WORKER_CALENDAR_WEEKDAYS = ['Сб', 'Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
+const WORKER_CALENDAR_WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const WORKER_CALENDAR_MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
@@ -32,9 +32,9 @@ const WORKER_CALENDAR_DEFAULT_OPEN = 9 * 60;
 const WORKER_CALENDAR_DEFAULT_CLOSE = 19 * 60;
 
 const WORKER_CALENDAR_LOAD_COLORS = {
-  empty: '#22C55E',
-  medium: '#EAB308',
-  heavy: '#EF4444',
+  empty: 'var(--status-success)',
+  medium: 'var(--status-warning)',
+  heavy: 'var(--status-danger)',
 } as const;
 
 function workerParseBookingMinutes(value: string): number | null {
@@ -58,7 +58,8 @@ function workerBuildMonthCells(monthDate: Date): Array<{ date: Date | null; date
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const first = new Date(year, month, 1);
-  const offset = (first.getDay() + 1) % 7;
+  // Недели начинаются с Пн: getDay() Вс=0 → сдвиг (getDay+6)%7
+  const offset = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: Array<{ date: Date | null; dateLabel: string }> = [];
   for (let index = 0; index < offset; index += 1) {
