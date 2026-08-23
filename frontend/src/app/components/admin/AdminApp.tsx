@@ -15,6 +15,7 @@ import { AdminStatsPage } from './screens/AdminStatsPage';
 import { AdminClientsPage } from './screens/AdminClientsPage';
 import { AdminStockPage } from './screens/AdminStockPage';
 import { AdminCalendarDayScreen } from './screens/AdminCalendarDayScreen';
+import { Sheet, StatusBadge } from '../atmosfera';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
@@ -2323,21 +2324,19 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         )}
       </AnimatePresence>
 
-      {/* BOOKING SLIDE-OVER */}
-      <AnimatePresence>
-        {showSlideOver && selectedBooking && (
+      {/* BOOKING SLIDE-OVER — DS Sheet (auto: снизу <768px / справа ≥768px) */}
+      <Sheet
+        open={showSlideOver && Boolean(selectedBooking)}
+        onClose={() => setShowSlideOver(false)}
+        side="auto"
+        title={selectedBooking ? `#${selectedBooking.id.toUpperCase()}` : ''}
+      >
+        {selectedBooking && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowSlideOver(false)} />
-            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-sm ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} shadow-2xl flex flex-col overflow-y-auto`}>
-              <div className="p-4 border-b flex justify-between items-center sticky top-0 z-10" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', background: surface }}>
-                <div>
-                  <div className="font-semibold text-sm">#{selectedBooking.id.toUpperCase()}</div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[selectedBooking.status]}`}>{STATUS_LABELS[selectedBooking.status]}</span>
-                </div>
-                <button onClick={() => setShowSlideOver(false)} className={`p-2 rounded-xl ${glass}`}><X size={18} strokeWidth={1.75} /></button>
-              </div>
-              <div className="p-4 space-y-3">
+            <div className="mb-3">
+              <StatusBadge status={selectedBooking.status} />
+            </div>
+            <div className="space-y-3">
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} mb-2`}>КЛИЕНТ</div>
                   <div className="font-semibold">{selectedBooking.clientName}</div>
@@ -2494,14 +2493,13 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     <button onClick={() => { void handleStatusChange(selectedBooking.id, 'cancelled'); }} className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-red-500/15 text-red-500"><XCircle size={15} strokeWidth={1.75} />Отменить</button>
                   )}
                   {selectedBooking.status === 'completed' && (
-                    <button className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-green-500/15 text-green-600"><Check size={15} strokeWidth={1.75} />Завершено</button>
+                    <button className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-[var(--status-success-soft)] text-[var(--status-success)]"><Check size={15} strokeWidth={1.75} />Завершено</button>
                   )}
                 </div>
               </div>
-            </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* ADD SERVICE MODAL */}
       <AnimatePresence>
