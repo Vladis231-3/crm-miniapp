@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-22 16:20 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-23 04:01 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **453**
-- Строк кода: **200 299**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 33, `.tsx`: 269
+- Файлов кода: **466**
+- Строк кода: **201 005**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 280
 
 ## Архитектура
 
@@ -273,6 +273,9 @@ concept1.0/
 ├── desktop/
 │   ├── atmosfera-backend.spec
 │   └── run_frozen.py
+├── docs/
+│   └── archive/
+│       └── telegram-webapp-design.txt
 ├── frontend/
 │   ├── guidelines/
 │   │   └── Guidelines.md
@@ -284,7 +287,22 @@ concept1.0/
 │   │   │   │   ├── admin/
 │   │   │   │   │   ├── AdminApp.tsx
 │   │   │   │   │   └── ContentEditor.tsx
+│   │   │   │   ├── atmosfera/
+│   │   │   │   │   ├── Button.tsx
+│   │   │   │   │   ├── Card.tsx
+│   │   │   │   │   ├── Dialog.tsx
+│   │   │   │   │   ├── FormRow.tsx
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── Input.tsx
+│   │   │   │   │   ├── Money.tsx
+│   │   │   │   │   ├── SectionHeader.tsx
+│   │   │   │   │   ├── Sheet.tsx
+│   │   │   │   │   ├── StatusBadge.tsx
+│   │   │   │   │   ├── statusMap.ts
+│   │   │   │   │   └── Toaster.tsx
 │   │   │   │   ├── client/
+│   │   │   │   │   ├── screens/
+│   │   │   │   │   │   └── ProfileScreen.tsx
 │   │   │   │   │   └── ClientApp.tsx
 │   │   │   │   ├── figma/
 │   │   │   │   │   └── ImageWithFallback.tsx
@@ -331,14 +349,12 @@ concept1.0/
 │   │   │   │   └── validation.ts
 │   │   │   ├── api.ts
 │   │   │   └── App.tsx
-│   │   ├── imports/
-│   │   │   └── pasted_text/
-│   │   │       └── telegram-webapp-design.txt
 │   │   ├── styles/
 │   │   │   ├── fonts.css
 │   │   │   ├── index.css
 │   │   │   ├── tailwind.css
-│   │   │   └── theme.css
+│   │   │   ├── theme.css
+│   │   │   └── tokens.css
 │   │   └── main.tsx
 │   ├── .env.desktop
 │   ├── .env.example
@@ -585,6 +601,7 @@ concept1.0/
 ├── DEPLOY_VERCEL.md
 ├── Dockerfile
 ├── flip_push_permission.py
+├── REDESIGN_PLAN.md
 ├── render.yaml
 ├── requirements.txt
 ├── start-native.bat
@@ -1749,7 +1766,7 @@ concept1.0/
 - `fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict | None = None, **_kwargs): calls.append((method, payload or {})) return {}` (стр. 68)
 - `test_help_does_not_break_start_commanddef test_help_does_not_break_start_command() -> None: calls = _run_update( _runtime(), {"message": {"chat": {"id": 779}, "text": "/start"}}, ) sent = [payload for method, payload i` (стр. 82)
 
-### backend/tests/test_broadcast_edge_cases.py (178 строк)
+### backend/tests/test_broadcast_edge_cases.py (182 строк)
 
 Классы и функции (12):
 
@@ -1764,7 +1781,7 @@ concept1.0/
 - `BroadcastEdgeCaseTests.clear_all_owner_telegram_chat_idsdef clear_all_owner_telegram_chat_ids(self) -> None: """Remove telegram_chat_id from all owners so no one is eligible for broadcast.""" from app.database import SessionLocal from a` (стр. 95)
 - `BroadcastEdgeCaseTests.auth_headersdef auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 109)
 - `BroadcastEdgeCaseTests.test_export_broadcast_returns_503_when_no_owners_have_telegram_chat_iddef test_export_broadcast_returns_503_when_no_owners_have_telegram_chat_id( self,` (стр. 116)
-- `BroadcastEdgeCaseTests.test_report_broadcast_returns_503_when_no_owners_have_telegram_chat_iddef test_report_broadcast_returns_503_when_no_owners_have_telegram_chat_id( self,` (стр. 146)
+- `BroadcastEdgeCaseTests.test_report_broadcast_returns_503_when_no_owners_have_telegram_chat_iddef test_report_broadcast_returns_503_when_no_owners_have_telegram_chat_id( self,` (стр. 148)
 
 ### backend/tests/test_config.py (123 строк)
 
@@ -2528,99 +2545,175 @@ concept1.0/
 - `matchesQuery` (стр. 333) — локальный
 - `q` (стр. 381) — локальный
 
-### frontend/src/app/components/client/ClientApp.tsx (1303 строк)
+### frontend/src/app/components/atmosfera/Button.tsx (57 строк)
 
-- `NOOP` (стр. 23) — локальный
-- `UPCOMING_STATUSES` (стр. 47) — локальный
-- `HISTORY_STATUSES` (стр. 48) — локальный
-- `CANCELLABLE_STATUSES` (стр. 49) — локальный
-- `isBoxRentalService` (стр. 52) — локальный
-- `isDetailingService` (стр. 56) — локальный
-- `serviceResourceGroup` (стр. 60) — локальный
-- `bookingBoxesForService` (стр. 64) — локальный
-- `isManualSchedulingBooking` (стр. 70) — локальный
-- `ClientApp` (стр. 74)
-- `todayStart` (стр. 113) — локальный
-- `parsedSelectedDate` (стр. 124) — локальный
-- `nextAvailableDate` (стр. 126) — локальный
-- `parsedDate` (стр. 127) — локальный
-- `parsedSelectedDate` (стр. 151) — локальный
-- `loadAvailability` (стр. 159) — локальный
-- `durationMinutes` (стр. 162) — локальный
-- `nextSlots` (стр. 165) — локальный
-- `raw` (стр. 187) — локальный
-- `hasMain` (стр. 190) — локальный
-- `vehicles` (стр. 191) — локальный
-- `activeServices` (стр. 207) — локальный
-- `categories` (стр. 208) — локальный
-- `clientBookings` (стр. 209) — локальный
-- `upcomingBookings` (стр. 210) — локальный
-- `pastBookings` (стр. 211) — локальный
-- `completedBookings` (стр. 212) — локальный
-- `totalSpent` (стр. 213) — локальный
-- `favoriteService` (стр. 214) — локальный
-- `myNotifications` (стр. 220) — локальный
-- `unreadCount` (стр. 221) — локальный
-- `normalizedSearchQuery` (стр. 223) — локальный
-- `filteredServices` (стр. 224) — локальный
-- `compatibleBoxes` (стр. 229) — локальный
-- `defaultBoxName` (стр. 230) — локальный
-- `selectedServiceIsBoxRental` (стр. 232) — локальный
-- `selectedServiceIsDetailing` (стр. 233) — локальный
-- `selectedDuration` (стр. 234) — локальный
-- `selectedPrice` (стр. 239) — локальный
-- `selectedDayDate` (стр. 244) — локальный
-- `selectedDaySchedule` (стр. 245) — локальный
-- `selectedDayWorkingHours` (стр. 248) — локальный
-- `profileVehicles` (стр. 254) — локальный
-- `primaryProfileVehicle` (стр. 257) — локальный
-- `bookingVehicles` (стр. 258) — локальный
-- `visibleProfileVehicles` (стр. 261) — локальный
-- `selectedBookingVehicle` (стр. 262) — локальный
-- `glass` (стр. 264) — локальный
-- `bg` (стр. 268) — локальный
-- `text` (стр. 269) — локальный
-- `sub` (стр. 270) — локальный
-- `primary` (стр. 271) — локальный
-- `primaryBtn` (стр. 272) — локальный
-- `secondaryBtn` (стр. 273) — локальный
-- `slotCards` (стр. 274) — локальный
-- `availableSlotCards` (стр. 275) — локальный
-- `occupiedSlotCards` (стр. 276) — локальный
-- `slotAvailabilityLoadingLabel` (стр. 277) — локальный
-- `slotAvailabilityEmptyLabel` (стр. 278) — локальный
-- `handleAddToCalendar` (стр. 280) — локальный
-- `handleConfirmBooking` (стр. 288) — локальный
-- `nextAvailableDate` (стр. 294) — локальный
-- `parsedDate` (стр. 295) — локальный
-- `primaryVehicle` (стр. 302) — локальный
-- `booking` (стр. 303) — локальный
-- `handleSaveProfile` (стр. 327) — локальный
-- `nameError` (стр. 329) — локальный
-- `primaryVehicle` (стр. 330) — локальный
-- `carError` (стр. 331) — локальный
-- `plateError` (стр. 332) — локальный
-- `normalizedVehicles` (стр. 339) — локальный
-- `normalizedProfile` (стр. 349) — локальный
-- `handleCancelBooking` (стр. 368) — локальный
-- `mainBtnState` (стр. 372) — локальный
-- `navRef` (стр. 391) — локальный
-- `handleBack` (стр. 394) — локальный
-- `selected` (стр. 618) — локальный
-- `selected` (стр. 704) — локальный
-- `selected` (стр. 749) — локальный
-- `slotClass` (стр. 750) — локальный
-- `nextCar` (стр. 1025) — локальный
-- `baseVehicles` (стр. 1027) — локальный
-- `nextPlate` (стр. 1042) — локальный
-- `baseVehicles` (стр. 1044) — локальный
-- `nextCar` (стр. 1082) — локальный
-- `baseVehicles` (стр. 1084) — локальный
-- `nextPlate` (стр. 1099) — локальный
-- `baseVehicles` (стр. 1101) — локальный
-- `baseVehicles` (стр. 1114) — локальный
-- `BookingCard` (стр. 1255) — локальный
-- `manualScheduling` (стр. 1265) — локальный
+- `Button` (стр. 37)
+
+### frontend/src/app/components/atmosfera/Card.tsx (35 строк)
+
+- `Card` (стр. 17)
+
+### frontend/src/app/components/atmosfera/Dialog.tsx (75 строк)
+
+- `Dialog` (стр. 20)
+- `onKey` (стр. 23) — локальный
+- `prev` (стр. 25) — локальный
+
+### frontend/src/app/components/atmosfera/FormRow.tsx (35 строк)
+
+- `FormRow` (стр. 17)
+
+### frontend/src/app/components/atmosfera/index.ts (24 строк)
+
+### frontend/src/app/components/atmosfera/Input.tsx (43 строк)
+
+- `Input` (стр. 12)
+- `Textarea` (стр. 30)
+
+### frontend/src/app/components/atmosfera/Money.tsx (28 строк)
+
+- `formatter` (стр. 3) — локальный
+- `Money` (стр. 17)
+- `value` (стр. 18) — локальный
+- `safe` (стр. 19) — локальный
+- `formatted` (стр. 20) — локальный
+- `prefix` (стр. 21) — локальный
+
+### frontend/src/app/components/atmosfera/SectionHeader.tsx (28 строк)
+
+- `SectionHeader` (стр. 14)
+
+### frontend/src/app/components/atmosfera/Sheet.tsx (115 строк)
+
+- `useIsWide` (стр. 22) — локальный
+- `mq` (стр. 27) — локальный
+- `onChange` (стр. 28) — локальный
+- `Sheet` (стр. 40)
+- `wide` (стр. 41) — локальный
+- `dockRight` (стр. 42) — локальный
+- `onKey` (стр. 46) — локальный
+- `prev` (стр. 48) — локальный
+
+### frontend/src/app/components/atmosfera/StatusBadge.tsx (25 строк)
+
+- `StatusBadge` (стр. 13)
+
+### frontend/src/app/components/atmosfera/statusMap.ts (63 строк)
+
+- `BOOKING_STATUSES` (стр. 7)
+- `STATUS_LABEL` (стр. 23)
+- `STATUS_TONE` (стр. 34)
+- `statusToneClass` (стр. 53)
+- `statusLabel` (стр. 57)
+- `statusTone` (стр. 61)
+
+### frontend/src/app/components/atmosfera/Toaster.tsx (113 строк)
+
+- `listeners` (стр. 20) — локальный
+- `TIMERS` (стр. 21) — локальный
+- `emit` (стр. 23) — локальный
+- `dismiss` (стр. 27) — локальный
+- `t` (стр. 29) — локальный
+- `toast` (стр. 36)
+- `id` (стр. 37) — локальный
+- `Toaster` (стр. 59)
+- `Icon` (стр. 76) — локальный
+
+### frontend/src/app/components/client/ClientApp.tsx (1028 строк)
+
+- `NOOP` (стр. 18) — локальный
+- `UPCOMING_STATUSES` (стр. 42) — локальный
+- `HISTORY_STATUSES` (стр. 43) — локальный
+- `CANCELLABLE_STATUSES` (стр. 44) — локальный
+- `isBoxRentalService` (стр. 47) — локальный
+- `isDetailingService` (стр. 51) — локальный
+- `serviceResourceGroup` (стр. 55) — локальный
+- `bookingBoxesForService` (стр. 59) — локальный
+- `isManualSchedulingBooking` (стр. 65) — локальный
+- `ClientApp` (стр. 69)
+- `todayStart` (стр. 104) — локальный
+- `parsedSelectedDate` (стр. 115) — локальный
+- `nextAvailableDate` (стр. 117) — локальный
+- `parsedDate` (стр. 118) — локальный
+- `parsedSelectedDate` (стр. 142) — локальный
+- `loadAvailability` (стр. 150) — локальный
+- `durationMinutes` (стр. 153) — локальный
+- `nextSlots` (стр. 156) — локальный
+- `activeServices` (стр. 189) — локальный
+- `categories` (стр. 190) — локальный
+- `clientBookings` (стр. 191) — локальный
+- `upcomingBookings` (стр. 192) — локальный
+- `pastBookings` (стр. 193) — локальный
+- `completedBookings` (стр. 194) — локальный
+- `totalSpent` (стр. 195) — локальный
+- `favoriteService` (стр. 196) — локальный
+- `myNotifications` (стр. 202) — локальный
+- `unreadCount` (стр. 203) — локальный
+- `normalizedSearchQuery` (стр. 205) — локальный
+- `filteredServices` (стр. 206) — локальный
+- `compatibleBoxes` (стр. 211) — локальный
+- `defaultBoxName` (стр. 212) — локальный
+- `selectedServiceIsBoxRental` (стр. 214) — локальный
+- `selectedServiceIsDetailing` (стр. 215) — локальный
+- `selectedDuration` (стр. 216) — локальный
+- `selectedPrice` (стр. 221) — локальный
+- `selectedDayDate` (стр. 226) — локальный
+- `selectedDaySchedule` (стр. 227) — локальный
+- `selectedDayWorkingHours` (стр. 230) — локальный
+- `bookingVehicles` (стр. 236) — локальный
+- `selectedBookingVehicle` (стр. 239) — локальный
+- `glass` (стр. 241) — локальный
+- `bg` (стр. 245) — локальный
+- `text` (стр. 246) — локальный
+- `sub` (стр. 247) — локальный
+- `primary` (стр. 248) — локальный
+- `primaryBtn` (стр. 249) — локальный
+- `secondaryBtn` (стр. 250) — локальный
+- `slotCards` (стр. 251) — локальный
+- `availableSlotCards` (стр. 252) — локальный
+- `occupiedSlotCards` (стр. 253) — локальный
+- `slotAvailabilityLoadingLabel` (стр. 254) — локальный
+- `slotAvailabilityEmptyLabel` (стр. 255) — локальный
+- `handleAddToCalendar` (стр. 257) — локальный
+- `handleConfirmBooking` (стр. 265) — локальный
+- `nextAvailableDate` (стр. 271) — локальный
+- `parsedDate` (стр. 272) — локальный
+- `primaryVehicle` (стр. 279) — локальный
+- `booking` (стр. 280) — локальный
+- `handleCancelBooking` (стр. 304) — локальный
+- `mainBtnState` (стр. 308) — локальный
+- `navRef` (стр. 324) — локальный
+- `handleBack` (стр. 327) — локальный
+- `selected` (стр. 551) — локальный
+- `selected` (стр. 637) — локальный
+- `selected` (стр. 682) — локальный
+- `slotClass` (стр. 683) — локальный
+- `BookingCard` (стр. 980) — локальный
+- `manualScheduling` (стр. 990) — локальный
+
+### frontend/src/app/components/client/screens/ProfileScreen.tsx (336 строк)
+
+- `EMPTY_VEHICLE` (стр. 19) — локальный
+- `withBaseVehicles` (стр. 21) — локальный
+- `ProfileScreen` (стр. 30)
+- `raw` (стр. 40) — локальный
+- `hasMain` (стр. 43) — локальный
+- `vehicles` (стр. 44) — локальный
+- `profileVehicles` (стр. 50) — локальный
+- `primaryVehicle` (стр. 53) — локальный
+- `visibleProfileVehicles` (стр. 54) — локальный
+- `handleSaveProfile` (стр. 56) — локальный
+- `nameError` (стр. 58) — локальный
+- `carError` (стр. 59) — локальный
+- `plateError` (стр. 60) — локальный
+- `normalizedVehicles` (стр. 67) — локальный
+- `avgCheck` (стр. 97) — локальный
+- `value` (стр. 177) — локальный
+- `value` (стр. 192) — локальный
+- `nextCar` (стр. 206) — локальный
+- `nextPlate` (стр. 227) — локальный
+- `nextCar` (стр. 270) — локальный
+- `nextPlate` (стр. 285) — локальный
 
 ### frontend/src/app/components/figma/ImageWithFallback.tsx (27 строк)
 
@@ -3883,18 +3976,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `training/frontend/src/app/components/admin/AdminApp.tsx` (2026-08-22 19:20)
-- `backend/app/main.py` (2026-08-22 19:20)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-22 19:20)
-- `training/frontend/src/app/components/client/ClientApp.tsx` (2026-08-22 19:17)
-- `training/frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 19:16)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-22 19:14)
-- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-22 19:14)
-- `frontend/src/app/components/shared/Skeleton.tsx` (2026-08-22 19:12)
-- `training/frontend/src/app/components/shared/Skeleton.tsx` (2026-08-22 19:12)
-- `frontend/src/app/components/shared/EmptyState.tsx` (2026-08-22 18:26)
-- `training/frontend/src/app/components/shared/EmptyState.tsx` (2026-08-22 18:26)
-- `backend/tests/test_booking_logic.py` (2026-08-22 18:07)
-- `training/frontend/src/app/App.tsx` (2026-08-22 18:04)
-- `frontend/src/app/App.tsx` (2026-08-22 18:02)
-- `scripts/.project-map-watch.lock` (2026-08-22 17:43)
+- `REDESIGN_PLAN.md` (2026-08-23 07:01)
+- `frontend/src/app/components/atmosfera/Toaster.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/StatusBadge.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/SectionHeader.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/Input.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/FormRow.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/Dialog.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/Card.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/atmosfera/Button.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-23 07:00)
+- `frontend/src/app/components/client/screens/ProfileScreen.tsx` (2026-08-23 06:59)
+- `frontend/src/app/components/atmosfera/index.ts` (2026-08-23 06:50)
+- `frontend/src/app/components/atmosfera/statusMap.ts` (2026-08-23 06:47)
+- `frontend/src/app/components/atmosfera/Money.tsx` (2026-08-23 06:47)
