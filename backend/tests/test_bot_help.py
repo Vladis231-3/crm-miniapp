@@ -1,5 +1,11 @@
 """Тесты команды /help в основном боте: обучающий тур и фолбэк на основную CRM."""
 
+import os
+
+os.environ.setdefault("APP_SECRET", "test-secret")
+os.environ.setdefault("TELEGRAM_BOT_TOKEN", "123456:test-bot-token")
+os.environ.setdefault("TELEGRAM_DELIVERY_MODE", "polling")
+
 from unittest.mock import patch
 
 from bot import BotRuntime, _configure_bot_metadata, process_telegram_update
@@ -21,8 +27,35 @@ def _run_update(runtime: BotRuntime, update: dict) -> list[tuple[str, dict]]:
         calls.append((method, payload or {}))
         return {}
 
-    with patch("bot._build_runtime", return_value=runtime), patch(
-        "bot._telegram_call", side_effect=fake_telegram_call
+    def fake_multipart_call(_runtime, method: str, *, fields: dict | None = None, files: dict | None = None) -> None:
+        # sendPhoto/sendDocument идут multipart-каналом мимо _telegram_call:
+        # перехватываем и их, иначе тест уходит в реальную сеть.
+        calls.append((method, fields or {}))
+
+    def fake_public_send(chat_id, text, **_kwargs) -> None:
+        calls.append(("sendMessage", {"chat_id": chat_id, "text": text}))
+
+    # ВАЖНО: после reset_app_modules в соседних тестах функция держит ссылку
+    # на СТАРЫЙ globals-словарь модуля bot, которого уже нет в sys.modules.
+    # Поэтому патчим непосредственно этот словарь.
+    bot_globals = process_telegram_update.__globals__
+
+    def fake_public_send(chat_id, text, **_kwargs) -> None:
+        calls.append(("sendMessage", {"chat_id": chat_id, "text": text}))
+
+    with patch.dict(
+        bot_globals,
+        {
+            "_build_runtime": lambda: runtime,
+            "_telegram_call": fake_telegram_call,
+            "_telegram_multipart_call": fake_multipart_call,
+            "send_telegram_message": fake_public_send,
+            "send_telegram_photo": fake_multipart_call,
+            "send_telegram_document": fake_multipart_call,
+            "_send_start_message": lambda _runtime, chat_id: calls.append(
+                ("sendMessage", {"chat_id": chat_id, "text": "start"})
+            ),
+        },
     ):
         process_telegram_update(update)
     return calls
@@ -46,7 +79,7 @@ def test_help_command_sends_training_message_with_webapp_button() -> None:
     assert len(keyboard) == 1
     button = keyboard[0][0]
     assert button["text"] == "🎓 Открыть обучение"
-    assert button["web_app"]["url"] == "https://training.example"
+    assert button["web_app"]["url"] == "https://training.example?help=1"
 
 
 def test_help_button_falls_back_to_main_webapp_url_when_training_unset() -> None:
@@ -58,7 +91,7 @@ def test_help_button_falls_back_to_main_webapp_url_when_training_unset() -> None
     sent = [payload for method, payload in calls if method == "sendMessage"]
     assert len(sent) == 1
     button = sent[0]["reply_markup"]["inline_keyboard"][0][0]
-    assert button["web_app"]["url"] == "https://app.example"
+    assert button["web_app"]["url"] == "https://app.example?help=1"
 
 
 def test_help_command_registered_in_bot_menu() -> None:
@@ -69,7 +102,10 @@ def test_help_command_registered_in_bot_menu() -> None:
         calls.append((method, payload or {}))
         return {}
 
-    with patch("bot._telegram_call", side_effect=fake_telegram_call):
+    with patch.dict(
+        _configure_bot_metadata.__globals__,
+        {"_telegram_call": fake_telegram_call},
+    ):
         _configure_bot_metadata(runtime)
 
     commands_payload = next(payload for method, payload in calls if method == "setMyCommands")

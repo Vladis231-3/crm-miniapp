@@ -2960,7 +2960,25 @@ def _normalize_client_vehicles(
 
     if not normalized and (fallback_car.strip() or fallback_plate.strip()):
 
-        normalized.append(ClientVehiclePayload(car=fallback_car, plate=fallback_plate))
+        try:
+
+            normalized.append(ClientVehiclePayload(car=fallback_car, plate=fallback_plate))
+
+        except ValueError:
+
+            # Legacy-??????? ????? ?? ????????? ???????????? ("***", "###").
+
+            # ???????????? ????????? ClientProfilePayload ??? ????? ????????????
+
+            # ??????, ??????? ????? ??????????? ? bootstrap ?? ?????? ??????
+
+            # (test_generic_telegram_auth_tolerates_legacy_client_profile_data).
+
+            normalized.append(
+
+                ClientVehiclePayload.model_construct(car="", plate="", plateType="russian", isMain=True)
+
+            )
 
     deduped: list[ClientVehiclePayload] = []
 
@@ -3296,7 +3314,10 @@ def _parse_booking_datetime(date_value: str, time_value: str) -> datetime | None
 
 def _py_weekday_to_schedule_index(py_weekday: int) -> int:
 
-    return (py_weekday + 2) % 7
+    # Python weekday(): Пн=0..Вс=6 — совпадает с day_index сида (0=Пн..6=Вс).
+    # Регрессия 899e3e9 добавляла +2: брони проверялись по чужому дню недели
+    # (суббота — по расписанию понедельника) и выходили за окно работы.
+    return py_weekday % 7
 
 
 
@@ -5439,7 +5460,7 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
         return None
 
-    staff = db.scalar(
+    staff_matches = db.scalars(
 
         select(StaffUser).where(
 
@@ -5449,7 +5470,21 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
         )
 
-    )
+    ).all()
+
+    if len(staff_matches) > 1:
+
+        # Дубль привязки: молча выбрать первого — отдать сессию не тому сотруднику.
+
+        raise HTTPException(
+
+            status_code=status.HTTP_409_CONFLICT,
+
+            detail="Telegram привязан к нескольким сотрудникам — обратитесь к владельцу",
+
+        )
+
+    staff = staff_matches[0] if staff_matches else None
 
     if staff is not None:
 
@@ -5625,9 +5660,30 @@ def register_or_login_client(
     if payload.phone:
         phone_owner = _client_by_phone(db, payload.phone)
         if phone_owner is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Клиент с таким номером телефона уже существует",
+            # Повторное использование записи. Конфликт только если телефон
+            # принадлежит клиенту с ДРУГИМ уже привязанным Telegram
+            # (test_client_registration_rejects_same_phone_for_different_telegram_ids).
+            existing_tid = (phone_owner.telegram_id or "").strip()
+            if telegram_id and existing_tid and telegram_id != existing_tid:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Этот телефон уже привязан к другому клиенту",
+                )
+            if telegram_id and not existing_tid:
+                # Первый вход из бота: привязываем initData к записи,
+                # которую владелец мог создать вручную.
+                phone_owner.telegram_id = telegram_id
+                phone_owner.updated_at = _now()
+                db.commit()
+                db.refresh(phone_owner)
+            return _build_bootstrap(
+                db,
+                {
+                    "role": "client",
+                    "actorId": phone_owner.id,
+                    "displayName": phone_owner.name,
+                    "sessionId": "",
+                },
             )
 
     client = Client(
@@ -8127,7 +8183,7 @@ def _send_export_to_telegram(
 
     failed = sum(1 for r in results if not r.success)
 
-    if delivered == 0 and not all_owners:
+    if delivered == 0 and not telegram_recipients:
 
         raise HTTPException(
 
@@ -8294,8 +8350,6 @@ def _owner_summary_report(
         period=period,
 
         segment=segment,
-
-        db=db,
 
     )
 
@@ -8491,7 +8545,7 @@ def _send_owner_summary_report(
 
     failed = sum(1 for r in results if not r.success)
 
-    if delivered == 0 and not all_owners:
+    if delivered == 0 and not telegram_recipients:
 
         db.commit()
 
@@ -9659,6 +9713,30 @@ def update_client_me(
     if payload.name is not None:
         client.name = payload.name
     if payload.phone is not None:
+        new_phone = payload.phone.strip()
+
+        def _safe_digits(value: str) -> str:
+            try:
+                return normalize_phone_digits(value)
+            except ValueError:
+                return ""
+
+        current_digits = _safe_digits(client.phone or "")
+        new_digits = _safe_digits(new_phone)
+        if new_phone and new_digits and new_digits != current_digits:
+            # Нельзя забрать телефон другого клиента (409,
+            # test_client_profile_cannot_take_phone_of_another_client)
+            for other in db.scalars(
+                select(Client).where(
+                    Client.id != client.id,
+                    Client.deleted_at.is_(None),
+                )
+            ):
+                if other.phone and _safe_digits(other.phone) == new_digits:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Этот телефон уже привязан к другому клиенту",
+                    )
         client.phone = payload.phone
 
     if payload.vehicles is not None:
@@ -10402,12 +10480,6 @@ def delete_stock_category(
 # ── Shift Checklists ──
 
 
-@app.get("/api/shift-checklists", response_model=list[ShiftChecklistPayload])
-
-
-
-
-
 @app.get("/api/bookings/availability", response_model=BookingAvailabilityPayload)
 
 def get_booking_availability(
@@ -10583,6 +10655,18 @@ def create_booking(
         if client is None and phone_client is not None:
 
             client = phone_client
+
+        if (
+            client is not None
+            and phone_client is not None
+            and phone_client.id != client.id
+        ):
+            # clientId и телефон принадлежат разным клиентам — молча
+            # перезаписывать нельзя (409, conflicting_client_and_phone).
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Указанный телефон принадлежит другому клиенту",
+            )
 
         if client is None:
 
@@ -11870,7 +11954,10 @@ def update_booking(
 
         updates["service"] = service.name
 
+        # ???????????? ???? ?????? ???????????????? ??? ????? serviceId:
+        # ???????????? ? ???? ??????? ?? ???????, ???? ?? ?????? ????.
         updates.setdefault("duration", service.duration)
+        updates.setdefault("price", int(service.price or 0))
 
     else:
 
@@ -17591,10 +17678,68 @@ def run_reminders_cron(
     return OwnerReminderDispatchPayload(
         message=dispatch.message,
         targetDate=dispatch.targetDate,
-        clientReminders=dispatch.clientReminders,
+        clientReminders=dispatch.clientReminders + return_visits,
         workerReminders=dispatch.workerReminders,
         telegramDelivered=dispatch.telegramDelivered + return_visits,
     )
+
+
+@app.post("/api/owner/inactive-clients/remind-admin", response_model=GenericMessage)
+def remind_admin_about_inactive_clients(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    """Сообщает администратору о клиентах без завершённых визитов дольше двух
+    недель: уведомление в CRM + Telegram админу
+    (test_owner_can_notify_admin_about_inactive_clients)."""
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    latest_by_client: dict[str, Booking] = {}
+    for booking in db.scalars(
+        select(Booking)
+        .where(Booking.status == "completed", Booking.client_id.is_not(None))
+        .order_by(Booking.created_at.desc())
+    ):
+        if booking.client_id and booking.client_id not in latest_by_client:
+            latest_by_client[booking.client_id] = booking
+    stale_names: list[str] = []
+    for client_id, booking in latest_by_client.items():
+        client = db.get(Client, client_id)
+        if client is None or client.deleted_at is not None:
+            continue
+        last_visit = _parse_booking_datetime(booking.date, booking.time)
+        if last_visit is None:
+            continue
+        if last_visit > datetime.now() - timedelta(days=14):
+            continue
+        stale_names.append(client.name or client_id)
+    if not stale_names:
+        return GenericMessage(message="Неактивных клиентов нет")
+    listing = "; ".join(stale_names[:10])
+    admin_message = (
+        f"Неактивные клиенты (не были более двух недель): {listing}. "
+        "Стоит напомнить о себе."
+    )
+    admins = db.scalars(
+        select(StaffUser).where(
+            StaffUser.role == "admin",
+            StaffUser.active.is_(True),
+        )
+    ).all()
+    for admin in admins:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="admin",
+                recipient_id=admin.id,
+                message=admin_message,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        if admin.telegram_chat_id:
+            send_telegram_message(admin.telegram_chat_id, admin_message)
+    db.commit()
+    return GenericMessage(message="Админу отправлено напоминание")
 
 
 @app.post("/api/owner/reminders/dispatch", response_model=OwnerReminderDispatchPayload)
@@ -17610,7 +17755,7 @@ def dispatch_owner_booking_reminders(
     return OwnerReminderDispatchPayload(
         message=dispatch.message,
         targetDate=dispatch.targetDate,
-        clientReminders=dispatch.clientReminders,
+        clientReminders=dispatch.clientReminders + return_visits,
         workerReminders=dispatch.workerReminders,
         telegramDelivered=dispatch.telegramDelivered + return_visits,
     )
