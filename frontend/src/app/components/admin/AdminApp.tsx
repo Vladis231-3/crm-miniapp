@@ -10,6 +10,16 @@ import {
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
+import {
+  AttendanceSectionShell,
+  BoxesSection,
+  ScheduleSection,
+  NotificationsSection,
+  ProfileSection,
+  PricingSection,
+  SecuritySection,
+  ContentSectionShell,
+} from './settings-sections/AdminSettingsSections';
 import { AdminPayrollPage } from './screens/AdminPayrollPage';
 import { AdminStatsPage } from './screens/AdminStatsPage';
 import { AdminClientsPage } from './screens/AdminClientsPage';
@@ -1576,79 +1586,16 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
           {/* SETTINGS: PRICING */}
           {page === 'settings' && settingsSection === 'pricing' && (
-            <motion.div key="settings-pricing" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-1">Цены на услуги</h2>
-              <p className={`text-xs ${sub} mb-4`}>Изменения отображаются у клиентов после сохранения</p>
-              <div className="relative mb-3">
-                <ServiceSearchInput
-                  value={pricingSearchQuery}
-                  onChange={setPricingSearchQuery}
-                  inputCls={`${inputCls} w-full`}
-                  iconCls={sub}
-                />
-              </div>
-              {services.map((svc, i) => {
-                const q = pricingSearchQuery.trim().toLowerCase();
-                const matchesQuery = !q || [svc.name, svc.category, svc.desc || ''].some((v) => v.toLowerCase().includes(q));
-                if (!matchesQuery) return null;
-                return (
-                <div key={svc.id} className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className="flex justify-end -mt-1 -mr-1 mb-1">
-                    <button onClick={() => handleRemoveService(svc.id)} className="p-1.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors">
-                      <Trash2 size={15} strokeWidth={1.75} />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Название</label>
-                      <input className={inputCls} value={svc.name} onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, name: e.target.value } : s))} />
-                    </div>
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
-                      <select className={selectCls} value={svc.category} onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, category: e.target.value, resourceGroup: adminServiceResourceGroupForCategory(e.target.value) } : s))}>
-                        {SERVICE_TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
-                        <input className={inputCls} type="number" value={numberInputValue(svc.price)}
-                          onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, price: numberFromInput(e.target.value) } : s))} />
-                      </div>
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
-                        <input className={inputCls} type="number" value={numberInputValue(svc.duration)}
-                          onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, duration: numberFromInput(e.target.value) } : s))} />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Расход материала (₽)</label>
-                      <input className={inputCls} type="number" placeholder="0" value={numberInputValue(svc.materialConsumption ?? 0)}
-                        onChange={e => setServicesState(p => p.map((s, j) => j === i ? { ...s, materialConsumption: e.target.value ? numberFromInput(e.target.value) : null } : s))} />
-                    </div>
-                    <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 mt-2`}>
-                      <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(svc.isFixedMaster)}
-                        onChange={(event) => setServicesState(p => p.map((s, j) => j === i ? { ...s, isFixedMaster: event.target.checked } : s))}
-                      />
-                    </label>
-                  </div>
-                </div>
-                );
-              })}
-              {pricingSearchQuery.trim() && services.filter((svc) => {
-                const q = pricingSearchQuery.trim().toLowerCase();
-                return [svc.name, svc.category, svc.desc || ''].some((v) => v.toLowerCase().includes(q));
-              }).length === 0 && (
-                <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>По запросу «{pricingSearchQuery.trim()}» услуг не найдено</div>
-              )}
-              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить цены'}
-              </button>
-            </motion.div>
+            <PricingSection
+              services={services}
+              searchQuery={pricingSearchQuery}
+              onSearchChange={setPricingSearchQuery}
+              onServicePatch={(index, patch) => setServicesState((prev) => prev.map((s, j) => (j === index ? { ...s, ...patch } : s)))}
+              onRemoveService={handleRemoveService}
+              onBack={() => setSettingsSection(null)}
+              onSave={handleSaveSettings}
+              saved={settingsSaved}
+            />
           )}
 
           {page === 'settings' && settingsSection === 'shift' && (
@@ -1823,81 +1770,18 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
           {/* SETTINGS: SECURITY */}
           {page === 'settings' && settingsSection === 'security' && (
-            <motion.div key="settings-security" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-4">Безопасность</h2>
-              <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                <div className={`text-xs font-medium ${sub} mb-3`}>СМЕНА ПАРОЛЯ</div>
-                <div className="space-y-3">
-                  {[
-                    { key: 'current', label: 'Текущий пароль', placeholder: '••••••••' },
-                    { key: 'new_', label: 'Новый пароль', placeholder: '8+ символов' },
-                    { key: 'confirm', label: 'Повторите пароль', placeholder: '••••••••' },
-                  ].map(field => (
-                    <div key={field.key}>
-                      <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
-                      <div className="relative">
-                        <input className={inputCls} type={showPass ? 'text' : 'password'} placeholder={field.placeholder}
-                          value={password[field.key as keyof typeof password]}
-                          onChange={e => {
-                            setSecurityError(null);
-                            setSecuritySaved(false);
-                            setPassword(p => ({ ...p, [field.key]: e.target.value }));
-                          }} />
-                        <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {showPass ? <EyeOff size={14} strokeWidth={1.75} className={sub} /> : <Eye size={14} strokeWidth={1.75} className={sub} />}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {securityError && <div className="mt-3 text-xs text-red-500">{securityError}</div>}
-                {securitySaved && <div className="mt-3 text-xs text-green-600">Пароль обновлён</div>}
-              </div>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-2`}>АКТИВНЫЕ СЕССИИ</div>
-                {activeSessions.length === 0 ? (
-                  <div className={`text-xs ${sub}`}>Нет активных сессий</div>
-                ) : activeSessions.map(item => (
-                  <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0 gap-3" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {item.device}{item.current ? ' · Текущая' : ''}
-                      </div>
-                      <div className={`text-xs ${sub}`}>
-                        {item.ipAddress} · {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                    <button onClick={() => void revokeSession(item.id)} className="text-xs text-red-500 shrink-0">
-                      Завершить
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={handleSaveSettings}
-                disabled={!password.current || !password.new_ || password.new_ !== password.confirm}
-                className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: '#EF4444' }}>
-                <Shield size={16} strokeWidth={1.75} />{securitySaved ? 'Пароль изменён!' : 'Изменить пароль'}
-              </button>
-            </motion.div>
-          )}
-
-          {/* SETTINGS: CONTENT */}
-          {page === 'settings' && settingsSection === 'content' && (
-            <motion.div key="settings-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <ContentEditor
-                initialContent={content}
-                onSave={saveContent}
-                glass={glass}
-                inputCls={inputCls}
-                sub={sub}
-                primary={primary}
-                isDark={isDark}
-              />
-            </motion.div>
+            <SecuritySection
+              password={password}
+              onPasswordChange={(key, value) => { setSecurityError(null); setSecuritySaved(false); setPassword((p) => ({ ...p, [key]: value })); }}
+              showPass={showPass}
+              onToggleShowPass={() => setShowPass(!showPass)}
+              error={securityError}
+              saved={securitySaved}
+              activeSessions={activeSessions}
+              onRevokeSession={(id) => void revokeSession(id)}
+              onBack={() => setSettingsSection(null)}
+              onSave={handleSaveSettings}
+            />
           )}
 
           {page === 'settings' && settingsSection === 'payroll' && (

@@ -1,5 +1,30 @@
 import { motion } from 'motion/react';
-import { ArrowLeft, Bell, Save } from 'lucide-react';
+import { ArrowLeft, Bell, Eye, EyeOff, Save, Shield, Trash2 } from 'lucide-react';
+
+/* ── Мелкие хелперы (копия из AdminApp для самодостаточности секций) ── */
+const SERVICE_TYPE_OPTIONS = [
+  { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
+  { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
+  { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
+] as const;
+
+function adminServiceResourceGroupForCategory(category: string) {
+  return SERVICE_TYPE_OPTIONS.find((option) => option.value === category)?.resourceGroup || 'wash';
+}
+
+function numberInputValue(value: number) {
+  return value === 0 ? '' : String(value);
+}
+
+function numberFromInput(value: string) {
+  return value === '' ? 0 : Number(value);
+}
+
+function formatFixedMasterAmount(): string {
+  return String(FIXED_MASTER_EARNED);
+}
+
+import { FIXED_MASTER_EARNED } from '../../ui/utils';
 
 /* Общая оболочка секции настроек: назад + заголовок */
 function SectionShell({
@@ -292,6 +317,216 @@ export function ProfileSection({
         </div>
       </div>
       <SettingsSaveButton saved={saved} onClick={onSave} label="Сохранить изменения" className="mt-4" />
+    </SectionShell>
+  );
+}
+
+/* ── PRICING ── */
+export function PricingSection({
+  services,
+  searchQuery,
+  onSearchChange,
+  onServicePatch,
+  onRemoveService,
+  onBack,
+  onSave,
+  saved,
+}: {
+  services: Array<{ id: string; name: string; category: string; desc?: string; price: number; duration: number; materialConsumption?: number | null; isFixedMaster?: boolean }>;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  onServicePatch: (index: number, patch: Record<string, unknown>) => void;
+  onRemoveService: (id: string) => void;
+  onBack: () => void;
+  onSave: () => void;
+  saved: boolean;
+}) {
+  const q = searchQuery.trim().toLowerCase();
+  const matches = (svc: { name: string; category: string; desc?: string }) =>
+    !q || [svc.name, svc.category, svc.desc || ''].some((v) => v.toLowerCase().includes(q));
+
+  return (
+    <SectionShell title="Цены на услуги" subtitle="Изменения отображаются у клиентов после сохранения" onBack={onBack}>
+      <div className="relative mb-3">
+        <input
+          className={`${inputCls} w-full`}
+          placeholder="Поиск услуги..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+      </div>
+      {services.map((svc, i) => {
+        if (!matches(svc)) return null;
+        return (
+          <div key={svc.id} className={`${glassCls} mb-3 rounded-2xl p-4`}>
+            <div className="-mr-1 -mt-1 mb-1 flex justify-end">
+              <button onClick={() => onRemoveService(svc.id)} className="rounded-xl p-1.5 text-[var(--status-danger)] transition-colors hover:bg-[var(--status-danger-soft)]" aria-label={`Удалить ${svc.name}`}>
+                <Trash2 size={15} strokeWidth={1.75} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <label className={`mb-1 block text-xs ${subCls}`}>Название</label>
+                <input className={inputCls} value={svc.name} onChange={(e) => onServicePatch(i, { name: e.target.value })} />
+              </div>
+              <div>
+                <label className={`mb-1 block text-xs ${subCls}`}>Тип услуги</label>
+                <select
+                  className={inputCls}
+                  value={svc.category}
+                  onChange={(e) => onServicePatch(i, { category: e.target.value, resourceGroup: adminServiceResourceGroupForCategory(e.target.value) })}
+                >
+                  {SERVICE_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={`mb-1 block text-xs ${subCls}`}>Цена (₽)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(svc.price)} onChange={(e) => onServicePatch(i, { price: numberFromInput(e.target.value) })} />
+                </div>
+                <div>
+                  <label className={`mb-1 block text-xs ${subCls}`}>Длит. (мин)</label>
+                  <input className={inputCls} type="number" value={numberInputValue(svc.duration)} onChange={(e) => onServicePatch(i, { duration: numberFromInput(e.target.value) })} />
+                </div>
+              </div>
+              <div>
+                <label className={`mb-1 block text-xs ${subCls}`}>Расход материала (₽)</label>
+                <input
+                  className={inputCls}
+                  type="number"
+                  placeholder="0"
+                  value={numberInputValue(svc.materialConsumption ?? 0)}
+                  onChange={(e) => onServicePatch(i, { materialConsumption: e.target.value ? numberFromInput(e.target.value) : null })}
+                />
+              </div>
+              <label className={`${glassCls} mt-2 flex items-center justify-between gap-3 rounded-2xl px-3 py-3 text-sm`}>
+                <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(svc.isFixedMaster)}
+                  onChange={(event) => onServicePatch(i, { isFixedMaster: event.target.checked })}
+                />
+              </label>
+            </div>
+          </div>
+        );
+      })}
+      {searchQuery.trim() && services.filter((svc) => matches(svc)).length === 0 && (
+        <div className={`${glassCls} mb-3 rounded-2xl p-4 text-sm ${subCls}`}>По запросу «{searchQuery.trim()}» услуг не найдено</div>
+      )}
+      <SettingsSaveButton saved={saved} onClick={onSave} label="Сохранить цены" />
+    </SectionShell>
+  );
+}
+
+/* ── SECURITY ── */
+export function SecuritySection({
+  password,
+  onPasswordChange,
+  showPass,
+  onToggleShowPass,
+  error,
+  saved,
+  activeSessions,
+  onRevokeSession,
+  onBack,
+  onSave,
+}: {
+  password: { current: string; new_: string; confirm: string };
+  onPasswordChange: (key: 'current' | 'new_' | 'confirm', value: string) => void;
+  showPass: boolean;
+  onToggleShowPass: () => void;
+  error: string | null;
+  saved: boolean;
+  activeSessions: Array<{ id: string; device: string; current?: boolean; ipAddress: string; lastSeenAt: Date }>;
+  onRevokeSession: (id: string) => void;
+  onBack: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <SectionShell title="Безопасность" onBack={onBack}>
+      <div className={`${glassCls} mb-3 rounded-2xl p-4`}>
+        <div className={`mb-3 text-xs font-medium ${subCls}`}>СМЕНА ПАРОЛЯ</div>
+        <div className="space-y-3">
+          {[
+            { key: 'current', label: 'Текущий пароль', placeholder: '••••••••' },
+            { key: 'new_', label: 'Новый пароль', placeholder: '8+ символов' },
+            { key: 'confirm', label: 'Повторите пароль', placeholder: '••••••••' },
+          ].map((field) => (
+            <div key={field.key}>
+              <label className={`mb-1 block text-xs ${subCls}`}>{field.label}</label>
+              <div className="relative">
+                <input
+                  className={inputCls}
+                  type={showPass ? 'text' : 'password'}
+                  placeholder={field.placeholder}
+                  value={password[field.key as keyof typeof password]}
+                  onChange={(e) => onPasswordChange(field.key as 'current' | 'new_' | 'confirm', e.target.value)}
+                />
+                <button type="button" onClick={onToggleShowPass} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {showPass ? <EyeOff size={14} strokeWidth={1.75} className={subCls} /> : <Eye size={14} strokeWidth={1.75} className={subCls} />}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {error && <div className="mt-3 text-xs text-[var(--status-danger)]">{error}</div>}
+        {saved && <div className="mt-3 text-xs text-[var(--status-success)]">Пароль обновлён</div>}
+      </div>
+
+      <div className={`${glassCls} mb-4 rounded-2xl p-4`}>
+        <div className={`mb-2 text-xs ${subCls}`}>АКТИВНЫЕ СЕССИИ</div>
+        {activeSessions.length === 0 ? (
+          <div className={`text-xs ${subCls}`}>Нет активных сессий</div>
+        ) : (
+          activeSessions.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-3 border-b py-2 last:border-0"
+              style={{ borderColor: 'rgba(128,128,128,0.15)' }}
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium">
+                  {item.device}{item.current ? ' · Текущая' : ''}
+                </div>
+                <div className={`text-xs ${subCls}`}>
+                  {item.ipAddress} · {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <button onClick={() => onRevokeSession(item.id)} className="shrink-0 text-xs text-[var(--status-danger)]">
+                Завершить
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <button
+        onClick={onSave}
+        disabled={!password.current || !password.new_ || password.new_ !== password.confirm}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 font-semibold text-white disabled:opacity-50"
+        style={{ background: 'var(--status-danger)' }}
+      >
+        <Shield size={16} strokeWidth={1.75} aria-hidden />
+        {saved ? 'Пароль изменён!' : 'Изменить пароль'}
+      </button>
+    </SectionShell>
+  );
+}
+
+/* ── CONTENT ── */
+export function ContentSectionShell({
+  onBack,
+  children,
+}: {
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <SectionShell title="Контент сайта" onBack={onBack}>
+      {children}
     </SectionShell>
   );
 }
