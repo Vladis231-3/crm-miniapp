@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-23 04:01 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-23 04:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **466**
-- Строк кода: **201 005**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 280
+- Файлов кода: **468**
+- Строк кода: **201 003**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 282
 
 ## Архитектура
 
@@ -297,11 +297,13 @@ concept1.0/
 │   │   │   │   │   ├── Money.tsx
 │   │   │   │   │   ├── SectionHeader.tsx
 │   │   │   │   │   ├── Sheet.tsx
+│   │   │   │   │   ├── StatTile.tsx
 │   │   │   │   │   ├── StatusBadge.tsx
 │   │   │   │   │   ├── statusMap.ts
 │   │   │   │   │   └── Toaster.tsx
 │   │   │   │   ├── client/
 │   │   │   │   │   ├── screens/
+│   │   │   │   │   │   ├── BookingsScreen.tsx
 │   │   │   │   │   │   └── ProfileScreen.tsx
 │   │   │   │   │   └── ClientApp.tsx
 │   │   │   │   ├── figma/
@@ -2563,7 +2565,7 @@ concept1.0/
 
 - `FormRow` (стр. 17)
 
-### frontend/src/app/components/atmosfera/index.ts (24 строк)
+### frontend/src/app/components/atmosfera/index.ts (28 строк)
 
 ### frontend/src/app/components/atmosfera/Input.tsx (43 строк)
 
@@ -2594,6 +2596,10 @@ concept1.0/
 - `onKey` (стр. 46) — локальный
 - `prev` (стр. 48) — локальный
 
+### frontend/src/app/components/atmosfera/StatTile.tsx (23 строк)
+
+- `StatTile` (стр. 11)
+
 ### frontend/src/app/components/atmosfera/StatusBadge.tsx (25 строк)
 
 - `StatusBadge` (стр. 13)
@@ -2619,79 +2625,93 @@ concept1.0/
 - `Toaster` (стр. 59)
 - `Icon` (стр. 76) — локальный
 
-### frontend/src/app/components/client/ClientApp.tsx (1028 строк)
+### frontend/src/app/components/client/ClientApp.tsx (883 строк)
 
 - `NOOP` (стр. 18) — локальный
-- `UPCOMING_STATUSES` (стр. 42) — локальный
-- `HISTORY_STATUSES` (стр. 43) — локальный
-- `CANCELLABLE_STATUSES` (стр. 44) — локальный
-- `isBoxRentalService` (стр. 47) — локальный
-- `isDetailingService` (стр. 51) — локальный
-- `serviceResourceGroup` (стр. 55) — локальный
-- `bookingBoxesForService` (стр. 59) — локальный
-- `isManualSchedulingBooking` (стр. 65) — локальный
-- `ClientApp` (стр. 69)
-- `todayStart` (стр. 104) — локальный
-- `parsedSelectedDate` (стр. 115) — локальный
-- `nextAvailableDate` (стр. 117) — локальный
-- `parsedDate` (стр. 118) — локальный
-- `parsedSelectedDate` (стр. 142) — локальный
-- `loadAvailability` (стр. 150) — локальный
-- `durationMinutes` (стр. 153) — локальный
-- `nextSlots` (стр. 156) — локальный
-- `activeServices` (стр. 189) — локальный
-- `categories` (стр. 190) — локальный
-- `clientBookings` (стр. 191) — локальный
-- `upcomingBookings` (стр. 192) — локальный
-- `pastBookings` (стр. 193) — локальный
-- `completedBookings` (стр. 194) — локальный
-- `totalSpent` (стр. 195) — локальный
-- `favoriteService` (стр. 196) — локальный
-- `myNotifications` (стр. 202) — локальный
-- `unreadCount` (стр. 203) — локальный
-- `normalizedSearchQuery` (стр. 205) — локальный
-- `filteredServices` (стр. 206) — локальный
-- `compatibleBoxes` (стр. 211) — локальный
-- `defaultBoxName` (стр. 212) — локальный
-- `selectedServiceIsBoxRental` (стр. 214) — локальный
-- `selectedServiceIsDetailing` (стр. 215) — локальный
-- `selectedDuration` (стр. 216) — локальный
-- `selectedPrice` (стр. 221) — локальный
-- `selectedDayDate` (стр. 226) — локальный
-- `selectedDaySchedule` (стр. 227) — локальный
-- `selectedDayWorkingHours` (стр. 230) — локальный
-- `bookingVehicles` (стр. 236) — локальный
-- `selectedBookingVehicle` (стр. 239) — локальный
-- `glass` (стр. 241) — локальный
-- `bg` (стр. 245) — локальный
-- `text` (стр. 246) — локальный
-- `sub` (стр. 247) — локальный
-- `primary` (стр. 248) — локальный
-- `primaryBtn` (стр. 249) — локальный
-- `secondaryBtn` (стр. 250) — локальный
-- `slotCards` (стр. 251) — локальный
-- `availableSlotCards` (стр. 252) — локальный
-- `occupiedSlotCards` (стр. 253) — локальный
-- `slotAvailabilityLoadingLabel` (стр. 254) — локальный
-- `slotAvailabilityEmptyLabel` (стр. 255) — локальный
-- `handleAddToCalendar` (стр. 257) — локальный
-- `handleConfirmBooking` (стр. 265) — локальный
-- `nextAvailableDate` (стр. 271) — локальный
-- `parsedDate` (стр. 272) — локальный
-- `primaryVehicle` (стр. 279) — локальный
-- `booking` (стр. 280) — локальный
-- `handleCancelBooking` (стр. 304) — локальный
-- `mainBtnState` (стр. 308) — локальный
-- `navRef` (стр. 324) — локальный
-- `handleBack` (стр. 327) — локальный
-- `selected` (стр. 551) — локальный
-- `selected` (стр. 637) — локальный
-- `selected` (стр. 682) — локальный
-- `slotClass` (стр. 683) — локальный
-- `BookingCard` (стр. 980) — локальный
-- `manualScheduling` (стр. 990) — локальный
+- `UPCOMING_STATUSES` (стр. 20) — локальный
+- `HISTORY_STATUSES` (стр. 21) — локальный
+- `CANCELLABLE_STATUSES` (стр. 22) — локальный
+- `isBoxRentalService` (стр. 25) — локальный
+- `isDetailingService` (стр. 29) — локальный
+- `serviceResourceGroup` (стр. 33) — локальный
+- `bookingBoxesForService` (стр. 37) — локальный
+- `isManualSchedulingBooking` (стр. 43) — локальный
+- `ClientApp` (стр. 47)
+- `todayStart` (стр. 82) — локальный
+- `parsedSelectedDate` (стр. 93) — локальный
+- `nextAvailableDate` (стр. 95) — локальный
+- `parsedDate` (стр. 96) — локальный
+- `parsedSelectedDate` (стр. 120) — локальный
+- `loadAvailability` (стр. 128) — локальный
+- `durationMinutes` (стр. 131) — локальный
+- `nextSlots` (стр. 134) — локальный
+- `activeServices` (стр. 167) — локальный
+- `categories` (стр. 168) — локальный
+- `clientBookings` (стр. 169) — локальный
+- `upcomingBookings` (стр. 170) — локальный
+- `pastBookings` (стр. 171) — локальный
+- `completedBookings` (стр. 172) — локальный
+- `totalSpent` (стр. 173) — локальный
+- `favoriteService` (стр. 174) — локальный
+- `myNotifications` (стр. 180) — локальный
+- `unreadCount` (стр. 181) — локальный
+- `normalizedSearchQuery` (стр. 183) — локальный
+- `filteredServices` (стр. 184) — локальный
+- `compatibleBoxes` (стр. 189) — локальный
+- `defaultBoxName` (стр. 190) — локальный
+- `selectedServiceIsBoxRental` (стр. 192) — локальный
+- `selectedServiceIsDetailing` (стр. 193) — локальный
+- `selectedDuration` (стр. 194) — локальный
+- `selectedPrice` (стр. 199) — локальный
+- `selectedDayDate` (стр. 204) — локальный
+- `selectedDaySchedule` (стр. 205) — локальный
+- `selectedDayWorkingHours` (стр. 208) — локальный
+- `bookingVehicles` (стр. 214) — локальный
+- `selectedBookingVehicle` (стр. 217) — локальный
+- `glass` (стр. 219) — локальный
+- `bg` (стр. 223) — локальный
+- `text` (стр. 224) — локальный
+- `sub` (стр. 225) — локальный
+- `primary` (стр. 226) — локальный
+- `primaryBtn` (стр. 227) — локальный
+- `secondaryBtn` (стр. 228) — локальный
+- `slotCards` (стр. 229) — локальный
+- `availableSlotCards` (стр. 230) — локальный
+- `occupiedSlotCards` (стр. 231) — локальный
+- `slotAvailabilityLoadingLabel` (стр. 232) — локальный
+- `slotAvailabilityEmptyLabel` (стр. 233) — локальный
+- `handleAddToCalendar` (стр. 235) — локальный
+- `handleConfirmBooking` (стр. 243) — локальный
+- `nextAvailableDate` (стр. 249) — локальный
+- `parsedDate` (стр. 250) — локальный
+- `primaryVehicle` (стр. 257) — локальный
+- `booking` (стр. 258) — локальный
+- `handleCancelBooking` (стр. 282) — локальный
+- `mainBtnState` (стр. 286) — локальный
+- `navRef` (стр. 302) — локальный
+- `handleBack` (стр. 305) — локальный
+- `selected` (стр. 529) — локальный
+- `selected` (стр. 615) — локальный
+- `selected` (стр. 660) — локальный
+- `slotClass` (стр. 661) — локальный
 
-### frontend/src/app/components/client/screens/ProfileScreen.tsx (336 строк)
+### frontend/src/app/components/client/screens/BookingsScreen.tsx (125 строк)
+
+- `UPCOMING_STATUSES` (стр. 7) — локальный
+- `HISTORY_STATUSES` (стр. 8) — локальный
+- `CANCELLABLE_STATUSES` (стр. 9) — локальный
+- `isManualSchedulingBooking` (стр. 11) — локальный
+- `BookingsScreen` (стр. 26)
+- `clientBookings` (стр. 29) — локальный
+- `upcomingBookings` (стр. 30) — локальный
+- `pastBookings` (стр. 31) — локальный
+- `completedBookings` (стр. 32) — локальный
+- `totalSpent` (стр. 33) — локальный
+- `favoriteService` (стр. 34) — локальный
+- `BookingCard` (стр. 91) — локальный
+- `manualScheduling` (стр. 92) — локальный
+
+### frontend/src/app/components/client/screens/ProfileScreen.tsx (327 строк)
 
 - `EMPTY_VEHICLE` (стр. 19) — локальный
 - `withBaseVehicles` (стр. 21) — локальный
@@ -2708,12 +2728,12 @@ concept1.0/
 - `plateError` (стр. 60) — локальный
 - `normalizedVehicles` (стр. 67) — локальный
 - `avgCheck` (стр. 97) — локальный
-- `value` (стр. 177) — локальный
-- `value` (стр. 192) — локальный
-- `nextCar` (стр. 206) — локальный
-- `nextPlate` (стр. 227) — локальный
-- `nextCar` (стр. 270) — локальный
-- `nextPlate` (стр. 285) — локальный
+- `value` (стр. 168) — локальный
+- `value` (стр. 183) — локальный
+- `nextCar` (стр. 197) — локальный
+- `nextPlate` (стр. 218) — локальный
+- `nextCar` (стр. 261) — локальный
+- `nextPlate` (стр. 276) — локальный
 
 ### frontend/src/app/components/figma/ImageWithFallback.tsx (27 строк)
 
@@ -3976,7 +3996,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `REDESIGN_PLAN.md` (2026-08-23 07:01)
+- `REDESIGN_PLAN.md` (2026-08-23 07:09)
+- `frontend/src/app/components/atmosfera/index.ts` (2026-08-23 07:08)
+- `frontend/src/app/components/client/screens/ProfileScreen.tsx` (2026-08-23 07:08)
+- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-23 07:07)
+- `frontend/src/app/components/client/screens/BookingsScreen.tsx` (2026-08-23 07:06)
+- `frontend/src/app/components/atmosfera/StatTile.tsx` (2026-08-23 07:05)
 - `frontend/src/app/components/atmosfera/Toaster.tsx` (2026-08-23 07:00)
 - `frontend/src/app/components/atmosfera/StatusBadge.tsx` (2026-08-23 07:00)
 - `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-23 07:00)
@@ -3986,8 +4011,3 @@ concept1.0/
 - `frontend/src/app/components/atmosfera/Dialog.tsx` (2026-08-23 07:00)
 - `frontend/src/app/components/atmosfera/Card.tsx` (2026-08-23 07:00)
 - `frontend/src/app/components/atmosfera/Button.tsx` (2026-08-23 07:00)
-- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-23 07:00)
-- `frontend/src/app/components/client/screens/ProfileScreen.tsx` (2026-08-23 06:59)
-- `frontend/src/app/components/atmosfera/index.ts` (2026-08-23 06:50)
-- `frontend/src/app/components/atmosfera/statusMap.ts` (2026-08-23 06:47)
-- `frontend/src/app/components/atmosfera/Money.tsx` (2026-08-23 06:47)

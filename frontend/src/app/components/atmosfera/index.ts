@@ -9,7 +9,11 @@ export { FormRow, type FormRowProps } from './FormRow';
 export { Input, Textarea, type InputProps, type TextareaProps } from './Input';
 export { Money, type MoneyProps } from './Money';
 export { SectionHeader, type SectionHeaderProps } from './SectionHeader';
-export { Sheet, type SheetProps } from './Sheet';
+export {
+  Sheet,
+  type SheetProps,
+} from './Sheet';
+export { StatTile, type StatTileProps } from './StatTile';
 export { StatusBadge, type StatusBadgeProps } from './StatusBadge';
 export { Toaster, toast, type ToastItem, type ToastType } from './Toaster';
 export {

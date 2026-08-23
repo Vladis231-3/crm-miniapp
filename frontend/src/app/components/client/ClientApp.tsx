@@ -2,9 +2,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Menu, ChevronRight, Clock, Star, ArrowLeft, Check,
-  Calendar, Share2, Trash2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
+  Calendar, Share2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
-import { EmptyState } from '../shared/EmptyState';
 import { Skeleton } from '../shared/Skeleton';
 import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
@@ -13,31 +12,10 @@ import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
 import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
 import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 import { ProfileScreen } from './screens/ProfileScreen';
-import { Toaster } from '../atmosfera';
+import { BookingsScreen } from './screens/BookingsScreen';
+import { Button, Dialog, Toaster } from '../atmosfera';
 
 const NOOP = () => {};
-
-const STATUS_LABELS: Record<string, string> = {
-  new: 'Новая заявка',
-  confirmed: 'Подтверждена',
-  scheduled: 'Запланировано',
-  in_progress: 'В работе',
-  completed: 'Завершено',
-  no_show: 'Не приехал',
-  cancelled: 'Отменено',
-  admin_review: 'На уточнении у админа',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  new: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
-  confirmed: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
-  scheduled: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  in_progress: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
-  completed: 'bg-green-500/15 text-green-600 dark:text-green-400',
-  no_show: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-  cancelled: 'bg-red-500/15 text-red-600 dark:text-red-400',
-  admin_review: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-};
 
 const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress', 'admin_review']);
 const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show']);
@@ -817,65 +795,10 @@ export function ClientApp() {
               className="px-4 py-4"
             >
               <h2 className="text-lg font-semibold mb-4">Мои записи</h2>
-              {clientBookings.length === 0 ? (
-                <div className="rounded-2xl border border-black/[.06] dark:border-white/10">
-                  <EmptyState icon={CalendarDays} title="У вас пока нет записей" subtitle="Выберите услугу и удобное время — это займёт минуту" />
-                  <div className="flex justify-center pb-6 -mt-2">
-                    <button
-                      onClick={() => setPage('catalog')}
-                      className={`px-6 py-2.5 rounded-full text-sm font-medium text-white`}
-                      style={{ background: primary }}
-                    >
-                      Записаться
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2 mb-2">
-                    {[
-                      { label: 'Визитов', value: completedBookings.length },
-                      { label: 'Потрачено', value: `${Math.round(totalSpent / 1000)}к ₽` },
-                      { label: 'Любимая', value: favoriteService.split(' ')[0] || 'Нет' },
-                    ].map((item) => (
-                      <div key={item.label} className={`${glass} rounded-2xl px-3 py-3`}>
-                        <div className={`text-[11px] ${sub}`}>{item.label}</div>
-                        <div className="font-semibold text-sm mt-1">{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Upcoming */}
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Предстоящие</div>
-                  {upcomingBookings.map(booking => (
-                    <BookingCard
-                      key={booking.id}
-                      booking={booking}
-                      glass={glass}
-                      sub={sub}
-                      primary={primary}
-                      isDark={isDark}
-                      onCancel={() => setShowCancelConfirm(booking.id)}
-                    />
-                  ))}
-                  {upcomingBookings.length === 0 && (
-                    <p className={`text-sm ${sub} text-center py-2`}>Нет предстоящих записей</p>
-                  )}
-
-                  {/* Past */}
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mt-4 mb-2`}>Прошедшие</div>
-                  {pastBookings.map(booking => (
-                    <BookingCard
-                      key={booking.id}
-                      booking={booking}
-                      glass={glass}
-                      sub={sub}
-                      primary={primary}
-                      isDark={isDark}
-                      onCancel={() => setShowCancelConfirm(booking.id)}
-                    />
-                  ))}
-                </div>
-              )}
+              <BookingsScreen
+                onNavigateToCatalog={() => setPage('catalog')}
+                onRequestCancel={setShowCancelConfirm}
+              />
             </motion.div>
           )}
 
@@ -934,95 +857,27 @@ export function ClientApp() {
         )}
       </AnimatePresence>
 
-      {/* Cancel confirm modal */}
-      <AnimatePresence>
-        {showCancelConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-            onClick={() => setShowCancelConfirm(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-xs`}
-              onClick={e => e.stopPropagation()}
-            >
-              <h3 className="font-semibold mb-2">Отменить запись?</h3>
-              <p className={`text-sm ${sub} mb-5`}>Это действие нельзя отменить.</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCancelConfirm(null)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm ${secondaryBtn}`}
-                >
-                  Назад
-                </button>
-                <button
-                  onClick={() => { deleteBooking(showCancelConfirm!); setShowCancelConfirm(null); }}
-                  className="flex-1 py-2.5 rounded-xl text-sm bg-red-500 text-white"
-                >
-                  Отменить
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Cancel confirm — DS Dialog (состояние в ClientApp: TG MainButton/BackButton) */}
+      <Dialog
+        open={Boolean(showCancelConfirm)}
+        onClose={() => setShowCancelConfirm(null)}
+        title="Отменить запись?"
+        footer={
+          <>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowCancelConfirm(null)}>
+              Назад
+            </Button>
+            <Button variant="danger" className="flex-1" onClick={handleCancelBooking}>
+              Отменить
+            </Button>
+          </>
+        }
+      >
+        Это действие нельзя отменить.
+      </Dialog>
 
       <Toaster />
     </div>
-  );
-}
-
-function BookingCard({
-  booking, glass, sub, primary, isDark, onCancel
-}: {
-  booking: Booking;
-  glass: string;
-  sub: string;
-  primary: string;
-  isDark: boolean;
-  onCancel: () => void;
-}) {
-  const manualScheduling = isManualSchedulingBooking(booking);
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20, height: 0 }}
-      className={`${glass} rounded-2xl p-4`}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <div className="font-semibold">{booking.service}</div>
-          <div className={`text-sm ${sub}`}>
-            {manualScheduling ? 'Время уточнит администратор' : `${booking.date} в ${booking.time}`}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="font-semibold">{booking.price.toLocaleString('ru')} ₽</div>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[booking.status]}`}>
-            {STATUS_LABELS[booking.status]}
-          </span>
-        </div>
-      </div>
-      <div className={`text-xs ${sub} mb-3`}>
-        {manualScheduling ? 'Запрос принят и ждёт согласования' : `${booking.box} · ${booking.duration} мин`}
-      </div>
-      {CANCELLABLE_STATUSES.has(booking.status) && (
-        <button
-          onClick={onCancel}
-          className={`w-full py-2 rounded-xl text-sm border flex items-center justify-center gap-2 ${isDark ? 'border-red-400/30 text-red-400' : 'border-red-500/30 text-red-500'}`}
-        >
-          <Trash2 size={14} strokeWidth={1.75} />
-          Отменить запись
-        </button>
-      )}
-    </motion.div>
   );
 }
 

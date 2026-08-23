@@ -102,18 +102,9 @@ export function ProfileScreen({ upcomingCount, completedCount, totalSpent }: Pro
 
       {/* Статистика */}
       <div className="grid grid-cols-3 gap-2 mb-4">
-        {[
-          { label: 'Активные', value: String(upcomingCount) },
-          { label: 'Завершено', value: String(completedCount) },
-          { label: 'Средний чек', value: null },
-        ].map((item) => (
-          <Card key={item.label} variant="glass" className="px-3 py-3">
-            <div className="text-[11px] text-[var(--fg-secondary,#5A6072)]">{item.label}</div>
-            <div className="mt-1 text-sm font-semibold">
-              {item.value ?? <Money amount={avgCheck} />}
-            </div>
-          </Card>
-        ))}
+        <StatTile label="Активные" value={String(upcomingCount)} />
+        <StatTile label="Завершено" value={String(completedCount)} />
+        <StatTile label="Средний чек" value={<Money amount={avgCheck} />} />
       </div>
 
       <Card className="p-4 mb-4">
