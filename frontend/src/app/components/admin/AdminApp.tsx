@@ -16,6 +16,13 @@ import { AdminClientsPage } from './screens/AdminClientsPage';
 import { AdminStockPage } from './screens/AdminStockPage';
 import { AdminCalendarDayScreen } from './screens/AdminCalendarDayScreen';
 import { Sheet, StatusBadge } from '../atmosfera';
+import {
+  AttendanceSectionShell,
+  BoxesSection,
+  ScheduleSection,
+  NotificationsSection,
+  ProfileSection,
+} from './settings-sections/AdminSettingsSections';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
@@ -1767,165 +1774,51 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
             </motion.div>
           )}
 
-          {/* SETTINGS: ATTENDANCE */}
+          {/* SETTINGS: ATTENDANCE/BOXES/SCHEDULE/NOTIFICATIONS/PROFILE — DS-секции */}
           {page === 'settings' && settingsSection === 'attendance' && (
-            <motion.div key="settings-attendance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-4">Посещаемость мастеров</h2>
-              <p className={`text-xs ${sub} mb-4`}>Количество выходов каждого мастера на смену за выбранный период.</p>
-              <AttendanceTable mode="admin" primary={primary} />
-            </motion.div>
+            <AttendanceSectionShell onBack={() => setSettingsSection(null)} table={<AttendanceTable mode='admin' primary={primary} />} />
           )}
 
-          {/* SETTINGS: BOXES */}
           {page === 'settings' && settingsSection === 'boxes' && (
-            <motion.div key="settings-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-4">Управление боксами</h2>
-              {settingsBoxes.map((box) => (
-                <div key={box.id} className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="font-medium">{box.name}</div>
-                    <button onClick={() => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, active: !b.active } : b))}
-                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: box.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
-                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${box.active ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                  <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Цена (₽/час)</label>
-                    <input className={inputCls} type="number" value={numberInputValue(box.pricePerHour)}
-                      onChange={e => setBoxes(prev => prev.map((b) => b.id === box.id ? { ...b, pricePerHour: numberFromInput(e.target.value) } : b))} />
-                  </div>
-                </div>
-              ))}
-              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
-              </button>
-            </motion.div>
+            <BoxesSection
+              boxes={settingsBoxes}
+              onBoxPatch={(id, patch) => setBoxes((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)))}
+              onBack={() => setSettingsSection(null)}
+              onSave={handleSaveSettings}
+              saved={settingsSaved}
+            />
           )}
 
-          {/* SETTINGS: SCHEDULE */}
           {page === 'settings' && settingsSection === 'schedule' && (
-            <motion.div key="settings-schedule" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-4">Расписание работы</h2>
-              {schedule.map((day, i) => (
-                <div key={day.day} className={`${glass} rounded-2xl p-4 mb-2`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">{day.day}</span>
-                    <button onClick={() => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, active: !d.active } : d))}
-                      className="w-11 h-6 rounded-full relative transition-all" style={{ background: day.active ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
-                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${day.active ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                  {day.active && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Открытие</label>
-                        <input className={inputCls} type="time" value={day.open} onChange={e => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, open: e.target.value } : d))} />
-                      </div>
-                      <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Закрытие</label>
-                        <input className={inputCls} type="time" value={day.close} onChange={e => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, close: e.target.value } : d))} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
-              </button>
-            </motion.div>
+            <ScheduleSection
+              days={schedule}
+              onDayPatch={(index, patch) => setScheduleState((prev) => prev.map((d, j) => (j === index ? { ...d, ...patch } : d)))}
+              onBack={() => setSettingsSection(null)}
+              onSave={handleSaveSettings}
+              saved={settingsSaved}
+            />
           )}
 
-          {/* SETTINGS: NOTIFICATIONS */}
           {page === 'settings' && settingsSection === 'notifications' && (
-            <motion.div key="settings-notifs" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-4">Уведомления</h2>
-              {[
-                { key: 'newBooking', label: 'Новая запись', desc: 'При создании новой записи' },
-                { key: 'cancelled', label: 'Отмена записи', desc: 'При отмене клиентом' },
-                { key: 'paymentDue', label: 'Ожидание оплаты', desc: 'Напоминание об оплате' },
-                { key: 'workerAssigned', label: 'Назначение мастера', desc: 'После назначения мастера' },
-                { key: 'reminders', label: 'Напоминания', desc: 'За 1 час до записи' },
-              ].map(item => (
-                <div key={item.key} className={`${glass} rounded-2xl p-4 mb-2 flex items-center justify-between`}>
-                  <div className="flex items-center gap-3">
-                    <Bell size={16} strokeWidth={1.75} style={{ color: primary }} />
-                    <div>
-                      <div className="text-sm font-medium">{item.label}</div>
-                      <div className={`text-xs ${sub}`}>{item.desc}</div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setNotifSettings(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof prev] }))}
-                    className="w-11 h-6 rounded-full relative transition-all"
-                    style={{ background: notifSettings[item.key as keyof typeof notifSettings] ? primary : isDark ? 'rgba(255,255,255,0.15)' : '#D4D4D8' }}>
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifSettings[item.key as keyof typeof notifSettings] ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-              ))}
-              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
-              </button>
-            </motion.div>
+            <NotificationsSection
+              prefs={notifSettings as Record<string, boolean>}
+              onToggle={(key) => setNotifSettings((prev: any) => ({ ...prev, [key]: !prev[key] }))}
+              onBack={() => setSettingsSection(null)}
+              onSave={handleSaveSettings}
+              saved={settingsSaved}
+            />
           )}
 
-          {/* SETTINGS: PROFILE */}
           {page === 'settings' && settingsSection === 'profile' && (
-            <motion.div key="settings-profile" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-4">Профиль</h2>
-              <div className="flex flex-col items-center mb-6">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold mb-2" style={{ background: primary }}>
-                  {(profile.name || 'A').charAt(0).toUpperCase()}
-                </div>
-                <div className={`text-xs ${sub}`}>Аватар формируется из имени профиля</div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Имя</label>
-                  <input className={inputCls} value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
-                </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Email</label>
-                  <input className={inputCls} type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
-                  <input className={inputCls} value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
-                </div>
-                <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Telegram chat id</label>
-                  <input className={inputCls} value={profile.telegramChatId} onChange={e => setProfile(p => ({ ...p, telegramChatId: e.target.value }))} />
-                </div>
-                <div className={`${glass} rounded-2xl p-4`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium">Автопривязка Telegram</div>
-                      <div className={`text-xs ${sub}`}>
-                        {profile.telegramChatId ? 'Telegram уже привязан' : 'Сгенерируйте код и отправьте боту /link CODE'}
-                      </div>
-                    </div>
-                    <button onClick={handleGenerateTelegramCode} className="px-3 py-2 rounded-xl text-sm text-white" style={{ background: primary }}>
-                      Получить код
-                    </button>
-                  </div>
-                  {telegramLinkCode && (
-                    <div className="mt-3">
-                      <div className="text-2xl font-bold tracking-[0.3em]">{telegramLinkCode.code}</div>
-                      <div className={`text-xs ${sub} mt-1`}>
-                        До {telegramLinkCode.expiresAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} отправьте боту `/link {telegramLinkCode.code}`
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить изменения'}
-              </button>
-            </motion.div>
+            <ProfileSection
+              profile={{ name: profile.name, email: profile.email, phone: profile.phone, telegramChatId: profile.telegramChatId }}
+              onFieldChange={(patch) => setProfile((p) => ({ ...p, ...patch }))}
+              telegramLinkCode={telegramLinkCode}
+              onGenerateCode={handleGenerateTelegramCode}
+              onBack={() => setSettingsSection(null)}
+              onSave={handleSaveSettings}
+              saved={settingsSaved}
+            />
           )}
 
           {/* SETTINGS: SECURITY */}
