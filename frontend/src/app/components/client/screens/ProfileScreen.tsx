@@ -28,7 +28,7 @@ function withBaseVehicles(current: ClientProfile) {
  * Логика валидации/нормализации сохранена 1-в-1 из исходного монолита.
  */
 export function ProfileScreen({ upcomingCount, completedCount, totalSpent }: ProfileScreenProps) {
-  const { clientProfile, updateClientProfile, logout } = useApp();
+  const { clientProfile, updateClientProfile, logout, resetThemeToAuto } = useApp();
 
   const [profileForm, setProfileForm] = useState<ClientProfile>(clientProfile);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -321,6 +321,13 @@ export function ProfileScreen({ upcomingCount, completedCount, totalSpent }: Pro
         <Button size="lg" variant="secondary" onClick={logout}>
           Выйти
         </Button>
+        <button
+          type="button"
+          onClick={resetThemeToAuto}
+          className="rounded py-1 text-center text-[13px] text-[var(--fg-muted,#8A91A0)] underline-offset-2 transition-colors hover:text-[var(--fg-secondary,#5A6072)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        >
+          Тема: как в Telegram (сбросить ручной выбор)
+        </button>
       </div>
     </div>
   );

@@ -686,4 +686,5 @@ Strangler-паттерн, строгими шагами по одному экр
 | 2026-08-23 | Фаза 2 (вырезка №1): BookingsScreen в `client/screens/` (BookingCard на Money/StatusBadge, StatTile в DS); cancel-модалка → DS Dialog (состояние осталось в ClientApp ради TG MainButton/BackButton); ClientApp −123 стр. | см. push | Build ✅ 14.2s, хвостов 0 |
 | 2026-08-23 | Фаза 2 (вырезки №2–3): CatalogScreen (поиск/чипы/Money) + DetailScreen (+общий BoxRentPicker вместо дублей); ClientApp 905→738 стр. | см. push | Build ✅ 16.8s; остался Slots+confirm+slot-modal |
 | 2026-08-23 | Фаза 2 (вырезка №4, финал клиента): SlotsScreen (слоты на токенах статусов) + ConfirmSuccessScreen (декоративная «Добавить в календарь» удалена по §6.1) + slot-модалка → DS Sheet; SummaryRows в DS; ClientApp 738→516 стр. | см. push | Build ✅ 13.4s; хвостов 0. Client целиком на DS-экранах; остался фикс темы с persist |
+| 2026-08-23 | Фаза 2 (фикс темы): persist ручного выбора в localStorage (`atmosfera-theme-override`); ручной выбор перекрывает tg-themeChanged; кнопка «Как в Telegram» в профиле сбрасывает на авто | см. push | Build ✅ 16.0s. Роль CLIENT закрыта → далее Фаза 3 (Worker) |
 | | | | |

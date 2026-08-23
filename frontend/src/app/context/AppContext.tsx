@@ -783,6 +783,8 @@ interface AppContextType {
   activeSessions: ActiveSession[];
   isDark: boolean;
   toggleTheme: () => void;
+  /** Сбросить ручной выбор темы и вернуться к схеме Telegram. */
+  resetThemeToAuto: () => void;
   logout: () => void;
   clientProfile: ClientProfile;
   staffProfile: Worker | null;
@@ -997,7 +999,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
-  const [isDark, setIsDark] = useState(false);
+  // --- Тема: persist ручного выбора (REDESIGN_PLAN.md §6.1) ---
+  // null = авто (следовать за Telegram); 'dark' | 'light' = ручной выбор.
+  const THEME_OVERRIDE_KEY = 'atmosfera-theme-override';
+  const readThemeOverride = (): 'dark' | 'light' | null => {
+    try {
+      const raw = window.localStorage.getItem(THEME_OVERRIDE_KEY);
+      return raw === 'dark' || raw === 'light' ? raw : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeThemeOverride = (value: 'dark' | 'light' | null) => {
+    try {
+      if (value === null) window.localStorage.removeItem(THEME_OVERRIDE_KEY);
+      else window.localStorage.setItem(THEME_OVERRIDE_KEY, value);
+    } catch {
+      /* приватный режим — выбор живёт до перезагрузки */
+    }
+  };
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    const override = readThemeOverride();
+    if (override !== null) return override === 'dark';
+    return getTelegramWebApp()?.colorScheme === 'dark';
+  });
   const [clientProfile, setClientProfile] = useState<ClientProfile>(EMPTY_CLIENT_PROFILE);
   const [staffProfile, setStaffProfile] = useState<Worker | null>(null);
   const [clients, setClients] = useState<RegisteredClient[]>([]);
@@ -1075,6 +1100,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   function applyTelegramTheme(tg: NonNullable<ReturnType<typeof getTelegramWebApp>>) {
+    // Ручной выбор темы перекрывает Telegram до сброса («Как в Telegram» в профиле).
+    if (readThemeOverride() !== null) return;
     setIsDark(tg.colorScheme === 'dark');
     const root = document.documentElement;
     const theme = tg.themeParams as Record<string, string> | undefined;
@@ -1898,7 +1925,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       session,
       activeSessions,
       isDark,
-      toggleTheme: () => setIsDark((current) => !current),
+      toggleTheme: () => setIsDark((current) => {
+        const next = !current;
+        writeThemeOverride(next ? 'dark' : 'light');
+        return next;
+      }),
+      resetThemeToAuto: () => {
+        writeThemeOverride(null);
+        const tg = getTelegramWebApp();
+        if (tg) applyTelegramTheme(tg);
+        else setIsDark(false);
+      },
       logout,
       clientProfile,
       staffProfile,
