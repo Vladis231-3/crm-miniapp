@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Menu, ChevronRight, Clock, Star, ArrowLeft, Check,
+  Menu, ChevronRight, ArrowLeft, Check,
   Calendar, Share2, Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
 import { Skeleton } from '../shared/Skeleton';
@@ -10,9 +10,10 @@ import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/
 import { normalizePlateInput } from '../../utils/validation';
 import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
 import { useTelegramBackButton } from '../../hooks/useTelegramBackButton';
-import { ServiceSearchInput } from '../shared/ServiceSearchInput';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
+import { CatalogScreen } from './screens/CatalogScreen';
+import { DetailScreen } from './screens/DetailScreen';
 import { Button, Dialog, Toaster } from '../atmosfera';
 
 const NOOP = () => {};
@@ -68,8 +69,6 @@ export function ClientApp() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(upcomingDates[0] || '');
-  const [activeCategory, setActiveCategory] = useState('Все');
-  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
   const [calendarAnim, setCalendarAnim] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
@@ -163,9 +162,7 @@ export function ClientApp() {
     setDetailingNote('');
   }, [selectedService?.id]);
 
-  // Клиенту показываются все услуги, включая неактивные (ограничение снято).
-  const activeServices = services;
-  const categories = ['Все', ...Array.from(new Set(activeServices.map((service) => service.category)))];
+  // Поиск/категории каталога переехали в screens/CatalogScreen.tsx
   const clientBookings = bookings.filter((booking) => booking.clientId === session?.actorId);
   const upcomingBookings = clientBookings.filter((booking) => UPCOMING_STATUSES.has(booking.status));
   const pastBookings = clientBookings.filter((booking) => HISTORY_STATUSES.has(booking.status));
@@ -179,13 +176,6 @@ export function ClientApp() {
     : 'Пока нет';
   const myNotifications = notifications.filter((notification) => notification.recipientRole === 'client' && notification.recipientId === session?.actorId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
-
-  const normalizedSearchQuery = serviceSearchQuery.trim().toLowerCase();
-  const filteredServices = activeServices.filter((service) => {
-    if (activeCategory !== 'Все' && service.category !== activeCategory) return false;
-    if (!normalizedSearchQuery) return true;
-    return [service.name, service.category, service.desc].some((v) => v && v.toLowerCase().includes(normalizedSearchQuery));
-  });
   const compatibleBoxes = bookingBoxesForService(selectedService, boxes);
   const defaultBoxName = compatibleBoxes[0]?.name || 'Детейлинг';
 
@@ -399,174 +389,30 @@ export function ClientApp() {
       <div className="flex-1 overflow-y-auto pb-24">
         <AnimatePresence mode="wait">
           {/* CATALOG PAGE */}
+          {/* CATALOG */}
           {page === 'catalog' && (
-            <motion.div
-              key="catalog"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.22 }}
-            >
-              {/* Search */}
-              <div className="px-4 pt-4">
-                <ServiceSearchInput
-                  value={serviceSearchQuery}
-                  onChange={(v) => { setServiceSearchQuery(v); if (v.trim()) setActiveCategory('Все'); }}
-                  inputCls={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
-                  iconCls={sub}
-                />
-              </div>
-
-              {/* Category chips */}
-              <div className="flex gap-2 px-4 py-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`shrink-0 px-4 py-2 rounded-full text-sm transition-all ${
-                      activeCategory === cat
-                        ? `text-white` : `${glass} ${sub}`
-                    }`}
-                    style={activeCategory === cat ? { background: primary } : {}}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {/* Services grid */}
-              <div className="px-4 grid grid-cols-1 gap-3">
-                {filteredServices.map((service, i) => (
-                  <motion.div
-                    key={service.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className={`${glass} rounded-2xl p-4`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-semibold">{service.name}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block`} style={{ background: `${primary}20`, color: primary }}>
-                          {service.category}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold">{service.price.toLocaleString('ru')} ₽</div>
-                        <div className={`text-xs ${sub} flex items-center gap-1 justify-end mt-0.5`}>
-                          <Clock size={11} strokeWidth={1.75} />
-                          {service.duration} мин
-                        </div>
-                      </div>
-                    </div>
-                    <p className={`text-sm ${sub} mb-3 line-clamp-2`}>{service.desc}</p>
-                    <button
-                      onClick={() => { setSelectedService(service); setPage('detail'); }}
-                      className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all active:scale-98 ${primaryBtn}`}
-                    >
-                      Записаться
-                    </button>
-                  </motion.div>
-                ))}
-              </div>
-              {filteredServices.length === 0 && activeServices.length > 0 && (
-                <div className={`px-4 py-6 text-sm text-center ${sub}`}>По запросу «{serviceSearchQuery.trim()}» услуг не найдено</div>
-              )}
-            </motion.div>
+            <CatalogScreen onSelectService={(service) => { setSelectedService(service); setPage('detail'); }} />
           )}
 
-          {/* DETAIL PAGE */}
+          {/* DETAIL */}
           {page === 'detail' && selectedService && (
-            <motion.div
-              key="detail"
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 30 }}
-              transition={{ duration: 0.22 }}
-              className="px-4 py-4"
-            >
-              <div className={`${glass} rounded-2xl p-5 mb-4`}>
-                <div className="w-full h-32 rounded-xl mb-4 flex items-center justify-center" style={{ background: `${primary}15` }}>
-                  <Star size={40} strokeWidth={1.75} style={{ color: primary }} />
-                </div>
-                <h2 className="text-xl font-semibold mb-1">{selectedService.name}</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full inline-block mb-3" style={{ background: `${primary}20`, color: primary }}>
-                  {selectedService.category}
-                </span>
-                <p className={`text-sm ${sub} mb-4`}>{selectedService.desc}</p>
-                <div className="flex gap-4">
-                  <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
-                    <div className="font-semibold">{selectedPrice.toLocaleString('ru')} ₽</div>
-                    <div className={`text-xs ${sub}`}>Стоимость</div>
-                  </div>
-                  <div className={`flex-1 ${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 text-center`}>
-                    <div className="font-semibold">{selectedDuration} мин</div>
-                    <div className={`text-xs ${sub}`}>Длительность</div>
-                  </div>
-                </div>
-              </div>
-              {bookingVehicles.length > 0 && (
-                <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-sm font-medium mb-2 ${text}`}>Автомобиль для записи</div>
-                  <select
-                    value={selectedBookingVehicleIndex}
-                    onChange={(event) => setSelectedBookingVehicleIndex(Number(event.target.value))}
-                    className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-2xl px-3 py-3 w-full text-sm outline-none`}
-                  >
-                    {bookingVehicles.map((vehicle, index) => (
-                      <option key={`booking-vehicle-${index}`} value={index}>
-                        {vehicle.car || '\u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0438\u043b\u044c'}{vehicle.plate ? ` - ${vehicle.plate}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {selectedServiceIsBoxRental && (
-                <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-sm font-medium mb-3 ${text}`}>Сколько часов нужен бокс</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => {
-                      const selected = boxRentalHours === hours;
-                      return (
-                        <button
-                          key={hours}
-                          onClick={() => setBoxRentalHours(hours)}
-                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-all ${selected ? 'text-white' : glass}`}
-                          style={selected ? { background: primary } : {}}
-                        >
-                          {hours} ч
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className={`mt-3 text-xs ${sub}`}>
-                    Итог: {selectedDuration} мин, {selectedPrice.toLocaleString('ru')} ₽
-                  </div>
-                </div>
-              )}
-              {selectedServiceIsDetailing && (
-                <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-sm font-medium mb-2 ${text}`}>Комментарий к детейлингу</div>
-                  <p className={`text-sm ${sub} mb-3`}>
-                    Можно сразу описать состояние авто, пожелания или важные детали по работе.
-                  </p>
-                  <textarea
-                    value={detailingNote}
-                    onChange={(event) => setDetailingNote(event.target.value)}
-                    placeholder="Опишите задачу, состояние авто или удобный способ связи"
-                    className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-2xl px-3 py-3 w-full text-sm outline-none min-h-[104px] resize-none`}
-                  />
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setPage('slots');
-                }}
-                className={`w-full py-3.5 rounded-2xl font-semibold transition-all active:scale-98 ${primaryBtn}`}
-              >
-                Выбрать время
-              </button>
-            </motion.div>
+            <DetailScreen
+              serviceName={selectedService.name}
+              serviceCategory={selectedService.category}
+              serviceDesc={selectedService.desc || ''}
+              durationMinutes={selectedDuration}
+              price={selectedPrice}
+              vehicles={bookingVehicles}
+              vehicleIndex={selectedBookingVehicleIndex}
+              onVehicleIndexChange={setSelectedBookingVehicleIndex}
+              isBoxRental={selectedServiceIsBoxRental}
+              isDetailing={selectedServiceIsDetailing}
+              boxHours={boxRentalHours}
+              onBoxHoursChange={setBoxRentalHours}
+              note={detailingNote}
+              onNoteChange={setDetailingNote}
+              onNext={() => setPage('slots')}
+            />
           )}
 
           {/* SLOTS PAGE */}
