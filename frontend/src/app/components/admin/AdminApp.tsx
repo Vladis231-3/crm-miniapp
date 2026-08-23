@@ -14,6 +14,7 @@ import { AdminPayrollPage } from './screens/AdminPayrollPage';
 import { AdminStatsPage } from './screens/AdminStatsPage';
 import { AdminClientsPage } from './screens/AdminClientsPage';
 import { AdminStockPage } from './screens/AdminStockPage';
+import { AdminCalendarDayScreen } from './screens/AdminCalendarDayScreen';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
@@ -1506,113 +1507,18 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
           {/* CALENDAR */}
           {page === 'calendar' && (
-            <>
-            <section className="role-hero role-hero--admin mb-4">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div><div className="text-xs uppercase tracking-[.2em] opacity-70">Day command center</div><h2 className="mt-2 text-2xl font-semibold">Управление днём</h2><p className="mt-1 text-sm opacity-80">Расписание, исключения и быстрые действия в одном контуре.</p></div>
-                <div className="flex gap-2"><button onClick={() => setShowNewBooking(true)} className="semantic-primary-button bg-white text-slate-900"><Plus size={17} strokeWidth={1.75}/> Новая запись</button><button onClick={() => setPage(`clients`)} className="rounded-xl border border-white/25 px-4 py-2 text-sm"><Search size={16} strokeWidth={1.75} className="inline mr-2"/>Поиск</button></div>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 md:grid-cols-4">
-                <div><strong className="block text-2xl">{todayBookings.length}</strong><span className="text-xs opacity-70">записей</span></div>
-                <div><strong className="block text-2xl">{todayBookings.filter(item => item.status === `in_progress`).length}</strong><span className="text-xs opacity-70">в работе</span></div>
-                <div><strong className="block text-2xl">{todayBookings.filter(item => item.status !== `completed` && item.status !== `in_progress`).length}</strong><span className="text-xs opacity-70">ожидают</span></div>
-                <div><strong className="block text-2xl">{todayBookings.filter(item => item.status === `completed`).length}</strong><span className="text-xs opacity-70">готово</span></div>
-              </div>
-            </section>
-            <section className="mb-4 grid gap-3 md:grid-cols-2">
-              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Exception rail</div><h3 className="mt-1 font-semibold">Требует внимания</h3><button onClick={() => setPage(`calendar`)} className="mt-3 flex w-full items-center justify-between rounded-xl bg-amber-500/10 p-3 text-left"><span>Без назначенного мастера</span><strong>{todayBookings.filter(item => !item.workers?.length).length}</strong></button><button onClick={() => setShowNotifications(true)} className="mt-2 flex w-full items-center justify-between rounded-xl bg-red-500/10 p-3 text-left"><span>Непрочитанные</span><strong>{unreadCount}</strong></button></div>
-              <div className={`${glass} rounded-2xl p-4`}><div className="text-xs uppercase tracking-wider text-muted-foreground">Schedule pulse</div><h3 className="mt-1 font-semibold">Ближайшие слоты</h3><div className="mt-3 space-y-2">{todayBookings.slice(0, 4).map(item => <button key={item.id} onClick={() => setSelectedBooking(item)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left" style={{ background: `${primary}0D` }}><strong className="w-12">{item.time}</strong><span className="min-w-0 flex-1 truncate">{item.service}</span><ChevronRight size={16} strokeWidth={1.75}/></button>)}</div></div>
-            </section>
-            <section className={`${glass} mb-4 rounded-2xl p-4`}>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Operational actions</div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <button onClick={() => setShowNewBooking(true)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <Plus size={18} strokeWidth={1.75} />
-                  <strong className="mt-2 block">Создать запись</strong>
-                  <span className="text-xs text-muted-foreground">Открыть существующую форму</span>
-                </button>
-                <button onClick={() => setPage(`clients`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <Search size={18} strokeWidth={1.75} />
-                  <strong className="mt-2 block">Найти клиента</strong>
-                  <span className="text-xs text-muted-foreground">Перейти в клиентскую базу</span>
-                </button>
-                <button onClick={() => setPage(`stock`)} className="rounded-xl p-3 text-left" style={{ background: `${primary}0D` }}>
-                  <Package size={18} strokeWidth={1.75} />
-                  <strong className="mt-2 block">Проверить склад</strong>
-                  <span className="text-xs text-muted-foreground">Остатки и списания</span>
-                </button>
-              </div>
-            </section>
-            <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold">Сегодня — {todayLabel}</h2>
-                <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
-              </div>
-              <div className="space-y-3">
-                {todayBookings.length === 0 ? (
-                  <div className={`${glass} rounded-2xl p-8 text-center`}>
-                    <Calendar size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                    <p className={sub}>Записей на сегодня нет</p>
-                  </div>
-                ) : todayBookings.map(booking => (
-                  <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
-                    onClick={() => { setSelectedBooking(booking); setShowSlideOver(true); }}
-                    className={`${glass} rounded-2xl p-4 w-full text-left`}>
-                    <div className="flex items-start gap-3">
-                      <div className={`w-1 self-stretch rounded-full ${STATUS_COLORS[booking.status]}`} />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="font-semibold text-sm truncate">{booking.time} · {booking.clientName}</div>
-                            <SourceBadge source={booking.source} />
-                            {booking.isRepeatVisit && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
-                            )}
-                          </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
-                        </div>
-                        <div className={`text-sm ${sub}`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
-                        <div className="flex justify-between mt-2">
-                          <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
-                          <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
-                        </div>
-                        {booking.workers.length > 0 && (
-                          <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
-                            const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
-                            return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
-                          }).join(', ')}</div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-              {bookings.filter(b => b.date !== todayLabel).length > 0 && (
-                <div className="mt-6">
-                  <h3 className={`text-sm font-medium ${sub} mb-3`}>Другие записи</h3>
-                  {bookings.filter(b => b.date !== todayLabel).map(booking => (
-                    <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
-                      onClick={() => { setSelectedBooking(booking); setShowSlideOver(true); }}
-                      className={`${glass} rounded-2xl p-4 w-full text-left mb-3`}>
-                      <div className="flex justify-between items-center">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="text-sm font-medium truncate">{booking.clientName}</div>
-                            <SourceBadge source={booking.source} />
-                            {booking.isRepeatVisit && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
-                            )}
-                          </div>
-                          <div className={`text-xs ${sub} truncate`}>{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1" style={{ color: primary }}> +{booking.services.length}</span> : ''} · {booking.date}</div>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[booking.status]}`}>{STATUS_LABELS[booking.status]}</span>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-            </>
+            <AdminCalendarDayScreen
+              todayBookings={todayBookings}
+              otherBookings={bookings.filter((b) => b.date !== todayLabel)}
+              services={services}
+              unreadCount={unreadCount}
+              todayLabel={todayLabel}
+              onQuickCreate={() => setShowNewBooking(true)}
+              onGoClients={() => setPage('clients')}
+              onGoStock={() => setPage('stock')}
+              onOpenNotifications={() => setShowNotifications(true)}
+              onOpenBooking={(booking) => { setSelectedBooking(booking); setShowSlideOver(true); }}
+            />
           )}
 
           {/* STATS */}
