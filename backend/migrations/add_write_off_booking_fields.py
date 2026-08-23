@@ -1,5 +1,7 @@
 """
-Add booking_client_name, booking_date, booking_worker_names columns to stock_write_offs table.
+Add booking fields to stock_write_offs table.
+
+Идемпотентно, работает на SQLite и PostgreSQL.
 
 Usage: python -m backend.migrations.add_write_off_booking_fields
 """
@@ -9,27 +11,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.database import engine
-from sqlalchemy import text
+from backend.migrations._common import ensure_column
 
 
 def upgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE stock_write_offs ADD COLUMN IF NOT EXISTS booking_client_name VARCHAR(120)"))
-        conn.execute(text("ALTER TABLE stock_write_offs ADD COLUMN IF NOT EXISTS booking_date VARCHAR(16)"))
-        conn.execute(text("ALTER TABLE stock_write_offs ADD COLUMN IF NOT EXISTS booking_worker_names VARCHAR(300)"))
-        conn.commit()
-        print("Migration complete: added booking fields to stock_write_offs")
+    ensure_column("stock_write_offs", "booking_client_name", "VARCHAR(120)")
+    ensure_column("stock_write_offs", "booking_date", "VARCHAR(16)")
+    ensure_column("stock_write_offs", "booking_worker_names", "VARCHAR(300)")
+    print("Migration complete: booking fields ensured on stock_write_offs")
 
 
 def downgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE stock_write_offs DROP COLUMN IF EXISTS booking_client_name"))
-        conn.execute(text("ALTER TABLE stock_write_offs DROP COLUMN IF EXISTS booking_date"))
-        conn.execute(text("ALTER TABLE stock_write_offs DROP COLUMN IF EXISTS booking_worker_names"))
-        conn.commit()
-        print("Downgrade complete: removed booking fields from stock_write_offs")
+    from backend.migrations._common import drop_column_if_exists
 
-
-if __name__ == "__main__":
-    upgrade()
+    drop_column_if_exists("stock_write_offs", "booking_client_name")
+    drop_column_if_exists("stock_write_offs", "booking_date")
+    drop_column_if_exists("stock_write_offs", "booking_worker_names")
+    print("Downgrade complete")

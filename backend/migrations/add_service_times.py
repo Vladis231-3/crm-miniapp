@@ -1,6 +1,8 @@
 """
 Add started_at and completed_at columns to bookings table.
 
+Идемпотентно, работает на SQLite и PostgreSQL.
+
 Usage: python -m backend.migrations.add_service_times
 """
 
@@ -9,25 +11,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.database import engine
-from sqlalchemy import text
+from backend.migrations._common import ensure_column
 
 
 def upgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS started_at TIMESTAMP"))
-        conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP"))
-        conn.commit()
-        print("Migration complete: added started_at and completed_at to bookings")
+    ensure_column("bookings", "started_at", "TIMESTAMP")
+    ensure_column("bookings", "completed_at", "TIMESTAMP")
+    print("Migration complete: service times ensured on bookings")
 
 
 def downgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE bookings DROP COLUMN IF EXISTS started_at"))
-        conn.execute(text("ALTER TABLE bookings DROP COLUMN IF EXISTS completed_at"))
-        conn.commit()
-        print("Downgrade complete: removed started_at and completed_at from bookings")
+    from backend.migrations._common import drop_column_if_exists
 
-
-if __name__ == "__main__":
-    upgrade()
+    drop_column_if_exists("bookings", "started_at")
+    drop_column_if_exists("bookings", "completed_at")
+    print("Downgrade complete")

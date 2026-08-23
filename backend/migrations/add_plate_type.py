@@ -1,6 +1,8 @@
 """
 Add plate_type column to clients and bookings tables.
 
+Идемпотентно, работает на SQLite и PostgreSQL.
+
 Usage: python -m backend.migrations.add_plate_type
 """
 
@@ -9,24 +11,26 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.database import engine
-from sqlalchemy import text
+from backend.migrations._common import ensure_column
 
 
 def upgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS plate_type VARCHAR(16) NOT NULL DEFAULT 'russian'"))
-        conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS plate_type VARCHAR(16) DEFAULT NULL"))
-        conn.commit()
-        print("Migration complete: added plate_type to clients and bookings")
+    ensure_column(
+        "clients",
+        "plate_type",
+        "VARCHAR(16)",
+        not_null_default_sql="'russian'",
+    )
+    ensure_column("bookings", "plate_type", "VARCHAR(16)")
+    print("Migration complete: plate_type ensured on clients and bookings")
 
 
 def downgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE clients DROP COLUMN IF EXISTS plate_type"))
-        conn.execute(text("ALTER TABLE bookings DROP COLUMN IF EXISTS plate_type"))
-        conn.commit()
-        print("Downgrade complete: removed plate_type from clients and bookings")
+    from backend.migrations._common import drop_column_if_exists
+
+    drop_column_if_exists("clients", "plate_type")
+    drop_column_if_exists("bookings", "plate_type")
+    print("Downgrade complete")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 """
-Create stock_write_offs table.
+Create stock_write_offs table if absent.
+
+Идемпотентно, работает на SQLite и PostgreSQL.
 
 Usage: python -m backend.migrations.add_stock_write_offs
 """
@@ -9,37 +11,33 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.database import engine
-from sqlalchemy import text
+from backend.migrations._common import ensure_column, table_exists
 
 
 def upgrade():
-    with engine.connect() as conn:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS stock_write_offs (
-                id VARCHAR(64) PRIMARY KEY,
-                stock_item_id VARCHAR(64) REFERENCES stock_items(id) ON DELETE SET NULL,
-                stock_item_name VARCHAR(120) NOT NULL,
-                qty FLOAT NOT NULL,
-                unit VARCHAR(16) NOT NULL,
-                unit_price FLOAT NOT NULL,
-                total_cost FLOAT NOT NULL,
-                source VARCHAR(32) NOT NULL DEFAULT 'manual',
-                booking_id VARCHAR(64),
-                booking_service VARCHAR(120),
-                note TEXT,
-                created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-            )
-        """))
-        conn.commit()
-        print("Migration complete: created stock_write_offs table")
+    if not table_exists("stock_write_offs"):
+        # Схему создаём через ORM-метаданные: диалект-нейтрально.
+        from backend.app.database import Base, engine
+        from backend.app.models import StockWriteOff  # noqa: F401 — регистрация таблицы
+
+        Base.metadata.create_all(bind=engine, tables=[StockWriteOff.__table__])
+        print("Migration complete: stock_write_offs created")
+        return
+    # Таблица есть — убеждаемся в наличии необязательных колонок (эволюция схемы).
+    ensure_column("stock_write_offs", "booking_id", "VARCHAR(64)")
+    ensure_column("stock_write_offs", "booking_service", "VARCHAR(120)")
+    ensure_column("stock_write_offs", "note", "TEXT")
+    print("Migration complete: stock_write_offs present and up to date")
 
 
 def downgrade():
-    with engine.connect() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS stock_write_offs"))
-        conn.commit()
-        print("Downgrade complete: dropped stock_write_offs table")
+    from backend.migrations._common import _quote_ident
+
+    from backend.app.database import engine
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql(f"DROP TABLE IF EXISTS {_quote_ident('stock_write_offs')}")
+    print("Downgrade complete")
 
 
 if __name__ == "__main__":

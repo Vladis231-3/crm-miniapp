@@ -1,6 +1,8 @@
 """
 Add materials_written_off column to bookings table.
 
+Идемпотентно, работает на SQLite и PostgreSQL.
+
 Usage: python -m backend.migrations.add_materials_written_off
 """
 
@@ -9,22 +11,24 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.app.database import engine
-from sqlalchemy import text
+from backend.migrations._common import ensure_column
 
 
 def upgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS materials_written_off BOOLEAN NOT NULL DEFAULT FALSE"))
-        conn.commit()
-        print("Migration complete: added materials_written_off to bookings")
+    ensure_column(
+        "bookings",
+        "materials_written_off",
+        "BOOLEAN",
+        not_null_default_sql="FALSE",
+    )
+    print("Migration complete: materials_written_off ensured on bookings")
 
 
 def downgrade():
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE bookings DROP COLUMN IF EXISTS materials_written_off"))
-        conn.commit()
-        print("Downgrade complete: removed materials_written_off from bookings")
+    from backend.migrations._common import drop_column_if_exists
+
+    drop_column_if_exists("bookings", "materials_written_off")
+    print("Downgrade complete")
 
 
 if __name__ == "__main__":
