@@ -10,6 +10,7 @@ import {
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
+import { AdminPayrollPage } from './screens/AdminPayrollPage';
 import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
@@ -114,7 +115,7 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   adjustment: 'Корректировка',
 };
 
-type AdminPage = 'calendar' | 'stats' | 'clients' | 'stock' | 'settings';
+type AdminPage = 'calendar' | 'stats' | 'clients' | 'stock' | 'payroll' |'settings';
 
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance' | 'content';
 type EditModalMode = 'edit' | 'reschedule';
@@ -1349,10 +1350,6 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     if (settingsSection === 'pricing') await saveServices(services);
     if (settingsSection === 'notifications') await saveAdminNotificationSettings(notifSettings);
     if (settingsSection === 'profile') await saveAdminProfile(profile);
-    if (settingsSection === 'payroll') {
-      await saveAdminWorkerPayroll(payrollSettings);
-      loadPayrollData();
-    }
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
   };
@@ -2338,6 +2335,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           )}
 
           {/* SETTINGS */}
+          {/* PAYROLL PAGE — реальная страница вместо settings-хака (§6.2) */}
+          {page === 'payroll' && <AdminPayrollPage />}
+
           {page === 'settings' && !settingsSection && (
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Настройки</h2>
@@ -2345,7 +2345,6 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${settingsBoxes.filter(box => box.active).length} активных бокса`, color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#10B981' },
-                { id: 'payroll', icon: Users, label: 'Зарплаты мастеров', desc: `${masterWorkers.length} мастеров`, color: '#F97316' },
                 { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#0EA5E9' },
                 { id: 'attendance', icon: TrendingUp, label: 'Посещаемость', desc: 'Выходы мастеров на смену', color: '#8B5CF6' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#312E81' },
@@ -3013,12 +3012,10 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           { id: 'stats', icon: ChartNoAxesColumn, label: 'Статистика' },
           { id: 'clients', icon: UsersRound, label: 'Клиенты' },
           { id: 'stock', icon: Package, label: 'Склад' },
-          { id: 'payroll', icon: Wallet, label: 'Зарплаты', action: () => { setPage('settings'); setSettingsSection('payroll'); } },
+          { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
           { id: 'settings', icon: Settings2, label: 'Настройки' },
         ].map(tab => {
-          const isActive = tab.id === 'payroll'
-            ? page === 'settings' && settingsSection === 'payroll'
-            : page === tab.id;
+          const isActive = page === tab.id;
           return (
           <button key={tab.id} onClick={() => {
             (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
@@ -3080,7 +3077,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   { icon: Users, label: 'Клиенты', action: () => { setPage('clients'); setShowMenu(false); } },
                   { icon: BarChart3, label: 'Статистика', action: () => { setPage('stats'); setShowMenu(false); } },
                   { icon: Box, label: 'Склад', action: () => { setPage('stock'); setShowMenu(false); } },
-                  { icon: DollarSign, label: 'Зарплаты мастерам', action: () => { setPage('settings'); setSettingsSection('payroll'); setShowMenu(false); } },
+                  { icon: DollarSign, label: 'Зарплаты мастерам', action: () => { setPage('payroll'); setSettingsSection(null); setShowMenu(false); } },
                   { icon: Bell, label: 'Уведомления', action: () => { setShowNotifPanel(true); setShowMenu(false); } },
                   { icon: Box, label: 'Боксы', action: () => { setPage('settings'); setSettingsSection('boxes'); setShowMenu(false); } },
                   { icon: Clock, label: 'Расписание', action: () => { setPage('settings'); setSettingsSection('schedule'); setShowMenu(false); } },
