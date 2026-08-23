@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-23 06:00 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-23 06:19 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **479**
-- Строк кода: **201 710**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 293
+- Файлов кода: **480**
+- Строк кода: **201 949**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 144, `.ts`: 35, `.tsx`: 294
 
 ## Архитектура
 
@@ -344,6 +344,7 @@ concept1.0/
 │   │   │   │   └── worker/
 │   │   │   │       ├── screens/
 │   │   │   │       │   ├── WorkerEarningsScreen.tsx
+│   │   │   │       │   ├── WorkerProfileScreen.tsx
 │   │   │   │       │   ├── WorkerScheduleScreen.tsx
 │   │   │   │       │   └── WorkerTodayScreen.tsx
 │   │   │   │       ├── shared/
@@ -1769,18 +1770,19 @@ concept1.0/
 - `BookingMoneySplitTests.test_single_active_owner_gets_full_sharedef test_single_active_owner_gets_full_share(self) -> None: from app.database import SessionLocal from app.models import OwnerProfitShare, StaffUser from sqlalchemy import select w` (стр. 1238)
 - `BookingMoneySplitTests.test_money_split_rest_piggy_modedef test_money_split_rest_piggy_mode(self) -> None: from app.database import SessionLocal from app.models import PiggyBankTransaction, Service from sqlalchemy import select with Se` (стр. 1271)
 
-### backend/tests/test_bot_help.py (96 строк)
+### backend/tests/test_bot_help.py (104 строк)
 
-Классы и функции (8):
+Классы и функции (9):
 
-- `_runtimedef _runtime(*, training_url: str | None = "https://training.example") -> BotRuntime: return BotRuntime( token="t", webapp_url="https://app.example", api_base="https://api.example"` (стр. 15)
-- `_run_updatedef _run_update(runtime: BotRuntime, update: dict) -> list[tuple[str, dict]]: calls: list[tuple[str, dict]] = [] def fake_telegram_call(_runtime, method: str, payload: dict | None ` (стр. 24)
-- `fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict | None = None, **_kwargs): calls.append((method, payload or {})) return {}` (стр. 27)
-- `test_help_command_sends_training_message_with_webapp_buttondef test_help_command_sends_training_message_with_webapp_button() -> None: calls = _run_update( _runtime(), {"message": {"chat": {"id": 777}, "text": "/help"}}, ) sent = [payload f` (стр. 38)
-- `test_help_button_falls_back_to_main_webapp_url_when_training_unsetdef test_help_button_falls_back_to_main_webapp_url_when_training_unset() -> None: calls = _run_update( _runtime(training_url=None), {"message": {"chat": {"id": 778}, "text": "/help` (стр. 59)
-- `test_help_command_registered_in_bot_menudef test_help_command_registered_in_bot_menu() -> None: calls: list[tuple[str, dict]] = [] runtime = _runtime() def fake_telegram_call(_runtime, method: str, payload: dict | None =` (стр. 71)
-- `fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict | None = None, **_kwargs): calls.append((method, payload or {})) return {}` (стр. 75)
-- `test_help_does_not_break_start_commanddef test_help_does_not_break_start_command() -> None: calls = _run_update( _runtime(), {"message": {"chat": {"id": 779}, "text": "/start"}}, ) sent = [payload for method, payload i` (стр. 89)
+- `_runtimedef _runtime(*, training_url: str | None = "https://training.example") -> BotRuntime: return BotRuntime( token="t", webapp_url="https://app.example", api_base="https://api.example"` (стр. 14)
+- `_ensure_bot_envdef _ensure_bot_env() -> None: # ???????? ???????? ?????? ?????? os.environ.pop("WEBAPP_URL") ? setUp: # ??????????? ????????? ?? ?????? ??????? ??????????? ?????. os.environ["APP_` (стр. 23)
+- `_run_updatedef _run_update(runtime: BotRuntime, update: dict) -> list[tuple[str, dict]]: calls: list[tuple[str, dict]] = [] _ensure_bot_env() def fake_telegram_call(_runtime, method: str, pay` (стр. 31)
+- `fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict | None = None, **_kwargs): calls.append((method, payload or {})) return {}` (стр. 35)
+- `test_help_command_sends_training_message_with_webapp_buttondef test_help_command_sends_training_message_with_webapp_button() -> None: calls = _run_update( _runtime(), {"message": {"chat": {"id": 777}, "text": "/help"}}, ) sent = [payload f` (стр. 46)
+- `test_help_button_falls_back_to_main_webapp_url_when_training_unsetdef test_help_button_falls_back_to_main_webapp_url_when_training_unset() -> None: calls = _run_update( _runtime(training_url=None), {"message": {"chat": {"id": 778}, "text": "/help` (стр. 67)
+- `test_help_command_registered_in_bot_menudef test_help_command_registered_in_bot_menu() -> None: calls: list[tuple[str, dict]] = [] runtime = _runtime() def fake_telegram_call(_runtime, method: str, payload: dict | None =` (стр. 79)
+- `fake_telegram_calldef fake_telegram_call(_runtime, method: str, payload: dict | None = None, **_kwargs): calls.append((method, payload or {})) return {}` (стр. 83)
+- `test_help_does_not_break_start_commanddef test_help_does_not_break_start_command() -> None: calls = _run_update( _runtime(), {"message": {"chat": {"id": 779}, "text": "/start"}}, ) sent = [payload for method, payload i` (стр. 97)
 
 ### backend/tests/test_broadcast_edge_cases.py (182 строк)
 
@@ -3398,6 +3400,34 @@ concept1.0/
 - `totalAccrued` (стр. 177) — локальный
 - `totalDeducted` (стр. 178) — локальный
 
+### frontend/src/app/components/worker/screens/WorkerProfileScreen.tsx (654 строк)
+
+- `WorkerProfileScreen` (стр. 37)
+- `isMyTask` (стр. 112) — локальный
+- `allMyTasks` (стр. 116) — локальный
+- `myEarnings` (стр. 117) — локальный
+- `w` (стр. 120) — локальный
+- `totalEarned` (стр. 129) — локальный
+- `payrollSummary` (стр. 130) — локальный
+- `earnedForDisplay` (стр. 131) — локальный
+- `completedCount` (стр. 132) — локальный
+- `myPenalties` (стр. 133) — локальный
+- `complaintState` (стр. 134) — локальный
+- `chemistryItems` (стр. 135) — локальный
+- `handleSaveProfile` (стр. 138) — локальный
+- `handleSubmitShiftChecklist` (стр. 144) — локальный
+- `saved` (стр. 147) — локальный
+- `handleSavePass` (стр. 162) — локальный
+- `handleGenerateTelegramCode` (стр. 189) — локальный
+- `handleSaveNotifications` (стр. 193) — локальный
+- `glass` (стр. 200) — локальный
+- `sub` (стр. 201) — локальный
+- `primaryColor` (стр. 204) — локальный
+- `accentColor` (стр. 205) — локальный
+- `fmtDateTime` (стр. 207) — локальный
+- `enabled` (стр. 458) — локальный
+- `w` (стр. 504) — локальный
+
 ### frontend/src/app/components/worker/screens/WorkerScheduleScreen.tsx (168 строк)
 
 - `WorkerScheduleScreen` (стр. 28)
@@ -3445,74 +3475,65 @@ concept1.0/
 - `isSelected` (стр. 86) — локальный
 - `isToday` (стр. 87) — локальный
 
-### frontend/src/app/components/worker/WorkerApp.tsx (1207 строк)
+### frontend/src/app/components/worker/WorkerApp.tsx (784 строк)
 
-- `workerStatusLabel` (стр. 29) — локальный
-- `workerStatusBadge` (стр. 52) — локальный
-- `workerPaymentLabel` (стр. 73) — локальный
-- `bookingBasePrice` (стр. 79) — локальный
-- `additionalTotal` (стр. 80) — локальный
-- `servicesTotal` (стр. 81) — локальный
-- `bookingBaseWorkerEarned` (стр. 86) — локальный
-- `link` (стр. 87) — локальный
-- `formatBookingInstant` (стр. 94) — локальный
-- `date` (стр. 96) — локальный
-- `WorkerApp` (стр. 102)
-- `workerId` (стр. 132) — локальный
-- `myNotifications` (стр. 211) — локальный
-- `unreadCount` (стр. 212) — локальный
-- `isMyTask` (стр. 214) — локальный
-- `allTasks` (стр. 218) — локальный
-- `todayTasks` (стр. 221) — локальный
-- `myEarnings` (стр. 223) — локальный
-- `w` (стр. 226) — локальный
-- `earned` (стр. 227) — локальный
-- `totalEarned` (стр. 234) — локальный
-- `payrollSummary` (стр. 235) — локальный
-- `earnedForDisplay` (стр. 236) — локальный
-- `myPenalties` (стр. 237) — локальный
-- `complaintState` (стр. 238) — локальный
-- `payoutAfterPenalties` (стр. 239) — локальный
-- `allMyTasks` (стр. 241) — локальный
-- `completedCount` (стр. 242) — локальный
-- `avgCheck` (стр. 243) — локальный
-- `chemistryItems` (стр. 244) — локальный
-- `formatTimer` (стр. 252) — локальный
-- `glass` (стр. 254) — локальный
-- `bg` (стр. 255) — локальный
-- `text` (стр. 256) — локальный
-- `sub` (стр. 257) — локальный
-- `primary` (стр. 258) — локальный
-- `accent` (стр. 259) — локальный
-- `surface` (стр. 260) — локальный
-- `inputCls` (стр. 261) — локальный
-- `formatComplaintDate` (стр. 262) — локальный
-- `handleStartTask` (стр. 264) — локальный
-- `openFinishModal` (стр. 272) — локальный
-- `handleFinish` (стр. 281) — локальный
-- `nextNote` (стр. 287) — локальный
-- `handleSaveProfile` (стр. 326) — локальный
-- `handleSubmitShiftChecklist` (стр. 332) — локальный
-- `saved` (стр. 335) — локальный
-- `handleSavePass` (стр. 350) — локальный
-- `handleGenerateTelegramCode` (стр. 377) — локальный
-- `handleSaveNotifications` (стр. 381) — локальный
-- `headerTitle` (стр. 387) — локальный
-- `isMyService` (стр. 467) — локальный
-- `isOutsource` (стр. 468) — локальный
-- `myBaseLink` (стр. 516) — локальный
-- `myAdditionalServices` (стр. 517) — локальный
-- `baseEarned` (стр. 519) — локальный
-- `additionalEarned` (стр. 520) — локальный
-- `total` (стр. 521) — локальный
-- `earned` (стр. 532) — локальный
-- `created` (стр. 584) — локальный
-- `started` (стр. 585) — локальный
-- `completed` (стр. 586) — локальный
-- `w` (стр. 864) — локальный
-- `earned` (стр. 865) — локальный
-- `paymentLabel` (стр. 868) — локальный
-- `isActive` (стр. 963) — локальный
+- `workerStatusLabel` (стр. 30) — локальный
+- `workerStatusBadge` (стр. 53) — локальный
+- `workerPaymentLabel` (стр. 74) — локальный
+- `bookingBasePrice` (стр. 80) — локальный
+- `additionalTotal` (стр. 81) — локальный
+- `servicesTotal` (стр. 82) — локальный
+- `bookingBaseWorkerEarned` (стр. 87) — локальный
+- `link` (стр. 88) — локальный
+- `formatBookingInstant` (стр. 95) — локальный
+- `date` (стр. 97) — локальный
+- `WorkerApp` (стр. 103)
+- `workerId` (стр. 133) — локальный
+- `myNotifications` (стр. 157) — локальный
+- `unreadCount` (стр. 158) — локальный
+- `isMyTask` (стр. 160) — локальный
+- `allTasks` (стр. 164) — локальный
+- `todayTasks` (стр. 167) — локальный
+- `myEarnings` (стр. 169) — локальный
+- `w` (стр. 172) — локальный
+- `earned` (стр. 173) — локальный
+- `totalEarned` (стр. 180) — локальный
+- `payrollSummary` (стр. 181) — локальный
+- `earnedForDisplay` (стр. 182) — локальный
+- `myPenalties` (стр. 183) — локальный
+- `complaintState` (стр. 184) — локальный
+- `payoutAfterPenalties` (стр. 185) — локальный
+- `allMyTasks` (стр. 187) — локальный
+- `completedCount` (стр. 188) — локальный
+- `avgCheck` (стр. 189) — локальный
+- `chemistryItems` (стр. 190) — локальный
+- `formatTimer` (стр. 198) — локальный
+- `glass` (стр. 200) — локальный
+- `bg` (стр. 201) — локальный
+- `text` (стр. 202) — локальный
+- `sub` (стр. 203) — локальный
+- `primary` (стр. 204) — локальный
+- `accent` (стр. 205) — локальный
+- `surface` (стр. 206) — локальный
+- `inputCls` (стр. 207) — локальный
+- `formatComplaintDate` (стр. 208) — локальный
+- `handleStartTask` (стр. 210) — локальный
+- `openFinishModal` (стр. 218) — локальный
+- `handleFinish` (стр. 227) — локальный
+- `nextNote` (стр. 233) — локальный
+- `headerTitle` (стр. 273) — локальный
+- `isMyService` (стр. 353) — локальный
+- `isOutsource` (стр. 354) — локальный
+- `myBaseLink` (стр. 402) — локальный
+- `myAdditionalServices` (стр. 403) — локальный
+- `baseEarned` (стр. 405) — локальный
+- `additionalEarned` (стр. 406) — локальный
+- `total` (стр. 407) — локальный
+- `earned` (стр. 418) — локальный
+- `created` (стр. 470) — локальный
+- `started` (стр. 471) — локальный
+- `completed` (стр. 472) — локальный
+- `isActive` (стр. 550) — локальный
 
 ### frontend/src/app/components/worker/WorkerCalendar.tsx (615 строк)
 
@@ -4072,11 +4093,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `REDESIGN_PLAN.md` (2026-08-23 09:00)
+- `REDESIGN_PLAN.md` (2026-08-23 09:19)
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-23 09:17)
+- `frontend/src/app/components/worker/screens/WorkerProfileScreen.tsx` (2026-08-23 09:15)
+- `backend/tests/test_bot_help.py` (2026-08-23 09:09)
 - `frontend/src/app/components/worker/screens/WorkerEarningsScreen.tsx` (2026-08-23 08:59)
-- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-23 08:57)
 - `frontend/src/app/components/worker/shared/EarningsCalendar.tsx` (2026-08-23 08:51)
-- `backend/tests/test_bot_help.py` (2026-08-23 08:50)
 - `frontend/src/app/components/worker/screens/WorkerScheduleScreen.tsx` (2026-08-23 08:28)
 - `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-08-23 08:26)
 - `frontend/src/app/components/worker/screens/WorkerTodayScreen.tsx` (2026-08-23 08:21)
@@ -4086,4 +4108,3 @@ concept1.0/
 - `frontend/src/app/components/client/screens/ProfileScreen.tsx` (2026-08-23 07:56)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-23 07:54)
 - `frontend/src/app/components/client/screens/SlotsScreen.tsx` (2026-08-23 07:43)
-- `frontend/src/app/components/client/ClientApp.tsx` (2026-08-23 07:41)
