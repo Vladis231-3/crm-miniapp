@@ -471,11 +471,11 @@ export function AdminStockPage() {
       {/* Удаление товара/категории — DS Dialog */}
       <Dialog
         open={Boolean(pendingItemDelete)}
-        onClose={() => setpendingItemDelete(null)}
+        onClose={() => setPendingItemDelete(null)}
         title="Удалить?"
         footer={
           <>
-            <Button variant="secondary" className="flex-1" onClick={() => setpendingItemDelete(null)}>
+            <Button variant="secondary" className="flex-1" onClick={() => setPendingItemDelete(null)}>
               Отмена
             </Button>
             <Button
@@ -489,7 +489,7 @@ export function AdminStockPage() {
                 } catch {
                   toast({ type: 'error', title: 'Не удалось удалить' });
                 }
-                setpendingItemDelete(null);
+                setPendingItemDelete(null);
               }}
             >
               Удалить
