@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 16:13 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 17:05 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **490**
-- Строк кода: **196 091**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 300
+- Файлов кода: **494**
+- Строк кода: **197 730**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 35, `.tsx`: 301
 
 ## Архитектура
 
@@ -175,6 +175,7 @@ concept1.0/
 │   │   ├── config.py
 │   │   ├── database.py
 │   │   ├── date_utils.py
+│   │   ├── error_notifier.py
 │   │   ├── exports.py
 │   │   ├── finance.py
 │   │   ├── finance_sync.py
@@ -212,6 +213,7 @@ concept1.0/
 │   │   ├── test_content.py
 │   │   ├── test_database_config.py
 │   │   ├── test_deposit.py
+│   │   ├── test_error_notifier.py
 │   │   ├── test_finance_batch3.py
 │   │   ├── test_finance_calculations.py
 │   │   ├── test_finance_edit.py
@@ -222,6 +224,7 @@ concept1.0/
 │   │   ├── test_google_calendar_pull.py
 │   │   ├── test_html_and_headers.py
 │   │   ├── test_income_endpoints.py
+│   │   ├── test_money_fixes.py
 │   │   ├── test_money_flow.py
 │   │   ├── test_owner_export_stock_decimal.py
 │   │   ├── test_owner_masters.py
@@ -342,6 +345,8 @@ concept1.0/
 │   │   │   │   │   ├── Works.tsx
 │   │   │   │   │   └── WorksPage.tsx
 │   │   │   │   ├── owner/
+│   │   │   │   │   ├── screens/
+│   │   │   │   │   │   └── OwnerStockPage.tsx
 │   │   │   │   │   ├── DepositPanel.tsx
 │   │   │   │   │   └── OwnerApp.tsx
 │   │   │   │   ├── shared/
@@ -681,6 +686,37 @@ concept1.0/
 - `parse_date_paramdef parse_date_param(value: str) -> date: """Accept strict DD.MM.YYYY or ISO YYYY-MM-DD query dates.""" try: return parse_dmy(value) except ValueError: parsed = date.fromisoformat(` (стр. 23)
 - `validate_rangedef validate_range(date_from: date, date_to: date) -> None: if date_from > date_to: raise ValueError("date_from must not be after date_to")` (стр. 34)
 
+### backend/app/error_notifier.py (383 строк)
+
+Классы и функции (26):
+
+- `_env_booldef _env_bool(name: str, default: bool) -> bool: raw = (os.getenv(name) or "").strip().lower() if not raw: return default return raw in {"1", "true", "yes", "on"}` (стр. 47)
+- `_env_intdef _env_int(name: str, default: int, minimum: int) -> int: try: value = int((os.getenv(name) or "").strip()) except ValueError: return default return max(minimum, value)` (стр. 54)
+- `class _NotifierState: """Общее состояние throttle'а (потокобезопасное через RLock).""" def __init__(self) -> None: self.` (стр. 62)
+- `_NotifierState.__init__def __init__(self) -> None: self.lock = threading.RLock() self.last_sent_by_fingerprint: dict[str, float] = {} self.sent_timestamps: deque[float] = deque() self.no_recipient_warned` (стр. 65)
+- `_reset_state_for_testsdef _reset_state_for_tests() -> None: global _state _state = _NotifierState()` (стр. 75)
+- `_cooldown_secondsdef _cooldown_seconds() -> int: return _env_int("ERROR_NOTIFY_COOLDOWN_SECONDS", 600, minimum=1)` (стр. 80)
+- `_max_messages_per_hourdef _max_messages_per_hour() -> int: return _env_int("ERROR_NOTIFY_MAX_PER_HOUR", 30, minimum=1)` (стр. 84)
+- `_enableddef _enabled() -> bool: return _env_bool("ERROR_NOTIFY_ENABLED", True)` (стр. 88)
+- `_is_own_recorddef _is_own_record(record: logging.LogRecord) -> bool: name = record.name or "" return any( name == own or name.startswith(f"{own}.") for own in _OWN_LOGGER_NAMES )` (стр. 92)
+- `_fetch_owner_chat_idsdef _fetch_owner_chat_ids() -> list[str]: """Активные владельцы с непустым telegram_chat_id (создатель первым).""" db = SessionLocal() try: rows = db.execute( select(StaffUser.tele` (стр. 99)
+- `_send_via_botdef _send_via_bot(chat_id: str, text: str) -> None: """Ленивый импорт, чтобы избежать циклического импорта с bot.py.""" try: from backend.bot import send_telegram_message except Im` (стр. 126)
+- `_truncatedef _truncate(text: str, limit: int) -> str: if len(text) <= limit: return text return text[: max(limit - 20, 0)].rstrip() + "\n…[сообщение обрезано]"` (стр. 135)
+- `_build_messagedef _build_message( *, kind: str, context: str, error_type: str, message: str, where: str, tb_text: str,` (стр. 141)
+- `_exception_wheredef _exception_where(exc: BaseException) -> str: frames = traceback.extract_tb(exc.__traceback__) if not frames: return "" last = frames[-1] filename = os.path.basename(last.filena` (стр. 171)
+- `_exception_fingerprintdef _exception_fingerprint(exc: BaseException) -> str: frames = traceback.extract_tb(exc.__traceback__) site = f"{frames[-1].filename}:{frames[-1].lineno}" if frames else "unknown"` (стр. 180)
+- `_log_record_fingerprintdef _log_record_fingerprint(record: logging.LogRecord) -> str: return f"log:{record.name}:{record.funcName}:{record.lineno}"` (стр. 190)
+- `_dispatch_lockeddef _dispatch_locked(state: _NotifierState, text: str, fingerprint: str) -> bool: """Отправка текста владельцам. Вызывать под state.lock.""" try: chat_ids = _fetch_owner_chat_ids()` (стр. 194)
+- `_throttle_check_lockeddef _throttle_check_locked(state: _NotifierState, fingerprint: str) -> str | None: """Возвращает причину подавления или None, если можно отправлять.""" now_monotonic = time.monoton` (стр. 247)
+- `_submitdef _submit(*, fingerprint: str, message: str) -> bool: if not _enabled():` (стр. 263)
+- `notify_exceptiondef notify_exception(exc: BaseException, *, context: str = "") -> bool: """Отправить исключение владельцам в Telegram. Никогда не бросает.""" try: frames = traceback.extract_tb(exc` (стр. 275)
+- `notify_error_messagedef notify_error_message(message: str, *, context: str = "", source: str = "") -> bool: """Отправить произвольный текст ошибки владельцам в Telegram.""" try: fingerprint_source = f` (стр. 299)
+- `class TelegramErrorNotifyHandler(logging.Handler):` (стр. 320)
+- `TelegramErrorNotifyHandler.__init__def __init__(self, level: int = logging.ERROR) -> None: super().__init__(level=level)` (стр. 323)
+- `TelegramErrorNotifyHandler.emitdef emit(self, record: logging.LogRecord) -> None: if _is_own_record(record):` (стр. 326)
+- `install_error_notifyingdef install_error_notifying() -> None: """Идемпотентно подключает logging-handler к корневому логгеру. Проверка по имени класса (а не по флагу модуля): тесты выгружают и заново имп` (стр. 353)
+- `unhandled_exception_handlerasync def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse: """FastAPI/Starlette handler для несловленных исключений (HTTP 500).""" notify_exception(ex` (стр. 368)
+
 ### backend/app/exports.py (3397 строк)
 
 Классы и функции (49):
@@ -744,11 +780,11 @@ concept1.0/
 - `prorated_monthly_salarydef prorated_monthly_salary(monthly_salary: object, date_from: date, date_to: date) -> Decimal: """Prorate a monthly salary over inclusive calendar dates, month by month.""" if dat` (стр. 19)
 - `salary_base_for_perioddef salary_base_for_period( monthly_salary: object, date_from: date, date_to: date, *, period: str, today: date | None = None,` (стр. 36)
 
-### backend/app/finance_sync.py (44 строк)
+### backend/app/finance_sync.py (52 строк)
 
 Классы и функции (1):
 
-- `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" transaction = db.scalar( select(Pig` (стр. 14)
+- `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" # Зарплатные расходы (премии/авансы` (стр. 14)
 
 ### backend/app/google_calendar.py (1917 строк)
 
@@ -823,351 +859,351 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1791)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1845)
 
-### backend/app/main.py (22634 строк)
+### backend/app/main.py (22798 строк)
 
 Роуты (133):
 
 ```
-  `POST /api/auth/client` -> `register_or_login_client` (декоратор: стр. 5654)
-  `POST /api/auth/staff/login` -> `staff_login` (декоратор: стр. 5764)
-  `POST /api/auth/telegram` -> `authenticate_via_telegram` (декоратор: стр. 5810)
-  `POST /api/auth/staff/link` -> `link_staff_account` (декоратор: стр. 5832)
-  `POST /api/auth/telegram-owner` -> `authenticate_primary_owner_via_telegram` (декоратор: стр. 5866)
-  `POST /api/auth/switch-role` -> `switch_role` (декоратор: стр. 5903)
-  `POST /api/owner/database-reset/start` -> `start_owner_database_reset` (декоратор: стр. 7741)
-  `POST /api/owner/database-reset/approve` -> `approve_owner_database_reset` (декоратор: стр. 7797)
-  `POST /api/owner/database-reset/execute` -> `execute_owner_database_reset` (декоратор: стр. 7851)
-  `GET /api/owner/exports/{kind}` -> `download_owner_export` (декоратор: стр. 8722)
-  `POST /api/owner/exports/{kind}/telegram` -> `send_owner_export_to_telegram` (декоратор: стр. 8752)
-  `POST /api/owner/reports/{period}/{segment}/telegram` -> `send_owner_summary_report_to_telegram` (декоратор: стр. 8782)
-  `PATCH /api/clients/me` -> `update_client_me` (декоратор: стр. 9830)
-  `DELETE /api/clients/{client_id}` -> `delete_client` (декоратор: стр. 9910)
-  `PATCH /api/clients/{client_id}/card` -> `update_client_card` (декоратор: стр. 9935)
-  `POST /api/clients` -> `create_client` (декоратор: стр. 10035)
-  `GET /api/health` -> `health` (декоратор: стр. 10092)
-  `GET /api/content` -> `get_public_content` (декоратор: стр. 10249)
-  `PUT /api/content` -> `save_content` (декоратор: стр. 10263)
-  `POST /api/upload` -> `upload_file` (декоратор: стр. 10327)
-  `GET /api/uploads/{filename}` -> `serve_upload` (декоратор: стр. 10379)
-  `POST /api/contact` -> `submit_contact` (декоратор: стр. 10400)
-  `POST settings.telegram_webhook_path` -> `handle_telegram_webhook` (декоратор: стр. 10450)
-  `POST /api/telegram/webhook/sync` -> `resync_telegram_webhook` (декоратор: стр. 10500)
-  `GET /api/stock-categories` -> `list_stock_categories` (декоратор: стр. 10541)
-  `POST /api/stock-categories` -> `create_stock_category` (декоратор: стр. 10554)
-  `PATCH /api/stock-categories/{category_id}` -> `update_stock_category` (декоратор: стр. 10572)
-  `DELETE /api/stock-categories/{category_id}` -> `delete_stock_category` (декоратор: стр. 10591)
-  `GET /api/bookings/availability` -> `get_booking_availability` (декоратор: стр. 10612)
-  `POST /api/bookings` -> `create_booking` (декоратор: стр. 10683)
-  `PATCH /api/bookings/{booking_id}` -> `update_booking` (декоратор: стр. 11928)
-  `DELETE /api/bookings/{booking_id}` -> `delete_booking` (декоратор: стр. 12603)
-  `POST /api/bookings/{booking_id}/services` -> `add_booking_service` (декоратор: стр. 12703)
-  `POST /api/bookings/{booking_id}/additional-services` -> `add_booking_additional_service` (декоратор: стр. 12769)
-  `DELETE /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `remove_booking_additional_service` (декоратор: стр. 12887)
-  `PATCH /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `update_booking_additional_service` (декоратор: стр. 12959)
-  `POST /api/notifications` -> `create_notification` (декоратор: стр. 13043)
-  `PATCH /api/notifications/{notification_id}/read` -> `mark_notification_read` (декоратор: стр. 13123)
-  `POST /api/notifications/read-all` -> `mark_all_notifications_read` (декоратор: стр. 13201)
-  `POST /api/stock-items` -> `create_stock_item` (декоратор: стр. 13267)
-  `PATCH /api/stock-items/{item_id}` -> `update_stock_item` (декоратор: стр. 13303)
-  `POST /api/stock-items/{item_id}/write-off` -> `write_off_stock` (декоратор: стр. 13351)
-  `GET /api/stock/write-off-history` -> `get_write_off_history` (декоратор: стр. 13400)
-  `DELETE /api/stock-items/{item_id}` -> `delete_stock_item` (декоратор: стр. 13431)
-  `GET /api/shift-checklists` -> `list_shift_checklists` (декоратор: стр. 13467)
-  `POST /api/shift-checklists` -> `submit_shift_checklist` (декоратор: стр. 13509)
-  `GET /api/admin/shift-inspections` -> `list_admin_shift_inspections` (декоратор: стр. 13631)
-  `GET /api/admin/shift-inspections/{inspection_id}/photo` -> `get_admin_shift_inspection_photo` (декоратор: стр. 13677)
-  `POST /api/admin/shift-inspections` -> `submit_admin_shift_inspection` (декоратор: стр. 13759)
-  `POST /api/admin/shift-inspections/{inspection_id}/review` -> `review_admin_shift_inspection` (декоратор: стр. 13915)
-  `POST /api/owner/shift-openings` -> `open_shift_for_masters` (декоратор: стр. 13954)
-  `POST /api/expenses` -> `create_expense` (декоратор: стр. 14080)
-  `PATCH /api/expenses/{expense_id}` -> `update_expense` (декоратор: стр. 14126)
-  `GET /api/owner/incomes` -> `list_incomes` (декоратор: стр. 14184)
-  `POST /api/owner/incomes` -> `create_income` (декоратор: стр. 14232)
-  `PATCH /api/owner/incomes/{income_id}` -> `update_income` (декоратор: стр. 14296)
-  `GET /api/owner/piggy-bank` -> `get_piggy_bank` (декоратор: стр. 14376)
-  `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 14877)
-  `POST /api/owner/piggy-bank/adjust` -> `piggy_bank_adjust` (декоратор: стр. 15087)
-  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 15533)
-  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 15577)
-  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 15612)
-  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 15639)
-  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 15665)
-  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 15683)
-  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 15695)
-  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 15713)
-  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 15726)
-  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 15805)
-  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 15890)
-  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 15950)
-  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 16175)
-  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 16271)
-  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 16351)
-  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 16419)
-  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 16558)
-  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 16640)
-  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 16790)
-  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 16932)
-  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 17078)
-  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 17132)
-  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 17208)
-  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 17266)
-  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 17314)
-  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 17388)
-  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 17412)
-  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 17472)
-  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 17514)
-  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 17538)
-  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 17562)
-  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 17597)
-  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 17668)
-  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 17766)
-  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 17785)
-  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 17822)
-  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 17857)
-  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 17883)
-  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 17916)
-  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 17928)
-  `GET /api/cron/google-sync` -> `run_google_calendar_sync_cron` (декоратор: стр. 17952)
-  `GET /api/cron/reminders` -> `run_reminders_cron` (декоратор: стр. 17977)
-  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 18009)
-  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 18067)
-  `GET /api/cron/reports` -> `run_reports_cron` (декоратор: стр. 18086)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 18132)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 18168)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 18271)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 18371)
-  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 18440)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 18510)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 18740)
-  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 18835)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 18925)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 19150)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 19237)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 19410)
-  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 19724)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 20227)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 20241)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 20617)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 21066)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 21474)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 21665)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 21913)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 22125)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 22263)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 22323)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 22517)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 22525)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 22537)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 22561)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 22569)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 22577)
+  `POST /api/auth/client` -> `register_or_login_client` (декоратор: стр. 5684)
+  `POST /api/auth/staff/login` -> `staff_login` (декоратор: стр. 5794)
+  `POST /api/auth/telegram` -> `authenticate_via_telegram` (декоратор: стр. 5840)
+  `POST /api/auth/staff/link` -> `link_staff_account` (декоратор: стр. 5862)
+  `POST /api/auth/telegram-owner` -> `authenticate_primary_owner_via_telegram` (декоратор: стр. 5896)
+  `POST /api/auth/switch-role` -> `switch_role` (декоратор: стр. 5933)
+  `POST /api/owner/database-reset/start` -> `start_owner_database_reset` (декоратор: стр. 7771)
+  `POST /api/owner/database-reset/approve` -> `approve_owner_database_reset` (декоратор: стр. 7827)
+  `POST /api/owner/database-reset/execute` -> `execute_owner_database_reset` (декоратор: стр. 7881)
+  `GET /api/owner/exports/{kind}` -> `download_owner_export` (декоратор: стр. 8752)
+  `POST /api/owner/exports/{kind}/telegram` -> `send_owner_export_to_telegram` (декоратор: стр. 8782)
+  `POST /api/owner/reports/{period}/{segment}/telegram` -> `send_owner_summary_report_to_telegram` (декоратор: стр. 8812)
+  `PATCH /api/clients/me` -> `update_client_me` (декоратор: стр. 9860)
+  `DELETE /api/clients/{client_id}` -> `delete_client` (декоратор: стр. 9940)
+  `PATCH /api/clients/{client_id}/card` -> `update_client_card` (декоратор: стр. 9965)
+  `POST /api/clients` -> `create_client` (декоратор: стр. 10065)
+  `GET /api/health` -> `health` (декоратор: стр. 10122)
+  `GET /api/content` -> `get_public_content` (декоратор: стр. 10279)
+  `PUT /api/content` -> `save_content` (декоратор: стр. 10293)
+  `POST /api/upload` -> `upload_file` (декоратор: стр. 10357)
+  `GET /api/uploads/{filename}` -> `serve_upload` (декоратор: стр. 10409)
+  `POST /api/contact` -> `submit_contact` (декоратор: стр. 10430)
+  `POST settings.telegram_webhook_path` -> `handle_telegram_webhook` (декоратор: стр. 10480)
+  `POST /api/telegram/webhook/sync` -> `resync_telegram_webhook` (декоратор: стр. 10530)
+  `GET /api/stock-categories` -> `list_stock_categories` (декоратор: стр. 10571)
+  `POST /api/stock-categories` -> `create_stock_category` (декоратор: стр. 10584)
+  `PATCH /api/stock-categories/{category_id}` -> `update_stock_category` (декоратор: стр. 10602)
+  `DELETE /api/stock-categories/{category_id}` -> `delete_stock_category` (декоратор: стр. 10621)
+  `GET /api/bookings/availability` -> `get_booking_availability` (декоратор: стр. 10642)
+  `POST /api/bookings` -> `create_booking` (декоратор: стр. 10713)
+  `PATCH /api/bookings/{booking_id}` -> `update_booking` (декоратор: стр. 11966)
+  `DELETE /api/bookings/{booking_id}` -> `delete_booking` (декоратор: стр. 12641)
+  `POST /api/bookings/{booking_id}/services` -> `add_booking_service` (декоратор: стр. 12741)
+  `POST /api/bookings/{booking_id}/additional-services` -> `add_booking_additional_service` (декоратор: стр. 12807)
+  `DELETE /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `remove_booking_additional_service` (декоратор: стр. 12925)
+  `PATCH /api/bookings/{booking_id}/additional-services/{additional_service_id}` -> `update_booking_additional_service` (декоратор: стр. 12997)
+  `POST /api/notifications` -> `create_notification` (декоратор: стр. 13081)
+  `PATCH /api/notifications/{notification_id}/read` -> `mark_notification_read` (декоратор: стр. 13161)
+  `POST /api/notifications/read-all` -> `mark_all_notifications_read` (декоратор: стр. 13239)
+  `POST /api/stock-items` -> `create_stock_item` (декоратор: стр. 13305)
+  `PATCH /api/stock-items/{item_id}` -> `update_stock_item` (декоратор: стр. 13341)
+  `POST /api/stock-items/{item_id}/write-off` -> `write_off_stock` (декоратор: стр. 13389)
+  `GET /api/stock/write-off-history` -> `get_write_off_history` (декоратор: стр. 13438)
+  `DELETE /api/stock-items/{item_id}` -> `delete_stock_item` (декоратор: стр. 13469)
+  `GET /api/shift-checklists` -> `list_shift_checklists` (декоратор: стр. 13505)
+  `POST /api/shift-checklists` -> `submit_shift_checklist` (декоратор: стр. 13547)
+  `GET /api/admin/shift-inspections` -> `list_admin_shift_inspections` (декоратор: стр. 13669)
+  `GET /api/admin/shift-inspections/{inspection_id}/photo` -> `get_admin_shift_inspection_photo` (декоратор: стр. 13715)
+  `POST /api/admin/shift-inspections` -> `submit_admin_shift_inspection` (декоратор: стр. 13797)
+  `POST /api/admin/shift-inspections/{inspection_id}/review` -> `review_admin_shift_inspection` (декоратор: стр. 13953)
+  `POST /api/owner/shift-openings` -> `open_shift_for_masters` (декоратор: стр. 13992)
+  `POST /api/expenses` -> `create_expense` (декоратор: стр. 14118)
+  `PATCH /api/expenses/{expense_id}` -> `update_expense` (декоратор: стр. 14164)
+  `GET /api/owner/incomes` -> `list_incomes` (декоратор: стр. 14230)
+  `POST /api/owner/incomes` -> `create_income` (декоратор: стр. 14278)
+  `PATCH /api/owner/incomes/{income_id}` -> `update_income` (декоратор: стр. 14342)
+  `GET /api/owner/piggy-bank` -> `get_piggy_bank` (декоратор: стр. 14435)
+  `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 14936)
+  `POST /api/owner/piggy-bank/adjust` -> `piggy_bank_adjust` (декоратор: стр. 15152)
+  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 15598)
+  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 15642)
+  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 15677)
+  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 15704)
+  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 15730)
+  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 15748)
+  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 15760)
+  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 15778)
+  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 15791)
+  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 15870)
+  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 15955)
+  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 16015)
+  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 16240)
+  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 16336)
+  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 16416)
+  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 16484)
+  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 16623)
+  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 16705)
+  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 16855)
+  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 16997)
+  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 17143)
+  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 17197)
+  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 17273)
+  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 17331)
+  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 17379)
+  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 17453)
+  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 17477)
+  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 17537)
+  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 17579)
+  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 17603)
+  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 17627)
+  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 17662)
+  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 17733)
+  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 17831)
+  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 17850)
+  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 17887)
+  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 17922)
+  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 17948)
+  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 17981)
+  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 17993)
+  `GET /api/cron/google-sync` -> `run_google_calendar_sync_cron` (декоратор: стр. 18017)
+  `GET /api/cron/reminders` -> `run_reminders_cron` (декоратор: стр. 18042)
+  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 18074)
+  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 18132)
+  `GET /api/cron/reports` -> `run_reports_cron` (декоратор: стр. 18151)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 18197)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 18233)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 18336)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 18436)
+  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 18505)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 18575)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 18820)
+  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 18915)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 19005)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 19230)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 19317)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 19490)
+  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 19804)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 20307)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 20321)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 20710)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 21159)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 21567)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 21829)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 22077)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 22289)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 22427)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 22487)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 22681)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 22689)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 22701)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 22725)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 22733)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 22741)
 ```
 
-Классы и функции (239):
+Классы и функции (240):
 
-- `_resolve_frontend_distdef _resolve_frontend_dist() -> Path: """Каталог собранного React-фронтенда. В обычном режиме — <project>/frontend/dist (родитель каталога app/). В frozen-режиме (PyInstaller bundl` (стр. 562)
-- `_check_rate_limitdef _check_rate_limit(ip: str) -> None: global _last_rate_limit_cleanup now = time_module.time() window_start = now - _LOGIN_RATE_LIMIT_WINDOW # Periodic cleanup of stale entries t` (стр. 768)
-- `add_security_headersasync def add_security_headers(request: Request, call_next): response = await call_next(request) for key, value in SECURITY_HEADERS.items():` (стр. 861)
-- `serve_single_page_appasync def serve_single_page_app(request: Request, call_next): path = request.url.path index_file = frontend_dist / "index.html" if request.method not in {"GET", "HEAD"}: return awa` (стр. 874)
-- `on_startupdef on_startup() -> None: global bot_thread Base.metadata.create_all(bind=engine) _apply_runtime_migrations() db = next(get_db()) try: seed_database(db, include_demo_staff=settings` (стр. 922)
-- `start_google_sync_threaddef start_google_sync_thread() -> None: """Запускает фоновый цикл синхронизации «Google Calendar -> CRM» (daemon-поток). Поток нужен только при настроенной интеграции: учётные данн` (стр. 1007)
-- `_nowdef _now() -> datetime: return datetime.now(timezone.utc)` (стр. 1037)
-- `_local_day_boundsdef _local_day_bounds(date_str: str) -> tuple[datetime, datetime]: """Границы локального дня (DD.MM.YYYY) в UTC: (00:00, 23:59:59) местного времени. Периоды ЗП считаются по локальн` (стр. 1042)
-- `_as_utcdef _as_utc(value: datetime) -> datetime: if value.tzinfo is None: return value.replace(tzinfo=timezone.utc) return value.astimezone(timezone.utc)` (стр. 1057)
-- `_format_moscow_dtdef _format_moscow_dt(dt: datetime | None) -> str: if dt is None: return "" msk = dt.astimezone(timezone(timedelta(hours=3))) return msk.strftime("%H:%M %d.%m.%Y")` (стр. 1066)
-- `_request_ipdef _request_ip(request: Request) -> str: # For rate limiting, prefer direct client IP to prevent X-Forwarded-For spoofing if request.client is not None and request.client.host: re` (стр. 1077)
-- `_safe_textdef _safe_text(value: Any) -> str: return value if isinstance(value, str) else ""` (стр. 1097)
-- `_client_by_phonedef _client_by_phone(db: Session, phone: str) -> Client | None: if not phone.strip():` (стр. 1105)
-- `_owner_querydef _owner_query(): return ( select(StaffUser) .where(StaffUser.role == "owner") .order_by(StaffUser.created_at.asc(), StaffUser.id.asc()) )` (стр. 1143)
-- `_primary_ownerdef _primary_owner(db: Session) -> StaffUser | None: return db.scalar( select(StaffUser) .where(StaffUser.role == "owner", StaffUser.is_primary_owner.is_(True)) .order_by(StaffUser` (стр. 1159)
-- `_owner_master_conditiondef _owner_master_condition() -> Any: """Владелец, которому дополнительно выдана роль мастера (extra_roles != []). Такие владельцы попадают в списки мастеров: назначение на записи,` (стр. 1175)
-- `_is_owner_masterdef _is_owner_master(worker: StaffUser) -> bool: return worker.role == "owner" and bool(worker.extra_roles)` (стр. 1190)
-- `_ensure_permanent_telegram_ownersdef _ensure_permanent_telegram_owners(db: Session) -> None: """Upsert explicitly configured owners without reassigning existing rows.""" for staff_id, login, chat_id, owner_name in` (стр. 1197)
-- `_ensure_owner_accountsdef _ensure_owner_accounts(db: Session) -> None: owners = db.scalars(_owner_query()).all() primary_owner = next((owner for owner in owners if owner.is_primary_owner), None) if prim` (стр. 1303)
-- `_device_labeldef _device_label(user_agent: str) -> str: if "Telegram-Android" in user_agent: return "Telegram Android" if "Telegram-iOS" in user_agent: return "Telegram iPhone" if "iPhone" in u` (стр. 1431)
-- `_apply_runtime_migrationsdef _apply_runtime_migrations() -> None: from sqlalchemy import text def boolean_default_sql(value: bool) -> str:` (стр. 1467)
-- `boolean_default_sqldef boolean_default_sql(value: bool) -> str: if engine.dialect.name == "postgresql": return "TRUE" if value else "FALSE" return "1" if value else "0"` (стр. 1471)
-- `ensure_postgres_varchar_lengthdef ensure_postgres_varchar_length( table_name: str, column_name: str, minimum_length: int` (стр. 1481)
-- `ensure_postgres_text_columndef ensure_postgres_text_column(table_name: str, column_name: str) -> None: if engine.dialect.name != "postgresql": return column = next( ( item for item in inspect(engine).get_col` (стр. 1527)
-- `_apply_default_shift_paydef _apply_default_shift_pay(db: Session) -> None: """Один раз выставляет оклад за смену DEFAULT_SHIFT_PAY сотрудникам (кроме владельцев), у которых ставка не задана (0). Выполняет` (стр. 2630)
-- `_repair_text_valuedef _repair_text_value(value: str) -> str: if not value or not any(ord(char) > 127 for char in value):` (стр. 2660)
-- `_repair_nested_textdef _repair_nested_text(value): if isinstance(value, str):` (стр. 2680)
-- `_repair_model_text_fieldsdef _repair_model_text_fields(db: Session, model, fields: tuple[str, ...]) -> bool: changed = False for item in db.scalars(select(model)).all():` (стр. 2700)
-- `_sanitize_notification_messagedef _sanitize_notification_message(message: str) -> str: fixed = _repair_text_value(message).strip() for source, target in { "вЂў": "•", "в€¢": "•", "вВў": "•", "â€¢": "•", "вЂ”": ` (стр. 2728)
-- `_repair_text_datadef _repair_text_data(db: Session) -> None: changed = False changed |= _repair_model_text_fields( db, StaffUser, ("name", "city", "experience", "specialty", "about"), ) changed |= ` (стр. 2762)
-- `_settingdef _setting(db: Session, key: str, default: dict) -> dict: row = db.get(AppSetting, key) if row: return row.value row = AppSetting(key=key, value=default) db.add(row) db.flush() r` (стр. 2908)
-- `_merge_setting_dictdef _merge_setting_dict(value: Any, default: dict[str, Any]) -> dict[str, Any]: if not isinstance(value, dict):` (стр. 2928)
-- `_normalize_client_vehiclesdef _normalize_client_vehicles( vehicles: list[ClientVehiclePayload] | list[dict[str, Any]] | None, *, fallback_car: str = "", fallback_plate: str = "",` (стр. 2952)
-- `_client_vehicles_mapdef _client_vehicles_map(db: Session) -> dict[str, Any]: return _setting(db, "client_vehicles", {})` (стр. 3064)
-- `_client_vehicles_payloaddef _client_vehicles_payload(db: Session, client: Client) -> list[ClientVehiclePayload]: raw = _client_vehicles_map(db).get(client.id, []) return _normalize_client_vehicles( raw, f` (стр. 3072)
-- `_save_client_vehiclesdef _save_client_vehicles( db: Session, client_id: str, vehicles: list[ClientVehiclePayload]` (стр. 3086)
-- `_client_phone_verifications_mapdef _client_phone_verifications_map(db: Session) -> dict[str, Any]: value = _setting(db, CLIENT_PHONE_VERIFICATIONS_KEY, {}) return value if isinstance(value, dict) else {}` (стр. 3106)
-- `_client_verified_phone_digitsdef _client_verified_phone_digits(db: Session, telegram_id: str | None) -> str | None: if not telegram_id: return None entry = _client_phone_verifications_map(db).get(str(telegram_` (стр. 3116)
-- `_client_phone_is_verifieddef _client_phone_is_verified(db: Session, telegram_id: str | None, phone: str) -> bool: if not phone.strip():` (стр. 3136)
-- `_require_client_phone_verificationdef _require_client_phone_verification( db: Session, telegram_id: str | None, phone: str` (стр. 3162)
-- `_client_payloaddef _client_payload(client: Client | None) -> ClientProfilePayload | None: if client is None: return None with Session(engine) as vehicles_db: vehicles = _client_vehicles_payload(v` (стр. 3184)
-- `_client_summary_payloaddef _client_summary_payload( client: Client, db: Session | None = None` (стр. 3224)
-- `_booking_status_labeldef _booking_status_label(status_value: str) -> str: return { "new": "Новая заявка", "confirmed": "Подтверждена", "scheduled": "Запланирована", "in_progress": "В работе", "complete` (стр. 3282)
-- `_booking_status_short_labeldef _booking_status_short_label(status_value: str) -> str: return { "new": "Новая", "confirmed": "Подтв.", "scheduled": "Запл.", "in_progress": "В работе", "completed": "Завершена"` (стр. 3308)
-- `_format_local_datetimedef _format_local_datetime(value: datetime) -> str: return _as_utc(value).astimezone().strftime("%d.%m.%Y %H:%M")` (стр. 3334)
-- `_parse_booking_datetimedef _parse_booking_datetime(date_value: str, time_value: str) -> datetime | None: raw = f"{date_value.strip()} {time_value.strip()}" for fmt in ("%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M")` (стр. 3342)
-- `_py_weekday_to_schedule_indexdef _py_weekday_to_schedule_index(py_weekday: int) -> int: # Конвенция day_index (сид и фронт getScheduleDayIndex=(getDay()+1)%7): Сб=0, Вс=1, Пн=2..Пт=6. # Python weekday(): Пн=0.` (стр. 3362)
-- `_parse_time_to_minutesdef _parse_time_to_minutes(time_value: str) -> int | None: raw = time_value.strip() if len(raw) != 5 or raw[2] != ":": return None try: hours = int(raw[:2]) minutes = int(raw[3:]) ` (стр. 3373)
-- `_today_labeldef _today_label() -> str: return datetime.now().strftime("%d.%m.%Y")` (стр. 3401)
-- `_build_schedule_slotsdef _build_schedule_slots( open_minutes: int, close_minutes: int, step_minutes: int = 30` (стр. 3409)
-- `_booking_requires_scheduled_slotdef _booking_requires_scheduled_slot(status_value: str) -> bool: return status_value in BOOKING_ACTIVE_STATUSES` (стр. 3433)
-- `_booking_slot_fields_changeddef _booking_slot_fields_changed(booking: Booking, updates: dict) -> bool: if "date" in updates and (updates.get("date") or "").strip() != (booking.date or "").strip():` (стр. 3441)
-- `_booking_time_rangedef _booking_time_range( date_value: str, time_value: str, duration: int` (стр. 3461)
-- `_time_ranges_overlapdef _time_ranges_overlap( start_at: datetime, end_at: datetime, other_start_at: datetime, other_end_at: datetime,` (стр. 3479)
-- `_ensure_booking_datetime_not_in_pastdef _ensure_booking_datetime_not_in_past(date_value: str, time_value: str, role: str) -> None: if role in {"admin", "owner"}: return scheduled_at = _parse_booking_datetime(date_val` (стр. 3497)
-- `_ensure_booking_within_scheduledef _ensure_booking_within_schedule( db: Session, date_value: str, time_value: str, duration: int` (стр. 3531)
-- `_box_is_availabledef _box_is_available( db: Session, *, booking_id: str | None, date_value: str, time_value: str, duration: int, box: str,` (стр. 3605)
-- `_pick_available_boxdef _pick_available_box( db: Session, *, booking_id: str | None, date_value: str, time_value: str, duration: int, resource_group: str | None = None, preferred_box: str | None = Non` (стр. 3629)
-- `_booking_slot_availabilitydef _booking_slot_availability( db: Session, *, date_value: str, duration: int, service_id: str | None = None, resource_group: str | None = None,` (стр. 3691)
-- `_ensure_booking_has_no_conflictsdef _ensure_booking_has_no_conflicts( db: Session, *, booking_id: str | None, date_value: str, time_value: str, duration: int, box: str, worker_ids: set[str], …` (стр. 3843)
-- `_load_penaltiesdef _load_penalties( db: Session, *, worker_ids: set[str] | None = None` (стр. 3887)
-- `_complaints_by_workerdef _complaints_by_worker(penalties: list[Penalty]) -> dict[str, list[Penalty]]: grouped: dict[str, list[Penalty]] = {} for penalty in penalties: grouped.setdefault(penalty.worker_` (стр. 3913)
-- `_normalize_worker_rulesdef _normalize_worker_rules(db: Session) -> None: changed = False workers = db.scalars(select(StaffUser).where(StaffUser.role == "worker")).all() for worker in workers: capped_perc` (стр. 3927)
-- `_worker_payloaddef _worker_payload(worker: StaffUser) -> WorkerPayload: return WorkerPayload( id=worker.id, role=worker.role, # type: ignore[arg-type] name=worker.name, experience=worker.experien` (стр. 3981)
-- `_payroll_entry_payloaddef _payroll_entry_payload(entry: PayrollEntry, actor_name: str) -> PayrollEntryPayload: return PayrollEntryPayload( id=entry.id, workerId=entry.worker_id, kind=entry.kind, # type:` (стр. 4021)
-- `_worker_payroll_summariesdef _worker_payroll_summaries( db: Session, workers: list[StaffUser], complaints_by_worker: dict[str, list[Penalty]],` (стр. 4049)
-- `_worker_payroll_summaries_from_datadef _worker_payroll_summaries_from_data( db: Session, workers: list[StaffUser], completed_bookings: list[Booking], entries: list[PayrollEntry], complaints_by_worker: dict[str, list` (стр. 4097)
-- `_worker_payload_with_payrolldef _worker_payload_with_payroll( worker: StaffUser, payroll_summaries: dict[str, WorkerPayrollSummaryPayload] | None = None,` (стр. 4275)
-- `_booking_payloaddef _booking_payload( booking: Booking, complaints_by_worker: dict[str, list[Penalty]] | None = None` (стр. 4299)
-- `_notification_payloaddef _notification_payload(notification: Notification) -> NotificationPayload: return NotificationPayload( id=notification.id, recipientRole=notification.recipient_role, # type: ign` (стр. 4469)
-- `_stock_payloaddef _stock_payload(item: StockItem) -> StockItemPayload: return StockItemPayload( id=item.id, name=item.name, qty=item.qty, unit=item.unit, unitPrice=item.unit_price, category=item` (стр. 4491)
-- `_expense_payloaddef _expense_payload(expense: Expense) -> ExpensePayload: return ExpensePayload( id=expense.id, title=expense.title, amount=expense.amount, category=expense.category, date=expense.` (стр. 4507)
-- `_penalty_payloaddef _penalty_payload(penalty: Penalty) -> PenaltyPayload: worker_name = penalty.worker.name if penalty.worker else "" return PenaltyPayload( id=penalty.id, workerId=penalty.worker_` (стр. 4531)
-- `_service_payloaddef _service_payload(service: Service) -> ServicePayload: return ServicePayload( id=service.id, name=service.name, category=service.category, price=service.price, duration=service.` (стр. 4561)
-- `_box_payloaddef _box_payload(box: Box) -> BoxPayload: return BoxPayload( id=box.id, name=box.name, resourceGroup=(box.resource_group or DEFAULT_RESOURCE_GROUP).strip() or DEFAULT_RESOURCE_GROU` (стр. 4605)
-- `_visible_boxesdef _visible_boxes(db: Session) -> list[Box]: boxes = db.scalars(select(Box).order_by(Box.name.asc())).all() wash_order_map = {name: index for index, name in enumerate(WASH_BOX_NAM` (стр. 4629)
-- `box_orderdef box_order(box: Box) -> tuple[int, int, str, str]: resource_group = _resource_group_key( box.resource_group or _default_box_resource_group(box) ) if resource_group == DETAILING_` (стр. 4639)
-- `_schedule_payloaddef _schedule_payload(entry: ScheduleEntry) -> SchedulePayload: return SchedulePayload( dayIndex=entry.day_index, day=entry.day_label, open=entry.open_time, close=entry.close_time,` (стр. 4675)
-- `_settings_payloaddef _settings_payload(db: Session) -> SettingsBundlePayload: admin_profile_default = { "name": "Администратор", "email": "", "phone": "", "telegramChatId": "", } admin_notification` (стр. 4695)
-- `_empty_settings_payloaddef _empty_settings_payload() -> SettingsBundlePayload: return SettingsBundlePayload( adminProfile=AdminProfilePayload( name="", email="", phone="", telegramChatId="" ), adminNotif` (стр. 4915)
-- `_scoped_settings_payloaddef _scoped_settings_payload( db: Session, role: str, actor_id: str` (стр. 4995)
-- `_session_payloaddef _session_payload(session_data: dict) -> SessionPayload: return SessionPayload( role=session_data["role"], actorId=session_data["actorId"], sessionId=session_data.get("sessionId` (стр. 5081)
-- `_mark_overdue_bookings_for_admin_reviewdef _mark_overdue_bookings_for_admin_review(db: Session) -> None: now_local = datetime.now().replace(second=0, microsecond=0) changed = False for booking in db.scalars( select(Book` (стр. 5101)
-- `_build_bootstrapdef _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload: role = session_data["role"] actor_id = session_data["actorId"] _mark_overdue_bookings_for_admin_review(db` (стр. 5145)
-- `_resolve_user_from_init_datadef _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None: try: validated = validate_telegram_init_data( authorization, settings.telegram_bot_token, max_age_` (стр. 5467)
-- `_require_sessiondef _require_session( authorization: str | None = Header(default=None), db: Session = Depends(get_db),` (стр. 5588)
-- `_extract_telegram_id_from_init_datadef _extract_telegram_id_from_init_data(authorization: str) -> str: if not authorization: raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData") t` (стр. 5619)
-- `_ensure_staff_roledef _ensure_staff_role(session_data: dict, allowed: set[str]) -> None: if session_data["role"] not in allowed: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Fo` (стр. 5936)
-- `_validated_booking_workersdef _validated_booking_workers( db: Session, workers: list[BookingWorkerPayload]` (стр. 5946)
-- `_booking_payload_for_responsedef _booking_payload_for_response(db: Session, booking: Booking) -> BookingPayload: worker_ids = {link.worker_id for link in booking.worker_links} penalties = _load_penalties(db, w` (стр. 6042)
-- `_sync_booking_workersdef _sync_booking_workers( db: Session, booking: Booking, workers: list[BookingWorkerPayload]` (стр. 6054)
-- `_sync_booking_materialsdef _sync_booking_materials( db: Session, booking: Booking, materials: list[BookingMaterialPayload]` (стр. 6084)
-- `_send_telegram_safedef _send_telegram_safe(chat_id: str | None, text: str) -> None: if not chat_id: logger.warning("Пропущена отправка Telegram-уведомления: у получателя нет chat_id") return try: sen` (стр. 6103)
-- `_telegram_display_namedef _telegram_display_name(telegram_user: dict, fallback: str) -> str: first_name = str(telegram_user.get("first_name") or "").strip() last_name = str(telegram_user.get("last_name"` (стр. 6123)
-- `_owner_two_factor_recipientdef _owner_two_factor_recipient(db: Session) -> StaffUser: owner = _primary_owner(db) if owner is None: raise HTTPException( status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail` (стр. 6139)
-- `_all_active_ownersdef _all_active_owners(db: Session) -> list[StaffUser]: """Возвращает всех активных владельцев, отсортированных по created_at asc.""" return list( db.scalars( select(StaffUser) .wh` (стр. 6169)
-- `_all_owner_telegram_recipientsdef _all_owner_telegram_recipients(db: Session) -> list[StaffUser]: """Возвращает всех владельцев с непустым telegram_chat_id, отсортированных по created_at asc.""" return list( db` (стр. 6191)
-- `_booking_reminder_target_datedef _booking_reminder_target_date(days_ahead: int = 1) -> str: return (datetime.now() + timedelta(days=days_ahead)).strftime("%d.%m.%Y")` (стр. 6219)
-- `_worker_notification_settings_mapdef _worker_notification_settings_map(db: Session) -> dict[str, dict[str, Any]]: return _setting(db, "worker_notification_settings", {})` (стр. 6227)
-- `_booking_reminder_statedef _booking_reminder_state(db: Session) -> dict[str, Any]: return _setting(db, BOOKING_REMINDER_STATE_KEY, {"deliveries": {}})` (стр. 6235)
-- `_return_reminder_statedef _return_reminder_state(db: Session) -> dict[str, Any]: return _setting(db, RETURN_REMINDER_STATE_KEY, {"deliveries": {}})` (стр. 6243)
-- `_shift_checklists_statedef _shift_checklists_state(db: Session) -> list[dict[str, Any]]: value = _setting(db, SHIFT_CHECKLISTS_KEY, []) return value if isinstance(value, list) else []` (стр. 6251)
-- `_admin_shift_inspections_statedef _admin_shift_inspections_state(db: Session) -> list[dict[str, Any]]: value = _setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, []) return value if isinstance(value, list) else []` (стр. 6261)
-- `_compute_shift_attendancedef _compute_shift_attendance( inspections: list[dict], worker_id: str, date_from: date, date_to: date,` (стр. 6271)
-- `_period_to_date_rangedef _period_to_date_range(period: str) -> tuple[date, date]: """ Преобразует строковый период в диапазон дат (date_from, date_to). - ``week`` → последние 7 дней - ``month`` → после` (стр. 6399)
-- `_admin_shift_owner_bot_statedef _admin_shift_owner_bot_state(db: Session) -> dict[str, Any]: value = _setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}}) return value if isinstance(value,` (стр. 6445)
-- `_cleanup_booking_reminder_deliveriesdef _cleanup_booking_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]: threshold = _now() - timedelta(days=14) cleaned: dict[str, str] = {} for key, value in deliv` (стр. 6455)
-- `_cleanup_return_reminder_deliveriesdef _cleanup_return_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]: threshold = _now() - timedelta(days=30) cleaned: dict[str, str] = {} for key, value in delive` (стр. 6475)
-- `_booking_client_reminder_messagedef _booking_client_reminder_message(booking: Booking) -> str: return ( "Напоминание о записи\n" f"Услуга: {booking.service}\n" f"Дата: {booking.date} {booking.time}\n" f"Бокс: {bo` (стр. 6495)
-- `_booking_worker_reminder_messagedef _booking_worker_reminder_message(booking: Booking, worker_name: str) -> str: return ( f"Напоминание мастеру {worker_name}\n" f"Клиент: {booking.client_name}\n" f"Услуга: {booki` (стр. 6515)
-- `_dispatch_booking_remindersdef _dispatch_booking_reminders( db: Session, *, target_date: str | None = None, force: bool = False,` (стр. 6535)
-- `_dispatch_return_visit_remindersdef _dispatch_return_visit_reminders(db: Session) -> int: reminder_state = _return_reminder_state(db) deliveries = reminder_state.get("deliveries") if not isinstance(deliveries, di` (стр. 6797)
-- `_shift_checklist_payloaddef _shift_checklist_payload(entry: dict[str, Any]) -> ShiftChecklistPayload: return ShiftChecklistPayload( id=str(entry.get("id") or ""), workerId=str(entry.get("workerId") or "")` (стр. 6907)
-- `_chemistry_stock_itemsdef _chemistry_stock_items(db: Session) -> list[StockItem]: return db.scalars( select(StockItem) .where(StockItem.category == "Химия") .order_by(StockItem.name.asc()) ).all()` (стр. 6961)
-- `_latest_shift_checklist_entrydef _latest_shift_checklist_entry( entries: list[dict[str, Any]], worker_id: str, phase: str` (стр. 6977)
-- `_clean_data_url_prefixdef _clean_data_url_prefix(data_url: str) -> str: return data_url.split(",", 1)[1] if "," in data_url else data_url` (стр. 6999)
-- `_decode_data_url_imagedef _decode_data_url_image(data_url: str) -> tuple[str, bytes]: raw = data_url.strip() if not raw.startswith("data:image/"):` (стр. 7007)
-- `_admin_shift_inspection_suppliesdef _admin_shift_inspection_supplies(db: Session) -> list[dict[str, Any]]: items = db.scalars( select(StockItem) .where(StockItem.category.in_(("Химия", "Расходники"))) .order_by(S` (стр. 7073)
-- `_admin_shift_inspection_payloaddef _admin_shift_inspection_payload( entry: dict[str, Any],` (стр. 7131)
-- `_admin_shift_captiondef _admin_shift_caption(entry: dict[str, Any]) -> str: checked_supplies = [ item.get("name") for item in entry.get("supplies", []) if isinstance(item, dict) and item.get("checked"` (стр. 7220)
-- `_admin_shift_owner_inline_keyboarddef _admin_shift_owner_inline_keyboard(inspection_id: str) -> dict[str, Any]: return { "inline_keyboard": [ [ { "text": "Подтвердить", "callback_data": f"shiftapprove:{inspection_i` (стр. 7272)
-- `_notify_owner_about_admin_shiftdef _notify_owner_about_admin_shift(db: Session, entry: dict[str, Any]) -> None: caption = _admin_shift_caption(entry) mime_type, photo_bytes = _decode_data_url_image( str(entry.ge` (стр. 7300)
-- `_apply_admin_shift_reviewdef _apply_admin_shift_review( db: Session, inspection_id: str, *, action: str, issue_note: str, owner_actor_id: str,` (стр. 7370)
-- `_serialize_state_datetimedef _serialize_state_datetime(value: datetime | None) -> str | None: if value is None: return None return _as_utc(value).isoformat()` (стр. 7490)
-- `_parse_state_datetimedef _parse_state_datetime(value: Any) -> datetime | None: if not value: return None if not isinstance(value, str):` (стр. 7502)
-- `_owner_database_reset_statedef _owner_database_reset_state(db: Session) -> dict[str, Any] | None: row = db.get(AppSetting, OWNER_DATABASE_RESET_SETTING_KEY) if row is None or not isinstance(row.value, dict):` (стр. 7524)
-- `_save_owner_database_reset_statedef _save_owner_database_reset_state( db: Session, value: dict[str, Any]` (стр. 7538)
-- `_clear_owner_database_reset_statedef _clear_owner_database_reset_state(db: Session) -> None: row = db.get(AppSetting, OWNER_DATABASE_RESET_SETTING_KEY) if row is not None: db.delete(row) db.flush()` (стр. 7550)
-- `_normalize_database_reset_phrasedef _normalize_database_reset_phrase(value: str) -> str: normalized = " ".join(value.replace("\n", " ").split()).strip().upper() return normalized.replace("Ё", "Е")` (стр. 7564)
-- `_owner_database_reset_previewdef _owner_database_reset_preview( db: Session,` (стр. 7574)
-- `_owner_database_reset_warningsdef _owner_database_reset_warnings( preview: OwnerDatabaseResetPreviewPayload,` (стр. 7628)
-- `_perform_owner_database_resetdef _perform_owner_database_reset(db: Session) -> None: db.execute(sa_delete(TelegramLinkCode)) db.execute(sa_delete(Notification)) db.execute(sa_delete(BookingWorker)) db.execute(` (стр. 7668)
-- `_parse_datedef _parse_date(s: str) -> date | None: if "." in s: parts = s.split(".") try: return date(int(parts[2]), int(parts[1]), int(parts[0])) except (ValueError, IndexError):` (стр. 7887)
-- `_owner_export_filedef _owner_export_file( db: Session, actor_id: str, kind: str, segment: str = "all", date_from: str | None = None, date_to: str | None = None,` (стр. 7913)
-- `_in_rangedef _in_range(d: str | None) -> bool: if not d: return True parsed = _parse_date(d) if not parsed: return True if parsed_from and parsed < parsed_from: return False if parsed_to an` (стр. 8063)
-- `_piggy_bank_export_filedef _piggy_bank_export_file( db: Session, actor_id: str, date_from: str | None = None, date_to: str | None = None,` (стр. 8143)
-- `_download_responsedef _download_response(export_file: GeneratedExport) -> Response: return Response( content=export_file.content, media_type=export_file.media_type, headers={ "Content-Disposition": ` (стр. 8197)
-- `class _PartialBroadcastError(Exception):` (стр. 8217)
-- `_PartialBroadcastError.__init__def __init__(self, payload: TelegramBroadcastPayload) -> None: super().__init__("partial broadcast failure") self.payload = payload` (стр. 8223)
-- `_send_export_to_telegramdef _send_export_to_telegram( db: Session, actor_id: str, export_file: GeneratedExport` (стр. 8233)
-- `_owner_summary_reportdef _owner_summary_report( db: Session, actor_id: str, period: str, segment: str` (стр. 8353)
-- `_owner_summary_export_filedef _owner_summary_export_file( db: Session, actor_id: str, period: str, segment: str` (стр. 8471)
-- `_send_owner_summary_reportdef _send_owner_summary_report( db: Session, actor_id: str, report: OwnerSummaryReport, export_file: GeneratedExport,` (стр. 8589)
-- `_booking_car_labeldef _booking_car_label(car: str | None, plate: str | None) -> str: car_value = (car or "").strip() or "Авто не указано" plate_value = (plate or "").strip() return f"{car_value}, {p` (стр. 8798)
-- `_admin_booking_notification_titledef _admin_booking_notification_title( client_name: str, car: str | None, plate: str | None` (стр. 8810)
-- `_booking_datetime_labeldef _booking_datetime_label(date: str | None, time: str | None) -> str: if not (date or "").strip():` (стр. 8822)
-- `_admin_booking_notification_textdef _admin_booking_notification_text( client_name: str, car: str | None, plate: str | None, date: str | None, time: str | None,` (стр. 8838)
-- `_notify_admins_about_bookingdef _notify_admins_about_booking(db: Session, booking: Booking) -> None: admins = db.scalars( select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True)) ).all()` (стр. 8858)
-- `_notify_owners_about_bookingdef _notify_owners_about_booking(db: Session, booking: Booking) -> None: owners = _all_owner_telegram_recipients(db) text = ( "Новая запись\n" f"Клиент: {booking.client_name}\n" f"` (стр. 8890)
-- `_service_category_keydef _service_category_key(value: str | None) -> str: return (value or "").strip().lower()` (стр. 8918)
-- `_resource_group_keydef _resource_group_key(value: str | None) -> str: return (value or "").strip().lower() or DEFAULT_RESOURCE_GROUP` (стр. 8926)
-- `_normalized_textdef _normalized_text(value: str | None) -> str: return (value or "").strip()` (стр. 8934)
-- `_default_service_resource_groupdef _default_service_resource_group(service: Service | None) -> str: if service is None: return DEFAULT_RESOURCE_GROUP return _resource_group_for_service_category(service.category)` (стр. 8942)
-- `_default_box_resource_groupdef _default_box_resource_group(box: Box | None) -> str: if box is None: return DEFAULT_RESOURCE_GROUP name_key = (box.name or "").strip().lower() description_key = (box.descriptio` (стр. 8954)
-- `_service_resource_groupdef _service_resource_group(service: Service | None) -> str: if service is None: return DEFAULT_RESOURCE_GROUP return _resource_group_key( service.resource_group or _default_servic` (стр. 8974)
-- `_compatible_box_namesdef _compatible_box_names(db: Session, resource_group: str | None) -> list[str]: target_group = _resource_group_key(resource_group) return [ box.name for box in db.scalars( select(` (стр. 8990)
-- `_is_box_rental_servicedef _is_box_rental_service(service: Service | None) -> bool: return ( service is not None and _service_category_key(service.category) == "аренда бокса" )` (стр. 9016)
-- `_is_detailing_servicedef _is_detailing_service(service: Service | None) -> bool: return ( service is not None and _service_category_key(service.category) == "детейлинг" )` (стр. 9030)
-- `_resource_group_for_service_categorydef _resource_group_for_service_category(category: str | None) -> str: category_key = _service_category_key(category) if category_key == "детейлинг": return DETAILING_RESOURCE_GROU` (стр. 9042)
-- `_box_by_namedef _box_by_name(db: Session, box_name: str) -> Box | None: return db.scalar(select(Box).where(Box.name == box_name))` (стр. 9056)
-- `_normalize_service_and_box_resourcesdef _normalize_service_and_box_resources(db: Session) -> None: changed = False # Группа ресурсов услуг больше не привязывается к категории принудительно. boxes = db.scalars(select(` (стр. 9064)
-- `_box_hourly_pricedef _box_hourly_price(db: Session, box_name: str, fallback_price: int) -> int: box = _box_by_name(db, box_name) if box is not None and box.price_per_hour > 0: return box.price_per_` (стр. 9272)
-- `_payment_type_labeldef _payment_type_label(payment_type: str) -> str: return { "cash": "Наличные", "transfer": "Перевод", "invoice": "По счёту", "credit": "В долг (депозит)", }.get(payment_type, paym` (стр. 9286)
-- `_booking_payment_labeldef _booking_payment_label(booking: Booking) -> str: if not booking.payment_settled: return "Не оплачено" return _payment_type_label(booking.payment_type)` (стр. 9304)
-- `_notify_ownersdef _notify_owners(db: Session, text: str) -> None: db.add( Notification( id=f"n-{uuid4()}", recipient_role="owner", recipient_id=None, message=text, read=False, created_at=_now(),` (стр. 9316)
-- `_booking_receipt_textdef _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -> str: worker_line = f"\nМастер: {worker_name}" if worker_name else "" return ( "Чек по записи\n" f"` (стр. 9352)
-- `_notify_booking_completion_receiptdef _notify_booking_completion_receipt( db: Session, booking: Booking, *, worker_name: str | None = None` (стр. 9382)
-- `_notify_owner_about_worker_booking_eventdef _notify_owner_about_worker_booking_event( db: Session, booking: Booking, *, worker_name: str, event_label: str` (стр. 9454)
-- `_notify_workers_about_assignmentdef _notify_workers_about_assignment( db: Session, booking: Booking, worker_ids: set[str]` (стр. 9495)
-- `_notify_workers_about_notedef _notify_workers_about_note( db: Session, booking: Booking, worker_ids: set[str]` (стр. 9581)
-- `_notify_workers_about_rescheduledef _notify_workers_about_reschedule( db: Session, booking: Booking, worker_ids: set[str], previous_date: str, previous_time: str, previous_box: str,` (стр. 9651)
-- `_payroll_entry_labeldef _payroll_entry_label(kind: str) -> str: return { "bonus": "премия", "advance": "аванс", "deduction": "удержание", "payout": "выплата", "adjustment": "корректировка", }.get(kind` (стр. 9739)
-- `_notify_worker_about_payroll_entrydef _notify_worker_about_payroll_entry( db: Session, worker: StaffUser, *, actor_role: str, actor_id: str, kind: str, amount: int, note: str, …` (стр. 9759)
-- `_PartialBroadcastError._safe_digitsdef _safe_digits(value: str) -> str: try: return normalize_phone_digits(value) except ValueError: return ""` (стр. 9847)
-- `_default_contentdef _default_content() -> ContentPayload: return ContentPayload( hero=ContentHeroPayload(), about=ContentAboutPayload( text=( "<b>\u2728 \u041e \u0441\u0442\u0443\u0434\u0438\u0438` (стр. 10108)
-- `_normalize_legacy_contentdef _normalize_legacy_content(value: dict) -> dict: """Мигрирует старый формат контента (hero.title строкой + hero.titleHighlight) в новый (hero.title => {before, highlight, after}` (стр. 10188)
-- `_get_or_create_contentdef _get_or_create_content(db: Session) -> ContentPayload: row = db.get(AppSetting, "content") if row is None or not isinstance(row.value, dict):` (стр. 10209)
-- `_detected_image_formatdef _detected_image_format(header: bytes) -> str | None: if header.startswith(b"\xff\xd8\xff"):` (стр. 10307)
-- `_upload_headersdef _upload_headers(filename: str) -> dict[str, str]: return { "Cache-Control": "public, max-age=31536000, immutable", "Content-Disposition": f'inline; filename="{filename}"', "X-C` (стр. 10319)
-- `_google_sync_bookingdef _google_sync_booking(db, booking, *, action="upsert") -> None: """Best-effort синхронизация записи с Google Calendar. No-op, если интеграция не настроена или токены не привязан` (стр. 10652)
-- `_google_sync_loopdef _google_sync_loop() -> None: """Фоновый цикл обратной синхронизации «Google Calendar -> CRM». Запускается daemon-потоком при старте приложения. No-op, если интеграция не настро` (стр. 10664)
-- `_write_off_booking_materialsdef _write_off_booking_materials(db: Session, booking: Booking) -> None: if booking.materials_written_off: print(f"[WRITE_OFF] skip booking {booking.id[:8]} — already written off")` (стр. 11202)
-- `_booking_materials_costdef _booking_materials_cost(db: Session, booking: Booking) -> int: """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада.""" override = (booking.mone` (стр. 11290)
-- `_booking_materials_cost_actualdef _booking_materials_cost_actual(db: Session, booking: Booking) -> int: """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада.""" materials_cost = ` (стр. 11298)
-- `_asvc_paid_amountdef _asvc_paid_amount(asvc: BookingAdditionalService) -> int: """Сколько уходит с доп. услуги: аутсорсеру или мастерам (фикс/процент).""" if asvc.is_outsource: return int(asvc.outs` (стр. 11317)
-- `_booking_money_splitdef _booking_money_split( db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None,` (стр. 11330)
-- `_PartialBroadcastError._compute_masterdef _compute_master(base: int) -> tuple[dict[str, int], int, int]: """Доля мастеров: явные суммы (override/fixed) + сервисный режим/проценты профиля от base. Возвращает (master_by_` (стр. 11370)
-- `_PartialBroadcastError._compute_piggydef _compute_piggy(base: int) -> int: if piggy_pay_type == "fixed": return piggy_pay_value if piggy_pay_type == "percent": return money_int(base * piggy_pay_value / 100) if piggy_p` (стр. 11504)
-- `_PartialBroadcastError._allocate_ownersdef _allocate_owners(claimed: int, limit: int) -> tuple[int, dict[str, int]]: owner_by_owner: dict[str, int] = {} if claimed <= 0 or not owner_split_enabled: return 0, owner_by_own` (стр. 11517)
-- `_process_piggy_bank_for_bookingdef _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None: """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any servic` (стр. 11623)
-- `_process_owner_profit_sharedef _process_owner_profit_share(db: Session, booking: Booking) -> None: """Расчёт доли владельцев: цена → материалы → мастера → копилка → остаток владельцам (50/50).""" if booking.` (стр. 11856)
-- `_PartialBroadcastError._parse_date_strdef _parse_date_str(s: str) -> date | None: try: if "." in s: parts = s.split(".") return date(int(parts[2]), int(parts[1]), int(parts[0])) return date.fromisoformat(s) except (Val` (стр. 14398)
-- `_PartialBroadcastError._in_rangedef _in_range(d: str | None) -> bool: if not d: return True parsed = _parse_date_str(d) if not parsed: return True if parsed_from and parsed < parsed_from: return False if parsed_t` (стр. 14422)
-- `_deposit_balancedef _deposit_balance(db: Session, client_id: str) -> Decimal: return sum( ( t.amount for t in db.scalars( select(DepositTransaction).where(DepositTransaction.client_id == client_id` (стр. 15205)
-- `_deposit_add_transactiondef _deposit_add_transaction( db: Session, client_id: str, txn_type: str, amount: float, description: str, *, date: str, booking_id: str | None = None, created_by_id: str | None = ` (стр. 15217)
-- `_deposit_txn_payloaddef _deposit_txn_payload(db: Session, txn: DepositTransaction) -> DepositTransactionPayload: car, plate = "", "" if txn.booking_id: booking = db.get(Booking, txn.booking_id) if boo` (стр. 15246)
-- `_deposit_month_labeldef _deposit_month_label() -> str: return datetime.now().strftime("%m.%Y")` (стр. 15269)
-- `_deposit_month_ofdef _deposit_month_of(date_str: str) -> str: parts = (date_str or "").split(".") if len(parts) == 3: return f"{parts[1]}.{parts[2]}" return ""` (стр. 15271)
-- `_deposit_month_wash_total_fordef _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> float: total = 0.0 rows = db.scalars( select(Booking).where( Booking.client_id == client_id, Booking.p` (стр. 15278)
-- `_deposit_plan_keydef _deposit_plan_key(value: str | None) -> str: plan = (value or "").strip() or "fee" return plan if plan in {"fee", "washes", "per_wash", "unlimited"} else "fee"` (стр. 15294)
-- ...ещё 39
+- `_resolve_frontend_distdef _resolve_frontend_dist() -> Path: """Каталог собранного React-фронтенда. В обычном режиме — <project>/frontend/dist (родитель каталога app/). В frozen-режиме (PyInstaller bundl` (стр. 565)
+- `_check_rate_limitdef _check_rate_limit(ip: str) -> None: global _last_rate_limit_cleanup now = time_module.time() window_start = now - _LOGIN_RATE_LIMIT_WINDOW # Periodic cleanup of stale entries t` (стр. 783)
+- `add_security_headersasync def add_security_headers(request: Request, call_next): response = await call_next(request) for key, value in SECURITY_HEADERS.items():` (стр. 876)
+- `serve_single_page_appasync def serve_single_page_app(request: Request, call_next): path = request.url.path index_file = frontend_dist / "index.html" if request.method not in {"GET", "HEAD"}: return awa` (стр. 889)
+- `on_startupdef on_startup() -> None: global bot_thread Base.metadata.create_all(bind=engine) _apply_runtime_migrations() db = next(get_db()) try: seed_database(db, include_demo_staff=settings` (стр. 937)
+- `start_google_sync_threaddef start_google_sync_thread() -> None: """Запускает фоновый цикл синхронизации «Google Calendar -> CRM» (daemon-поток). Поток нужен только при настроенной интеграции: учётные данн` (стр. 1022)
+- `_nowdef _now() -> datetime: return datetime.now(timezone.utc)` (стр. 1052)
+- `_local_day_boundsdef _local_day_bounds(date_str: str) -> tuple[datetime, datetime]: """Границы локального дня (DD.MM.YYYY) в UTC: (00:00, 23:59:59) местного времени. Периоды ЗП считаются по локальн` (стр. 1057)
+- `_as_utcdef _as_utc(value: datetime) -> datetime: if value.tzinfo is None: return value.replace(tzinfo=timezone.utc) return value.astimezone(timezone.utc)` (стр. 1072)
+- `_format_moscow_dtdef _format_moscow_dt(dt: datetime | None) -> str: if dt is None: return "" msk = dt.astimezone(timezone(timedelta(hours=3))) return msk.strftime("%H:%M %d.%m.%Y")` (стр. 1081)
+- `_request_ipdef _request_ip(request: Request) -> str: # For rate limiting, prefer direct client IP to prevent X-Forwarded-For spoofing if request.client is not None and request.client.host: re` (стр. 1092)
+- `_safe_textdef _safe_text(value: Any) -> str: return value if isinstance(value, str) else ""` (стр. 1112)
+- `_client_by_phonedef _client_by_phone(db: Session, phone: str) -> Client | None: if not phone.strip():` (стр. 1120)
+- `_owner_querydef _owner_query(): return ( select(StaffUser) .where(StaffUser.role == "owner") .order_by(StaffUser.created_at.asc(), StaffUser.id.asc()) )` (стр. 1158)
+- `_primary_ownerdef _primary_owner(db: Session) -> StaffUser | None: return db.scalar( select(StaffUser) .where(StaffUser.role == "owner", StaffUser.is_primary_owner.is_(True)) .order_by(StaffUser` (стр. 1174)
+- `_owner_master_conditiondef _owner_master_condition() -> Any: """Владелец, которому дополнительно выдана роль мастера (extra_roles != []). Такие владельцы попадают в списки мастеров: назначение на записи,` (стр. 1190)
+- `_is_owner_masterdef _is_owner_master(worker: StaffUser) -> bool: return worker.role == "owner" and bool(worker.extra_roles)` (стр. 1205)
+- `_ensure_permanent_telegram_ownersdef _ensure_permanent_telegram_owners(db: Session) -> None: """Upsert explicitly configured owners without reassigning existing rows.""" for staff_id, login, chat_id, owner_name in` (стр. 1212)
+- `_ensure_owner_accountsdef _ensure_owner_accounts(db: Session) -> None: owners = db.scalars(_owner_query()).all() primary_owner = next((owner for owner in owners if owner.is_primary_owner), None) if prim` (стр. 1318)
+- `_device_labeldef _device_label(user_agent: str) -> str: if "Telegram-Android" in user_agent: return "Telegram Android" if "Telegram-iOS" in user_agent: return "Telegram iPhone" if "iPhone" in u` (стр. 1446)
+- `_apply_runtime_migrationsdef _apply_runtime_migrations() -> None: from sqlalchemy import text def boolean_default_sql(value: bool) -> str:` (стр. 1482)
+- `boolean_default_sqldef boolean_default_sql(value: bool) -> str: if engine.dialect.name == "postgresql": return "TRUE" if value else "FALSE" return "1" if value else "0"` (стр. 1486)
+- `ensure_postgres_varchar_lengthdef ensure_postgres_varchar_length( table_name: str, column_name: str, minimum_length: int` (стр. 1496)
+- `ensure_postgres_text_columndef ensure_postgres_text_column(table_name: str, column_name: str) -> None: if engine.dialect.name != "postgresql": return column = next( ( item for item in inspect(engine).get_col` (стр. 1542)
+- `_apply_default_shift_paydef _apply_default_shift_pay(db: Session) -> None: """Один раз выставляет оклад за смену DEFAULT_SHIFT_PAY сотрудникам (кроме владельцев), у которых ставка не задана (0). Выполняет` (стр. 2660)
+- `_repair_text_valuedef _repair_text_value(value: str) -> str: if not value or not any(ord(char) > 127 for char in value):` (стр. 2690)
+- `_repair_nested_textdef _repair_nested_text(value): if isinstance(value, str):` (стр. 2710)
+- `_repair_model_text_fieldsdef _repair_model_text_fields(db: Session, model, fields: tuple[str, ...]) -> bool: changed = False for item in db.scalars(select(model)).all():` (стр. 2730)
+- `_sanitize_notification_messagedef _sanitize_notification_message(message: str) -> str: fixed = _repair_text_value(message).strip() for source, target in { "вЂў": "•", "в€¢": "•", "вВў": "•", "â€¢": "•", "вЂ”": ` (стр. 2758)
+- `_repair_text_datadef _repair_text_data(db: Session) -> None: changed = False changed |= _repair_model_text_fields( db, StaffUser, ("name", "city", "experience", "specialty", "about"), ) changed |= ` (стр. 2792)
+- `_settingdef _setting(db: Session, key: str, default: dict) -> dict: row = db.get(AppSetting, key) if row: return row.value row = AppSetting(key=key, value=default) db.add(row) db.flush() r` (стр. 2938)
+- `_merge_setting_dictdef _merge_setting_dict(value: Any, default: dict[str, Any]) -> dict[str, Any]: if not isinstance(value, dict):` (стр. 2958)
+- `_normalize_client_vehiclesdef _normalize_client_vehicles( vehicles: list[ClientVehiclePayload] | list[dict[str, Any]] | None, *, fallback_car: str = "", fallback_plate: str = "",` (стр. 2982)
+- `_client_vehicles_mapdef _client_vehicles_map(db: Session) -> dict[str, Any]: return _setting(db, "client_vehicles", {})` (стр. 3094)
+- `_client_vehicles_payloaddef _client_vehicles_payload(db: Session, client: Client) -> list[ClientVehiclePayload]: raw = _client_vehicles_map(db).get(client.id, []) return _normalize_client_vehicles( raw, f` (стр. 3102)
+- `_save_client_vehiclesdef _save_client_vehicles( db: Session, client_id: str, vehicles: list[ClientVehiclePayload]` (стр. 3116)
+- `_client_phone_verifications_mapdef _client_phone_verifications_map(db: Session) -> dict[str, Any]: value = _setting(db, CLIENT_PHONE_VERIFICATIONS_KEY, {}) return value if isinstance(value, dict) else {}` (стр. 3136)
+- `_client_verified_phone_digitsdef _client_verified_phone_digits(db: Session, telegram_id: str | None) -> str | None: if not telegram_id: return None entry = _client_phone_verifications_map(db).get(str(telegram_` (стр. 3146)
+- `_client_phone_is_verifieddef _client_phone_is_verified(db: Session, telegram_id: str | None, phone: str) -> bool: if not phone.strip():` (стр. 3166)
+- `_require_client_phone_verificationdef _require_client_phone_verification( db: Session, telegram_id: str | None, phone: str` (стр. 3192)
+- `_client_payloaddef _client_payload(client: Client | None) -> ClientProfilePayload | None: if client is None: return None with Session(engine) as vehicles_db: vehicles = _client_vehicles_payload(v` (стр. 3214)
+- `_client_summary_payloaddef _client_summary_payload( client: Client, db: Session | None = None` (стр. 3254)
+- `_booking_status_labeldef _booking_status_label(status_value: str) -> str: return { "new": "Новая заявка", "confirmed": "Подтверждена", "scheduled": "Запланирована", "in_progress": "В работе", "complete` (стр. 3312)
+- `_booking_status_short_labeldef _booking_status_short_label(status_value: str) -> str: return { "new": "Новая", "confirmed": "Подтв.", "scheduled": "Запл.", "in_progress": "В работе", "completed": "Завершена"` (стр. 3338)
+- `_format_local_datetimedef _format_local_datetime(value: datetime) -> str: return _as_utc(value).astimezone().strftime("%d.%m.%Y %H:%M")` (стр. 3364)
+- `_parse_booking_datetimedef _parse_booking_datetime(date_value: str, time_value: str) -> datetime | None: raw = f"{date_value.strip()} {time_value.strip()}" for fmt in ("%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M")` (стр. 3372)
+- `_py_weekday_to_schedule_indexdef _py_weekday_to_schedule_index(py_weekday: int) -> int: # Конвенция day_index (сид и фронт getScheduleDayIndex=(getDay()+1)%7): Сб=0, Вс=1, Пн=2..Пт=6. # Python weekday(): Пн=0.` (стр. 3392)
+- `_parse_time_to_minutesdef _parse_time_to_minutes(time_value: str) -> int | None: raw = time_value.strip() if len(raw) != 5 or raw[2] != ":": return None try: hours = int(raw[:2]) minutes = int(raw[3:]) ` (стр. 3403)
+- `_today_labeldef _today_label() -> str: return datetime.now().strftime("%d.%m.%Y")` (стр. 3431)
+- `_build_schedule_slotsdef _build_schedule_slots( open_minutes: int, close_minutes: int, step_minutes: int = 30` (стр. 3439)
+- `_booking_requires_scheduled_slotdef _booking_requires_scheduled_slot(status_value: str) -> bool: return status_value in BOOKING_ACTIVE_STATUSES` (стр. 3463)
+- `_booking_slot_fields_changeddef _booking_slot_fields_changed(booking: Booking, updates: dict) -> bool: if "date" in updates and (updates.get("date") or "").strip() != (booking.date or "").strip():` (стр. 3471)
+- `_booking_time_rangedef _booking_time_range( date_value: str, time_value: str, duration: int` (стр. 3491)
+- `_time_ranges_overlapdef _time_ranges_overlap( start_at: datetime, end_at: datetime, other_start_at: datetime, other_end_at: datetime,` (стр. 3509)
+- `_ensure_booking_datetime_not_in_pastdef _ensure_booking_datetime_not_in_past(date_value: str, time_value: str, role: str) -> None: if role in {"admin", "owner"}: return scheduled_at = _parse_booking_datetime(date_val` (стр. 3527)
+- `_ensure_booking_within_scheduledef _ensure_booking_within_schedule( db: Session, date_value: str, time_value: str, duration: int` (стр. 3561)
+- `_box_is_availabledef _box_is_available( db: Session, *, booking_id: str | None, date_value: str, time_value: str, duration: int, box: str,` (стр. 3635)
+- `_pick_available_boxdef _pick_available_box( db: Session, *, booking_id: str | None, date_value: str, time_value: str, duration: int, resource_group: str | None = None, preferred_box: str | None = Non` (стр. 3659)
+- `_booking_slot_availabilitydef _booking_slot_availability( db: Session, *, date_value: str, duration: int, service_id: str | None = None, resource_group: str | None = None,` (стр. 3721)
+- `_ensure_booking_has_no_conflictsdef _ensure_booking_has_no_conflicts( db: Session, *, booking_id: str | None, date_value: str, time_value: str, duration: int, box: str, worker_ids: set[str], …` (стр. 3873)
+- `_load_penaltiesdef _load_penalties( db: Session, *, worker_ids: set[str] | None = None` (стр. 3917)
+- `_complaints_by_workerdef _complaints_by_worker(penalties: list[Penalty]) -> dict[str, list[Penalty]]: grouped: dict[str, list[Penalty]] = {} for penalty in penalties: grouped.setdefault(penalty.worker_` (стр. 3943)
+- `_normalize_worker_rulesdef _normalize_worker_rules(db: Session) -> None: changed = False workers = db.scalars(select(StaffUser).where(StaffUser.role == "worker")).all() for worker in workers: capped_perc` (стр. 3957)
+- `_worker_payloaddef _worker_payload(worker: StaffUser) -> WorkerPayload: return WorkerPayload( id=worker.id, role=worker.role, # type: ignore[arg-type] name=worker.name, experience=worker.experien` (стр. 4011)
+- `_payroll_entry_payloaddef _payroll_entry_payload(entry: PayrollEntry, actor_name: str) -> PayrollEntryPayload: return PayrollEntryPayload( id=entry.id, workerId=entry.worker_id, kind=entry.kind, # type:` (стр. 4051)
+- `_worker_payroll_summariesdef _worker_payroll_summaries( db: Session, workers: list[StaffUser], complaints_by_worker: dict[str, list[Penalty]],` (стр. 4079)
+- `_worker_payroll_summaries_from_datadef _worker_payroll_summaries_from_data( db: Session, workers: list[StaffUser], completed_bookings: list[Booking], entries: list[PayrollEntry], complaints_by_worker: dict[str, list` (стр. 4127)
+- `_worker_payload_with_payrolldef _worker_payload_with_payroll( worker: StaffUser, payroll_summaries: dict[str, WorkerPayrollSummaryPayload] | None = None,` (стр. 4305)
+- `_booking_payloaddef _booking_payload( booking: Booking, complaints_by_worker: dict[str, list[Penalty]] | None = None` (стр. 4329)
+- `_notification_payloaddef _notification_payload(notification: Notification) -> NotificationPayload: return NotificationPayload( id=notification.id, recipientRole=notification.recipient_role, # type: ign` (стр. 4499)
+- `_stock_payloaddef _stock_payload(item: StockItem) -> StockItemPayload: return StockItemPayload( id=item.id, name=item.name, qty=item.qty, unit=item.unit, unitPrice=item.unit_price, category=item` (стр. 4521)
+- `_expense_payloaddef _expense_payload(expense: Expense) -> ExpensePayload: return ExpensePayload( id=expense.id, title=expense.title, amount=expense.amount, category=expense.category, date=expense.` (стр. 4537)
+- `_penalty_payloaddef _penalty_payload(penalty: Penalty) -> PenaltyPayload: worker_name = penalty.worker.name if penalty.worker else "" return PenaltyPayload( id=penalty.id, workerId=penalty.worker_` (стр. 4561)
+- `_service_payloaddef _service_payload(service: Service) -> ServicePayload: return ServicePayload( id=service.id, name=service.name, category=service.category, price=service.price, duration=service.` (стр. 4591)
+- `_box_payloaddef _box_payload(box: Box) -> BoxPayload: return BoxPayload( id=box.id, name=box.name, resourceGroup=(box.resource_group or DEFAULT_RESOURCE_GROUP).strip() or DEFAULT_RESOURCE_GROU` (стр. 4635)
+- `_visible_boxesdef _visible_boxes(db: Session) -> list[Box]: boxes = db.scalars(select(Box).order_by(Box.name.asc())).all() wash_order_map = {name: index for index, name in enumerate(WASH_BOX_NAM` (стр. 4659)
+- `box_orderdef box_order(box: Box) -> tuple[int, int, str, str]: resource_group = _resource_group_key( box.resource_group or _default_box_resource_group(box) ) if resource_group == DETAILING_` (стр. 4669)
+- `_schedule_payloaddef _schedule_payload(entry: ScheduleEntry) -> SchedulePayload: return SchedulePayload( dayIndex=entry.day_index, day=entry.day_label, open=entry.open_time, close=entry.close_time,` (стр. 4705)
+- `_settings_payloaddef _settings_payload(db: Session) -> SettingsBundlePayload: admin_profile_default = { "name": "Администратор", "email": "", "phone": "", "telegramChatId": "", } admin_notification` (стр. 4725)
+- `_empty_settings_payloaddef _empty_settings_payload() -> SettingsBundlePayload: return SettingsBundlePayload( adminProfile=AdminProfilePayload( name="", email="", phone="", telegramChatId="" ), adminNotif` (стр. 4945)
+- `_scoped_settings_payloaddef _scoped_settings_payload( db: Session, role: str, actor_id: str` (стр. 5025)
+- `_session_payloaddef _session_payload(session_data: dict) -> SessionPayload: return SessionPayload( role=session_data["role"], actorId=session_data["actorId"], sessionId=session_data.get("sessionId` (стр. 5111)
+- `_mark_overdue_bookings_for_admin_reviewdef _mark_overdue_bookings_for_admin_review(db: Session) -> None: now_local = datetime.now().replace(second=0, microsecond=0) changed = False for booking in db.scalars( select(Book` (стр. 5131)
+- `_build_bootstrapdef _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload: role = session_data["role"] actor_id = session_data["actorId"] _mark_overdue_bookings_for_admin_review(db` (стр. 5175)
+- `_resolve_user_from_init_datadef _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None: try: validated = validate_telegram_init_data( authorization, settings.telegram_bot_token, max_age_` (стр. 5497)
+- `_require_sessiondef _require_session( authorization: str | None = Header(default=None), db: Session = Depends(get_db),` (стр. 5618)
+- `_extract_telegram_id_from_init_datadef _extract_telegram_id_from_init_data(authorization: str) -> str: if not authorization: raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing initData") t` (стр. 5649)
+- `_ensure_staff_roledef _ensure_staff_role(session_data: dict, allowed: set[str]) -> None: if session_data["role"] not in allowed: raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Fo` (стр. 5966)
+- `_validated_booking_workersdef _validated_booking_workers( db: Session, workers: list[BookingWorkerPayload]` (стр. 5976)
+- `_booking_payload_for_responsedef _booking_payload_for_response(db: Session, booking: Booking) -> BookingPayload: worker_ids = {link.worker_id for link in booking.worker_links} penalties = _load_penalties(db, w` (стр. 6072)
+- `_sync_booking_workersdef _sync_booking_workers( db: Session, booking: Booking, workers: list[BookingWorkerPayload]` (стр. 6084)
+- `_sync_booking_materialsdef _sync_booking_materials( db: Session, booking: Booking, materials: list[BookingMaterialPayload]` (стр. 6114)
+- `_send_telegram_safedef _send_telegram_safe(chat_id: str | None, text: str) -> None: if not chat_id: logger.warning("Пропущена отправка Telegram-уведомления: у получателя нет chat_id") return try: sen` (стр. 6133)
+- `_telegram_display_namedef _telegram_display_name(telegram_user: dict, fallback: str) -> str: first_name = str(telegram_user.get("first_name") or "").strip() last_name = str(telegram_user.get("last_name"` (стр. 6153)
+- `_owner_two_factor_recipientdef _owner_two_factor_recipient(db: Session) -> StaffUser: owner = _primary_owner(db) if owner is None: raise HTTPException( status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail` (стр. 6169)
+- `_all_active_ownersdef _all_active_owners(db: Session) -> list[StaffUser]: """Возвращает всех активных владельцев, отсортированных по created_at asc.""" return list( db.scalars( select(StaffUser) .wh` (стр. 6199)
+- `_all_owner_telegram_recipientsdef _all_owner_telegram_recipients(db: Session) -> list[StaffUser]: """Возвращает всех владельцев с непустым telegram_chat_id, отсортированных по created_at asc.""" return list( db` (стр. 6221)
+- `_booking_reminder_target_datedef _booking_reminder_target_date(days_ahead: int = 1) -> str: return (datetime.now() + timedelta(days=days_ahead)).strftime("%d.%m.%Y")` (стр. 6249)
+- `_worker_notification_settings_mapdef _worker_notification_settings_map(db: Session) -> dict[str, dict[str, Any]]: return _setting(db, "worker_notification_settings", {})` (стр. 6257)
+- `_booking_reminder_statedef _booking_reminder_state(db: Session) -> dict[str, Any]: return _setting(db, BOOKING_REMINDER_STATE_KEY, {"deliveries": {}})` (стр. 6265)
+- `_return_reminder_statedef _return_reminder_state(db: Session) -> dict[str, Any]: return _setting(db, RETURN_REMINDER_STATE_KEY, {"deliveries": {}})` (стр. 6273)
+- `_shift_checklists_statedef _shift_checklists_state(db: Session) -> list[dict[str, Any]]: value = _setting(db, SHIFT_CHECKLISTS_KEY, []) return value if isinstance(value, list) else []` (стр. 6281)
+- `_admin_shift_inspections_statedef _admin_shift_inspections_state(db: Session) -> list[dict[str, Any]]: value = _setting(db, ADMIN_SHIFT_INSPECTIONS_KEY, []) return value if isinstance(value, list) else []` (стр. 6291)
+- `_compute_shift_attendancedef _compute_shift_attendance( inspections: list[dict], worker_id: str, date_from: date, date_to: date,` (стр. 6301)
+- `_period_to_date_rangedef _period_to_date_range(period: str) -> tuple[date, date]: """ Преобразует строковый период в диапазон дат (date_from, date_to). - ``week`` → последние 7 дней - ``month`` → после` (стр. 6429)
+- `_admin_shift_owner_bot_statedef _admin_shift_owner_bot_state(db: Session) -> dict[str, Any]: value = _setting(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}}) return value if isinstance(value,` (стр. 6475)
+- `_cleanup_booking_reminder_deliveriesdef _cleanup_booking_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]: threshold = _now() - timedelta(days=14) cleaned: dict[str, str] = {} for key, value in deliv` (стр. 6485)
+- `_cleanup_return_reminder_deliveriesdef _cleanup_return_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str, str]: threshold = _now() - timedelta(days=30) cleaned: dict[str, str] = {} for key, value in delive` (стр. 6505)
+- `_booking_client_reminder_messagedef _booking_client_reminder_message(booking: Booking) -> str: return ( "Напоминание о записи\n" f"Услуга: {booking.service}\n" f"Дата: {booking.date} {booking.time}\n" f"Бокс: {bo` (стр. 6525)
+- `_booking_worker_reminder_messagedef _booking_worker_reminder_message(booking: Booking, worker_name: str) -> str: return ( f"Напоминание мастеру {worker_name}\n" f"Клиент: {booking.client_name}\n" f"Услуга: {booki` (стр. 6545)
+- `_dispatch_booking_remindersdef _dispatch_booking_reminders( db: Session, *, target_date: str | None = None, force: bool = False,` (стр. 6565)
+- `_dispatch_return_visit_remindersdef _dispatch_return_visit_reminders(db: Session) -> int: reminder_state = _return_reminder_state(db) deliveries = reminder_state.get("deliveries") if not isinstance(deliveries, di` (стр. 6827)
+- `_shift_checklist_payloaddef _shift_checklist_payload(entry: dict[str, Any]) -> ShiftChecklistPayload: return ShiftChecklistPayload( id=str(entry.get("id") or ""), workerId=str(entry.get("workerId") or "")` (стр. 6937)
+- `_chemistry_stock_itemsdef _chemistry_stock_items(db: Session) -> list[StockItem]: return db.scalars( select(StockItem) .where(StockItem.category == "Химия") .order_by(StockItem.name.asc()) ).all()` (стр. 6991)
+- `_latest_shift_checklist_entrydef _latest_shift_checklist_entry( entries: list[dict[str, Any]], worker_id: str, phase: str` (стр. 7007)
+- `_clean_data_url_prefixdef _clean_data_url_prefix(data_url: str) -> str: return data_url.split(",", 1)[1] if "," in data_url else data_url` (стр. 7029)
+- `_decode_data_url_imagedef _decode_data_url_image(data_url: str) -> tuple[str, bytes]: raw = data_url.strip() if not raw.startswith("data:image/"):` (стр. 7037)
+- `_admin_shift_inspection_suppliesdef _admin_shift_inspection_supplies(db: Session) -> list[dict[str, Any]]: items = db.scalars( select(StockItem) .where(StockItem.category.in_(("Химия", "Расходники"))) .order_by(S` (стр. 7103)
+- `_admin_shift_inspection_payloaddef _admin_shift_inspection_payload( entry: dict[str, Any],` (стр. 7161)
+- `_admin_shift_captiondef _admin_shift_caption(entry: dict[str, Any]) -> str: checked_supplies = [ item.get("name") for item in entry.get("supplies", []) if isinstance(item, dict) and item.get("checked"` (стр. 7250)
+- `_admin_shift_owner_inline_keyboarddef _admin_shift_owner_inline_keyboard(inspection_id: str) -> dict[str, Any]: return { "inline_keyboard": [ [ { "text": "Подтвердить", "callback_data": f"shiftapprove:{inspection_i` (стр. 7302)
+- `_notify_owner_about_admin_shiftdef _notify_owner_about_admin_shift(db: Session, entry: dict[str, Any]) -> None: caption = _admin_shift_caption(entry) mime_type, photo_bytes = _decode_data_url_image( str(entry.ge` (стр. 7330)
+- `_apply_admin_shift_reviewdef _apply_admin_shift_review( db: Session, inspection_id: str, *, action: str, issue_note: str, owner_actor_id: str,` (стр. 7400)
+- `_serialize_state_datetimedef _serialize_state_datetime(value: datetime | None) -> str | None: if value is None: return None return _as_utc(value).isoformat()` (стр. 7520)
+- `_parse_state_datetimedef _parse_state_datetime(value: Any) -> datetime | None: if not value: return None if not isinstance(value, str):` (стр. 7532)
+- `_owner_database_reset_statedef _owner_database_reset_state(db: Session) -> dict[str, Any] | None: row = db.get(AppSetting, OWNER_DATABASE_RESET_SETTING_KEY) if row is None or not isinstance(row.value, dict):` (стр. 7554)
+- `_save_owner_database_reset_statedef _save_owner_database_reset_state( db: Session, value: dict[str, Any]` (стр. 7568)
+- `_clear_owner_database_reset_statedef _clear_owner_database_reset_state(db: Session) -> None: row = db.get(AppSetting, OWNER_DATABASE_RESET_SETTING_KEY) if row is not None: db.delete(row) db.flush()` (стр. 7580)
+- `_normalize_database_reset_phrasedef _normalize_database_reset_phrase(value: str) -> str: normalized = " ".join(value.replace("\n", " ").split()).strip().upper() return normalized.replace("Ё", "Е")` (стр. 7594)
+- `_owner_database_reset_previewdef _owner_database_reset_preview( db: Session,` (стр. 7604)
+- `_owner_database_reset_warningsdef _owner_database_reset_warnings( preview: OwnerDatabaseResetPreviewPayload,` (стр. 7658)
+- `_perform_owner_database_resetdef _perform_owner_database_reset(db: Session) -> None: db.execute(sa_delete(TelegramLinkCode)) db.execute(sa_delete(Notification)) db.execute(sa_delete(BookingWorker)) db.execute(` (стр. 7698)
+- `_parse_datedef _parse_date(s: str) -> date | None: if "." in s: parts = s.split(".") try: return date(int(parts[2]), int(parts[1]), int(parts[0])) except (ValueError, IndexError):` (стр. 7917)
+- `_owner_export_filedef _owner_export_file( db: Session, actor_id: str, kind: str, segment: str = "all", date_from: str | None = None, date_to: str | None = None,` (стр. 7943)
+- `_in_rangedef _in_range(d: str | None) -> bool: if not d: return True parsed = _parse_date(d) if not parsed: return True if parsed_from and parsed < parsed_from: return False if parsed_to an` (стр. 8093)
+- `_piggy_bank_export_filedef _piggy_bank_export_file( db: Session, actor_id: str, date_from: str | None = None, date_to: str | None = None,` (стр. 8173)
+- `_download_responsedef _download_response(export_file: GeneratedExport) -> Response: return Response( content=export_file.content, media_type=export_file.media_type, headers={ "Content-Disposition": ` (стр. 8227)
+- `class _PartialBroadcastError(Exception):` (стр. 8247)
+- `_PartialBroadcastError.__init__def __init__(self, payload: TelegramBroadcastPayload) -> None: super().__init__("partial broadcast failure") self.payload = payload` (стр. 8253)
+- `_send_export_to_telegramdef _send_export_to_telegram( db: Session, actor_id: str, export_file: GeneratedExport` (стр. 8263)
+- `_owner_summary_reportdef _owner_summary_report( db: Session, actor_id: str, period: str, segment: str` (стр. 8383)
+- `_owner_summary_export_filedef _owner_summary_export_file( db: Session, actor_id: str, period: str, segment: str` (стр. 8501)
+- `_send_owner_summary_reportdef _send_owner_summary_report( db: Session, actor_id: str, report: OwnerSummaryReport, export_file: GeneratedExport,` (стр. 8619)
+- `_booking_car_labeldef _booking_car_label(car: str | None, plate: str | None) -> str: car_value = (car or "").strip() or "Авто не указано" plate_value = (plate or "").strip() return f"{car_value}, {p` (стр. 8828)
+- `_admin_booking_notification_titledef _admin_booking_notification_title( client_name: str, car: str | None, plate: str | None` (стр. 8840)
+- `_booking_datetime_labeldef _booking_datetime_label(date: str | None, time: str | None) -> str: if not (date or "").strip():` (стр. 8852)
+- `_admin_booking_notification_textdef _admin_booking_notification_text( client_name: str, car: str | None, plate: str | None, date: str | None, time: str | None,` (стр. 8868)
+- `_notify_admins_about_bookingdef _notify_admins_about_booking(db: Session, booking: Booking) -> None: admins = db.scalars( select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True)) ).all()` (стр. 8888)
+- `_notify_owners_about_bookingdef _notify_owners_about_booking(db: Session, booking: Booking) -> None: owners = _all_owner_telegram_recipients(db) text = ( "Новая запись\n" f"Клиент: {booking.client_name}\n" f"` (стр. 8920)
+- `_service_category_keydef _service_category_key(value: str | None) -> str: return (value or "").strip().lower()` (стр. 8948)
+- `_resource_group_keydef _resource_group_key(value: str | None) -> str: return (value or "").strip().lower() or DEFAULT_RESOURCE_GROUP` (стр. 8956)
+- `_normalized_textdef _normalized_text(value: str | None) -> str: return (value or "").strip()` (стр. 8964)
+- `_default_service_resource_groupdef _default_service_resource_group(service: Service | None) -> str: if service is None: return DEFAULT_RESOURCE_GROUP return _resource_group_for_service_category(service.category)` (стр. 8972)
+- `_default_box_resource_groupdef _default_box_resource_group(box: Box | None) -> str: if box is None: return DEFAULT_RESOURCE_GROUP name_key = (box.name or "").strip().lower() description_key = (box.descriptio` (стр. 8984)
+- `_service_resource_groupdef _service_resource_group(service: Service | None) -> str: if service is None: return DEFAULT_RESOURCE_GROUP return _resource_group_key( service.resource_group or _default_servic` (стр. 9004)
+- `_compatible_box_namesdef _compatible_box_names(db: Session, resource_group: str | None) -> list[str]: target_group = _resource_group_key(resource_group) return [ box.name for box in db.scalars( select(` (стр. 9020)
+- `_is_box_rental_servicedef _is_box_rental_service(service: Service | None) -> bool: return ( service is not None and _service_category_key(service.category) == "аренда бокса" )` (стр. 9046)
+- `_is_detailing_servicedef _is_detailing_service(service: Service | None) -> bool: return ( service is not None and _service_category_key(service.category) == "детейлинг" )` (стр. 9060)
+- `_resource_group_for_service_categorydef _resource_group_for_service_category(category: str | None) -> str: category_key = _service_category_key(category) if category_key == "детейлинг": return DETAILING_RESOURCE_GROU` (стр. 9072)
+- `_box_by_namedef _box_by_name(db: Session, box_name: str) -> Box | None: return db.scalar(select(Box).where(Box.name == box_name))` (стр. 9086)
+- `_normalize_service_and_box_resourcesdef _normalize_service_and_box_resources(db: Session) -> None: changed = False # Группа ресурсов услуг больше не привязывается к категории принудительно. boxes = db.scalars(select(` (стр. 9094)
+- `_box_hourly_pricedef _box_hourly_price(db: Session, box_name: str, fallback_price: int) -> int: box = _box_by_name(db, box_name) if box is not None and box.price_per_hour > 0: return box.price_per_` (стр. 9302)
+- `_payment_type_labeldef _payment_type_label(payment_type: str) -> str: return { "cash": "Наличные", "transfer": "Перевод", "invoice": "По счёту", "credit": "В долг (депозит)", }.get(payment_type, paym` (стр. 9316)
+- `_booking_payment_labeldef _booking_payment_label(booking: Booking) -> str: if not booking.payment_settled: return "Не оплачено" return _payment_type_label(booking.payment_type)` (стр. 9334)
+- `_notify_ownersdef _notify_owners(db: Session, text: str) -> None: db.add( Notification( id=f"n-{uuid4()}", recipient_role="owner", recipient_id=None, message=text, read=False, created_at=_now(),` (стр. 9346)
+- `_booking_receipt_textdef _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -> str: worker_line = f"\nМастер: {worker_name}" if worker_name else "" return ( "Чек по записи\n" f"` (стр. 9382)
+- `_notify_booking_completion_receiptdef _notify_booking_completion_receipt( db: Session, booking: Booking, *, worker_name: str | None = None` (стр. 9412)
+- `_notify_owner_about_worker_booking_eventdef _notify_owner_about_worker_booking_event( db: Session, booking: Booking, *, worker_name: str, event_label: str` (стр. 9484)
+- `_notify_workers_about_assignmentdef _notify_workers_about_assignment( db: Session, booking: Booking, worker_ids: set[str]` (стр. 9525)
+- `_notify_workers_about_notedef _notify_workers_about_note( db: Session, booking: Booking, worker_ids: set[str]` (стр. 9611)
+- `_notify_workers_about_rescheduledef _notify_workers_about_reschedule( db: Session, booking: Booking, worker_ids: set[str], previous_date: str, previous_time: str, previous_box: str,` (стр. 9681)
+- `_payroll_entry_labeldef _payroll_entry_label(kind: str) -> str: return { "bonus": "премия", "advance": "аванс", "deduction": "удержание", "payout": "выплата", "adjustment": "корректировка", }.get(kind` (стр. 9769)
+- `_notify_worker_about_payroll_entrydef _notify_worker_about_payroll_entry( db: Session, worker: StaffUser, *, actor_role: str, actor_id: str, kind: str, amount: int, note: str, …` (стр. 9789)
+- `_PartialBroadcastError._safe_digitsdef _safe_digits(value: str) -> str: try: return normalize_phone_digits(value) except ValueError: return ""` (стр. 9877)
+- `_default_contentdef _default_content() -> ContentPayload: return ContentPayload( hero=ContentHeroPayload(), about=ContentAboutPayload( text=( "<b>\u2728 \u041e \u0441\u0442\u0443\u0434\u0438\u0438` (стр. 10138)
+- `_normalize_legacy_contentdef _normalize_legacy_content(value: dict) -> dict: """Мигрирует старый формат контента (hero.title строкой + hero.titleHighlight) в новый (hero.title => {before, highlight, after}` (стр. 10218)
+- `_get_or_create_contentdef _get_or_create_content(db: Session) -> ContentPayload: row = db.get(AppSetting, "content") if row is None or not isinstance(row.value, dict):` (стр. 10239)
+- `_detected_image_formatdef _detected_image_format(header: bytes) -> str | None: if header.startswith(b"\xff\xd8\xff"):` (стр. 10337)
+- `_upload_headersdef _upload_headers(filename: str) -> dict[str, str]: return { "Cache-Control": "public, max-age=31536000, immutable", "Content-Disposition": f'inline; filename="{filename}"', "X-C` (стр. 10349)
+- `_google_sync_bookingdef _google_sync_booking(db, booking, *, action="upsert") -> None: """Best-effort синхронизация записи с Google Calendar. No-op, если интеграция не настроена или токены не привязан` (стр. 10682)
+- `_google_sync_loopdef _google_sync_loop() -> None: """Фоновый цикл обратной синхронизации «Google Calendar -> CRM». Запускается daemon-потоком при старте приложения. No-op, если интеграция не настро` (стр. 10694)
+- `_write_off_booking_materialsdef _write_off_booking_materials(db: Session, booking: Booking) -> None: if booking.materials_written_off: print(f"[WRITE_OFF] skip booking {booking.id[:8]} — already written off")` (стр. 11232)
+- `_booking_materials_costdef _booking_materials_cost(db: Session, booking: Booking) -> int: """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада.""" override = (booking.mone` (стр. 11320)
+- `_booking_materials_cost_actualdef _booking_materials_cost_actual(db: Session, booking: Booking) -> int: """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада.""" materials_cost = ` (стр. 11328)
+- `_asvc_paid_amountdef _asvc_paid_amount(asvc: BookingAdditionalService) -> int: """Сколько уходит с доп. услуги: аутсорсеру или мастерам (фикс/процент).""" if asvc.is_outsource: return int(asvc.outs` (стр. 11347)
+- `_booking_money_splitdef _booking_money_split( db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None,` (стр. 11360)
+- `_PartialBroadcastError._compute_masterdef _compute_master(base: int) -> tuple[dict[str, int], int, int]: """Доля мастеров: явные суммы (override/fixed) + сервисный режим/проценты профиля от base. Возвращает (master_by_` (стр. 11400)
+- `_PartialBroadcastError._compute_piggydef _compute_piggy(base: int) -> int: if piggy_pay_type == "fixed": return piggy_pay_value if piggy_pay_type == "percent": return money_int(base * piggy_pay_value / 100) if piggy_p` (стр. 11534)
+- `_PartialBroadcastError._allocate_ownersdef _allocate_owners(claimed: int, limit: int) -> tuple[int, dict[str, int]]: owner_by_owner: dict[str, int] = {} if claimed <= 0 or not owner_split_enabled: return 0, owner_by_own` (стр. 11547)
+- `_process_piggy_bank_for_bookingdef _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None: """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any servic` (стр. 11653)
+- `_process_owner_profit_sharedef _process_owner_profit_share(db: Session, booking: Booking) -> None: """Расчёт доли владельцев: цена → материалы → мастера → копилка → остаток владельцам (50/50).""" if booking.` (стр. 11890)
+- `_PartialBroadcastError._parse_date_strdef _parse_date_str(s: str) -> date | None: try: if "." in s: parts = s.split(".") return date(int(parts[2]), int(parts[1]), int(parts[0])) return date.fromisoformat(s) except (Val` (стр. 14457)
+- `_PartialBroadcastError._in_rangedef _in_range(d: str | None) -> bool: if not d: return True parsed = _parse_date_str(d) if not parsed: return True if parsed_from and parsed < parsed_from: return False if parsed_t` (стр. 14481)
+- `_deposit_balancedef _deposit_balance(db: Session, client_id: str) -> Decimal: return sum( ( t.amount for t in db.scalars( select(DepositTransaction).where(DepositTransaction.client_id == client_id` (стр. 15270)
+- `_deposit_add_transactiondef _deposit_add_transaction( db: Session, client_id: str, txn_type: str, amount: float, description: str, *, date: str, booking_id: str | None = None, created_by_id: str | None = ` (стр. 15282)
+- `_deposit_txn_payloaddef _deposit_txn_payload(db: Session, txn: DepositTransaction) -> DepositTransactionPayload: car, plate = "", "" if txn.booking_id: booking = db.get(Booking, txn.booking_id) if boo` (стр. 15311)
+- `_deposit_month_labeldef _deposit_month_label() -> str: return datetime.now().strftime("%m.%Y")` (стр. 15334)
+- `_deposit_month_ofdef _deposit_month_of(date_str: str) -> str: parts = (date_str or "").split(".") if len(parts) == 3: return f"{parts[1]}.{parts[2]}" return ""` (стр. 15336)
+- `_deposit_month_wash_total_fordef _deposit_month_wash_total_for(db: Session, client_id: str, month: str) -> float: total = 0.0 rows = db.scalars( select(Booking).where( Booking.client_id == client_id, Booking.p` (стр. 15343)
+- `_deposit_plan_keydef _deposit_plan_key(value: str | None) -> str: plan = (value or "").strip() or "fee" return plan if plan in {"fee", "washes", "per_wash", "unlimited"} else "fee"` (стр. 15359)
+- ...ещё 40
 
-### backend/app/models.py (609 строк)
+### backend/app/models.py (614 строк)
 
 Классы и функции (28):
 
@@ -1189,18 +1225,18 @@ concept1.0/
 - `class StockWriteOff(Base):` (стр. 378)
 - `class Penalty(Base):` (стр. 402)
 - `class PayrollEntry(Base):` (стр. 429)
-- `class TelegramLinkCode(Base):` (стр. 454)
-- `class AppSetting(Base):` (стр. 469)
-- `class UploadedFile(Base):` (стр. 476)
-- `class DataConsent(Base):` (стр. 486)
-- `class Income(Base):` (стр. 494)
-- `class WeeklyArchive(Base):` (стр. 513)
-- `class PiggyBankTransaction(Base):` (стр. 531)
-- `class DepositTransaction(Base):` (стр. 554)
-- `class DepositMonth(Base):` (стр. 573)
-- `class OwnerProfitShare(Base):` (стр. 591)
+- `class TelegramLinkCode(Base):` (стр. 459)
+- `class AppSetting(Base):` (стр. 474)
+- `class UploadedFile(Base):` (стр. 481)
+- `class DataConsent(Base):` (стр. 491)
+- `class Income(Base):` (стр. 499)
+- `class WeeklyArchive(Base):` (стр. 518)
+- `class PiggyBankTransaction(Base):` (стр. 536)
+- `class DepositTransaction(Base):` (стр. 559)
+- `class DepositMonth(Base):` (стр. 578)
+- `class OwnerProfitShare(Base):` (стр. 596)
 
-### backend/app/schemas.py (2224 строк)
+### backend/app/schemas.py (2229 строк)
 
 Классы и функции (214):
 
@@ -1229,181 +1265,181 @@ concept1.0/
 - `class SalaryPayoutItem(BaseModel):` (стр. 360)
 - `class SalaryDetailResponse(BaseModel):` (стр. 368)
 - `class PaySalaryRequest(BaseModel):` (стр. 386)
-- `class PaySalaryResponse(BaseModel):` (стр. 395)
-- `class BookingWorkerPayload(BaseModel):` (стр. 402)
-- `class BookingServiceItem(BaseModel):` (стр. 410)
-- `class AdditionalServiceWorkerPayload(BaseModel):` (стр. 417)
-- `class AdditionalServicePayload(BaseModel):` (стр. 425)
-- `class AddAdditionalServiceRequest(BaseModel):` (стр. 439)
-- `class UpdateAdditionalServiceRequest(BaseModel):` (стр. 450)
-- `class BookingPayload(BaseModel):` (стр. 460)
-- `class WorkerCalendarBookingPayload(BaseModel):` (стр. 492)
-- `class BookingAvailabilitySlotPayload(BaseModel):` (стр. 510)
-- `class BookingAvailabilityPayload(BaseModel):` (стр. 517)
-- `class NotificationPayload(BaseModel):` (стр. 523)
-- `class StockCategoryPayload(BaseModel):` (стр. 532)
-- `class StockItemPayload(BaseModel):` (стр. 538)
-- `class BookingMaterialPayload(BaseModel):` (стр. 548)
-- `class ShiftChecklistItemPayload(BaseModel):` (стр. 557)
-- `class ShiftChecklistPayload(BaseModel):` (стр. 566)
-- `class ShiftChecklistSubmitItem(BaseModel):` (стр. 576)
-- `class ShiftChecklistSubmitRequest(BaseModel):` (стр. 581)
-- `class AdminShiftInspectionSupplyPayload(BaseModel):` (стр. 587)
-- `class AdminShiftInspectionMasterPayload(BaseModel):` (стр. 596)
-- `class AdminShiftInspectionPayload(BaseModel):` (стр. 602)
-- `class AdminShiftInspectionSubmitSupply(BaseModel):` (стр. 619)
-- `class AdminShiftInspectionSubmitMaster(BaseModel):` (стр. 624)
-- `class AdminShiftInspectionSubmitRequest(BaseModel):` (стр. 629)
-- `class AdminShiftInspectionReviewRequest(BaseModel):` (стр. 637)
-- `class OwnerShiftOpeningRequest(BaseModel):` (стр. 642)
-- `class ExpensePayload(BaseModel):` (стр. 647)
-- `class PenaltyPayload(BaseModel):` (стр. 657)
-- `class TelegramLinkCodePayload(BaseModel):` (стр. 669)
-- `class ServicePayload(BaseModel):` (стр. 675)
-- `class DetailingRequestCreateRequest(BaseModel):` (стр. 699)
-- `DetailingRequestCreateRequest.validate_cardef validate_car(cls, value: str | None) -> str | None: if value is None: return None return normalize_vehicle_name(value)` (стр. 708)
-- `DetailingRequestCreateRequest.validate_plate_fielddef validate_plate_field(self) -> "DetailingRequestCreateRequest": if self.plate is not None: if not self.plate.strip():` (стр. 714)
-- `class BoxPayload(BaseModel):` (стр. 723)
-- `class SchedulePayload(BaseModel):` (стр. 732)
-- `class AdminNotificationSettings(BaseModel):` (стр. 740)
-- `class AdminProfilePayload(BaseModel):` (стр. 748)
-- `class WorkerNotificationSettings(BaseModel):` (стр. 755)
-- `class WorkerProfilePayload(BaseModel):` (стр. 763)
-- `class OperatingMode(str, Enum):` (стр. 774)
-- `class OwnerCompanyPayload(BaseModel):` (стр. 779)
-- `class OwnerNotificationSettings(BaseModel):` (стр. 789)
-- `class OwnerIntegrationsPayload(BaseModel):` (стр. 799)
-- `class GoogleCredentialsPayload(BaseModel):` (стр. 806)
-- `class GoogleInvitePayload(BaseModel):` (стр. 814)
-- `class OwnerSecurityPayload(BaseModel):` (стр. 820)
-- `class AuthSessionPayload(BaseModel):` (стр. 824)
-- `class EmployeeSettingPayload(BaseModel):` (стр. 833)
-- `class WorkerCreateRequest(BaseModel):` (стр. 844)
-- `class PayrollEntryCreateRequest(BaseModel):` (стр. 856)
-- `PayrollEntryCreateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 869)
-- `class PayrollEntryUpdateRequest(BaseModel):` (стр. 873)
-- `PayrollEntryUpdateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 879)
-- `class SettingsBundlePayload(BaseModel):` (стр. 883)
-- `class SessionPayload(BaseModel):` (стр. 893)
-- `class BootstrapPayload(BaseModel):` (стр. 901)
-- `class ClientRegisterRequest(BaseModel):` (стр. 919)
-- `ClientRegisterRequest.lift_profiledef lift_profile(cls, raw: Any) -> Any: if isinstance(raw, dict) and isinstance(raw.get("profile"), dict):` (стр. 931)
-- `ClientRegisterRequest.validate_namedef validate_name(cls, value: str) -> str: if not value.strip():` (стр. 940)
-- `ClientRegisterRequest.validate_phonedef validate_phone(cls, value: str) -> str: if not value.strip():` (стр. 947)
-- `ClientRegisterRequest.validate_vehicledef validate_vehicle(self) -> "ClientRegisterRequest": if self.plate.strip():` (стр. 953)
-- `class ConsentRecordPayload(BaseModel):` (стр. 959)
-- `class ConsentCheckResponse(BaseModel):` (стр. 964)
-- `class StaffLinkRequest(BaseModel):` (стр. 968)
-- `class SwitchRoleRequest(BaseModel):` (стр. 973)
-- `class BookingCreateRequest(BaseModel):` (стр. 977)
-- `BookingCreateRequest.validate_client_namedef validate_client_name(cls, value: str) -> str: if not value.strip():` (стр. 1003)
-- `BookingCreateRequest.validate_client_phonedef validate_client_phone(cls, value: str) -> str: if not value.strip():` (стр. 1010)
-- `BookingCreateRequest.validate_vehicledef validate_vehicle(self) -> "BookingCreateRequest": if self.car is not None and self.car.strip():` (стр. 1016)
-- `class AddBookingServiceRequest(BaseModel):` (стр. 1024)
-- `class BookingUpdateRequest(BaseModel):` (стр. 1031)
-- `BookingUpdateRequest.validate_client_namedef validate_client_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1057)
-- `BookingUpdateRequest.validate_client_phonedef validate_client_phone(cls, value: str | None) -> str | None: if value is None: return None return normalize_phone(value)` (стр. 1064)
-- `BookingUpdateRequest.validate_vehicledef validate_vehicle(self) -> "BookingUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1070)
-- `class ClientCardUpdateRequest(BaseModel):` (стр. 1083)
-- `ClientCardUpdateRequest.validate_namedef validate_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1101)
-- `ClientCardUpdateRequest.validate_phonedef validate_phone(cls, value: str | None) -> str | None: if value is None or not value.strip():` (стр. 1108)
-- `ClientCardUpdateRequest.validate_vehicledef validate_vehicle(self) -> "ClientCardUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1114)
-- `class NotificationCreateRequest(BaseModel):` (стр. 1127)
-- `class ReadAllNotificationsRequest(BaseModel):` (стр. 1134)
-- `class StockItemCreateRequest(BaseModel):` (стр. 1138)
-- `class StockItemUpdateRequest(BaseModel):` (стр. 1147)
-- `class StockCategoryCreateRequest(BaseModel):` (стр. 1156)
-- `class StockCategoryUpdateRequest(BaseModel):` (стр. 1161)
-- `class StockWriteOffRequest(BaseModel):` (стр. 1166)
-- `class StockWriteOffPayload(BaseModel):` (стр. 1170)
-- `class IncomeCreateRequest(BaseModel):` (стр. 1188)
-- `IncomeCreateRequest.validate_sourcedef validate_source(cls, value: str) -> str: stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или состоять только из пробелов") return stripp` (стр. 1197)
-- `IncomeCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1205)
-- `class IncomePayload(BaseModel):` (стр. 1211)
-- `class ExpenseCreateRequest(BaseModel):` (стр. 1222)
-- `ExpenseCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1232)
-- `class PenaltyCreateRequest(BaseModel):` (стр. 1238)
-- `class OwnerReminderDispatchRequest(BaseModel):` (стр. 1244)
-- `class OwnerReminderDispatchPayload(BaseModel):` (стр. 1249)
-- `class StaffLoginRequest(BaseModel):` (стр. 1257)
-- `class ChangePasswordRequest(BaseModel):` (стр. 1262)
-- `class OwnerDatabaseResetPreviewPayload(BaseModel):` (стр. 1267)
-- `class OwnerDatabaseResetStartRequest(BaseModel):` (стр. 1282)
-- `class OwnerDatabaseResetApproveRequest(BaseModel):` (стр. 1286)
-- `class OwnerDatabaseResetExecuteRequest(BaseModel):` (стр. 1292)
-- `class OwnerDatabaseResetStartPayload(BaseModel):` (стр. 1296)
-- `class OwnerDatabaseResetApprovePayload(BaseModel):` (стр. 1305)
-- `class OwnerDatabaseResetExecutePayload(BaseModel):` (стр. 1313)
-- `class ContentAboutPayload(BaseModel):` (стр. 1318)
-- `class ContentServicePayload(BaseModel):` (стр. 1324)
-- `class ContentWorksPayload(BaseModel):` (стр. 1335)
-- `class ContentStatsPayload(BaseModel):` (стр. 1341)
-- `class ContentTitlePayload(BaseModel):` (стр. 1346)
-- `ContentTitlePayload.to_full_titledef to_full_title(self) -> str: return f"{self.before}{self.highlight}{self.after}"` (стр. 1351)
-- `class ContentHeroPayload(BaseModel):` (стр. 1355)
-- `class ContentPayload(BaseModel):` (стр. 1371)
-- `class ContactPayload(BaseModel):` (стр. 1378)
-- `class ResetPasswordRequest(BaseModel):` (стр. 1385)
-- `class GenericMessage(BaseModel):` (стр. 1389)
-- `class TelegramDeliveryResult(BaseModel):` (стр. 1393)
-- `class TelegramBroadcastPayload(BaseModel):` (стр. 1399)
-- `class OwnerExportDeliveryPayload(BaseModel):` (стр. 1405)
-- `class ShiftAttendancePayload(BaseModel):` (стр. 1412)
-- `class ExpenseUpdateRequest(BaseModel):` (стр. 1423)
-- `ExpenseUpdateRequest.validate_titledef validate_title(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("title не может быть пустым или с` (стр. 1433)
-- `ExpenseUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1443)
-- `ExpenseUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "ExpenseUpdateRequest": if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):` (стр. 1451)
-- `class IncomeUpdateRequest(BaseModel):` (стр. 1457)
-- `IncomeUpdateRequest.validate_sourcedef validate_source(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или` (стр. 1466)
-- `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1476)
-- `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "IncomeUpdateRequest": # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as` (стр. 1484)
-- `class PiggyBankTransactionPayload(BaseModel):` (стр. 1492)
-- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1514)
-- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1528)
-- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1534)
-- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1542)
-- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1549)
-- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1562)
-- `class PiggyBankResponse(BaseModel):` (стр. 1573)
-- `class WeeklyArchivePayload(BaseModel):` (стр. 1592)
-- `class WalletResponse(BaseModel):` (стр. 1606)
-- `class OwnerProfitShareItem(BaseModel):` (стр. 1623)
-- `class OwnerProfitShareSummary(BaseModel):` (стр. 1640)
-- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1649)
-- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1656)
-- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1662)
-- `class OverrideEarnedRequest(BaseModel):` (стр. 1669)
-- `class BookingHistoryItem(BaseModel):` (стр. 1673)
-- `class BookingTotalsWorkerItem(BaseModel):` (стр. 1690)
-- `class BookingTotalsOwnerItem(BaseModel):` (стр. 1708)
-- `class BookingTotalsPiggyItem(BaseModel):` (стр. 1715)
-- `class BookingHistoryTotals(BaseModel):` (стр. 1721)
-- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 1727)
-- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1738)
-- `class BookingPiggyTxItem(BaseModel):` (стр. 1746)
-- `class BookingAdditionalServiceItem(BaseModel):` (стр. 1755)
-- `class BookingAsvcPiggyItem(BaseModel):` (стр. 1764)
-- `class BookingAsvcWorkerItem(BaseModel):` (стр. 1770)
-- `class BookingMoneySplitDetail(BaseModel):` (стр. 1781)
-- `class BookingWorkerEarnedUpdate(BaseModel):` (стр. 1829)
-- `class BookingMoneySplitOwnerUpdate(BaseModel):` (стр. 1834)
-- `class BookingMoneySplitUpdateRequest(BaseModel):` (стр. 1839)
-- `class ArchiveBookingWorkerItem(BaseModel):` (стр. 1849)
-- `class ArchiveAdditionalServiceItem(BaseModel):` (стр. 1859)
-- `class ArchiveBookingItem(BaseModel):` (стр. 1865)
-- `class ArchivePayrollItem(BaseModel):` (стр. 1892)
-- `class ArchiveOwnerItem(BaseModel):` (стр. 1910)
-- `class ArchiveSummary(BaseModel):` (стр. 1918)
-- `class ArchiveResponse(BaseModel):` (стр. 1934)
-- `class MoneyFlowDistributionWorkerItem(BaseModel):` (стр. 1951)
-- `class MoneyFlowDistributionOwnerItem(BaseModel):` (стр. 1957)
-- `class MoneyFlowDistribution(BaseModel):` (стр. 1964)
-- `class MoneyFlowEntry(BaseModel):` (стр. 1975)
-- `class MoneyFlowSummary(BaseModel):` (стр. 1996)
-- `class MoneyFlowPersonItem(BaseModel):` (стр. 2020)
-- `class MoneyFlowResponse(BaseModel):` (стр. 2029)
-- `class DepositSubscriptionUpdateRequest(BaseModel):` (стр. 2042)
-- `DepositSubscriptionUpdateRequest.validate_plandef validate_plan(cls, value: str) -> str: value = value.strip() if value and value not in DEPOSIT_PLANS: raise ValueError("Неизвестный тип абонемента") return value` (стр. 2056)
+- `class PaySalaryResponse(BaseModel):` (стр. 398)
+- `class BookingWorkerPayload(BaseModel):` (стр. 405)
+- `class BookingServiceItem(BaseModel):` (стр. 413)
+- `class AdditionalServiceWorkerPayload(BaseModel):` (стр. 420)
+- `class AdditionalServicePayload(BaseModel):` (стр. 428)
+- `class AddAdditionalServiceRequest(BaseModel):` (стр. 442)
+- `class UpdateAdditionalServiceRequest(BaseModel):` (стр. 453)
+- `class BookingPayload(BaseModel):` (стр. 463)
+- `class WorkerCalendarBookingPayload(BaseModel):` (стр. 495)
+- `class BookingAvailabilitySlotPayload(BaseModel):` (стр. 513)
+- `class BookingAvailabilityPayload(BaseModel):` (стр. 520)
+- `class NotificationPayload(BaseModel):` (стр. 526)
+- `class StockCategoryPayload(BaseModel):` (стр. 535)
+- `class StockItemPayload(BaseModel):` (стр. 541)
+- `class BookingMaterialPayload(BaseModel):` (стр. 551)
+- `class ShiftChecklistItemPayload(BaseModel):` (стр. 560)
+- `class ShiftChecklistPayload(BaseModel):` (стр. 569)
+- `class ShiftChecklistSubmitItem(BaseModel):` (стр. 579)
+- `class ShiftChecklistSubmitRequest(BaseModel):` (стр. 584)
+- `class AdminShiftInspectionSupplyPayload(BaseModel):` (стр. 590)
+- `class AdminShiftInspectionMasterPayload(BaseModel):` (стр. 599)
+- `class AdminShiftInspectionPayload(BaseModel):` (стр. 605)
+- `class AdminShiftInspectionSubmitSupply(BaseModel):` (стр. 622)
+- `class AdminShiftInspectionSubmitMaster(BaseModel):` (стр. 627)
+- `class AdminShiftInspectionSubmitRequest(BaseModel):` (стр. 632)
+- `class AdminShiftInspectionReviewRequest(BaseModel):` (стр. 640)
+- `class OwnerShiftOpeningRequest(BaseModel):` (стр. 645)
+- `class ExpensePayload(BaseModel):` (стр. 650)
+- `class PenaltyPayload(BaseModel):` (стр. 660)
+- `class TelegramLinkCodePayload(BaseModel):` (стр. 672)
+- `class ServicePayload(BaseModel):` (стр. 678)
+- `class DetailingRequestCreateRequest(BaseModel):` (стр. 702)
+- `DetailingRequestCreateRequest.validate_cardef validate_car(cls, value: str | None) -> str | None: if value is None: return None return normalize_vehicle_name(value)` (стр. 711)
+- `DetailingRequestCreateRequest.validate_plate_fielddef validate_plate_field(self) -> "DetailingRequestCreateRequest": if self.plate is not None: if not self.plate.strip():` (стр. 717)
+- `class BoxPayload(BaseModel):` (стр. 726)
+- `class SchedulePayload(BaseModel):` (стр. 735)
+- `class AdminNotificationSettings(BaseModel):` (стр. 743)
+- `class AdminProfilePayload(BaseModel):` (стр. 751)
+- `class WorkerNotificationSettings(BaseModel):` (стр. 758)
+- `class WorkerProfilePayload(BaseModel):` (стр. 766)
+- `class OperatingMode(str, Enum):` (стр. 777)
+- `class OwnerCompanyPayload(BaseModel):` (стр. 782)
+- `class OwnerNotificationSettings(BaseModel):` (стр. 792)
+- `class OwnerIntegrationsPayload(BaseModel):` (стр. 802)
+- `class GoogleCredentialsPayload(BaseModel):` (стр. 809)
+- `class GoogleInvitePayload(BaseModel):` (стр. 817)
+- `class OwnerSecurityPayload(BaseModel):` (стр. 823)
+- `class AuthSessionPayload(BaseModel):` (стр. 827)
+- `class EmployeeSettingPayload(BaseModel):` (стр. 836)
+- `class WorkerCreateRequest(BaseModel):` (стр. 847)
+- `class PayrollEntryCreateRequest(BaseModel):` (стр. 859)
+- `PayrollEntryCreateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 874)
+- `class PayrollEntryUpdateRequest(BaseModel):` (стр. 878)
+- `PayrollEntryUpdateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 884)
+- `class SettingsBundlePayload(BaseModel):` (стр. 888)
+- `class SessionPayload(BaseModel):` (стр. 898)
+- `class BootstrapPayload(BaseModel):` (стр. 906)
+- `class ClientRegisterRequest(BaseModel):` (стр. 924)
+- `ClientRegisterRequest.lift_profiledef lift_profile(cls, raw: Any) -> Any: if isinstance(raw, dict) and isinstance(raw.get("profile"), dict):` (стр. 936)
+- `ClientRegisterRequest.validate_namedef validate_name(cls, value: str) -> str: if not value.strip():` (стр. 945)
+- `ClientRegisterRequest.validate_phonedef validate_phone(cls, value: str) -> str: if not value.strip():` (стр. 952)
+- `ClientRegisterRequest.validate_vehicledef validate_vehicle(self) -> "ClientRegisterRequest": if self.plate.strip():` (стр. 958)
+- `class ConsentRecordPayload(BaseModel):` (стр. 964)
+- `class ConsentCheckResponse(BaseModel):` (стр. 969)
+- `class StaffLinkRequest(BaseModel):` (стр. 973)
+- `class SwitchRoleRequest(BaseModel):` (стр. 978)
+- `class BookingCreateRequest(BaseModel):` (стр. 982)
+- `BookingCreateRequest.validate_client_namedef validate_client_name(cls, value: str) -> str: if not value.strip():` (стр. 1008)
+- `BookingCreateRequest.validate_client_phonedef validate_client_phone(cls, value: str) -> str: if not value.strip():` (стр. 1015)
+- `BookingCreateRequest.validate_vehicledef validate_vehicle(self) -> "BookingCreateRequest": if self.car is not None and self.car.strip():` (стр. 1021)
+- `class AddBookingServiceRequest(BaseModel):` (стр. 1029)
+- `class BookingUpdateRequest(BaseModel):` (стр. 1036)
+- `BookingUpdateRequest.validate_client_namedef validate_client_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1062)
+- `BookingUpdateRequest.validate_client_phonedef validate_client_phone(cls, value: str | None) -> str | None: if value is None: return None return normalize_phone(value)` (стр. 1069)
+- `BookingUpdateRequest.validate_vehicledef validate_vehicle(self) -> "BookingUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1075)
+- `class ClientCardUpdateRequest(BaseModel):` (стр. 1088)
+- `ClientCardUpdateRequest.validate_namedef validate_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1106)
+- `ClientCardUpdateRequest.validate_phonedef validate_phone(cls, value: str | None) -> str | None: if value is None or not value.strip():` (стр. 1113)
+- `ClientCardUpdateRequest.validate_vehicledef validate_vehicle(self) -> "ClientCardUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1119)
+- `class NotificationCreateRequest(BaseModel):` (стр. 1132)
+- `class ReadAllNotificationsRequest(BaseModel):` (стр. 1139)
+- `class StockItemCreateRequest(BaseModel):` (стр. 1143)
+- `class StockItemUpdateRequest(BaseModel):` (стр. 1152)
+- `class StockCategoryCreateRequest(BaseModel):` (стр. 1161)
+- `class StockCategoryUpdateRequest(BaseModel):` (стр. 1166)
+- `class StockWriteOffRequest(BaseModel):` (стр. 1171)
+- `class StockWriteOffPayload(BaseModel):` (стр. 1175)
+- `class IncomeCreateRequest(BaseModel):` (стр. 1193)
+- `IncomeCreateRequest.validate_sourcedef validate_source(cls, value: str) -> str: stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или состоять только из пробелов") return stripp` (стр. 1202)
+- `IncomeCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1210)
+- `class IncomePayload(BaseModel):` (стр. 1216)
+- `class ExpenseCreateRequest(BaseModel):` (стр. 1227)
+- `ExpenseCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1237)
+- `class PenaltyCreateRequest(BaseModel):` (стр. 1243)
+- `class OwnerReminderDispatchRequest(BaseModel):` (стр. 1249)
+- `class OwnerReminderDispatchPayload(BaseModel):` (стр. 1254)
+- `class StaffLoginRequest(BaseModel):` (стр. 1262)
+- `class ChangePasswordRequest(BaseModel):` (стр. 1267)
+- `class OwnerDatabaseResetPreviewPayload(BaseModel):` (стр. 1272)
+- `class OwnerDatabaseResetStartRequest(BaseModel):` (стр. 1287)
+- `class OwnerDatabaseResetApproveRequest(BaseModel):` (стр. 1291)
+- `class OwnerDatabaseResetExecuteRequest(BaseModel):` (стр. 1297)
+- `class OwnerDatabaseResetStartPayload(BaseModel):` (стр. 1301)
+- `class OwnerDatabaseResetApprovePayload(BaseModel):` (стр. 1310)
+- `class OwnerDatabaseResetExecutePayload(BaseModel):` (стр. 1318)
+- `class ContentAboutPayload(BaseModel):` (стр. 1323)
+- `class ContentServicePayload(BaseModel):` (стр. 1329)
+- `class ContentWorksPayload(BaseModel):` (стр. 1340)
+- `class ContentStatsPayload(BaseModel):` (стр. 1346)
+- `class ContentTitlePayload(BaseModel):` (стр. 1351)
+- `ContentTitlePayload.to_full_titledef to_full_title(self) -> str: return f"{self.before}{self.highlight}{self.after}"` (стр. 1356)
+- `class ContentHeroPayload(BaseModel):` (стр. 1360)
+- `class ContentPayload(BaseModel):` (стр. 1376)
+- `class ContactPayload(BaseModel):` (стр. 1383)
+- `class ResetPasswordRequest(BaseModel):` (стр. 1390)
+- `class GenericMessage(BaseModel):` (стр. 1394)
+- `class TelegramDeliveryResult(BaseModel):` (стр. 1398)
+- `class TelegramBroadcastPayload(BaseModel):` (стр. 1404)
+- `class OwnerExportDeliveryPayload(BaseModel):` (стр. 1410)
+- `class ShiftAttendancePayload(BaseModel):` (стр. 1417)
+- `class ExpenseUpdateRequest(BaseModel):` (стр. 1428)
+- `ExpenseUpdateRequest.validate_titledef validate_title(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("title не может быть пустым или с` (стр. 1438)
+- `ExpenseUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1448)
+- `ExpenseUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "ExpenseUpdateRequest": if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):` (стр. 1456)
+- `class IncomeUpdateRequest(BaseModel):` (стр. 1462)
+- `IncomeUpdateRequest.validate_sourcedef validate_source(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или` (стр. 1471)
+- `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1481)
+- `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "IncomeUpdateRequest": # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as` (стр. 1489)
+- `class PiggyBankTransactionPayload(BaseModel):` (стр. 1497)
+- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1519)
+- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1533)
+- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1539)
+- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1547)
+- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1554)
+- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1567)
+- `class PiggyBankResponse(BaseModel):` (стр. 1578)
+- `class WeeklyArchivePayload(BaseModel):` (стр. 1597)
+- `class WalletResponse(BaseModel):` (стр. 1611)
+- `class OwnerProfitShareItem(BaseModel):` (стр. 1628)
+- `class OwnerProfitShareSummary(BaseModel):` (стр. 1645)
+- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1654)
+- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1661)
+- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1667)
+- `class OverrideEarnedRequest(BaseModel):` (стр. 1674)
+- `class BookingHistoryItem(BaseModel):` (стр. 1678)
+- `class BookingTotalsWorkerItem(BaseModel):` (стр. 1695)
+- `class BookingTotalsOwnerItem(BaseModel):` (стр. 1713)
+- `class BookingTotalsPiggyItem(BaseModel):` (стр. 1720)
+- `class BookingHistoryTotals(BaseModel):` (стр. 1726)
+- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 1732)
+- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1743)
+- `class BookingPiggyTxItem(BaseModel):` (стр. 1751)
+- `class BookingAdditionalServiceItem(BaseModel):` (стр. 1760)
+- `class BookingAsvcPiggyItem(BaseModel):` (стр. 1769)
+- `class BookingAsvcWorkerItem(BaseModel):` (стр. 1775)
+- `class BookingMoneySplitDetail(BaseModel):` (стр. 1786)
+- `class BookingWorkerEarnedUpdate(BaseModel):` (стр. 1834)
+- `class BookingMoneySplitOwnerUpdate(BaseModel):` (стр. 1839)
+- `class BookingMoneySplitUpdateRequest(BaseModel):` (стр. 1844)
+- `class ArchiveBookingWorkerItem(BaseModel):` (стр. 1854)
+- `class ArchiveAdditionalServiceItem(BaseModel):` (стр. 1864)
+- `class ArchiveBookingItem(BaseModel):` (стр. 1870)
+- `class ArchivePayrollItem(BaseModel):` (стр. 1897)
+- `class ArchiveOwnerItem(BaseModel):` (стр. 1915)
+- `class ArchiveSummary(BaseModel):` (стр. 1923)
+- `class ArchiveResponse(BaseModel):` (стр. 1939)
+- `class MoneyFlowDistributionWorkerItem(BaseModel):` (стр. 1956)
+- `class MoneyFlowDistributionOwnerItem(BaseModel):` (стр. 1962)
+- `class MoneyFlowDistribution(BaseModel):` (стр. 1969)
+- `class MoneyFlowEntry(BaseModel):` (стр. 1980)
+- `class MoneyFlowSummary(BaseModel):` (стр. 2001)
+- `class MoneyFlowPersonItem(BaseModel):` (стр. 2025)
+- `class MoneyFlowResponse(BaseModel):` (стр. 2034)
+- `class DepositSubscriptionUpdateRequest(BaseModel):` (стр. 2047)
+- `DepositSubscriptionUpdateRequest.validate_plandef validate_plan(cls, value: str) -> str: value = value.strip() if value and value not in DEPOSIT_PLANS: raise ValueError("Неизвестный тип абонемента") return value` (стр. 2061)
 - ...ещё 14
 
 ### backend/app/security.py (110 строк)
@@ -1433,49 +1469,49 @@ concept1.0/
 - `ensure_staff_chat_id_availabledef ensure_staff_chat_id_available( db: Session, chat_id: str | int, *, exclude_staff_id: str | None = None,` (стр. 62)
 - `confirm_link_codedef confirm_link_code(db: Session, code: str, chat_id: int) -> StaffUser | None: _check_link_code_rate_limit(str(chat_id)) item = db.scalar(select(TelegramLinkCode).where(TelegramL` (стр. 80)
 
-### backend/bot.py (701 строк)
+### backend/bot.py (708 строк)
 
 Классы и функции (39):
 
-- `class BotRuntime: token: str webapp_url: str api_base: str training_webapp_url: str | None = None ADMIN_SHIFT_INSPECTION` (стр. 29)
-- `_build_runtimedef _build_runtime() -> BotRuntime: settings = get_settings() if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured") if not settings.webapp_` (стр. 41)
-- `telegram_webhook_secretdef telegram_webhook_secret() -> str: settings = get_settings() if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured") raw_secret = f"{setti` (стр. 55)
-- `telegram_webhook_urldef telegram_webhook_url() -> str: settings = get_settings() if not settings.webapp_url: raise RuntimeError("WEBAPP_URL is not configured") return f"{settings.webapp_url.rstrip('/'` (стр. 63)
-- `_parse_retry_afterdef _parse_retry_after(details: str) -> int | None: try: parsed = json.loads(details) except json.JSONDecodeError: return None parameters = parsed.get("parameters") if not isinstan` (стр. 70)
-- `_telegram_calldef _telegram_call( runtime: BotRuntime, method: str, payload: dict[str, Any] | None = None, *, max_attempts: int = 3,` (стр. 84)
-- `_telegram_multipart_calldef _telegram_multipart_call( runtime: BotRuntime, method: str, fields: dict[str, Any], files: dict[str, tuple[str, str, bytes]],` (стр. 116)
-- `_welcome_reply_markupdef _welcome_reply_markup(webapp_url: str) -> dict[str, Any]: return { "inline_keyboard": [ [ {"text": "✨ О нас", "web_app": {"url": f"{webapp_url}/about"}}, {"text": "📸 Наши работ` (стр. 159)
-- `_help_reply_markupdef _help_reply_markup(runtime: BotRuntime) -> dict[str, Any]: training_url = runtime.training_webapp_url or runtime.webapp_url help_url = f"{training_url}?help=1" if "?" not in tr` (стр. 182)
-- `_send_help_messagedef _send_help_message(runtime: BotRuntime, chat_id: int) -> None: _send_text_message( runtime, chat_id, HELP_TEXT, reply_markup=_help_reply_markup(runtime), parse_mode="HTML", )` (стр. 194)
-- `_configure_bot_metadatadef _configure_bot_metadata(runtime: BotRuntime) -> str | None: me = _telegram_call(runtime, "getMe") _telegram_call( runtime, "setMyCommands", { "commands": [ {"command": "start",` (стр. 204)
-- `disable_telegram_webhookdef disable_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None: runtime = _build_runtime() username = _configure_bot_metadata(runtime) _telegram_call(runtime, "d` (стр. 232)
-- `sync_telegram_webhookdef sync_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None: runtime = _build_runtime() username = _configure_bot_metadata(runtime) target_url = telegram_webhook` (стр. 239)
-- `_send_text_messagedef _send_text_message( runtime: BotRuntime, chat_id: int, text: str, *, reply_markup: dict[str, Any] | None = None, parse_mode: str | None = None,` (стр. 268)
-- `_send_start_messagedef _send_start_message(runtime: BotRuntime, chat_id: int) -> None: markup = _welcome_reply_markup(runtime.webapp_url) try: req = request.Request(WELCOME_PHOTO_URL) with request.ur` (стр. 299)
-- `_send_about_messagedef _send_about_message(runtime: BotRuntime, chat_id: int) -> None: with session_scope() as db: row = db.get(AppSetting, "content") if row and isinstance(row.value, dict):` (стр. 335)
-- `_send_works_messagedef _send_works_message(runtime: BotRuntime, chat_id: int) -> None: with session_scope() as db: row = db.get(AppSetting, "content") works = (row.value or {}).get("works", []) if ro` (стр. 348)
-- `send_telegram_messagedef send_telegram_message( chat_id: str | int, text: str, *, parse_mode: str | None = None` (стр. 370)
-- `send_telegram_documentdef send_telegram_document( chat_id: str | int, *, file_name: str, content: bytes, caption: str | None = None, mime_type: str = "application/octet-stream",` (стр. 377)
-- `send_telegram_photodef send_telegram_photo( chat_id: str | int, *, file_name: str, content: bytes, caption: str | None = None, parse_mode: str | None = None, mime_type: str = "image/jpeg", reply_mark` (стр. 397)
-- `_setting_dictdef _setting_dict(db, key: str, default: dict[str, Any]) -> dict[str, Any]: row = db.get(AppSetting, key) if row is None or not isinstance(row.value, dict):` (стр. 423)
-- `_setting_listdef _setting_list(db, key: str) -> list[dict[str, Any]]: row = db.get(AppSetting, key) if row is None or not isinstance(row.value, list):` (стр. 430)
-- `_upsert_settingdef _upsert_setting(db, key: str, value: Any) -> None: row = db.get(AppSetting, key) if row is None: row = AppSetting(key=key, value=value) db.add(row) else: row.value = value` (стр. 437)
-- `_serialize_nowdef _serialize_now() -> str: return datetime.now(timezone.utc).isoformat()` (стр. 446)
-- `_owner_by_chat_iddef _owner_by_chat_id(db, chat_id: int) -> StaffUser | None: return db.query(StaffUser).filter(StaffUser.role == "owner", StaffUser.telegram_chat_id == str(chat_id)).first()` (стр. 450)
-- `_apply_shift_review_from_botdef _apply_shift_review_from_bot(chat_id: int, inspection_id: str, action: str, issue_note: str = "") -> str: with session_scope() as db: owner = _owner_by_chat_id(db, chat_id) if ` (стр. 454)
-- `_remember_pending_issuedef _remember_pending_issue(chat_id: int, inspection_id: str) -> None: with session_scope() as db: state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat":` (стр. 494)
-- `_pop_pending_issuedef _pop_pending_issue(chat_id: int) -> str | None: with session_scope() as db: state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}}) pending = sta` (стр. 505)
-- `_extract_contact_phonedef _extract_contact_phone(update: dict[str, Any], chat_id: int) -> str | None: message = update.get("message") or {} contact = message.get("contact") or {} phone_number = contact.` (стр. 517)
-- `_store_client_phone_verificationdef _store_client_phone_verification(chat_id: int, phone_digits: str) -> None: with session_scope() as db: current = _setting_dict(db, CLIENT_PHONE_VERIFICATIONS_KEY, {}) current[s` (стр. 532)
-- `_extract_chat_iddef _extract_chat_id(update: dict[str, Any]) -> int | None: callback = update.get("callback_query") or {} callback_message = callback.get("message") or {} callback_chat = callback_` (стр. 542)
-- `_extract_textdef _extract_text(update: dict[str, Any]) -> str: message = update.get("message") or {} text = message.get("text") return text.strip() if isinstance(text, str) else ""` (стр. 555)
-- `_extract_callbackdef _extract_callback(update: dict[str, Any]) -> tuple[str, str] | None: callback = update.get("callback_query") or {} callback_id = callback.get("id") data = callback.get("data") ` (стр. 561)
-- `_answer_callback_querydef _answer_callback_query(runtime: BotRuntime, callback_id: str, text: str) -> None: _telegram_call(runtime, "answerCallbackQuery", {"callback_query_id": callback_id, "text": text` (стр. 570)
-- `_handle_link_commanddef _handle_link_command(chat_id: int, text: str) -> str: parts = text.split(maxsplit=1) code = parts[1].strip() if len(parts) == 2 else "" if not code.isdigit():` (стр. 574)
-- `_handle_plain_codedef _handle_plain_code(chat_id: int, text: str) -> str: code = text.strip() if not (code.isdigit() and len(code) == 6):` (стр. 595)
-- `_process_telegram_updatedef _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> None: text = _extract_text(update) chat_id = _extract_chat_id(update) if chat_id is None: return contac` (стр. 615)
-- `process_telegram_updatedef process_telegram_update(update: dict[str, Any]) -> None: runtime = _build_runtime() _process_telegram_update(runtime, update)` (стр. 663)
-- `run_pollingdef run_polling() -> None: logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s") runtime = _build_runtime() username = disable_telegram_webhook(dr` (стр. 668)
+- `class BotRuntime: token: str webapp_url: str api_base: str training_webapp_url: str | None = None ADMIN_SHIFT_INSPECTION` (стр. 31)
+- `_build_runtimedef _build_runtime() -> BotRuntime: settings = get_settings() if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured") if not settings.webapp_` (стр. 43)
+- `telegram_webhook_secretdef telegram_webhook_secret() -> str: settings = get_settings() if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured") raw_secret = f"{setti` (стр. 57)
+- `telegram_webhook_urldef telegram_webhook_url() -> str: settings = get_settings() if not settings.webapp_url: raise RuntimeError("WEBAPP_URL is not configured") return f"{settings.webapp_url.rstrip('/'` (стр. 65)
+- `_parse_retry_afterdef _parse_retry_after(details: str) -> int | None: try: parsed = json.loads(details) except json.JSONDecodeError: return None parameters = parsed.get("parameters") if not isinstan` (стр. 72)
+- `_telegram_calldef _telegram_call( runtime: BotRuntime, method: str, payload: dict[str, Any] | None = None, *, max_attempts: int = 3,` (стр. 86)
+- `_telegram_multipart_calldef _telegram_multipart_call( runtime: BotRuntime, method: str, fields: dict[str, Any], files: dict[str, tuple[str, str, bytes]],` (стр. 118)
+- `_welcome_reply_markupdef _welcome_reply_markup(webapp_url: str) -> dict[str, Any]: return { "inline_keyboard": [ [ {"text": "✨ О нас", "web_app": {"url": f"{webapp_url}/about"}}, {"text": "📸 Наши работ` (стр. 161)
+- `_help_reply_markupdef _help_reply_markup(runtime: BotRuntime) -> dict[str, Any]: training_url = runtime.training_webapp_url or runtime.webapp_url help_url = f"{training_url}?help=1" if "?" not in tr` (стр. 184)
+- `_send_help_messagedef _send_help_message(runtime: BotRuntime, chat_id: int) -> None: _send_text_message( runtime, chat_id, HELP_TEXT, reply_markup=_help_reply_markup(runtime), parse_mode="HTML", )` (стр. 196)
+- `_configure_bot_metadatadef _configure_bot_metadata(runtime: BotRuntime) -> str | None: me = _telegram_call(runtime, "getMe") _telegram_call( runtime, "setMyCommands", { "commands": [ {"command": "start",` (стр. 206)
+- `disable_telegram_webhookdef disable_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None: runtime = _build_runtime() username = _configure_bot_metadata(runtime) _telegram_call(runtime, "d` (стр. 234)
+- `sync_telegram_webhookdef sync_telegram_webhook(*, drop_pending_updates: bool = False) -> str | None: runtime = _build_runtime() username = _configure_bot_metadata(runtime) target_url = telegram_webhook` (стр. 241)
+- `_send_text_messagedef _send_text_message( runtime: BotRuntime, chat_id: int, text: str, *, reply_markup: dict[str, Any] | None = None, parse_mode: str | None = None,` (стр. 270)
+- `_send_start_messagedef _send_start_message(runtime: BotRuntime, chat_id: int) -> None: markup = _welcome_reply_markup(runtime.webapp_url) try: req = request.Request(WELCOME_PHOTO_URL) with request.ur` (стр. 301)
+- `_send_about_messagedef _send_about_message(runtime: BotRuntime, chat_id: int) -> None: with session_scope() as db: row = db.get(AppSetting, "content") if row and isinstance(row.value, dict):` (стр. 337)
+- `_send_works_messagedef _send_works_message(runtime: BotRuntime, chat_id: int) -> None: with session_scope() as db: row = db.get(AppSetting, "content") works = (row.value or {}).get("works", []) if ro` (стр. 350)
+- `send_telegram_messagedef send_telegram_message( chat_id: str | int, text: str, *, parse_mode: str | None = None` (стр. 372)
+- `send_telegram_documentdef send_telegram_document( chat_id: str | int, *, file_name: str, content: bytes, caption: str | None = None, mime_type: str = "application/octet-stream",` (стр. 379)
+- `send_telegram_photodef send_telegram_photo( chat_id: str | int, *, file_name: str, content: bytes, caption: str | None = None, parse_mode: str | None = None, mime_type: str = "image/jpeg", reply_mark` (стр. 399)
+- `_setting_dictdef _setting_dict(db, key: str, default: dict[str, Any]) -> dict[str, Any]: row = db.get(AppSetting, key) if row is None or not isinstance(row.value, dict):` (стр. 425)
+- `_setting_listdef _setting_list(db, key: str) -> list[dict[str, Any]]: row = db.get(AppSetting, key) if row is None or not isinstance(row.value, list):` (стр. 432)
+- `_upsert_settingdef _upsert_setting(db, key: str, value: Any) -> None: row = db.get(AppSetting, key) if row is None: row = AppSetting(key=key, value=value) db.add(row) else: row.value = value` (стр. 439)
+- `_serialize_nowdef _serialize_now() -> str: return datetime.now(timezone.utc).isoformat()` (стр. 448)
+- `_owner_by_chat_iddef _owner_by_chat_id(db, chat_id: int) -> StaffUser | None: return db.query(StaffUser).filter(StaffUser.role == "owner", StaffUser.telegram_chat_id == str(chat_id)).first()` (стр. 452)
+- `_apply_shift_review_from_botdef _apply_shift_review_from_bot(chat_id: int, inspection_id: str, action: str, issue_note: str = "") -> str: with session_scope() as db: owner = _owner_by_chat_id(db, chat_id) if ` (стр. 456)
+- `_remember_pending_issuedef _remember_pending_issue(chat_id: int, inspection_id: str) -> None: with session_scope() as db: state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat":` (стр. 496)
+- `_pop_pending_issuedef _pop_pending_issue(chat_id: int) -> str | None: with session_scope() as db: state = _setting_dict(db, ADMIN_SHIFT_OWNER_BOT_STATE_KEY, {"pendingIssueByChat": {}}) pending = sta` (стр. 507)
+- `_extract_contact_phonedef _extract_contact_phone(update: dict[str, Any], chat_id: int) -> str | None: message = update.get("message") or {} contact = message.get("contact") or {} phone_number = contact.` (стр. 519)
+- `_store_client_phone_verificationdef _store_client_phone_verification(chat_id: int, phone_digits: str) -> None: with session_scope() as db: current = _setting_dict(db, CLIENT_PHONE_VERIFICATIONS_KEY, {}) current[s` (стр. 534)
+- `_extract_chat_iddef _extract_chat_id(update: dict[str, Any]) -> int | None: callback = update.get("callback_query") or {} callback_message = callback.get("message") or {} callback_chat = callback_` (стр. 544)
+- `_extract_textdef _extract_text(update: dict[str, Any]) -> str: message = update.get("message") or {} text = message.get("text") return text.strip() if isinstance(text, str) else ""` (стр. 557)
+- `_extract_callbackdef _extract_callback(update: dict[str, Any]) -> tuple[str, str] | None: callback = update.get("callback_query") or {} callback_id = callback.get("id") data = callback.get("data") ` (стр. 563)
+- `_answer_callback_querydef _answer_callback_query(runtime: BotRuntime, callback_id: str, text: str) -> None: _telegram_call(runtime, "answerCallbackQuery", {"callback_query_id": callback_id, "text": text` (стр. 572)
+- `_handle_link_commanddef _handle_link_command(chat_id: int, text: str) -> str: parts = text.split(maxsplit=1) code = parts[1].strip() if len(parts) == 2 else "" if not code.isdigit():` (стр. 576)
+- `_handle_plain_codedef _handle_plain_code(chat_id: int, text: str) -> str: code = text.strip() if not (code.isdigit() and len(code) == 6):` (стр. 597)
+- `_process_telegram_updatedef _process_telegram_update(runtime: BotRuntime, update: dict[str, Any]) -> None: text = _extract_text(update) chat_id = _extract_chat_id(update) if chat_id is None: return contac` (стр. 617)
+- `process_telegram_updatedef process_telegram_update(update: dict[str, Any]) -> None: runtime = _build_runtime() _process_telegram_update(runtime, update)` (стр. 665)
+- `run_pollingdef run_polling() -> None: logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s") try: # Ошибки цикла бота (logging.error/exception ниже) дублируют` (стр. 670)
 
 ### backend/migrations/_common.py (73 строк)
 
@@ -1948,6 +1984,29 @@ concept1.0/
 - `DepositTests.test_washes_plan_carryover_from_previous_monthdef test_washes_plan_carryover_from_previous_month(self) -> None: from datetime import date from uuid import uuid4 as _uuid4 from app.database import SessionLocal from app.models i` (стр. 464)
 - `DepositTests.test_deposit_export_telegram_endpoints_reachabledef test_deposit_export_telegram_endpoints_reachable(self) -> None: client_id = self._create_client() self._activate_deposit(client_id, 4000) response = self.client.post( f"/api/ow` (стр. 504)
 
+### backend/tests/test_error_notifier.py (190 строк)
+
+Роуты (2):
+
+```
+  `GET /boom` -> `_boom` (декоратор: стр. 154)
+  `GET /missing` -> `_missing` (декоратор: стр. 179)
+```
+
+Классы и функции (11):
+
+- `_transportdef _transport(chats=("111", "222")): """Подменяет получателей и отправку, собирая отправленные тексты.""" sent: list[tuple[str, str]] = [] with patch.object(en, "_fetch_owner_chat` (стр. 36)
+- `_raised_value_errordef _raised_value_error(message: str = "boom") -> ValueError: try: raise ValueError(message) except ValueError as exc: return exc` (стр. 45)
+- `test_notify_exception_sends_to_all_owners_with_contextdef test_notify_exception_sends_to_all_owners_with_context() -> None: en._reset_state_for_tests() with _transport() as sent: assert en.notify_exception(_raised_value_error(), conte` (стр. 52)
+- `test_identical_error_suppressed_by_cooldowndef test_identical_error_suppressed_by_cooldown() -> None: en._reset_state_for_tests() with _transport() as sent: assert en.notify_exception(_raised_value_error("same")) is True # ` (стр. 65)
+- `test_different_message_same_site_not_suppresseddef test_different_message_same_site_not_suppressed() -> None: en._reset_state_for_tests() with _transport() as sent: assert en.notify_exception(_raised_value_error("first")) asser` (стр. 74)
+- `test_hourly_budget_blocks_extra_messagesdef test_hourly_budget_blocks_extra_messages(monkeypatch) -> None: monkeypatch.setenv("ERROR_NOTIFY_MAX_PER_HOUR", "1") en._reset_state_for_tests() with _transport() as sent: asser` (стр. 82)
+- `test_disabled_env_disables_sendingdef test_disabled_env_disables_sending(monkeypatch) -> None: monkeypatch.setenv("ERROR_NOTIFY_ENABLED", "false") en._reset_state_for_tests() with _transport() as sent: assert not e` (стр. 92)
+- `test_logging_handler_forwards_errors_and_dedupsdef test_logging_handler_forwards_errors_and_dedups() -> None: en._reset_state_for_tests() root = logging.getLogger() old_level = root.level handler = en.TelegramErrorNotifyHandler` (стр. 100)
+- `test_install_is_idempotent_across_module_reloadsdef test_install_is_idempotent_across_module_reloads() -> None: root = logging.getLogger() before = list(root.handlers) try: en.install_error_notifying() handlers_after_first = [ h` (стр. 129)
+- `test_unhandled_route_exception_returns_500_and_notifiesdef test_unhandled_route_exception_returns_500_and_notifies() -> None: en._reset_state_for_tests() app = FastAPI() @app.get("/boom") def _boom() -> dict:` (стр. 149)
+- `test_http_exception_does_not_notifydef test_http_exception_does_not_notify() -> None: en._reset_state_for_tests() app = FastAPI() @app.get("/missing") def _missing() -> dict:` (стр. 174)
+
 ### backend/tests/test_finance_batch3.py (29 строк)
 
 Классы и функции (3):
@@ -2191,6 +2250,42 @@ concept1.0/
 - `IncomeEndpointTests.test_created_income_appears_in_listdef test_created_income_appears_in_list(self) -> None: """After POST, the new income record appears in GET /api/owner/incomes. Requirements: 1.6, 1.7 """ payload = self._valid_inco` (стр. 192)
 - `IncomeEndpointTests.test_post_income_with_negative_amount_returns_422def test_post_income_with_negative_amount_returns_422(self) -> None: """POST /api/owner/incomes with a negative amount returns 422. Requirements: 1.4 """ payload = self._valid_inco` (стр. 214)
 - `IncomeEndpointTests.test_post_income_with_amount_exceeding_max_returns_422def test_post_income_with_amount_exceeding_max_returns_422(self) -> None: """POST /api/owner/incomes with amount > 10_000_000 returns 422. Requirements: 1.4 """ payload = self._val` (стр. 227)
+
+### backend/tests/test_money_fixes.py (665 строк)
+
+Классы и функции (31):
+
+- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 30)
+- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": int` (стр. 42)
+- `class MoneyFixTestBase(unittest.TestCase):` (стр. 47)
+- `MoneyFixTestBase.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_money_{uuid4().hex}.sq` (стр. 53)
+- `MoneyFixTestBase.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 79)
+- `MoneyFixTestBase._set_staff_telegram_idsdef _set_staff_telegram_ids(self) -> None: from app.database import SessionLocal from app.models import StaffUser from sqlalchemy import select with SessionLocal() as db: ivan = db` (стр. 92)
+- `MoneyFixTestBase._auth_headersdef _auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 107)
+- `MoneyFixTestBase._todaydef _today() -> str: return datetime.now(timezone.utc).strftime("%d.%m.%Y")` (стр. 111)
+- `MoneyFixTestBase._create_clientdef _create_client(self) -> tuple[str, str]: from app.database import SessionLocal from app.models import Client from app.schemas import normalize_phone client_id = f"c-{uuid4().he` (стр. 114)
+- `MoneyFixTestBase._create_completed_bookingdef _create_completed_booking( self, *, price: int, workers: list[dict], payment_settled: bool = True,` (стр. 134)
+- `class PayrollAmountValidationTest(MoneyFixTestBase):` (стр. 169)
+- `PayrollAmountValidationTest.test_nan_amount_rejected_with_422def test_nan_amount_rejected_with_422(self) -> None: # Starlette парсит NaN-литерал в float('nan'); pydantic должен отклонить. response = self.client.post( "/api/payroll/entries", ` (стр. 172)
+- `PayrollAmountValidationTest.test_infinite_amount_rejected_with_422def test_infinite_amount_rejected_with_422(self) -> None: response = self.client.post( "/api/payroll/entries", headers=self._auth_headers(self.owner_token), data=json.dumps( { "wor` (стр. 183)
+- `PayrollAmountValidationTest.test_negative_override_earned_rejected_with_422def test_negative_override_earned_rejected_with_422(self) -> None: booking_id = self._create_completed_booking( price=5000, workers=[{"workerId": "w1", "workerName": "Иван", "perce` (стр. 198)
+- `class PiggyWithdrawLinkTest(MoneyFixTestBase):` (стр. 222)
+- `PiggyWithdrawLinkTest.test_editing_withdraw_expense_updates_single_mirrordef test_editing_withdraw_expense_updates_single_mirror(self) -> None: # Снятие 1000 из копилки мойки без привязки к записи withdraw_response = self.client.post( "/api/owner/piggy-` (стр. 225)
+- `PiggyWithdrawLinkTest.test_payroll_expense_never_gets_piggy_mirrordef test_payroll_expense_never_gets_piggy_mirror(self) -> None: self._create_completed_booking( price=5000, workers=[{"workerId": "w1", "workerName": "Иван", "percent": 30}], ) pay` (стр. 282)
+- `class PaySalaryBalanceConsistencyTest(MoneyFixTestBase):` (стр. 315)
+- `PaySalaryBalanceConsistencyTest.test_new_balance_matches_screen_after_payoutdef test_new_balance_matches_screen_after_payout(self) -> None: from app.database import SessionLocal from app.models import StaffUser from sqlalchemy import select with SessionLoc` (стр. 318)
+- `PaySalaryBalanceConsistencyTest.test_asvc_only_worker_balance_counts_additional_servicesdef test_asvc_only_worker_balance_counts_additional_services(self) -> None: booking_id = self._create_completed_booking( price=5000, workers=[{"workerId": "w2", "workerName": "Олег` (стр. 365)
+- `class PaySalaryIdempotencyTest(MoneyFixTestBase):` (стр. 404)
+- `PaySalaryIdempotencyTest._paydef _pay(self, request_key: str | None) -> dict: response = self.client.post( "/api/owner/workers/w1/pay-salary", headers=self._auth_headers(self.owner_token), json={ "period": "mo` (стр. 407)
+- `PaySalaryIdempotencyTest.test_duplicate_request_returns_same_payoutdef test_duplicate_request_returns_same_payout(self) -> None: first = self._pay("req-key-123") second = self._pay("req-key-123") self.assertEqual(first["payoutId"], second["payoutI` (стр. 422)
+- `PaySalaryIdempotencyTest.test_different_keys_create_separate_payoutsdef test_different_keys_create_separate_payouts(self) -> None: first = self._pay("req-key-a") second = self._pay("req-key-b") self.assertNotEqual(first["payoutId"], second["payoutI` (стр. 444)
+- `class PayoutViaEntriesCreatesExpenseTest(MoneyFixTestBase):` (стр. 462)
+- `PayoutViaEntriesCreatesExpenseTest.test_payout_entry_creates_expensedef test_payout_entry_creates_expense(self) -> None: response = self.client.post( "/api/payroll/entries", headers=self._auth_headers(self.owner_token), json={ "workerId": "w1", "ki` (стр. 465)
+- `class ReverseBudgetSyncTest(MoneyFixTestBase):` (стр. 499)
+- `ReverseBudgetSyncTest.test_editing_bonus_expense_updates_payroll_entrydef test_editing_bonus_expense_updates_payroll_entry(self) -> None: create_response = self.client.post( "/api/payroll/entries", headers=self._auth_headers(self.owner_token), json={` (стр. 502)
+- `ReverseBudgetSyncTest.test_editing_deduction_income_updates_payroll_entrydef test_editing_deduction_income_updates_payroll_entry(self) -> None: create_response = self.client.post( "/api/payroll/entries", headers=self._auth_headers(self.owner_token), jso` (стр. 540)
+- `class ComplaintPostingsConsistencyTest(MoneyFixTestBase):` (стр. 575)
+- `ComplaintPostingsConsistencyTest.test_postings_match_complaint_adjusted_splitdef test_postings_match_complaint_adjusted_split(self) -> None: from datetime import timedelta from app.database import SessionLocal from app.models import ( OwnerProfitShare, Pena` (стр. 578)
 
 ### backend/tests/test_money_flow.py (409 строк)
 
@@ -3280,208 +3375,245 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (13416 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12910 строк)
 
-- `EXPENSE_CATEGORIES` (стр. 278) — локальный
-- `STOCK_UNITS` (стр. 279) — локальный
-- `SERVICE_TYPE_OPTIONS` (стр. 280) — локальный
-- `ownerBookingStatusRequiresScheduledSlot` (стр. 291) — локальный
-- `employeeRoleLabel` (стр. 294) — локальный
-- `ownerServiceResourceGroup` (стр. 300) — локальный
-- `ownerDefaultBoxForService` (стр. 304) — локальный
-- `rg` (стр. 305) — локальный
-- `match` (стр. 306) — локальный
-- `ownerBookingBoxes` (стр. 310) — локальный
-- `ownerLocationLabel` (стр. 318) — локальный
-- `parseOwnerBookingMinutes` (стр. 322) — локальный
-- `match` (стр. 323) — локальный
-- `hours` (стр. 325) — локальный
-- `minutes` (стр. 326) — локальный
-- `OWNER_CALENDAR_WEEKDAYS` (стр. 331) — локальный
-- `OWNER_CALENDAR_MONTHS` (стр. 332) — локальный
-- `OWNER_CALENDAR_DEFAULT_OPEN` (стр. 336) — локальный
-- `OWNER_CALENDAR_DEFAULT_CLOSE` (стр. 337) — локальный
-- `ownerScheduleTimeToMinutes` (стр. 339) — локальный
-- `ownerMonthTitle` (стр. 343) — локальный
-- `ownerBuildMonthCells` (стр. 347) — локальный
-- `year` (стр. 348) — локальный
-- `month` (стр. 349) — локальный
-- `first` (стр. 350) — локальный
-- `offset` (стр. 351) — локальный
-- `daysInMonth` (стр. 352) — локальный
-- `date` (стр. 358) — локальный
-- `ownerCalendarDayHours` (стр. 367) — локальный
-- `parsedDate` (стр. 368) — локальный
-- `daySchedule` (стр. 372) — локальный
-- `open` (стр. 376) — локальный
-- `close` (стр. 377) — локальный
-- `OWNER_CALENDAR_LOAD_COLORS` (стр. 381) — локальный
-- `ownerCalendarLoadTone` (стр. 387) — локальный
-- `ratio` (стр. 389) — локальный
-- `ownerGroupBookingsByHour` (стр. 399) — локальный
-- `timed` (стр. 404) — локальный
-- `hourLabel` (стр. 407) — локальный
-- `slotEnd` (стр. 408) — локальный
-- `slotBookings` (стр. 409) — локальный
-- `start` (стр. 411) — локальный
-- `ownerOpenBookingDetail` (стр. 423) — локальный
-- `ownerBookingBlocksBox` (стр. 432) — локальный
-- `nextStart` (стр. 435) — локальный
-- `existingStart` (стр. 436) — локальный
-- `nextEnd` (стр. 438) — локальный
-- `existingEnd` (стр. 439) — локальный
-- `ownerPickDefaultBookingBox` (стр. 443) — локальный
-- `resourceGroup` (стр. 452) — локальный
-- `preferred` (стр. 453) — локальный
-- `fallback` (стр. 454) — локальный
-- `candidates` (стр. 455) — локальный
-- `serviceResourceGroupForCategory` (стр. 460) — локальный
-- `numberInputValue` (стр. 464) — локальный
-- `ORDER_STEPS` (стр. 478) — локальный
-- `serviceMoneySummary` (стр. 485) — локальный
-- `piggyTargetLabel` (стр. 486) — локальный
-- `master` (стр. 490) — локальный
-- `piggy` (стр. 495) — локальный
-- `owners` (стр. 504) — локальный
-- `previewServiceSplit` (стр. 512) — локальный
-- `materials` (стр. 517) — локальный
-- `net` (стр. 518) — локальный
-- `order` (стр. 519) — локальный
-- `pipeline` (стр. 520) — локальный
-- `piggyType` (стр. 521) — локальный
-- `computeMaster` (стр. 528) — локальный
-- `computePiggy` (стр. 537) — локальный
-- `m` (стр. 545) — локальный
-- `p` (стр. 547) — локальный
-- `afterMasterPiggy` (стр. 551) — локальный
-- `m` (стр. 570) — локальный
-- `p` (стр. 574) — локальный
-- `isLast` (стр. 578) — локальный
-- `claimed` (стр. 579) — локальный
-- `ownerPaymentLabel` (стр. 598) — локальный
-- `normalizeOwnerPhoneSearchValue` (стр. 605) — локальный
-- `numberFromInput` (стр. 615) — локальный
-- `parseDecimalInput` (стр. 620) — локальный
-- `normalized` (стр. 621) — локальный
-- `parsed` (стр. 622) — локальный
-- `isValidAmountInput` (стр. 626) — локальный
-- `n` (стр. 627) — локальный
-- `toISODate` (стр. 631) — локальный
-- `parsed` (стр. 632) — локальный
-- `y` (стр. 634) — локальный
-- `m` (стр. 635) — локальный
-- `d` (стр. 636) — локальный
-- `TIME_SLOTS` (стр. 640) — локальный
-- `h` (стр. 641) — локальный
-- `m` (стр. 642) — локальный
-- `OwnerApp` (стр. 649)
-- `isAccountant` (стр. 727) — локальный
-- `modalMaxHeight` (стр. 728) — локальный
-- `financeRoleTitle` (стр. 729) — локальный
-- `financeNotificationRole` (стр. 730) — локальный
-- `__nowRpt` (стр. 803) — локальный
-- `__dowRpt` (стр. 804) — локальный
-- `__monRpt` (стр. 805) — локальный
-- `__sunRpt` (стр. 806) — локальный
-- `parentCategories` (стр. 828) — локальный
+- `EXPENSE_CATEGORIES` (стр. 280) — локальный
+- `STOCK_UNITS` (стр. 281) — локальный
+- `SERVICE_TYPE_OPTIONS` (стр. 282) — локальный
+- `ownerBookingStatusRequiresScheduledSlot` (стр. 293) — локальный
+- `employeeRoleLabel` (стр. 296) — локальный
+- `ownerServiceResourceGroup` (стр. 302) — локальный
+- `ownerDefaultBoxForService` (стр. 306) — локальный
+- `rg` (стр. 307) — локальный
+- `match` (стр. 308) — локальный
+- `ownerBookingBoxes` (стр. 312) — локальный
+- `ownerLocationLabel` (стр. 320) — локальный
+- `parseOwnerBookingMinutes` (стр. 324) — локальный
+- `match` (стр. 325) — локальный
+- `hours` (стр. 327) — локальный
+- `minutes` (стр. 328) — локальный
+- `OWNER_CALENDAR_WEEKDAYS` (стр. 333) — локальный
+- `OWNER_CALENDAR_MONTHS` (стр. 334) — локальный
+- `OWNER_CALENDAR_DEFAULT_OPEN` (стр. 338) — локальный
+- `OWNER_CALENDAR_DEFAULT_CLOSE` (стр. 339) — локальный
+- `ownerScheduleTimeToMinutes` (стр. 341) — локальный
+- `ownerMonthTitle` (стр. 345) — локальный
+- `ownerBuildMonthCells` (стр. 349) — локальный
+- `year` (стр. 350) — локальный
+- `month` (стр. 351) — локальный
+- `first` (стр. 352) — локальный
+- `offset` (стр. 353) — локальный
+- `daysInMonth` (стр. 354) — локальный
+- `date` (стр. 360) — локальный
+- `ownerCalendarDayHours` (стр. 369) — локальный
+- `parsedDate` (стр. 370) — локальный
+- `daySchedule` (стр. 374) — локальный
+- `open` (стр. 378) — локальный
+- `close` (стр. 379) — локальный
+- `OWNER_CALENDAR_LOAD_COLORS` (стр. 383) — локальный
+- `ownerCalendarLoadTone` (стр. 389) — локальный
+- `ratio` (стр. 391) — локальный
+- `ownerGroupBookingsByHour` (стр. 401) — локальный
+- `timed` (стр. 406) — локальный
+- `hourLabel` (стр. 409) — локальный
+- `slotEnd` (стр. 410) — локальный
+- `slotBookings` (стр. 411) — локальный
+- `start` (стр. 413) — локальный
+- `ownerOpenBookingDetail` (стр. 425) — локальный
+- `ownerBookingBlocksBox` (стр. 434) — локальный
+- `nextStart` (стр. 437) — локальный
+- `existingStart` (стр. 438) — локальный
+- `nextEnd` (стр. 440) — локальный
+- `existingEnd` (стр. 441) — локальный
+- `ownerPickDefaultBookingBox` (стр. 445) — локальный
+- `resourceGroup` (стр. 454) — локальный
+- `preferred` (стр. 455) — локальный
+- `fallback` (стр. 456) — локальный
+- `candidates` (стр. 457) — локальный
+- `serviceResourceGroupForCategory` (стр. 462) — локальный
+- `numberInputValue` (стр. 466) — локальный
+- `ORDER_STEPS` (стр. 480) — локальный
+- `serviceMoneySummary` (стр. 487) — локальный
+- `piggyTargetLabel` (стр. 488) — локальный
+- `master` (стр. 492) — локальный
+- `piggy` (стр. 497) — локальный
+- `owners` (стр. 506) — локальный
+- `previewServiceSplit` (стр. 514) — локальный
+- `materials` (стр. 519) — локальный
+- `net` (стр. 520) — локальный
+- `order` (стр. 521) — локальный
+- `pipeline` (стр. 522) — локальный
+- `piggyType` (стр. 523) — локальный
+- `computeMaster` (стр. 530) — локальный
+- `computePiggy` (стр. 539) — локальный
+- `m` (стр. 547) — локальный
+- `p` (стр. 549) — локальный
+- `afterMasterPiggy` (стр. 553) — локальный
+- `m` (стр. 572) — локальный
+- `p` (стр. 576) — локальный
+- `isLast` (стр. 580) — локальный
+- `claimed` (стр. 581) — локальный
+- `ownerPaymentLabel` (стр. 600) — локальный
+- `normalizeOwnerPhoneSearchValue` (стр. 607) — локальный
+- `numberFromInput` (стр. 617) — локальный
+- `parseDecimalInput` (стр. 622) — локальный
+- `normalized` (стр. 623) — локальный
+- `parsed` (стр. 624) — локальный
+- `isValidAmountInput` (стр. 628) — локальный
+- `n` (стр. 629) — локальный
+- `toISODate` (стр. 633) — локальный
+- `parsed` (стр. 634) — локальный
+- `y` (стр. 636) — локальный
+- `m` (стр. 637) — локальный
+- `d` (стр. 638) — локальный
+- `TIME_SLOTS` (стр. 642) — локальный
+- `h` (стр. 643) — локальный
+- `m` (стр. 644) — локальный
+- `OwnerApp` (стр. 651)
+- `isAccountant` (стр. 729) — локальный
+- `modalMaxHeight` (стр. 730) — локальный
+- `financeRoleTitle` (стр. 731) — локальный
+- `financeNotificationRole` (стр. 732) — локальный
+- `__nowRpt` (стр. 799) — локальный
+- `__dowRpt` (стр. 800) — локальный
+- `__monRpt` (стр. 801) — локальный
+- `__sunRpt` (стр. 802) — локальный
+- `parentCategories` (стр. 824) — локальный
+- `newPayRequestId` (стр. 862) — локальный
 - `today` (стр. 1012) — локальный
-- `adminShiftPhotoUrlsRef` (стр. 1040) — локальный
-- `clearOwnerResetFlow` (стр. 1136) — локальный
-- `nextBoxes` (стр. 1159) — локальный
-- `params` (стр. 1197) — локальный
-- `params` (стр. 1212) — локальный
-- `handlePayOwnerSalary` (стр. 1223) — локальный
-- `amount` (стр. 1224) — локальный
-- `res` (стр. 1228) — локальный
-- `updated` (стр. 1237) — локальный
-- `loadPiggyBank` (стр. 1245) — локальный
-- `params` (стр. 1249) — локальный
-- `qs` (стр. 1252) — локальный
-- `data` (стр. 1254) — локальный
-- `loadWallet` (стр. 1262) — локальный
-- `params` (стр. 1266) — локальный
-- `qs` (стр. 1269) — локальный
-- `data` (стр. 1271) — локальный
-- `handlePiggyWithdraw` (стр. 1277) — локальный
-- `f` (стр. 1278) — локальный
-- `amount` (стр. 1280) — локальный
-- `openPiggyWithdraw` (стр. 1306) — локальный
-- `handlePiggyBankExport` (стр. 1311) — локальный
-- `openPiggyAdjust` (стр. 1318) — локальный
-- `current` (стр. 1319) — локальный
-- `currentPrecise` (стр. 1323) — локальный
-- `handlePiggyAdjust` (стр. 1330) — локальный
-- `newBalance` (стр. 1331) — локальный
-- `delta` (стр. 1333) — локальный
-- `syncCountdown` (стр. 1406) — локальный
-- `diffMs` (стр. 1407) — локальный
-- `intervalId` (стр. 1412) — локальный
-- `handleOpenShiftForMasters` (стр. 1442) — локальный
-- `saved` (стр. 1451) — локальный
-- `ownerNotifications` (стр. 1467) — локальный
-- `unreadCount` (стр. 1468) — локальный
-- `completedBookings` (стр. 1469) — локальный
-- `todayBookings` (стр. 1470) — локальный
-- `activeMasters` (стр. 1472) — локальный
-- `masterCameOutTodayAt` (стр. 1477) — локальный
-- `times` (стр. 1478) — локальный
-- `mastersCameOutToday` (стр. 1487) — локальный
-- `latestShiftChecklists` (стр. 1488) — локальный
-- `latestAdminShiftInspections` (стр. 1489) — локальный
-- `latestAdminShiftInspectionKey` (стр. 1490) — локальный
-- `activeIds` (стр. 1506) — локальный
-- `currentPhotoUrls` (стр. 1519) — локальный
-- `missing` (стр. 1520) — локальный
-- `next` (стр. 1532) — локальный
-- `vv` (стр. 1554) — локальный
-- `handler` (стр. 1556) — локальный
-- `el` (стр. 1557) — локальный
-- `bookingFormBoxes` (стр. 1569) — локальный
-- `bookingFormLocationLabel` (стр. 1570) — локальный
-- `editBookingLocationLabel` (стр. 1571) — локальный
-- `todayRevenue` (стр. 1572) — локальный
-- `now` (стр. 1575) — локальный
-- `dayOfWeek` (стр. 1576) — локальный
-- `diffToSaturday` (стр. 1577) — локальный
-- `weekSaturday` (стр. 1578) — локальный
-- `weekFriday` (стр. 1581) — локальный
-- `isDateInWeek` (стр. 1584) — локальный
-- `d` (стр. 1585) — локальный
-- `weeklyCompletedBookings` (стр. 1588) — локальный
-- `weeklyBookings` (стр. 1589) — локальный
-- `weeklyExpenses` (стр. 1590) — локальный
-- `weeklyIncomes` (стр. 1591) — локальный
-- `totalRevenue` (стр. 1592) — локальный
-- `totalExpenses` (стр. 1593) — локальный
-- `totalIncomes` (стр. 1594) — локальный
-- `profit` (стр. 1595) — локальный
-- `averageCheck` (стр. 1596) — локальный
-- `activeBookings` (стр. 1597) — локальный
-- `pipelineCounts` (стр. 1598) — локальный
-- `statusListItems` (стр. 1605) — локальный
-- `totalStockValue` (стр. 1610) — локальный
-- `washRevenue` (стр. 1613) — локальный
-- `detailingRevenue` (стр. 1616) — локальный
-- `washExpenses` (стр. 1619) — локальный
-- `detailingExpenses` (стр. 1622) — локальный
-- `washIncomes` (стр. 1625) — локальный
-- `detailingIncomes` (стр. 1628) — локальный
-- `resourceGroupLabel` (стр. 1632) — локальный
-- `payrollRows` (стр. 1637) — локальный
-- `workerPenalties` (стр. 1638) — локальный
-- `complaintState` (стр. 1639) — локальный
-- `payrollTotal` (стр. 1647) — локальный
-- `formatComplaintDate` (стр. 1648) — локальный
-- `resetPreviewRows` (стр. 1649) — локальный
-- `resetExecuteLocked` (стр. 1663) — локальный
-- `glass` (стр. 1665) — локальный
-- `bg` (стр. 1666) — локальный
-- `text` (стр. 1667) — локальный
-- `sub` (стр. 1668) — локальный
-- `primary` (стр. 1669) — локальный
-- `accent` (стр. 1670) — локальный
-- `surface` (стр. 1671) — локальный
-- `inputCls` (стр. 1672) — локальный
+- `clearOwnerResetFlow` (стр. 1134) — локальный
+- `nextBoxes` (стр. 1157) — локальный
+- `params` (стр. 1195) — локальный
+- `params` (стр. 1210) — локальный
+- `handlePayOwnerSalary` (стр. 1221) — локальный
+- `amount` (стр. 1222) — локальный
+- `res` (стр. 1226) — локальный
+- `updated` (стр. 1235) — локальный
+- `loadPiggyBank` (стр. 1243) — локальный
+- `params` (стр. 1247) — локальный
+- `qs` (стр. 1250) — локальный
+- `data` (стр. 1252) — локальный
+- `loadWallet` (стр. 1260) — локальный
+- `params` (стр. 1264) — локальный
+- `qs` (стр. 1267) — локальный
+- `data` (стр. 1269) — локальный
+- `handlePiggyWithdraw` (стр. 1275) — локальный
+- `f` (стр. 1276) — локальный
+- `amount` (стр. 1278) — локальный
+- `openPiggyWithdraw` (стр. 1304) — локальный
+- `handlePiggyBankExport` (стр. 1309) — локальный
+- `openPiggyAdjust` (стр. 1316) — локальный
+- `current` (стр. 1317) — локальный
+- `currentPrecise` (стр. 1321) — локальный
+- `handlePiggyAdjust` (стр. 1328) — локальный
+- `newBalance` (стр. 1329) — локальный
+- `delta` (стр. 1331) — локальный
+- `syncCountdown` (стр. 1404) — локальный
+- `diffMs` (стр. 1405) — локальный
+- `intervalId` (стр. 1410) — локальный
+- `handleOpenShiftForMasters` (стр. 1440) — локальный
+- `saved` (стр. 1449) — локальный
+- `ownerNotifications` (стр. 1465) — локальный
+- `unreadCount` (стр. 1466) — локальный
+- `completedBookings` (стр. 1467) — локальный
+- `todayBookings` (стр. 1468) — локальный
+- `activeMasters` (стр. 1470) — локальный
+- `masterCameOutTodayAt` (стр. 1475) — локальный
+- `times` (стр. 1476) — локальный
+- `mastersCameOutToday` (стр. 1485) — локальный
+- `vv` (стр. 1489) — локальный
+- `handler` (стр. 1491) — локальный
+- `el` (стр. 1492) — локальный
+- `bookingFormBoxes` (стр. 1499) — локальный
+- `bookingFormLocationLabel` (стр. 1500) — локальный
+- `editBookingLocationLabel` (стр. 1501) — локальный
+- `todayRevenue` (стр. 1502) — локальный
+- `now` (стр. 1505) — локальный
+- `dayOfWeek` (стр. 1506) — локальный
+- `diffToSaturday` (стр. 1507) — локальный
+- `weekSaturday` (стр. 1508) — локальный
+- `weekFriday` (стр. 1511) — локальный
+- `isDateInWeek` (стр. 1514) — локальный
+- `d` (стр. 1515) — локальный
+- `weeklyCompletedBookings` (стр. 1518) — локальный
+- `weeklyBookings` (стр. 1519) — локальный
+- `weeklyExpenses` (стр. 1520) — локальный
+- `weeklyIncomes` (стр. 1521) — локальный
+- `totalRevenue` (стр. 1522) — локальный
+- `totalExpenses` (стр. 1523) — локальный
+- `totalIncomes` (стр. 1524) — локальный
+- `profit` (стр. 1525) — локальный
+- `averageCheck` (стр. 1526) — локальный
+- `activeBookings` (стр. 1527) — локальный
+- `pipelineCounts` (стр. 1528) — локальный
+- `statusListItems` (стр. 1535) — локальный
+- `totalStockValue` (стр. 1540) — локальный
+- `washRevenue` (стр. 1543) — локальный
+- `detailingRevenue` (стр. 1546) — локальный
+- `washExpenses` (стр. 1549) — локальный
+- `detailingExpenses` (стр. 1552) — локальный
+- `washIncomes` (стр. 1555) — локальный
+- `detailingIncomes` (стр. 1558) — локальный
+- `resourceGroupLabel` (стр. 1562) — локальный
+- `payrollRows` (стр. 1567) — локальный
+- `workerPenalties` (стр. 1568) — локальный
+- `complaintState` (стр. 1569) — локальный
+- `payrollTotal` (стр. 1577) — локальный
+- `formatComplaintDate` (стр. 1578) — локальный
+- `resetPreviewRows` (стр. 1579) — локальный
+- `resetExecuteLocked` (стр. 1593) — локальный
+- `glass` (стр. 1595) — локальный
+- `bg` (стр. 1596) — локальный
+- `text` (стр. 1597) — локальный
+- `sub` (стр. 1598) — локальный
+- `primary` (стр. 1599) — локальный
+- `accent` (стр. 1600) — локальный
+- `surface` (стр. 1601) — локальный
+- `inputCls` (стр. 1602) — локальный
+- `selectCls` (стр. 1603) — локальный
+- `tooltipStyle` (стр. 1604) — локальный
+- `createDraftId` (стр. 1605) — локальный
+- `handleAddBoxDraft` (стр. 1607) — локальный
+- `handleRemoveBoxDraft` (стр. 1621) — локальный
+- `handleAddServiceDraft` (стр. 1625) — локальный
+- `handleRemoveServiceDraft` (стр. 1654) — локальный
+
+### frontend/src/app/components/owner/screens/OwnerStockPage.tsx (718 строк)
+
+- `STOCK_UNITS` (стр. 8) — локальный
+- `OwnerStockPage` (стр. 20)
+- `isAccountant` (стр. 33) — локальный
+- `parentCategories` (стр. 41) — локальный
+- `adminShiftPhotoUrlsRef` (стр. 56) — локальный
+- `latestShiftChecklists` (стр. 58) — локальный
+- `latestAdminShiftInspections` (стр. 59) — локальный
+- `latestAdminShiftInspectionKey` (стр. 60) — локальный
+- `totalStockValue` (стр. 62) — локальный
+- `activeIds` (стр. 70) — локальный
+- `currentPhotoUrls` (стр. 83) — локальный
+- `missing` (стр. 84) — локальный
+- `next` (стр. 96) — локальный
+- `handleAddStock` (стр. 124) — локальный
+- `parentCats` (стр. 126) — локальный
+- `qty` (стр. 127) — локальный
+- `rawPrice` (стр. 128) — локальный
+- `unitPrice` (стр. 129) — локальный
+- `handleWriteOff` (стр. 136) — локальный
+- `item` (стр. 138) — локальный
+- `glass` (стр. 147) — локальный
+- `sub` (стр. 148) — локальный
+- `selectCls` (стр. 151) — локальный
+- `children` (стр. 180) — локальный
+- `parentItems` (стр. 181) — локальный
+- `itemCat` (стр. 183) — локальный
+- `parentCats` (стр. 438) — локальный
+- `parentId` (стр. 444) — локальный
+- `children` (стр. 445) — локальный
+- `selectedParentId` (стр. 455) — локальный
+- `children` (стр. 458) — локальный
+- `cat` (стр. 464) — локальный
+- `InlineRename` (стр. 655) — локальный
+- `InlineAdd` (стр. 687) — локальный
 
 ### frontend/src/app/components/shared/Atmosfera.tsx (7 строк)
 
@@ -4243,18 +4375,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `REDESIGN_PLAN.md` (2026-08-24 19:13)
+- `backend/tests/test_money_fixes.py` (2026-08-24 19:58)
+- `REDESIGN_PLAN.md` (2026-08-24 19:56)
+- `backend/app/main.py` (2026-08-24 19:49)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 19:47)
+- `backend/app/schemas.py` (2026-08-24 19:39)
+- `backend/app/models.py` (2026-08-24 19:38)
+- `frontend/src/app/components/owner/screens/OwnerStockPage.tsx` (2026-08-24 19:37)
+- `backend/app/finance_sync.py` (2026-08-24 19:36)
+- `backend/app/error_notifier.py` (2026-08-24 19:32)
+- `backend/tests/test_error_notifier.py` (2026-08-24 19:31)
+- `backend/bot.py` (2026-08-24 19:25)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-24 19:12)
 - `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-24 19:05)
 - `backend/tests/test_google_calendar.py` (2026-08-24 18:46)
 - `backend/tests/test_google_calendar_api.py` (2026-08-24 18:46)
-- `frontend/src/app/components/admin/shared/AssignWorkersDialog.tsx` (2026-08-24 18:31)
-- `backend/app/main.py` (2026-08-24 18:16)
-- `backend/app/exports.py` (2026-08-24 18:16)
-- `backend/app/schemas.py` (2026-08-24 18:16)
-- `backend/tests/test_google_calendar_pull.py` (2026-08-24 18:12)
-- `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-24 18:10)
-- `scripts/.project-map-watch.lock` (2026-08-24 18:00)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:43)
-- `backend/app/google_calendar.py` (2026-08-24 12:25)
-- `backend/app/models.py` (2026-08-24 12:18)
