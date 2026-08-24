@@ -3938,7 +3938,7 @@ paymentSettled: false,
             <Bell size={18} strokeWidth={1.75} />
             {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={() => setShowFinancePanel(true)} className={`p-2 rounded-xl ${glass}`}><Wallet size={18} strokeWidth={1.75} /></button>
+          <button onClick={() => { setShowFinancePanel(true); void loadPiggyBank(); }} className={`p-2 rounded-xl ${glass}`}><Wallet size={18} strokeWidth={1.75} /></button>
           <button onClick={() => setShowOwnerNewBooking(true)} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
         </div>
       </div>
@@ -8561,8 +8561,8 @@ paymentSettled: false,
                     <PiggyBank size={18} strokeWidth={1.75} style={{ color: accent }} />
                     <span className="text-sm font-medium">Копилка</span>
                   </div>
-                  <div className="font-bold text-sm" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
-                    {piggyBankBalance.toLocaleString('ru')} ₽
+                  <div className="font-bold text-sm" style={{ color: (piggyBank?.combinedBalance ?? piggyBankBalance) >= 0 ? accent : '#FF6B6B' }}>
+                    {(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
                   </div>
                 </div>
 
