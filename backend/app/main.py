@@ -73,18 +73,27 @@ from .finance import money, money_int, salary_base_for_period
 from .finance_sync import sync_expense_piggy_transaction
 
 from .google_calendar import (
+    GOOGLE_CALENDAR_INVITES_KEY,
     GOOGLE_CALENDAR_LAST_SYNC_KEY,
+    OWNER_CONNECTION_ID,
     build_auth_url,
     clear_credentials,
+    clear_invites,
     clear_tokens,
+    consume_invite,
+    create_invite,
+    delete_connection,
     exchange_code,
+    extract_account_email,
+    get_connection,
     is_configured,
     last_sync_at,
+    list_connections,
     load_credentials,
     pull_calendar_changes,
     save_credentials,
-    save_tokens,
     sync_booking_to_calendar,
+    upsert_connection,
 )
 
 from .database import Base, engine, get_db
@@ -275,6 +284,8 @@ from .schemas import (
 
     GoogleCredentialsPayload,
 
+    GoogleInvitePayload,
+
     OwnerIntegrationsPayload,
 
     OwnerNotificationSettings,
@@ -365,6 +376,14 @@ from .schemas import (
     BookingMoneySplitWorkerItem,
 
     BookingPiggyTxItem,
+
+    MoneyFlowDistribution,
+    MoneyFlowDistributionOwnerItem,
+    MoneyFlowDistributionWorkerItem,
+    MoneyFlowEntry,
+    MoneyFlowPersonItem,
+    MoneyFlowResponse,
+    MoneyFlowSummary,
 
     normalize_plate,
 
@@ -994,16 +1013,24 @@ def on_startup() -> None:
 def start_google_sync_thread() -> None:
     """Запускает фоновый цикл синхронизации «Google Calendar -> CRM» (daemon-поток).
 
-    Поток нужен только при настроенной интеграции: без OAuth-креденшелов
-    каждая итерация падала бы с ошибкой и заваливала логи (а тестовый процесс
-    — ещё и не завершалась). Не конфигурировано — поток не стартует.
+    Поток нужен только при настроенной интеграции: учётные данные OAuth-клиента
+    могут прийти из env или из БД (владелец ввёл их через UI). Если нигде не
+    заданы — поток не стартует, чтобы не заваливать логи ошибками.
     """
     global google_sync_thread
-    if (
-        google_sync_thread is None
-        and settings.google_calendar_client_id
-        and settings.google_calendar_client_secret
-    ):
+    configured = False
+    try:
+        db = next(get_db())
+        try:
+            configured = is_configured(settings, db)
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 — БД может быть ещё не готова на старте
+        configured = bool(
+            settings.google_calendar_client_id
+            and settings.google_calendar_client_secret
+        )
+    if google_sync_thread is None and configured:
         google_sync_thread = Thread(
             target=_google_sync_loop, name="google-sync", daemon=True
         )
@@ -2548,6 +2575,14 @@ def _apply_runtime_migrations() -> None:
             with engine.begin() as connection:
                 connection.exec_driver_sql(
                     "ALTER TABLE bookings ADD COLUMN is_repeat_visit BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+        # Карта событий по каждому подключённому Google-календарю
+        # (мультиподключение): {connection_id: event_id}.
+        if "google_event_ids" not in booking_gc_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN google_event_ids "
+                    + ("JSONB DEFAULT NULL" if engine.dialect.name == "postgresql" else "TEXT DEFAULT NULL")
                 )
 
     # Миграция: привязка расхода к записи (списание материалов)
@@ -7994,6 +8029,12 @@ def _owner_export_file(
     payroll_entries_list = db.scalars(
 
         select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
+
+    ).all()
+
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -17614,6 +17655,22 @@ text-align:center;color:#E2E8F0">
     )
 
 
+def _state_is_pending_invite(db: Session, state: str) -> bool:
+    """Проверить, что OAuth-state принадлежит приглашению (не потребляя его).
+
+    Приглашение расходуется позже, после успешного exchange_code, — здесь
+    только валидация, что state из ссылки-приглашения, а не подделка.
+    """
+    if not state:
+        return False
+    invites = _setting(db, GOOGLE_CALENDAR_INVITES_KEY, {})
+    items = invites.get("invites") if isinstance(invites, dict) else None
+    return bool(
+        isinstance(items, list)
+        and any(isinstance(i, dict) and i.get("state") == state for i in items)
+    )
+
+
 @app.get("/api/owner/integrations/google/callback")
 def google_calendar_callback(
     code: str = "",
@@ -17634,7 +17691,8 @@ def google_calendar_callback(
         error_text = f"google_error:{error}"
     elif not code:
         error_text = "missing_code"
-    elif (saved or {}).get("state") != state:
+    elif not _state_is_pending_invite(db, state) and (saved or {}).get("state") != state:
+        # state может быть либо от владельца (/auth-url), либо от приглашения.
         error_text = "state_mismatch"
     elif not is_configured(settings, db):
         error_text = "not_configured"
@@ -17657,7 +17715,36 @@ def google_calendar_callback(
             )
         return {"ok": False, "error": error_text}
 
-    save_tokens(db, tokens)  # type: ignore[arg-type]
+    account_email = extract_account_email(tokens)
+    # id_token в хранилище не нужен — email уже извлечён.
+    storable_tokens = {
+        key: value for key, value in dict(tokens or {}).items() if key != "id_token"
+    }
+    invite_label = consume_invite(db, state) if state else None
+    if invite_label:
+        # Подключение приглашённого человека (ссылка-приглашение владельца).
+        connection = {
+            "id": f"gc-{uuid4()}",
+            "name": str(invite_label.get("label") or "Участник"),
+            "email": account_email,
+            "tokens": storable_tokens,
+            "sync_token": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    else:
+        # Обычный поток владельца: обновляем его подключение (или создаём).
+        connection = get_connection(db, OWNER_CONNECTION_ID) or {
+            "id": OWNER_CONNECTION_ID,
+            "name": "Владелец",
+            "email": "",
+            "tokens": {},
+            "sync_token": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        connection["tokens"] = storable_tokens
+        if account_email:
+            connection["email"] = account_email
+    upsert_connection(db, connection)
 
     # Сразу после подключения выполняем первый pull: события из Google
     # появляются в CRM (source="google"), ошибки не блокируют OAuth.
@@ -17670,7 +17757,7 @@ def google_calendar_callback(
         _setting(db, "owner_integrations", {}),
         {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
     )
-    integrations["googleCalendar"] = True
+    integrations["googleCalendar"] = bool(list_connections(db))
     _upsert_setting(db, "owner_integrations", integrations)
     db.commit()
     if want_html:
@@ -17687,9 +17774,10 @@ def disconnect_google_calendar(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Отключить Google Calendar: удалить токены и выключить флаг."""
+    """Отключить Google Calendar полностью: удалить все подключения и флаг."""
     _ensure_staff_role(session_data, {"owner"})
     clear_tokens(db)
+    clear_invites(db)
     integrations = _merge_setting_dict(
         _setting(db, "owner_integrations", {}),
         {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
@@ -17713,6 +17801,7 @@ def get_google_calendar_status(
             None — не настроено (фронт показывает мастер подключения).
     redirectUri — куда Google должен вернуть после OAuth (нужно вписать
     в Google Cloud Console как Authorized redirect URI).
+    connections — список подключённых календарей людей (без токенов).
     """
     _ensure_staff_role(session_data, {"owner"})
     creds = load_credentials(db)
@@ -17725,12 +17814,76 @@ def get_google_calendar_status(
         or (settings.google_calendar_redirect_uri or "").strip()
         or _google_callback_uri(request)
     )
+    connections = list_connections(db)
     return {
         "configured": env_configured or db_configured,
         "source": "db" if db_configured else ("env" if env_configured else None),
         "redirectUri": redirect_uri,
         "hasDbCredentials": db_configured,
+        "connections": connections,
+        "connectionsCount": len(connections),
     }
+
+
+@app.post("/api/owner/integrations/google/invites")
+def create_google_calendar_invite(
+    payload: GoogleInvitePayload,
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Создать ссылку-приглашение для подключения календаря другого человека.
+
+    Владелец указывает имя человека, получает OAuth-ссылку и пересылает её
+    (Telegram и т.п.). Человек открывает ссылку, входит в СВОЙ Google-аккаунт
+    и подтверждает доступ — после этого его календарь появляется в списке
+    подключённых и получает все записи.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    if not is_configured(settings, db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google Calendar не настроен на сервере (нет GOOGLE_CALENDAR_CLIENT_ID/SECRET)",
+        )
+    label = payload.label.strip()[:120]
+    if not label:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите имя человека",
+        )
+    state = secrets.token_urlsafe(32)
+    create_invite(db, label, state)
+    auth_url = build_auth_url(
+        settings, state, db, fallback_redirect_uri=_google_callback_uri(request)
+    )
+    db.commit()
+    return {"inviteUrl": auth_url, "label": label, "state": state}
+
+
+@app.delete("/api/owner/integrations/google/connections/{connection_id}")
+def delete_google_calendar_connection(
+    connection_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Отключить один календарь (человека), не трогая остальные подключения."""
+    _ensure_staff_role(session_data, {"owner"})
+    removed = delete_connection(db, connection_id)
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Подключение не найдено",
+        )
+    remaining = list_connections(db)
+    if not remaining:
+        integrations = _merge_setting_dict(
+            _setting(db, "owner_integrations", {}),
+            {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
+        )
+        integrations["googleCalendar"] = False
+        _upsert_setting(db, "owner_integrations", integrations)
+    db.commit()
+    return {"ok": True, "connectionsCount": len(remaining)}
 
 
 @app.put("/api/owner/integrations/google/credentials")
@@ -19573,6 +19726,508 @@ def get_owner_archive(
         owners=archive_owners,
     )
 
+
+@app.get("/api/owner/money-flow", response_model=MoneyFlowResponse)
+def get_owner_money_flow(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> MoneyFlowResponse:
+    """Единый журнал движения денег за период: приходы → распределения → выплаты.
+
+    Правила исключения двойного учёта:
+    - Income/Expense, зеркалящие зарплатные проводки (expense_id/income_id у
+      PayrollEntry), не попадают в итоги приходов/расходов;
+    - вклады копилки из брони видны внутри распределения записи;
+    - снятия из копилки идут как «move» — сам расход уже учтён в Expense;
+    - оплаты с депозита (payment_type=credit) не считаются приходом кассы:
+      деньги пришли ранее как пополнение депозита.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    try:
+        parsed_from = parse_date_param(date_from) if date_from else None
+        parsed_to = parse_date_param(date_to) if date_to else None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    def _in_range(d: str | None) -> bool:
+        if not d:
+            return not (parsed_from or parsed_to)
+        if not (parsed_from or parsed_to):
+            return True
+        return _stored_date_in_range(d, parsed_from or date.min, parsed_to or date.max)
+
+    payment_labels = {
+        "cash": "Наличные",
+        "transfer": "Перевод",
+        "invoice": "По счёту",
+        "credit": "С депозита",
+    }
+
+    def _sort_dt(value: datetime | None) -> datetime:
+        if value is None:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+    def _entry_date_str(p: PayrollEntry) -> str:
+        if p.entry_date:
+            return p.entry_date
+        return p.created_at.strftime("%d.%m.%Y") if p.created_at else ""
+
+    def _date_sort_key(entry: MoneyFlowEntry) -> tuple[str, str]:
+        """DD.MM.YYYY или YYYY-MM-DD -> сортируемый YYYY-MM-DD (без datetime)."""
+        raw = (entry.date or "").strip()
+        parts = raw.split(".")
+        if len(parts) == 3 and len(parts[0]) == 2 and len(parts[2]) == 4:
+            iso = f"{parts[2]}-{parts[1]}-{parts[0]}"
+        elif len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+            iso = raw
+        else:
+            iso = raw
+        return (iso, entry.time or "")
+
+    entries: list[MoneyFlowEntry] = []
+    summary = MoneyFlowSummary()
+
+    penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(penalties)
+    staff_by_id = {s.id: s for s in db.scalars(select(StaffUser)).all()}
+
+    # Зеркала зарплатных проводок: исключаем из доходов/расходов, чтобы не задваивать
+    payroll_expense_ids = {
+        e.expense_id
+        for e in db.scalars(
+            select(PayrollEntry).where(PayrollEntry.expense_id.is_not(None))
+        ).all()
+        if e.expense_id
+    }
+    payroll_income_ids = {
+        e.income_id
+        for e in db.scalars(
+            select(PayrollEntry).where(PayrollEntry.income_id.is_not(None))
+        ).all()
+        if e.income_id
+    }
+
+    # ── 1. Завершённые записи: приход выручки + распределение ──
+    booking_query = (
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services),
+        )
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed")
+        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    )
+    bookings = db.scalars(booking_query).unique().all()
+    bookings = [b for b in bookings if _in_range(b.date)]
+
+    period_booking_ids: set[str] = set()
+    for b in bookings:
+        period_booking_ids.add(b.id)
+        detail = _booking_money_split_detail(db, b)
+        outsource_total = sum(
+            int(a.outsource_amount or 0)
+            for a in (b.additional_services or [])
+            if a.is_outsource
+        )
+        distribution = MoneyFlowDistribution(
+            materialsCost=int(detail.materialsCost or 0),
+            masterTotal=int(detail.masterTotal or 0),
+            piggyDeposit=int(detail.piggyDeposit or 0),
+            ownersTotal=int(detail.ownersTotal or 0),
+            outsourceTotal=outsource_total,
+            workers=[
+                MoneyFlowDistributionWorkerItem(
+                    workerId=w.workerId,
+                    workerName=w.workerName,
+                    earned=int(w.earned or 0),
+                )
+                for w in detail.workers
+            ]
+            + [
+                MoneyFlowDistributionWorkerItem(
+                    workerId=w.workerId,
+                    workerName=w.workerName,
+                    earned=int(w.earned or 0),
+                )
+                for w in detail.asvcWorkers
+                if w.workerId not in {x.workerId for x in detail.workers}
+            ],
+            owners=[
+                MoneyFlowDistributionOwnerItem(
+                    ownerId=o.ownerId,
+                    ownerName=o.ownerName,
+                    amount=int(o.amount or 0),
+                    status=o.status,
+                )
+                for o in detail.ownerShares
+            ]
+            or [
+                MoneyFlowDistributionOwnerItem(
+                    ownerId=oid,
+                    ownerName=(staff_by_id.get(oid).name if staff_by_id.get(oid) else "Владелец"),
+                    amount=int(amount),
+                    status="pending",
+                )
+                for oid, amount in (detail.ownerByOwnerAuto or {}).items()
+            ],
+        )
+
+        settled_cash = bool(b.payment_settled) and b.payment_type != "credit"
+        if settled_cash:
+            kind, etype = "in", "booking_payment"
+        elif b.payment_type == "credit":
+            kind, etype = "allocation", "booking_deposit_payment"
+        else:
+            kind, etype = "allocation", "booking_unpaid"
+
+        method_key = b.payment_type or ""
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-b:{b.id}",
+                kind=kind,
+                type=etype,
+                date=b.date,
+                time=b.time or "",
+                title=f"{b.service} — {b.client_name}",
+                amount=int(b.price or 0),
+                counterparty=b.client_name or "",
+                method=method_key,
+                methodLabel=payment_labels.get(method_key, ""),
+                note=(
+                    ""
+                    if settled_cash
+                    else (
+                        "Оплачено с депозита клиента"
+                        if b.payment_type == "credit"
+                        else "Не оплачено (долг)"
+                    )
+                ),
+                bookingId=b.id,
+                distribution=distribution,
+                createdAt=b.created_at,
+            )
+        )
+        summary.bookingCount += 1
+        if settled_cash:
+            summary.bookingRevenue += int(b.price or 0)
+        summary.allocatedWorkers += int(detail.masterTotal or 0)
+        summary.allocatedPiggy += int(detail.piggyDeposit or 0)
+        summary.allocatedOwners += int(detail.ownersTotal or 0)
+        summary.allocatedMaterials += int(detail.materialsCost or 0)
+        summary.allocatedOutsource += outsource_total
+
+    # ── 2. Прочие доходы ──
+    incomes = [i for i in db.scalars(select(Income)).all() if i.date and _in_range(i.date)]
+    for i in sorted(incomes, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        if i.id in payroll_income_ids:
+            continue  # зеркало вычета из зарплаты — не реальный приход
+        amount = int(i.amount or 0)
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-i:{i.id}",
+                kind="in",
+                type="income",
+                date=i.date,
+                title=i.source or "Прочий доход",
+                amount=amount,
+                counterparty=i.source or "",
+                note=i.note or "",
+                createdAt=i.created_at,
+            )
+        )
+        summary.otherIncome += amount
+
+    # ── 3. Расходы ──
+    expenses = [e for e in db.scalars(select(Expense)).all() if e.date and _in_range(e.date)]
+    for e in sorted(expenses, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        if e.id in payroll_expense_ids:
+            continue  # зеркало премии/аванса/корректировки — учтено в выплатах
+        amount = int(e.amount or 0)
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-e:{e.id}",
+                kind="out",
+                type="expense",
+                date=e.date,
+                title=e.title or "Расход",
+                amount=amount,
+                counterparty=e.category or "",
+                note=e.note or "",
+                createdAt=e.created_at,
+            )
+        )
+        summary.expensesTotal += amount
+
+    # ── 4. Зарплатные проводки: выплаты/авансы (касса) и начисления (справочно) ──
+    workers_list = db.scalars(
+        select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name.asc())
+    ).all()
+    worker_ids = [w.id for w in workers_list]
+    entries_query = select(PayrollEntry)
+    shift_from: date | None = None
+    shift_to: date | None = None
+    if date_from and date_to:
+        dt_from, dt_to = _local_day_bounds(_parse_booking_date_param(date_from))[0], _local_day_bounds(_parse_booking_date_param(date_to))[1]
+        entries_query = entries_query.where(
+            PayrollEntry.created_at >= dt_from,
+            PayrollEntry.created_at <= dt_to,
+        )
+        shift_from = parsed_from
+        shift_to = parsed_to
+    payroll_entries = db.scalars(
+        entries_query.order_by(PayrollEntry.created_at.desc())
+    ).all()
+
+    for p in payroll_entries:
+        person = staff_by_id.get(p.worker_id)
+        person_name = person.name if person else "Сотрудник"
+        amount = int(abs(p.amount or 0))
+        base = {"personId": p.worker_id, "createdAt": p.created_at}
+        if p.kind == "payout":
+            is_owner = bool(person and person.role == "owner")
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-p:{p.id}",
+                    kind="out",
+                    type="payout_owner" if is_owner else "payout_worker",
+                    date=_entry_date_str(p),
+                    title="Выплата владельцу" if is_owner else f"Выплата зарплаты: {person_name}",
+                    amount=amount,
+                    counterparty=person_name,
+                    note=p.note or "",
+                    **base,
+                )
+            )
+            if is_owner:
+                summary.ownerPayouts += amount
+            else:
+                # мастера и прочие сотрудники (админ/бухгалтер)
+                summary.workerPayouts += amount
+        elif p.kind == "advance":
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-p:{p.id}",
+                    kind="out",
+                    type="advance",
+                    date=_entry_date_str(p),
+                    title=f"Аванс: {person_name}",
+                    amount=amount,
+                    counterparty=person_name,
+                    note=p.note or "",
+                    **base,
+                )
+            )
+            summary.advances += amount
+        elif p.kind in ("bonus", "deduction", "adjustment"):
+            titles = {
+                "bonus": f"Премия: {person_name}",
+                "deduction": f"Вычет из зарплаты: {person_name}",
+                "adjustment": f"Корректировка зарплаты: {person_name}",
+            }
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-p:{p.id}",
+                    kind="allocation",
+                    type=f"salary_{p.kind}",
+                    date=_entry_date_str(p),
+                    title=titles[p.kind],
+                    amount=amount,
+                    counterparty=person_name,
+                    note=p.note or ("со знаком минус в расчётке" if p.kind == "deduction" else ""),
+                    **base,
+                )
+            )
+
+    # ── 5. Депозиты клиентов: пополнения = предоплата ──
+    deposit_txs = [
+        t for t in db.scalars(select(DepositTransaction)).all() if t.date and _in_range(t.date)
+    ]
+    client_names = {
+        c.id: c.name for c in db.scalars(select(Client)).all()
+    }
+    for t in sorted(deposit_txs, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        amount = int(abs(t.amount or 0))
+        cname = client_names.get(t.client_id, t.client_id)
+        ttype = t.transaction_type or ""
+        if ttype == "topup":
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-d:{t.id}",
+                    kind="in",
+                    type="deposit_topup",
+                    date=t.date,
+                    title=f"Пополнение депозита: {cname}",
+                    amount=amount,
+                    counterparty=cname,
+                    note=(t.description or "") + " · предоплата",
+                    createdAt=t.created_at,
+                )
+            )
+            summary.depositTopups += amount
+        elif ttype == "adjust" and amount > 0:
+            sign_positive = (t.amount or 0) > 0
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-d:{t.id}",
+                    kind="in" if sign_positive else "move",
+                    type="deposit_adjust",
+                    date=t.date,
+                    title=f"Корректировка депозита: {cname}",
+                    amount=amount,
+                    counterparty=cname,
+                    note=t.description or "",
+                    createdAt=t.created_at,
+                )
+            )
+            if sign_positive:
+                summary.depositTopups += amount
+        # wash_deduction / month_return — внутренние движения баланса клиента,
+        # деньги уже учтены при пополнении; в журнал не добавляем.
+
+    # ── 6. Копилка: внутренние перемещения (расход уже учтён в Expense) ──
+    piggy_move_types = {
+        "material_withdrawal": "piggy_withdrawal",
+        "other_withdrawal": "piggy_withdrawal",
+        "adjust": "piggy_adjust",
+        "material_repayment": "piggy_repayment",
+        "deposit_return": "piggy_deposit_return",
+    }
+    piggy_txs = [
+        t for t in db.scalars(select(PiggyBankTransaction)).all() if t.date and _in_range(t.date)
+    ]
+    for t in sorted(piggy_txs, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        mapped = piggy_move_types.get(t.transaction_type or "")
+        if mapped is None:
+            continue  # deposit_24percent — внутри распределения записей; expense — зеркало Expense
+        titles = {
+            "piggy_withdrawal": "Снятие из копилки",
+            "piggy_adjust": "Корректировка копилки",
+            "piggy_repayment": "Возврат материалов в копилку",
+            "piggy_deposit_return": "Возврат депозитных моек в копилку",
+        }
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-pb:{t.id}",
+                kind="move",
+                type=mapped,
+                date=t.date,
+                title=titles[mapped],
+                amount=int(abs(t.amount or 0)),
+                counterparty=t.resource_group or "",
+                note=t.purpose or "",
+                createdAt=t.created_at,
+            )
+        )
+
+    # Итоги
+    summary.totalIn = summary.bookingRevenue + summary.otherIncome + summary.depositTopups
+    summary.totalOut = (
+        summary.workerPayouts + summary.ownerPayouts + summary.advances + summary.expensesTotal
+    )
+    summary.cashBalance = summary.totalIn - summary.totalOut
+    summary.entryCount = len(entries)
+
+    # ── 7. Люди: кому сколько начислено и выплачено ──
+    people: list[MoneyFlowPersonItem] = []
+
+    worker_bookings = [
+        b for b in bookings
+        if any(link.worker_id in worker_ids for link in b.worker_links)
+        or any(
+            alink.worker_id in worker_ids
+            for asvc in (b.additional_services or [])
+            for alink in asvc.worker_links
+        )
+    ]
+    all_worker_entries = [
+        p for p in db.scalars(select(PayrollEntry)).all() if p.worker_id in worker_ids
+    ] if not (date_from and date_to) else payroll_entries
+    payroll_summaries = _worker_payroll_summaries_from_data(
+        db,
+        workers_list,
+        worker_bookings,
+        all_worker_entries,
+        complaints_by_worker,
+        shift_from=shift_from,
+        shift_to=shift_to,
+        period="custom" if shift_from and shift_to else "all",
+    )
+    for worker in workers_list:
+        s = payroll_summaries.get(worker.id)
+        if s is None:
+            continue
+        if (
+            s.completedBookings <= 0
+            and s.balance == 0
+            and s.baseSalary <= 0
+            and s.shiftPayTotal <= 0
+            and s.bonusTotal <= 0
+            and s.adjustmentTotal == 0
+            and s.payoutTotal <= 0
+            and s.advanceTotal <= 0
+        ):
+            continue
+        people.append(
+            MoneyFlowPersonItem(
+                personId=worker.id,
+                personName=worker.name,
+                role="worker",
+                accrued=int(s.totalAccrued or 0),
+                paid=int((s.payoutTotal or 0) + (s.advanceTotal or 0)),
+                balance=int(s.balance or 0),
+            )
+        )
+
+    owner_totals: dict[str, dict] = {}
+    if period_booking_ids:
+        shares = db.scalars(
+            select(OwnerProfitShare).where(
+                OwnerProfitShare.booking_id.in_(period_booking_ids)
+            )
+        ).all()
+        for share in shares:
+            row = owner_totals.setdefault(share.owner_id, {"accrued": 0, "paid": 0})
+            amt = int(share.amount or 0)
+            if share.status == "paid":
+                row["paid"] += amt
+            else:
+                row["accrued"] += amt
+    for owner_id, data in owner_totals.items():
+        person = staff_by_id.get(owner_id)
+        people.append(
+            MoneyFlowPersonItem(
+                personId=owner_id,
+                personName=person.name if person else "Владелец",
+                role="owner",
+                accrued=data["accrued"],
+                paid=data["paid"],
+                balance=data["accrued"] - data["paid"],
+            )
+        )
+
+    people.sort(key=lambda p: (0 if p.role == "worker" else 1, -(abs(p.accrued) + abs(p.paid))))
+
+    entries.sort(key=_date_sort_key, reverse=True)
+
+    date_from_dmy = _parse_booking_date_param(date_from) if date_from else ""
+    date_to_dmy = _parse_booking_date_param(date_to) if date_to else ""
+    return MoneyFlowResponse(
+        dateFrom=date_from_dmy,
+        dateTo=date_to_dmy,
+        summary=summary,
+        people=people,
+        entries=entries,
+    )
 
 
 @app.get("/api/owner/bookings/{booking_id}/money-split", response_model=BookingMoneySplitDetail)

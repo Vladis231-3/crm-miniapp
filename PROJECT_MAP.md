@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 09:28 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 09:35 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **489**
-- Строк кода: **195 504**
+- Строк кода: **195 816**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 299
 
 ## Архитектура
@@ -2021,9 +2021,9 @@ concept1.0/
 - `test_finance_migration_refuses_live_sqlite_applydef test_finance_migration_refuses_live_sqlite_apply(migration_engine) -> None: with pytest.raises(RuntimeError, match="Refusing live SQLite migration"):` (стр. 20)
 - `test_finance_migration_dry_run_is_repeatabledef test_finance_migration_dry_run_is_repeatable(migration_engine) -> None: assert upgrade(dry_run=True, engine=migration_engine) == upgrade( dry_run=True, engine=migration_engine ` (стр. 25)
 
-### backend/tests/test_google_calendar.py (552 строк)
+### backend/tests/test_google_calendar.py (557 строк)
 
-Классы и функции (47):
+Классы и функции (48):
 
 - `settingsdef settings(monkeypatch): monkeypatch.setenv("APP_ENV", "test") monkeypatch.setenv("APP_SECRET", "a" * 32) monkeypatch.setenv("ALLOW_DEMO_SEED_DATA", "false") monkeypatch.setenv("` (стр. 12)
 - `class _Row: def __init__(self, key, value):` (стр. 24)
@@ -2063,19 +2063,20 @@ concept1.0/
 - `test_legacy_tokens_migrate_into_first_connectiondef test_legacy_tokens_migrate_into_first_connection(fake_db): # Старое хранилище: токены лежат отдельным ключом. fake_db.rows[gc.GOOGLE_CALENDAR_TOKENS_KEY] = _Row( gc.GOOGLE_CALE` (стр. 400)
 - `test_sync_fans_out_to_all_calendarsdef test_sync_fans_out_to_all_calendars(fake_db, settings): _connect_second_person(fake_db) booking = _booking_for_sync() responses = [{"id": "evt-owner"}, {"id": "evt-anna"}] with` (стр. 415)
 - `test_sync_patch_uses_legacy_event_id_for_first_calendardef test_sync_patch_uses_legacy_event_id_for_first_calendar(fake_db, settings): gc.save_tokens(fake_db, {"token": "t", "refresh_token": "r"}) gc.upsert_connection( fake_db, { "id":` (стр. 434)
-- `test_delete_removes_events_from_all_calendarsdef test_delete_removes_events_from_all_calendars(fake_db, settings): _connect_second_person(fake_db) booking = SimpleNamespace( id="b1", status="cancelled", google_event_id="evt-o` (стр. 460)
-- `test_one_broken_calendar_does_not_block_othersdef test_one_broken_calendar_does_not_block_others(fake_db, settings): _connect_second_person(fake_db) booking = _booking_for_sync() def flaky_request(db, settings_, method, path, ` (стр. 482)
-- `_FakeAppSetting.flaky_requestdef flaky_request(db, settings_, method, path, **kwargs): if kwargs["conn"]["id"] == "owner": raise RuntimeError("network down") return {"id": "evt-anna"}` (стр. 486)
-- `test_pull_aggregates_from_all_calendarsdef test_pull_aggregates_from_all_calendars(fake_db, settings): _connect_second_person(fake_db) def fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, ` (стр. 499)
-- `_FakeAppSetting.fake_requestdef fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, _retried=False): assert method == "GET" if conn["id"] == "owner": return {"items": [{"id": "e1"}` (стр. 502)
-- `_FakeAppSetting.apply_eventdef apply_event(db, settings_, item, result): result["created"] += 1` (стр. 508)
-- `test_pull_skipped_without_connectionsdef test_pull_skipped_without_connections(fake_db, settings): gc.save_tokens(fake_db, {"token": "t"}) # нет refresh_token -> не «рабочее» result = gc.pull_calendar_changes(fake_db,` (стр. 523)
-- `test_invites_create_consume_cleardef test_invites_create_consume_clear(fake_db): gc.create_invite(fake_db, "Анна", "state-1") gc.create_invite(fake_db, "Пётр", "state-2") invite = gc.consume_invite(fake_db, "state` (стр. 529)
-- `test_extract_account_email_from_id_tokendef test_extract_account_email_from_id_token(): import base64 import json as json_mod payload = base64.urlsafe_b64encode( json_mod.dumps({"email": "anna@example.com", "sub": "123"}` (стр. 542)
+- `_FakeAppSetting.fake_requestdef fake_request(db, settings_, method, path, **kwargs): if method == "POST": return {"id": "evt-anna-new"} return {}` (стр. 450)
+- `test_delete_removes_events_from_all_calendarsdef test_delete_removes_events_from_all_calendars(fake_db, settings): _connect_second_person(fake_db) booking = SimpleNamespace( id="b1", status="cancelled", google_event_id="evt-o` (стр. 465)
+- `test_one_broken_calendar_does_not_block_othersdef test_one_broken_calendar_does_not_block_others(fake_db, settings): _connect_second_person(fake_db) booking = _booking_for_sync() def flaky_request(db, settings_, method, path, ` (стр. 487)
+- `_FakeAppSetting.flaky_requestdef flaky_request(db, settings_, method, path, **kwargs): if kwargs["conn"]["id"] == "owner": raise RuntimeError("network down") return {"id": "evt-anna"}` (стр. 491)
+- `test_pull_aggregates_from_all_calendarsdef test_pull_aggregates_from_all_calendars(fake_db, settings): _connect_second_person(fake_db) def fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, ` (стр. 504)
+- `_FakeAppSetting.fake_requestdef fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, _retried=False): assert method == "GET" if conn["id"] == "owner": return {"items": [{"id": "e1"}` (стр. 507)
+- `_FakeAppSetting.apply_eventdef apply_event(db, settings_, item, result): result["created"] += 1` (стр. 513)
+- `test_pull_skipped_without_connectionsdef test_pull_skipped_without_connections(fake_db, settings): gc.save_tokens(fake_db, {"token": "t"}) # нет refresh_token -> не «рабочее» result = gc.pull_calendar_changes(fake_db,` (стр. 528)
+- `test_invites_create_consume_cleardef test_invites_create_consume_clear(fake_db): gc.create_invite(fake_db, "Анна", "state-1") gc.create_invite(fake_db, "Пётр", "state-2") invite = gc.consume_invite(fake_db, "state` (стр. 534)
+- `test_extract_account_email_from_id_tokendef test_extract_account_email_from_id_token(): import base64 import json as json_mod payload = base64.urlsafe_b64encode( json_mod.dumps({"email": "anna@example.com", "sub": "123"}` (стр. 547)
 
-### backend/tests/test_google_calendar_api.py (493 строк)
+### backend/tests/test_google_calendar_api.py (641 строк)
 
-Классы и функции (24):
+Классы и функции (27):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 17)
 - `class GoogleCalendarApiTests(unittest.TestCase):` (стр. 23)
@@ -2095,12 +2096,15 @@ concept1.0/
 - `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, he` (стр. 270)
 - `GoogleCalendarApiTests.test_callback_returns_html_page_for_browserdef test_callback_returns_html_page_for_browser(self) -> None: """Браузер (Accept: text/html) после OAuth видит понятную страницу, а не JSON.""" token = self.login_owner() with pat` (стр. 279)
 - `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 318)
-- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 355)
-- `GoogleCalendarApiTests.test_sync_endpoint_requires_ownerdef test_sync_endpoint_requires_owner(self) -> None: response = self.client.post("/api/owner/integrations/google/sync") self.assertEqual(response.status_code, 401)` (стр. 396)
-- `GoogleCalendarApiTests.test_sync_endpoint_returns_pull_statsdef test_sync_endpoint_returns_pull_stats(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 400)
-- `GoogleCalendarApiTests.test_create_booking_sets_source_for_client_roledef test_create_booking_sets_source_for_client_role(self) -> None: token = self.login_owner() response = self.client.post( "/api/bookings", headers=self.auth_headers(token), json={` (стр. 432)
-- `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 456)
-- `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 479)
+- `GoogleCalendarApiTests.test_invite_flow_connects_second_persondef test_invite_flow_connects_second_person(self) -> None: """Владелец создаёт ссылку-приглашение, человек подключает свой календарь.""" token = self.login_owner() # Сначала владел` (стр. 355)
+- `GoogleCalendarApiTests.test_delete_single_connection_keeps_othersdef test_delete_single_connection_keeps_others(self) -> None: """Удаление одного подключения не отключает остальные календари.""" token = self.login_owner() def connect_via(label: ` (стр. 429)
+- `GoogleCalendarApiTests.connect_viadef connect_via(label: str) -> None: if label == "Владелец": with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent"):` (стр. 433)
+- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 503)
+- `GoogleCalendarApiTests.test_sync_endpoint_requires_ownerdef test_sync_endpoint_requires_owner(self) -> None: response = self.client.post("/api/owner/integrations/google/sync") self.assertEqual(response.status_code, 401)` (стр. 544)
+- `GoogleCalendarApiTests.test_sync_endpoint_returns_pull_statsdef test_sync_endpoint_returns_pull_stats(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 548)
+- `GoogleCalendarApiTests.test_create_booking_sets_source_for_client_roledef test_create_booking_sets_source_for_client_role(self) -> None: token = self.login_owner() response = self.client.post( "/api/bookings", headers=self.auth_headers(token), json={` (стр. 580)
+- `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 604)
+- `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 627)
 
 ### backend/tests/test_google_calendar_pull.py (1294 строк)
 
@@ -3230,7 +3234,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (13241 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (13400 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 278) — локальный
 - `STOCK_UNITS` (стр. 279) — локальный
@@ -3310,128 +3314,128 @@ concept1.0/
 - `claimed` (стр. 579) — локальный
 - `ownerPaymentLabel` (стр. 598) — локальный
 - `normalizeOwnerPhoneSearchValue` (стр. 605) — локальный
-- `numberFromInput` (стр. 611) — локальный
-- `toISODate` (стр. 615) — локальный
-- `parsed` (стр. 616) — локальный
-- `y` (стр. 618) — локальный
-- `m` (стр. 619) — локальный
-- `d` (стр. 620) — локальный
-- `TIME_SLOTS` (стр. 624) — локальный
-- `h` (стр. 625) — локальный
-- `m` (стр. 626) — локальный
-- `OwnerApp` (стр. 633)
-- `isAccountant` (стр. 711) — локальный
-- `modalMaxHeight` (стр. 712) — локальный
-- `financeRoleTitle` (стр. 713) — локальный
-- `financeNotificationRole` (стр. 714) — локальный
-- `__nowRpt` (стр. 787) — локальный
-- `__dowRpt` (стр. 788) — локальный
-- `__monRpt` (стр. 789) — локальный
-- `__sunRpt` (стр. 790) — локальный
-- `parentCategories` (стр. 812) — локальный
-- `today` (стр. 989) — локальный
-- `adminShiftPhotoUrlsRef` (стр. 1017) — локальный
-- `clearOwnerResetFlow` (стр. 1113) — локальный
-- `nextBoxes` (стр. 1136) — локальный
-- `params` (стр. 1174) — локальный
-- `params` (стр. 1189) — локальный
-- `handlePayOwnerSalary` (стр. 1200) — локальный
-- `amount` (стр. 1201) — локальный
-- `res` (стр. 1205) — локальный
-- `updated` (стр. 1214) — локальный
-- `loadPiggyBank` (стр. 1222) — локальный
-- `params` (стр. 1226) — локальный
-- `qs` (стр. 1229) — локальный
-- `data` (стр. 1231) — локальный
-- `loadWallet` (стр. 1239) — локальный
-- `params` (стр. 1243) — локальный
-- `qs` (стр. 1246) — локальный
-- `data` (стр. 1248) — локальный
-- `handlePiggyWithdraw` (стр. 1254) — локальный
-- `f` (стр. 1255) — локальный
-- `openPiggyWithdraw` (стр. 1281) — локальный
-- `handlePiggyBankExport` (стр. 1286) — локальный
-- `openPiggyAdjust` (стр. 1293) — локальный
-- `current` (стр. 1294) — локальный
-- `handlePiggyAdjust` (стр. 1303) — локальный
-- `newBalance` (стр. 1304) — локальный
-- `delta` (стр. 1306) — локальный
-- `syncCountdown` (стр. 1379) — локальный
-- `diffMs` (стр. 1380) — локальный
-- `intervalId` (стр. 1385) — локальный
-- `handleOpenShiftForMasters` (стр. 1415) — локальный
-- `saved` (стр. 1424) — локальный
-- `ownerNotifications` (стр. 1440) — локальный
-- `unreadCount` (стр. 1441) — локальный
-- `completedBookings` (стр. 1442) — локальный
-- `todayBookings` (стр. 1443) — локальный
-- `activeMasters` (стр. 1445) — локальный
-- `masterCameOutTodayAt` (стр. 1450) — локальный
-- `times` (стр. 1451) — локальный
-- `mastersCameOutToday` (стр. 1460) — локальный
-- `latestShiftChecklists` (стр. 1461) — локальный
-- `latestAdminShiftInspections` (стр. 1462) — локальный
-- `latestAdminShiftInspectionKey` (стр. 1463) — локальный
-- `activeIds` (стр. 1479) — локальный
-- `currentPhotoUrls` (стр. 1492) — локальный
-- `missing` (стр. 1493) — локальный
-- `next` (стр. 1505) — локальный
-- `vv` (стр. 1527) — локальный
-- `handler` (стр. 1529) — локальный
-- `el` (стр. 1530) — локальный
-- `bookingFormBoxes` (стр. 1542) — локальный
-- `bookingFormLocationLabel` (стр. 1543) — локальный
-- `editBookingLocationLabel` (стр. 1544) — локальный
-- `todayRevenue` (стр. 1545) — локальный
-- `now` (стр. 1548) — локальный
-- `dayOfWeek` (стр. 1549) — локальный
-- `diffToSaturday` (стр. 1550) — локальный
-- `weekSaturday` (стр. 1551) — локальный
-- `weekFriday` (стр. 1554) — локальный
-- `isDateInWeek` (стр. 1557) — локальный
-- `d` (стр. 1558) — локальный
-- `weeklyCompletedBookings` (стр. 1561) — локальный
-- `weeklyBookings` (стр. 1562) — локальный
-- `weeklyExpenses` (стр. 1563) — локальный
-- `weeklyIncomes` (стр. 1564) — локальный
-- `totalRevenue` (стр. 1565) — локальный
-- `totalExpenses` (стр. 1566) — локальный
-- `totalIncomes` (стр. 1567) — локальный
-- `profit` (стр. 1568) — локальный
-- `averageCheck` (стр. 1569) — локальный
-- `activeBookings` (стр. 1570) — локальный
-- `pipelineCounts` (стр. 1571) — локальный
-- `statusListItems` (стр. 1578) — локальный
-- `totalStockValue` (стр. 1583) — локальный
-- `washRevenue` (стр. 1586) — локальный
-- `detailingRevenue` (стр. 1589) — локальный
-- `washExpenses` (стр. 1592) — локальный
-- `detailingExpenses` (стр. 1595) — локальный
-- `washIncomes` (стр. 1598) — локальный
-- `detailingIncomes` (стр. 1601) — локальный
-- `resourceGroupLabel` (стр. 1605) — локальный
-- `payrollRows` (стр. 1610) — локальный
-- `workerPenalties` (стр. 1611) — локальный
-- `complaintState` (стр. 1612) — локальный
-- `payrollTotal` (стр. 1620) — локальный
-- `formatComplaintDate` (стр. 1621) — локальный
-- `resetPreviewRows` (стр. 1622) — локальный
-- `resetExecuteLocked` (стр. 1636) — локальный
-- `glass` (стр. 1638) — локальный
-- `bg` (стр. 1639) — локальный
-- `text` (стр. 1640) — локальный
-- `sub` (стр. 1641) — локальный
-- `primary` (стр. 1642) — локальный
-- `accent` (стр. 1643) — локальный
-- `surface` (стр. 1644) — локальный
-- `inputCls` (стр. 1645) — локальный
-- `selectCls` (стр. 1646) — локальный
-- `tooltipStyle` (стр. 1647) — локальный
-- `createDraftId` (стр. 1648) — локальный
-- `handleAddBoxDraft` (стр. 1650) — локальный
-- `handleRemoveBoxDraft` (стр. 1664) — локальный
-- `handleAddServiceDraft` (стр. 1668) — локальный
-- `handleRemoveServiceDraft` (стр. 1697) — локальный
+- `numberFromInput` (стр. 615) — локальный
+- `toISODate` (стр. 619) — локальный
+- `parsed` (стр. 620) — локальный
+- `y` (стр. 622) — локальный
+- `m` (стр. 623) — локальный
+- `d` (стр. 624) — локальный
+- `TIME_SLOTS` (стр. 628) — локальный
+- `h` (стр. 629) — локальный
+- `m` (стр. 630) — локальный
+- `OwnerApp` (стр. 637)
+- `isAccountant` (стр. 715) — локальный
+- `modalMaxHeight` (стр. 716) — локальный
+- `financeRoleTitle` (стр. 717) — локальный
+- `financeNotificationRole` (стр. 718) — локальный
+- `__nowRpt` (стр. 791) — локальный
+- `__dowRpt` (стр. 792) — локальный
+- `__monRpt` (стр. 793) — локальный
+- `__sunRpt` (стр. 794) — локальный
+- `parentCategories` (стр. 816) — локальный
+- `today` (стр. 1000) — локальный
+- `adminShiftPhotoUrlsRef` (стр. 1028) — локальный
+- `clearOwnerResetFlow` (стр. 1124) — локальный
+- `nextBoxes` (стр. 1147) — локальный
+- `params` (стр. 1185) — локальный
+- `params` (стр. 1200) — локальный
+- `handlePayOwnerSalary` (стр. 1211) — локальный
+- `amount` (стр. 1212) — локальный
+- `res` (стр. 1216) — локальный
+- `updated` (стр. 1225) — локальный
+- `loadPiggyBank` (стр. 1233) — локальный
+- `params` (стр. 1237) — локальный
+- `qs` (стр. 1240) — локальный
+- `data` (стр. 1242) — локальный
+- `loadWallet` (стр. 1250) — локальный
+- `params` (стр. 1254) — локальный
+- `qs` (стр. 1257) — локальный
+- `data` (стр. 1259) — локальный
+- `handlePiggyWithdraw` (стр. 1265) — локальный
+- `f` (стр. 1266) — локальный
+- `openPiggyWithdraw` (стр. 1292) — локальный
+- `handlePiggyBankExport` (стр. 1297) — локальный
+- `openPiggyAdjust` (стр. 1304) — локальный
+- `current` (стр. 1305) — локальный
+- `handlePiggyAdjust` (стр. 1314) — локальный
+- `newBalance` (стр. 1315) — локальный
+- `delta` (стр. 1317) — локальный
+- `syncCountdown` (стр. 1390) — локальный
+- `diffMs` (стр. 1391) — локальный
+- `intervalId` (стр. 1396) — локальный
+- `handleOpenShiftForMasters` (стр. 1426) — локальный
+- `saved` (стр. 1435) — локальный
+- `ownerNotifications` (стр. 1451) — локальный
+- `unreadCount` (стр. 1452) — локальный
+- `completedBookings` (стр. 1453) — локальный
+- `todayBookings` (стр. 1454) — локальный
+- `activeMasters` (стр. 1456) — локальный
+- `masterCameOutTodayAt` (стр. 1461) — локальный
+- `times` (стр. 1462) — локальный
+- `mastersCameOutToday` (стр. 1471) — локальный
+- `latestShiftChecklists` (стр. 1472) — локальный
+- `latestAdminShiftInspections` (стр. 1473) — локальный
+- `latestAdminShiftInspectionKey` (стр. 1474) — локальный
+- `activeIds` (стр. 1490) — локальный
+- `currentPhotoUrls` (стр. 1503) — локальный
+- `missing` (стр. 1504) — локальный
+- `next` (стр. 1516) — локальный
+- `vv` (стр. 1538) — локальный
+- `handler` (стр. 1540) — локальный
+- `el` (стр. 1541) — локальный
+- `bookingFormBoxes` (стр. 1553) — локальный
+- `bookingFormLocationLabel` (стр. 1554) — локальный
+- `editBookingLocationLabel` (стр. 1555) — локальный
+- `todayRevenue` (стр. 1556) — локальный
+- `now` (стр. 1559) — локальный
+- `dayOfWeek` (стр. 1560) — локальный
+- `diffToSaturday` (стр. 1561) — локальный
+- `weekSaturday` (стр. 1562) — локальный
+- `weekFriday` (стр. 1565) — локальный
+- `isDateInWeek` (стр. 1568) — локальный
+- `d` (стр. 1569) — локальный
+- `weeklyCompletedBookings` (стр. 1572) — локальный
+- `weeklyBookings` (стр. 1573) — локальный
+- `weeklyExpenses` (стр. 1574) — локальный
+- `weeklyIncomes` (стр. 1575) — локальный
+- `totalRevenue` (стр. 1576) — локальный
+- `totalExpenses` (стр. 1577) — локальный
+- `totalIncomes` (стр. 1578) — локальный
+- `profit` (стр. 1579) — локальный
+- `averageCheck` (стр. 1580) — локальный
+- `activeBookings` (стр. 1581) — локальный
+- `pipelineCounts` (стр. 1582) — локальный
+- `statusListItems` (стр. 1589) — локальный
+- `totalStockValue` (стр. 1594) — локальный
+- `washRevenue` (стр. 1597) — локальный
+- `detailingRevenue` (стр. 1600) — локальный
+- `washExpenses` (стр. 1603) — локальный
+- `detailingExpenses` (стр. 1606) — локальный
+- `washIncomes` (стр. 1609) — локальный
+- `detailingIncomes` (стр. 1612) — локальный
+- `resourceGroupLabel` (стр. 1616) — локальный
+- `payrollRows` (стр. 1621) — локальный
+- `workerPenalties` (стр. 1622) — локальный
+- `complaintState` (стр. 1623) — локальный
+- `payrollTotal` (стр. 1631) — локальный
+- `formatComplaintDate` (стр. 1632) — локальный
+- `resetPreviewRows` (стр. 1633) — локальный
+- `resetExecuteLocked` (стр. 1647) — локальный
+- `glass` (стр. 1649) — локальный
+- `bg` (стр. 1650) — локальный
+- `text` (стр. 1651) — локальный
+- `sub` (стр. 1652) — локальный
+- `primary` (стр. 1653) — локальный
+- `accent` (стр. 1654) — локальный
+- `surface` (стр. 1655) — локальный
+- `inputCls` (стр. 1656) — локальный
+- `selectCls` (стр. 1657) — локальный
+- `tooltipStyle` (стр. 1658) — локальный
+- `createDraftId` (стр. 1659) — локальный
+- `handleAddBoxDraft` (стр. 1661) — локальный
+- `handleRemoveBoxDraft` (стр. 1675) — локальный
+- `handleAddServiceDraft` (стр. 1679) — локальный
+- `handleRemoveServiceDraft` (стр. 1708) — локальный
 
 ### frontend/src/app/components/shared/Atmosfera.tsx (7 строк)
 
@@ -4193,10 +4197,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/tests/test_google_calendar.py` (2026-08-24 12:28)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:35)
+- `backend/tests/test_google_calendar_api.py` (2026-08-24 12:30)
+- `backend/tests/test_google_calendar.py` (2026-08-24 12:30)
 - `backend/app/google_calendar.py` (2026-08-24 12:25)
-- `backend/tests/test_google_calendar_api.py` (2026-08-24 12:23)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:18)
 - `backend/app/schemas.py` (2026-08-24 12:18)
 - `backend/app/models.py` (2026-08-24 12:18)
 - `backend/app/main.py` (2026-08-24 12:18)

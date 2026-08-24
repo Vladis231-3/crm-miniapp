@@ -812,6 +812,12 @@ class GoogleCredentialsPayload(BaseModel):
     redirectUri: str = ""
 
 
+class GoogleInvitePayload(BaseModel):
+    """Заявка на ссылку-приглашение: человек подключит свой Google-календарь."""
+
+    label: str = Field(min_length=1, max_length=120)
+
+
 class OwnerSecurityPayload(BaseModel):
     twoFactor: bool
 
@@ -1936,6 +1942,97 @@ class ArchiveResponse(BaseModel):
     piggyTransactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
     payroll: list[ArchivePayrollItem] = Field(default_factory=list)
     owners: list[ArchiveOwnerItem] = Field(default_factory=list)
+
+
+# --- Money Flow (движение денег: приход → распределение → выплаты) ---
+
+MONEY_FLOW_KINDS = ("in", "allocation", "out", "move")
+
+
+class MoneyFlowDistributionWorkerItem(BaseModel):
+    workerId: str
+    workerName: str
+    earned: int = 0
+
+
+class MoneyFlowDistributionOwnerItem(BaseModel):
+    ownerId: str | None = None
+    ownerName: str
+    amount: int = 0
+    status: str = "pending"
+
+
+class MoneyFlowDistribution(BaseModel):
+    """Куда распределилась сумма записи: материалы → мастера → копилка → владельцы."""
+    materialsCost: int = 0
+    masterTotal: int = 0
+    piggyDeposit: int = 0
+    ownersTotal: int = 0
+    outsourceTotal: int = 0
+    workers: list[MoneyFlowDistributionWorkerItem] = Field(default_factory=list)
+    owners: list[MoneyFlowDistributionOwnerItem] = Field(default_factory=list)
+
+
+class MoneyFlowEntry(BaseModel):
+    id: str
+    kind: str  # in | allocation | out | move
+    type: str  # booking_payment | booking_deposit_payment | booking_unpaid | income |
+    # deposit_topup | deposit_adjust | expense | payout_worker | payout_owner | advance |
+    # salary_bonus | salary_deduction | salary_adjustment | piggy_withdrawal |
+    # piggy_adjust | piggy_repayment | piggy_deposit_return
+    date: str
+    time: str = ""
+    title: str
+    amount: int = 0  # всегда положительная сумма операции
+    counterparty: str = ""  # от кого пришли / кому выплачено
+    method: str = ""  # cash | transfer | invoice | credit
+    methodLabel: str = ""
+    note: str = ""
+    bookingId: str | None = None
+    personId: str | None = None
+    distribution: MoneyFlowDistribution | None = None
+    createdAt: datetime | None = None
+
+
+class MoneyFlowSummary(BaseModel):
+    # Приход денег за период
+    totalIn: int = 0
+    bookingRevenue: int = 0  # выручка по завершённым оплаченным записям (наличные/перевод/счёт)
+    otherIncome: int = 0  # прочие доходы (без внутренних зеркал зарплат)
+    depositTopups: int = 0  # пополнения депозитов клиентов (предоплата)
+    # Выплаты и расходы из кассы за период
+    totalOut: int = 0
+    workerPayouts: int = 0  # выплаты мастерам (расчёт зарплаты)
+    ownerPayouts: int = 0  # выплаты владельцам из долей прибыли
+    advances: int = 0  # авансы (деньги выданы сразу)
+    expensesTotal: int = 0  # расходы (без зеркал премий/авансов)
+    # Куда распределилась выручка по записям периода
+    allocatedWorkers: int = 0
+    allocatedPiggy: int = 0
+    allocatedOwners: int = 0
+    allocatedMaterials: int = 0
+    allocatedOutsource: int = 0
+    bookingCount: int = 0
+    entryCount: int = 0
+    # Баланс кассы за период: пришло − вышло
+    cashBalance: int = 0
+
+
+class MoneyFlowPersonItem(BaseModel):
+    personId: str
+    personName: str
+    role: str  # worker | owner
+    accrued: int = 0  # начислено / распределено
+    paid: int = 0  # фактически выплачено
+    balance: int = 0  # остаток к выплате
+
+
+class MoneyFlowResponse(BaseModel):
+    dateFrom: str = ""
+    dateTo: str = ""
+    summary: MoneyFlowSummary = Field(default_factory=MoneyFlowSummary)
+    people: list[MoneyFlowPersonItem] = Field(default_factory=list)
+    entries: list[MoneyFlowEntry] = Field(default_factory=list)
 
 
 # --- Deposit (абонентские клиенты / цех малярка) ---

@@ -196,6 +196,10 @@ class Booking(Base):
     google_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
+    # Идентификаторы событий по каждому подключённому календарю:
+    # {connection_id: event_id}. google_event_id дублирует событие первого
+    # (основного) календаря для совместимости.
+    google_event_ids: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
 
     # Источник записи: "bot" (Telegram-миниапп), "google" (Google Calendar),
     # "manual" (создана вручную в админке). NULL — исторические записи.

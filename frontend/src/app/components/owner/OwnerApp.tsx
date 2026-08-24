@@ -162,6 +162,45 @@ interface ArchiveHighlight {
   workerId?: string; ownerId?: string; txId?: string; incomeId?: string; expenseId?: string;
 }
 
+// ── Движение денег (money flow) ──
+interface MoneyFlowDistWorker { workerId: string; workerName: string; earned: number; }
+interface MoneyFlowDistOwner { ownerId?: string | null; ownerName: string; amount: number; status: string; }
+interface MoneyFlowDistribution {
+  materialsCost: number; masterTotal: number; piggyDeposit: number;
+  ownersTotal: number; outsourceTotal: number;
+  workers: MoneyFlowDistWorker[]; owners: MoneyFlowDistOwner[];
+}
+interface MoneyFlowEntry {
+  id: string;
+  kind: 'in' | 'allocation' | 'out' | 'move';
+  type: string;
+  date: string; time: string;
+  title: string; amount: number;
+  counterparty: string;
+  method: string; methodLabel: string;
+  note: string;
+  bookingId?: string | null;
+  personId?: string | null;
+  distribution?: MoneyFlowDistribution | null;
+}
+interface MoneyFlowSummary {
+  totalIn: number; bookingRevenue: number; otherIncome: number; depositTopups: number;
+  totalOut: number; workerPayouts: number; ownerPayouts: number; advances: number; expensesTotal: number;
+  allocatedWorkers: number; allocatedPiggy: number; allocatedOwners: number;
+  allocatedMaterials: number; allocatedOutsource: number;
+  bookingCount: number; entryCount: number; cashBalance: number;
+}
+interface MoneyFlowPerson {
+  personId: string; personName: string; role: 'worker' | 'owner';
+  accrued: number; paid: number; balance: number;
+}
+interface MoneyFlowResponse {
+  dateFrom: string; dateTo: string;
+  summary: MoneyFlowSummary;
+  people: MoneyFlowPerson[];
+  entries: MoneyFlowEntry[];
+}
+
 interface OwnerProfitShareItem {
   id: string; bookingId: string; service: string; clientName: string; clientPhone: string;
   date: string; time: string; price: number; amount: number; status: string;
@@ -569,6 +608,10 @@ function normalizeOwnerPhoneSearchValue(value: string) {
 
 type OwnerClientSearchMode = 'phone' | 'name' | 'plate';
 
+/** Подключённый Google-календарь человека (мультиподключение). */
+interface GoogleConnectionInfo { id: string; name: string; email: string; createdAt: string }
+
+
 function numberFromInput(value: string) {
   return value === '' ? 0 : Number(value);
 }
@@ -883,6 +926,15 @@ export function OwnerApp() {
   const [archiveCalendarMonth, setArchiveCalendarMonth] = useState(() => new Date().getMonth());
   const [archiveHighlight, setArchiveHighlight] = useState<ArchiveHighlight | null>(null);
 
+  // Money flow state (движение денег)
+  const [moneyFlowData, setMoneyFlowData] = useState<MoneyFlowResponse | null>(null);
+  const [moneyFlowLoading, setMoneyFlowLoading] = useState(false);
+  const [moneyFlowPeriod, setMoneyFlowPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'custom'>('month');
+  const [moneyFlowDateFrom, setMoneyFlowDateFrom] = useState('');
+  const [moneyFlowDateTo, setMoneyFlowDateTo] = useState('');
+  const [moneyFlowFilter, setMoneyFlowFilter] = useState<'all' | 'in' | 'allocation' | 'out'>('all');
+  const [expandedFlowIds, setExpandedFlowIds] = useState<Set<string>>(new Set());
+
   // Settings state
   const [company, setCompany] = useState(settings.ownerCompany);
   const [boxes, setBoxes] = useState(liveBoxes);
@@ -915,6 +967,13 @@ export function OwnerApp() {
   const [googleCopiedUri, setGoogleCopiedUri] = useState(false);
   const [googleJsonFile, setGoogleJsonFile] = useState<string | null>(null);
   const [googleJsonError, setGoogleJsonError] = useState<string | null>(null);
+  // Мультиподключение: календари нескольких людей.
+  const [googleConnections, setGoogleConnections] = useState<GoogleConnectionInfo[]>([]);
+  const [googleInviteOpen, setGoogleInviteOpen] = useState(false);
+  const [googleInviteName, setGoogleInviteName] = useState('');
+  const [googleInviteLink, setGoogleInviteLink] = useState('');
+  const [googleInviteLoading, setGoogleInviteLoading] = useState(false);
+  const [googleCopiedLink, setGoogleCopiedLink] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [password, setPassword] = useState({ current: '', new_: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(settings.ownerSecurity.twoFactor);
@@ -1905,6 +1964,66 @@ export function OwnerApp() {
     }
   };
 
+  const handleGoogleCreateInvite = async () => {
+    const label = googleInviteName.trim();
+    if (!label) return;
+    setGoogleInviteLoading(true);
+    setGoogleConnectError(null);
+    try {
+      const res = await apiRequest<{ inviteUrl: string; label: string }>(
+        '/api/owner/integrations/google/invites',
+        { method: 'POST', body: { label } }
+      );
+      setGoogleInviteLink(res.inviteUrl);
+    } catch (error) {
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось создать ссылку-приглашение');
+    } finally {
+      setGoogleInviteLoading(false);
+    }
+  };
+
+  const handleGoogleCopyLink = async () => {
+    if (!googleInviteLink) return;
+    try {
+      await navigator.clipboard.writeText(googleInviteLink);
+      setGoogleCopiedLink(true);
+      setTimeout(() => setGoogleCopiedLink(false), 2000);
+    } catch {
+      // Clipboard недоступен — ссылка остаётся видимой для ручного копирования.
+    }
+  };
+
+  const handleGoogleRemoveConnection = async (connectionId: string) => {
+    setGoogleConnectError(null);
+    try {
+      const res = await apiRequest<{ ok: boolean; connectionsCount: number }>(
+        `/api/owner/integrations/google/connections/${connectionId}`,
+        { method: 'DELETE' }
+      );
+      setGoogleConnections(prev => prev.filter(c => c.id !== connectionId));
+      if (res.connectionsCount === 0) {
+        setIntegrations(p => ({ ...p, googleCalendar: false }));
+      }
+    } catch (error) {
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось отключить календарь');
+    }
+  };
+
+  // Список подключённых календарей загружаем при открытии раздела интеграций.
+  const googleIntegrationsOpen = page === 'settings' && settingsSection === 'integrations';
+  useEffect(() => {
+    if (!googleIntegrationsOpen) return;
+    let cancelled = false;
+    apiRequest<{ connections?: GoogleConnectionInfo[] }>('/api/owner/integrations/google/status')
+      .then(status => {
+        if (!cancelled) setGoogleConnections(status.connections || []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [googleIntegrationsOpen]);
+
   const historyPeriodDates = () => {
     const today = new Date();
     if (historyPeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
@@ -2016,8 +2135,66 @@ export function OwnerApp() {
   useEffect(() => {
     if (page === 'settings' && settingsSection === 'archive' && !selectedHistoryBookingId) {
       void fetchArchive();
+
     }
   }, [page, settingsSection, selectedHistoryBookingId, fetchArchive]);
+
+  // ── Money flow: движение денег ──
+  const moneyFlowPeriodDates = () => {
+    const today = new Date();
+    if (moneyFlowPeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
+    if (moneyFlowPeriod === 'week') {
+      const from = new Date(today);
+      const offset = (today.getDay() + 6) % 7;
+      from.setDate(today.getDate() - offset);
+      return { dateFrom: formatDate(from), dateTo: formatDate(today) };
+    }
+    if (moneyFlowPeriod === 'month') {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { dateFrom: formatDate(from), dateTo: formatDate(today) };
+    }
+    if (moneyFlowPeriod === 'year') {
+      return {
+        dateFrom: formatDate(new Date(today.getFullYear(), 0, 1)),
+        dateTo: formatDate(new Date(today.getFullYear(), 11, 31)),
+      };
+    }
+    if (moneyFlowPeriod === 'custom') return { dateFrom: moneyFlowDateFrom, dateTo: moneyFlowDateTo };
+    return { dateFrom: '', dateTo: '' };
+  };
+
+  const fetchMoneyFlow = useCallback(async () => {
+    setMoneyFlowLoading(true);
+    try {
+      const params = new URLSearchParams();
+      const { dateFrom, dateTo } = moneyFlowPeriodDates();
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      const data = await apiRequest<MoneyFlowResponse>(`/api/owner/money-flow?${params.toString()}`);
+      setMoneyFlowData(data);
+      setExpandedFlowIds(new Set());
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить движение денег');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setMoneyFlowLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moneyFlowPeriod, moneyFlowDateFrom, moneyFlowDateTo]);
+
+  useEffect(() => {
+    if (page === 'settings' && settingsSection === 'money-flow' && !selectedHistoryBookingId) {
+      void fetchMoneyFlow();
+    }
+  }, [page, settingsSection, selectedHistoryBookingId, fetchMoneyFlow]);
+
+  const toggleFlowExpanded = (id: string) => {
+    setExpandedFlowIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const archiveHighlightId = (h: ArchiveHighlight) => {
     if (h.target === 'worker') return `archive-hl-worker-${h.workerId}`;
@@ -5919,6 +6096,9 @@ paymentSettled: false,
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-semibold">Отчёты</h2>
                 <div className="flex gap-1.5">
+                  <button onClick={() => { setPage('settings'); setSettingsSection('money-flow'); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium" style={{ background: `${primary}18`, color: primary }}>
+                    <ArrowLeftRight size={12} strokeWidth={1.75} />Движение денег
+                  </button>
                   <button onClick={() => openExportModal('report')} disabled={exportingKind !== null} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
                     <Download size={12} strokeWidth={1.75} />{exportingKind === 'report' ? '...' : 'Excel'}
                   </button>
@@ -6210,6 +6390,265 @@ paymentSettled: false,
           })()
         )}
 
+          {/* ── SETTINGS: MONEY FLOW (движение денег) ── */}
+          {!isAccountant && page === 'settings' && settingsSection === 'money-flow' && !selectedHistoryBookingId && (
+            <motion.div key="settings-money-flow" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-1">Движение денег</h2>
+              <p className={`text-xs ${sub} mb-4`}>Каждый рубль: как пришёл, куда распределился и кому сколько выплатили.</p>
+
+              {/* Период */}
+              <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+                {[{ id: 'day', label: 'День' }, { id: 'week', label: 'Неделя' }, { id: 'month', label: 'Месяц' }, { id: 'year', label: 'Год' }, { id: 'all', label: 'Всё' }, { id: 'custom', label: 'Свои' }].map(option => (
+                  <button key={option.id} onClick={() => setMoneyFlowPeriod(option.id as typeof moneyFlowPeriod)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap ${moneyFlowPeriod === option.id ? 'text-white' : glass}`}
+                    style={moneyFlowPeriod === option.id ? { background: primary } : undefined}>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {moneyFlowPeriod === 'custom' && (
+                <div className="flex gap-2 mb-3">
+                  <input type="date" value={moneyFlowDateFrom} onChange={e => setMoneyFlowDateFrom(e.target.value)} className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                  <input type="date" value={moneyFlowDateTo} onChange={e => setMoneyFlowDateTo(e.target.value)} className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
+                </div>
+              )}
+
+              {moneyFlowLoading && !moneyFlowData ? (
+                <div className={`${glass} rounded-2xl p-8 text-center`}>
+                  <RefreshCw size={20} className={`mx-auto mb-2 animate-spin ${sub}`} />
+                  <div className={`text-sm ${sub}`}>Загрузка…</div>
+                </div>
+              ) : !moneyFlowData ? (
+                <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>Нет данных за период</div>
+              ) : (() => {
+                const s = moneyFlowData.summary;
+                const kindColor: Record<string, string> = { in: '#10B981', out: '#EF4444', allocation: '#8B5CF6', move: '#94A3B8' };
+                const typeMeta: Record<string, { color: string; label: string }> = {
+                  booking_payment: { color: '#10B981', label: 'Выручка' },
+                  booking_deposit_payment: { color: '#0EA5E9', label: 'Оплата с депозита' },
+                  booking_unpaid: { color: '#F59E0B', label: 'Не оплачено' },
+                  income: { color: '#22C55E', label: 'Доход' },
+                  deposit_topup: { color: '#0EA5E9', label: 'Пополнение депозита' },
+                  deposit_adjust: { color: '#0EA5E9', label: 'Корректировка депозита' },
+                  expense: { color: '#EF4444', label: 'Расход' },
+                  payout_worker: { color: '#F59E0B', label: 'Выплата мастеру' },
+                  payout_owner: { color: '#8B5CF6', label: 'Выплата владельцу' },
+                  advance: { color: '#F97316', label: 'Аванс' },
+                  salary_bonus: { color: '#22C55E', label: 'Премия' },
+                  salary_deduction: { color: '#EF4444', label: 'Вычет из зарплаты' },
+                  salary_adjustment: { color: '#64748B', label: 'Корректировка зарплаты' },
+                  piggy_withdrawal: { color: '#94A3B8', label: 'Снятие из копилки' },
+                  piggy_adjust: { color: '#94A3B8', label: 'Корректировка копилки' },
+                  piggy_repayment: { color: '#94A3B8', label: 'Возврат в копилку' },
+                  piggy_deposit_return: { color: '#94A3B8', label: 'Возврат моек в копилку' },
+                };
+                const fmt = (n: number) => `${n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('ru-RU')} ₽`;
+                const flowIcon = (entry: MoneyFlowEntry) => {
+                  if (entry.type.startsWith('piggy_')) return PiggyBank;
+                  if (entry.type === 'payout_owner') return Crown;
+                  if (entry.kind === 'in') return TrendingUp;
+                  if (entry.kind === 'out') return TrendingDown;
+                  if (entry.kind === 'allocation') return Split;
+                  return ArrowLeftRight;
+                };
+                const workersPeople = moneyFlowData.people.filter(p => p.role === 'worker');
+                const ownersPeople = moneyFlowData.people.filter(p => p.role === 'owner');
+                const filtered = moneyFlowData.entries.filter(e => moneyFlowFilter === 'all' || e.kind === moneyFlowFilter);
+                // группировка по дням
+                const dayGroups: Array<{ date: string; items: MoneyFlowEntry[]; cashIn: number; cashOut: number }> = [];
+                for (const e of filtered) {
+                  let g = dayGroups.find(x => x.date === e.date);
+                  if (!g) { g = { date: e.date, items: [], cashIn: 0, cashOut: 0 }; dayGroups.push(g); }
+                  g.items.push(e);
+                  if (e.kind === 'in') g.cashIn += e.amount;
+                  if (e.kind === 'out') g.cashOut += e.amount;
+                }
+                return (
+                  <>
+                    {/* Сводка */}
+                    <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`text-xs font-medium ${sub}`}>КАССА ЗА ПЕРИОД</span>
+                        <span className="text-xs font-semibold" style={{ color: s.cashBalance >= 0 ? '#10B981' : '#EF4444' }}>{fmt(s.cashBalance)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => setMoneyFlowFilter('in')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.in}14` }}>
+                          <div className={`text-[11px] ${sub} mb-1`}>Пришло</div>
+                          <div className="font-semibold text-base" style={{ color: kindColor.in }}>+{s.totalIn.toLocaleString('ru-RU')} ₽</div>
+                        </button>
+                        <button onClick={() => setMoneyFlowFilter('out')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.out}14` }}>
+                          <div className={`text-[11px] ${sub} mb-1`}>Вышло</div>
+                          <div className="font-semibold text-base" style={{ color: kindColor.out }}>−{s.totalOut.toLocaleString('ru-RU')} ₽</div>
+                        </button>
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        {[
+                          { label: 'Выручка по записям', v: s.bookingRevenue, hint: `${s.bookingCount} зап.` },
+                          { label: 'Прочие доходы', v: s.otherIncome },
+                          { label: 'Пополнения депозитов (предоплата)', v: s.depositTopups },
+                          { label: 'Выплаты мастерам', v: s.workerPayouts },
+                          { label: 'Выплаты владельцам', v: s.ownerPayouts },
+                          { label: 'Авансы', v: s.advances },
+                          { label: 'Расходы', v: s.expensesTotal },
+                        ].filter(r => r.v !== 0 || r.label.startsWith('Выручка')).map(r => (
+                          <div key={r.label} className="flex justify-between text-xs">
+                            <span className={sub}>{r.label}{r.hint ? ` · ${r.hint}` : ''}</span>
+                            <span className="font-medium tabular-nums">{fmt(r.v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-3 border-t" style={{ borderColor: 'rgba(148,163,184,0.15)' }}>
+                        <div className={`text-xs font-medium ${sub} mb-1.5`}>РАСПРЕДЕЛЕНО ПО ЗАПИСЯМ</div>
+                        <div className="space-y-1.5">
+                          {[
+                            { label: 'Мастерам начислено', v: s.allocatedWorkers, c: '#F59E0B' },
+                            { label: 'В копилку', v: s.allocatedPiggy, c: '#F59E0B' },
+                            { label: 'Владельцам', v: s.allocatedOwners, c: '#8B5CF6' },
+                            { label: 'Материалы', v: s.allocatedMaterials, c: '#EF4444' },
+                            { label: 'Аутсорс', v: s.allocatedOutsource, c: '#0EA5E9' },
+                          ].filter(r => r.v !== 0).map(r => (
+                            <div key={r.label} className="flex justify-between text-xs">
+                              <span className={sub}>{r.label}</span>
+                              <span className="font-medium tabular-nums" style={{ color: r.c }}>{fmt(r.v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Люди: кому сколько выплатили */}
+                    {(workersPeople.length > 0 || ownersPeople.length > 0) && (
+                      <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                        <div className={`text-xs font-medium ${sub} mb-3`}>КОМУ СКОЛЬКО ВЫПЛАТИЛИ</div>
+                        <div className="space-y-2">
+                          {workersPeople.map(p => (
+                            <div key={p.personId} className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#F59E0B18' }}>
+                                <Users size={14} strokeWidth={1.75} style={{ color: '#F59E0B' }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{p.personName}</div>
+                                <div className={`text-[11px] ${sub}`}>Начислено {p.accrued.toLocaleString('ru-RU')} · Выплачено {p.paid.toLocaleString('ru-RU')}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#10B981' : p.balance < 0 ? '#EF4444' : '#94A3B8' }}>
+                                  {p.balance > 0 ? '+' : ''}{p.balance.toLocaleString('ru-RU')} ₽
+                                </div>
+                                {p.balance > 0 && <div className={`text-[11px] ${sub}`}>к выплате</div>}
+                              </div>
+                            </div>
+                          ))}
+                          {ownersPeople.map(p => (
+                            <div key={p.personId} className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#8B5CF618' }}>
+                                <Crown size={14} strokeWidth={1.75} style={{ color: '#8B5CF6' }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{p.personName}</div>
+                                <div className={`text-[11px] ${sub}`}>Доля прибыли {p.accrued.toLocaleString('ru-RU')} · Выплачено {p.paid.toLocaleString('ru-RU')}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#8B5CF6' : '#94A3B8' }}>
+                                  {p.balance.toLocaleString('ru-RU')} ₽
+                                </div>
+                                {p.balance > 0 && <div className={`text-[11px] ${sub}`}>к выплате</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Фильтр типов */}
+                    <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+                      {[{ id: 'all', label: 'Все' }, { id: 'in', label: 'Приход' }, { id: 'allocation', label: 'Распределение' }, { id: 'out', label: 'Выплаты' }].map(option => (
+                        <button key={option.id} onClick={() => setMoneyFlowFilter(option.id as typeof moneyFlowFilter)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap ${moneyFlowFilter === option.id ? 'text-white' : glass}`}
+                          style={moneyFlowFilter === option.id ? { background: primary } : undefined}>
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Журнал по дням */}
+                    {dayGroups.length === 0 ? (
+                      <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>Операций не найдено</div>
+                    ) : dayGroups.map(group => (
+                      <div key={group.date} className="mb-4">
+                        <div className="flex justify-between items-baseline mb-2 px-1">
+                          <span className={`text-xs font-semibold ${sub}`}>{group.date}</span>
+                          <span className="text-[11px] tabular-nums">
+                            {group.cashIn > 0 && <span style={{ color: kindColor.in }}>+{group.cashIn.toLocaleString('ru-RU')}</span>}
+                            {group.cashIn > 0 && group.cashOut > 0 && <span className={sub}> · </span>}
+                            {group.cashOut > 0 && <span style={{ color: kindColor.out }}>−{group.cashOut.toLocaleString('ru-RU')}</span>}
+                          </span>
+                        </div>
+                        {group.items.map(entry => {
+                          const meta = typeMeta[entry.type] ?? { color: kindColor[entry.kind] ?? '#94A3B8', label: entry.type };
+                          const expanded = expandedFlowIds.has(entry.id);
+                          const d = entry.distribution;
+                          const distSum = d ? d.materialsCost + d.masterTotal + d.piggyDeposit + d.ownersTotal + d.outsourceTotal : 0;
+                          return (
+                            <div key={entry.id} className={`${glass} rounded-xl mb-1.5 overflow-hidden`}>
+                              <button onClick={() => d ? toggleFlowExpanded(entry.id) : undefined} className="w-full p-3 flex items-center gap-3 text-left" style={{ cursor: d ? 'pointer' : 'default' }}>
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${meta.color}18` }}>
+                                  {React.createElement(flowIcon(entry), { size: 16, strokeWidth: 1.75, style: { color: meta.color } })}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{entry.title}</div>
+                                  <div className={`text-[11px] ${sub} truncate`}>
+                                    {meta.label}{entry.methodLabel ? ` · ${entry.methodLabel}` : ''}{entry.counterparty ? ` · ${entry.counterparty}` : ''}
+                                  </div>
+                                  {d && <div className={`text-[11px] mt-0.5 ${expanded ? '' : sub}`} style={{ color: expanded ? primary : undefined }}>{expanded ? '▲ Скрыть цепочку' : '▼ Показать цепочку распределения'}</div>}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-sm font-semibold tabular-nums" style={{ color: meta.color }}>
+                                    {entry.kind === 'in' ? '+' : entry.kind === 'out' ? '−' : ''}{entry.amount.toLocaleString('ru-RU')} ₽
+                                  </div>
+                                  {entry.time && <div className={`text-[11px] ${sub}`}>{entry.time}</div>}
+                                </div>
+                              </button>
+                              {expanded && d && (
+                                <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: 'rgba(148,163,184,0.12)' }}>
+                                  <div className="space-y-1.5 mt-2">
+                                    {[
+                                      { label: 'Материалы', v: d.materialsCost, c: '#EF4444' },
+                                      ...d.workers.map((w, i) => ({ label: `Мастер: ${w.workerName}`, v: w.earned, c: '#F59E0B', key: `w${i}` })),
+                                      { label: 'Аутсорс', v: d.outsourceTotal, c: '#0EA5E9' },
+                                      { label: 'Копилка', v: d.piggyDeposit, c: '#F59E0B' },
+                                      ...d.owners.map((o, i) => ({ label: `Владелец: ${o.ownerName}${o.status === 'paid' ? ' ✓ выплачено' : ''}`, v: o.amount, c: '#8B5CF6', key: `o${i}` })),
+                                    ].filter(r => r.v !== 0).map(r => (
+                                      <div key={r.key ?? r.label} className="flex justify-between text-xs">
+                                        <span className={sub}>{r.label}</span>
+                                        <span className="font-medium tabular-nums" style={{ color: r.c }}>{fmt(r.v)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {distSum > 0 && (
+                                    <div className="mt-2 pt-2 text-[11px] flex justify-between" style={{ borderTop: '1px solid rgba(148,163,184,0.12)' }}>
+                                      <span className={sub}>Итого распределено из {entry.amount.toLocaleString('ru-RU')} ₽</span>
+                                      <span className="font-semibold tabular-nums">{fmt(distSum)}</span>
+                                    </div>
+                                  )}
+                                  {entry.bookingId && (
+                                    <button onClick={() => openHistoryBooking(entry.bookingId!)} className="mt-2 w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: `${primary}18`, color: primary }}>
+                                      <Split size={13} /> Открыть полную расчётку
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
+            </motion.div>
+          )}
+
           {/* ── SETTINGS MAIN ── */}
           {!isAccountant && page === 'settings' && !settingsSection && (
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
@@ -6225,6 +6664,7 @@ paymentSettled: false,
                 { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
                 { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#F59E0B' },
                 { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
+                { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#8B5CF6' },
                 { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
                 { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
@@ -6589,7 +7029,7 @@ paymentSettled: false,
           )}
 
           {/* ── SETTINGS: BOOKINGS HISTORY DETAIL ── */}
-          {!isAccountant && page === 'settings' && (settingsSection === 'bookings-history' || settingsSection === 'archive') && selectedHistoryBookingId && (
+          {!isAccountant && page === 'settings' && (settingsSection === 'bookings-history' || settingsSection === 'archive' || settingsSection === 'money-flow') && selectedHistoryBookingId && (
             <motion.div key="s-booking-split" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
 
@@ -8487,6 +8927,34 @@ paymentSettled: false,
                 )}
                 {integrations.googleCalendar && (
                   <div className="space-y-2">
+                    {googleConnections.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>
+                          Подключённые календари ({googleConnections.length})
+                        </div>
+                        {googleConnections.map(conn => (
+                          <div
+                            key={conn.id}
+                            className="flex items-center gap-2 rounded-xl px-3 py-2"
+                            style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-semibold" style={{ background: '#4285F418', color: '#4285F4' }}>
+                              {(conn.name || '?').slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium truncate">{conn.name || 'Без имени'}</div>
+                              <div className={`text-[11px] ${sub} truncate`}>{conn.email || 'email не получен'}</div>
+                            </div>
+                            <button
+                              onClick={() => { void handleGoogleRemoveConnection(conn.id); }}
+                              title="Отключить этот календарь"
+                              className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
+                              style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` }}>
+                              Убрать
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <button
                       onClick={() => { void handleGoogleSyncNow(); }}
                       disabled={googleSyncing}
@@ -8515,6 +8983,66 @@ paymentSettled: false,
                       </div>
                     )}
                     {googleSyncError && <div className="text-xs text-red-500">{googleSyncError}</div>}
+                    <button
+                      onClick={() => {
+                        setGoogleInviteOpen(v => !v);
+                        setGoogleConnectError(null);
+                      }}
+                      className="w-full py-2 rounded-xl text-xs font-medium"
+                      style={{ color: '#4285F4', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
+                      {googleInviteOpen ? 'Скрыть приглашение' : '+ Пригласить человека (его Google-календарь)'}
+                    </button>
+                    {googleInviteOpen && (
+                      <div className="space-y-2 rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                        {!googleInviteLink ? (
+                          <>
+                            <input
+                              className={`${inputCls}`}
+                              placeholder="Имя человека (например: Анна)"
+                              value={googleInviteName}
+                              onChange={e => setGoogleInviteName(e.target.value)}
+                              maxLength={120}
+                            />
+                            <button
+                              onClick={() => { void handleGoogleCreateInvite(); }}
+                              disabled={googleInviteLoading || !googleInviteName.trim()}
+                              className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                              style={{ background: '#4285F4' }}>
+                              {googleInviteLoading ? 'Создание ссылки...' : 'Создать ссылку-приглашение'}
+                            </button>
+                            <div className={`text-[11px] ${sub} leading-relaxed`}>
+                              Отправьте ссылку человеку (Telegram и т.п.). Он откроет её,
+                              войдёт в свой Google-аккаунт и подтвердит доступ — после этого
+                              все записи будут появляться и в его календаре.
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className={`text-[11px] ${sub} leading-relaxed`}>
+                              Ссылка для <span className="font-medium">{googleInviteName.trim() || 'человека'}</span>.
+                              Перешлите её — после авторизации календарь появится в списке выше:
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <code className="flex-1 text-[10px] px-2 py-1.5 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
+                                {googleInviteLink}
+                              </code>
+                              <button
+                                onClick={() => { void handleGoogleCopyLink(); }}
+                                className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
+                                style={{ color: '#4285F4', background: '#4285F418' }}>
+                                {googleCopiedLink ? 'Ок' : 'Копировать'}
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => { setGoogleInviteLink(''); setGoogleInviteName(''); }}
+                              className="w-full py-2 rounded-xl text-[11px] font-medium"
+                              style={{ color: '#4285F4', background: `${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` }}>
+                              Создать ещё одну ссылку
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                     <button
                       onClick={() => { void handleGoogleDisconnect(); }}
                       className="w-full py-2 rounded-xl text-xs font-medium"

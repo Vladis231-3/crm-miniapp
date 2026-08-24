@@ -7,20 +7,28 @@
   (pull_calendar_changes). Инкрементальная синхронизация через syncToken.
 
 Безопасное поведение: если сервис не настроен (нет GOOGLE_CALENDAR_CLIENT_ID
-и SECRET в env и не сохранены учётные данные через UI) или у владельца нет
-сохранённых OAuth-токенов, все функции — no-op. Интеграция «включается»
+и SECRET в env и не сохранены учётные данные через UI) или нет ни одного
+подключённого Google-аккаунта, все функции — no-op. Интеграция «включается»
 учётными данными OAuth-клиента: владелец может ввести их в интерфейсе настроек
 (хранятся в AppSetting под GOOGLE_CALENDAR_CREDENTIALS_KEY, перекрывают env),
 либо администратор прописывает env-переменные. Приложение и тесты работают
 без Google-аккаунта.
 
-Токены владельца хранятся в AppSetting под ключом GOOGLE_CALENDAR_TOKENS_KEY.
-Записи сохраняют внешний идентификатор события в колонке google_event_id
-(см. модели Booking), а созданные в Google события помечаются source="google".
+Мультиподключение: календари могут подключить несколько человек (владелец +
+приглашённые по ссылке). Подключения хранятся в AppSetting под ключом
+GOOGLE_CALENDAR_CONNECTIONS_KEY — список dict {id, name, email, tokens,
+sync_token, created_at}. Запись синхронизируется во ВСЕ подключённые
+календари; обратная синхронизация читает их все. Идентификаторы событий по
+каждому календарю хранятся на записи в google_event_ids ({connection_id:
+event_id}); колонка google_event_id сохраняется для первого подключения
+(совместимость). Старое хранилище GOOGLE_CALENDAR_TOKENS_KEY мигрируется в
+первое подключение автоматически при первой записи.
 """
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
@@ -37,6 +45,13 @@ GOOGLE_CALENDAR_TOKENS_KEY = "google_calendar_tokens"
 GOOGLE_CALENDAR_SYNC_TOKEN_KEY = "google_calendar_sync_token"
 GOOGLE_CALENDAR_LAST_SYNC_KEY = "google_calendar_last_sync"
 GOOGLE_CALENDAR_CREDENTIALS_KEY = "google_calendar_credentials"
+# Мультиподключение: список календарей разных людей.
+GOOGLE_CALENDAR_CONNECTIONS_KEY = "google_calendar_connections"
+# Ожидающие приглашения (ссылки, разосланные владельцем): state -> label.
+GOOGLE_CALENDAR_INVITES_KEY = "google_calendar_pending_invites"
+
+# Подключение владельца (первое, создаётся через /auth-url + callback).
+OWNER_CONNECTION_ID = "owner"
 
 # Статусы Booking, при которых запись считается активной и синхронизируется.
 # admin_review — заявка от клиента ещё не подтверждена админом, но уже должна
@@ -46,7 +61,7 @@ SYNCED_STATUSES = {"new", "confirmed", "scheduled", "in_progress", "admin_review
 # Человекочитаемые подписи источников записи (поле Booking.source).
 SOURCE_LABELS = {"bot": "Бот", "google": "Google", "manual": "Вручную"}
 
-_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+_SCOPES = ["https://www.googleapis.com/auth/calendar.events", "email", "openid"]
 
 _AppSetting: Any = None
 
@@ -106,6 +121,228 @@ def clear_credentials(db: Any) -> None:
     db.flush()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Подключения календарей (мультиаккаунт)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _default_connection(tokens: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Шаблон подключения владельца."""
+    return {
+        "id": OWNER_CONNECTION_ID,
+        "name": "Владелец",
+        "email": "",
+        "tokens": dict(tokens or {}),
+        "sync_token": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _read_legacy_tokens(db: Any) -> dict[str, Any]:
+    """Токены из старого ключа google_calendar_tokens (до мультиподключения)."""
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY)
+    if row is None or not isinstance(row.value, dict):
+        return {}
+    value = dict(row.value)
+    if not value.get("token") and value.get("access_token"):
+        value["token"] = value["access_token"]
+    return value
+
+
+def _read_connections(db: Any) -> list[dict[str, Any]]:
+    """Прочитать список подключений (полные dict с токенами).
+
+    Совместимость: если ключ подключений отсутствует/пуст, но есть legacy-
+    токены (google_calendar_tokens) — вернуть одно подключение «Владелец»
+    на их основе. Чтение ничего не пишет; миграция завершается при первой
+    записи (_write_connections удаляет legacy-ключ).
+    """
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_CONNECTIONS_KEY)
+    raw = row.value if row is not None else None
+    conns: list[dict[str, Any]] = []
+    if isinstance(raw, dict):
+        items = raw.get("connections")
+        if isinstance(items, list):
+            conns = [dict(item) for item in items if isinstance(item, dict)]
+    elif isinstance(raw, list):  # защита от альтернативных форматов
+        conns = [dict(item) for item in raw if isinstance(item, dict)]
+    if not conns:
+        tokens = _read_legacy_tokens(db)
+        if tokens:
+            conns = [_default_connection(tokens)]
+    return conns
+
+
+def _write_connections(db: Any, connections: list[dict[str, Any]]) -> None:
+    """Сохранить весь список подключений (upsert) и завершить legacy-миграцию.
+
+    Ключи с префиксом "_" (служебные маркеры вроде _dirty) не сохраняются.
+    """
+    clean: list[dict[str, Any]] = []
+    for conn in connections:
+        item = {k: v for k, v in dict(conn).items() if not str(k).startswith("_")}
+        if item.get("id"):
+            clean.append(item)
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_CONNECTIONS_KEY)
+    payload = {"connections": clean}
+    if row is None:
+        db.add(AppSetting(key=GOOGLE_CALENDAR_CONNECTIONS_KEY, value=payload))
+    else:
+        row.value = payload
+    # Legacy-ключи больше не источник истины — удаляем.
+    for key in (GOOGLE_CALENDAR_TOKENS_KEY, GOOGLE_CALENDAR_SYNC_TOKEN_KEY):
+        legacy_row = db.get(AppSetting, key)
+        if legacy_row is not None:
+            db.delete(legacy_row)
+    db.flush()
+
+
+def get_connection(db: Any, connection_id: str) -> dict[str, Any] | None:
+    """Полное подключение по id (с токенами) или None."""
+    for conn in _read_connections(db):
+        if str(conn.get("id")) == connection_id:
+            return conn
+    return None
+
+
+def list_connections(db: Any) -> list[dict[str, Any]]:
+    """Публичный список подключений (без токенов) — для UI владельца."""
+    return [
+        {
+            "id": str(conn.get("id") or ""),
+            "name": str(conn.get("name") or ""),
+            "email": str(conn.get("email") or ""),
+            "createdAt": str(conn.get("created_at") or ""),
+        }
+        for conn in _read_connections(db)
+    ]
+
+
+def upsert_connection(db: Any, connection: dict[str, Any]) -> None:
+    """Добавить подключение или обновить существующее (по полю id)."""
+    connections = _read_connections(db)
+    conn_id = str(connection.get("id") or "")
+    for index, existing in enumerate(connections):
+        if str(existing.get("id")) == conn_id:
+            connections[index] = {**existing, **dict(connection)}
+            break
+    else:
+        connections.append(dict(connection))
+    _write_connections(db, connections)
+
+
+def delete_connection(db: Any, connection_id: str) -> bool:
+    """Удалить одно подключение. True, если оно существовало."""
+    connections = _read_connections(db)
+    remaining = [c for c in connections if str(c.get("id")) != connection_id]
+    if len(remaining) == len(connections):
+        return False
+    _write_connections(db, remaining)
+    return True
+
+
+def _usable_connections(db: Any) -> list[dict[str, Any]]:
+    """Подключения, готовые к запросам (есть refresh_token)."""
+    return [
+        conn
+        for conn in _read_connections(db)
+        if isinstance(conn.get("tokens"), dict) and conn["tokens"].get("refresh_token")
+    ]
+
+
+def _persist_dirty_connections(db: Any, connections: list[dict[str, Any]]) -> None:
+    """Сохранить подключения с изменёнными токенами/sync_token (маркер _dirty).
+
+    Маркер ставится при refresh access-токена и обновлении syncToken; здесь он
+    снимается, а подключение целиком перезаписывается в хранилище.
+    """
+    for conn in connections:
+        if conn.pop("_dirty", False):
+            upsert_connection(db, conn)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Приглашения (владелец создаёт ссылку и пересылает человеку)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def create_invite(db: Any, label: str, state: str) -> dict[str, Any]:
+    """Запомнить приглашение: state OAuth-ссылки -> имя приглашённого."""
+    invite = {
+        "state": state,
+        "label": label,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_INVITES_KEY)
+    invites: list[dict[str, Any]] = []
+    if row is not None and isinstance(row.value, dict):
+        raw = row.value.get("invites")
+        if isinstance(raw, list):
+            invites = [item for item in raw if isinstance(item, dict)]
+    invites = [item for item in invites if item.get("state") != state]
+    invites.append(invite)
+    payload = {"invites": invites[-50:]}  # ограничиваем рост списка
+    if row is None:
+        db.add(AppSetting(key=GOOGLE_CALENDAR_INVITES_KEY, value=payload))
+    else:
+        row.value = payload
+    db.flush()
+    return invite
+
+
+def consume_invite(db: Any, state: str) -> dict[str, Any] | None:
+    """Найти приглашение по state и удалить его (одноразовое)."""
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_INVITES_KEY)
+    if row is None or not isinstance(row.value, dict):
+        return None
+    raw = row.value.get("invites")
+    if not isinstance(raw, list):
+        return None
+    found: dict[str, Any] | None = None
+    invites: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict) and not found and item.get("state") == state:
+            found = item
+            continue
+        invites.append(item if isinstance(item, dict) else {})
+    if found is None:
+        return None
+    row.value = {"invites": invites}
+    db.flush()
+    return found
+
+
+def clear_invites(db: Any) -> None:
+    """Удалить все ожидающие приглашения (например, при полном отключении)."""
+    AppSetting = _appsetting_model()
+    row = db.get(AppSetting, GOOGLE_CALENDAR_INVITES_KEY)
+    if row is not None:
+        db.delete(row)
+    db.flush()
+
+
+def extract_account_email(tokens: dict[str, Any] | None) -> str:
+    """Email Google-аккаунта из id_token (JWT payload), если он есть.
+
+    Scope email добавлен к запросу авторизации, поэтому Google присылает
+    id_token; подпись не проверяем (токен получен напрямую от Google по TLS),
+    нам нужен только claim email.
+    """
+    raw = str((tokens or {}).get("id_token") or "")
+    try:
+        payload_b64 = raw.split(".")[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        return str(payload.get("email") or "")
+    except Exception:  # noqa: BLE001 — битый/отсутствующий id_token не критичен
+        return ""
+
+
 def _resolve_creds(
     db: Any,
     settings: Settings,
@@ -139,43 +376,46 @@ def _resolve_creds(
 
 
 def load_tokens(db: Any) -> dict[str, Any]:
-    """Вернуть OAuth-токены владельца или пустой dict.
+    """Вернуть OAuth-токены первого подключения или пустой dict.
 
-    Совместимость: токены, сохранённые старыми версиями (сырой ответ
-    token-эндпоинта Google с ключом "access_token"), нормализуются в
-    ключ "token", который ожидает остальной код.
+    Совместимость: функция сохранена для старого кода/тестов — в
+    мультиподключенном мире токены лежат внутри подключений
+    (_read_connections), а «первое» подключение играет роль основного.
+    Токены, сохранённые старыми версиями (сырой ответ token-эндпоинта
+    Google с ключом "access_token"), нормализуются в ключ "token".
     """
-    AppSetting = _appsetting_model()
-    row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY)
-    if row is None:
+    connections = _read_connections(db)
+    if not connections:
         return {}
-    value = row.value
-    if not isinstance(value, dict):
-        return {}
-    if not value.get("token") and value.get("access_token"):
-        value = {**value, "token": value["access_token"]}
-    return value
+    tokens = dict(connections[0].get("tokens") or {})
+    if not tokens.get("token") and tokens.get("access_token"):
+        tokens["token"] = tokens["access_token"]
+    return tokens
 
 
 def save_tokens(db: Any, tokens: dict[str, Any]) -> None:
-    """Сохранить OAuth-токены владельца (upsert)."""
-    AppSetting = _appsetting_model()
-    row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY)
-    if row is None:
-        row = AppSetting(key=GOOGLE_CALENDAR_TOKENS_KEY, value=tokens)
-        db.add(row)
-    else:
-        row.value = tokens
-    db.flush()
+    """Сохранить OAuth-токены в первое подключение (создать при отсутствии).
+
+    Совместимость со старым кодом: раньше токены лежали отдельным ключом,
+    теперь — внутри подключения владельца.
+    """
+    connections = _read_connections(db)
+    if not connections:
+        connections = [_default_connection()]
+        connections[0]["_dirty"] = True
+    connections[0]["tokens"] = dict(tokens)
+    connections[0]["_dirty"] = True
+    _persist_dirty_connections(db, connections)
 
 
 def clear_tokens(db: Any) -> None:
-    """Отключить интеграцию: удалить токены и состояние синхронизации."""
+    """Отключить интеграцию полностью: удалить все подключения и состояние."""
     AppSetting = _appsetting_model()
     for key in (
         GOOGLE_CALENDAR_TOKENS_KEY,
         GOOGLE_CALENDAR_SYNC_TOKEN_KEY,
         GOOGLE_CALENDAR_LAST_SYNC_KEY,
+        GOOGLE_CALENDAR_CONNECTIONS_KEY,
     ):
         row = db.get(AppSetting, key)
         if row is not None:
@@ -214,19 +454,22 @@ def _is_token_revoked_error(exc: _GoogleApiError) -> bool:
     return False
 
 
-def _disable_integration_on_revoked(db: Any) -> None:
-    """Отключить Google Calendar при отозванном токене: чистим токены и флаг.
+def _disable_integration_on_revoked(db: Any, connection_id: str | None = None) -> None:
+    """Отключить Google Calendar при отозванном токене.
 
-    Вызывается, когда refresh_token истёк/отозван — дальнейшие попытки
-    синхронизации бессмысленны до повторного OAuth. Чистим токены и
-    сбрасываем owner_integrations.googleCalendar, чтобы UI показал
-    «требуется подключение», а фоновый sync стал no-op (skipped=True).
+    Если задан connection_id — удаляем только это подключение (остальные
+    календари продолжают работать); иначе чистим всё. Флаг
+    owner_integrations.googleCalendar сбрасываем, только если подключений
+    не осталось, чтобы UI снова показал «требуется подключение», а
+    фоновый sync стал no-op (skipped=True).
     """
     try:
-        clear_tokens(db)
-    except Exception:
-        logger.exception("Failed to clear Google tokens after revocation")
-    try:
+        if connection_id:
+            delete_connection(db, connection_id)
+            if _read_connections(db):
+                return  # есть другие календари — флаг не трогаем
+        else:
+            clear_tokens(db)
         AppSetting = _appsetting_model()
         row = db.get(AppSetting, "owner_integrations")
         if row is not None and isinstance(row.value, dict) and row.value.get("googleCalendar"):
@@ -235,7 +478,7 @@ def _disable_integration_on_revoked(db: Any) -> None:
             row.value = new_val
             db.flush()
     except Exception:
-        logger.exception("Failed to disable googleCalendar flag after token revocation")
+        logger.exception("Failed to disable Google integration after token revocation")
 
 
 def _client_config(settings: Settings) -> dict[str, Any]:
@@ -291,7 +534,8 @@ def exchange_code(
     data = resp.json()
     # Нормализуем ответ Google: остальной код ожидает ключ "token"
     # (access_token из ответа token-эндпоинта Google). Поддерживаем
-    # и "token" для совместимости с моками/старыми тестами.
+    # и "token" для совместимости с моками/старыми тестами. id_token
+    # нужен только для extract_account_email и в хранилище не сохраняется.
     return {
         "token": data.get("access_token") or data.get("token", ""),
         "refresh_token": data.get("refresh_token", ""),
@@ -299,6 +543,7 @@ def exchange_code(
         "scope": data.get("scope", ""),
         "token_type": data.get("token_type", "Bearer"),
         "refresh_token_expires_in": data.get("refresh_token_expires_in"),
+        "id_token": data.get("id_token", ""),
     }
 
 
@@ -381,15 +626,22 @@ def _calendar_request(
     *,
     params: dict[str, Any] | None = None,
     body: dict[str, Any] | None = None,
+    conn: dict[str, Any] | None = None,
     _retried: bool = False,
 ) -> dict[str, Any]:
     """Выполнить запрос к Google Calendar API v3 (чистый HTTP, без SDK).
 
     path — путь после /calendar/v3/, например "calendars/primary/events".
-    При 401/403 автоматически обновляет access_token по refresh_token
-    (один повтор). Возвращает JSON-ответ ({} для пустого тела, напр. DELETE).
+    conn — конкретное подключение (токены берутся из него); если не задан,
+    используются токены первого подключения (совместимость). При 401/403
+    автоматически обновляет access_token по refresh_token (один повтор),
+    обновлённые токены сохраняются в то же подключение. Возвращает
+    JSON-ответ ({} для пустого тела, напр. DELETE).
     """
-    tokens = load_tokens(db)
+    if conn is not None:
+        tokens = dict(conn.get("tokens") or {})
+    else:
+        tokens = load_tokens(db)
     if not tokens or not tokens.get("token"):
         raise _GoogleApiError(401, "no_token")
     url = f"https://www.googleapis.com/calendar/v3/{path}"
@@ -400,7 +652,9 @@ def _calendar_request(
             new_tokens = _refresh_access_token(settings, tokens, db=db)
         except _GoogleApiError as refresh_exc:
             if _is_token_revoked_error(refresh_exc):
-                _disable_integration_on_revoked(db)
+                _disable_integration_on_revoked(
+                    db, connection_id=str(conn.get("id")) if conn else None
+                )
                 logger.warning(
                     "Google Calendar refresh token revoked/expired, integration disabled. Please reconnect. Details: %s",
                     refresh_exc.details or refresh_exc,
@@ -412,8 +666,14 @@ def _calendar_request(
                     details="Token has been expired or revoked. Please reconnect Google Calendar.",
                 ) from refresh_exc
             raise
-        save_tokens(db, new_tokens)
-        return _calendar_request(db, settings, method, path, params=params, body=body, _retried=True)
+        if conn is not None:
+            conn["tokens"] = new_tokens
+            conn["_dirty"] = True  # сохранит обёртка (_persist_dirty_connections)
+        else:
+            save_tokens(db, new_tokens)
+        return _calendar_request(
+            db, settings, method, path, params=params, body=body, conn=conn, _retried=True
+        )
     if resp.status_code >= 400:
         reason, details = _google_error_from_response(resp)
         raise _GoogleApiError(
@@ -474,15 +734,16 @@ def _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]:
 def sync_booking_to_calendar(
     db: Any, settings: Settings, booking: Any, *, action: str = "upsert"
 ) -> tuple[str | None, bool]:
-    """Синхронизировать запись с Google Calendar.
+    """Синхронизировать запись со ВСЕМИ подключёнными Google-календарями.
 
-    action: "upsert" — создать/обновить событие; "delete" — удалить событие.
+    action: "upsert" — создать/обновить события; "delete" — удалить события.
 
-    Вернёт (google_event_id, ok). ok=False при не настроенном сервисе или при
-    ошибке, при этом событие/запись НЕ трогаются. Все ошибки ловим и
-    логируем — синхронизация никогда не должна ломать бронирование.
-
-    Вызывающий ответственен за db.commit() и за сохранение booking.google_event_id.
+    Вернёт (google_event_id, ok). google_event_id — идентификатор события в
+    первом (основном) подключении; ok=False, если не сработало ни одно
+    подключение. Событие каждого календаря хранится на записи в
+    google_event_ids ({connection_id: event_id}). Ошибки отдельных
+    календарей изолируются и логируются — синхронизация никогда не должна
+    ломать бронирование. Вызывающий ответственен за db.commit().
     """
     try:
         return _sync_booking_to_calendar_impl(db, settings, booking, action=action)
@@ -505,64 +766,145 @@ def sync_booking_to_calendar(
         return getattr(booking, "google_event_id", None), False
 
 
+def _connection_event_ids(booking: Any, connections: list[dict[str, Any]]) -> dict[str, str]:
+    """Карта {connection_id: event_id} для записи.
+
+    Совместимость: у записей, созданных до мультиподключения, заполнена
+    только колонка google_event_id — считаем её событием первого
+    подключения.
+    """
+    mapping = getattr(booking, "google_event_ids", None)
+    event_ids: dict[str, str] = {}
+    if isinstance(mapping, dict):
+        event_ids = {
+            str(key): str(value) for key, value in mapping.items() if key and value
+        }
+    if not event_ids:
+        legacy = getattr(booking, "google_event_id", None)
+        if legacy and connections:
+            event_ids = {str(connections[0].get("id")): str(legacy)}
+    return event_ids
+
+
 def _sync_booking_to_calendar_impl(
     db: Any, settings: Settings, booking: Any, *, action: str
 ) -> tuple[str | None, bool]:
     if not is_configured(settings, db):
         return None, False
-    tokens = load_tokens(db)
-    if not tokens or not tokens.get("refresh_token"):
+    connections = _usable_connections(db)
+    if not connections:
         return None, False
 
-    event_id = getattr(booking, "google_event_id", None)
+    event_ids = _connection_event_ids(booking, connections)
+
+    # Неактивная запись (например, отменена) — убираем события из календарей.
     status = getattr(booking, "status", "")
     is_active = status in SYNCED_STATUSES
+    if action == "upsert" and not is_active:
+        action = "delete"
 
     if action == "delete":
-        if not event_id:
-            return None, True
-        _calendar_request(
-            db,
-            settings,
-            "DELETE",
-            f"calendars/primary/events/{event_id}",
-            params={"sendUpdates": "none"},
-        )
-        return None, True
-
-    if not is_active:
-        # Неактивная запись (например, отменена) — удаляем событие, если было.
-        if event_id:
-            return _sync_booking_to_calendar_impl(db, settings, booking, action="delete")
-        return None, True
+        deleted_any = False
+        for conn in connections:
+            event_id = event_ids.get(str(conn.get("id")))
+            if not event_id:
+                continue
+            try:
+                _calendar_request(
+                    db,
+                    settings,
+                    "DELETE",
+                    f"calendars/primary/events/{event_id}",
+                    params={"sendUpdates": "none"},
+                    conn=conn,
+                )
+                event_ids.pop(str(conn.get("id")), None)
+                deleted_any = True
+            except _GoogleApiError as exc:
+                if _is_token_revoked_error(exc):
+                    _disable_integration_on_revoked(db, connection_id=str(conn.get("id")))
+                else:
+                    logger.exception(
+                        "Google Calendar delete failed (booking=%s, calendar=%s)",
+                        getattr(booking, "id", None),
+                        conn.get("name") or conn.get("id"),
+                    )
+            except Exception:
+                logger.exception(
+                    "Google Calendar delete failed (booking=%s, calendar=%s)",
+                    getattr(booking, "id", None),
+                    conn.get("name") or conn.get("id"),
+                )
+        primary = event_ids.get(str(connections[0].get("id"))) or None
+        booking.google_event_ids = dict(event_ids)
+        booking.google_event_id = primary
+        if deleted_any:
+            booking.google_updated_at = datetime.now(timezone.utc)
+        _persist_dirty_connections(db, connections)
+        return primary, True
 
     body = _booking_event_body(booking, settings)
 
-    if event_id:
-        _calendar_request(
-            db,
-            settings,
-            "PATCH",
-            f"calendars/primary/events/{event_id}",
-            params={"sendUpdates": "none"},
-            body=body,
-        )
-        booking.google_updated_at = datetime.now(timezone.utc)
-        return event_id, True
+    ok_any = False
+    for conn in connections:
+        conn_id = str(conn.get("id"))
+        event_id = event_ids.get(conn_id)
+        try:
+            if event_id:
+                _calendar_request(
+                    db,
+                    settings,
+                    "PATCH",
+                    f"calendars/primary/events/{event_id}",
+                    params={"sendUpdates": "none"},
+                    body=body,
+                    conn=conn,
+                )
+                ok_any = True
+            else:
+                created = _calendar_request(
+                    db,
+                    settings,
+                    "POST",
+                    "calendars/primary/events",
+                    params={"sendUpdates": "none"},
+                    body=body,
+                    conn=conn,
+                )
+                new_id = created.get("id")
+                if new_id:
+                    event_ids[conn_id] = str(new_id)
+                    ok_any = True
+        except _GoogleApiError as exc:
+            if _is_token_revoked_error(exc):
+                logger.warning(
+                    "Google Calendar sync skipped - token revoked/expired "
+                    "(booking=%s, calendar=%s). Please reconnect. Details: %s",
+                    getattr(booking, "id", None),
+                    conn.get("name") or conn_id,
+                    exc.details or exc,
+                )
+                _disable_integration_on_revoked(db, connection_id=conn_id)
+            else:
+                logger.exception(
+                    "Google Calendar sync failed (booking=%s, calendar=%s)",
+                    getattr(booking, "id", None),
+                    conn.get("name") or conn_id,
+                )
+        except Exception:
+            logger.exception(
+                "Google Calendar sync failed (booking=%s, calendar=%s)",
+                getattr(booking, "id", None),
+                conn.get("name") or conn_id,
+            )
 
-    created = _calendar_request(
-        db,
-        settings,
-        "POST",
-        "calendars/primary/events",
-        params={"sendUpdates": "none"},
-        body=body,
-    )
-    new_id = created.get("id")
-    if new_id:
-        booking.google_event_id = new_id
+    if ok_any:
         booking.google_updated_at = datetime.now(timezone.utc)
-    return new_id, True
+    primary = event_ids.get(str(connections[0].get("id"))) or None
+    booking.google_event_ids = dict(event_ids)
+    booking.google_event_id = primary
+    _persist_dirty_connections(db, connections)
+    return primary, ok_any
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -571,26 +913,27 @@ def _sync_booking_to_calendar_impl(
 
 
 def _load_sync_token(db: Any) -> str | None:
-    """Текущий syncToken инкрементальной синхронизации или None."""
-    AppSetting = _appsetting_model()
-    row = db.get(AppSetting, GOOGLE_CALENDAR_SYNC_TOKEN_KEY)
-    if row is None or not isinstance(row.value, dict):
+    """syncToken первого подключения (совместимость) или None."""
+    connections = _read_connections(db)
+    if not connections:
         return None
-    return row.value.get("sync_token")
+    return connections[0].get("sync_token") or None
 
 
 def _save_sync_token(db: Any, sync_token: str | None) -> None:
-    """Сохранить syncToken (upsert). None — сброс к полному скану."""
-    AppSetting = _appsetting_model()
-    row = db.get(AppSetting, GOOGLE_CALENDAR_SYNC_TOKEN_KEY)
-    if row is None:
-        row = AppSetting(
-            key=GOOGLE_CALENDAR_SYNC_TOKEN_KEY, value={"sync_token": sync_token}
-        )
-        db.add(row)
-    else:
-        row.value = {"sync_token": sync_token}
-    db.flush()
+    """Сохранить syncToken первого подключения (совместимость)."""
+    connections = _read_connections(db)
+    if not connections:
+        return
+    connections[0]["sync_token"] = sync_token
+    connections[0]["_dirty"] = True
+    _persist_dirty_connections(db, connections)
+
+
+def _set_connection_sync_token(conn: dict[str, Any], sync_token: str | None) -> None:
+    """Отметить syncToken подключения (сохранится через _persist_dirty)."""
+    conn["sync_token"] = sync_token
+    conn["_dirty"] = True
 
 
 def last_sync_at(db: Any) -> str | None:
@@ -1052,9 +1395,25 @@ def _active_service_names(db: Any) -> list[str]:
 
 
 def _booking_by_google_event(db: Any, event_id: str) -> Any | None:
+    """Запись по идентификатору события Google из любого подключённого календаря."""
     from .models import Booking
 
-    return db.query(Booking).filter(Booking.google_event_id == event_id).first()
+    booking = db.query(Booking).filter(Booking.google_event_id == event_id).first()
+    if booking is not None:
+        return booking
+    # События не-основных календарей хранятся в карте google_event_ids.
+    candidates = (
+        db.query(Booking)
+        .filter(Booking.google_event_ids.isnot(None))
+        .order_by(Booking.created_at.desc())
+        .limit(500)
+        .all()
+    )
+    for candidate in candidates:
+        mapping = candidate.google_event_ids
+        if isinstance(mapping, dict) and event_id in {str(v) for v in mapping.values()}:
+            return candidate
+    return None
 
 
 def _event_updated_utc(event: dict[str, Any]) -> datetime | None:
@@ -1385,54 +1744,25 @@ def _apply_calendar_event(
 
 
 def pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]:
-    """Обратная синхронизация «Google Calendar -> CRM».
+    """Обратная синхронизация «Google Calendar -> CRM» по ВСЕМ подключениям.
 
-    Инкрементальная через syncToken (Google Calendar API). Первый запуск —
-    полный скан окна (30 дней назад .. 60 дней вперёд). События, созданные в
-    Google, становятся записями CRM с source="google"; события с привязкой
-    crmBookingId переносят время/длительность в существующую запись; удалённые
-    события отменяют записи (статус cancelled).
+    Инкрементальная через syncToken (Google Calendar API, у каждого
+    подключения свой). Первый запуск — полный скан окна (30 дней назад ..
+    60 дней вперёд). События, созданные в Google, становятся записями CRM с
+    source="google"; события с привязкой crmBookingId переносят
+    время/длительность в существующую запись; удалённые события отменяют
+    записи (статус cancelled). Ошибка одного календаря не мешает остальным.
 
-    Вернёт статистику:
+    Вернёт суммарную статистику:
     {"ok": bool, "skipped": bool, "created": int, "updated": int,
      "cancelled": int, "duplicates": int, "error": str | None}
 
     Безопасное поведение: no-op (skipped=True), если сервис не настроен или
-    токены не привязаны. Вызывающий ответственен за db.commit().
+    нет ни одного рабочего подключения. Вызывающий ответственен за
+    db.commit().
     """
     try:
         return _pull_calendar_changes_impl(db, settings)
-    except _GoogleApiError as exc:
-        if _is_token_revoked_error(exc):
-            try:
-                _disable_integration_on_revoked(db)
-            except Exception:
-                pass
-            logger.warning(
-                "Google Calendar pull failed - token revoked/expired: %s",
-                exc.details or exc,
-            )
-            return {
-                "ok": False,
-                "skipped": False,
-                "created": 0,
-                "updated": 0,
-                "cancelled": 0,
-                "error": "auth_failed",
-                "errorDetails": (
-                    "Токен Google Calendar истёк или был отозван. "
-                    "Подключите календарь заново в настройках (Интеграции → Google Calendar)."
-                ),
-            }
-        logger.exception("Google Calendar pull failed")
-        return {
-            "ok": False,
-            "skipped": False,
-            "created": 0,
-            "updated": 0,
-            "cancelled": 0,
-            "error": "pull_failed",
-        }
     except Exception:
         logger.exception("Google Calendar pull failed")
         return {
@@ -1441,12 +1771,13 @@ def pull_calendar_changes(db: Any, settings: Settings) -> dict[str, Any]:
             "created": 0,
             "updated": 0,
             "cancelled": 0,
+            "duplicates": 0,
             "error": "pull_failed",
         }
 
 
-def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
-    result: dict[str, Any] = {
+def _empty_pull_result() -> dict[str, Any]:
+    return {
         "ok": True,
         "skipped": False,
         "created": 0,
@@ -1455,19 +1786,20 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         "duplicates": 0,
         "error": None,
     }
-    if not is_configured(settings, db):
-        result["skipped"] = True
-        return result
-    tokens = load_tokens(db)
-    if not tokens or not tokens.get("refresh_token"):
-        result["skipped"] = True
-        return result
 
-    sync_token = _load_sync_token(db)
+
+def _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]:
+    """Обратная синхронизация одного календаря. Возвращает свою статистику.
+
+    result["ok"]=False при ошибке календаря; отозванный токен удаляет
+    подключение из хранилища.
+    """
+    result = _empty_pull_result()
     params: dict[str, Any] = {
         "singleEvents": True,
         "maxResults": 250,
     }
+    sync_token = conn.get("sync_token")
     if sync_token:
         params["syncToken"] = sync_token
     else:
@@ -1475,59 +1807,111 @@ def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
         params["timeMin"] = (now - timedelta(days=30)).isoformat()
         params["timeMax"] = (now + timedelta(days=60)).isoformat()
 
-    try:
-        page = None
-        page_token = None
-        while True:
-            query = dict(params)
-            if page_token:
-                query["pageToken"] = page_token
-            page = _calendar_request(
-                db, settings, "GET", "calendars/primary/events", params=query
-            )
-            for item in page.get("items", []):
-                _apply_calendar_event(db, settings, item, result)
-            page_token = page.get("nextPageToken")
-            if not page_token:
-                break
+    # Одна попытка + повтор после сброса устаревшего syncToken (410).
+    for attempt in range(2):
+        page: dict[str, Any] = {}
+        page_token: str | None = None
+        try:
+            while True:
+                query = dict(params)
+                if page_token:
+                    query["pageToken"] = page_token
+                page = _calendar_request(
+                    db, settings, "GET", "calendars/primary/events",
+                    params=query, conn=conn,
+                )
+                for item in page.get("items", []):
+                    _apply_calendar_event(db, settings, item, result)
+                page_token = page.get("nextPageToken")
+                if not page_token:
+                    break
+        except _GoogleApiError as exc:
+            if exc.status == 410 and attempt == 0:
+                # syncToken устарел (календарь пересоздан) — полный рескан.
+                _set_connection_sync_token(conn, None)
+                params.pop("syncToken", None)
+                now = datetime.now(timezone.utc)
+                params["timeMin"] = (now - timedelta(days=30)).isoformat()
+                params["timeMax"] = (now + timedelta(days=60)).isoformat()
+                continue
+            raise
         next_sync_token = page.get("nextSyncToken")
         if next_sync_token:
-            _save_sync_token(db, next_sync_token)
-    except _GoogleApiError as exc:
-        # Отозванный/истёкший refresh_token (invalid_grant) — отключаем интеграцию.
-        if _is_token_revoked_error(exc):
-            _disable_integration_on_revoked(db)
-            logger.warning(
-                "Google Calendar pull token revoked/expired, integration disabled: %s",
-                exc.details or exc,
-            )
-            result.update(ok=False, error="auth_failed")
-            result["errorDetails"] = (
-                "Токен Google Calendar истёк или был отозван. "
-                "Подключите календарь заново в настройках (Интеграции → Google Calendar)."
-            )
-            return result
-        # 410 GONE: syncToken устарел (календарь пересоздан) — полный рескан.
-        if exc.status == 410:
-            _save_sync_token(db, None)
-            return _pull_calendar_changes_impl(db, settings)
-        if exc.status in (401, 403):
-            logger.warning("Google Calendar pull auth failed: %s", exc.details or exc)
-            result.update(ok=False, error="auth_failed")
-            if exc.reason == "accessNotConfigured":
-                # 403 "Google Calendar API has not been used ... or it is disabled":
-                # токены рабочие, но сам API не включён в проекте Google Cloud.
-                result["errorDetails"] = (
-                    "Google Calendar API не включён в проекте Google Cloud. "
-                    "Включите его по этой ссылке: "
-                    "https://console.cloud.google.com/apis/library/calendar.googleapis.com — "
-                    "затем нажмите «Синхронизировать сейчас» ещё раз (подождите 1–2 минуты "
-                    "после включения)."
-                )
-            elif exc.details:
-                result["errorDetails"] = exc.details
-            return result
-        raise
+            _set_connection_sync_token(conn, str(next_sync_token))
+        return result
+    return result
 
-    _save_last_sync(db)
+
+def _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]:
+    result = _empty_pull_result()
+    if not is_configured(settings, db):
+        result["skipped"] = True
+        return result
+    connections = _usable_connections(db)
+    if not connections:
+        result["skipped"] = True
+        return result
+
+    any_ok = False
+    errors: list[tuple[str | None, str]] = []  # (код, детали) по сломанным календарям
+    for conn in connections:
+        conn_label = str(conn.get("name") or conn.get("id") or "")
+        try:
+            stats = _pull_one_calendar(db, settings, conn)
+        except _GoogleApiError as exc:
+            if _is_token_revoked_error(exc):
+                logger.warning(
+                    "Google Calendar pull token revoked/expired (calendar=%s): %s",
+                    conn_label,
+                    exc.details or exc,
+                )
+                _disable_integration_on_revoked(db, connection_id=str(conn.get("id")))
+                errors.append(("auth_failed", f"«{conn_label}»: токен истёк или отозван — переподключите календарь."))
+            elif exc.status in (401, 403):
+                logger.warning(
+                    "Google Calendar pull auth failed (calendar=%s): %s",
+                    conn_label,
+                    exc.details or exc,
+                )
+                if exc.reason == "accessNotConfigured":
+                    # 403 "Google Calendar API has not been used ...":
+                    # токены рабочие, но API не включён в проекте Google Cloud.
+                    errors.append((
+                        "auth_failed",
+                        (
+                            f"«{conn_label}»: Google Calendar API не включён в проекте Google Cloud "
+                            "(https://console.cloud.google.com/apis/library/calendar.googleapis.com), "
+                            "затем нажмите «Синхронизировать сейчас» ещё раз."
+                        ),
+                    ))
+                else:
+                    errors.append(("auth_failed", f"«{conn_label}»: {exc.details or 'ошибка доступа'}"))
+            else:
+                logger.exception(
+                    "Google Calendar pull failed (calendar=%s)", conn_label
+                )
+                errors.append(("pull_failed", f"«{conn_label}»: {exc.details or 'ошибка Google API'}"))
+            continue
+        except Exception:
+            logger.exception("Google Calendar pull failed (calendar=%s)", conn_label)
+            errors.append(("pull_failed", f"«{conn_label}»: ошибка синхронизации"))
+            continue
+
+        any_ok = True
+        for key in ("created", "updated", "cancelled", "duplicates"):
+            result[key] += int(stats.get(key) or 0)
+
+    _persist_dirty_connections(db, connections)
+
+    if errors:
+        result["ok"] = False
+        result["error"] = errors[0][0]
+        details = "; ".join(detail for _, detail in errors)
+        result["errorDetails"] = (
+            f"{details}. Остальные календари обработаны."
+            if any_ok
+            else details
+        )
+    if any_ok:
+        _save_last_sync(db)
     return result

@@ -338,3 +338,220 @@ def test_exchange_code_returns_tokens(settings):
     assert post_mock.call_args.args[0] == "https://oauth2.googleapis.com/token"
     assert post_mock.call_args.kwargs["data"]["code"] == "code-123"
     assert post_mock.call_args.kwargs["data"]["grant_type"] == "authorization_code"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Мультиподключение: несколько людей, несколько календарей
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _connect_second_person(fake_db):
+    """Подключить второго человека к уже подключённому владельцу."""
+    gc.save_tokens(fake_db, {"token": "t1", "refresh_token": "r1"})
+    gc.upsert_connection(
+        fake_db,
+        {
+            "id": "gc-anna",
+            "name": "Анна",
+            "email": "anna@example.com",
+            "tokens": {"token": "t2", "refresh_token": "r2"},
+            "sync_token": None,
+            "created_at": "2026-08-24T00:00:00+00:00",
+        },
+    )
+
+
+def _booking_for_sync(**overrides):
+    base = dict(
+        id="b1",
+        status="scheduled",
+        google_event_id=None,
+        date="13.08.2026",
+        time="10:00",
+        duration=30,
+        client_name="Иван",
+        client_phone="",
+        car="",
+        plate="",
+        box="",
+        notes="",
+        service="Мойка",
+    )
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_connections_store_roundtrip(fake_db):
+    _connect_second_person(fake_db)
+    conns = gc.list_connections(fake_db)
+    assert [c["id"] for c in conns] == ["owner", "gc-anna"]
+    assert conns[1]["name"] == "Анна"
+    assert "tokens" not in conns[0]  # публичный список без токенов
+    # Полное подключение с токенами доступно отдельно.
+    full = gc.get_connection(fake_db, "gc-anna")
+    assert full is not None and full["tokens"]["refresh_token"] == "r2"
+    # Удаление одного не трогает другое.
+    assert gc.delete_connection(fake_db, "gc-anna") is True
+    assert gc.delete_connection(fake_db, "gc-anna") is False
+    assert [c["id"] for c in gc.list_connections(fake_db)] == ["owner"]
+    assert gc.load_tokens(fake_db)["refresh_token"] == "r1"
+
+
+def test_legacy_tokens_migrate_into_first_connection(fake_db):
+    # Старое хранилище: токены лежат отдельным ключом.
+    fake_db.rows[gc.GOOGLE_CALENDAR_TOKENS_KEY] = _Row(
+        gc.GOOGLE_CALENDAR_TOKENS_KEY, {"access_token": "legacy-at", "refresh_token": "legacy-rt"}
+    )
+    conns = gc._read_connections(fake_db)
+    assert len(conns) == 1
+    assert conns[0]["id"] == gc.OWNER_CONNECTION_ID
+    assert gc.load_tokens(fake_db)["token"] == "legacy-at"
+    # Первая запись мигрирует: legacy-ключ удаляется, данные переезжают.
+    gc.save_tokens(fake_db, {"token": "new-t", "refresh_token": "r"})
+    assert gc.GOOGLE_CALENDAR_TOKENS_KEY not in fake_db.rows
+    assert gc.list_connections(fake_db)[0]["id"] == gc.OWNER_CONNECTION_ID
+
+
+def test_sync_fans_out_to_all_calendars(fake_db, settings):
+    _connect_second_person(fake_db)
+    booking = _booking_for_sync()
+    responses = [{"id": "evt-owner"}, {"id": "evt-anna"}]
+    with patch.object(
+        gc, "_calendar_request", side_effect=lambda *a, **k: responses.pop(0)
+    ) as api:
+        event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
+    assert api.call_count == 2
+    assert ok is True
+    # Основное (первое) подключение определяет google_event_id для совместимости.
+    assert event_id == "evt-owner"
+    assert booking.google_event_id == "evt-owner"
+    assert booking.google_event_ids == {"owner": "evt-owner", "gc-anna": "evt-anna"}
+    # Каждому календарю уходят его токены.
+    used_conns = [call.kwargs["conn"]["id"] for call in api.call_args_list]
+    assert used_conns == ["owner", "gc-anna"]
+
+
+def test_sync_patch_uses_legacy_event_id_for_first_calendar(fake_db, settings):
+    gc.save_tokens(fake_db, {"token": "t", "refresh_token": "r"})
+    gc.upsert_connection(
+        fake_db,
+        {
+            "id": "gc-anna",
+            "name": "Анна",
+            "email": "",
+            "tokens": {"token": "t2", "refresh_token": "r2"},
+            "sync_token": None,
+            "created_at": "",
+        },
+    )
+    # Запись старого формата: только google_event_id без карты.
+    booking = _booking_for_sync(google_event_id="evt-legacy")
+
+    def fake_request(db, settings_, method, path, **kwargs):
+        if method == "POST":
+            return {"id": "evt-anna-new"}
+        return {}
+
+    with patch.object(gc, "_calendar_request", side_effect=fake_request) as api:
+        event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
+    assert ok is True
+    assert event_id == "evt-legacy"
+    methods = [call.args[2] for call in api.call_args_list]
+    assert methods.count("PATCH") == 1  # только для первого календаря
+    # Второму календарю создаётся новое событие и карта заполняется.
+    assert booking.google_event_ids == {"owner": "evt-legacy", "gc-anna": "evt-anna-new"}
+
+
+def test_delete_removes_events_from_all_calendars(fake_db, settings):
+    _connect_second_person(fake_db)
+    booking = SimpleNamespace(
+        id="b1",
+        status="cancelled",
+        google_event_id="evt-owner",
+        google_event_ids={"owner": "evt-owner", "gc-anna": "evt-anna"},
+    )
+    with patch.object(gc, "_calendar_request", return_value={}) as api:
+        event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
+    assert ok is True
+    assert event_id is None
+    assert api.call_count == 2
+    paths = [call.args[3] for call in api.call_args_list]
+    assert paths == [
+        "calendars/primary/events/evt-owner",
+        "calendars/primary/events/evt-anna",
+    ]
+    assert booking.google_event_ids == {}
+    assert booking.google_event_id is None
+
+
+def test_one_broken_calendar_does_not_block_others(fake_db, settings):
+    _connect_second_person(fake_db)
+    booking = _booking_for_sync()
+
+    def flaky_request(db, settings_, method, path, **kwargs):
+        if kwargs["conn"]["id"] == "owner":
+            raise RuntimeError("network down")
+        return {"id": "evt-anna"}
+
+    with patch.object(gc, "_calendar_request", side_effect=flaky_request):
+        event_id, ok = gc.sync_booking_to_calendar(fake_db, settings, booking, action="upsert")
+    # Второй календарь сработал -> ok=True; основной идентификатор пуст.
+    assert ok is True
+    assert event_id is None
+    assert booking.google_event_ids == {"gc-anna": "evt-anna"}
+
+
+def test_pull_aggregates_from_all_calendars(fake_db, settings):
+    _connect_second_person(fake_db)
+
+    def fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, _retried=False):
+        assert method == "GET"
+        if conn["id"] == "owner":
+            return {"items": [{"id": "e1"}], "nextSyncToken": "tok-owner"}
+        return {"items": [{"id": "e2"}, {"id": "e3"}], "nextSyncToken": "tok-anna"}
+
+    def apply_event(db, settings_, item, result):
+        result["created"] += 1
+
+    with patch.object(gc, "_calendar_request", side_effect=fake_request), patch.object(
+        gc, "_apply_calendar_event", side_effect=apply_event
+    ):
+        result = gc.pull_calendar_changes(fake_db, settings)
+    assert result["ok"] is True
+    assert result["skipped"] is False
+    assert result["created"] == 3  # события обоих календарей просуммированы
+    # У каждого подключения свой syncToken.
+    tokens_by_conn = {c["id"]: c.get("sync_token") for c in gc._read_connections(fake_db)}
+    assert tokens_by_conn == {"owner": "tok-owner", "gc-anna": "tok-anna"}
+
+
+def test_pull_skipped_without_connections(fake_db, settings):
+    gc.save_tokens(fake_db, {"token": "t"})  # нет refresh_token -> не «рабочее»
+    result = gc.pull_calendar_changes(fake_db, settings)
+    assert result["skipped"] is True
+
+
+def test_invites_create_consume_clear(fake_db):
+    gc.create_invite(fake_db, "Анна", "state-1")
+    gc.create_invite(fake_db, "Пётр", "state-2")
+    invite = gc.consume_invite(fake_db, "state-1")
+    assert invite is not None and invite["label"] == "Анна"
+    # Одноразовость: повторно state не находится.
+    assert gc.consume_invite(fake_db, "state-1") is None
+    assert gc.consume_invite(fake_db, "state-2")["label"] == "Пётр"
+    gc.create_invite(fake_db, "Ещё", "state-3")
+    gc.clear_invites(fake_db)
+    assert gc.consume_invite(fake_db, "state-3") is None
+
+
+def test_extract_account_email_from_id_token():
+    import base64
+    import json as json_mod
+
+    payload = base64.urlsafe_b64encode(
+        json_mod.dumps({"email": "anna@example.com", "sub": "123"}).encode()
+    ).decode().rstrip("=")
+    tokens = {"id_token": f"header.{payload}.signature"}
+    assert gc.extract_account_email(tokens) == "anna@example.com"
+    assert gc.extract_account_email({}) == ""
+    assert gc.extract_account_email({"id_token": "garbage"}) == ""

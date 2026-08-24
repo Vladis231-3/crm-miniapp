@@ -249,11 +249,23 @@ class GoogleCalendarApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json(), {"ok": True})
 
+        from app.google_calendar import load_tokens
+
         with SessionLocal() as db:
-            tokens = db.get(AppSetting, "google_calendar_tokens").value
+            # Токены хранятся внутри подключений (мультиаккаунт), читаем
+            # через совместимый accessor первого подключения.
+            tokens = load_tokens(db)
             self.assertEqual(tokens["refresh_token"], "r")
             integrations = db.get(AppSetting, "owner_integrations").value
             self.assertTrue(integrations["googleCalendar"])
+
+        # Подключение владельца появилось в списке.
+        status = self.client.get(
+            "/api/owner/integrations/google/status",
+            headers=self.auth_headers(token),
+        ).json()
+        self.assertEqual(status["connectionsCount"], 1)
+        self.assertEqual(status["connections"][0]["id"], "owner")
 
     def test_callback_rejects_wrong_state(self) -> None:
         response = self.client.get(
@@ -339,6 +351,154 @@ class GoogleCalendarApiTests(unittest.TestCase):
             self.assertIsNone(db.get(AppSetting, "google_calendar_tokens"))
             integrations = db.get(AppSetting, "owner_integrations").value
             self.assertFalse(integrations["googleCalendar"])
+
+    def test_invite_flow_connects_second_person(self) -> None:
+        """Владелец создаёт ссылку-приглашение, человек подключает свой календарь."""
+        token = self.login_owner()
+        # Сначала владелец подключает свой календарь (обычный поток).
+        with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent"):
+            self.client.get("/api/owner/integrations/google/auth-url", headers=self.auth_headers(token))
+        from app.database import SessionLocal
+        from app.models import AppSetting
+
+        with SessionLocal() as db:
+            state = db.get(AppSetting, "google_calendar_oauth_state").value["state"]
+        with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}), patch(
+            "app.main.pull_calendar_changes",
+            return_value={"ok": True, "skipped": True, "created": 0, "updated": 0, "cancelled": 0, "error": None},
+        ):
+            self.client.get("/api/owner/integrations/google/callback", params={"code": "c", "state": state})
+
+        # Создаём приглашение для второго человека.
+        response = self.client.post(
+            "/api/owner/integrations/google/invites",
+            headers=self.auth_headers(token),
+            json={"label": "Анна"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body["label"], "Анна")
+        self.assertIn("state=", body["inviteUrl"])
+
+        from app.google_calendar import GOOGLE_CALENDAR_INVITES_KEY
+
+        with SessionLocal() as db:
+            invites = db.get(AppSetting, GOOGLE_CALENDAR_INVITES_KEY).value
+            invite_state = invites["invites"][0]["state"]
+
+        # Человек открывает ссылку и авторизует СВОЙ Google-аккаунт.
+        with patch(
+            "app.main.exchange_code",
+            return_value={"token": "t2", "refresh_token": "r2"},
+        ), patch(
+            "app.main.pull_calendar_changes",
+            return_value={"ok": True, "skipped": True, "created": 0, "updated": 0, "cancelled": 0, "error": None},
+        ):
+            cb = self.client.get(
+                "/api/owner/integrations/google/callback",
+                params={"code": "c2", "state": invite_state},
+                headers={"Accept": "application/json"},
+            )
+        self.assertEqual(cb.status_code, 200, cb.text)
+        self.assertEqual(cb.json(), {"ok": True})
+
+        status = self.client.get(
+            "/api/owner/integrations/google/status",
+            headers=self.auth_headers(token),
+        ).json()
+        self.assertEqual(status["connectionsCount"], 2)
+        names = {c["name"] for c in status["connections"]}
+        self.assertEqual(names, {"Владелец", "Анна"})
+
+        # Приглашение одноразовое: повторный callback с тем же state отклоняется.
+        cb_again = self.client.get(
+            "/api/owner/integrations/google/callback",
+            params={"code": "c3", "state": invite_state},
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(cb_again.json().get("error"), "state_mismatch")
+
+        # Приглашение требует имя.
+        response_empty = self.client.post(
+            "/api/owner/integrations/google/invites",
+            headers=self.auth_headers(token),
+            json={"label": ""},
+        )
+        self.assertEqual(response_empty.status_code, 422)
+
+    def test_delete_single_connection_keeps_others(self) -> None:
+        """Удаление одного подключения не отключает остальные календари."""
+        token = self.login_owner()
+
+        def connect_via(label: str) -> None:
+            if label == "Владелец":
+                with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent"):
+                    self.client.get("/api/owner/integrations/google/auth-url", headers=self.auth_headers(token))
+                from app.database import SessionLocal
+                from app.models import AppSetting
+
+                with SessionLocal() as db:
+                    state = db.get(AppSetting, "google_calendar_oauth_state").value["state"]
+            else:
+                response = self.client.post(
+                    "/api/owner/integrations/google/invites",
+                    headers=self.auth_headers(token),
+                    json={"label": label},
+                )
+                state = response.json()["state"]
+            with patch("app.main.exchange_code", return_value={"token": f"t-{label}", "refresh_token": f"r-{label}"}), patch(
+                "app.main.pull_calendar_changes",
+                return_value={"ok": True, "skipped": True, "created": 0, "updated": 0, "cancelled": 0, "error": None},
+            ):
+                self.client.get(
+                    "/api/owner/integrations/google/callback",
+                    params={"code": "c", "state": state},
+                )
+
+        connect_via("Владелец")
+        connect_via("Анна")
+
+        status = self.client.get(
+            "/api/owner/integrations/google/status",
+            headers=self.auth_headers(token),
+        ).json()
+        anna = next(c for c in status["connections"] if c["name"] == "Анна")
+
+        response = self.client.delete(
+            f"/api/owner/integrations/google/connections/{anna['id']}",
+            headers=self.auth_headers(token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["connectionsCount"], 1)
+
+        from app.database import SessionLocal
+        from app.models import AppSetting
+
+        with SessionLocal() as db:
+            integrations = db.get(AppSetting, "owner_integrations").value
+            self.assertTrue(integrations["googleCalendar"])  # остался владелец
+
+        # Удаляем последнее подключение — интеграция выключается.
+        owner_conn = [
+            c for c in status["connections"] if c["id"] != anna["id"]
+        ][0]
+        response_last = self.client.delete(
+            f"/api/owner/integrations/google/connections/{owner_conn['id']}",
+            headers=self.auth_headers(token),
+        )
+        self.assertEqual(response_last.json()["connectionsCount"], 0)
+        with SessionLocal() as db:
+            integrations = db.get(AppSetting, "owner_integrations").value
+            self.assertFalse(integrations["googleCalendar"])
+
+        # Неизвестный id -> 404.
+        response_missing = self.client.delete(
+            "/api/owner/integrations/google/connections/nope",
+            headers=self.auth_headers(token),
+        )
+        self.assertEqual(response_missing.status_code, 404)
 
     def test_create_booking_calls_google_sync(self) -> None:
         token = self.login_owner()
