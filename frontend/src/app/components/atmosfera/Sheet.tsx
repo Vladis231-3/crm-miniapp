@@ -17,6 +17,11 @@ export interface SheetProps {
   side?: 'bottom' | 'auto';
   /** Скрыть крестик (если закрытие обеспечивают кнопки в контенте). */
   hideClose?: boolean;
+  /**
+   * Переопределение max-height скролл-области тела (px).
+   * Для форм с TG-клавиатурой: передавай modalMaxHeight из useVisualViewport.
+   */
+  bodyMaxHeight?: number | string;
 }
 
 function useIsWide() {
@@ -37,7 +42,7 @@ function useIsWide() {
  * Заменяет ~40 самописных AnimatePresence-оверлеев.
  * z-index: --z-sheet; Escape и клик по фону закрывают; скролл-лок body.
  */
-export function Sheet({ open, onClose, title, children, footer, side = 'bottom', hideClose }: SheetProps) {
+export function Sheet({ open, onClose, title, children, footer, side = 'bottom', hideClose, bodyMaxHeight }: SheetProps) {
   const wide = useIsWide();
   const dockRight = side === 'auto' && wide;
 
@@ -98,7 +103,10 @@ export function Sheet({ open, onClose, title, children, footer, side = 'bottom',
                 )}
               </div>
             )}
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(16px+var(--safe-bottom))] pt-2">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(16px+var(--safe-bottom))] pt-2"
+              style={bodyMaxHeight !== undefined ? { maxHeight: bodyMaxHeight } : undefined}
+            >
               {children}
             </div>
             {footer && (

@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **490**
-- Строк кода: **196 104**
+- Строк кода: **196 107**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 300
 
 ## Архитектура
@@ -2954,7 +2954,7 @@ concept1.0/
 
 - `SectionHeader` (стр. 14)
 
-### frontend/src/app/components/atmosfera/Sheet.tsx (120 строк)
+### frontend/src/app/components/atmosfera/Sheet.tsx (123 строк)
 
 - `useIsWide` (стр. 27) — локальный
 - `mq` (стр. 32) — локальный
