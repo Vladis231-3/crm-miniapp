@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 09:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 09:21 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **490**
-- Строк кода: **195 394**
+- Строк кода: **195 324**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 149, `.ts`: 35, `.tsx`: 299
 
 ## Архитектура
@@ -618,7 +618,7 @@ concept1.0/
 ├── _admin_excerpt.txt
 ├── _client_excerpt.txt
 ├── _owner_excerpt.txt
-├── _tmp_stage_piggy.py
+├── _tmp_stage_fix.py
 ├── _worker_excerpt.txt
 ├── AGENTS.md
 ├── amvera.yml
@@ -822,7 +822,7 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1791)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1845)
 
-### backend/app/main.py (22639 строк)
+### backend/app/main.py (22640 строк)
 
 Роуты (133):
 
@@ -944,22 +944,22 @@ concept1.0/
   `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 19243)
   `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 19416)
   `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 19730)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 20232)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 20246)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 20622)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 21071)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 21479)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 21670)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 21918)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 22130)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 22268)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 22328)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 22522)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 22530)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 22542)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 22566)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 22574)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 22582)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 20233)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 20247)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 20623)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 21072)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 21480)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 21671)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 21919)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 22131)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 22269)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 22329)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 22523)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 22531)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 22543)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 22567)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 22575)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 22583)
 ```
 
 Классы и функции (239):
@@ -4174,20 +4174,20 @@ concept1.0/
 ## Скрипты и корневые файлы
 
 - `scripts/generate_project_map.py`
-- `_tmp_stage_piggy.py`
+- `_tmp_stage_fix.py`
 - `app.py`
 - `flip_push_permission.py`
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:08)
-- `_tmp_stage_piggy.py` (2026-08-24 12:07)
+- `_tmp_stage_fix.py` (2026-08-24 12:21)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:18)
+- `backend/app/schemas.py` (2026-08-24 12:18)
+- `backend/app/models.py` (2026-08-24 12:18)
+- `backend/app/main.py` (2026-08-24 12:18)
+- `backend/app/google_calendar.py` (2026-08-24 12:18)
 - `backend/tests/test_archive_split_zp_sync.py` (2026-08-24 11:59)
-- `backend/app/main.py` (2026-08-24 11:59)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-24 11:54)
-- `backend/app/schemas.py` (2026-08-24 11:47)
-- `backend/app/models.py` (2026-08-24 11:47)
-- `backend/app/google_calendar.py` (2026-08-24 11:47)
 - `backend/app/exports.py` (2026-08-24 11:47)
 - `backend/tests/test_money_flow.py` (2026-08-24 11:44)
 - `backend/tests/test_piggy_bank_withdraw_flex.py` (2026-08-24 11:10)

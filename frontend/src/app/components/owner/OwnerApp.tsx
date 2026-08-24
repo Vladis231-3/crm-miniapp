@@ -9120,8 +9120,8 @@ paymentSettled: false,
                     { value: 'detailing', label: 'Детейлинг' },
                   ].map(opt => (
                     <button key={opt.value} onClick={() => { setExportModalSegment(opt.value as 'all' | 'wash' | 'detailing'); setExportModalStep('period'); }}
-                      className="rounded-xl py-3 px-2 text-sm font-medium disabled:opacity-60"
-                      style={{ background: exportModalSegment === opt.value ? `${primary}25` : glass, color: primary }}>
+                      className={`rounded-xl py-3 px-2 text-sm font-medium disabled:opacity-60 ${exportModalSegment !== opt.value ? `${glass} ${sub}` : ''}`}
+                      style={exportModalSegment === opt.value ? { background: `${primary}25`, color: primary } : {}}>
                       {opt.label}
                     </button>
                   ))}
@@ -9137,8 +9137,8 @@ paymentSettled: false,
                       { value: 'custom', label: 'Своё время' },
                     ].map(opt => (
                       <button key={opt.value} onClick={() => { setExportModalPeriod(opt.value as 'daily' | 'weekly' | 'custom'); if (opt.value !== 'custom') { void handleExportWithParams(); } else { setExportModalStep('date'); } }}
-                        className="rounded-xl py-3 px-2 text-sm font-medium"
-                        style={{ background: exportModalPeriod === opt.value ? `${primary}25` : glass, color: primary }}>
+                        className={`rounded-xl py-3 px-2 text-sm font-medium ${exportModalPeriod !== opt.value ? `${glass} ${sub}` : ''}`}
+                        style={exportModalPeriod === opt.value ? { background: `${primary}25`, color: primary } : {}}>
                         {opt.label}
                       </button>
                     ))}
@@ -9278,16 +9278,16 @@ paymentSettled: false,
                     {([
                       { value: 'detailing', label: '✨ Детейлинг' },
                       { value: 'wash', label: '🚗 Мойка' },
-                    ] as const).map(opt => (
-                      <button key={opt.value} type="button" onClick={() => setPiggyWithdrawForm(p => ({ ...p, target: opt.value }))}
-                        className="rounded-xl py-2.5 text-sm font-medium transition"
-                        style={{
-                          background: piggyWithdrawForm.target === opt.value ? `${primary}25` : glass,
-                          color: primary,
-                        }}>
-                        {opt.label}
-                      </button>
-                    ))}
+                    ] as const).map(opt => {
+                      const active = piggyWithdrawForm.target === opt.value;
+                      return (
+                        <button key={opt.value} type="button" onClick={() => setPiggyWithdrawForm(p => ({ ...p, target: opt.value }))}
+                          className={`rounded-xl py-2.5 text-sm font-medium transition-colors ${active ? '' : `${glass} ${sub}`}`}
+                          style={active ? { background: `${primary}25`, color: primary } : {}}>
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'Например: Пленка PPF' : 'Например: Ремонт оборудования'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
