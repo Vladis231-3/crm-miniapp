@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 15:34 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 15:53 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -2060,7 +2060,7 @@ concept1.0/
 - `test_build_auth_url_returns_consent_urldef test_build_auth_url_returns_consent_url(settings): url = gc.build_auth_url(settings, "test-state-123") assert url.startswith("https://accounts.google.com/o/oauth2/auth") assert` (стр. 323)
 - `test_exchange_code_returns_tokensdef test_exchange_code_returns_tokens(settings): resp_mock = MagicMock() resp_mock.status_code = 200 resp_mock.json.return_value = {"token": "t", "refresh_token": "r"} with patch.o` (стр. 330)
 - `_connect_second_persondef _connect_second_person(fake_db): """Подключить второго человека к уже подключённому владельцу.""" gc.save_tokens(fake_db, {"token": "t1", "refresh_token": "r1"}) gc.upsert_conn` (стр. 348)
-- `_booking_for_syncdef _booking_for_sync(**overrides): base = dict( id="b1", status="scheduled", google_event_id=None, date="13.08.2026", time="10:00", duration=30, client_name="Иван", client_phone="` (стр. 364)
+- `_booking_for_syncdef _booking_for_sync(**overrides): base = { "id": "b1", "status": "scheduled", "google_event_id": None, "date": "13.08.2026", "time": "10:00", "duration": 30, "client_name": "Иван` (стр. 364)
 - `test_connections_store_roundtripdef test_connections_store_roundtrip(fake_db): _connect_second_person(fake_db) conns = gc.list_connections(fake_db) assert [c["id"] for c in conns] == ["owner", "gc-anna"] assert c` (стр. 384)
 - `test_legacy_tokens_migrate_into_first_connectiondef test_legacy_tokens_migrate_into_first_connection(fake_db): # Старое хранилище: токены лежат отдельным ключом. fake_db.rows[gc.GOOGLE_CALENDAR_TOKENS_KEY] = _Row( gc.GOOGLE_CALE` (стр. 400)
 - `test_sync_fans_out_to_all_calendarsdef test_sync_fans_out_to_all_calendars(fake_db, settings): _connect_second_person(fake_db) booking = _booking_for_sync() responses = [{"id": "evt-owner"}, {"id": "evt-anna"}] with` (стр. 415)
@@ -4243,7 +4243,9 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `REDESIGN_PLAN.md` (2026-08-24 18:34)
+- `REDESIGN_PLAN.md` (2026-08-24 18:53)
+- `backend/tests/test_google_calendar.py` (2026-08-24 18:46)
+- `backend/tests/test_google_calendar_api.py` (2026-08-24 18:46)
 - `frontend/src/app/components/admin/shared/AssignWorkersDialog.tsx` (2026-08-24 18:31)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-24 18:26)
 - `backend/app/main.py` (2026-08-24 18:16)
@@ -4253,8 +4255,6 @@ concept1.0/
 - `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-24 18:10)
 - `scripts/.project-map-watch.lock` (2026-08-24 18:00)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:43)
-- `backend/tests/test_google_calendar_api.py` (2026-08-24 12:30)
-- `backend/tests/test_google_calendar.py` (2026-08-24 12:30)
 - `backend/app/google_calendar.py` (2026-08-24 12:25)
 - `backend/app/models.py` (2026-08-24 12:18)
 - `backend/tests/test_archive_split_zp_sync.py` (2026-08-24 11:59)
