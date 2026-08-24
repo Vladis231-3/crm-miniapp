@@ -6,13 +6,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .finance import money
-from .models import Expense, PiggyBankTransaction, utc_now
+from .models import Expense, PayrollEntry, PiggyBankTransaction, utc_now
 
 PIGGY_RESOURCE_GROUPS = {"wash", "detailing"}
 
 
 def sync_expense_piggy_transaction(db: Session, expense: Expense) -> None:
     """Keep the single piggy transaction linked to an expense in sync."""
+    # Зарплатные расходы (премии/авансы/выплаты/корректировки) не являются
+    # расходами копилки: их зеркало создавать нельзя, иначе списание из
+    # копилки задваивается при каждом редактировании такого расхода.
+    linked_payroll = db.scalar(
+        select(PayrollEntry).where(PayrollEntry.expense_id == expense.id).limit(1)
+    )
+    if linked_payroll is not None:
+        return
     transaction = db.scalar(
         select(PiggyBankTransaction).where(
             PiggyBankTransaction.expense_id == expense.id

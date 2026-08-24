@@ -859,6 +859,11 @@ export function OwnerApp() {
   const [salaryBookingDetail, setSalaryBookingDetail] = useState<SalaryBookingItem | null>(null);
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
+  // Ключ идемпотентности: генерируется один раз на форму выплаты, меняется
+  // после успешной выплаты. Повторный клик/ретрай отправит тот же ключ —
+  // бэкенд вернёт результат первой выплаты вместо создания дубликата.
+  const newPayRequestId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const [salaryPayRequestId, setSalaryPayRequestId] = useState(newPayRequestId);
   const [salaryLoading, setSalaryLoading] = useState(false);
   const [salaryError, setSalaryError] = useState<string | null>(null);
   const [editingOverrideLinkId, setEditingOverrideLinkId] = useState<number | null>(null);
@@ -5045,11 +5050,13 @@ paymentSettled: false,
                               segment: salarySegment,
                               amount: Math.round(amount),
                               note: salaryPayNote.trim() || `Выплата за ${periodLabel}`,
+                              clientRequestId: salaryPayRequestId,
                               ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
                             },
                           });
                           setSalaryPayAmount('');
                           setSalaryPayNote('');
+                          setSalaryPayRequestId(newPayRequestId());
                           setBottomToast(`Выплата ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} проведена`);
                           setTimeout(() => setBottomToast(null), 3000);
                           refreshSalaryDetail();

@@ -441,6 +441,11 @@ class PayrollEntry(Base):
     # Дата периода (DD.MM.YYYY), к которому относится операция (если задана —
     # операция учитывается в зарплате выбранного периода, а не по дате создания).
     entry_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # Ключ идемпотентности выплаты (clientRequestId): защищает от двойной
+    # выплаты при повторной отправке формы. Nullable + unique index.
+    request_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

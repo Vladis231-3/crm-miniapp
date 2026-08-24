@@ -32,15 +32,21 @@ from pydantic import ValidationError
 
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi.exceptions import RequestValidationError
 
 from fastapi.middleware.cors import CORSMiddleware
 
 
-from fastapi.responses import FileResponse, HTMLResponse, Response
-
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from fastapi.encoders import jsonable_encoder
+
+from math import isinf as _math_isinf
+
 from sqlalchemy import String, and_, cast, delete as sa_delete, inspect, or_, select, func, update as sa_update
+
+from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -505,6 +511,8 @@ from .seed import seed_database
 
 from .telegram_linking import create_link_code, ensure_staff_chat_id_available
 
+from .error_notifier import install_error_notifying, unhandled_exception_handler
+
 
 
 try:
@@ -748,6 +756,36 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Telegram-Bot-Api-Secret-Token"],
 
 )
+
+
+
+# Глобальные уведомления об ошибках в Telegram (backend/app/error_notifier.py):
+
+# - logging-handler пересылает ERROR/CRITICAL из любого модуля бэкенда;
+
+# - exception-handler ловит все несловленные исключения в HTTP-роутах (500).
+
+install_error_notifying()
+
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """422 с сериализуемым телом.
+
+    Pydantic v2 включает в ошибку исходное значение поля (input). Для
+    NaN/Infinity это ломает JSON-сериализацию ответа (ValueError → 500 вместо
+    422), поэтому такие значения заменяются строковым представлением.
+    """
+    errors = exc.errors()
+    for error in errors:
+        value = error.get("input")
+        if isinstance(value, float) and (value != value or _math_isinf(value)):
+            error["input"] = repr(value)
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
 
 
 
@@ -2248,6 +2286,21 @@ def _apply_runtime_migrations() -> None:
 
             connection.exec_driver_sql(
                 "ALTER TABLE payroll_entries ADD COLUMN entry_date VARCHAR(10) DEFAULT NULL"
+            )
+
+    if "request_key" not in payroll_columns and "payroll_entries" in inspector.get_table_names():
+
+        with engine.begin() as connection:
+
+            connection.exec_driver_sql(
+                "ALTER TABLE payroll_entries ADD COLUMN request_key VARCHAR(64) DEFAULT NULL"
+            )
+            # Уникальный индекс — жёсткая защита от двойной выплаты: повторный
+            # INSERT с тем же ключом получит IntegrityError и будет превращён
+            # в идемпотентный replay-ответ. NULL-ключи индексом не считаются.
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_payroll_entries_request_key "
+                "ON payroll_entries (request_key)"
             )
 
 
@@ -11712,7 +11765,11 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
     # 2. Deposit into piggy bank (based on service settings, or default 24% for detailing/wash)
-    split = _booking_money_split(db, booking)
+    # Сплит с учётом жалоб — ровно как в деталях сплита и расчётке ЗП:
+    # фактические проводки не должны расходиться с отображаемым расчётом.
+    split = _booking_money_split(
+        db, booking, _complaints_by_worker(_load_penalties(db))
+    )
 
     piggy_type = split["piggy_pay_type"]
     piggy_val = split["piggy_deposit"]
@@ -11861,7 +11918,11 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
         print(f"[PROFIT_DEBUG] credit booking {booking.id} — owner share deferred to month settle")
         return
 
-    split = _booking_money_split(db, booking)
+    # Сплит с учётом жалоб — доли владельцев должны сходиться с расчёткой
+    # мастеров и деталями сплита (master + piggy + owners = база).
+    split = _booking_money_split(
+        db, booking, _complaints_by_worker(_load_penalties(db))
+    )
 
     print(f"[PROFIT_DEBUG] booking.id={booking.id} rg={split['resource_group']} net={split['net']} materials_cost={split['materials_cost']} total_master={split['master_total']} piggy_deposit={split['piggy_deposit']} owners_total={split['owners_total']} owner_split={split['has_custom'] or split['resource_group'] in ('detailing', 'wash')}")
 
@@ -14169,6 +14230,14 @@ def update_expense(
 
         expense.resource_group = payload.resourceGroup
 
+    # Обратная синхронизация: прямое редактирование расхода бюджета обновляет
+    # связанную зарплатную операцию (иначе бюджет и ведомость расходятся).
+    linked_entry = db.scalar(
+        select(PayrollEntry).where(PayrollEntry.expense_id == expense.id).limit(1)
+    )
+    if linked_entry is not None and payload.amount is not None:
+        linked_entry.amount = abs(expense.amount)
+
     sync_expense_piggy_transaction(db, expense)
 
     db.commit()
@@ -14334,6 +14403,19 @@ def update_income(
     if payload.resourceGroup is not None:
 
         income.resource_group = payload.resourceGroup
+
+    # Обратная синхронизация: прямое редактирование дохода бюджета обновляет
+    # связанную зарплатную операцию (иначе бюджет и ведомость расходятся).
+    # deduction хранит положительную сумму; отрицательная корректировка —
+    # отрицательную (доход зеркалится с abs()).
+    linked_entry = db.scalar(
+        select(PayrollEntry).where(PayrollEntry.income_id == income.id).limit(1)
+    )
+    if linked_entry is not None and payload.amount is not None:
+        if linked_entry.kind == "adjustment":
+            linked_entry.amount = -abs(income.amount)
+        else:
+            linked_entry.amount = abs(income.amount)
 
     db.commit()
 
@@ -15019,6 +15101,12 @@ def piggy_bank_withdraw(
     )
 
     db.add(expense)
+
+    # Связываем зеркальную транзакцию копилки с расходом бюджета:
+    # иначе при редактировании этого расхода (PATCH /api/expenses/{id})
+    # sync_expense_piggy_transaction не найдёт связанную транзакцию и
+    # создаст второе зеркало — списание из копилки задвоится.
+    transaction.expense_id = expense.id
 
 
 
@@ -18659,6 +18747,21 @@ def create_payroll_entry(
         )
         db.add(expense)
         created_expense_id = expense.id
+    elif payload.kind == "payout":
+        # Выплата должна так же списываться из бюджета, как и через
+        # pay-salary (иначе ведомость и бюджет расходятся).
+        expense = Expense(
+            id=f"exp-{uuid4()}",
+            title=f"Выплата: {worker.name}",
+            amount=amount,
+            category="Зарплата",
+            date=op_date,
+            note=payload.note.strip() or "Выплата",
+            resource_group="wash",
+            created_at=_now(),
+        )
+        db.add(expense)
+        created_expense_id = expense.id
     elif payload.kind == "deduction":
         income = Income(
             id=str(uuid4()),
@@ -20294,7 +20397,11 @@ def update_owner_booking_money_split(
             PiggyBankTransaction.transaction_type == "deposit_24percent",
         )
     ).all()
-    split = _booking_money_split(db, booking)
+    # Сплит с учётом жалоб: авто-пересчёт депозита при сохранении должен
+    # совпадать с расчётом на странице ЗП и деталями сплита.
+    split = _booking_money_split(
+        db, booking, _complaints_by_worker(_load_penalties(db))
+    )
     # Депозиты доп услуг (остаток от вычитаемых доп услуг) — авто-вклад в свою
     # копилку, при ручной правке копилки их не трогаем
     asvc_purpose_prefix = ASVC_PIGGY_PURPOSE_PREFIX
@@ -20526,11 +20633,13 @@ def _worker_period_balance(
     *,
     date_from: str,
     date_to: str,
+    period: str,
     segment: str,
     complaints_by_worker: dict[str, list[Penalty]],
 ) -> int:
     """Баланс мастера за период — ровно как на странице ЗП: заработанное по записям
-    периода (сплит) + оклад + смены + премии/корректировки − авансы − удержания − выплаты."""
+    периода (сплит) + оклад (пропорция периоду) + смены + премии/корректировки −
+    авансы − удержания − выплаты."""
     date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]  # DD.MM.YYYY → YYYYMMDD
     date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
 
@@ -20567,16 +20676,17 @@ def _worker_period_balance(
 
     total_earned = 0
     for b in completed_bookings:
-        worker_link = next(
-            (link for link in b.worker_links if link.worker_id == worker.id), None
-        )
-        if worker_link is None:
-            continue
         rg = _resource_group_for_service(db, b.service_id)
         if segment != "all" and rg != segment:
             continue
         split = _booking_money_split(db, b, complaints_by_worker)
-        if worker_link.override_earned is not None:
+        worker_link = next(
+            (link for link in b.worker_links if link.worker_id == worker.id), None
+        )
+        # Ровно как в salary-detail: override заменяет всю сумму мастера
+        # (основная услуга + доп. услуги), иначе берём долю из сплита — она
+        # включает и мастеров, которые работают только на доп. услугах.
+        if worker_link is not None and worker_link.override_earned is not None:
             total_earned += int(worker_link.override_earned)
         else:
             total_earned += split["master_by_worker"].get(worker.id, 0)
@@ -20601,9 +20711,15 @@ def _worker_period_balance(
     payout_total = sum(e.amount for e in entries if e.kind == "payout")
     adjustment_total = sum(e.amount for e in entries if e.kind == "adjustment")
 
+    # Оклад пропорционален периоду — как на странице ЗП
+    # (salary_base_for_period), а не полный месячный.
+    period_base_salary = money_int(
+        salary_base_for_period(worker.salary_base, d_from, d_to, period=period)
+    )
+
     return int(
         total_earned
-        + worker.salary_base
+        + period_base_salary
         + shift_pay_total
         + bonus_total
         + max(adjustment_total, 0)
@@ -21501,6 +21617,51 @@ def owner_worker_pay_salary(
 
         raise HTTPException(status_code=404, detail="Мастер не найден")
 
+    # Идемпотентность: повторный запрос с тем же clientRequestId (двойной клик,
+    # повторная отправка формы, ретрай сети) возвращает результат первой
+    # выплаты и не создаёт дубликат.
+    def _replay_response(existing: PayrollEntry) -> PaySalaryResponse:
+        replay_from, replay_to = _salary_date_range(
+            payload.period,
+            custom_from=(
+                _parse_booking_date_param(payload.dateFrom)
+                if payload.period == "custom" and payload.dateFrom
+                else None
+            ),
+            custom_to=(
+                _parse_booking_date_param(payload.dateTo)
+                if payload.period == "custom" and payload.dateTo
+                else None
+            ),
+        )
+        all_penalties = _load_penalties(db)
+        replay_balance = _worker_period_balance(
+            db,
+            worker,
+            date_from=replay_from,
+            date_to=replay_to,
+            period=payload.period,
+            segment=payload.segment,
+            complaints_by_worker=_complaints_by_worker(all_penalties),
+        )
+        return PaySalaryResponse(
+            message="Выплата уже проведена ранее",
+            payoutId=existing.id,
+            newBalance=replay_balance,
+            expenseId=existing.expense_id or "",
+        )
+
+    if payload.clientRequestId:
+        existing_entry = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.request_key == payload.clientRequestId,
+                PayrollEntry.worker_id == worker.id,
+                PayrollEntry.kind == "payout",
+            )
+        )
+        if existing_entry is not None:
+            return _replay_response(existing_entry)
+
 
 
     # Determine resource_group from segment
@@ -21556,6 +21717,8 @@ def owner_worker_pay_salary(
         note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
 
         entry_date=payout_date,
+
+        request_key=payload.clientRequestId,
 
         created_at=_now(),
 
@@ -21615,7 +21778,30 @@ def owner_worker_pay_salary(
 
     worker.updated_at = _now()
 
-    db.commit()
+    try:
+
+        db.commit()
+
+    except IntegrityError:
+
+        # Гонка: два параллельных запроса с одним clientRequestId.
+        # Уникальный индекс не дал создать дубликат — возвращаем результат
+        # первой (уже закоммиченной) выплаты.
+        db.rollback()
+        if payload.clientRequestId:
+            winner = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId,
+                    PayrollEntry.worker_id == worker.id,
+                    PayrollEntry.kind == "payout",
+                )
+            )
+            if winner is not None:
+                return _replay_response(winner)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Повторная выплата с тем же ключом уже существует",
+        )
 
     db.refresh(worker)
 
@@ -21632,6 +21818,7 @@ def owner_worker_pay_salary(
         worker,
         date_from=date_from,
         date_to=date_to,
+        period=payload.period,
         segment=payload.segment,
         complaints_by_worker=complaints_by_worker,
     )

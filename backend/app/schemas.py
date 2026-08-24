@@ -390,6 +390,9 @@ class PaySalaryRequest(BaseModel):
     segment: SalarySegment = "all"
     amount: int = Field(ge=1, le=10_000_000)
     note: str = ""
+    # Ключ идемпотентности (uuid из формы выплаты): повторная отправка с тем же
+    # ключом не создаёт вторую выплату, а возвращает результат первой.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
 
 class PaySalaryResponse(BaseModel):
@@ -856,7 +859,9 @@ class WorkerCreateRequest(BaseModel):
 class PayrollEntryCreateRequest(BaseModel):
     workerId: str
     kind: PayrollEntryKind
-    amount: float
+    # allow_inf_nan=False отсекает NaN/Infinity, которые иначе проходят валидацию
+    # и ломают все денежные расчёты (int(Decimal('NaN')) → ValueError).
+    amount: float = Field(allow_inf_nan=False, ge=-10_000_000, le=10_000_000)
     note: str = ""
     # Период, к которому относится операция: операция будет учтена в зарплате
     # выбранного периода (entry_date = конец периода), а не по дате создания.
@@ -1667,7 +1672,7 @@ class PayOwnerSalaryResponse(BaseModel):
 
 
 class OverrideEarnedRequest(BaseModel):
-    overrideEarned: int | None = None
+    overrideEarned: int | None = Field(default=None, ge=0, le=10_000_000)
 
 
 class BookingHistoryItem(BaseModel):
