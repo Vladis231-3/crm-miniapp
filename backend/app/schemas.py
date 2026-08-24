@@ -1507,11 +1507,16 @@ class PiggyBankTransactionPayload(BaseModel):
 
 
 class PiggyBankWithdrawRequest(BaseModel):
-    bookingId: str
+    # bookingId опционален: снятие можно делать без привязки к записи,
+    # указав копилку напрямую (resourceGroup).
+    bookingId: str | None = None
+    resourceGroup: str = Field(default="", pattern=r"^(wash|detailing|general)?$")
     materialName: str = Field(min_length=1, max_length=255)
     materialCost: float = Field(ge=1, le=10_000_000)
     purpose: str = ""
     date: str
+    # materials — «Снять на материалы», other — «Снять на прочие расходы»
+    withdrawKind: str = Field(default="materials", pattern=r"^(materials|other)$")
 
     @field_validator("date")
     @classmethod

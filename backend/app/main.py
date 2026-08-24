@@ -101,6 +101,8 @@ from .exports import (
 
     build_owner_summary_report,
 
+    build_piggy_bank_export,
+
 )
 
 from .models import (
@@ -8091,7 +8093,61 @@ def _owner_export_file(
 
         shift_pay_by_worker=shift_pay_map,
 
+        piggy_transactions=list(piggy_transactions),
+
         db=db,
+
+    )
+
+
+
+def _piggy_bank_export_file(
+
+    db: Session,
+
+    actor_id: str,
+
+    date_from: str | None = None,
+
+    date_to: str | None = None,
+
+) -> GeneratedExport:
+
+    owner = db.get(StaffUser, actor_id)
+
+    if owner is None or owner.role not in {"owner", "accountant"}:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+
+        )
+
+    company_settings = _setting(
+
+        db,
+
+        "owner_company",
+
+        {"name": "ATMOSFERA"},
+
+    )
+
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
+
+    return build_piggy_bank_export(
+
+        company_name=str(company_settings.get("name") or "ATMOSFERA"),
+
+        piggy_transactions=list(piggy_transactions),
+
+        date_from=date_from,
+
+        date_to=date_to,
 
     )
 
@@ -8633,6 +8689,15 @@ def download_owner_export(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
+    if kind == "piggy-bank":
+        _ensure_staff_role(session_data, {"owner", "accountant"})
+        export_file = _piggy_bank_export_file(
+            db,
+            session_data["actorId"],
+            date_from=date_from,
+            date_to=date_to,
+        )
+        return _download_response(export_file)
     _ensure_staff_role(session_data, {"owner"})
     export_file = _owner_export_file(
         db,
@@ -8654,6 +8719,15 @@ def send_owner_export_to_telegram(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> OwnerExportDeliveryPayload:
+    if kind == "piggy-bank":
+        _ensure_staff_role(session_data, {"owner", "accountant"})
+        export_file = _piggy_bank_export_file(
+            db,
+            session_data["actorId"],
+            date_from=date_from,
+            date_to=date_to,
+        )
+        return _send_export_to_telegram(db, session_data["actorId"], export_file)
     _ensure_staff_role(session_data, {"owner"})
     export_file = _owner_export_file(
         db,
@@ -14547,7 +14621,7 @@ def get_piggy_bank(
 
     deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing")
 
-    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "detailing")
+    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing")
 
     repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing")
 
@@ -14555,13 +14629,13 @@ def get_piggy_bank(
 
     # Wash net piggy (from actual transactions, same methodology)
     wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash")
-    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "wash")
+    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash")
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
     # General piggy bank (deposits targeted to "general")
     general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general")
-    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "general")
+    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general")
     general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general")
     general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals
 
@@ -14777,23 +14851,67 @@ def piggy_bank_withdraw(
 
 
 
-    booking = db.get(Booking, payload.bookingId)
+    booking: Booking | None = None
 
-    if booking is None:
+    if payload.bookingId:
 
-        raise HTTPException(
+        booking = db.get(Booking, payload.bookingId)
 
-            status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена"
+        if booking is None:
 
-        )
+            raise HTTPException(
+
+                status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена"
+
+            )
 
 
 
-    # Determine resource group from booking's service
+    # Копилка-источник: из записи (старое поведение) или выбранная вручную
 
-    service = db.get(Service, booking.service_id) if booking.service_id else None
+    if booking is not None:
 
-    rg = _service_resource_group(service)
+        service = db.get(Service, booking.service_id) if booking.service_id else None
+
+        rg = _service_resource_group(service)
+
+    else:
+
+        rg = (payload.resourceGroup or "").strip()
+
+        if rg not in {"wash", "detailing", "general"}:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_400_BAD_REQUEST,
+
+                detail="Укажите копилку списания (мойка или детейлинг) либо запись",
+
+            )
+
+
+
+    is_other = payload.withdrawKind == "other"
+
+    transaction_type = "other_withdrawal" if is_other else "material_withdrawal"
+
+    expense_category = "Прочие расходы" if is_other else "Материалы"
+
+    purpose = payload.purpose.strip()
+
+    if not purpose:
+
+        if is_other:
+
+            purpose = f"Прочие расходы: {payload.materialName}"
+
+        elif booking is not None:
+
+            purpose = f"Закупка {payload.materialName} для {booking.service}"
+
+        else:
+
+            purpose = f"Закупка: {payload.materialName}"
 
 
 
@@ -14805,9 +14923,9 @@ def piggy_bank_withdraw(
 
         amount=-payload.materialCost,
 
-        transaction_type="material_withdrawal",
+        transaction_type=transaction_type,
 
-        purpose=payload.purpose.strip() or f"Закупка {payload.materialName} для {booking.service}",
+        purpose=purpose,
 
         material_name=payload.materialName,
 
@@ -14825,19 +14943,35 @@ def piggy_bank_withdraw(
 
 
 
+    expense_note = purpose
+
+    if booking is not None:
+
+        expense_note = (
+
+            f"Закупка для заказа {booking.service} ({booking.client_name}). "
+
+            f"{payload.purpose}".strip()
+
+        )
+
+
+
+    expense_prefix = "Прочие расходы" if is_other else "Материалы"
+
     expense = Expense(
 
         id=f"e-{uuid4()}",
 
-        title=f"Материалы: {payload.materialName}",
+        title=f"{expense_prefix}: {payload.materialName}",
 
         amount=payload.materialCost,
 
-        category="Материалы",
+        category=expense_category,
 
         date=payload.date,
 
-        note=f"Закупка для заказа {booking.service} ({booking.client_name}). {payload.purpose}".strip(),
+        note=expense_note,
 
         resource_group=rg,
 
@@ -14855,7 +14989,15 @@ def piggy_bank_withdraw(
 
 
 
-    booking_info = f"{booking.service} — {booking.client_name} ({booking.date})"
+    booking_info = (
+
+        f"{booking.service} — {booking.client_name} ({booking.date})"
+
+        if booking is not None
+
+        else None
+
+    )
 
     return PiggyBankTransactionPayload(
 
@@ -14881,21 +15023,21 @@ def piggy_bank_withdraw(
 
         bookingInfo=booking_info,
 
-        bookingClientName=booking.client_name,
+        bookingClientName=booking.client_name if booking else None,
 
-        bookingService=booking.service,
+        bookingService=booking.service if booking else None,
 
-        bookingDate=booking.date,
+        bookingDate=booking.date if booking else None,
 
-        bookingTime=booking.time,
+        bookingTime=booking.time if booking else None,
 
-        bookingCar=booking.car,
+        bookingCar=booking.car if booking else None,
 
-        bookingPlate=booking.plate,
+        bookingPlate=booking.plate if booking else None,
 
-        bookingPrice=booking.price,
+        bookingPrice=booking.price if booking else None,
 
-        bookingStatus=booking.status,
+        bookingStatus=booking.status if booking else None,
 
     )
 

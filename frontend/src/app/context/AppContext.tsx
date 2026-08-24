@@ -368,7 +368,7 @@ export interface TelegramLinkCode {
   linked: boolean;
 }
 
-export type OwnerExportKind = 'report' | 'pdf';
+export type OwnerExportKind = 'report' | 'pdf' | 'piggy-bank';
 export type OwnerReportPeriod = 'daily' | 'weekly';
 export type OwnerReportSegment = 'wash' | 'detailing';
 export interface OwnerExportParams {
@@ -1594,7 +1594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function downloadOwnerExport(kind: OwnerExportKind, params?: OwnerExportParams) {
-    const fallback = kind === 'pdf' ? 'owner-report.pdf' : 'owner-report.xlsx';
+    const fallback = kind === 'pdf' ? 'owner-report.pdf' : kind === 'piggy-bank' ? 'piggy-bank-report.xlsx' : 'owner-report.xlsx';
     let path = `/api/owner/exports/${kind}`;
     if (params) {
       const qs = new URLSearchParams();

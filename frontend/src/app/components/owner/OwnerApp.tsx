@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRef } from 'react';
 import {
-  Bell, Sun, Moon, Plus, X, Check, TrendingUp, Users, Box,
+  Bell, Sun, Moon, Plus, Minus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
   Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink,
-  LayoutDashboard, UsersRound, Settings2, FileChartColumn
- } from 'lucide-react';
+  LayoutDashboard, UsersRound, Settings2, FileChartColumn,
+  ArrowLeftRight, TrendingDown, Crown, Banknote, Split
+} from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid
@@ -36,8 +37,8 @@ import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } fr
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
-type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'deposit' | 'shift';
-type OwnerExportKind = 'report' | 'pdf';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'money-flow' | 'deposit' | 'shift';
+type OwnerExportKind = 'report' | 'pdf' | 'piggy-bank';
 type KpiServiceItem = { name: string; revenue: number; count: number };
 type KpiModalData =
   | { kind: 'bookings'; title: string; color: string; totalLabel: string; total: number; isMoney?: boolean; bookings: Booking[] }
@@ -760,7 +761,8 @@ export function OwnerApp() {
   const [exportModalDateFrom, setExportModalDateFrom] = useState('');
   const [exportModalDateTo, setExportModalDateTo] = useState('');
 
-  const [piggyWithdrawForm, setPiggyWithdrawForm] = useState({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
+  const [piggyWithdrawKind, setPiggyWithdrawKind] = useState<'materials' | 'other'>('materials');
+  const [piggyWithdrawForm, setPiggyWithdrawForm] = useState<{ target: 'detailing' | 'wash'; name: string; amount: string; purpose: string; date: string }>({ target: 'detailing', name: '', amount: '', purpose: '', date: todayLabel });
 
   // Wallet state
   const [walletData, setWalletData] = useState<WalletData | null>(null);
@@ -1203,26 +1205,42 @@ export function OwnerApp() {
 
   async function handlePiggyWithdraw() {
     const f = piggyWithdrawForm;
-    if (!f.bookingId || !f.materialName || !f.materialCost) return;
+    if (!f.name || !f.amount) return;
     try {
       await apiRequest('/api/owner/piggy-bank/withdraw', {
         method: 'POST',
         body: {
-          bookingId: f.bookingId,
-          materialName: f.materialName,
-          materialCost: Number(f.materialCost),
+          resourceGroup: f.target,
+          withdrawKind: piggyWithdrawKind,
+          materialName: f.name,
+          materialCost: Number(f.amount),
           purpose: f.purpose,
           date: f.date,
         },
       });
       setShowPiggyWithdraw(false);
-      setPiggyWithdrawForm({ bookingId: '', materialName: '', materialCost: '', purpose: '', date: todayLabel });
+      setPiggyWithdrawForm({ target: f.target, name: '', amount: '', purpose: '', date: todayLabel });
+      setBottomToast(`Снято ${Number(f.amount).toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»`);
+      setTimeout(() => setBottomToast(null), 3000);
       await loadPiggyBank();
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
     } catch (e: unknown) {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка');
+      setTimeout(() => setBottomToast(null), 4000);
     }
   }
+
+  const openPiggyWithdraw = (kind: 'materials' | 'other') => {
+    setPiggyWithdrawKind(kind);
+    setShowPiggyWithdraw(true);
+  };
+
+  const handlePiggyBankExport = () => {
+    const params: OwnerExportParams = {};
+    if (piggyDateFrom) params.date_from = piggyDateFrom;
+    if (piggyDateTo) params.date_to = piggyDateTo;
+    void handleExport('piggy-bank', params);
+  };
 
   const openPiggyAdjust = (resourceGroup: 'wash' | 'detailing') => {
     const current = resourceGroup === 'wash'
@@ -2453,6 +2471,7 @@ export function OwnerApp() {
     const labels = {
       report: { noun: 'Excel-файл' },
       pdf: { noun: 'PDF' },
+      'piggy-bank': { noun: 'Отчёт по копилке' },
     } as const;
 
     try {
@@ -5464,9 +5483,15 @@ paymentSettled: false,
                     </button>
                   )}
                 </div>
-                <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
-                  <RefreshCw size={16} strokeWidth={1.75} className={piggyBankLoading ? 'animate-spin' : ''} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={handlePiggyBankExport} disabled={exportingKind !== null} title="Excel-отчёт по копилке"
+                    className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs text-white disabled:opacity-60" style={{ background: accent }}>
+                    <Download size={14} strokeWidth={1.75} />{exportingKind === 'piggy-bank' ? '...' : 'Excel'}
+                  </button>
+                  <button onClick={() => { void loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined); }} disabled={piggyBankLoading} className={`p-2 rounded-xl ${glass}`}>
+                    <RefreshCw size={16} strokeWidth={1.75} className={piggyBankLoading ? 'animate-spin' : ''} />
+                  </button>
+                </div>
               </div>
 
               {!piggyBank ? (
@@ -5590,10 +5615,15 @@ paymentSettled: false,
                     </div>
                   </div>
 
-                  {/* Withdraw button */}
-                  <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mb-4" style={{ background: accent }}>
-                    <Plus size={16} strokeWidth={1.75} className="inline mr-1.5" />Снять на материалы
-                  </button>
+                  {/* Withdraw buttons */}
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <button onClick={() => openPiggyWithdraw('materials')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: accent }}>
+                      <Plus size={16} strokeWidth={1.75} className="inline mr-1" />Снять на материалы
+                    </button>
+                    <button onClick={() => openPiggyWithdraw('other')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: '#F59E0B' }}>
+                      <Minus size={16} strokeWidth={1.75} className="inline mr-1" />Снять на прочие расходы
+                    </button>
+                  </div>
                 </>
               )}
 
@@ -5671,6 +5701,17 @@ paymentSettled: false,
                   <div className="flex justify-between py-2 text-sm">
                     <span className={sub}>Снято на материалы</span><span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
                   </div>
+                  {(() => {
+                    const otherWd = piggyBankTxs
+                      .filter(tx => tx.resourceGroup === 'detailing' && tx.transactionType === 'other_withdrawal')
+                      .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+                    if (!otherWd) return null;
+                    return (
+                      <div className="flex justify-between py-2 text-sm">
+                        <span className={sub}>Снято на прочие расходы</span><span style={{ color: '#FF6B6B' }}>−{otherWd.toLocaleString('ru')} ₽</span>
+                      </div>
+                    );
+                  })()}
                   <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className={sub}>Возврат материалов</span><span style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
                   </div>
@@ -5686,9 +5727,14 @@ paymentSettled: false,
                       {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
                     </span>
                   </div>
-                  <button onClick={() => setShowPiggyWithdraw(true)} className="w-full py-3 rounded-xl text-white font-medium mt-4" style={{ background: accent }}>
-                    <Plus size={16} strokeWidth={1.75} className="inline mr-1.5" />Снять на материалы
-                  </button>
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <button onClick={() => openPiggyWithdraw('materials')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: accent }}>
+                      <Plus size={16} strokeWidth={1.75} className="inline mr-1" />Снять на материалы
+                    </button>
+                    <button onClick={() => openPiggyWithdraw('other')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: '#F59E0B' }}>
+                      <Minus size={16} strokeWidth={1.75} className="inline mr-1" />Снять на прочие расходы
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -5717,6 +5763,8 @@ paymentSettled: false,
                       const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
                         : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
                         : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
+                        : tx.transactionType === 'other_withdrawal' ? 'Снятие · прочие расходы'
+                        : tx.transactionType === 'expense' ? 'Расход из копилки'
                         : 'Корректировка';
                       const booking = tx.bookingId ? bookings.find(b => b.id === tx.bookingId) : null;
                       const handleClick = () => {
@@ -5935,7 +5983,13 @@ paymentSettled: false,
               {/* Копилка в отчётах */}
               {piggyBank && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>💰 КОПИЛКА</div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-xs font-medium ${sub} uppercase tracking-wider`}>💰 КОПИЛКА</span>
+                    <button onClick={handlePiggyBankExport} disabled={exportingKind !== null}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
+                      <Download size={11} strokeWidth={1.75} />{exportingKind === 'piggy-bank' ? '...' : 'Excel'}
+                    </button>
+                  </div>
                   <div className="flex justify-between py-2 text-sm">
                     <span className={sub}>Баланс</span>
                     <span className="font-semibold" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>{piggyBankBalance.toLocaleString('ru')} ₽</span>
@@ -9214,22 +9268,31 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Снять на материалы</h3>
+                <h3 className="font-semibold">{piggyWithdrawKind === 'materials' ? 'Снять на материалы' : 'Снять на прочие расходы'}</h3>
                 <button onClick={() => setShowPiggyWithdraw(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Запись (заказ)</label>
-                  <select className={selectCls} value={piggyWithdrawForm.bookingId} onChange={e => setPiggyWithdrawForm(p => ({ ...p, bookingId: e.target.value }))}>
-                    <option value="">Выберите запись...</option>
-            {bookings.filter(b => b.status !== 'cancelled' && b.status !== 'no_show').map(b => (
-                      <option key={b.id} value={b.id}>{b.service} — {b.clientName} ({b.date})</option>
+                  <label className={`text-xs ${sub} block mb-1.5`}>Из какой копилки</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: 'detailing', label: '✨ Детейлинг' },
+                      { value: 'wash', label: '🚗 Мойка' },
+                    ] as const).map(opt => (
+                      <button key={opt.value} type="button" onClick={() => setPiggyWithdrawForm(p => ({ ...p, target: opt.value }))}
+                        className="rounded-xl py-2.5 text-sm font-medium transition"
+                        style={{
+                          background: piggyWithdrawForm.target === opt.value ? `${primary}25` : glass,
+                          color: primary,
+                        }}>
+                        {opt.label}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Название материала</label><input className={inputCls} placeholder="Например: Пленка PPF" value={piggyWithdrawForm.materialName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, materialName: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Стоимость (₽)</label><input className={inputCls} type="number" placeholder="0" value={piggyWithdrawForm.materialCost} onChange={e => setPiggyWithdrawForm(p => ({ ...p, materialCost: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'Например: Пленка PPF' : 'Например: Ремонт оборудования'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="number" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Комментарий</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(piggyWithdrawForm.date)} onChange={e => {
@@ -9241,9 +9304,9 @@ paymentSettled: false,
                   )}
                 </div>
               </div>
-              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.bookingId || !piggyWithdrawForm.materialName || !piggyWithdrawForm.materialCost || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null}
-                className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-                Снять {piggyWithdrawForm.materialCost ? `${Number(piggyWithdrawForm.materialCost).toLocaleString('ru')} ₽` : ''}
+              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !piggyWithdrawForm.amount || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null}
+                className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawKind === 'materials' ? accent : '#F59E0B' }}>
+                Снять {piggyWithdrawForm.amount ? `${Number(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
               </button>
             </motion.div>
           </motion.div>

@@ -6,7 +6,7 @@ import io
 
 import os
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from datetime import datetime, timedelta
 
@@ -83,6 +83,36 @@ PAYMENT_LABELS = {
 
 }
 
+PIGGY_TYPE_LABELS = {
+
+    "deposit_24percent": "Вклад 24% от заказа",
+
+    "material_withdrawal": "Снятие на материалы",
+
+    "other_withdrawal": "Снятие на прочие расходы",
+
+    "material_repayment": "Возврат материалов",
+
+    "deposit_return": "Возврат депозита",
+
+    "month_return": "Закрытие месяца (возврат)",
+
+    "adjust": "Корректировка",
+
+    "expense": "Расход из копилки",
+
+}
+
+PIGGY_GROUP_LABELS = {
+
+    "wash": "Мойка",
+
+    "detailing": "Детейлинг",
+
+    "general": "Общая",
+
+}
+
 
 
 
@@ -132,6 +162,8 @@ class OwnerExportData:
     complaint_rows: list[list[Any]]
 
     income_rows: list[list[Any]]
+
+    piggy_rows: list[list[Any]] = field(default_factory=list)
 
 
 
@@ -417,7 +449,9 @@ def build_owner_summary_report(
 
         returns = sum(t.amount for t in period_piggy if t.transaction_type == "deposit_return" and t.amount > 0)
 
-        withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "material_withdrawal" and t.amount < 0)
+        withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0)
+
+        other_withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "other_withdrawal" and t.amount < 0)
 
         repayments = sum(t.amount for t in period_piggy if t.transaction_type == "material_repayment" and t.amount > 0)
 
@@ -440,6 +474,10 @@ def build_owner_summary_report(
             if withdrawals:
 
                 lines.append(f"  Снято на материалы: ?{_format_money(withdrawals)}")
+
+            if other_withdrawals:
+
+                lines.append(f"  Снято на прочие расходы: ?{_format_money(other_withdrawals)}")
 
             if repayments:
 
@@ -1597,6 +1635,8 @@ def build_owner_export(
 
     shift_pay_by_worker: dict[str, int] | None = None,
 
+    piggy_transactions: list[PiggyBankTransaction] | None = None,
+
     db: Session | None = None,
 
 ) -> GeneratedExport:
@@ -1624,6 +1664,8 @@ def build_owner_export(
         payroll_entries=payroll_entries or [],
 
         shift_pay_by_worker=shift_pay_by_worker or {},
+
+        piggy_transactions=piggy_transactions or [],
 
         db=db,
 
@@ -1659,6 +1701,159 @@ def build_owner_export(
 
 
 
+def build_piggy_bank_export(
+    *,
+    company_name: str,
+    piggy_transactions: list[PiggyBankTransaction],
+    date_from: str | None = None,
+    date_to: str | None = None,
+    generated_at: datetime | None = None,
+) -> GeneratedExport:
+    """Отдельный Excel-отчёт по копилке: сводка + журнал операций с балансом."""
+
+    generated = generated_at or datetime.now().astimezone()
+
+    def _to_dt(value: str | None) -> datetime | None:
+        if not value:
+            return None
+        parsed = _parse_date_for_sort(value)
+        return None if parsed == datetime.max else parsed
+
+    from_dt = _to_dt(date_from)
+    to_dt = _to_dt(date_to)
+
+    def _in_range(tx: PiggyBankTransaction) -> bool:
+        d = _to_dt(tx.date)
+        if d is None:
+            return False
+        if from_dt and d < from_dt:
+            return False
+        if to_dt and d > to_dt.replace(hour=23, minute=59, second=59):
+            return False
+        return True
+
+    def _sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]:
+        min_aware = datetime.min.replace(tzinfo=generated.tzinfo)
+        tx_created = (
+            _as_local_datetime(tx.created_at, generated)
+            if tx.created_at is not None
+            else min_aware
+        )
+        return _parse_date_for_sort(tx.date or ""), tx_created
+
+    ordered = sorted(piggy_transactions, key=_sort_key)
+
+    # Балансы копилок — за всё время (не зависят от периода отчёта)
+    wash_balance = sum(float(t.amount) for t in ordered if t.resource_group == "wash")
+    detailing_balance = sum(float(t.amount) for t in ordered if t.resource_group == "detailing")
+    general_balance = sum(float(t.amount) for t in ordered if t.resource_group == "general")
+    total_balance = wash_balance + detailing_balance + general_balance
+
+    period_txs = [t for t in ordered if _in_range(t)]
+
+    def _period_sum(predicate: Any) -> float:
+        return sum(float(t.amount) for t in period_txs if predicate(t))
+
+    deposits = _period_sum(lambda t: t.transaction_type == "deposit_24percent" and t.amount > 0)
+    material_withdrawals = -_period_sum(
+        lambda t: t.transaction_type == "material_withdrawal" and t.amount < 0
+    )
+    other_withdrawals = -_period_sum(
+        lambda t: t.transaction_type == "other_withdrawal" and t.amount < 0
+    )
+    repayments = _period_sum(
+        lambda t: t.transaction_type == "material_repayment" and t.amount > 0
+    )
+    deposit_returns = _period_sum(
+        lambda t: t.transaction_type == "deposit_return" and t.amount > 0
+    )
+    adjustments = _period_sum(lambda t: t.transaction_type == "adjust")
+    period_delta = deposits + repayments + deposit_returns + adjustments - material_withdrawals - other_withdrawals
+
+    def money(value: float) -> str:
+        return f"{value:,.0f} ₽".replace(",", " ")
+
+    period_label = (
+        f"{date_from} — {date_to}"
+        if date_from or date_to
+        else "весь период"
+    )
+
+    summary_rows: list[list[Any]] = [
+        ["Баланс · Мойка", money(wash_balance)],
+        ["Баланс · Детейлинг", money(detailing_balance)],
+        ["Баланс · Общая", money(general_balance)],
+        ["Общий баланс копилки", money(total_balance)],
+        [],
+        ["— За период —", ""],
+        ["Вклады 24% от заказов", f"+{money(deposits)}"],
+        ["Снято на материалы", f"-{money(material_withdrawals)}"],
+        ["Снято на прочие расходы", f"-{money(other_withdrawals)}"],
+        ["Возврат материалов", f"+{money(repayments)}"],
+        ["Возврат депозита", f"+{money(deposit_returns)}"],
+        ["Корректировки", f"{adjustments:+,.0f} ₽".replace(",", " ")],
+        ["Сальдо периода", f"{period_delta:+,.0f} ₽".replace(",", " ")],
+    ]
+
+    workbook = Workbook()
+
+    summary = workbook.active
+    summary.title = "Сводка"
+    summary.merge_cells("A1:D1")
+    summary["A1"] = company_name
+    summary["A2"] = "Отчёт по копилке"
+    summary["A3"] = f"Период: {period_label}"
+    summary["A4"] = f"Сформирован: {generated.strftime('%d.%m.%Y %H:%M')}"
+    summary["A6"] = "Показатель"
+    summary["B6"] = "Значение"
+    row_index = 7
+    for row in summary_rows:
+        if not row:
+            row_index += 1
+            continue
+        summary.cell(row=row_index, column=1, value=row[0])
+        summary.cell(row=row_index, column=2, value=row[1])
+        row_index += 1
+    _style_heading(summary, "A1", "A2", "A3", "A4")
+    _style_table(summary, 6, 7, row_index - 1, 2)
+    _autosize(summary)
+
+    operation_rows: list[list[Any]] = []
+    running = 0.0
+    for tx in ordered:
+        running += float(tx.amount)
+        if not _in_range(tx):
+            continue
+        operation_rows.append([
+            tx.date,
+            PIGGY_TYPE_LABELS.get(tx.transaction_type, tx.transaction_type),
+            PIGGY_GROUP_LABELS.get(tx.resource_group, tx.resource_group),
+            tx.purpose or "",
+            tx.material_name or "",
+            float(tx.amount),
+            round(running, 2),
+        ])
+
+    _append_sheet(
+        workbook,
+        "Операции",
+        ["Дата", "Операция", "Копилка", "Назначение", "Материал / статья", "Сумма", "Баланс после"],
+        operation_rows,
+        currency_cols={6, 7},
+    )
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    slug = generated.strftime("%Y-%m-%d-%H%M")
+    return GeneratedExport(
+        file_name=f"piggy-bank-report-{slug}.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=buffer.getvalue(),
+        telegram_caption=f"Отчёт по копилке {company_name} ({period_label})",
+    )
+
+
+
 
 
 def _build_export_data(
@@ -1686,6 +1881,8 @@ def _build_export_data(
     payroll_entries: list[PayrollEntry] | None = None,
 
     shift_pay_by_worker: dict[str, int] | None = None,
+
+    piggy_transactions: list[PiggyBankTransaction] | None = None,
 
     db: Session | None = None,
 
@@ -2199,6 +2396,40 @@ def _build_export_data(
 
 
 
+    # Копилка: все транзакции, от старых к новым
+    def _piggy_sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]:
+        min_aware = datetime.min.replace(tzinfo=generated_at.tzinfo)
+        tx_created = _as_local_datetime(tx.created_at, generated_at) if tx.created_at is not None else min_aware
+        return _parse_date_for_sort(tx.date or ""), tx_created
+
+    piggy_tx_sorted = sorted(
+        piggy_transactions or [],
+        key=_piggy_sort_key,
+    )
+    piggy_rows: list[list[Any]] = []
+    for tx in piggy_tx_sorted:
+        booking_label = ""
+        if tx.booking_id:
+            booking = next((b for b in bookings if b.id == tx.booking_id), None)
+            if booking is not None:
+                booking_label = (
+                    f"{booking.service} — {booking.client_name} ({booking.date})"
+                )
+            else:
+                booking_label = f"Запись {tx.booking_id}"
+        piggy_rows.append([
+            tx.date,
+            PIGGY_TYPE_LABELS.get(tx.transaction_type, tx.transaction_type),
+            PIGGY_GROUP_LABELS.get(tx.resource_group, tx.resource_group),
+            tx.purpose or "",
+            tx.material_name or "",
+            float(tx.amount),
+            booking_label,
+        ])
+    piggy_balance_total = sum(float(t.amount) for t in (piggy_transactions or []))
+
+
+
     metrics = [
 
         ExportMetric("Выручка", _format_money(revenue)),
@@ -2232,6 +2463,8 @@ def _build_export_data(
         ExportMetric("К возврату (переплата)", _format_money(total_overpaid)),
 
         ExportMetric("Склад на сумму", _format_money(stock_value)),
+
+        ExportMetric("Баланс копилки", _format_money(int(round(piggy_balance_total)))),
 
         ExportMetric("Уникальных клиентов", str(len(client_rows))),
 
@@ -2272,6 +2505,8 @@ def _build_export_data(
         complaint_rows=complaint_rows,
 
         income_rows=income_rows,
+
+        piggy_rows=piggy_rows,
 
     )
 
@@ -2334,6 +2569,10 @@ def _render_excel_report(data: OwnerExportData) -> bytes:
     if data.income_rows:
 
         _append_sheet(workbook, "Доп. доходы", ["Дата", "Источник", "Сумма", "Примечание"], data.income_rows, currency_cols={3})
+
+    if data.piggy_rows:
+
+        _append_sheet(workbook, "Копилка", ["Дата", "Операция", "Копилка", "Назначение", "Материал / статья", "Сумма", "Запись"], data.piggy_rows, currency_cols={6})
 
 
 
