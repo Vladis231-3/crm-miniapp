@@ -27,6 +27,7 @@ import { AdminClientsPage } from './screens/AdminClientsPage';
 import { AdminStockPage } from './screens/AdminStockPage';
 import { AdminCalendarDayScreen } from './screens/AdminCalendarDayScreen';
 import { Sheet, StatusBadge } from '../atmosfera';
+import { AssignWorkersDialog } from './shared/AssignWorkersDialog';
 import {
   AttendanceSectionShell,
   BoxesSection,
@@ -2518,73 +2519,19 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         )}
       </AnimatePresence>
 
-      {/* ASSIGN WORKERS MODAL */}
-      <AnimatePresence>
-        {showAssignModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-2xl p-5 w-full max-w-sm`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Назначить мастеров</h3>
-                <button onClick={() => setShowAssignModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
-              </div>
-              <div className="space-y-3 mb-4">
-                {masterWorkers.map(worker => {
-                  const assigned = assignedWorkers.find(aw => aw.id === worker.id);
-                  return (
-                    <div key={worker.id} className={`${glass} rounded-xl p-3`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${worker.available ? 'bg-green-500' : 'bg-gray-400'}`} />
-                          <span className="text-sm font-medium">{worker.name}</span>
-                          <span className={`text-xs ${sub}`}>{worker.experience}</span>
-                        </div>
-                        <button onClick={() => assigned ? setAssignedWorkers(p => p.filter(aw => aw.id !== worker.id)) : setAssignedWorkers(p => [...p, { id: worker.id, percent: worker.defaultPercent, payType: 'percent' }])}
-                          className="px-3 py-1 rounded-lg text-xs transition-all"
-                          style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}>
-                          {assigned ? 'Выбран' : 'Выбрать'}
-                        </button>
-                      </div>
-                      {assigned && (
-                        <div className="flex items-center gap-2 mt-1">
-                          {isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) ? (
-                            <span className={`text-xs font-medium ${sub}`}>{formatFixedMasterAmount()}</span>
-                          ) : (
-                            <>
-                              <button onClick={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, payType: 'fixed', fixedAmount: 0 } : aw))}
-                                className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>₽</button>
-                              <button onClick={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, payType: 'percent', fixedAmount: undefined } : aw))}
-                                className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-indigo-600 text-white' : glass}`}>%</button>
-                              {assigned.payType === 'fixed' ? (
-                                <input type="number" min={0} value={assigned.fixedAmount ?? ''}
-                                  onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, fixedAmount: undefined } : aw)); return; } const n = parseInt(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, fixedAmount: Math.max(0, n) } : aw)); } }}
-                                  className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
-                              ) : (
-                                <>
-                                  <span className={`text-xs ${sub}`}>%</span>
-                                  <input type="number" step="0.00001" min={0} max={100} value={assigned.percent === '' ? '' : assigned.percent}
-                                    onChange={e => { const r = e.target.value; if (r === '') { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: '' } : aw)); return; } const n = parseFloat(r); if (!isNaN(n)) { setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: Math.min(100, Math.max(0, n)) } : aw)); } }}
-                                    onBlur={() => setAssignedWorkers(p => p.map(aw => aw.id === worker.id ? { ...aw, percent: aw.percent === '' ? 0 : aw.percent } : aw))}
-                                    className={`flex-1 ${inputCls} py-1.5`} />
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {!isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service) && assignedWorkers.some(aw => aw.payType !== 'fixed') && totalPercent > 100 && (
-                <div className="flex items-center gap-2 text-red-500 text-xs mb-3"><AlertCircle size={14} strokeWidth={1.75} />Сумма процентов превышает 100%</div>
-              )}
-              <button onClick={() => { void handleAssignWorkers(true); }} className="w-full py-3 rounded-xl text-sm text-white font-medium mb-2" style={{ background: primary }}>Назначить и уведомить</button>
-              <button onClick={() => { void handleAssignWorkers(false); }} className={`w-full py-3 rounded-xl text-sm ${glass}`}>Назначить без уведомления</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ASSIGN WORKERS — DS Dialog */}
+      <AssignWorkersDialog
+        open={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        masters={masterWorkers}
+        assignedWorkers={assignedWorkers}
+        onAssignedChange={setAssignedWorkers}
+        isFixedService={isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service)}
+        totalPercent={totalPercent}
+        onConfirm={(notify) => { void handleAssignWorkers(notify); }}
+      />
 
+      {/* COMPLETE MODAL */}
       <AnimatePresence>
         {showCompleteModal && selectedBooking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
