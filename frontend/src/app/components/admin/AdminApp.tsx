@@ -3031,40 +3031,26 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         )}
       </AnimatePresence>
 
-      {/* NEW BOOKING MODAL */}
-      <AnimatePresence>
-        {showNewBooking && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
-              {/* Sticky header — always visible while scrolling */}
-              <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center shrink-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-                <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                <h3 className="font-semibold mt-2">Новая запись</h3>
-                <button onClick={closeNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
-              </div>
-              {/* Scrollable content container */}
-              <div
-                className="overflow-y-auto"
-                style={{ maxHeight: window.innerWidth < 768 ? `${modalMaxHeight}px` : undefined }}
-              >
-              <AnimatePresence>
-                {saveSuccess && (
-                  <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                    className="absolute inset-0 flex items-center justify-center z-10" style={{ background: isDark ? 'rgba(14,22,36,0.95)' : 'rgba(255,255,255,0.95)' }}>
-                    <div className="text-center">
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-                        className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}20` }}>
-                        <Check size={28} strokeWidth={1.75} style={{ color: primary }} />
-                      </motion.div>
-                      <div className="font-semibold">Запись сохранена!</div>
-                      <div className={`text-sm ${sub} mt-1`}>{saveSuccess === 'notify' ? 'Мастера уведомлены' : STATUS_LABELS[newBookingForm.status]}</div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      {/* NEW BOOKING MODAL — DS Sheet (bodyMaxHeight для TG-клавиатуры) */}
+      <Sheet
+        open={showNewBooking}
+        onClose={closeNewBookingModal}
+        title="Новая запись"
+        bodyMaxHeight={typeof window !== 'undefined' && window.innerWidth < 768 ? modalMaxHeight : undefined}
+      >
+        {saveSuccess ? (
+          <div className="flex flex-col items-center py-10 text-center">
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
+              className="mb-4 flex size-16 items-center justify-center rounded-full bg-[var(--primary-50)] dark:bg-[var(--primary-100)]">
+              <Check size={28} strokeWidth={1.75} style={{ color: 'var(--primary-600)' }} aria-hidden />
+            </motion.div>
+            <div className="font-semibold">Запись сохранена!</div>
+            <div className={`mt-1 text-sm ${sub}`}>{saveSuccess === 'notify' ? 'Мастера уведомлены' : STATUS_LABELS[newBookingForm.status]}</div>
+          </div>
+        ) : (
+          <>
               <div className="p-4 space-y-3">
-                {[
+                  {[
                   { label: 'Клиент (необязательно)', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
                   { label: 'Телефон (необязательно)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
                   { label: 'Автомобиль (необязательно)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
@@ -3496,19 +3482,17 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   />
                 </label>
               </div>
-              <div className="p-4 space-y-2">
-                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
+              <div className="space-y-2 pb-2">
+                <button onClick={() => { void handleSaveNewBooking(true); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: 'var(--primary-600)' }}>
                   {newBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
                 <button onClick={() => { void handleSaveNewBooking(false); }} disabled={!newBookingForm.serviceId || (!newBookingForm.isOutsource && newBookingWorkers.some(w => w.payType !== 'fixed') && totalNewBookingPercent > 100) || newBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
                   Сохранить без уведомления
                 </button>
               </div>
-              </div>{/* end overflow-y-auto */}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+      </Sheet>
 
       {/* CLIENT SEARCH MODAL */}
       <AnimatePresence>

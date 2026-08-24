@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 16:06 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 16:13 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **490**
-- Строк кода: **196 107**
+- Строк кода: **196 091**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 300
 
 ## Архитектура
@@ -2482,7 +2482,7 @@ concept1.0/
 - `App` (стр. 717)
 - `path` (стр. 718) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (3602 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (3586 строк)
 
 - `SERVICE_TYPE_OPTIONS` (стр. 90) — локальный
 - `adminServiceResourceGroupForCategory` (стр. 96) — локальный
@@ -4243,12 +4243,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `REDESIGN_PLAN.md` (2026-08-24 19:06)
+- `REDESIGN_PLAN.md` (2026-08-24 19:13)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-24 19:12)
 - `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-24 19:05)
 - `backend/tests/test_google_calendar.py` (2026-08-24 18:46)
 - `backend/tests/test_google_calendar_api.py` (2026-08-24 18:46)
 - `frontend/src/app/components/admin/shared/AssignWorkersDialog.tsx` (2026-08-24 18:31)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-24 18:26)
 - `backend/app/main.py` (2026-08-24 18:16)
 - `backend/app/exports.py` (2026-08-24 18:16)
 - `backend/app/schemas.py` (2026-08-24 18:16)
