@@ -481,9 +481,9 @@ class GoogleCalendarApiTests(unittest.TestCase):
             self.assertTrue(integrations["googleCalendar"])  # остался владелец
 
         # Удаляем последнее подключение — интеграция выключается.
-        owner_conn = [
+        owner_conn = next(
             c for c in status["connections"] if c["id"] != anna["id"]
-        ][0]
+        )
         response_last = self.client.delete(
             f"/api/owner/integrations/google/connections/{owner_conn['id']}",
             headers=self.auth_headers(token),

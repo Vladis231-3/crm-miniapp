@@ -109,16 +109,27 @@ class GoogleCalendarPullTests(unittest.TestCase):
         """Подменить _calendar_request: каждый вызов возвращает следующую страницу.
 
         Элемент может быть dict (страница) или исключением (поднимается).
+        conn — подключение календаря (мультиподключение), в этих тестах один
+        владелец, поэтому просто принимаем параметр.
         """
         consumed: list[dict | BaseException] = [p for p in pages]
 
-        def fake_calendar_request(db, settings, method, path, *, params=None, body=None, _retried=False):
+        def fake_calendar_request(
+            db, settings, method, path, *, params=None, body=None, _retried=False, conn=None
+        ):
             next_item = consumed.pop(0)
             if isinstance(next_item, BaseException):
                 raise next_item
             return next_item
 
         return patch("app.google_calendar._calendar_request", side_effect=fake_calendar_request)
+
+    def _stored_sync_token(self, db) -> str | None:
+        """syncToken из первого (владельческого) подключения."""
+        from app.google_calendar import get_connection
+
+        conn = get_connection(db, "owner")
+        return (conn or {}).get("sync_token")
 
     def test_pull_skipped_without_tokens(self) -> None:
         from app.google_calendar import pull_calendar_changes
@@ -172,12 +183,8 @@ class GoogleCalendarPullTests(unittest.TestCase):
             assert client is not None
             self.assertEqual(client.name, "Пётр")
             self.assertEqual(client.phone, "79995554433")
-            # syncToken сохранён для инкрементальной синхронизации
-            from app.models import AppSetting
-
-            token_row = db.get(AppSetting, "google_calendar_sync_token")
-            self.assertIsNotNone(token_row)
-            self.assertEqual(token_row.value["sync_token"], "tok-1")
+            # syncToken сохранён в подключении для инкрементальной синхронизации
+            self.assertEqual(self._stored_sync_token(db), "tok-1")
 
     def test_pull_updates_booking_time_by_crm_booking_id(self) -> None:
         from app.google_calendar import pull_calendar_changes
@@ -335,7 +342,7 @@ class GoogleCalendarPullTests(unittest.TestCase):
         # Второй запуск: запрос должен идти с syncToken и БЕЗ timeMin/timeMax.
         captured: list[dict] = []
 
-        def fake_second(db, settings, method, path, *, params=None, body=None, _retried=False):
+        def fake_second(db, settings, method, path, *, params=None, body=None, _retried=False, conn=None):
             captured.append(dict(params or {}))
             return {"items": [], "nextSyncToken": "tok-2"}
 
@@ -359,7 +366,7 @@ class GoogleCalendarPullTests(unittest.TestCase):
             {"items": [], "nextSyncToken": "tok-fresh"},
         ]
 
-        def fake_rescan(db, settings, method, path, *, params=None, body=None, _retried=False):
+        def fake_rescan(db, settings, method, path, *, params=None, body=None, _retried=False, conn=None):
             captured.append(dict(params or {}))
             next_item = pages.pop(0)
             if isinstance(next_item, BaseException):
@@ -377,12 +384,8 @@ class GoogleCalendarPullTests(unittest.TestCase):
         for query in captured:
             self.assertNotIn("syncToken", query)
             self.assertIn("timeMin", query)
-        from app.models import AppSetting
-
         with self.session() as db:
-            token_row = db.get(AppSetting, "google_calendar_sync_token")
-            self.assertIsNotNone(token_row)
-            self.assertEqual(token_row.value["sync_token"], "tok-fresh")
+            self.assertEqual(self._stored_sync_token(db), "tok-fresh")
 
     def test_pull_skips_foreign_event_with_wrong_crm_link(self) -> None:
         """Событие с чужим crmBookingId (подделанным или от другой записи)
@@ -477,7 +480,8 @@ class GoogleCalendarPullTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "auth_failed")
-        self.assertEqual(result.get("errorDetails"), "permission denied")
+        # Исходный текст Google доходит до пользователя (с меткой календаря).
+        self.assertIn("permission denied", result.get("errorDetails") or "")
 
     def test_pull_parses_scrambled_description(self) -> None:
         """Свободный текст события: имя, телефон, авто, госномер, услуга в любом порядке."""

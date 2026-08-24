@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 15:53 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 16:05 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **490**
-- Строк кода: **196 099**
+- Строк кода: **196 104**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 300
 
 ## Архитектура
@@ -2954,16 +2954,16 @@ concept1.0/
 
 - `SectionHeader` (стр. 14)
 
-### frontend/src/app/components/atmosfera/Sheet.tsx (115 строк)
+### frontend/src/app/components/atmosfera/Sheet.tsx (120 строк)
 
-- `useIsWide` (стр. 22) — локальный
-- `mq` (стр. 27) — локальный
-- `onChange` (стр. 28) — локальный
-- `Sheet` (стр. 40)
-- `wide` (стр. 41) — локальный
-- `dockRight` (стр. 42) — локальный
-- `onKey` (стр. 46) — локальный
-- `prev` (стр. 48) — локальный
+- `useIsWide` (стр. 27) — локальный
+- `mq` (стр. 32) — локальный
+- `onChange` (стр. 33) — локальный
+- `Sheet` (стр. 45)
+- `wide` (стр. 46) — локальный
+- `dockRight` (стр. 47) — локальный
+- `onKey` (стр. 51) — локальный
+- `prev` (стр. 53) — локальный
 
 ### frontend/src/app/components/atmosfera/StatTile.tsx (23 строк)
 
@@ -4243,6 +4243,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-24 19:05)
 - `REDESIGN_PLAN.md` (2026-08-24 18:53)
 - `backend/tests/test_google_calendar.py` (2026-08-24 18:46)
 - `backend/tests/test_google_calendar_api.py` (2026-08-24 18:46)
@@ -4257,4 +4258,3 @@ concept1.0/
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:43)
 - `backend/app/google_calendar.py` (2026-08-24 12:25)
 - `backend/app/models.py` (2026-08-24 12:18)
-- `backend/tests/test_archive_split_zp_sync.py` (2026-08-24 11:59)

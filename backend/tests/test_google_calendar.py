@@ -362,21 +362,21 @@ def _connect_second_person(fake_db):
 
 
 def _booking_for_sync(**overrides):
-    base = dict(
-        id="b1",
-        status="scheduled",
-        google_event_id=None,
-        date="13.08.2026",
-        time="10:00",
-        duration=30,
-        client_name="Иван",
-        client_phone="",
-        car="",
-        plate="",
-        box="",
-        notes="",
-        service="Мойка",
-    )
+    base = {
+        "id": "b1",
+        "status": "scheduled",
+        "google_event_id": None,
+        "date": "13.08.2026",
+        "time": "10:00",
+        "duration": 30,
+        "client_name": "Иван",
+        "client_phone": "",
+        "car": "",
+        "plate": "",
+        "box": "",
+        "notes": "",
+        "service": "Мойка",
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 
