@@ -616,6 +616,18 @@ function numberFromInput(value: string) {
   return value === '' ? 0 : Number(value);
 }
 
+// Десятичный ввод в русской локали: запятая как разделитель («1234,56»)
+function parseDecimalInput(value: string) {
+  const normalized = String(value).trim().replace(/\s/g, '').replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function isValidAmountInput(value: string) {
+  const n = parseDecimalInput(value);
+  return Number.isFinite(n) && n > 0;
+}
+
 function toISODate(value: string) {
   const parsed = parseFlexibleDate(value);
   if (!parsed) return '';
@@ -1265,6 +1277,8 @@ export function OwnerApp() {
   async function handlePiggyWithdraw() {
     const f = piggyWithdrawForm;
     if (!f.name || !f.amount) return;
+    const amount = parseDecimalInput(f.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
     try {
       await apiRequest('/api/owner/piggy-bank/withdraw', {
         method: 'POST',
@@ -1272,14 +1286,14 @@ export function OwnerApp() {
           resourceGroup: f.target,
           withdrawKind: piggyWithdrawKind,
           materialName: f.name,
-          materialCost: Number(f.amount),
+          materialCost: amount,
           purpose: f.purpose,
           date: f.date,
         },
       });
       setShowPiggyWithdraw(false);
       setPiggyWithdrawForm({ target: f.target, name: '', amount: '', purpose: '', date: todayLabel });
-      setBottomToast(`Снято ${Number(f.amount).toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»`);
+      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»`);
       setTimeout(() => setBottomToast(null), 3000);
       await loadPiggyBank();
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
@@ -1305,16 +1319,18 @@ export function OwnerApp() {
     const current = resourceGroup === 'wash'
       ? (piggyBank?.remainingInPiggyBank ?? 0)
       : (piggyBank?.detailing?.netPiggy ?? 0);
+    // Копейки важны: баланс может быть дробным, округляем только до 2 знаков
+    const currentPrecise = Math.round(current * 100) / 100;
     setPiggyAdjustResourceGroup(resourceGroup);
-    setPiggyAdjustCurrentBalance(Math.round(current));
-    setPiggyAdjustForm({ newBalance: String(Math.round(current)), purpose: '', date: todayLabel });
+    setPiggyAdjustCurrentBalance(currentPrecise);
+    setPiggyAdjustForm({ newBalance: String(currentPrecise), purpose: '', date: todayLabel });
     setShowPiggyAdjust(true);
   };
 
   async function handlePiggyAdjust() {
-    const newBalance = Number(piggyAdjustForm.newBalance);
+    const newBalance = parseDecimalInput(piggyAdjustForm.newBalance);
     if (!Number.isFinite(newBalance)) return;
-    const delta = Math.round(newBalance) - piggyAdjustCurrentBalance;
+    const delta = Math.round((newBalance - piggyAdjustCurrentBalance) * 100) / 100;
     if (delta === 0) {
       setShowPiggyAdjust(false);
       setBottomToast('Сумма не изменилась');
@@ -9819,7 +9835,7 @@ paymentSettled: false,
                   </div>
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'Например: Пленка PPF' : 'Например: Ремонт оборудования'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="number" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Комментарий</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Дата</label>
@@ -9832,9 +9848,9 @@ paymentSettled: false,
                   )}
                 </div>
               </div>
-              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !piggyWithdrawForm.amount || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null}
+              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawKind === 'materials' ? accent : '#F59E0B' }}>
-                Снять {piggyWithdrawForm.amount ? `${Number(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
+                Снять {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
               </button>
             </motion.div>
           </motion.div>
@@ -9861,7 +9877,7 @@ paymentSettled: false,
               <div className="space-y-3 mb-4">
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Новая сумма (₽)</label>
-                  <input className={inputCls} type="number" placeholder="0" value={piggyAdjustForm.newBalance} onChange={e => setPiggyAdjustForm(p => ({ ...p, newBalance: e.target.value }))} />
+                  <input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyAdjustForm.newBalance} onChange={e => setPiggyAdjustForm(p => ({ ...p, newBalance: e.target.value }))} />
                 </div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={piggyAdjustForm.purpose} onChange={e => setPiggyAdjustForm(p => ({ ...p, purpose: e.target.value }))} /></div>
                 <div>
@@ -9875,7 +9891,7 @@ paymentSettled: false,
                   )}
                 </div>
               </div>
-              <button onClick={() => { void handlePiggyAdjust(); }} disabled={!piggyAdjustForm.newBalance || Number.isNaN(Number(piggyAdjustForm.newBalance)) || !piggyAdjustForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null}
+              <button onClick={() => { void handlePiggyAdjust(); }} disabled={!piggyAdjustForm.newBalance || Number.isNaN(parseDecimalInput(piggyAdjustForm.newBalance)) || !piggyAdjustForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
                 Сохранить
               </button>
