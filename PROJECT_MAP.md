@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 18:03 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 18:06 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4423,12 +4423,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `REDESIGN_PLAN.md` (2026-08-24 21:06)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 21:03)
 - `backend/app/schemas.py` (2026-08-24 21:03)
 - `backend/app/models.py` (2026-08-24 21:03)
 - `backend/app/main.py` (2026-08-24 21:03)
 - `backend/app/finance_sync.py` (2026-08-24 21:03)
-- `REDESIGN_PLAN.md` (2026-08-24 21:00)
 - `frontend/src/app/components/owner/screens/OwnerWalletScreen.tsx` (2026-08-24 20:54)
 - `backend/bot.py` (2026-08-24 20:50)
 - `frontend/src/app/components/owner/screens/OwnerClientsScreen.tsx` (2026-08-24 20:33)
