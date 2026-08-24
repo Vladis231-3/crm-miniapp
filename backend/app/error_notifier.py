@@ -17,8 +17,8 @@
 - рекурсия исключена: записи из самого нотификатора не пересылаются,
   все его собственные ошибки глотаются.
 
-Получатели: все активные владельцы (role="owner") с непустым
-telegram_chat_id (создатель — первым).
+Получатель: только создатель CRM (is_primary_owner) с привязанным
+Telegram (непустой telegram_chat_id).
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def _is_own_record(record: logging.LogRecord) -> bool:
 
 
 def _fetch_owner_chat_ids() -> list[str]:
-    """Активные владельцы с непустым telegram_chat_id (создатель первым)."""
+    """Получатель ошибок: только создатель (primary owner) с привязанным Telegram."""
     db = SessionLocal()
     try:
         rows = db.execute(
@@ -105,13 +105,10 @@ def _fetch_owner_chat_ids() -> list[str]:
             .where(
                 StaffUser.role == "owner",
                 StaffUser.active.is_(True),
+                StaffUser.is_primary_owner.is_(True),
                 StaffUser.telegram_chat_id != "",
             )
-            .order_by(
-                StaffUser.is_primary_owner.desc(),
-                StaffUser.created_at.asc(),
-                StaffUser.id.asc(),
-            )
+            .order_by(StaffUser.created_at.asc(), StaffUser.id.asc())
         ).all()
     finally:
         db.close()

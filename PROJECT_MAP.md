@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 19:18 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 19:26 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **497**
-- Строк кода: **198 244**
+- Строк кода: **198 241**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 35, `.tsx`: 304
 
 ## Архитектура
@@ -689,7 +689,7 @@ concept1.0/
 - `parse_date_paramdef parse_date_param(value: str) -> date: """Accept strict DD.MM.YYYY or ISO YYYY-MM-DD query dates.""" try: return parse_dmy(value) except ValueError: parsed = date.fromisoformat(` (стр. 23)
 - `validate_rangedef validate_range(date_from: date, date_to: date) -> None: if date_from > date_to: raise ValueError("date_from must not be after date_to")` (стр. 34)
 
-### backend/app/error_notifier.py (383 строк)
+### backend/app/error_notifier.py (380 строк)
 
 Классы и функции (26):
 
@@ -702,23 +702,23 @@ concept1.0/
 - `_max_messages_per_hourdef _max_messages_per_hour() -> int: return _env_int("ERROR_NOTIFY_MAX_PER_HOUR", 30, minimum=1)` (стр. 84)
 - `_enableddef _enabled() -> bool: return _env_bool("ERROR_NOTIFY_ENABLED", True)` (стр. 88)
 - `_is_own_recorddef _is_own_record(record: logging.LogRecord) -> bool: name = record.name or "" return any( name == own or name.startswith(f"{own}.") for own in _OWN_LOGGER_NAMES )` (стр. 92)
-- `_fetch_owner_chat_idsdef _fetch_owner_chat_ids() -> list[str]: """Активные владельцы с непустым telegram_chat_id (создатель первым).""" db = SessionLocal() try: rows = db.execute( select(StaffUser.tele` (стр. 99)
-- `_send_via_botdef _send_via_bot(chat_id: str, text: str) -> None: """Ленивый импорт, чтобы избежать циклического импорта с bot.py.""" try: from backend.bot import send_telegram_message except Im` (стр. 126)
-- `_truncatedef _truncate(text: str, limit: int) -> str: if len(text) <= limit: return text return text[: max(limit - 20, 0)].rstrip() + "\n…[сообщение обрезано]"` (стр. 135)
-- `_build_messagedef _build_message( *, kind: str, context: str, error_type: str, message: str, where: str, tb_text: str,` (стр. 141)
-- `_exception_wheredef _exception_where(exc: BaseException) -> str: frames = traceback.extract_tb(exc.__traceback__) if not frames: return "" last = frames[-1] filename = os.path.basename(last.filena` (стр. 171)
-- `_exception_fingerprintdef _exception_fingerprint(exc: BaseException) -> str: frames = traceback.extract_tb(exc.__traceback__) site = f"{frames[-1].filename}:{frames[-1].lineno}" if frames else "unknown"` (стр. 180)
-- `_log_record_fingerprintdef _log_record_fingerprint(record: logging.LogRecord) -> str: return f"log:{record.name}:{record.funcName}:{record.lineno}"` (стр. 190)
-- `_dispatch_lockeddef _dispatch_locked(state: _NotifierState, text: str, fingerprint: str) -> bool: """Отправка текста владельцам. Вызывать под state.lock.""" try: chat_ids = _fetch_owner_chat_ids()` (стр. 194)
-- `_throttle_check_lockeddef _throttle_check_locked(state: _NotifierState, fingerprint: str) -> str | None: """Возвращает причину подавления или None, если можно отправлять.""" now_monotonic = time.monoton` (стр. 247)
-- `_submitdef _submit(*, fingerprint: str, message: str) -> bool: if not _enabled():` (стр. 263)
-- `notify_exceptiondef notify_exception(exc: BaseException, *, context: str = "") -> bool: """Отправить исключение владельцам в Telegram. Никогда не бросает.""" try: frames = traceback.extract_tb(exc` (стр. 275)
-- `notify_error_messagedef notify_error_message(message: str, *, context: str = "", source: str = "") -> bool: """Отправить произвольный текст ошибки владельцам в Telegram.""" try: fingerprint_source = f` (стр. 299)
-- `class TelegramErrorNotifyHandler(logging.Handler):` (стр. 320)
-- `TelegramErrorNotifyHandler.__init__def __init__(self, level: int = logging.ERROR) -> None: super().__init__(level=level)` (стр. 323)
-- `TelegramErrorNotifyHandler.emitdef emit(self, record: logging.LogRecord) -> None: if _is_own_record(record):` (стр. 326)
-- `install_error_notifyingdef install_error_notifying() -> None: """Идемпотентно подключает logging-handler к корневому логгеру. Проверка по имени класса (а не по флагу модуля): тесты выгружают и заново имп` (стр. 353)
-- `unhandled_exception_handlerasync def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse: """FastAPI/Starlette handler для несловленных исключений (HTTP 500).""" notify_exception(ex` (стр. 368)
+- `_fetch_owner_chat_idsdef _fetch_owner_chat_ids() -> list[str]: """Получатель ошибок: только создатель (primary owner) с привязанным Telegram.""" db = SessionLocal() try: rows = db.execute( select(Staff` (стр. 99)
+- `_send_via_botdef _send_via_bot(chat_id: str, text: str) -> None: """Ленивый импорт, чтобы избежать циклического импорта с bot.py.""" try: from backend.bot import send_telegram_message except Im` (стр. 123)
+- `_truncatedef _truncate(text: str, limit: int) -> str: if len(text) <= limit: return text return text[: max(limit - 20, 0)].rstrip() + "\n…[сообщение обрезано]"` (стр. 132)
+- `_build_messagedef _build_message( *, kind: str, context: str, error_type: str, message: str, where: str, tb_text: str,` (стр. 138)
+- `_exception_wheredef _exception_where(exc: BaseException) -> str: frames = traceback.extract_tb(exc.__traceback__) if not frames: return "" last = frames[-1] filename = os.path.basename(last.filena` (стр. 168)
+- `_exception_fingerprintdef _exception_fingerprint(exc: BaseException) -> str: frames = traceback.extract_tb(exc.__traceback__) site = f"{frames[-1].filename}:{frames[-1].lineno}" if frames else "unknown"` (стр. 177)
+- `_log_record_fingerprintdef _log_record_fingerprint(record: logging.LogRecord) -> str: return f"log:{record.name}:{record.funcName}:{record.lineno}"` (стр. 187)
+- `_dispatch_lockeddef _dispatch_locked(state: _NotifierState, text: str, fingerprint: str) -> bool: """Отправка текста владельцам. Вызывать под state.lock.""" try: chat_ids = _fetch_owner_chat_ids()` (стр. 191)
+- `_throttle_check_lockeddef _throttle_check_locked(state: _NotifierState, fingerprint: str) -> str | None: """Возвращает причину подавления или None, если можно отправлять.""" now_monotonic = time.monoton` (стр. 244)
+- `_submitdef _submit(*, fingerprint: str, message: str) -> bool: if not _enabled():` (стр. 260)
+- `notify_exceptiondef notify_exception(exc: BaseException, *, context: str = "") -> bool: """Отправить исключение владельцам в Telegram. Никогда не бросает.""" try: frames = traceback.extract_tb(exc` (стр. 272)
+- `notify_error_messagedef notify_error_message(message: str, *, context: str = "", source: str = "") -> bool: """Отправить произвольный текст ошибки владельцам в Telegram.""" try: fingerprint_source = f` (стр. 296)
+- `class TelegramErrorNotifyHandler(logging.Handler):` (стр. 317)
+- `TelegramErrorNotifyHandler.__init__def __init__(self, level: int = logging.ERROR) -> None: super().__init__(level=level)` (стр. 320)
+- `TelegramErrorNotifyHandler.emitdef emit(self, record: logging.LogRecord) -> None: if _is_own_record(record):` (стр. 323)
+- `install_error_notifyingdef install_error_notifying() -> None: """Идемпотентно подключает logging-handler к корневому логгеру. Проверка по имени класса (а не по флагу модуля): тесты выгружают и заново имп` (стр. 350)
+- `unhandled_exception_handlerasync def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse: """FastAPI/Starlette handler для несловленных исключений (HTTP 500).""" notify_exception(ex` (стр. 365)
 
 ### backend/app/exports.py (3397 строк)
 
@@ -4440,6 +4440,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/app/error_notifier.py` (2026-08-24 22:26)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 22:18)
 - `backend/bot.py` (2026-08-24 22:11)
 - `REDESIGN_PLAN.md` (2026-08-24 21:44)
@@ -4453,5 +4454,4 @@ concept1.0/
 - `frontend/src/app/components/owner/screens/OwnerClientsScreen.tsx` (2026-08-24 20:33)
 - `frontend/src/app/components/admin/screens/AdminStockPage.tsx` (2026-08-24 20:09)
 - `frontend/src/app/components/owner/screens/OwnerStockPage.tsx` (2026-08-24 19:37)
-- `backend/app/error_notifier.py` (2026-08-24 19:32)
 - `backend/tests/test_error_notifier.py` (2026-08-24 19:31)
