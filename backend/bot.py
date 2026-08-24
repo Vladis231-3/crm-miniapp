@@ -14,12 +14,14 @@ from uuid import uuid4
 try:
     from app.config import get_settings
     from app.database import session_scope
+    from app.error_notifier import install_error_notifying
     from app.models import AppSetting, Notification, StaffUser
     from app.schemas import normalize_phone_digits
     from app.telegram_linking import confirm_link_code
 except ImportError:
     from backend.app.config import get_settings
     from backend.app.database import session_scope
+    from backend.app.error_notifier import install_error_notifying
     from backend.app.models import AppSetting, Notification, StaffUser
     from backend.app.schemas import normalize_phone_digits
     from backend.app.telegram_linking import confirm_link_code
@@ -667,6 +669,11 @@ def process_telegram_update(update: dict[str, Any]) -> None:
 
 def run_polling() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    try:
+        # Ошибки цикла бота (logging.error/exception ниже) дублируются в ТГ владельцам.
+        install_error_notifying()
+    except Exception:  # noqa: BLE001 — нотификатор не должен мешать работе бота
+        logging.exception("Failed to install Telegram error notifier")
     runtime = _build_runtime()
     username = disable_telegram_webhook(drop_pending_updates=False)
     logging.info("Bot started as @%s with mini app %s", username, runtime.webapp_url)
