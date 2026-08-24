@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 16:05 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 16:06 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4243,8 +4243,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `REDESIGN_PLAN.md` (2026-08-24 19:06)
 - `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-24 19:05)
-- `REDESIGN_PLAN.md` (2026-08-24 18:53)
 - `backend/tests/test_google_calendar.py` (2026-08-24 18:46)
 - `backend/tests/test_google_calendar_api.py` (2026-08-24 18:46)
 - `frontend/src/app/components/admin/shared/AssignWorkersDialog.tsx` (2026-08-24 18:31)
