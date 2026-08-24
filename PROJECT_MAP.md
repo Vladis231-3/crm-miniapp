@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 18:44 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 19:18 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4440,12 +4440,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 22:18)
+- `backend/bot.py` (2026-08-24 22:11)
 - `REDESIGN_PLAN.md` (2026-08-24 21:44)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 21:39)
 - `backend/tests/test_money_fixes.py` (2026-08-24 21:32)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-08-24 21:31)
 - `backend/app/main.py` (2026-08-24 21:25)
-- `backend/bot.py` (2026-08-24 21:24)
 - `backend/app/schemas.py` (2026-08-24 21:03)
 - `backend/app/models.py` (2026-08-24 21:03)
 - `backend/app/finance_sync.py` (2026-08-24 21:03)

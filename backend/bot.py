@@ -672,7 +672,7 @@ def run_polling() -> None:
     try:
         # Ошибки цикла бота (logging.error/exception ниже) дублируются в ТГ владельцам.
         install_error_notifying()
-    except Exception:  # noqa: BLE001 — нотификатор не должен мешать работе бота
+    except Exception:
         logging.exception("Failed to install Telegram error notifier")
     runtime = _build_runtime()
     username = disable_telegram_webhook(drop_pending_updates=False)
