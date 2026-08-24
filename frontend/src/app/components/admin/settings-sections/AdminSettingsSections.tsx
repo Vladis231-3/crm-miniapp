@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Bell, Eye, EyeOff, Save, Shield, Trash2 } from 'lucide-react';
+import { AttendanceTable } from '../../shared/AttendanceTable';
 
 /* ── Мелкие хелперы (копия из AdminApp для самодостаточности секций) ── */
 const SERVICE_TYPE_OPTIONS = [
@@ -527,6 +529,287 @@ export function ContentSectionShell({
   return (
     <SectionShell title="Контент сайта" onBack={onBack}>
       {children}
+    </SectionShell>
+  );
+}
+
+/* ── SHIFT (открытие смены) — self-contained с фото-пайплайном ── */
+import { useApp } from '../../../context/AppContext';
+
+const SHIFT_PHOTO_CATEGORIES = [
+  { id: 'floor', label: 'Полы' },
+  { id: 'cloths', label: 'Тряпки' },
+  { id: 'chemistry', label: 'Химия' },
+  { id: 'sinks', label: 'Раковины и зона воды' },
+  { id: 'buckets', label: 'Ведра и ёмкости' },
+  { id: 'tools', label: 'Инструменты' },
+  { id: 'machines', label: 'Аппараты и техника' },
+  { id: 'vacuum', label: 'Пылесосы' },
+  { id: 'boxes', label: 'Боксы' },
+  { id: 'detailRoom', label: 'Детейлинг зона' },
+  { id: 'warehouse', label: 'Склад' },
+  { id: 'consumables', label: 'Расходники' },
+  { id: 'uniform', label: 'Форма и экипировка' },
+  { id: 'waiting', label: 'Зона ожидания' },
+  { id: 'other', label: 'Прочее' },
+] as const;
+
+const SHIFT_PHOTO_MAX_DIMENSION = 1280;
+const SHIFT_PHOTO_TARGET_BYTES = 450 * 1024;
+const SHIFT_PHOTO_MIN_QUALITY = 0.45;
+
+function dataUrlApproxBytes(dataUrl: string) {
+  const [, encoded = ''] = dataUrl.split(',', 2);
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((encoded.length * 3) / 4) - padding);
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Не удалось обработать фото'));
+    image.src = src;
+  });
+}
+
+async function compressShiftPhoto(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImage(objectUrl);
+    const scale = Math.min(1, SHIFT_PHOTO_MAX_DIMENSION / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Не удалось подготовить фото');
+    context.drawImage(image, 0, 0, width, height);
+    let quality = 0.82;
+    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+    while (dataUrlApproxBytes(dataUrl) > SHIFT_PHOTO_TARGET_BYTES && quality > SHIFT_PHOTO_MIN_QUALITY) {
+      quality = Math.max(SHIFT_PHOTO_MIN_QUALITY, quality - 0.08);
+      dataUrl = canvas.toDataURL('image/jpeg', quality);
+    }
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export function ShiftSection({ onBack }: { onBack: () => void }) {
+  const { stockItems, masterWorkers, listAdminShiftInspections, submitAdminShiftInspection, isDark } = useApp();
+
+  const [shiftPhotos, setShiftPhotos] = useState<Record<string, { dataUrl: string; fileName: string }>>({});
+  const [shiftDraft, setShiftDraft] = useState<{ note: string; masterIds: string[] }>({ note: '', masterIds: [] });
+  const [shiftSubmitting, setShiftSubmitting] = useState(false);
+  const [shiftError, setShiftError] = useState<string | null>(null);
+  const [shiftInspections, setShiftInspections] = useState<any[]>([]);
+
+  useEffect(() => {
+    listAdminShiftInspections().then(setShiftInspections).catch(() => {});
+  }, []);
+
+  const shiftSupplies = (
+    stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники').length > 0
+      ? stockItems.filter((item) => item.category === 'Химия' || item.category === 'Расходники')
+      : [
+          { id: 'preset-foam', name: 'Активная пена' },
+          { id: 'preset-shampoo', name: 'Автошампунь' },
+          { id: 'preset-microfiber', name: 'Микрофибра' },
+          { id: 'preset-gloves', name: 'Перчатки' },
+        ]
+  );
+
+  const uploadedShiftPhotos = SHIFT_PHOTO_CATEGORIES.map((category) => ({
+    ...category,
+    dataUrl: shiftPhotos[category.id]?.dataUrl || '',
+    fileName: shiftPhotos[category.id]?.fileName || '',
+  })).filter((item) => item.dataUrl);
+
+  const handleShiftPhotoChange = async (categoryId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      setShiftError(null);
+      const dataUrl = await compressShiftPhoto(file);
+      setShiftPhotos((current) => ({ ...current, [categoryId]: { dataUrl, fileName: file.name } }));
+    } catch (error) {
+      setShiftError(error instanceof Error ? error.message : 'Не удалось подготовить фото');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleSubmitShiftInspection = async () => {
+    setShiftError(null);
+    setShiftSubmitting(true);
+    try {
+      const primaryPhoto = uploadedShiftPhotos[0]?.dataUrl || '';
+      if (!primaryPhoto) throw new Error('Загрузите хотя бы одно фото для открытия смены');
+      if (shiftDraft.masterIds.length === 0) throw new Error('Отметьте мастеров, которые вышли в смену');
+      const uploadedCategoriesLabel = uploadedShiftPhotos.map((item) => item.label).join(', ');
+      const composedNote = [
+        shiftDraft.note.trim(),
+        uploadedCategoriesLabel ? `Фото по категориям: ${uploadedCategoriesLabel}` : '',
+      ].filter(Boolean).join('\n');
+      const saved = await submitAdminShiftInspection({
+        floorPhotoUrl: primaryPhoto,
+        clothsReady: true,
+        note: composedNote,
+        supplies: shiftSupplies.map((item: any) => ({ stockItemId: item.id, checked: false })),
+        masters: masterWorkers.map((worker) => ({ workerId: worker.id, checked: shiftDraft.masterIds.includes(worker.id) })),
+      });
+      setShiftInspections((current) => [saved, ...current]);
+      setShiftDraft({ note: '', masterIds: [] });
+      setShiftPhotos({});
+    } catch (error) {
+      setShiftError(error instanceof Error ? error.message : 'Не удалось отправить чек-лист смены');
+    } finally {
+      setShiftSubmitting(false);
+    }
+  };
+
+  const statusPill = (status: string) =>
+    status === 'pending'
+      ? 'bg-[var(--status-warning-soft)] text-[var(--status-warning)]'
+      : status === 'approved'
+        ? 'bg-[var(--status-success-soft)] text-[var(--status-success)]'
+        : 'bg-[var(--status-danger-soft)] text-[var(--status-danger)]';
+  const statusLabel = (status: string) =>
+    status === 'pending' ? 'На проверке' : status === 'approved' ? 'Подтверждено' : 'Отказ';
+  const statusTitle = (status: string) =>
+    status === 'pending' ? 'Ожидает подтверждения владельца' : status === 'approved' ? 'Смена подтверждена' : 'Смена отклонена';
+
+  return (
+    <SectionShell
+      title="Открытие смены"
+      subtitle="Перед стартом смены загрузи фото по всем нужным категориям. Чекбоксы убраны, теперь подтверждение идёт через фотофиксацию."
+      onBack={onBack}
+    >
+      <div className={`${glassCls} mb-4 rounded-2xl p-4`}>
+        <div className="mb-3 font-medium">Фото-чеклист открытия смены</div>
+        <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${subCls}`} style={{ background: 'rgba(128,128,128,0.08)' }}>
+          Загрузи до 15 фото. Первое загруженное фото уйдёт владельцу как основное, а список категорий сохранится в комментарии смены.
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          {SHIFT_PHOTO_CATEGORIES.map((category) => {
+            const photo = shiftPhotos[category.id];
+            return (
+              <div key={category.id} className="rounded-2xl bg-[var(--sunken,#EEEFF3)] p-3 dark:bg-white/5">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">{category.label}</div>
+                    <div className={`text-xs ${subCls}`}>{photo?.fileName || 'Фото ещё не загружено'}</div>
+                  </div>
+                  {photo && <div className={`text-[11px] ${subCls}`}>Загружено</div>}
+                </div>
+                <label className={`block cursor-pointer rounded-2xl border border-dashed px-4 py-4 text-center outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${isDark ? 'border-white/15' : 'border-black/10'}`}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => { void handleShiftPhotoChange(category.id, event); }}
+                  />
+                  <div className="text-sm font-medium">{photo ? 'Заменить фото' : `Загрузить фото: ${category.label}`}</div>
+                  <div className={`mt-1 text-xs ${subCls}`}>Фото категории {category.label.toLowerCase()}</div>
+                </label>
+                {photo?.dataUrl && (
+                  <img src={photo.dataUrl} alt={category.label} className="mt-3 h-40 w-full rounded-2xl object-cover" />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={`${glassCls} mb-4 rounded-2xl p-4`}>
+        <div className="mb-3 font-medium">Мастера на смене</div>
+        <div className="space-y-2">
+          {masterWorkers.filter((worker) => worker.active).map((worker) => {
+            const checked = shiftDraft.masterIds.includes(worker.id);
+            return (
+              <button
+                key={worker.id}
+                type="button"
+                onClick={() =>
+                  setShiftDraft((current) => ({
+                    ...current,
+                    masterIds: checked
+                      ? current.masterIds.filter((id) => id !== worker.id)
+                      : [...current.masterIds, worker.id],
+                  }))
+                }
+                className={`${glassCls} w-full rounded-2xl p-3 text-left transition-all ${checked ? 'ring-2 ring-[var(--primary-600)]' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">{worker.name}</div>
+                    <div className={`text-xs ${subCls}`}>{worker.specialty || worker.experience || 'Мастер'}</div>
+                  </div>
+                  <span
+                    className="flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-[11px] font-semibold text-white"
+                    style={{ background: checked ? 'var(--primary-600)' : 'var(--switch-background, #9CA3AF)' }}
+                  >
+                    {checked ? 'Есть' : 'Нет'}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className={`mt-3 text-xs ${subCls}`}>
+          Отметь только тех мастеров, которые реально вышли в смену. Проверку расходников подтверждает владелец после фото.
+        </div>
+      </div>
+
+      <div className={`${glassCls} mb-4 rounded-2xl p-4`}>
+        <div className="mb-3 font-medium">Комментарий к открытию смены</div>
+        <textarea
+          className={`${inputCls} min-h-[88px] resize-none`}
+          placeholder="Комментарий для владельца"
+          value={shiftDraft.note}
+          onChange={(event) => setShiftDraft((current) => ({ ...current, note: event.target.value }))}
+        />
+        {shiftError && <div className="mt-3 text-xs text-[var(--status-danger)]">{shiftError}</div>}
+        <button
+          onClick={() => { void handleSubmitShiftInspection(); }}
+          disabled={shiftSubmitting}
+          className="mt-3 w-full rounded-2xl py-3 font-semibold text-white disabled:opacity-60"
+          style={{ background: 'var(--primary-600)' }}
+        >
+          {shiftSubmitting ? 'Отправляем владельцу...' : 'Начать смену и отправить владельцу'}
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {shiftInspections.map((inspection) => (
+          <div key={inspection.id} className={`${glassCls} rounded-2xl p-4`}>
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <div className="font-medium">{statusTitle(inspection.status)}</div>
+                <div className={`text-xs ${subCls}`}>{new Date(inspection.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+              <div className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPill(inspection.status)}`}>
+                {statusLabel(inspection.status)}
+              </div>
+            </div>
+            <div className={`text-xs ${subCls}`}>
+              Мастера: {inspection.masters.filter((item: any) => item.checked).map((item: any) => item.workerName).join(', ') || 'Не выбраны'}
+            </div>
+            <div className={`mt-1 text-xs ${subCls}`}>
+              Расходники: {inspection.supplies.filter((item: any) => item.checked).map((item: any) => item.name).join(', ') || 'Не отмечены'}
+            </div>
+            {inspection.issueNote && <div className="mt-2 text-xs text-[var(--status-danger)]">Проблема: {inspection.issueNote}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div className={`${glassCls} mt-4 rounded-2xl p-4`}>
+        <div className="mb-4 font-medium">Посещаемость мастеров</div>
+        <AttendanceTable mode="admin" primary="var(--primary-600)" />
+      </div>
     </SectionShell>
   );
 }

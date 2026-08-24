@@ -19,6 +19,7 @@ import {
   PricingSection,
   SecuritySection,
   ContentSectionShell,
+  ShiftSection,
 } from './settings-sections/AdminSettingsSections';
 import { AdminPayrollPage } from './screens/AdminPayrollPage';
 import { AdminStatsPage } from './screens/AdminStatsPage';
@@ -1598,128 +1599,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
             />
           )}
 
-          {page === 'settings' && settingsSection === 'shift' && (
-            <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
-              <h2 className="font-semibold mb-1">Открытие смены</h2>
-              <p className={`text-xs ${sub} mb-4`}>Перед стартом смены загрузи фото по всем нужным категориям. Чекбоксы убраны, теперь подтверждение идёт через фотофиксацию.</p>
-
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">Фото-чеклист открытия смены</div>
-                <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                  Загрузи до 15 фото. Первое загруженное фото уйдёт владельцу как основное, а список категорий сохранится в комментарии смены.
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {SHIFT_PHOTO_CATEGORIES.map((category) => {
-                    const photo = shiftPhotos[category.id];
-                    return (
-                      <div key={category.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div>
-                            <div className="text-sm font-medium">{category.label}</div>
-                            <div className={`text-xs ${sub}`}>{photo?.fileName || 'Фото ещё не загружено'}</div>
-                          </div>
-                          {photo && <div className={`text-[11px] ${sub}`}>Загружено</div>}
-                        </div>
-                        <label className={`block rounded-2xl border border-dashed px-4 py-4 text-center ${isDark ? 'border-white/15' : 'border-black/10'}`}>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(event) => { void handleShiftPhotoChange(category.id, event); }}
-                          />
-                          <div className="text-sm font-medium">{photo ? 'Заменить фото' : `Загрузить фото: ${category.label}`}</div>
-                          <div className={`text-xs ${sub} mt-1`}>Фото категории {category.label.toLowerCase()}</div>
-                        </label>
-                        {photo?.dataUrl && (
-                          <img src={photo.dataUrl} alt={category.label} className="mt-3 h-40 w-full rounded-2xl object-cover" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">Мастера на смене</div>
-                <div className="space-y-2">
-                  {masterWorkers.filter((worker) => worker.active).map((worker) => {
-                    const checked = shiftDraft.masterIds.includes(worker.id);
-                    return (
-                      <button
-                        key={worker.id}
-                        type="button"
-                        onClick={() => setShiftDraft((current) => ({
-                          ...current,
-                          masterIds: checked
-                            ? current.masterIds.filter((id) => id !== worker.id)
-                            : [...current.masterIds, worker.id],
-                        }))}
-                        className={`${glass} w-full rounded-2xl p-3 text-left transition-all ${checked ? 'ring-2' : ''}`}
-                        style={checked ? { ringColor: primary, outline: `2px solid ${primary}`, outlineOffset: '-2px' } : undefined}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-medium">{worker.name}</div>
-                            <div className={`text-xs ${sub}`}>{worker.specialty || worker.experience || 'Мастер'}</div>
-                          </div>
-                          <div
-                            className="h-6 min-w-6 rounded-full px-2 flex items-center justify-center text-[11px] font-semibold text-white"
-                            style={{ background: checked ? primary : '#9CA3AF' }}
-                          >
-                            {checked ? 'Есть' : 'Нет'}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className={`mt-3 text-xs ${sub}`}>
-                  Отметь только тех мастеров, которые реально вышли в смену. Проверку расходников подтверждает владелец после фото.
-                </div>
-              </div>
-
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">Комментарий к открытию смены</div>
-                <textarea
-                  className={`${inputCls} min-h-[88px] resize-none`}
-                  placeholder="Комментарий для владельца"
-                  value={shiftDraft.note}
-                  onChange={(event) => setShiftDraft((current) => ({ ...current, note: event.target.value }))}
-                />
-                {shiftError && <div className="mt-3 text-xs text-red-500">{shiftError}</div>}
-                <button onClick={() => { void handleSubmitShiftInspection(); }} disabled={shiftSubmitting} className="mt-3 w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: primary }}>
-                  {shiftSubmitting ? 'Отправляем владельцу...' : 'Начать смену и отправить владельцу'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {shiftInspections.map((inspection) => (
-                  <div key={inspection.id} className={`${glass} rounded-2xl p-4`}>
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <div className="font-medium">
-                          {inspection.status === 'pending' ? 'Ожидает подтверждения владельца' : inspection.status === 'approved' ? 'Смена подтверждена' : 'Смена отклонена'}
-                        </div>
-                        <div className={`text-xs ${sub}`}>{inspection.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                      </div>
-                      <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${inspection.status === 'pending' ? 'bg-amber-500/15 text-amber-600' : inspection.status === 'approved' ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
-                        {inspection.status === 'pending' ? 'На проверке' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказ'}
-                      </div>
-                    </div>
-                    <div className={`text-xs ${sub}`}>Мастера: {inspection.masters.filter((item) => item.checked).map((item) => item.workerName).join(', ') || 'Не выбраны'}</div>
-                    <div className={`text-xs ${sub} mt-1`}>Расходники: {inspection.supplies.filter((item) => item.checked).map((item) => item.name).join(', ') || 'Не отмечены'}</div>
-                    {inspection.issueNote && <div className="mt-2 text-xs text-red-500">Проблема: {inspection.issueNote}</div>}
-                  </div>
-                ))}
-              </div>
-
-              <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                <div className="font-medium mb-4">Посещаемость мастеров</div>
-                <AttendanceTable mode="admin" primary={primary} />
-              </div>
-            </motion.div>
-          )}
+          {page === 'settings' && settingsSection === 'shift' && <ShiftSection onBack={() => setSettingsSection(null)} />}
 
           {/* SETTINGS: ATTENDANCE/BOXES/SCHEDULE/NOTIFICATIONS/PROFILE — DS-секции */}
           {page === 'settings' && settingsSection === 'attendance' && (

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 09:43 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 15:13 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **489**
-- Строк кода: **195 832**
+- Строк кода: **195 999**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 299
 
 ## Архитектура
@@ -2106,9 +2106,9 @@ concept1.0/
 - `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 604)
 - `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 627)
 
-### backend/tests/test_google_calendar_pull.py (1294 строк)
+### backend/tests/test_google_calendar_pull.py (1298 строк)
 
-Классы и функции (39):
+Классы и функции (40):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 15)
 - `_eventdef _event( event_id: str, *, start: str = "2026-08-13T10:30:00+03:00", end: str = "2026-08-13T11:15:00+03:00", summary: str = "Мойка", description: str | None = "Клиент: Иван\nТел` (стр. 21)
@@ -2118,37 +2118,38 @@ concept1.0/
 - `GoogleCalendarPullTests.sessiondef session(self): from app.database import SessionLocal return SessionLocal()` (стр. 96)
 - `GoogleCalendarPullTests._save_tokensdef _save_tokens(self) -> None: from app.google_calendar import save_tokens with self.session() as db: save_tokens(db, {"token": "t", "refresh_token": "r"}) db.commit()` (стр. 101)
 - `GoogleCalendarPullTests._patch_calendar_requestdef _patch_calendar_request(self, pages: list) -> patch: """Подменить _calendar_request: каждый вызов возвращает следующую страницу. Элемент может быть dict (страница) или исключен` (стр. 108)
-- `GoogleCalendarPullTests.fake_calendar_requestdef fake_calendar_request(db, settings, method, path, *, params=None, body=None, _retried=False): next_item = consumed.pop(0) if isinstance(next_item, BaseException):` (стр. 115)
-- `GoogleCalendarPullTests.test_pull_skipped_without_tokensdef test_pull_skipped_without_tokens(self) -> None: from app.google_calendar import pull_calendar_changes with self.session() as db: result = pull_calendar_changes(db, self.setting` (стр. 123)
-- `GoogleCalendarPullTests.test_pull_creates_booking_and_client_from_new_eventdef test_pull_creates_booking_and_client_from_new_event(self) -> None: from app.google_calendar import pull_calendar_changes self._save_tokens() pages = [ { "items": [ _event( "g-n` (стр. 132)
-- `GoogleCalendarPullTests.test_pull_updates_booking_time_by_crm_booking_iddef test_pull_updates_booking_time_by_crm_booking_id(self) -> None: from app.google_calendar import pull_calendar_changes from app.models import Booking, Client with self.session()` (стр. 182)
-- `GoogleCalendarPullTests.test_pull_cancels_booking_when_event_deleteddef test_pull_cancels_booking_when_event_deleted(self) -> None: from app.google_calendar import pull_calendar_changes from app.models import Booking, Client with self.session() as ` (стр. 238)
-- `GoogleCalendarPullTests.test_pull_updates_existing_booking_without_crm_linkdef test_pull_updates_existing_booking_without_crm_link(self) -> None: """События, созданные старым кодом (без extendedProperties), обновляются по google_event_id и не дублируются.` (стр. 279)
-- `GoogleCalendarPullTests.test_pull_passes_sync_token_on_next_rundef test_pull_passes_sync_token_on_next_run(self) -> None: from app.google_calendar import pull_calendar_changes self._save_tokens() pages = [{"items": [], "nextSyncToken": "tok-1"` (стр. 325)
-- `GoogleCalendarPullTests.fake_seconddef fake_second(db, settings, method, path, *, params=None, body=None, _retried=False): captured.append(dict(params or {})) return {"items": [], "nextSyncToken": "tok-2"}` (стр. 338)
-- `GoogleCalendarPullTests.test_pull_full_rescan_when_sync_token_expireddef test_pull_full_rescan_when_sync_token_expired(self) -> None: from app.google_calendar import _GoogleApiError, pull_calendar_changes self._save_tokens() captured: list[dict] = [` (стр. 352)
-- `GoogleCalendarPullTests.fake_rescandef fake_rescan(db, settings, method, path, *, params=None, body=None, _retried=False): captured.append(dict(params or {})) next_item = pages.pop(0) if isinstance(next_item, BaseEx` (стр. 362)
-- `GoogleCalendarPullTests.test_pull_skips_foreign_event_with_wrong_crm_linkdef test_pull_skips_foreign_event_with_wrong_crm_link(self) -> None: """Событие с чужим crmBookingId (подделанным или от другой записи) не должно перезаписывать чужую запись.""" fr` (стр. 387)
-- `GoogleCalendarPullTests.test_pull_reports_auth_failed_with_google_detailsdef test_pull_reports_auth_failed_with_google_details(self) -> None: """401/403 после попытки обновления токена -> error="auth_failed"; детали из ответа Google пробрасываются в err` (стр. 440)
-- `GoogleCalendarPullTests.test_pull_reports_auth_failed_with_raw_detailsdef test_pull_reports_auth_failed_with_raw_details(self) -> None: """Прочие 401/403 (не accessNotConfigured) отдают исходный текст Google.""" from app.google_calendar import _Googl` (стр. 467)
-- `GoogleCalendarPullTests.test_pull_parses_scrambled_descriptiondef test_pull_parses_scrambled_description(self) -> None: """Свободный текст события: имя, телефон, авто, госномер, услуга в любом порядке.""" from app.google_calendar import pull_` (стр. 482)
-- `GoogleCalendarPullTests.test_pull_parses_latin_brand_and_short_platedef test_pull_parses_latin_brand_and_short_plate(self) -> None: """Латиница марки, телефон «+7 (…)», госномер на 777.""" from app.google_calendar import pull_calendar_changes from ` (стр. 532)
-- `GoogleCalendarPullTests.test_pull_keeps_strict_format_prioritydef test_pull_keeps_strict_format_priority(self) -> None: """«Ключ: значение» имеет приоритет над свободным распознаванием.""" from app.google_calendar import pull_calendar_changes` (стр. 569)
-- `GoogleCalendarPullTests.test_sync_creates_event_for_admin_review_bookingdef test_sync_creates_event_for_admin_review_booking(self) -> None: """Заявка клиента (admin_review) сразу синхронизируется в календарь.""" from unittest.mock import patch as _patc` (стр. 609)
-- `GoogleCalendarPullTests.test_sync_skips_deleted_statusdef test_sync_skips_deleted_status(self) -> None: """Отменённая запись не создаёт событие в календаре.""" from unittest.mock import patch as _patch from app.google_calendar import ` (стр. 650)
-- `GoogleCalendarPullTests.test_pull_parses_free_form_bookingdef test_pull_parses_free_form_booking(self) -> None: """«миша ремонт скола мерседес 79872136194» разкладывается по полям.""" from app.google_calendar import pull_calendar_changes ` (стр. 689)
-- `GoogleCalendarPullTests.test_pull_falls_back_to_free_text_slice_for_servicedef test_pull_falls_back_to_free_text_slice_for_service(self) -> None: """Без совпадения в каталоге услугой становится остаток текста.""" from app.google_calendar import pull_calen` (стр. 738)
-- `GoogleCalendarPullTests.test_pull_does_not_duplicate_existing_bookingdef test_pull_does_not_duplicate_existing_booking(self) -> None: """Запись из бота и то же событие из Google не дают дубля.""" from app.google_calendar import pull_calendar_changes` (стр. 774)
-- `GoogleCalendarPullTests.test_pull_links_booking_to_existing_clientdef test_pull_links_booking_to_existing_client(self) -> None: """Запись из Google падает в карточку уже известного клиента.""" from app.google_calendar import pull_calendar_changes` (стр. 824)
-- `GoogleCalendarPullTests.test_pull_parses_rare_name_before_phonedef test_pull_parses_rare_name_before_phone(self) -> None: """Имя, которого нет в словаре, определяется по соседству с телефоном. «Гарик» не входит в _COMMON_NAMES — эвристика «ряд` (стр. 864)
-- `GoogleCalendarPullTests.test_pull_parses_rare_name_after_phonedef test_pull_parses_rare_name_after_phone(self) -> None: """Имя после телефона в конце текста тоже определяется.""" from app.google_calendar import pull_calendar_changes from app.` (стр. 905)
-- `GoogleCalendarPullTests.test_pull_does_not_steal_service_word_as_namedef test_pull_does_not_steal_service_word_as_name(self) -> None: """Служебное слово рядом с телефоном не выдаётся за имя клиента.""" from app.google_calendar import pull_calendar_c` (стр. 941)
-- `GoogleCalendarPullTests.test_pull_transfers_google_edits_to_bookingdef test_pull_transfers_google_edits_to_booking(self) -> None: """Правки в Google (заголовок, клиент, бокс, комментарий) переносятся в CRM. Владелец отредактировал событие в Google` (стр. 979)
-- `GoogleCalendarPullTests.test_pull_does_not_overwrite_newer_crm_editdef test_pull_does_not_overwrite_newer_crm_edit(self) -> None: """Событие не правилось после последней записи в Google — правки CRM не затираются. Если запись недавно правилась в C` (стр. 1054)
-- `GoogleCalendarPullTests.test_pull_transfers_free_text_car_plate_to_existing_bookingdef test_pull_transfers_free_text_car_plate_to_existing_booking(self) -> None: """Свободный текст «бмв х5 у888уу716» в событии доходит до полей Авто/Номер. Существующая запись прав` (стр. 1120)
-- `GoogleCalendarPullTests.test_pull_does_not_use_plate_letters_as_namedef test_pull_does_not_use_plate_letters_as_name(self) -> None: """Буквы госномера «у888уу716» не становятся именем клиента «Уу».""" from app.google_calendar import pull_calendar_c` (стр. 1190)
-- `GoogleCalendarPullTests.test_pull_parses_foreign_platedef test_pull_parses_foreign_plate(self) -> None: """Иностранный госномер (M123AB) распознаётся и нормализуется.""" from app.google_calendar import pull_calendar_changes from app.m` (стр. 1225)
-- `GoogleCalendarPullTests.test_pull_parses_new_chinese_branddef test_pull_parses_new_chinese_brand(self) -> None: """Новые марки из расширенного словаря (хавал, танк) распознаются.""" from app.google_calendar import pull_calendar_changes fr` (стр. 1259)
+- `GoogleCalendarPullTests.fake_calendar_requestdef fake_calendar_request( db, settings, method, path, *, params=None, body=None, _retried=False, conn=None` (стр. 117)
+- `GoogleCalendarPullTests._stored_sync_tokendef _stored_sync_token(self, db) -> str | None: """syncToken из первого (владельческого) подключения.""" from app.google_calendar import get_connection conn = get_connection(db, "o` (стр. 127)
+- `GoogleCalendarPullTests.test_pull_skipped_without_tokensdef test_pull_skipped_without_tokens(self) -> None: from app.google_calendar import pull_calendar_changes with self.session() as db: result = pull_calendar_changes(db, self.setting` (стр. 134)
+- `GoogleCalendarPullTests.test_pull_creates_booking_and_client_from_new_eventdef test_pull_creates_booking_and_client_from_new_event(self) -> None: from app.google_calendar import pull_calendar_changes self._save_tokens() pages = [ { "items": [ _event( "g-n` (стр. 143)
+- `GoogleCalendarPullTests.test_pull_updates_booking_time_by_crm_booking_iddef test_pull_updates_booking_time_by_crm_booking_id(self) -> None: from app.google_calendar import pull_calendar_changes from app.models import Booking, Client with self.session()` (стр. 189)
+- `GoogleCalendarPullTests.test_pull_cancels_booking_when_event_deleteddef test_pull_cancels_booking_when_event_deleted(self) -> None: from app.google_calendar import pull_calendar_changes from app.models import Booking, Client with self.session() as ` (стр. 245)
+- `GoogleCalendarPullTests.test_pull_updates_existing_booking_without_crm_linkdef test_pull_updates_existing_booking_without_crm_link(self) -> None: """События, созданные старым кодом (без extendedProperties), обновляются по google_event_id и не дублируются.` (стр. 286)
+- `GoogleCalendarPullTests.test_pull_passes_sync_token_on_next_rundef test_pull_passes_sync_token_on_next_run(self) -> None: from app.google_calendar import pull_calendar_changes self._save_tokens() pages = [{"items": [], "nextSyncToken": "tok-1"` (стр. 332)
+- `GoogleCalendarPullTests.fake_seconddef fake_second(db, settings, method, path, *, params=None, body=None, _retried=False, conn=None): captured.append(dict(params or {})) return {"items": [], "nextSyncToken": "tok-2"` (стр. 345)
+- `GoogleCalendarPullTests.test_pull_full_rescan_when_sync_token_expireddef test_pull_full_rescan_when_sync_token_expired(self) -> None: from app.google_calendar import _GoogleApiError, pull_calendar_changes self._save_tokens() captured: list[dict] = [` (стр. 359)
+- `GoogleCalendarPullTests.fake_rescandef fake_rescan(db, settings, method, path, *, params=None, body=None, _retried=False, conn=None): captured.append(dict(params or {})) next_item = pages.pop(0) if isinstance(next_i` (стр. 369)
+- `GoogleCalendarPullTests.test_pull_skips_foreign_event_with_wrong_crm_linkdef test_pull_skips_foreign_event_with_wrong_crm_link(self) -> None: """Событие с чужим crmBookingId (подделанным или от другой записи) не должно перезаписывать чужую запись.""" fr` (стр. 390)
+- `GoogleCalendarPullTests.test_pull_reports_auth_failed_with_google_detailsdef test_pull_reports_auth_failed_with_google_details(self) -> None: """401/403 после попытки обновления токена -> error="auth_failed"; детали из ответа Google пробрасываются в err` (стр. 443)
+- `GoogleCalendarPullTests.test_pull_reports_auth_failed_with_raw_detailsdef test_pull_reports_auth_failed_with_raw_details(self) -> None: """Прочие 401/403 (не accessNotConfigured) отдают исходный текст Google.""" from app.google_calendar import _Googl` (стр. 470)
+- `GoogleCalendarPullTests.test_pull_parses_scrambled_descriptiondef test_pull_parses_scrambled_description(self) -> None: """Свободный текст события: имя, телефон, авто, госномер, услуга в любом порядке.""" from app.google_calendar import pull_` (стр. 486)
+- `GoogleCalendarPullTests.test_pull_parses_latin_brand_and_short_platedef test_pull_parses_latin_brand_and_short_plate(self) -> None: """Латиница марки, телефон «+7 (…)», госномер на 777.""" from app.google_calendar import pull_calendar_changes from ` (стр. 536)
+- `GoogleCalendarPullTests.test_pull_keeps_strict_format_prioritydef test_pull_keeps_strict_format_priority(self) -> None: """«Ключ: значение» имеет приоритет над свободным распознаванием.""" from app.google_calendar import pull_calendar_changes` (стр. 573)
+- `GoogleCalendarPullTests.test_sync_creates_event_for_admin_review_bookingdef test_sync_creates_event_for_admin_review_booking(self) -> None: """Заявка клиента (admin_review) сразу синхронизируется в календарь.""" from unittest.mock import patch as _patc` (стр. 613)
+- `GoogleCalendarPullTests.test_sync_skips_deleted_statusdef test_sync_skips_deleted_status(self) -> None: """Отменённая запись не создаёт событие в календаре.""" from unittest.mock import patch as _patch from app.google_calendar import ` (стр. 654)
+- `GoogleCalendarPullTests.test_pull_parses_free_form_bookingdef test_pull_parses_free_form_booking(self) -> None: """«миша ремонт скола мерседес 79872136194» разкладывается по полям.""" from app.google_calendar import pull_calendar_changes ` (стр. 693)
+- `GoogleCalendarPullTests.test_pull_falls_back_to_free_text_slice_for_servicedef test_pull_falls_back_to_free_text_slice_for_service(self) -> None: """Без совпадения в каталоге услугой становится остаток текста.""" from app.google_calendar import pull_calen` (стр. 742)
+- `GoogleCalendarPullTests.test_pull_does_not_duplicate_existing_bookingdef test_pull_does_not_duplicate_existing_booking(self) -> None: """Запись из бота и то же событие из Google не дают дубля.""" from app.google_calendar import pull_calendar_changes` (стр. 778)
+- `GoogleCalendarPullTests.test_pull_links_booking_to_existing_clientdef test_pull_links_booking_to_existing_client(self) -> None: """Запись из Google падает в карточку уже известного клиента.""" from app.google_calendar import pull_calendar_changes` (стр. 828)
+- `GoogleCalendarPullTests.test_pull_parses_rare_name_before_phonedef test_pull_parses_rare_name_before_phone(self) -> None: """Имя, которого нет в словаре, определяется по соседству с телефоном. «Гарик» не входит в _COMMON_NAMES — эвристика «ряд` (стр. 868)
+- `GoogleCalendarPullTests.test_pull_parses_rare_name_after_phonedef test_pull_parses_rare_name_after_phone(self) -> None: """Имя после телефона в конце текста тоже определяется.""" from app.google_calendar import pull_calendar_changes from app.` (стр. 909)
+- `GoogleCalendarPullTests.test_pull_does_not_steal_service_word_as_namedef test_pull_does_not_steal_service_word_as_name(self) -> None: """Служебное слово рядом с телефоном не выдаётся за имя клиента.""" from app.google_calendar import pull_calendar_c` (стр. 945)
+- `GoogleCalendarPullTests.test_pull_transfers_google_edits_to_bookingdef test_pull_transfers_google_edits_to_booking(self) -> None: """Правки в Google (заголовок, клиент, бокс, комментарий) переносятся в CRM. Владелец отредактировал событие в Google` (стр. 983)
+- `GoogleCalendarPullTests.test_pull_does_not_overwrite_newer_crm_editdef test_pull_does_not_overwrite_newer_crm_edit(self) -> None: """Событие не правилось после последней записи в Google — правки CRM не затираются. Если запись недавно правилась в C` (стр. 1058)
+- `GoogleCalendarPullTests.test_pull_transfers_free_text_car_plate_to_existing_bookingdef test_pull_transfers_free_text_car_plate_to_existing_booking(self) -> None: """Свободный текст «бмв х5 у888уу716» в событии доходит до полей Авто/Номер. Существующая запись прав` (стр. 1124)
+- `GoogleCalendarPullTests.test_pull_does_not_use_plate_letters_as_namedef test_pull_does_not_use_plate_letters_as_name(self) -> None: """Буквы госномера «у888уу716» не становятся именем клиента «Уу».""" from app.google_calendar import pull_calendar_c` (стр. 1194)
+- `GoogleCalendarPullTests.test_pull_parses_foreign_platedef test_pull_parses_foreign_plate(self) -> None: """Иностранный госномер (M123AB) распознаётся и нормализуется.""" from app.google_calendar import pull_calendar_changes from app.m` (стр. 1229)
+- `GoogleCalendarPullTests.test_pull_parses_new_chinese_branddef test_pull_parses_new_chinese_brand(self) -> None: """Новые марки из расширенного словаря (хавал, танк) распознаются.""" from app.google_calendar import pull_calendar_changes fr` (стр. 1263)
 
 ### backend/tests/test_html_and_headers.py (66 строк)
 
@@ -2479,208 +2480,208 @@ concept1.0/
 - `App` (стр. 717)
 - `path` (стр. 718) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (3775 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (3655 строк)
 
-- `SERVICE_TYPE_OPTIONS` (стр. 88) — локальный
-- `adminServiceResourceGroupForCategory` (стр. 94) — локальный
-- `DEFAULT_SHIFT_SUPPLIES` (стр. 106) — локальный
-- `SHIFT_PHOTO_CATEGORIES` (стр. 112) — локальный
-- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 129) — локальный
-- `SHIFT_PHOTO_TARGET_BYTES` (стр. 130) — локальный
-- `SHIFT_PHOTO_MIN_QUALITY` (стр. 131) — локальный
-- `STOCK_UNITS` (стр. 146) — локальный
-- `isDetailingService` (стр. 147) — локальный
-- `serviceResourceGroup` (стр. 151) — локальный
-- `hasManualScheduling` (стр. 155) — локальный
-- `bookingBoxesForService` (стр. 159) — локальный
-- `bookingLocationLabel` (стр. 167) — локальный
-- `parseBookingMinutes` (стр. 171) — локальный
-- `match` (стр. 172) — локальный
-- `hours` (стр. 174) — локальный
-- `minutes` (стр. 175) — локальный
-- `bookingBlocksBox` (стр. 180) — локальный
-- `nextStart` (стр. 183) — локальный
-- `existingStart` (стр. 184) — локальный
-- `nextEnd` (стр. 186) — локальный
-- `existingEnd` (стр. 187) — локальный
-- `pickDefaultBookingBox` (стр. 191) — локальный
-- `resourceGroup` (стр. 200) — локальный
-- `preferred` (стр. 201) — локальный
-- `fallback` (стр. 202) — локальный
-- `candidates` (стр. 203) — локальный
-- `paymentLabel` (стр. 208) — локальный
-- `normalizePhoneSearchValue` (стр. 217) — локальный
-- `bookingStatusRequiresScheduledSlot` (стр. 221) — локальный
-- `numberInputValue` (стр. 225) — локальный
-- `numberFromInput` (стр. 229) — локальный
-- `toISODate` (стр. 233) — локальный
-- `parsed` (стр. 234) — локальный
-- `y` (стр. 236) — локальный
-- `m` (стр. 237) — локальный
-- `d` (стр. 238) — локальный
-- `TIME_SLOTS` (стр. 242) — локальный
-- `h` (стр. 243) — локальный
-- `m` (стр. 244) — локальный
-- `dataUrlApproxBytes` (стр. 248) — локальный
-- `padding` (стр. 250) — локальный
-- `loadImage` (стр. 254) — локальный
-- `image` (стр. 256) — локальный
-- `compressShiftPhoto` (стр. 263) — локальный
-- `objectUrl` (стр. 264) — локальный
-- `image` (стр. 266) — локальный
-- `scale` (стр. 267) — локальный
-- `width` (стр. 268) — локальный
-- `height` (стр. 269) — локальный
-- `canvas` (стр. 270) — локальный
-- `context` (стр. 273) — локальный
-- `AdminApp` (стр. 291)
-- `parentCategories` (стр. 368) — локальный
-- `selectableBookingDates` (стр. 449) — локальный
-- `masterWorkers` (стр. 455) — локальный
-- `selectedClient` (стр. 456) — локальный
-- `normalizedClientSearchQuery` (стр. 457) — локальный
-- `filteredClients` (стр. 460) — локальный
-- `plates` (стр. 465) — локальный
-- `selectedClientBookings` (стр. 473) — локальный
-- `leftDate` (стр. 477) — локальный
-- `rightDate` (стр. 478) — локальный
-- `selectedClientFilteredBookings` (стр. 483) — локальный
-- `svc` (стр. 485) — локальный
-- `selectedClientVehicles` (стр. 489) — локальный
-- `newBookingClientVehicles` (стр. 493) — локальный
-- `client` (стр. 495) — локальный
-- `selectedClientSpent` (стр. 501) — локальный
-- `selectedClientCompletedCount` (стр. 504) — локальный
-- `selectedClientUpcoming` (стр. 505) — локальный
-- `selectedClientLastVisit` (стр. 506) — локальный
-- `shiftSupplies` (стр. 507) — локальный
-- `uploadedShiftPhotos` (стр. 512) — локальный
-- `selectedService` (стр. 525) — локальный
-- `defaultBoxForService` (стр. 543) — локальный
-- `settingsBoxes` (стр. 555) — локальный
-- `bookingFormBoxes` (стр. 556) — локальный
-- `editBookingBoxes` (стр. 557) — локальный
-- `newBookingLocationLabel` (стр. 560) — локальный
-- `editBookingLocationLabel` (стр. 561) — локальный
-- `modalMaxHeight` (стр. 613) — локальный
-- `vv` (стр. 617) — локальный
-- `handler` (стр. 619) — локальный
-- `el` (стр. 620) — локальный
-- `staffRoleTitle` (стр. 633) — локальный
-- `staffNotificationsRole` (стр. 634) — локальный
-- `adminNotifications` (стр. 635) — локальный
-- `unreadCount` (стр. 640) — локальный
-- `todayBookings` (стр. 641) — локальный
-- `completedAll` (стр. 642) — локальный
-- `totalRevenue` (стр. 643) — локальный
-- `glass` (стр. 645) — локальный
-- `bg` (стр. 646) — локальный
-- `text` (стр. 647) — локальный
-- `sub` (стр. 648) — локальный
-- `primary` (стр. 649) — локальный
-- `accent` (стр. 650) — локальный
-- `surface` (стр. 651) — локальный
-- `inputCls` (стр. 652) — локальный
-- `selectCls` (стр. 653) — локальный
-- `timeToMinutes` (стр. 654) — локальный
-- `match` (стр. 655) — локальный
-- `hours` (стр. 657) — локальный
-- `minutes` (стр. 658) — локальный
-- `byService` (стр. 664) — локальный
-- `byStatus` (стр. 670) — локальный
-- `byPayment` (стр. 681) — локальный
-- `workerStats` (стр. 688) — локальный
-- `bw` (стр. 692) — локальный
-- `avgCheck` (стр. 699) — локальный
-- `conversionRate` (стр. 700) — локальный
-- `scheduleSummary` (стр. 701) — локальный
-- `revenueData` (стр. 702) — локальный
-- `formatted` (стр. 703) — локальный
-- `hourData` (стр. 709) — локальный
-- `handleStatusChange` (стр. 713) — локальный
-- `target` (стр. 714) — локальный
-- `statusNeedsSlot` (стр. 715) — локальный
-- `handleDeleteClient` (стр. 727) — локальный
-- `confirmed` (стр. 728) — локальный
-- `handleCreateClient` (стр. 733) — локальный
-- `nameError` (стр. 735) — локальный
-- `phoneError` (стр. 739) — локальный
-- `carError` (стр. 743) — локальный
-- `plateError` (стр. 747) — локальный
-- `created` (стр. 755) — локальный
-- `handleSaveClientCard` (стр. 777) — локальный
-- `draft` (стр. 778) — локальный
-- `handleShiftPhotoChange` (стр. 792) — локальный
-- `file` (стр. 793) — локальный
-- `dataUrl` (стр. 797) — локальный
-- `handleSubmitShiftInspection` (стр. 809) — локальный
-- `primaryPhoto` (стр. 813) — локальный
-- `uploadedCategoriesLabel` (стр. 820) — локальный
-- `composedNote` (стр. 821) — локальный
-- `saved` (стр. 825) — локальный
-- `validateClientName` (стр. 842) — локальный
-- `validateClientPhone` (стр. 846) — локальный
-- `validateBookingDate` (стр. 850) — локальный
-- `parsedDate` (стр. 852) — локальный
-- `scheduleDay` (стр. 857) — локальный
-- `normalizedTime` (стр. 862) — локальный
-- `slotStart` (стр. 863) — локальный
-- `openMinutes` (стр. 872) — локальный
-- `closeMinutes` (стр. 873) — локальный
-- `slotEnd` (стр. 874) — локальный
-- `validateBookingDateForEdit` (стр. 884) — локальный
-- `parsedDate` (стр. 886) — локальный
-- `scheduleDay` (стр. 891) — локальный
-- `normalizedTime` (стр. 896) — локальный
-- `slotStart` (стр. 897) — локальный
-- `openMinutes` (стр. 903) — локальный
-- `closeMinutes` (стр. 904) — локальный
-- `slotEnd` (стр. 905) — локальный
-- `validateBookingDateTimeFormat` (стр. 915) — локальный
-- `parsedDate` (стр. 917) — локальный
-- `validateNewBookingForm` (стр. 930) — локальный
-- `selectedService` (стр. 932) — локальный
-- `nameError` (стр. 934) — локальный
-- `phoneError` (стр. 938) — локальный
-- `carError` (стр. 942) — локальный
-- `plateError` (стр. 946) — локальный
-- `hasDate` (стр. 949) — локальный
-- `hasTime` (стр. 950) — локальный
-- `requiresScheduledSlot` (стр. 951) — локальный
-- `validation` (стр. 968) — локальный
-- `resetNewBookingDraft` (стр. 978) — локальный
-- `openNewBookingModal` (стр. 1008) — локальный
-- `openAdditionalServiceModal` (стр. 1013) — локальный
-- `openNewBookingForClient` (стр. 1022) — локальный
-- `historyDate` (стр. 1024) — локальный
-- `clientVehicles` (стр. 1026) — локальный
-- `mainVehicle` (стр. 1028) — локальный
-- `hasPriorVisits` (стр. 1029) — локальный
-- `closeNewBookingModal` (стр. 1047) — локальный
-- `handleAddService` (стр. 1052) — локальный
-- `svc` (стр. 1057) — локальный
-- `workersList` (стр. 1058) — локальный
-- `worker` (стр. 1059) — локальный
-- `updatedBooking` (стр. 1062) — локальный
-- `handleRemoveService` (стр. 1082) — локальный
-- `handleOpenEditAsvc` (стр. 1086) — локальный
-- `handleSaveEditAsvc` (стр. 1094) — локальный
-- `workersList` (стр. 1099) — локальный
-- `worker` (стр. 1100) — локальный
-- `updatedBooking` (стр. 1103) — локальный
-- `closeAddServiceModal` (стр. 1120) — локальный
-- `openEditModal` (стр. 1126) — локальный
-- `handleSaveEditedBooking` (стр. 1149) — локальный
-- `editServiceId` (стр. 1151) — локальный
-- `detailingBooking` (стр. 1152) — локальный
-- `requiresScheduledSlot` (стр. 1153) — локальный
-- `statusNeedsSlot` (стр. 1155) — локальный
-- `slotChanged` (стр. 1156) — локальный
-- `validationErrors` (стр. 1158) — локальный
-- `normalizedEditMaterials` (стр. 1173) — локальный
-- `handleDeleteBooking` (стр. 1223) — локальный
-- `name` (стр. 1225) — локальный
-- `handleAssignWorkers` (стр. 1232) — локальный
+- `SERVICE_TYPE_OPTIONS` (стр. 89) — локальный
+- `adminServiceResourceGroupForCategory` (стр. 95) — локальный
+- `DEFAULT_SHIFT_SUPPLIES` (стр. 107) — локальный
+- `SHIFT_PHOTO_CATEGORIES` (стр. 113) — локальный
+- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 130) — локальный
+- `SHIFT_PHOTO_TARGET_BYTES` (стр. 131) — локальный
+- `SHIFT_PHOTO_MIN_QUALITY` (стр. 132) — локальный
+- `STOCK_UNITS` (стр. 147) — локальный
+- `isDetailingService` (стр. 148) — локальный
+- `serviceResourceGroup` (стр. 152) — локальный
+- `hasManualScheduling` (стр. 156) — локальный
+- `bookingBoxesForService` (стр. 160) — локальный
+- `bookingLocationLabel` (стр. 168) — локальный
+- `parseBookingMinutes` (стр. 172) — локальный
+- `match` (стр. 173) — локальный
+- `hours` (стр. 175) — локальный
+- `minutes` (стр. 176) — локальный
+- `bookingBlocksBox` (стр. 181) — локальный
+- `nextStart` (стр. 184) — локальный
+- `existingStart` (стр. 185) — локальный
+- `nextEnd` (стр. 187) — локальный
+- `existingEnd` (стр. 188) — локальный
+- `pickDefaultBookingBox` (стр. 192) — локальный
+- `resourceGroup` (стр. 201) — локальный
+- `preferred` (стр. 202) — локальный
+- `fallback` (стр. 203) — локальный
+- `candidates` (стр. 204) — локальный
+- `paymentLabel` (стр. 209) — локальный
+- `normalizePhoneSearchValue` (стр. 218) — локальный
+- `bookingStatusRequiresScheduledSlot` (стр. 222) — локальный
+- `numberInputValue` (стр. 226) — локальный
+- `numberFromInput` (стр. 230) — локальный
+- `toISODate` (стр. 234) — локальный
+- `parsed` (стр. 235) — локальный
+- `y` (стр. 237) — локальный
+- `m` (стр. 238) — локальный
+- `d` (стр. 239) — локальный
+- `TIME_SLOTS` (стр. 243) — локальный
+- `h` (стр. 244) — локальный
+- `m` (стр. 245) — локальный
+- `dataUrlApproxBytes` (стр. 249) — локальный
+- `padding` (стр. 251) — локальный
+- `loadImage` (стр. 255) — локальный
+- `image` (стр. 257) — локальный
+- `compressShiftPhoto` (стр. 264) — локальный
+- `objectUrl` (стр. 265) — локальный
+- `image` (стр. 267) — локальный
+- `scale` (стр. 268) — локальный
+- `width` (стр. 269) — локальный
+- `height` (стр. 270) — локальный
+- `canvas` (стр. 271) — локальный
+- `context` (стр. 274) — локальный
+- `AdminApp` (стр. 292)
+- `parentCategories` (стр. 369) — локальный
+- `selectableBookingDates` (стр. 450) — локальный
+- `masterWorkers` (стр. 456) — локальный
+- `selectedClient` (стр. 457) — локальный
+- `normalizedClientSearchQuery` (стр. 458) — локальный
+- `filteredClients` (стр. 461) — локальный
+- `plates` (стр. 466) — локальный
+- `selectedClientBookings` (стр. 474) — локальный
+- `leftDate` (стр. 478) — локальный
+- `rightDate` (стр. 479) — локальный
+- `selectedClientFilteredBookings` (стр. 484) — локальный
+- `svc` (стр. 486) — локальный
+- `selectedClientVehicles` (стр. 490) — локальный
+- `newBookingClientVehicles` (стр. 494) — локальный
+- `client` (стр. 496) — локальный
+- `selectedClientSpent` (стр. 502) — локальный
+- `selectedClientCompletedCount` (стр. 505) — локальный
+- `selectedClientUpcoming` (стр. 506) — локальный
+- `selectedClientLastVisit` (стр. 507) — локальный
+- `shiftSupplies` (стр. 508) — локальный
+- `uploadedShiftPhotos` (стр. 513) — локальный
+- `selectedService` (стр. 526) — локальный
+- `defaultBoxForService` (стр. 544) — локальный
+- `settingsBoxes` (стр. 556) — локальный
+- `bookingFormBoxes` (стр. 557) — локальный
+- `editBookingBoxes` (стр. 558) — локальный
+- `newBookingLocationLabel` (стр. 561) — локальный
+- `editBookingLocationLabel` (стр. 562) — локальный
+- `modalMaxHeight` (стр. 614) — локальный
+- `vv` (стр. 618) — локальный
+- `handler` (стр. 620) — локальный
+- `el` (стр. 621) — локальный
+- `staffRoleTitle` (стр. 634) — локальный
+- `staffNotificationsRole` (стр. 635) — локальный
+- `adminNotifications` (стр. 636) — локальный
+- `unreadCount` (стр. 641) — локальный
+- `todayBookings` (стр. 642) — локальный
+- `completedAll` (стр. 643) — локальный
+- `totalRevenue` (стр. 644) — локальный
+- `glass` (стр. 646) — локальный
+- `bg` (стр. 647) — локальный
+- `text` (стр. 648) — локальный
+- `sub` (стр. 649) — локальный
+- `primary` (стр. 650) — локальный
+- `accent` (стр. 651) — локальный
+- `surface` (стр. 652) — локальный
+- `inputCls` (стр. 653) — локальный
+- `selectCls` (стр. 654) — локальный
+- `timeToMinutes` (стр. 655) — локальный
+- `match` (стр. 656) — локальный
+- `hours` (стр. 658) — локальный
+- `minutes` (стр. 659) — локальный
+- `byService` (стр. 665) — локальный
+- `byStatus` (стр. 671) — локальный
+- `byPayment` (стр. 682) — локальный
+- `workerStats` (стр. 689) — локальный
+- `bw` (стр. 693) — локальный
+- `avgCheck` (стр. 700) — локальный
+- `conversionRate` (стр. 701) — локальный
+- `scheduleSummary` (стр. 702) — локальный
+- `revenueData` (стр. 703) — локальный
+- `formatted` (стр. 704) — локальный
+- `hourData` (стр. 710) — локальный
+- `handleStatusChange` (стр. 714) — локальный
+- `target` (стр. 715) — локальный
+- `statusNeedsSlot` (стр. 716) — локальный
+- `handleDeleteClient` (стр. 728) — локальный
+- `confirmed` (стр. 729) — локальный
+- `handleCreateClient` (стр. 734) — локальный
+- `nameError` (стр. 736) — локальный
+- `phoneError` (стр. 740) — локальный
+- `carError` (стр. 744) — локальный
+- `plateError` (стр. 748) — локальный
+- `created` (стр. 756) — локальный
+- `handleSaveClientCard` (стр. 778) — локальный
+- `draft` (стр. 779) — локальный
+- `handleShiftPhotoChange` (стр. 793) — локальный
+- `file` (стр. 794) — локальный
+- `dataUrl` (стр. 798) — локальный
+- `handleSubmitShiftInspection` (стр. 810) — локальный
+- `primaryPhoto` (стр. 814) — локальный
+- `uploadedCategoriesLabel` (стр. 821) — локальный
+- `composedNote` (стр. 822) — локальный
+- `saved` (стр. 826) — локальный
+- `validateClientName` (стр. 843) — локальный
+- `validateClientPhone` (стр. 847) — локальный
+- `validateBookingDate` (стр. 851) — локальный
+- `parsedDate` (стр. 853) — локальный
+- `scheduleDay` (стр. 858) — локальный
+- `normalizedTime` (стр. 863) — локальный
+- `slotStart` (стр. 864) — локальный
+- `openMinutes` (стр. 873) — локальный
+- `closeMinutes` (стр. 874) — локальный
+- `slotEnd` (стр. 875) — локальный
+- `validateBookingDateForEdit` (стр. 885) — локальный
+- `parsedDate` (стр. 887) — локальный
+- `scheduleDay` (стр. 892) — локальный
+- `normalizedTime` (стр. 897) — локальный
+- `slotStart` (стр. 898) — локальный
+- `openMinutes` (стр. 904) — локальный
+- `closeMinutes` (стр. 905) — локальный
+- `slotEnd` (стр. 906) — локальный
+- `validateBookingDateTimeFormat` (стр. 916) — локальный
+- `parsedDate` (стр. 918) — локальный
+- `validateNewBookingForm` (стр. 931) — локальный
+- `selectedService` (стр. 933) — локальный
+- `nameError` (стр. 935) — локальный
+- `phoneError` (стр. 939) — локальный
+- `carError` (стр. 943) — локальный
+- `plateError` (стр. 947) — локальный
+- `hasDate` (стр. 950) — локальный
+- `hasTime` (стр. 951) — локальный
+- `requiresScheduledSlot` (стр. 952) — локальный
+- `validation` (стр. 969) — локальный
+- `resetNewBookingDraft` (стр. 979) — локальный
+- `openNewBookingModal` (стр. 1009) — локальный
+- `openAdditionalServiceModal` (стр. 1014) — локальный
+- `openNewBookingForClient` (стр. 1023) — локальный
+- `historyDate` (стр. 1025) — локальный
+- `clientVehicles` (стр. 1027) — локальный
+- `mainVehicle` (стр. 1029) — локальный
+- `hasPriorVisits` (стр. 1030) — локальный
+- `closeNewBookingModal` (стр. 1048) — локальный
+- `handleAddService` (стр. 1053) — локальный
+- `svc` (стр. 1058) — локальный
+- `workersList` (стр. 1059) — локальный
+- `worker` (стр. 1060) — локальный
+- `updatedBooking` (стр. 1063) — локальный
+- `handleRemoveService` (стр. 1083) — локальный
+- `handleOpenEditAsvc` (стр. 1087) — локальный
+- `handleSaveEditAsvc` (стр. 1095) — локальный
+- `workersList` (стр. 1100) — локальный
+- `worker` (стр. 1101) — локальный
+- `updatedBooking` (стр. 1104) — локальный
+- `closeAddServiceModal` (стр. 1121) — локальный
+- `openEditModal` (стр. 1127) — локальный
+- `handleSaveEditedBooking` (стр. 1150) — локальный
+- `editServiceId` (стр. 1152) — локальный
+- `detailingBooking` (стр. 1153) — локальный
+- `requiresScheduledSlot` (стр. 1154) — локальный
+- `statusNeedsSlot` (стр. 1156) — локальный
+- `slotChanged` (стр. 1157) — локальный
+- `validationErrors` (стр. 1159) — локальный
+- `normalizedEditMaterials` (стр. 1174) — локальный
+- `handleDeleteBooking` (стр. 1224) — локальный
+- `name` (стр. 1226) — локальный
+- `handleAssignWorkers` (стр. 1233) — локальный
 
 ### frontend/src/app/components/admin/ContentEditor.tsx (441 строк)
 
@@ -2845,30 +2846,62 @@ concept1.0/
 - `cat` (стр. 327) — локальный
 - `InlineRename` (стр. 540) — локальный
 
-### frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx (532 строк)
+### frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx (815 строк)
 
-- `SERVICE_TYPE_OPTIONS` (стр. 5) — локальный
-- `adminServiceResourceGroupForCategory` (стр. 11) — локальный
-- `numberInputValue` (стр. 15) — локальный
-- `numberFromInput` (стр. 19) — локальный
-- `formatFixedMasterAmount` (стр. 23) — локальный
-- `SectionShell` (стр. 30) — локальный
-- `sub` (стр. 41) — локальный
-- `Toggle` (стр. 56)
-- `SettingsSaveButton` (стр. 80)
-- `glassCls` (стр. 103) — локальный
-- `subCls` (стр. 104) — локальный
-- `AttendanceSectionShell` (стр. 109)
-- `BoxesSection` (стр. 124)
-- `ScheduleSection` (стр. 162)
-- `NOTIF_ITEMS` (стр. 203) — локальный
-- `NotificationsSection` (стр. 211)
-- `ProfileSection` (стр. 248)
-- `PricingSection` (стр. 325)
-- `q` (стр. 344) — локальный
-- `matches` (стр. 345) — локальный
-- `SecuritySection` (стр. 425)
-- `ContentSectionShell` (стр. 520)
+- `SERVICE_TYPE_OPTIONS` (стр. 7) — локальный
+- `adminServiceResourceGroupForCategory` (стр. 13) — локальный
+- `numberInputValue` (стр. 17) — локальный
+- `numberFromInput` (стр. 21) — локальный
+- `formatFixedMasterAmount` (стр. 25) — локальный
+- `SectionShell` (стр. 32) — локальный
+- `sub` (стр. 43) — локальный
+- `Toggle` (стр. 58)
+- `SettingsSaveButton` (стр. 82)
+- `glassCls` (стр. 105) — локальный
+- `subCls` (стр. 106) — локальный
+- `AttendanceSectionShell` (стр. 111)
+- `BoxesSection` (стр. 126)
+- `ScheduleSection` (стр. 164)
+- `NOTIF_ITEMS` (стр. 205) — локальный
+- `NotificationsSection` (стр. 213)
+- `ProfileSection` (стр. 250)
+- `PricingSection` (стр. 327)
+- `q` (стр. 346) — локальный
+- `matches` (стр. 347) — локальный
+- `SecuritySection` (стр. 427)
+- `ContentSectionShell` (стр. 522)
+- `SHIFT_PHOTO_CATEGORIES` (стр. 539) — локальный
+- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 557) — локальный
+- `SHIFT_PHOTO_TARGET_BYTES` (стр. 558) — локальный
+- `SHIFT_PHOTO_MIN_QUALITY` (стр. 559) — локальный
+- `dataUrlApproxBytes` (стр. 561) — локальный
+- `padding` (стр. 563) — локальный
+- `loadImage` (стр. 567) — локальный
+- `image` (стр. 569) — локальный
+- `compressShiftPhoto` (стр. 576) — локальный
+- `objectUrl` (стр. 577) — локальный
+- `image` (стр. 579) — локальный
+- `scale` (стр. 580) — локальный
+- `width` (стр. 581) — локальный
+- `height` (стр. 582) — локальный
+- `canvas` (стр. 583) — локальный
+- `context` (стр. 586) — локальный
+- `ShiftSection` (стр. 601)
+- `shiftSupplies` (стр. 614) — локальный
+- `uploadedShiftPhotos` (стр. 625) — локальный
+- `handleShiftPhotoChange` (стр. 631) — локальный
+- `file` (стр. 632) — локальный
+- `dataUrl` (стр. 636) — локальный
+- `handleSubmitShiftInspection` (стр. 645) — локальный
+- `primaryPhoto` (стр. 649) — локальный
+- `uploadedCategoriesLabel` (стр. 652) — локальный
+- `composedNote` (стр. 653) — локальный
+- `saved` (стр. 657) — локальный
+- `statusPill` (стр. 674) — локальный
+- `statusLabel` (стр. 680) — локальный
+- `statusTitle` (стр. 682) — локальный
+- `photo` (стр. 698) — локальный
+- `checked` (стр. 731) — локальный
 
 ### frontend/src/app/components/atmosfera/Button.tsx (57 строк)
 
@@ -4197,6 +4230,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `REDESIGN_PLAN.md` (2026-08-24 18:13)
+- `backend/tests/test_google_calendar_pull.py` (2026-08-24 18:12)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-24 18:11)
+- `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-24 18:10)
+- `scripts/.project-map-watch.lock` (2026-08-24 18:00)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:43)
 - `backend/tests/test_google_calendar_api.py` (2026-08-24 12:30)
 - `backend/tests/test_google_calendar.py` (2026-08-24 12:30)
@@ -4207,8 +4245,3 @@ concept1.0/
 - `backend/tests/test_archive_split_zp_sync.py` (2026-08-24 11:59)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-24 11:54)
 - `backend/app/exports.py` (2026-08-24 11:47)
-- `backend/tests/test_money_flow.py` (2026-08-24 11:44)
-- `backend/tests/test_piggy_bank_withdraw_flex.py` (2026-08-24 11:10)
-- `backend/tests/test_booking_logic.py` (2026-08-24 10:28)
-- `scripts/.project-map-watch.lock` (2026-08-24 10:00)
-- `REDESIGN_PLAN.md` (2026-08-23 20:50)
