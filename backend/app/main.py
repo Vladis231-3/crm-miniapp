@@ -3332,10 +3332,10 @@ def _parse_booking_datetime(date_value: str, time_value: str) -> datetime | None
 
 def _py_weekday_to_schedule_index(py_weekday: int) -> int:
 
-    # Python weekday(): Пн=0..Вс=6 — совпадает с day_index сида (0=Пн..6=Вс).
-    # Регрессия 899e3e9 добавляла +2: брони проверялись по чужому дню недели
-    # (суббота — по расписанию понедельника) и выходили за окно работы.
-    return py_weekday % 7
+    # Конвенция day_index (сид и фронт getScheduleDayIndex=(getDay()+1)%7): Сб=0, Вс=1, Пн=2..Пт=6.
+    # Python weekday(): Пн=0..Вс=6 → сдвиг +2. fffb46 ошибочно вернул identity,
+    # из-за чего вторник проверялся по неактивному «Вс», а часы — по чужим дням.
+    return (py_weekday + 2) % 7
 
 
 
@@ -4077,7 +4077,11 @@ def _worker_payroll_summaries_from_data(
 ) -> dict[str, WorkerPayrollSummaryPayload]:
     if not workers:
         return {}
-    workers = [worker for worker in workers if worker.role != "owner"]
+    # Владельцы-мастера (extra_roles) остаются в расчётке — регрессия e4674679:
+    # фильтр исключал и их, из-за чего правки ЗП из архива не меняли страницу «Зарплаты».
+    workers = [
+        worker for worker in workers if worker.role != "owner" or _is_owner_master(worker)
+    ]
     if not workers:
         return {}
     worker_ids = [worker.id for worker in workers]
@@ -19451,8 +19455,12 @@ def get_owner_archive(
         )
 
     # ── Расчётка мастеров за период ──
+    # Владельцы с доп. ролью мастера тоже попадают в расчётку архива
+    # (как на странице «Зарплаты» и в списках мастеров).
     workers_list = db.scalars(
-        select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name.asc())
+        select(StaffUser)
+        .where(or_(StaffUser.role == "worker", _owner_master_condition()))
+        .order_by(StaffUser.name.asc())
     ).all()
     worker_ids = [w.id for w in workers_list]
     worker_bookings = [

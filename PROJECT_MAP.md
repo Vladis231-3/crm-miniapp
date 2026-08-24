@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-24 09:21 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-24 09:28 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **490**
-- Строк кода: **195 324**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 149, `.ts`: 35, `.tsx`: 299
+- Файлов кода: **489**
+- Строк кода: **195 504**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 148, `.ts`: 35, `.tsx`: 299
 
 ## Архитектура
 
@@ -618,7 +618,6 @@ concept1.0/
 ├── _admin_excerpt.txt
 ├── _client_excerpt.txt
 ├── _owner_excerpt.txt
-├── _tmp_stage_fix.py
 ├── _worker_excerpt.txt
 ├── AGENTS.md
 ├── amvera.yml
@@ -2022,9 +2021,9 @@ concept1.0/
 - `test_finance_migration_refuses_live_sqlite_applydef test_finance_migration_refuses_live_sqlite_apply(migration_engine) -> None: with pytest.raises(RuntimeError, match="Refusing live SQLite migration"):` (стр. 20)
 - `test_finance_migration_dry_run_is_repeatabledef test_finance_migration_dry_run_is_repeatable(migration_engine) -> None: assert upgrade(dry_run=True, engine=migration_engine) == upgrade( dry_run=True, engine=migration_engine ` (стр. 25)
 
-### backend/tests/test_google_calendar.py (340 строк)
+### backend/tests/test_google_calendar.py (552 строк)
 
-Классы и функции (32):
+Классы и функции (47):
 
 - `settingsdef settings(monkeypatch): monkeypatch.setenv("APP_ENV", "test") monkeypatch.setenv("APP_SECRET", "a" * 32) monkeypatch.setenv("ALLOW_DEMO_SEED_DATA", "false") monkeypatch.setenv("` (стр. 12)
 - `class _Row: def __init__(self, key, value):` (стр. 24)
@@ -2058,8 +2057,23 @@ concept1.0/
 - `test_sync_errors_are_caughtdef test_sync_errors_are_caught(fake_db, settings): gc.save_tokens(fake_db, {"token": "t", "refresh_token": "r"}) booking = SimpleNamespace( id="b1", status="scheduled", google_eve` (стр. 300)
 - `test_build_auth_url_returns_consent_urldef test_build_auth_url_returns_consent_url(settings): url = gc.build_auth_url(settings, "test-state-123") assert url.startswith("https://accounts.google.com/o/oauth2/auth") assert` (стр. 323)
 - `test_exchange_code_returns_tokensdef test_exchange_code_returns_tokens(settings): resp_mock = MagicMock() resp_mock.status_code = 200 resp_mock.json.return_value = {"token": "t", "refresh_token": "r"} with patch.o` (стр. 330)
+- `_connect_second_persondef _connect_second_person(fake_db): """Подключить второго человека к уже подключённому владельцу.""" gc.save_tokens(fake_db, {"token": "t1", "refresh_token": "r1"}) gc.upsert_conn` (стр. 348)
+- `_booking_for_syncdef _booking_for_sync(**overrides): base = dict( id="b1", status="scheduled", google_event_id=None, date="13.08.2026", time="10:00", duration=30, client_name="Иван", client_phone="` (стр. 364)
+- `test_connections_store_roundtripdef test_connections_store_roundtrip(fake_db): _connect_second_person(fake_db) conns = gc.list_connections(fake_db) assert [c["id"] for c in conns] == ["owner", "gc-anna"] assert c` (стр. 384)
+- `test_legacy_tokens_migrate_into_first_connectiondef test_legacy_tokens_migrate_into_first_connection(fake_db): # Старое хранилище: токены лежат отдельным ключом. fake_db.rows[gc.GOOGLE_CALENDAR_TOKENS_KEY] = _Row( gc.GOOGLE_CALE` (стр. 400)
+- `test_sync_fans_out_to_all_calendarsdef test_sync_fans_out_to_all_calendars(fake_db, settings): _connect_second_person(fake_db) booking = _booking_for_sync() responses = [{"id": "evt-owner"}, {"id": "evt-anna"}] with` (стр. 415)
+- `test_sync_patch_uses_legacy_event_id_for_first_calendardef test_sync_patch_uses_legacy_event_id_for_first_calendar(fake_db, settings): gc.save_tokens(fake_db, {"token": "t", "refresh_token": "r"}) gc.upsert_connection( fake_db, { "id":` (стр. 434)
+- `test_delete_removes_events_from_all_calendarsdef test_delete_removes_events_from_all_calendars(fake_db, settings): _connect_second_person(fake_db) booking = SimpleNamespace( id="b1", status="cancelled", google_event_id="evt-o` (стр. 460)
+- `test_one_broken_calendar_does_not_block_othersdef test_one_broken_calendar_does_not_block_others(fake_db, settings): _connect_second_person(fake_db) booking = _booking_for_sync() def flaky_request(db, settings_, method, path, ` (стр. 482)
+- `_FakeAppSetting.flaky_requestdef flaky_request(db, settings_, method, path, **kwargs): if kwargs["conn"]["id"] == "owner": raise RuntimeError("network down") return {"id": "evt-anna"}` (стр. 486)
+- `test_pull_aggregates_from_all_calendarsdef test_pull_aggregates_from_all_calendars(fake_db, settings): _connect_second_person(fake_db) def fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, ` (стр. 499)
+- `_FakeAppSetting.fake_requestdef fake_request(db, settings_, method, path, *, params=None, body=None, conn=None, _retried=False): assert method == "GET" if conn["id"] == "owner": return {"items": [{"id": "e1"}` (стр. 502)
+- `_FakeAppSetting.apply_eventdef apply_event(db, settings_, item, result): result["created"] += 1` (стр. 508)
+- `test_pull_skipped_without_connectionsdef test_pull_skipped_without_connections(fake_db, settings): gc.save_tokens(fake_db, {"token": "t"}) # нет refresh_token -> не «рабочее» result = gc.pull_calendar_changes(fake_db,` (стр. 523)
+- `test_invites_create_consume_cleardef test_invites_create_consume_clear(fake_db): gc.create_invite(fake_db, "Анна", "state-1") gc.create_invite(fake_db, "Пётр", "state-2") invite = gc.consume_invite(fake_db, "state` (стр. 529)
+- `test_extract_account_email_from_id_tokendef test_extract_account_email_from_id_token(): import base64 import json as json_mod payload = base64.urlsafe_b64encode( json_mod.dumps({"email": "anna@example.com", "sub": "123"}` (стр. 542)
 
-### backend/tests/test_google_calendar_api.py (481 строк)
+### backend/tests/test_google_calendar_api.py (493 строк)
 
 Классы и функции (24):
 
@@ -2078,15 +2092,15 @@ concept1.0/
 - `GoogleCalendarApiTests.test_credentials_endpoints_require_ownerdef test_credentials_endpoints_require_owner(self) -> None: response = self.client.get("/api/owner/integrations/google/status") self.assertEqual(response.status_code, 401) response` (стр. 202)
 - `GoogleCalendarApiTests.test_put_credentials_rejects_emptydef test_put_credentials_rejects_empty(self) -> None: token = self.login_owner() response = self.client.put( "/api/owner/integrations/google/credentials", headers=self.auth_headers` (стр. 213)
 - `GoogleCalendarApiTests.test_callback_exchanges_code_and_enables_integrationdef test_callback_exchanges_code_and_enables_integration(self) -> None: token = self.login_owner() # Получаем state из AppSetting после запроса auth-url with patch("app.main.build_` (стр. 223)
-- `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, he` (стр. 258)
-- `GoogleCalendarApiTests.test_callback_returns_html_page_for_browserdef test_callback_returns_html_page_for_browser(self) -> None: """Браузер (Accept: text/html) после OAuth видит понятную страницу, а не JSON.""" token = self.login_owner() with pat` (стр. 267)
-- `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 306)
-- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 343)
-- `GoogleCalendarApiTests.test_sync_endpoint_requires_ownerdef test_sync_endpoint_requires_owner(self) -> None: response = self.client.post("/api/owner/integrations/google/sync") self.assertEqual(response.status_code, 401)` (стр. 384)
-- `GoogleCalendarApiTests.test_sync_endpoint_returns_pull_statsdef test_sync_endpoint_returns_pull_stats(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 388)
-- `GoogleCalendarApiTests.test_create_booking_sets_source_for_client_roledef test_create_booking_sets_source_for_client_role(self) -> None: token = self.login_owner() response = self.client.post( "/api/bookings", headers=self.auth_headers(token), json={` (стр. 420)
-- `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 444)
-- `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 467)
+- `GoogleCalendarApiTests.test_callback_rejects_wrong_statedef test_callback_rejects_wrong_state(self) -> None: response = self.client.get( "/api/owner/integrations/google/callback", params={"code": "auth-code", "state": "wrong-state"}, he` (стр. 270)
+- `GoogleCalendarApiTests.test_callback_returns_html_page_for_browserdef test_callback_returns_html_page_for_browser(self) -> None: """Браузер (Accept: text/html) после OAuth видит понятную страницу, а не JSON.""" token = self.login_owner() with pat` (стр. 279)
+- `GoogleCalendarApiTests.test_disconnect_clears_tokens_and_flagdef test_disconnect_clears_tokens_and_flag(self) -> None: token = self.login_owner() with patch("app.main.exchange_code", return_value={"token": "t", "refresh_token": "r"}):` (стр. 318)
+- `GoogleCalendarApiTests.test_create_booking_calls_google_syncdef test_create_booking_calls_google_sync(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 355)
+- `GoogleCalendarApiTests.test_sync_endpoint_requires_ownerdef test_sync_endpoint_requires_owner(self) -> None: response = self.client.post("/api/owner/integrations/google/sync") self.assertEqual(response.status_code, 401)` (стр. 396)
+- `GoogleCalendarApiTests.test_sync_endpoint_returns_pull_statsdef test_sync_endpoint_returns_pull_stats(self) -> None: token = self.login_owner() from app.database import SessionLocal from app.models import AppSetting # Подключаем интеграцию ` (стр. 400)
+- `GoogleCalendarApiTests.test_create_booking_sets_source_for_client_roledef test_create_booking_sets_source_for_client_role(self) -> None: token = self.login_owner() response = self.client.post( "/api/bookings", headers=self.auth_headers(token), json={` (стр. 432)
+- `GoogleCalendarApiTests.test_exchange_code_normalizes_google_responsedef test_exchange_code_normalizes_google_response(self) -> None: """exchange_code возвращает ключ "token" (access_token из ответа Google).""" from unittest.mock import MagicMock fr` (стр. 456)
+- `GoogleCalendarApiTests.test_load_tokens_normalizes_legacy_access_token_keydef test_load_tokens_normalizes_legacy_access_token_key(self) -> None: """Токены, сохранённые старым кодом (ключ access_token), читаются как token.""" from app.database import Sess` (стр. 479)
 
 ### backend/tests/test_google_calendar_pull.py (1294 строк)
 
@@ -4174,18 +4188,18 @@ concept1.0/
 ## Скрипты и корневые файлы
 
 - `scripts/generate_project_map.py`
-- `_tmp_stage_fix.py`
 - `app.py`
 - `flip_push_permission.py`
 
 ## Недавно изменённые файлы
 
-- `_tmp_stage_fix.py` (2026-08-24 12:21)
+- `backend/tests/test_google_calendar.py` (2026-08-24 12:28)
+- `backend/app/google_calendar.py` (2026-08-24 12:25)
+- `backend/tests/test_google_calendar_api.py` (2026-08-24 12:23)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-24 12:18)
 - `backend/app/schemas.py` (2026-08-24 12:18)
 - `backend/app/models.py` (2026-08-24 12:18)
 - `backend/app/main.py` (2026-08-24 12:18)
-- `backend/app/google_calendar.py` (2026-08-24 12:18)
 - `backend/tests/test_archive_split_zp_sync.py` (2026-08-24 11:59)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-24 11:54)
 - `backend/app/exports.py` (2026-08-24 11:47)
@@ -4194,4 +4208,3 @@ concept1.0/
 - `backend/tests/test_booking_logic.py` (2026-08-24 10:28)
 - `scripts/.project-map-watch.lock` (2026-08-24 10:00)
 - `REDESIGN_PLAN.md` (2026-08-23 20:50)
-- `backend/migrations/add_stock_write_offs.py` (2026-08-23 20:49)
