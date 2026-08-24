@@ -49,7 +49,7 @@ from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, 
 
 from .complaints import adjusted_booking_percent, complaint_status_for_percent
 
-from .models import Booking, Client, DepositMonth, DepositTransaction, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
+from .models import Booking, Client, DepositTransaction, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
 
 
 
@@ -1889,7 +1889,7 @@ def _build_export_data(
 ) -> OwnerExportData:
 
     # Ленивый импорт, чтобы избежать циклического импорта с main (main импортирует exports на верхнем уровне).
-    from .main import FIXED_MASTER_EARNED, FIXED_MASTER_SERVICE_NAME, _booking_money_split, is_fixed_master_service
+    from .main import _booking_money_split, is_fixed_master_service
 
     generated_at = datetime.now().astimezone()
 

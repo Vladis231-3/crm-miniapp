@@ -35,7 +35,6 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Upl
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
@@ -69,7 +68,7 @@ from .complaints import (
 
 from .config import get_settings, PERSISTENT_DATA_DIR
 from .date_utils import parse_date_param, parse_dmy, validate_range
-from .finance import money, money_int, salary_base_for_period
+from .finance import money_int, salary_base_for_period
 from .finance_sync import sync_expense_piggy_transaction
 
 from .google_calendar import (
@@ -87,7 +86,6 @@ from .google_calendar import (
     extract_account_email,
     get_connection,
     is_configured,
-    last_sync_at,
     list_connections,
     load_credentials,
     pull_calendar_changes,
@@ -441,8 +439,6 @@ from .schemas import (
 
     ContentServicePayload,
 
-    ContentWorksPayload,
-
     ContentHeroPayload,
 
     ContactPayload,
@@ -500,8 +496,6 @@ from .security import (
     hash_password,
 
     validate_telegram_init_data,
-
-    verify_one_time_code,
 
     verify_password,
 
