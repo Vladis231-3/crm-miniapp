@@ -2823,6 +2823,24 @@ export function OwnerApp() {
     }
   };
 
+  const handleDeleteEntry = async () => {
+    if (!editingEntryId || !selectedSalaryWorkerId) return;
+    const confirmed = window.confirm('Удалить операцию? Связанная запись бюджета будет удалена тоже.');
+    if (!confirmed) return;
+    try {
+      await apiRequest(`/api/payroll/entries/${editingEntryId}`, { method: 'DELETE' });
+      setEditingEntryId(null);
+      setEditAmount('');
+      setEditNote('');
+      setBottomToast('Операция удалена');
+      setTimeout(() => setBottomToast(null), 3000);
+      refreshSalaryDetail();
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Ошибка удаления');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
   const handleDispatchReminders = async () => {
     try {
       setSendingReminders(true);
@@ -4957,6 +4975,7 @@ paymentSettled: false,
                                 <div className="flex gap-2 mb-1">
                                   <input type="number" value={editAmount} onChange={e2 => setEditAmount(e2.target.value)} className={`${inputCls} flex-1 text-xs py-1 px-2 rounded-lg`} />
                                   <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} strokeWidth={1.75} /></button>
+                                  <button onClick={() => { void handleDeleteEntry(); }} title="Удалить операцию" className="p-1 rounded-lg border" style={{ borderColor: '#ef444440', color: '#ef4444' }}><Trash2 size={14} strokeWidth={1.75} /></button>
                                   <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: sub }}><X size={14} strokeWidth={1.75} /></button>
                                 </div>
                                 <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="Примечание" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />

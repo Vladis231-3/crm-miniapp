@@ -2765,6 +2765,103 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(other.status_code, 200, other.text)
         self.assertNotIn("Без периода", [e["note"] for e in other.json()["entries"]])
 
+    def test_owner_can_delete_payroll_entry_with_linked_budget_records(self) -> None:
+        """Владелец может удалить выплату и штраф; связанные записи бюджета удаляются."""
+        from app.database import SessionLocal
+        from app.models import Expense, Income, PayrollEntry
+
+        owner_headers = self._tg_headers("owner", "889013")
+        admin_token = self.login_staff("admin", "admin")
+
+        # ── Выплата (payout) через pay-salary создаёт связанный расход бюджета ──
+        pay_response = self.client.post(
+            "/api/owner/workers/w1/pay-salary",
+            headers=owner_headers,
+            json={
+                "period": "custom",
+                "dateFrom": "2026-08-08",
+                "dateTo": "2026-08-14",
+                "segment": "all",
+                "amount": 100,
+                "note": "Выплата к удалению",
+            },
+        )
+        self.assertEqual(pay_response.status_code, 200, pay_response.text)
+        pay_payload = pay_response.json()
+        payout_id = pay_payload["payoutId"]
+        expense_id = pay_payload["expenseId"]
+        self.assertTrue(payout_id)
+        self.assertTrue(expense_id)
+
+        # Только владелец может удалять операции
+        forbidden = self.client.delete(
+            f"/api/payroll/entries/{payout_id}",
+            headers=self.auth_headers(admin_token),
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        payout_deleted = self.client.delete(
+            f"/api/payroll/entries/{payout_id}",
+            headers=owner_headers,
+        )
+        self.assertEqual(payout_deleted.status_code, 200, payout_deleted.text)
+
+        with SessionLocal() as db:
+            self.assertIsNone(db.get(PayrollEntry, payout_id))
+            self.assertIsNone(db.get(Expense, expense_id))
+
+        detail_after_payout = self.client.get(
+            "/api/owner/workers/w1/salary-detail?period=all",
+            headers=owner_headers,
+        )
+        self.assertEqual(detail_after_payout.status_code, 200, detail_after_payout.text)
+        self.assertNotIn("Выплата к удалению", [e["note"] for e in detail_after_payout.json()["entries"]])
+
+        # ── Штраф (deduction) создаёт связанный доход бюджета ──
+        fine_response = self.client.post(
+            "/api/payroll/entries",
+            headers=owner_headers,
+            json={"workerId": "w1", "kind": "deduction", "amount": 300, "note": "Штраф к удалению"},
+        )
+        self.assertEqual(fine_response.status_code, 200, fine_response.text)
+        fine = next(
+            e
+            for e in fine_response.json()["payrollSummary"]["entries"]
+            if e["kind"] == "deduction" and e["note"] == "Штраф к удалению"
+        )
+
+        with SessionLocal() as db:
+            entry = db.get(PayrollEntry, fine["id"])
+            self.assertIsNotNone(entry)
+            assert entry is not None
+            self.assertIsNotNone(entry.income_id)
+            income_id = entry.income_id
+            self.assertIsNotNone(db.get(Income, income_id))
+
+        fine_deleted = self.client.delete(
+            f"/api/payroll/entries/{fine['id']}",
+            headers=owner_headers,
+        )
+        self.assertEqual(fine_deleted.status_code, 200, fine_deleted.text)
+
+        with SessionLocal() as db:
+            self.assertIsNone(db.get(PayrollEntry, fine["id"]))
+            self.assertIsNone(db.get(Income, income_id))
+
+        detail_after_fine = self.client.get(
+            "/api/owner/workers/w1/salary-detail?period=all",
+            headers=owner_headers,
+        )
+        self.assertEqual(detail_after_fine.status_code, 200, detail_after_fine.text)
+        self.assertNotIn("Штраф к удалению", [e["note"] for e in detail_after_fine.json()["entries"]])
+
+        # Повторное удаление несуществующей записи → 404
+        missing = self.client.delete(
+            f"/api/payroll/entries/{fine['id']}",
+            headers=owner_headers,
+        )
+        self.assertEqual(missing.status_code, 404, missing.text)
+
     def test_owner_pay_salary_attributes_payout_to_selected_period(self) -> None:
         """Выплата мастеру тоже привязывается к выбранному периоду."""
         owner_headers = self._tg_headers("owner", "889013")

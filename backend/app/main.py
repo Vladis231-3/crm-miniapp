@@ -18539,6 +18539,95 @@ def update_payroll_entry(
     return _payroll_entry_payload(entry, actor_name)
 
 
+@app.delete("/api/payroll/entries/{entry_id}", response_model=GenericMessage)
+
+def delete_payroll_entry(
+
+    entry_id: str,
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> GenericMessage:
+
+    _ensure_staff_role(session_data, {"owner"})
+
+
+
+    entry = db.get(PayrollEntry, entry_id)
+
+    if entry is None:
+
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+
+
+
+    worker = db.get(StaffUser, entry.worker_id)
+
+    if worker is None:
+
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+
+
+
+    # Удаляем связанные бюджетные записи (расход для выплаты/премии/аванса,
+    # доход для штрафа/отрицательной корректировки), чтобы бюджет остался согласованным
+    if entry.expense_id:
+
+        linked_expense = db.get(Expense, entry.expense_id)
+
+        if linked_expense is not None:
+
+            db.delete(linked_expense)
+
+    if entry.income_id:
+
+        linked_income = db.get(Income, entry.income_id)
+
+        if linked_income is not None:
+
+            db.delete(linked_income)
+
+
+
+    kind_label = _payroll_entry_label(entry.kind)
+
+    amount_value = int(entry.amount)
+
+
+
+    _notify_worker_about_payroll_entry(
+
+        db,
+
+        worker,
+
+        actor_role=session_data["role"],
+
+        actor_id=session_data["actorId"],
+
+        kind=entry.kind,
+
+        amount=amount_value,
+
+        note="Операция удалена",
+
+    )
+
+
+
+    worker.updated_at = _now()
+
+    db.delete(entry)
+
+    db.commit()
+
+
+
+    return GenericMessage(message=f"{kind_label.capitalize()} удалена")
+
+
 
 @app.put("/api/payroll/booking-workers/{link_id}/override-earned")
 
