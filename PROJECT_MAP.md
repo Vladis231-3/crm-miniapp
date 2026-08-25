@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-25 07:58 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-25 09:04 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4442,8 +4442,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/app/main.py` (2026-08-25 12:03)
 - `training/backend/app/google_calendar.py` (2026-08-25 10:37)
-- `backend/app/main.py` (2026-08-25 10:35)
 - `backend/tests/test_worker_additional_services.py` (2026-08-25 10:34)
 - `backend/app/google_calendar.py` (2026-08-25 10:30)
 - `scripts/start_localhostrun_tunnel.cmd` (2026-08-25 09:54)

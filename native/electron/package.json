@@ -21,7 +21,7 @@
       {
         "from": "../../desktop/build/atmosfera-backend",
         "to": "backend",
-        "filter": ["**/*"]
+        "filter": ["**/*", "!**/.env", "!**/.env.*"]
       }
     ]
   },

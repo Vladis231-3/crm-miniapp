@@ -523,7 +523,10 @@ def _extract_contact_phone(update: dict[str, Any], chat_id: int) -> str | None:
     contact_user_id = contact.get("user_id")
     if not isinstance(phone_number, str) or not phone_number.strip():
         return None
-    if contact_user_id is not None and str(contact_user_id) != str(chat_id):
+    # Принимаем ТОЛЬКО собственный контакт отправителя (user_id обязателен
+    # и равен chat_id): иначе карточка произвольного номера без user_id
+    # могла бы «подтвердить» чужой телефон.
+    if contact_user_id is None or str(contact_user_id) != str(chat_id):
         return None
     try:
         return normalize_phone_digits(phone_number)

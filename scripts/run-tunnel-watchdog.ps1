@@ -61,6 +61,13 @@ function Set-EnvValue {
     Set-Content -Path $EnvPath -Value $lines
 }
 
+function Test-InsecureAuthEnabled {
+    # Fail-closed: если .env отсутствует или флаг не выставлен явно в "false",
+    # считаем бэкенд небезопасным для публикации.
+    $value = Get-EnvValue -Key "ALLOW_INSECURE_CLIENT_AUTH"
+    return ($value -ne "false")
+}
+
 function Test-BackendHealthy {
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $BackendHealthUrl -TimeoutSec 5
@@ -141,6 +148,12 @@ function Stop-TunnelProcess {
 }
 
 function Start-TunnelProcess {
+    # Guard (см. start_pinggy_tunnel.cmd): не публикуем наружу дев-бэкенд,
+    # на котором можно войти любым telegram_id без подписи initData.
+    if (Test-InsecureAuthEnabled) {
+        Write-WatchdogLog "BLOCKED: ALLOW_INSECURE_CLIENT_AUTH=true in backend/.env; refusing to publish backend through a public tunnel"
+        return
+    }
     Stop-TunnelProcess
     Remove-Item $TunnelOutLog, $TunnelErrLog -Force -ErrorAction SilentlyContinue
     Start-Process -FilePath "cmd.exe" `
@@ -229,6 +242,11 @@ function Ensure-TunnelAndBot {
 New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
 Enter-WatchdogMutex
 Write-WatchdogLog "Tunnel watchdog started"
+
+if (Test-InsecureAuthEnabled) {
+    Write-WatchdogLog "BLOCKED: ALLOW_INSECURE_CLIENT_AUTH=true in backend/.env; watchdog exits. Set ALLOW_INSECURE_CLIENT_AUTH=false first."
+    exit 1
+}
 
 while ($true) {
     try {

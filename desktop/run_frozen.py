@@ -18,6 +18,14 @@ def _bootstrap_env() -> None:
         exe_dir = Path(sys.executable).resolve().parent
         # Загрузки и кэш кладём рядом с exe — переживают перезапуск.
         os.environ.setdefault("PERSISTENT_DATA_DIR", str(exe_dir / "data"))
+        # Конфигурация НЕ встраивается в бандл (иначе секреты утекут с
+        # дистрибутивом). Оператор кладёт .env рядом с exe; значения из
+        # него не переопределяют уже выставленные переменные окружения.
+        local_env = exe_dir / ".env"
+        if local_env.exists():
+            from dotenv import load_dotenv
+
+            load_dotenv(local_env)
         # PyInstaller-бинарник, запущенный без консольного TTY (например из
         # Electron со stdio:'ignore'), заставляет uvicorn/внутренние библиотеки
         # блокирующе читать stdin и виснуть на startup. Перенаправляем stdin на

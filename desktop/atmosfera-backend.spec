@@ -11,7 +11,6 @@ block_cipher = None
 PROJECT_ROOT = os.path.abspath(os.path.join(SPECPATH, '..'))
 BACKEND_DIR = os.path.join(PROJECT_ROOT, 'backend')
 FRONTEND_DIST = os.path.join(PROJECT_ROOT, 'frontend', 'dist')
-DESKTOP_ENV = os.path.join(SPECPATH, '.env')
 
 # Динамически/условно импортируемые модули — PyInstaller их не видит сам.
 hiddenimports = []
@@ -27,10 +26,13 @@ hiddenimports += ['uvicorn.logging', 'uvicorn.lifespan.on', 'uvicorn.lifespan.of
 hiddenimports += ['bot', 'backend.bot']
 hiddenimports += ['email.mime.multipart', 'email.mime.text', 'email.mime.base']  # для уведомлений бота
 
-# Бандлим собранный фронтенд (app.main раздаёт его на одном origin) и desktop .env.
+# Бандлим собранный фронтенд (app.main раздаёт его на одном origin).
+# Секретный desktop/.env В БАНДЛ НЕ ВКЛЮЧАЕМ: иначе APP_SECRET /
+# TELEGRAM_BOT_TOKEN / DATABASE_URL утекут с каждым дистрибутивом.
+# run_frozen.py подхватит .env, положенный рядом с exe на машине
+# пользователя (см. _bootstrap_env).
 datas = []
 datas.append((FRONTEND_DIST, os.path.join('frontend', 'dist')))
-datas.append((DESKTOP_ENV, '.'))
 
 a = Analysis(
     [os.path.join(SPECPATH, 'run_frozen.py')],

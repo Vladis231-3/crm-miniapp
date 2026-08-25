@@ -16,6 +16,8 @@ import base64
 
 import sys
 
+import zlib
+
 from datetime import date, datetime, timedelta, timezone
 
 from decimal import Decimal
@@ -756,6 +758,17 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Telegram-Bot-Api-Secret-Token"],
 
 )
+
+# SECURITY: небезопасный режим аутентификации позволяет войти любым
+# telegram_id без подписи initData. Конфигурация принудительно выключает
+# его в production/staging; если предупреждение видно в проде —
+# деплой сконфигурирован неверно и должен быть остановлен.
+if settings.allow_insecure_client_auth:
+    logger.warning(
+        "SECURITY: ALLOW_INSECURE_CLIENT_AUTH=true — неподписанный Telegram "
+        "initData принимается как любой user.id. Запрещено публиковать такой "
+        "бэкенд наружу (туннели, прод-домены)."
+    )
 
 
 
@@ -5681,6 +5694,10 @@ def _extract_telegram_id_from_init_data(authorization: str) -> str:
         )
     except ValueError:
         if settings.allow_insecure_client_auth:
+            logger.warning(
+                "SECURITY: подпись initData не прошла проверку — принят "
+                "непроверенный fallback (ALLOW_INSECURE_CLIENT_AUTH=true)"
+            )
             try:
                 validated = validate_telegram_init_data(
                     authorization,
@@ -5774,8 +5791,11 @@ def register_or_login_client(
                     detail="Этот телефон уже привязан к другому клиенту",
                 )
             if telegram_id and not existing_tid:
-                # Первый вход из бота: привязываем initData к записи,
-                # которую владелец мог создать вручную.
+                # Привязка вручную созданной записи ТОЛЬКО после того, как
+                # этот Telegram подтвердил номер через бота (шаринг своего
+                # контакта). Иначе знание телефона жертвы позволило бы
+                # перехватить её профиль.
+                _require_client_phone_verification(db, telegram_id, payload.phone)
                 phone_owner.telegram_id = telegram_id
                 phone_owner.updated_at = _now()
                 db.commit()
@@ -5842,7 +5862,11 @@ def staff_login(
             detail="Неверный логин или пароль.",
         )
     if not (staff.telegram_chat_id or "").strip():
-        staff.telegram_chat_id = f"91{abs(hash(staff.login)) % 10 ** 8}"
+        # Детерминированный dev-идентификатор: hash() рандомизирован между
+        # процессами и мутировал бы привязку при каждом рестарте. Значение
+        # обязано оставаться числовым — оно вкладывается в initData-совместимый
+        # токен вида user={"id":<chat_id>} и матчится по telegram_chat_id.
+        staff.telegram_chat_id = f"91{zlib.crc32(staff.login.encode('utf-8')) % 10 ** 8}"
         db.commit()
     session_data = {
         "role": staff.role,
@@ -5888,6 +5912,9 @@ def link_staff_account(
     request: Request,
     db: Session = Depends(get_db),
 ) -> BootstrapPayload:
+    client_ip = request.client.host if request.client else "unknown"
+    # Брутфорс-защита: как в /api/auth/staff/login.
+    _check_rate_limit(client_ip)
     authorization = (request.headers.get("authorization") or "").strip()
     telegram_id = _extract_telegram_id_from_init_data(authorization)
     staff = db.scalar(
@@ -5900,6 +5927,19 @@ def link_staff_account(
     if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён"
+        )
+    current_chat_id = (staff.telegram_chat_id or "").strip()
+    if current_chat_id and current_chat_id != telegram_id:
+        # Не перезаписываем существующую привязку: иначе знание пароля
+        # позволило бы перехватить аккаунт у легитимного Telegram.
+        logger.warning(
+            "SECURITY: отказ в перепривязке staff=%s: уже привязан к другому Telegram (ip=%s)",
+            staff.login,
+            client_ip,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Этот аккаунт уже привязан к другому Telegram. Обратитесь к администратору.",
         )
     staff.telegram_chat_id = telegram_id
     staff.updated_at = _now()
