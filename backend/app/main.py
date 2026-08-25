@@ -9631,6 +9631,108 @@ def _notify_workers_about_assignment(
 
 
 
+def _notify_workers_about_additional_service(
+
+    db: Session, booking: Booking, asvc: BookingAdditionalService
+
+) -> None:
+
+    if getattr(asvc, "is_outsource", False):
+
+        return
+
+    worker_ids = {link.worker_id for link in asvc.worker_links}
+
+    if not worker_ids:
+
+        return
+
+    workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
+
+    for worker in workers:
+
+        link = next(
+
+            (item for item in asvc.worker_links if item.worker_id == worker.id), None
+
+        )
+
+        pay_label = "╨╜╨╡ ╤Г╨║╨░╨╖╨░╨╜╨░"
+
+        if link is not None:
+
+            if (link.pay_type or "percent") == "fixed":
+
+                pay_label = (
+
+                    f"╤Д╨╕╨║╤Б {link.fixed_amount} тВ╜"
+
+                    if link.fixed_amount is not None
+
+                    else "╤Д╨╕╨║╤Б"
+
+                )
+
+            else:
+
+                pay_label = f"{link.percent:g}%"
+
+        car_part = ""
+
+        if booking.car:
+
+            car_part = f"\n╨Р╨▓╤В╨╛: {booking.car}"
+
+            if booking.plate:
+
+                car_part += f" ({booking.plate})"
+
+        text = (
+
+            "╨Т╨░╨╝ ╨╜╨░╨╖╨╜╨░╤З╨╡╨╜╨░ ╨┤╨╛╨┐. ╤Г╤Б╨╗╤Г╨│╨░\n"
+
+            f"╨Ъ╨╗╨╕╨╡╨╜╤В: {booking.client_name}\n"
+
+            f"╨Ф╨╛╨┐. ╤Г╤Б╨╗╤Г╨│╨░: {asvc.name}\n"
+
+            f"╨Ф╨░╤В╨░: {booking.date} {booking.time}\n"
+
+            f"╨С╨╛╨║╤Б: {booking.box}\n"
+
+            f"╨Ю╨┐╨╗╨░╤В╨░: {pay_label}"
+
+        )
+
+        if car_part:
+
+            text += car_part
+
+        db.add(
+
+            Notification(
+
+                id=f"n-{uuid4()}",
+
+                recipient_role="worker",
+
+                recipient_id=worker.id,
+
+                message=text,
+
+                read=False,
+
+                created_at=_now(),
+
+            )
+
+        )
+
+        _send_telegram_safe(worker.telegram_chat_id, text)
+
+
+
+
+
 def _notify_workers_about_note(
 
     db: Session, booking: Booking, worker_ids: set[str]
@@ -12929,8 +13031,12 @@ def add_booking_additional_service(
 
             )
     db.add(asvc)
+    if not payload.isOutsource:
+
+        _notify_workers_about_additional_service(db, booking, asvc)
 
     if (payload.priceMode or "add") != "subtract":
+
         booking.price = (booking.price or 0) + payload.price
 
     booking.duration = (booking.duration or 0) + payload.duration

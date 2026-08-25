@@ -239,6 +239,40 @@ class WorkerAdditionalServiceTests(unittest.TestCase):
         self.assertEqual(my_items[0]["earned"], 1000)
         self.assertGreaterEqual(payload["totalEarned"], 1000)
 
+    def test_creating_additional_service_notifies_assigned_worker(self) -> None:
+        """При создании доп. услуги назначенному мастеру приходит уведомление
+        (in-app + Telegram), как при назначении обычной услуги."""
+        from unittest.mock import patch
+
+        booking_id = self._create_booking(main_worker_id="w2")
+
+        telegram_calls: list[tuple[str | None, str]] = []
+
+        def fake_send_telegram_message(chat_id: str | None, text: str) -> None:
+            telegram_calls.append((chat_id, text))
+
+        from app import main as app_main
+
+        with patch.object(
+            app_main, "send_telegram_message", side_effect=fake_send_telegram_message
+        ):
+            self._add_additional_service(booking_id, name="Полировка", price=2000, percent=50)
+
+        # In-app notification for the assigned master (w1), not for the main worker
+        bootstrap = self._worker_bootstrap()
+        messages = [n["message"] for n in bootstrap.get("notifications", [])]
+        matched = [m for m in messages if "Вам назначена доп. услуга" in m and "Полировка" in m]
+        self.assertTrue(matched, messages)
+        self.assertIn("Оплата: 50%", matched[0])
+        self.assertIn("Тест Клиент", matched[0])
+
+        # Telegram delivery attempted to the assigned master's chat id
+        sent_to = {chat_id for chat_id, _text in telegram_calls}
+        self.assertIn(self.WORKER_TG_ID, sent_to)
+        self.assertTrue(
+            any("Вам назначена доп. услуга" in text for _chat_id, text in telegram_calls)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
