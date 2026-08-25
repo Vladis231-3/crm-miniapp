@@ -694,16 +694,24 @@ def _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]:
     from zoneinfo import ZoneInfo  # type: ignore
 
     tz = ZoneInfo(settings.google_calendar_timezone)
-    try:
-        start_dt = datetime.strptime(  # noqa: DTZ007 — далее явно привязываем tzinfo
-            f"{booking.date} {booking.time}", "%d.%m.%Y %H:%M"
-        )
-    except (ValueError, TypeError):
-        start_dt = datetime.strptime(  # noqa: DTZ007 — далее явно привязываем tzinfo
-            f"{booking.date} {booking.time}", "%Y-%m-%d %H:%M"
+    date_str = str(getattr(booking, "date", "") or "").strip()
+    time_str = str(getattr(booking, "time", "") or "").strip()
+    if not date_str or not time_str:
+        raise ValueError(f"invalid booking datetime: date={date_str!r} time={time_str!r}")
+    raw = f"{date_str} {time_str}"
+    start_dt: datetime | None = None
+    for fmt in ("%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M"):
+        try:
+            start_dt = datetime.strptime(raw, fmt)  # noqa: DTZ007 — далее явно привязываем tzinfo
+            break
+        except (ValueError, TypeError):
+            continue
+    if start_dt is None:
+        raise ValueError(
+            f"time data {raw!r} does not match format '%d.%m.%Y %H:%M' or '%Y-%m-%d %H:%M'"
         )
     start_dt = start_dt.replace(tzinfo=tz)
-    end_dt = start_dt + timedelta(minutes=booking.duration or 0)
+    end_dt = start_dt + timedelta(minutes=int(getattr(booking, "duration", 0) or 0))
 
     lines = [
         f"Клиент: {booking.client_name or ''}",
@@ -760,6 +768,15 @@ def sync_booking_to_calendar(
             )
             return getattr(booking, "google_event_id", None), False
         logger.exception("Google Calendar sync failed (booking=%s)", getattr(booking, "id", None))
+        return getattr(booking, "google_event_id", None), False
+    except (ValueError, TypeError) as exc:
+        logger.warning(
+            "Google Calendar sync skipped - invalid booking datetime (booking=%s, date=%r, time=%r): %s",
+            getattr(booking, "id", None),
+            getattr(booking, "date", None),
+            getattr(booking, "time", None),
+            exc,
+        )
         return getattr(booking, "google_event_id", None), False
     except Exception:
         logger.exception("Google Calendar sync failed (booking=%s)", getattr(booking, "id", None))
@@ -843,7 +860,17 @@ def _sync_booking_to_calendar_impl(
         _persist_dirty_connections(db, connections)
         return primary, True
 
-    body = _booking_event_body(booking, settings)
+    try:
+        body = _booking_event_body(booking, settings)
+    except (ValueError, TypeError) as exc:
+        logger.warning(
+            "Google Calendar sync skipped - invalid booking datetime (booking=%s, date=%r, time=%r): %s",
+            getattr(booking, "id", None),
+            getattr(booking, "date", None),
+            getattr(booking, "time", None),
+            exc,
+        )
+        return getattr(booking, "google_event_id", None), False
 
     ok_any = False
     for conn in connections:
