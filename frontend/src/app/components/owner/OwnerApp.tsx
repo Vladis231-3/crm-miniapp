@@ -4618,6 +4618,19 @@ paymentSettled: false,
                     </div>
                   </div>
                   {(() => {
+                    const debt = piggyBank?.spenderDebts?.find(d => d.spentById === worker.id);
+                    if (!debt || debt.totalSpent <= 0) return null;
+                    return (
+                      <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10 flex items-center justify-between`}>
+                        <div>
+                          <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                          <div className={`text-[11px] ${sub}`}>{debt.count} списаний</div>
+                        </div>
+                        <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                      </div>
+                    );
+                  })()}
+                  {(() => {
                     const payrollDraft = employeeSettings.find((item) => item.id === worker.id);
                     if (!payrollDraft) return null;
                     return (
@@ -4702,35 +4715,6 @@ paymentSettled: false,
                     >
                       Все жалобы ({complaintState.activeCount})
                     </button>
-                  )}
-                  {(payrollSummary?.entries?.length || 0) > 0 && (
-                    <div>
-                      <div className={`text-xs ${sub} mb-2`}>История операций</div>
-                      <div className="space-y-2">
-                        {payrollSummary?.entries.slice(0, 6).map((entry) => (
-                          <div key={entry.id} className={`${glass} rounded-xl p-3`}>
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="text-sm font-medium">
-                                {{
-                                  advance: 'Аванс',
-                                  deduction: 'Списание',
-                                  bonus: 'Премия',
-                                  payout: 'Выплата',
-                                  adjustment: 'Корректировка',
-                                }[entry.kind]}
-                              </div>
-                              <div className="text-sm font-semibold" style={{ color: entry.kind === 'bonus' || (entry.kind === 'adjustment' && entry.amount > 0) ? accent : entry.kind === 'adjustment' && entry.amount < 0 ? '#EF4444' : (isDark ? '#E4E4E7' : '#131316') }}>
-                                {entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽
-                              </div>
-                            </div>
-                            <div className={`text-[11px] ${sub} mt-1`}>
-                              {entry.createdByName} · {entry.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                            {entry.note && <div className={`text-xs ${sub} mt-1`}>{entry.note}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   )}
                 </div>
               ))}
@@ -4817,6 +4801,19 @@ paymentSettled: false,
                               </div>
                             </div>
                             <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера — детали, премии, штрафы</button>
+                          </div>
+                        );
+                      })()}
+                      {(() => {
+                        const debt = piggyBank?.spenderDebts?.find(d => d.spentById === owner.ownerId || d.spentByName === ownerDisplayName);
+                        if (!debt || debt.totalSpent <= 0) return null;
+                        return (
+                          <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10 flex items-center justify-between`}>
+                            <div>
+                              <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                              <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал для копилки</div>
+                            </div>
+                            <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
                         );
                       })()}
@@ -4984,6 +4981,19 @@ paymentSettled: false,
                       <div className={`text-[10px] ${sub}`}>К выплате</div>
                     </div>
                   </div>
+                  {(() => {
+                    const debt = piggyBank?.spenderDebts?.find(d => d.spentById === selectedSalaryWorkerId);
+                    if (!debt || debt.totalSpent <= 0) return null;
+                    return (
+                      <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10 flex items-center justify-between`}>
+                        <div>
+                          <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                          <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал материалы</div>
+                        </div>
+                        <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Bookings list */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
