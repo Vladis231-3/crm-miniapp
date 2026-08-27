@@ -630,7 +630,6 @@ function WelcomeScreen() {
 }
 
 function AppContent() {
-  useTelegramSetup();
   const { isDark, session, logout, loading, checkConsent } = useApp();
   const [consentReady, setConsentReady] = useState(false);
   const [consentNeeded, setConsentNeeded] = useState(true);

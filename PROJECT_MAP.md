@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-27 13:11 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-27 13:55 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **498**
-- Строк кода: **199 318**
+- Строк кода: **199 280**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
@@ -2550,7 +2550,7 @@ concept1.0/
 - `response` (стр. 243) — локальный
 - `blob` (стр. 252) — локальный
 
-### frontend/src/app/App.tsx (760 строк)
+### frontend/src/app/App.tsx (759 строк)
 
 - `ClientApp` (стр. 37) — локальный
 - `AdminApp` (стр. 38) — локальный
@@ -2581,11 +2581,11 @@ concept1.0/
 - `navRef` (стр. 355) — локальный
 - `handleBack` (стр. 358) — локальный
 - `AppContent` (стр. 632) — локальный
-- `usePath` (стр. 715) — локальный
-- `onPopState` (стр. 718) — локальный
-- `LandingWrapper` (стр. 725) — локальный
-- `App` (стр. 733)
-- `path` (стр. 735) — локальный
+- `usePath` (стр. 714) — локальный
+- `onPopState` (стр. 717) — локальный
+- `LandingWrapper` (стр. 724) — локальный
+- `App` (стр. 732)
+- `path` (стр. 734) — локальный
 
 ### frontend/src/app/components/admin/AdminApp.tsx (3586 строк)
 
@@ -4188,18 +4188,9 @@ concept1.0/
 - `tg` (стр. 11) — локальный
 - `btn` (стр. 12) — локальный
 
-### frontend/src/app/hooks/useTelegramSetup.ts (52 строк)
+### frontend/src/app/hooks/useTelegramSetup.ts (15 строк)
 
-- `useTelegramSetup` (стр. 10)
-- `tg` (стр. 16) — локальный
-- `insideTelegram` (стр. 17) — локальный
-- `onTouchStart` (стр. 22) — локальный
-- `onTouchMove` (стр. 25) — локальный
-- `target` (стр. 26) — локальный
-- `scrollable` (стр. 28) — локальный
-- `dy` (стр. 34) — локальный
-- `atTop` (стр. 35) — локальный
-- `atBottom` (стр. 36) — локальный
+- `useTelegramSetup` (стр. 11)
 
 ### frontend/src/app/utils/complaints.ts (44 строк)
 
@@ -4477,11 +4468,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/App.tsx` (2026-08-27 16:11)
+- `frontend/src/app/App.tsx` (2026-08-27 16:52)
+- `frontend/src/styles/theme.css` (2026-08-27 16:52)
+- `frontend/src/app/hooks/useTelegramSetup.ts` (2026-08-27 16:52)
 - `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-27 16:08)
-- `frontend/src/app/hooks/useTelegramSetup.ts` (2026-08-27 16:07)
 - `frontend/src/app/api.ts` (2026-08-27 16:06)
-- `frontend/src/styles/theme.css` (2026-08-27 16:05)
 - `frontend/index.html` (2026-08-27 16:05)
 - `backend/app/main.py` (2026-08-27 15:51)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-27 15:49)
