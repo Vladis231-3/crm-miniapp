@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-27 10:42 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-27 10:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **497**
-- Строк кода: **198 704**
+- Строк кода: **198 783**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 35, `.tsx`: 304
 
 ## Архитектура
@@ -3625,21 +3625,24 @@ concept1.0/
 - `current` (стр. 716) — локальный
 - `ownerPaymentLabel` (стр. 826) — локальный
 
-### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (541 строк)
+### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (620 строк)
 
-- `OwnerPiggyBankScreen` (стр. 57)
-- `ownerStatusBadge` (стр. 108) — локальный
-- `tabBalance` (стр. 160) — локальный
-- `tabLabel` (стр. 163) — локальный
-- `rem` (стр. 205) — локальный
-- `otherWd` (стр. 351) — локальный
-- `filteredTxs` (стр. 417) — локальный
-- `isDeposit` (стр. 427) — локальный
-- `txLabel` (стр. 428) — локальный
-- `booking` (стр. 434) — локальный
-- `handleClick` (стр. 435) — локальный
-- `Wrapper` (стр. 442) — локальный
-- `txRunningBalance` (стр. 443) — локальный
+- `OwnerPiggyBankScreen` (стр. 58)
+- `ownerStatusBadge` (стр. 110) — локальный
+- `tabBalance` (стр. 162) — локальный
+- `tabLabel` (стр. 165) — локальный
+- `rem` (стр. 207) — локальный
+- `otherWd` (стр. 353) — локальный
+- `debtTxs` (стр. 424) — локальный
+- `total` (стр. 428) — локальный
+- `isOther` (стр. 454) — локальный
+- `filteredTxs` (стр. 496) — локальный
+- `isDeposit` (стр. 506) — локальный
+- `txLabel` (стр. 507) — локальный
+- `booking` (стр. 513) — локальный
+- `handleClick` (стр. 514) — локальный
+- `Wrapper` (стр. 521) — локальный
+- `txRunningBalance` (стр. 522) — локальный
 
 ### frontend/src/app/components/owner/screens/OwnerStockPage.tsx (718 строк)
 
@@ -4442,8 +4445,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-08-27 13:47)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-27 13:39)
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-08-27 13:38)
 - `backend/app/main.py` (2026-08-27 13:34)
 - `scripts/.project-map-watch.lock` (2026-08-27 13:03)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-27 09:58)

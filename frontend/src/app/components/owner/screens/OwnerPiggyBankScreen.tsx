@@ -1,5 +1,6 @@
-import { motion } from 'motion/react';
-import { ChevronRight, Download, Edit3, Minus, Plus, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ChevronRight, Download, Edit3, Minus, Plus, RefreshCw, X } from 'lucide-react';
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast } from '../../atmosfera';
 
@@ -104,6 +105,7 @@ export function OwnerPiggyBankScreen({
   isDark: boolean;
 }) {
   const { bookings } = useApp();
+  const [selectedDebt, setSelectedDebt] = useState<PiggySpenderDebt | null>(null);
 
   const ownerStatusBadge = (status: string) => ({
     new: 'bg-indigo-500/15 text-indigo-600',
@@ -384,24 +386,101 @@ export function OwnerPiggyBankScreen({
         </div>
       )}
 
-      {/* Debts per purchaser - also in salary */}
+      {/* Debts per purchaser - also in salary - clickable */}
       {piggyBank?.spenderDebts && piggyBank.spenderDebts.length > 0 && (
         <div className={`${glass} rounded-2xl p-4 mb-4`}>
-          <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>💳 Долги в зарплате — кто покупал</div>
+          <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3 flex items-center justify-between`}>
+            <span>💳 Долги в зарплате — кто покупал</span>
+            <span className={`text-[10px] ${sub}`}>нажми для деталей</span>
+          </div>
           <div className="space-y-2">
             {piggyBank.spenderDebts.map(d => (
-              <div key={d.spentById || d.spentByName} className="flex justify-between items-center py-1.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">{d.spentByName}</span>
-                  <span className={`text-[11px] ${sub}`}>{d.count} покупок · долг в зарплате</span>
+              <button key={d.spentById || d.spentByName} onClick={() => setSelectedDebt(d)}
+                className="w-full flex justify-between items-center py-2.5 px-3 rounded-xl text-left transition active:scale-[0.98] hover:brightness-110 border last:border-0"
+                style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                <div className="flex flex-col text-left">
+                  <span className="text-sm font-medium flex items-center gap-1.5">{d.spentByName}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--status-danger)', color: 'white', opacity: 0.9 }}>{d.count}</span>
+                  </span>
+                  <span className={`text-[11px] ${sub}`}>{d.count} покупок · удержится из зарплаты</span>
+                  <span className={`text-[10px] ${sub} mt-0.5`}>откуда: списания из копилки → долг в ведомости</span>
                 </div>
-                <span className="font-bold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>-{d.totalSpent.toLocaleString('ru')} ₽</span>
-              </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>-{d.totalSpent.toLocaleString('ru')} ₽</span>
+                  <ChevronRight size={14} strokeWidth={1.75} className={sub} />
+                </div>
+              </button>
             ))}
           </div>
-          <div className={`text-[11px] ${sub} mt-2`}>Каждое списание фиксирует кто покупал — сумма удерживается из его зарплаты</div>
+          <div className={`text-[11px] ${sub} mt-3 p-2 rounded-lg`} style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+            <span className="font-medium">Откуда долг:</span> каждое «Снять на материалы/прочие» из копилки создаёт расход + удержание в зарплате покупателя. Нажми на строку — увидишь все чеки этого человека.
+          </div>
         </div>
       )}
+
+      {/* Debt detail sheet */}
+      <AnimatePresence>
+        {selectedDebt && (() => {
+          const debtTxs = piggyBankTxs.filter(tx => {
+            if (selectedDebt.spentById) return tx.spentById === selectedDebt.spentById;
+            return (tx.spentByName || '').trim() === selectedDebt.spentByName.trim();
+          }).sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+          const total = debtTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
+          return (
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40" onClick={() => setSelectedDebt(null)} />
+              <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[82vh] overflow-y-auto`}>
+                <div className="p-4 border-b sticky top-0 flex justify-between items-center" style={{ background: isDark ? '#1C1C1F' : '#fff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                  <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+                  <div className="mt-2">
+                    <h3 className="font-semibold text-base flex items-center gap-2">👤 {selectedDebt.spentByName}
+                      <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--status-danger)' }}>{selectedDebt.count} чеков</span>
+                    </h3>
+                    <div className={`text-xs ${sub} mt-1`}>Долг в зарплате: <span className="font-bold" style={{ color: 'var(--status-danger)' }}>{total.toLocaleString('ru')} ₽</span> · удержится из будущих выплат</div>
+                  </div>
+                  <button onClick={() => setSelectedDebt(null)} className={`p-2 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className={`${glass} rounded-xl p-3`}>
+                    <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Откуда долг</div>
+                    <div className="text-sm leading-relaxed">
+                      Каждая покупка из копилки — это <span className="font-medium" style={{ color: 'var(--status-danger)' }}>списание</span> (транзакция `material_withdrawal` / `other_withdrawal`) + зеркальный <span className="font-medium">расход</span> в бюджете + <span className="font-medium" style={{ color: 'var(--status-warning)' }}>удержание</span> в зарплате покупателя. Деньги уже ушли из копилки, а долг висит пока не погашен премией/выплатой.
+                    </div>
+                  </div>
+                  {debtTxs.length === 0 ? (
+                    <div className={`text-center py-8 text-sm ${sub}`}>Нет операций</div>
+                  ) : debtTxs.map(tx => {
+                    const isOther = tx.transactionType === 'other_withdrawal';
+                    return (
+                      <div key={tx.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isOther ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)', color: isOther ? '#B45309' : 'var(--status-success)' }}>{isOther ? 'прочие' : 'материалы'}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>{tx.resourceGroup === 'detailing' ? '✨ детейлинг' : tx.resourceGroup === 'wash' ? '🚗 мойка' : 'общая'}</span>
+                              <span className={`text-[11px] ${sub}`}>{tx.date}</span>
+                            </div>
+                            <div className="font-medium text-sm mt-1">{tx.materialName || 'Без названия'}</div>
+                            {tx.purpose && <div className={`text-xs ${sub} mt-0.5`}>{tx.purpose}</div>}
+                            {tx.bookingInfo && <div className={`text-[11px] ${sub} mt-1`}>Заказ: {tx.bookingInfo}</div>}
+                          </div>
+                          <div className="font-bold text-sm tabular-nums shrink-0" style={{ color: 'var(--status-danger)' }}>-{Math.abs(tx.amount).toLocaleString('ru')} ₽</div>
+                        </div>
+                        <div className={`text-[10px] ${sub} mt-2`}>ID: {tx.id.slice(0,8)} · {new Date(tx.createdAt).toLocaleString('ru-RU')}</div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => setSelectedDebt(null)} className={`flex-1 py-3 rounded-xl font-medium ${glass}`}>Закрыть</button>
+                    <button onClick={() => { setSelectedDebt(null); setPiggyTxExpanded(true); }} className="flex-1 py-3 rounded-xl font-medium text-white" style={{ background: primary }}>Показать в истории</button>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Transaction history */}
       <button onClick={() => setPiggyTxExpanded(v => !v)} className="w-full flex items-center justify-between mb-3">
