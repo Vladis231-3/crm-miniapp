@@ -4490,7 +4490,8 @@ paymentSettled: false,
           {/* ── PAYROLL ── */}
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-2">Зарплаты сотрудников</h2>
+              <h2 className="font-semibold mb-1">Зарплаты мастеров</h2>
+              <div className={`text-xs ${sub} mb-3`}>Мастера (без владельцев — владельцы ниже в едином окне)</div>
 
               {/* Search */}
               <div className="mb-3">
@@ -4523,6 +4524,7 @@ paymentSettled: false,
                   </div>
                 </div>
               )}
+              <div className={`text-[11px] ${sub} mb-3 px-1`}>Этот период также применяется к блоку «Работа как мастер» в карточках владельцев ниже</div>
 
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
@@ -4547,7 +4549,7 @@ paymentSettled: false,
                   Выдать жалобу
                 </button>
               </div>}
-              {payrollRows.filter(row => row.worker.name.toLowerCase().includes(salaryWorkerSearch.toLowerCase())).map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
+              {payrollRows.filter(row => row.worker.role !== 'owner').filter(row => row.worker.name.toLowerCase().includes(salaryWorkerSearch.toLowerCase())).map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
                 <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
@@ -4701,30 +4703,6 @@ paymentSettled: false,
                       Все жалобы ({complaintState.activeCount})
                     </button>
                   )}
-                  {(payrollSummary?.bookingItems?.length || 0) > 0 && (
-                    <div className="mb-3">
-                      <div className={`text-xs ${sub} mb-2`}>Последние выполненные заказы</div>
-                      <div className="space-y-2">
-                        {payrollSummary?.bookingItems.slice(0, 5).map((item) => (
-                          <div key={item.bookingId} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium truncate">{item.service}</div>
-                              <div className={`text-[11px] ${sub}`}>{item.date} · {item.time} · {item.price.toLocaleString('ru')} ₽</div>
-                              {(item.car || item.plate) && (
-                                <div className={`text-[11px] ${sub} mt-0.5`}>
-                                  {[item.car, item.plate].filter(Boolean).join(' · ')}
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="text-sm font-semibold">+{item.earned.toLocaleString('ru')} ₽</div>
-                              <div className={`text-[11px] ${sub}`}>{item.percent}%</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   {(payrollSummary?.entries?.length || 0) > 0 && (
                     <div>
                       <div className={`text-xs ${sub} mb-2`}>История операций</div>
@@ -4757,10 +4735,11 @@ paymentSettled: false,
                 </div>
               ))}
 
-              {/* ── ДОХОДЫ ВЛАДЕЛЬЦЕВ ── */}
+              {/* ── ВЛАДЕЛЬЦЫ — ЕДИНОЕ ОКНО ЗП (работа + пассив) ── */}
               {!isAccountant && (
                 <div className="mt-6">
-                  <h2 className="font-semibold mb-3">Доходы владельцев</h2>
+                  <h2 className="font-semibold mb-1">Владельцы — единое окно ЗП</h2>
+                  <div className={`text-xs ${sub} mb-3`}>Для каждого владельца: ЗП за работу как мастера/администратора + пассивный доход с заказов других мастеров</div>
                   <div className="flex gap-1 mb-3 flex-wrap">
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                       <button key={p} onClick={() => setOwnerSalaryPeriod(p)}
@@ -4795,9 +4774,53 @@ paymentSettled: false,
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold">{ownerDisplayName}</div>
-                          <div className={`text-xs ${sub}`}>Владелец</div>
+                          <div className={`text-xs ${sub}`}>Владелец — единое окно ЗП</div>
                         </div>
                       </div>
+                      {(() => {
+                        const linked = payrollRows.find(r => r.worker.id === owner.ownerId);
+                        if (!linked) {
+                          return <div className={`text-xs ${sub} mb-3 px-1`}>Не выполняет заказы как мастер — только пассивный доход ниже</div>;
+                        }
+                        const ps = linked.payrollSummary;
+                        return (
+                          <div className="mb-3">
+                            <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>ЗП за работу как мастер / администратор</div>
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                              <div className={`${glass} rounded-xl p-3 text-center`}>
+                                <div className="text-sm font-semibold">{(ps?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub}`}>Заработано с заказов</div>
+                              </div>
+                              <div className={`${glass} rounded-xl p-3 text-center`}>
+                                <div className="text-sm font-semibold" style={{ color: linked.complaintState.effectivePercent !== linked.worker.defaultPercent ? '#ef4444' : accent }}>{linked.complaintState.effectivePercent}%</div>
+                                <div className={`text-[11px] ${sub}`}>Текущий % · база {linked.worker.defaultPercent}%</div>
+                              </div>
+                              <div className={`${glass} rounded-xl p-3 text-center`}>
+                                <div className="text-sm font-semibold">{(ps?.baseSalary ?? linked.worker.salaryBase).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub}`}>Оклад</div>
+                              </div>
+                              <div className={`${glass} rounded-xl p-3 text-center`}>
+                                <div className="text-sm font-semibold">{(ps?.completedRevenue || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub}`}>Выручка по заказам</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                              <div className={`${glass} rounded-xl p-3`}>
+                                <div className={`text-[11px] ${sub} mb-1`}>Начислено</div>
+                                <div className="text-sm font-semibold">{(ps?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub} mt-1`}>{ps?.shiftPayTotal ? `Смены: +${ps.shiftPayTotal.toLocaleString('ru')} ₽ (${ps.shiftCount}) · ` : ''}Премии: {(ps?.bonusTotal || 0).toLocaleString('ru')} ₽</div>
+                              </div>
+                              <div className={`${glass} rounded-xl p-3`}>
+                                <div className={`text-[11px] ${sub} mb-1`}>К выплате за работу</div>
+                                <div className="text-sm font-semibold" style={{ color: (ps?.balance || 0) > 0 ? accent : sub }}>{(ps?.balance || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} заказов · {linked.complaintState.activeCount} жалоб</div>
+                              </div>
+                            </div>
+                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера — детали, премии, штрафы</button>
+                          </div>
+                        );
+                      })()}
+                      <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>Пассивный доход — доля с заказов других мастеров</div>
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         <div className={`${glass} rounded-xl p-3 text-center`}>
                           <div className="text-sm font-semibold" style={{ color: accent }}>{owner.totalAccrued.toLocaleString('ru')} ₽</div>
@@ -5287,6 +5310,18 @@ paymentSettled: false,
                   averageCheck: workerBookings.length > 0 ? Math.round(workerRevenue / workerBookings.length) : 0,
                 };
               }).sort((left, right) => right.revenue - left.revenue);
+              const reportReferralData = (() => {
+                const map = new Map<string, { label: string; count: number; revenue: number }>();
+                reportCompletedBookings.forEach((b) => {
+                  const src = (b.referralSource?.trim() || 'Не указано');
+                  const cur = map.get(src) || { label: src, count: 0, revenue: 0 };
+                  cur.count += 1;
+                  cur.revenue += b.price;
+                  map.set(src, cur);
+                });
+                return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue || b.count - a.count);
+              })();
+              const reportReferralTotal = reportReferralData.reduce((s, r) => s + r.count, 0);
               return (
             <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
@@ -5355,6 +5390,47 @@ paymentSettled: false,
                   </div>
                 ))}
               </div>
+
+              {/* Откуда узнали */}
+              {reportReferralData.length > 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                  <div className={`text-xs ${sub} mb-3`}>ОТКУДА УЗНАЛИ · {reportReferralTotal} завершённых записей</div>
+                  <div className="flex gap-4 items-center">
+                    <div className="w-[140px] h-[140px] shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={reportReferralData} dataKey="count" nameKey="label" innerRadius={36} outerRadius={62} paddingAngle={2} strokeWidth={0}>
+                            {reportReferralData.map((entry, idx) => {
+                              const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
+                              return <Cell key={entry.label} fill={palette[idx % palette.length]} />;
+                            })}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} зап. · ${p.payload.revenue.toLocaleString('ru')} ₽`, p.payload.label]} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {reportReferralData.map((row, idx) => {
+                        const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
+                        const pct = reportReferralTotal > 0 ? Math.round((row.count / reportReferralTotal) * 100) : 0;
+                        return (
+                          <div key={row.label} className="flex items-center justify-between gap-2 text-xs">
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: palette[idx % palette.length] }} />
+                              <span className="truncate font-medium">{row.label}</span>
+                              <span className={sub}>· {pct}%</span>
+                            </span>
+                            <span className="shrink-0 tabular-nums font-semibold">{row.count} · {row.revenue.toLocaleString('ru')} ₽</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className={`mt-3 pt-3 border-t text-[11px] ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+                    Считаются только завершённые записи за выбранный период. Источник берётся из карточки записи («Откуда узнал»).
+                  </div>
+                </div>
+              )}
 
               {/* Копилка в отчётах */}
               {piggyBank && (
@@ -5480,8 +5556,8 @@ paymentSettled: false,
                       <div key={client.id} className={`${glass} rounded-2xl p-4`}>
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                           <div>
-                            <div className="font-semibold">{client.name}</div>
-                            <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''}</div>
+                            <div className="font-semibold flex items-center gap-2 flex-wrap">{client.name}<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: `${primary}14`, color: primary, border: `1px solid ${primary}22` }}>{client.referralSource?.trim() || 'Не указано'}</span></div>
+                            <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''} · <span className="font-medium">Откуда: {client.referralSource?.trim() || 'Не указано'}</span></div>
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>

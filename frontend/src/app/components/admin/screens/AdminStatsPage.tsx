@@ -181,6 +181,18 @@ export function AdminStatsPage() {
       }));
   }, [filtered, todayBookings, period]);
 
+  const referralStats = useMemo(() => {
+    const map = new Map<string, { name: string; value: number; revenue: number }>();
+    filtered.forEach((b) => {
+      const src = (b.referralSource?.trim() || 'Не указано');
+      const cur = map.get(src) || { name: src, value: 0, revenue: 0 };
+      cur.value += 1;
+      if (b.status === 'completed') cur.revenue += b.price;
+      map.set(src, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.value - a.value);
+  }, [filtered]);
+
   const glass = 'border border-border bg-[var(--card)]';
   const sub = 'text-[var(--fg-secondary,#5A6072)]';
   const tooltipStyle = {
@@ -305,6 +317,44 @@ export function AdminStatsPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Откуда узнали */}
+      {referralStats.length > 0 && (
+        <div className={`${glass} rounded-2xl p-3`}>
+          <div className={`section-kicker mb-2`}>Откуда узнали</div>
+          <div className="flex items-center gap-4">
+            <ResponsiveContainer width="45%" height={150}>
+              <PieChart>
+                <Pie data={referralStats} dataKey="value" innerRadius={40} outerRadius={65} paddingAngle={2} strokeWidth={0}>
+                  {referralStats.map((entry, idx) => {
+                    const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
+                    return <Cell key={entry.name} fill={palette[idx % palette.length]} />;
+                  })}
+                </Pie>
+                <RTooltip contentStyle={tooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} зап. · ${Number(p.payload.revenue).toLocaleString('ru')} ₽`, p.payload.name]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="min-w-0 flex-1 space-y-1">
+              {referralStats.map((entry, idx) => {
+                const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
+                const total = referralStats.reduce((s, r) => s + r.value, 0);
+                const pct = total > 0 ? Math.round((entry.value / total) * 100) : 0;
+                return (
+                  <div key={entry.name} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="size-2 shrink-0 rounded-full" style={{ background: palette[idx % palette.length] }} aria-hidden />
+                      <span className={`truncate ${sub}`}>{entry.name}</span>
+                      <span className="shrink-0 tabular-nums">· {pct}%</span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums">{entry.value} · {entry.revenue.toLocaleString('ru')} ₽</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className={`mt-2 text-[11px] ${sub}`}>Считаются все записи за выбранный период. Выручка — только по завершённым.</div>
         </div>
       )}
 

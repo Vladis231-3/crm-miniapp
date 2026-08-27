@@ -165,6 +165,8 @@ class OwnerExportData:
 
     piggy_rows: list[list[Any]] = field(default_factory=list)
 
+    referral_rows: list[list[Any]] = field(default_factory=list)
+
 
 
 
@@ -264,6 +266,8 @@ class OwnerSummaryExportData:
     booking_rows: list[list[Any]]
 
     action_rows: list[list[Any]]
+
+    referral_rows: list[list[Any]] = field(default_factory=list)
 
 
 
@@ -484,6 +488,21 @@ def build_owner_summary_report(
                 lines.append(f"  Возврат материалов: +{_format_money(repayments)}")
 
             lines.append(f"  Баланс: {_format_money(total_balance)}")
+
+    # откуда узнали — сводка по referral_source
+    referral_rollup: dict[str, dict[str, int]] = {}
+    for booking, _svc in filtered:
+        src = (getattr(booking, "referral_source", None) or "").strip() or "Не указано"
+        rec = referral_rollup.setdefault(src, {"source": src, "total": 0, "revenue": 0})
+        rec["total"] += 1
+        if booking.status == "completed":
+            rec["revenue"] += booking.price
+    if referral_rollup:
+        top_referrals = sorted(referral_rollup.values(), key=lambda x: (x["revenue"], x["total"]), reverse=True)
+        lines.append("Откуда узнали:")
+        for rec in top_referrals[:5]:
+            label = rec["source"]
+            lines.append(f"  {label}: {rec['total']} зап., {_format_money(rec['revenue'])}")
 
 
 
@@ -1103,6 +1122,8 @@ def _build_owner_summary_export_data(
 
                 "vehicle": booking_vehicle,
 
+                "referral": "",
+
                 "total": 0,
 
                 "completed": 0,
@@ -1146,6 +1167,12 @@ def _build_owner_summary_export_data(
         if booking_vehicle and not client_row["vehicle"]:
 
             client_row["vehicle"] = booking_vehicle
+
+        _ref_src = (getattr(booking, "referral_source", None) or "").strip()
+
+        if _ref_src and not client_row.get("referral"):
+
+            client_row["referral"] = _ref_src
 
         if booking_dt is not None and (client_row["first"] is None or booking_dt < client_row["first"]):
 
@@ -1271,7 +1298,9 @@ def _build_owner_summary_export_data(
 
                 worker_names,
 
-                (booking.notes or "").strip(),
+            (getattr(booking, "referral_source", None) or "").strip() or "Не указано",
+
+            (booking.notes or "").strip(),
 
             ])
 
@@ -1447,6 +1476,8 @@ def _build_owner_summary_export_data(
 
             row["vehicle"],
 
+            row.get("referral") or "Не указано",
+
             row["total"],
 
             row["completed"],
@@ -1469,7 +1500,7 @@ def _build_owner_summary_export_data(
 
     ]
 
-    client_rows.sort(key=lambda item: (item[8], item[4], item[3], item[0]), reverse=True)
+    client_rows.sort(key=lambda item: (item[9], item[5], item[4], item[0]), reverse=True)
 
 
 
@@ -1509,6 +1540,21 @@ def _build_owner_summary_export_data(
 
 
 
+        # referral aggregation for summary period
+    referral_rollup_summary: dict[str, dict[str, Any]] = {}
+    for booking, _svc in sorted_items:
+        raw = (getattr(booking, "referral_source", None) or "").strip() or "Не указано"
+        rec = referral_rollup_summary.setdefault(raw, {"source": raw, "total": 0, "completed": 0, "revenue": 0})
+        rec["total"] += 1
+        if booking.status == "completed":
+            rec["completed"] += 1
+            rec["revenue"] += booking.price
+    referral_rows = [
+        [r["source"], r["total"], r["completed"], r["revenue"], round(r["revenue"] / r["completed"]) if r["completed"] else 0]
+        for r in referral_rollup_summary.values()
+    ]
+    referral_rows.sort(key=lambda item: (item[3], item[1], item[0]), reverse=True)
+
     return OwnerSummaryExportData(
 
         owner_name=owner_name,
@@ -1542,6 +1588,8 @@ def _build_owner_summary_export_data(
         booking_rows=booking_rows,
 
         action_rows=action_rows,
+
+        referral_rows=referral_rows,
 
     )
 
@@ -2208,6 +2256,8 @@ def _build_export_data(
 
                 "vehicle": "",
 
+                "referral": "",
+
                 "total": 0,
 
                 "completed": 0,
@@ -2254,6 +2304,12 @@ def _build_export_data(
 
             row["vehicle"] = vehicle
 
+        referral_src = (getattr(booking, "referral_source", None) or "").strip()
+
+        if referral_src and not row.get("referral"):
+
+            row["referral"] = referral_src
+
         dt = _booking_datetime(booking)
 
         if dt and (row["first"] is None or dt < row["first"]):
@@ -2266,13 +2322,13 @@ def _build_export_data(
 
     client_rows = [
 
-        [row["name"], row["phone"], row["vehicle"], row["total"], row["completed"], row["active"], row["admin_review"], row["cancelled"], row["revenue"], _format_datetime(row["first"]), _format_datetime(row["last"])]
+        [row["name"], row["phone"], row["vehicle"], row.get("referral") or "Не указано", row["total"], row["completed"], row["active"], row["admin_review"], row["cancelled"], row["revenue"], _format_datetime(row["first"]), _format_datetime(row["last"])]
 
         for row in client_rollup.values()
 
     ]
 
-    client_rows.sort(key=lambda item: (item[8], item[3], item[0]), reverse=True)
+    client_rows.sort(key=lambda item: (item[9], item[4], item[0]), reverse=True)
 
 
 
@@ -2376,6 +2432,8 @@ def _build_export_data(
 
             ", ".join(f"{link.worker_name} ({link.percent}%)" for link in booking.worker_links) or "Не назначены",
 
+            (getattr(booking, "referral_source", None) or "").strip() or "Не указано",
+
             (booking.notes or "").strip(),
 
         ]
@@ -2384,7 +2442,20 @@ def _build_export_data(
 
     ]
 
-
+    # Агрегация по источникам откуда узнал клиент
+    referral_rollup: dict[str, dict[str, Any]] = {}
+    for booking in bookings:
+        raw_src = (getattr(booking, "referral_source", None) or "").strip() or "Не указано"
+        rec = referral_rollup.setdefault(raw_src, {"source": raw_src, "total": 0, "completed": 0, "revenue": 0})
+        rec["total"] += 1
+        if booking.status == "completed":
+            rec["completed"] += 1
+            rec["revenue"] += booking.price
+    referral_rows = [
+        [row["source"], row["total"], row["completed"], row["revenue"], round(row["revenue"] / row["completed"]) if row["completed"] else 0]
+        for row in referral_rollup.values()
+    ]
+    referral_rows.sort(key=lambda item: (item[3], item[1], item[0]), reverse=True)
 
     income_rows: list[list[Any]] = [
 
@@ -2508,6 +2579,8 @@ def _build_export_data(
 
         piggy_rows=piggy_rows,
 
+        referral_rows=referral_rows,
+
     )
 
 
@@ -2554,9 +2627,9 @@ def _render_excel_report(data: OwnerExportData) -> bytes:
 
     _append_sheet(workbook, "Сотрудники", ["Сотрудник", "Активен", "%", "Оклад", "Завершено", "Активных задач", "Заработано", "Активные жалобы", "Эффект", "К выплате"], data.payroll_rows, currency_cols={4, 7, 10})
 
-    _append_sheet(workbook, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"], data.client_rows, currency_cols={9})
+    _append_sheet(workbook, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Откуда узнал", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"], data.client_rows, currency_cols={10})
 
-    _append_sheet(workbook, "Реестр записей", ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Комментарий"], data.booking_rows, currency_cols={11})
+    _append_sheet(workbook, "Реестр записей", ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Откуда узнал", "Комментарий"], data.booking_rows, currency_cols={12})
 
     _append_sheet(workbook, "Расходы", ["Категория", "Операций", "Сумма", "Доля %"], data.expense_category_rows, currency_cols={3})
 
@@ -2573,6 +2646,10 @@ def _render_excel_report(data: OwnerExportData) -> bytes:
     if data.piggy_rows:
 
         _append_sheet(workbook, "Копилка", ["Дата", "Операция", "Копилка", "Назначение", "Материал / статья", "Сумма", "Запись"], data.piggy_rows, currency_cols={6})
+
+    if getattr(data, "referral_rows", None):
+
+        _append_sheet(workbook, "Источники", ["Источник", "Всего записей", "Завершено", "Выручка", "Средний чек"], data.referral_rows, currency_cols={4, 5})
 
 
 
@@ -2702,11 +2779,11 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
 
         "Клиенты",
 
-        ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"],
+        ["Клиент", "Телефон", "Авто / номер", "Откуда узнал", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"],
 
         data.client_rows,
 
-        currency_cols={9},
+        currency_cols={10},
 
     )
 
@@ -2730,7 +2807,7 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
 
         "Реестр записей",
 
-        ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Категория", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Комментарий"],
+        ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Категория", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Откуда узнал", "Комментарий"],
 
         data.booking_rows,
 
@@ -2750,7 +2827,21 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
 
     )
 
+    if getattr(data, "referral_rows", None):
 
+        _append_sheet(
+
+            workbook,
+
+            "Источники",
+
+            ["Источник", "Всего записей", "Завершено", "Выручка", "Средний чек"],
+
+            data.referral_rows,
+
+            currency_cols={4, 5},
+
+        )
 
     buffer = io.BytesIO()
 
@@ -2852,7 +2943,7 @@ def _render_pdf_report(data: OwnerExportData) -> bytes:
 
     _pdf_section(story, section_style, font_name, "Сотрудники и выплаты", ["Сотрудник", "Активен", "%", "Оклад", "Завершено", "Активных задач", "Заработано", "Активные жалобы", "Эффект", "К выплате"], _format_rows(data.payroll_rows, currency_cols={4, 7, 10}))
 
-    _pdf_section(story, section_style, font_name, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"], _format_rows(data.client_rows, currency_cols={9}))
+    _pdf_section(story, section_style, font_name, "Клиенты", ["Клиент", "Телефон", "Авто / номер", "Откуда узнал", "Всего", "Завершено", "Активно", "На уточнении", "Отменено", "Выручка", "Первая запись", "Последняя запись"], _format_rows(data.client_rows, currency_cols={9}))
 
     _pdf_section(story, section_style, font_name, "Расходы по категориям", ["Категория", "Операций", "Сумма", "Доля %"], _format_rows(data.expense_category_rows, currency_cols={3}))
 
@@ -2862,11 +2953,15 @@ def _render_pdf_report(data: OwnerExportData) -> bytes:
 
     _pdf_section(story, section_style, font_name, "Жалобы", ["Сотрудник", "Заголовок", "Причина", "Создана", "Активна до", "Статус", "Снята"], data.complaint_rows)
 
+    if getattr(data, "referral_rows", None):
+
+        _pdf_section(story, section_style, font_name, "Откуда узнали", ["Источник", "Всего", "Завершено", "Выручка", "Средний чек"], _format_rows(data.referral_rows, currency_cols={4, 5}))
+
     if data.income_rows:
 
         _pdf_section(story, section_style, font_name, "Доп. доходы", ["Дата", "Источник", "Сумма", "Примечание"], _format_rows(data.income_rows, currency_cols={3}))
 
-    _pdf_section(story, section_style, font_name, "Полный реестр записей", ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Комментарий"], _format_rows(data.booking_rows, currency_cols={11}))
+    _pdf_section(story, section_style, font_name, "Полный реестр записей", ["Создана", "Запись на", "Статус", "Клиент", "Телефон", "Авто / номер", "Услуга", "Бокс", "Оплата", "Длительность", "Стоимость", "Сотрудники", "Откуда узнал", "Комментарий"], _format_rows(data.booking_rows, currency_cols={12}))
 
 
 

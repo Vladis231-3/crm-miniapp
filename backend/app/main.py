@@ -6600,11 +6600,13 @@ def _cleanup_return_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str,
 
 def _booking_client_reminder_message(booking: Booking) -> str:
 
+    add_block = _additional_services_block(booking)
+
     return (
 
         "Напоминание о записи\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {booking.date} {booking.time}\n"
 
@@ -6620,13 +6622,15 @@ def _booking_client_reminder_message(booking: Booking) -> str:
 
 def _booking_worker_reminder_message(booking: Booking, worker_name: str) -> str:
 
+    add_block = _additional_services_block(booking)
+
     return (
 
         f"Напоминание мастеру {worker_name}\n"
 
         f"Клиент: {booking.client_name}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {booking.date} {booking.time}\n"
 
@@ -6726,7 +6730,7 @@ def _dispatch_booking_reminders(
 
             select(Booking)
 
-            .options(joinedload(Booking.worker_links))
+            .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
 
             .where(
 
@@ -8961,6 +8965,28 @@ def _admin_booking_notification_text(
 
 
 
+def _additional_services_block(booking: Booking) -> str:
+    """Форматирует блок доп. услуг для вставки в Telegram/внутренние сообщения."""
+    services = getattr(booking, "additional_services", None) or []
+    if not services:
+        return ""
+    lines: list[str] = []
+    for asvc in services:
+        try:
+            name = (getattr(asvc, "name", "") or "").strip() or "Доп. услуга"
+            price_val = int(getattr(asvc, "price", 0) or 0)
+            price_str = f"{price_val:,}".replace(",", " ") + " ₽"
+            if getattr(asvc, "price_mode", "add") == "subtract":
+                price_str = f"−{price_str} (вычет)"
+            dur = getattr(asvc, "duration", None)
+            dur_str = f", {int(dur)} мин" if dur else ""
+            out_str = " · аутсорс" if getattr(asvc, "is_outsource", False) else ""
+            lines.append(f"• {name} — {price_str}{dur_str}{out_str}")
+        except Exception:
+            lines.append(f"• {(getattr(asvc, 'name', '') or 'Доп. услуга').strip()}")
+    return "\nДоп. услуги:\n" + "\n".join(lines)
+
+
 def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
 
     admins = db.scalars(
@@ -8968,6 +8994,8 @@ def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
         select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))
 
     ).all()
+
+    add_block = _additional_services_block(booking)
 
     text = (
 
@@ -8977,7 +9005,7 @@ def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
 
         f"Авто: {_booking_car_label(booking.car, booking.plate)}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
 
@@ -8997,6 +9025,8 @@ def _notify_owners_about_booking(db: Session, booking: Booking) -> None:
 
     owners = _all_owner_telegram_recipients(db)
 
+    add_block = _additional_services_block(booking)
+
     text = (
 
         "Новая запись\n"
@@ -9005,7 +9035,7 @@ def _notify_owners_about_booking(db: Session, booking: Booking) -> None:
 
         f"Авто: {_booking_car_label(booking.car, booking.plate)}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
 
@@ -9459,13 +9489,15 @@ def _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -
 
     worker_line = f"\nМастер: {worker_name}" if worker_name else ""
 
+    add_block = _additional_services_block(booking)
+
     return (
 
         "Чек по записи\n"
 
         f"Клиент: {booking.client_name}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {booking.date} {booking.time}\n"
 
@@ -9571,6 +9603,8 @@ def _notify_owner_about_worker_booking_event(
         else ""
     )
 
+    add_block = _additional_services_block(booking)
+
     _notify_owners(
 
         db,
@@ -9583,7 +9617,7 @@ def _notify_owner_about_worker_booking_event(
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}\n"
+            f"Услуга: {booking.service}{add_block}\n"
 
             f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
 
@@ -9634,13 +9668,15 @@ def _notify_workers_about_assignment(
 
                 car_part += f" ({booking.plate})"
 
+        add_block = _additional_services_block(booking)
+
         text = (
 
             "Вам назначена запись\n"
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}\n"
+            f"Услуга: {booking.service}{add_block}\n"
 
             f"Дата: {booking.date} {booking.time}\n"
 
@@ -9710,7 +9746,7 @@ def _notify_workers_about_additional_service(
 
         )
 
-        pay_label = "╨╜╨╡ ╤Г╨║╨░╨╖╨░╨╜╨░"
+        pay_label = "не указана"
 
         if link is not None:
 
@@ -9718,11 +9754,11 @@ def _notify_workers_about_additional_service(
 
                 pay_label = (
 
-                    f"╤Д╨╕╨║╤Б {link.fixed_amount} тВ╜"
+                    f"фикс {link.fixed_amount} ₽"
 
                     if link.fixed_amount is not None
 
-                    else "╤Д╨╕╨║╤Б"
+                    else "фикс"
 
                 )
 
@@ -9734,7 +9770,7 @@ def _notify_workers_about_additional_service(
 
         if booking.car:
 
-            car_part = f"\n╨Р╨▓╤В╨╛: {booking.car}"
+            car_part = f"\nАвто: {booking.car}"
 
             if booking.plate:
 
@@ -9742,17 +9778,17 @@ def _notify_workers_about_additional_service(
 
         text = (
 
-            "╨Т╨░╨╝ ╨╜╨░╨╖╨╜╨░╤З╨╡╨╜╨░ ╨┤╨╛╨┐. ╤Г╤Б╨╗╤Г╨│╨░\n"
+            "Вам назначена доп. услуга\n"
 
-            f"╨Ъ╨╗╨╕╨╡╨╜╤В: {booking.client_name}\n"
+            f"Клиент: {booking.client_name}\n"
 
-            f"╨Ф╨╛╨┐. ╤Г╤Б╨╗╤Г╨│╨░: {asvc.name}\n"
+            f"Доп. услуга: {asvc.name}\n"
 
-            f"╨Ф╨░╤В╨░: {booking.date} {booking.time}\n"
+            f"Дата: {booking.date} {booking.time}\n"
 
-            f"╨С╨╛╨║╤Б: {booking.box}\n"
+            f"Бокс: {booking.box}\n"
 
-            f"╨Ю╨┐╨╗╨░╤В╨░: {pay_label}"
+            f"Оплата: {pay_label}"
 
         )
 
@@ -9812,13 +9848,15 @@ def _notify_workers_about_note(
 
                 car_part += f" ({booking.plate})"
 
+        add_block = _additional_services_block(booking)
+
         text = (
 
             "Администратор обновил примечание к вашей записи\n"
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}\n"
+            f"Услуга: {booking.service}{add_block}\n"
 
             f"Дата: {booking.date} {booking.time}"
 
@@ -9898,13 +9936,15 @@ def _notify_workers_about_reschedule(
 
                 car_part += f" ({booking.plate})"
 
+        add_block = _additional_services_block(booking)
+
         text = (
 
             "Администратор перенёс вашу запись\n"
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}"
+            f"Услуга: {booking.service}{add_block}"
 
         )
 
@@ -12611,6 +12651,11 @@ def update_booking(
         if booking.service != previous_service:
 
             client_notification_parts.append(f"Услуга: {booking.service}")
+
+        add_block_client = _additional_services_block(booking)
+        if add_block_client:
+            dop_line = add_block_client.replace("\n", ", ").strip()
+            client_notification_parts.append(dop_line)
 
         if booking.box != previous_box:
 
