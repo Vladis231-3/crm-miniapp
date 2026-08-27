@@ -2938,6 +2938,40 @@ export function OwnerApp() {
     }
   };
 
+  const handleRepayPiggyDebt = async (workerId: string, amount: number) => {
+    if (!workerId || !amount || amount <= 0) return;
+    const workerName = workers.find(w => w.id === workerId)?.name || 'сотрудника';
+    const ok = window.confirm(`Погасить долг по копилке ${Math.round(amount).toLocaleString('ru')} ₽ для ${workerName}? Будет начислена премия на эту сумму.`);
+    if (!ok) return;
+    try {
+      await createPayrollEntry({
+        workerId,
+        kind: 'bonus',
+        amount: Math.round(amount),
+        note: 'Погашение долга по копилке',
+        period: 'all',
+      });
+      setBottomToast(`Долг ${Math.round(amount).toLocaleString('ru')} ₽ погашен для ${workerName}`);
+      setTimeout(() => setBottomToast(null), 3000);
+      await loadPiggyBank();
+      if (selectedSalaryWorkerId === workerId) {
+        refreshSalaryDetail();
+      }
+      const params = new URLSearchParams({ period: payrollPeriod });
+      if (payrollPeriod === 'custom') {
+        params.set('date_from', payrollDateFrom);
+        params.set('date_to', payrollDateTo);
+      }
+      try {
+        const updated = await apiRequest<Worker[]>(`/api/admin/workers/payroll?${params.toString()}`);
+        setPayrollData(updated);
+      } catch {}
+    } catch (error) {
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось погасить долг');
+      setTimeout(() => setBottomToast(null), 4000);
+    }
+  };
+
   const handleUpdateEntry = async () => {
     if (!editingEntryId || !selectedSalaryWorkerId) return;
     const amount = Number(editAmount);
@@ -4621,12 +4655,15 @@ paymentSettled: false,
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === worker.id);
                     if (!debt || debt.totalSpent <= 0) return null;
                     return (
-                      <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10 flex items-center justify-between`}>
-                        <div>
-                          <div className={`text-xs ${sub}`}>Долг по копилке</div>
-                          <div className={`text-[11px] ${sub}`}>{debt.count} списаний</div>
+                      <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал для копилки</div>
+                          </div>
+                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
-                        <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                        <button onClick={() => handleRepayPiggyDebt(worker.id, debt.totalSpent)} className="w-full py-2 rounded-xl text-xs font-medium text-white" style={{ background: '#F59E0B' }}>Погасить долг</button>
                       </div>
                     );
                   })()}
@@ -4807,13 +4844,17 @@ paymentSettled: false,
                       {(() => {
                         const debt = piggyBank?.spenderDebts?.find(d => d.spentById === owner.ownerId || d.spentByName === ownerDisplayName);
                         if (!debt || debt.totalSpent <= 0) return null;
+                        const repayId = debt.spentById || owner.ownerId;
                         return (
-                          <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10 flex items-center justify-between`}>
-                            <div>
-                              <div className={`text-xs ${sub}`}>Долг по копилке</div>
-                              <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал для копилки</div>
+                          <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                                <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал для копилки</div>
+                              </div>
+                              <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                             </div>
-                            <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                            <button onClick={() => handleRepayPiggyDebt(repayId, debt.totalSpent)} className="w-full py-2 rounded-xl text-xs font-medium text-white" style={{ background: '#F59E0B' }}>Погасить долг</button>
                           </div>
                         );
                       })()}
@@ -4985,12 +5026,15 @@ paymentSettled: false,
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === selectedSalaryWorkerId);
                     if (!debt || debt.totalSpent <= 0) return null;
                     return (
-                      <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10 flex items-center justify-between`}>
-                        <div>
-                          <div className={`text-xs ${sub}`}>Долг по копилке</div>
-                          <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал материалы</div>
+                      <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал материалы</div>
+                          </div>
+                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
-                        <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                        <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, debt.totalSpent)} className="w-full py-2 rounded-xl text-xs font-medium text-white" style={{ background: '#F59E0B' }}>Погасить долг</button>
                       </div>
                     );
                   })()}
