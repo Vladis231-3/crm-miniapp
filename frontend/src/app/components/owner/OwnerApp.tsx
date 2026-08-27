@@ -901,6 +901,8 @@ export function OwnerApp() {
   const [ownerPayNote, setOwnerPayNote] = useState('');
   const [selectedShareDetail, setSelectedShareDetail] = useState<OwnerProfitShareItem | null>(null);
   const [expandedOwnerShares, setExpandedOwnerShares] = useState<Record<string, boolean>>({});
+  const [repayAmounts, setRepayAmounts] = useState<Record<string, string>>({});
+  const [repayDetailAmount, setRepayDetailAmount] = useState('');
 
   // Reset ALL booking-editing states on any page change so salary detail
   // always opens in view mode, no matter how the user navigated away.
@@ -2953,6 +2955,12 @@ export function OwnerApp() {
       });
       setBottomToast(`Долг ${Math.round(amount).toLocaleString('ru')} ₽ погашен для ${workerName}`);
       setTimeout(() => setBottomToast(null), 3000);
+      setRepayAmounts(p => {
+        const n = { ...p };
+        delete n[workerId];
+        return n;
+      });
+      if (selectedSalaryWorkerId === workerId) setRepayDetailAmount('');
       await loadPiggyBank();
       if (selectedSalaryWorkerId === workerId) {
         refreshSalaryDetail();
@@ -4654,16 +4662,23 @@ paymentSettled: false,
                   {(() => {
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === worker.id);
                     if (!debt || debt.totalSpent <= 0) return null;
+                    const repayVal = repayAmounts[worker.id] ?? String(Math.round(debt.totalSpent));
+                    const repayNum = Number(repayVal.replace(',', '.'));
+                    const isValid = Number.isFinite(repayNum) && repayNum > 0 && repayNum <= debt.totalSpent;
                     return (
                       <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
                         <div className="flex items-center justify-between mb-2">
                           <div>
                             <div className={`text-xs ${sub}`}>Долг по копилке</div>
-                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал для копилки</div>
+                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
                           <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
-                        <button onClick={() => handleRepayPiggyDebt(worker.id, debt.totalSpent)} className="w-full py-2 rounded-xl text-xs font-medium text-white" style={{ background: '#F59E0B' }}>Погасить долг</button>
+                        <div className="flex gap-2">
+                          <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayAmounts(p => ({ ...p, [worker.id]: e.target.value }))} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
+                          <button onClick={() => handleRepayPiggyDebt(worker.id, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
+                        </div>
+                        {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                       </div>
                     );
                   })()}
@@ -4845,16 +4860,23 @@ paymentSettled: false,
                         const debt = piggyBank?.spenderDebts?.find(d => d.spentById === owner.ownerId || d.spentByName === ownerDisplayName);
                         if (!debt || debt.totalSpent <= 0) return null;
                         const repayId = debt.spentById || owner.ownerId;
+                        const repayVal = repayAmounts[repayId] ?? String(Math.round(debt.totalSpent));
+                        const repayNum = Number(repayVal.replace(',', '.'));
+                        const isValid = Number.isFinite(repayNum) && repayNum > 0 && repayNum <= debt.totalSpent;
                         return (
                           <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
                             <div className="flex items-center justify-between mb-2">
                               <div>
                                 <div className={`text-xs ${sub}`}>Долг по копилке</div>
-                                <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал для копилки</div>
+                                <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                               </div>
                               <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                             </div>
-                            <button onClick={() => handleRepayPiggyDebt(repayId, debt.totalSpent)} className="w-full py-2 rounded-xl text-xs font-medium text-white" style={{ background: '#F59E0B' }}>Погасить долг</button>
+                            <div className="flex gap-2">
+                              <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayAmounts(p => ({ ...p, [repayId]: e.target.value }))} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
+                              <button onClick={() => handleRepayPiggyDebt(repayId, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
+                            </div>
+                            {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                           </div>
                         );
                       })()}
@@ -5025,16 +5047,23 @@ paymentSettled: false,
                   {(() => {
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === selectedSalaryWorkerId);
                     if (!debt || debt.totalSpent <= 0) return null;
+                    const repayVal = repayDetailAmount || String(Math.round(debt.totalSpent));
+                    const repayNum = Number(repayVal.replace(',', '.'));
+                    const isValid = Number.isFinite(repayNum) && repayNum > 0 && repayNum <= debt.totalSpent;
                     return (
                       <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
                         <div className="flex items-center justify-between mb-2">
                           <div>
                             <div className={`text-xs ${sub}`}>Долг по копилке</div>
-                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · покупал материалы</div>
+                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
                           <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
-                        <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, debt.totalSpent)} className="w-full py-2 rounded-xl text-xs font-medium text-white" style={{ background: '#F59E0B' }}>Погасить долг</button>
+                        <div className="flex gap-2">
+                          <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayDetailAmount(e.target.value)} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
+                          <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
+                        </div>
+                        {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                       </div>
                     );
                   })()}
