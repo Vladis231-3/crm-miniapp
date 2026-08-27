@@ -1298,7 +1298,7 @@ export function OwnerApp() {
         purpose: f.purpose,
         date: f.date,
       };
-      // Кто покупал — для истории; долг вешается на владельца
+      // Кто покупал — долг в зарплате именно у него
       if (f.spentById && f.spentById !== '__custom') {
         body.spentById = f.spentById;
       } else if (f.spentByName.trim()) {
@@ -1313,8 +1313,8 @@ export function OwnerApp() {
       const buyerLabel = f.spentById && f.spentById !== '__custom'
         ? (workers.find(w => w.id === f.spentById)?.name || f.spentByName || '')
         : (f.spentByName.trim() || '');
-      const buyerHint = buyerLabel ? ` · покупал: ${buyerLabel}` : '';
-      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»${buyerHint} · долг владельца`);
+      const debtHint = buyerLabel ? ` · долг у ${buyerLabel} в зарплате` : ' · долг в зарплате';
+      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»${debtHint}`);
       setTimeout(() => setBottomToast(null), 3000);
       await loadPiggyBank();
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
@@ -8402,7 +8402,7 @@ paymentSettled: false,
                     )}
                     <option value="__custom">Другой (вписать имя)</option>
                   </select>
-                  <div className={`text-[11px] ${sub} mt-1`}>Сумма отразится как долг владельца · в истории будет видно кто покупал</div>
+                  <div className={`text-[11px] ${sub} mt-1`}>Сумма удержится из зарплаты покупателя · в истории будет видно кто покупал</div>
                 </div>
                 {piggyWithdrawForm.spentById === '__custom' && (
                   <div><label className={`text-xs ${sub} block mb-1`}>Имя покупателя</label><input className={inputCls} placeholder="Например: Иван" value={piggyWithdrawForm.spentByName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentByName: e.target.value }))} /></div>

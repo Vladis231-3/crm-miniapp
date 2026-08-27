@@ -384,22 +384,22 @@ export function OwnerPiggyBankScreen({
         </div>
       )}
 
-      {/* Debts on owner */}
+      {/* Debts per purchaser - also in salary */}
       {piggyBank?.spenderDebts && piggyBank.spenderDebts.length > 0 && (
         <div className={`${glass} rounded-2xl p-4 mb-4`}>
-          <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>💳 Долг владельца</div>
+          <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>💳 Долги в зарплате — кто покупал</div>
           <div className="space-y-2">
             {piggyBank.spenderDebts.map(d => (
               <div key={d.spentById || d.spentByName} className="flex justify-between items-center py-1.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{d.spentByName}</span>
-                  <span className={`text-[11px] ${sub}`}>{d.count} списаний из копилки</span>
+                  <span className={`text-[11px] ${sub}`}>{d.count} покупок · долг в зарплате</span>
                 </div>
                 <span className="font-bold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>-{d.totalSpent.toLocaleString('ru')} ₽</span>
               </div>
             ))}
           </div>
-          <div className={`text-[11px] ${sub} mt-2`}>Все списания из копилки считаются долгом владельца. В истории операций видно кто фактически покупал</div>
+          <div className={`text-[11px] ${sub} mt-2`}>Каждое списание фиксирует кто покупал — сумма удерживается из его зарплаты</div>
         </div>
       )}
 
@@ -491,6 +491,7 @@ export function OwnerPiggyBankScreen({
                         <div className="flex items-center gap-1 text-[11px] mt-1">
                           <span className={sub}>👤</span>
                           <span>Купил: {tx.spentByName}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(255,193,7,0.15)', color: isDark ? '#F59E0B' : '#B45309' }}>долг {Math.abs(tx.amount).toLocaleString('ru')} ₽</span>
                         </div>
                       )}
                       {tx.bookingId && !booking && (
