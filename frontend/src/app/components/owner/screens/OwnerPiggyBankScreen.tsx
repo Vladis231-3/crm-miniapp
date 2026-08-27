@@ -10,6 +10,7 @@ interface PiggyBankTx {
   id: string; bookingId: string | null; amount: number; transactionType: string;
   purpose: string; materialName: string | null; materialCost: number | null;
   date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
+  spentById?: string | null; spentByName?: string | null;
 }
 interface PiggyWashBreakdown {
   selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
@@ -20,6 +21,9 @@ interface PiggyDetailingBreakdown {
   detailingRevenue: number; detailingMaster: number;
   deposits24Percent: number; materialWithdrawals: number;
   materialRepayments: number; netPiggy: number;
+}
+interface PiggySpenderDebt {
+  spentById: string | null; spentByName: string; totalSpent: number; count: number;
 }
 interface PiggyBankScreenData {
   balance: number;
@@ -34,6 +38,7 @@ interface PiggyBankScreenData {
   remainingInPiggyBank: number;
   combinedBalance: number;
   archives?: Array<{ id: number }>;
+  spenderDebts?: PiggySpenderDebt[];
 }
 
 interface ArchiveHighlightShape {
@@ -379,6 +384,25 @@ export function OwnerPiggyBankScreen({
         </div>
       )}
 
+      {/* Debts on owner */}
+      {piggyBank?.spenderDebts && piggyBank.spenderDebts.length > 0 && (
+        <div className={`${glass} rounded-2xl p-4 mb-4`}>
+          <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>💳 Долг владельца</div>
+          <div className="space-y-2">
+            {piggyBank.spenderDebts.map(d => (
+              <div key={d.spentById || d.spentByName} className="flex justify-between items-center py-1.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{d.spentByName}</span>
+                  <span className={`text-[11px] ${sub}`}>{d.count} списаний из копилки</span>
+                </div>
+                <span className="font-bold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>-{d.totalSpent.toLocaleString('ru')} ₽</span>
+              </div>
+            ))}
+          </div>
+          <div className={`text-[11px] ${sub} mt-2`}>Все списания из копилки считаются долгом владельца. В истории операций видно кто фактически покупал</div>
+        </div>
+      )}
+
       {/* Transaction history */}
       <button onClick={() => setPiggyTxExpanded(v => !v)} className="w-full flex items-center justify-between mb-3">
         <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider`}>История операций</h3>
@@ -462,6 +486,12 @@ export function OwnerPiggyBankScreen({
                       )}
                       {tx.purpose && !tx.materialName && (
                         <div className="text-[11px] mt-0.5 opacity-70">{tx.purpose}</div>
+                      )}
+                      {tx.spentByName && (
+                        <div className="flex items-center gap-1 text-[11px] mt-1">
+                          <span className={sub}>👤</span>
+                          <span>Купил: {tx.spentByName}</span>
+                        </div>
                       )}
                       {tx.bookingId && !booking && (
                         <div className="text-[11px] mt-0.5 opacity-50 italic">Заказ удалён</div>

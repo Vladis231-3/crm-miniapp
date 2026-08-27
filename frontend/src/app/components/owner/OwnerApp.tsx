@@ -239,9 +239,16 @@ interface PiggyBankDetailingBreakdown {
   materialRepayments: number; netPiggy: number;
   detailingExpenses: number; detailingIncomes: number;
 }
+interface PiggyBankTxGlobal {
+  id: string; bookingId: string | null; amount: number; transactionType: string;
+  purpose: string; materialName: string | null; materialCost: number | null;
+  date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
+  spentById?: string | null; spentByName?: string | null;
+}
+interface PiggySpenderDebt { spentById: string | null; spentByName: string; totalSpent: number; count: number; }
 interface PiggyBankData {
   balance: number;
-  transactions: PiggyBankTx[];
+  transactions: PiggyBankTxGlobal[];
   wash?: PiggyBankWashBreakdown;
   detailing?: PiggyBankDetailingBreakdown;
   masterDailyOutputs: number;
@@ -251,6 +258,7 @@ interface PiggyBankData {
   detailingIncomes: number;
   remainingInPiggyBank: number;
   combinedBalance: number;
+  spenderDebts?: PiggySpenderDebt[];
 }
 
 interface WeeklyArchiveInfo {
@@ -779,11 +787,12 @@ export function OwnerApp() {
     bookingDate?: string | null; bookingTime?: string | null;
     bookingCar?: string | null; bookingPlate?: string | null;
     bookingPrice?: number | null; bookingStatus?: string | null;
+    spentById?: string | null; spentByName?: string | null;
   }
   const [piggyBankBalance, setPiggyBankBalance] = useState(0);
   const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
   const [piggyBankLoading, setPiggyBankLoading] = useState(false);
-  const [piggyBank, setPiggyBank] = useState(null);
+  const [piggyBank, setPiggyBank] = useState<PiggyBankData | null>(null);
   const [piggyTxExpanded, setPiggyTxExpanded] = useState(false);
   const [piggyTab, setPiggyTab] = useState<'all' | 'wash' | 'detailing'>('all');
   const [piggyDateFrom, setPiggyDateFrom] = useState('');
@@ -816,7 +825,7 @@ export function OwnerApp() {
   const [exportModalDateTo, setExportModalDateTo] = useState('');
 
   const [piggyWithdrawKind, setPiggyWithdrawKind] = useState<'materials' | 'other'>('materials');
-  const [piggyWithdrawForm, setPiggyWithdrawForm] = useState<{ target: 'detailing' | 'wash'; name: string; amount: string; purpose: string; date: string }>({ target: 'detailing', name: '', amount: '', purpose: '', date: todayLabel });
+  const [piggyWithdrawForm, setPiggyWithdrawForm] = useState<{ target: 'detailing' | 'wash'; name: string; amount: string; purpose: string; date: string; spentById: string; spentByName: string }>({ target: 'detailing', name: '', amount: '', purpose: '', date: todayLabel, spentById: '', spentByName: '' });
 
   // Wallet state
   const [walletData, setWalletData] = useState<WalletData | null>(null);
@@ -1281,20 +1290,31 @@ export function OwnerApp() {
     const amount = parseDecimalInput(f.amount);
     if (!Number.isFinite(amount) || amount <= 0) return;
     try {
+      const body: Record<string, unknown> = {
+        resourceGroup: f.target,
+        withdrawKind: piggyWithdrawKind,
+        materialName: f.name,
+        materialCost: amount,
+        purpose: f.purpose,
+        date: f.date,
+      };
+      // Кто покупал — для истории; долг вешается на владельца
+      if (f.spentById && f.spentById !== '__custom') {
+        body.spentById = f.spentById;
+      } else if (f.spentByName.trim()) {
+        body.spentByName = f.spentByName.trim();
+      }
       await apiRequest('/api/owner/piggy-bank/withdraw', {
         method: 'POST',
-        body: {
-          resourceGroup: f.target,
-          withdrawKind: piggyWithdrawKind,
-          materialName: f.name,
-          materialCost: amount,
-          purpose: f.purpose,
-          date: f.date,
-        },
+        body,
       });
       setShowPiggyWithdraw(false);
-      setPiggyWithdrawForm({ target: f.target, name: '', amount: '', purpose: '', date: todayLabel });
-      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»`);
+      setPiggyWithdrawForm({ target: f.target, name: '', amount: '', purpose: '', date: todayLabel, spentById: '', spentByName: '' });
+      const buyerLabel = f.spentById && f.spentById !== '__custom'
+        ? (workers.find(w => w.id === f.spentById)?.name || f.spentByName || '')
+        : (f.spentByName.trim() || '');
+      const buyerHint = buyerLabel ? ` · покупал: ${buyerLabel}` : '';
+      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»${buyerHint} · долг владельца`);
       setTimeout(() => setBottomToast(null), 3000);
       await loadPiggyBank();
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
@@ -8336,6 +8356,23 @@ paymentSettled: false,
                     })}
                   </div>
                 </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Кто покупал</label>
+                  <select className={selectCls} value={piggyWithdrawForm.spentById} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentById: e.target.value, spentByName: e.target.value !== '__custom' ? '' : p.spentByName }))}>
+                    <option value="">— Я (автоматически) —</option>
+                    {workers.map(w => (
+                      <option key={w.id} value={w.id}>{w.name} · {w.role === 'worker' ? 'Мастер' : w.role === 'admin' ? 'Админ' : w.role === 'accountant' ? 'Бухгалтер' : w.role}</option>
+                    ))}
+                    {staffProfile && !workers.some(w => w.id === staffProfile.id) && (
+                      <option value={staffProfile.id}>{staffProfile.name} · Владелец (я)</option>
+                    )}
+                    <option value="__custom">Другой (вписать имя)</option>
+                  </select>
+                  <div className={`text-[11px] ${sub} mt-1`}>Сумма отразится как долг владельца · в истории будет видно кто покупал</div>
+                </div>
+                {piggyWithdrawForm.spentById === '__custom' && (
+                  <div><label className={`text-xs ${sub} block mb-1`}>Имя покупателя</label><input className={inputCls} placeholder="Например: Иван" value={piggyWithdrawForm.spentByName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentByName: e.target.value }))} /></div>
+                )}
                 <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'Например: Пленка PPF' : 'Например: Ремонт оборудования'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
                 <div><label className={`text-xs ${sub} block mb-1`}>Комментарий</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
@@ -8350,7 +8387,7 @@ paymentSettled: false,
                   )}
                 </div>
               </div>
-              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null}
+              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null || (piggyWithdrawForm.spentById === '__custom' && !piggyWithdrawForm.spentByName.trim())}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawKind === 'materials' ? accent : '#F59E0B' }}>
                 Снять {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
               </button>

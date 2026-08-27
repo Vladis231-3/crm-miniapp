@@ -1514,6 +1514,8 @@ class PiggyBankTransactionPayload(BaseModel):
     bookingPlate: str | None = None
     bookingPrice: float | None = None
     bookingStatus: str | None = None
+    spentById: str | None = None
+    spentByName: str | None = None
 
 
 class PiggyBankWithdrawRequest(BaseModel):
@@ -1527,6 +1529,9 @@ class PiggyBankWithdrawRequest(BaseModel):
     date: str
     # materials — «Снять на материалы», other — «Снять на прочие расходы»
     withdrawKind: str = Field(default="materials", pattern=r"^(materials|other)$")
+    # Кто потратил — отражается как долг (см. TASK: копилка списание + долг покупателя)
+    spentById: str | None = None
+    spentByName: str | None = Field(default=None, max_length=120)
 
     @field_validator("date")
     @classmethod
@@ -1534,6 +1539,14 @@ class PiggyBankWithdrawRequest(BaseModel):
         if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):
             raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
         return value.strip()
+
+    @field_validator("spentByName")
+    @classmethod
+    def validate_spent_by_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class PiggyBankAdjustRequest(BaseModel):
@@ -1575,6 +1588,13 @@ class PiggyBankDetailingBreakdown(BaseModel):
     detailingIncomes: float = 0
 
 
+class PiggyBankSpenderDebt(BaseModel):
+    spentById: str | None = None
+    spentByName: str
+    totalSpent: float = 0
+    count: int = 0
+
+
 class PiggyBankResponse(BaseModel):
     balance: float = 0
     transactions: list[PiggyBankTransactionPayload] = Field(default_factory=list)
@@ -1592,6 +1612,7 @@ class PiggyBankResponse(BaseModel):
     ownerProfitTotal: float = 0
     ownerProfitPaid: float = 0
     ownerProfitBalance: float = 0
+    spenderDebts: list[PiggyBankSpenderDebt] = Field(default_factory=list)
 
 
 class WeeklyArchivePayload(BaseModel):

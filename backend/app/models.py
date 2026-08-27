@@ -551,6 +551,10 @@ class PiggyBankTransaction(Base):
     material_cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     date: Mapped[str] = mapped_column(String(16))
     resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
+    spent_by_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("staff_users.id", ondelete="SET NULL"), nullable=True
+    )
+    spent_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

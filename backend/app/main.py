@@ -316,6 +316,8 @@ from .schemas import (
 
     PiggyBankAdjustRequest,
 
+    PiggyBankSpenderDebt,
+
     PiggyBankTransactionPayload,
 
     PiggyBankWashBreakdown,
@@ -1624,6 +1626,17 @@ def _apply_runtime_migrations() -> None:
         with engine.begin() as connection:
             connection.exec_driver_sql(
                 "ALTER TABLE piggy_bank_transactions ADD COLUMN expense_id VARCHAR(64)"
+            )
+        piggy_columns.add("expense_id")
+    if "spent_by_id" not in piggy_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE piggy_bank_transactions ADD COLUMN spent_by_id VARCHAR(64)"
+            )
+    if "spent_by_name" not in piggy_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE piggy_bank_transactions ADD COLUMN spent_by_name VARCHAR(120)"
             )
     with engine.begin() as connection:
         connection.exec_driver_sql(
@@ -14681,6 +14694,9 @@ def get_piggy_bank(
 
     balance = sum(t.amount for t in all_tx)
 
+    # keep full list for debt aggregation before filtering
+    full_all_tx_for_debt = list(all_tx)
+
     # Filter transactions by date for display only
 
     if booking_id:
@@ -14688,8 +14704,6 @@ def get_piggy_bank(
         all_tx = [t for t in all_tx if t.booking_id == booking_id]
 
     filtered_tx = [t for t in all_tx if _in_range(t.date)]
-
-
 
     transaction_payloads = []
 
@@ -14748,6 +14762,10 @@ def get_piggy_bank(
                 bookingPrice=b.price if b else None,
 
                 bookingStatus=b.status if b else None,
+
+                spentById=getattr(t, "spent_by_id", None),
+
+                spentByName=getattr(t, "spent_by_name", None),
 
             )
 
@@ -14990,7 +15008,67 @@ def get_piggy_bank(
 
             owner_total_paid += s.amount
 
-
+    # --- Debts on owners: вся сумма списаний из копилки считается долгом владельца(ов) ---
+    # Кто потратил (spent_by) хранится для отображения в истории, но долг вешается на владельца,
+    # т.к. владельцы обычно покупают / отвечают за бюджет. Делим долг 50/50 между владельцами.
+    # Fallback: если владельцев нет в конфиге — берём primary owner из БД.
+    _owner_ids = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
+    _owner_names: dict[str, str] = {sid: name for sid, _, _, name in PERMANENT_TELEGRAM_OWNERS}
+    if not _owner_ids:
+        _db_owners = db.scalars(select(StaffUser).where(StaffUser.role == "owner")).all()
+        _owner_ids = [o.id for o in _db_owners]
+        _owner_names = {o.id: o.name for o in _db_owners}
+    # подтянем актуальные имена из БД если есть
+    if _owner_ids:
+        for oid in list(_owner_ids):
+            o = db.get(StaffUser, oid)
+            if o is not None and o.name:
+                _owner_names[oid] = o.name
+    # если всё ещё нет — покажем как раньше по покупателям (совместимость)
+    if _owner_ids:
+        n_owners = len(_owner_ids)
+        debt_map: dict[str, dict] = {}
+        for tx in full_all_tx_for_debt:
+            if tx.transaction_type not in ("material_withdrawal", "other_withdrawal"):
+                continue
+            if tx.amount >= 0:
+                continue
+            per_owner = abs(float(tx.amount)) / n_owners if n_owners else abs(float(tx.amount))
+            for oid in _owner_ids:
+                name = _owner_names.get(oid, oid)
+                if oid not in debt_map:
+                    debt_map[oid] = {"spentById": oid, "spentByName": name, "totalSpent": 0.0, "count": 0}
+                debt_map[oid]["totalSpent"] += per_owner
+                debt_map[oid]["count"] += 1
+        spender_debts = [
+            PiggyBankSpenderDebt(spentById=v["spentById"], spentByName=v["spentByName"], totalSpent=round(v["totalSpent"], 2), count=v["count"])
+            for v in debt_map.values()
+        ]
+        spender_debts.sort(key=lambda x: x.totalSpent, reverse=True)
+    else:
+        # fallback старый: по покупателям
+        debt_map = {}
+        for tx in full_all_tx_for_debt:
+            if tx.transaction_type not in ("material_withdrawal", "other_withdrawal"):
+                continue
+            if tx.amount >= 0:
+                continue
+            name = (getattr(tx, "spent_by_name", None) or "").strip()
+            sid = getattr(tx, "spent_by_id", None)
+            if not name and not sid:
+                continue
+            key = sid or f"name:{name}"
+            if key not in debt_map:
+                debt_map[key] = {"spentById": sid, "spentByName": name or (sid or "Неизвестно"), "totalSpent": 0.0, "count": 0}
+            if name:
+                debt_map[key]["spentByName"] = name
+            debt_map[key]["totalSpent"] += abs(float(tx.amount))
+            debt_map[key]["count"] += 1
+        spender_debts = [
+            PiggyBankSpenderDebt(spentById=v["spentById"], spentByName=v["spentByName"], totalSpent=v["totalSpent"], count=v["count"])
+            for v in debt_map.values()
+        ]
+        spender_debts.sort(key=lambda x: x.totalSpent, reverse=True)
 
     return PiggyBankResponse(
 
@@ -15096,6 +15174,8 @@ def get_piggy_bank(
 
         ownerProfitBalance=owner_total_accrued - owner_total_paid,
 
+        spenderDebts=spender_debts,
+
     )
 
 
@@ -15180,7 +15260,27 @@ def piggy_bank_withdraw(
 
             purpose = f"Закупка: {payload.materialName}"
 
-
+    # --- Кто потратил (долг покупателя) ---
+    spent_by_id: str | None = None
+    spent_by_name: str | None = None
+    if payload.spentById:
+        staff = db.get(StaffUser, payload.spentById)
+        if staff is not None:
+            spent_by_id = staff.id
+            spent_by_name = staff.name
+        elif payload.spentByName:
+            spent_by_name = payload.spentByName.strip() or None
+        else:
+            # если id не найден — считаем что имя передано в spentByName или игнор
+            spent_by_name = payload.spentByName.strip() if payload.spentByName else None
+    elif payload.spentByName:
+        spent_by_name = payload.spentByName.strip() or None
+    else:
+        # fallback: текущий пользователь (тот кто нажал "снять")
+        actor = db.get(StaffUser, session_data.get("actorId"))
+        if actor is not None:
+            spent_by_id = actor.id
+            spent_by_name = actor.name
 
     transaction = PiggyBankTransaction(
 
@@ -15201,6 +15301,10 @@ def piggy_bank_withdraw(
         date=payload.date,
 
         resource_group=rg,
+
+        spent_by_id=spent_by_id,
+
+        spent_by_name=spent_by_name,
 
         created_at=_now(),
 
@@ -15253,6 +15357,9 @@ def piggy_bank_withdraw(
     # sync_expense_piggy_transaction не найдёт связанную транзакцию и
     # создаст второе зеркало — списание из копилки задвоится.
     transaction.expense_id = expense.id
+    # Долг на владельца: кто потратил — только для истории (spent_by),
+    # финансовый долг считается на владельца(ов) в GET /api/owner/piggy-bank (spenderDebts),
+    # поэтому здесь payroll-проводку на покупателя не создаём.
 
 
 
@@ -15311,6 +15418,10 @@ def piggy_bank_withdraw(
         bookingPrice=booking.price if booking else None,
 
         bookingStatus=booking.status if booking else None,
+
+        spentById=getattr(transaction, "spent_by_id", None),
+
+        spentByName=getattr(transaction, "spent_by_name", None),
 
     )
 
