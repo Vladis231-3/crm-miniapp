@@ -50,18 +50,42 @@ export function Sheet({ open, onClose, title, children, footer, side = 'bottom',
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
+    // iPhone + Telegram: надёжный лок скролла body (overflow:hidden не хватает на iOS)
+    const scrollY = window.scrollY;
+    const prevOverflow = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevWidth = document.body.style.width;
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     document.body.style.overflow = 'hidden';
+    if (isIOS) {
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+    }
+    // На iOS также блокируем скролл html
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      if (isIOS) {
+        document.body.style.position = prevPosition;
+        document.body.style.top = prevTop;
+        document.body.style.width = prevWidth;
+        window.scrollTo(0, scrollY);
+      }
     };
   }, [open, onClose]);
 
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0" style={{ zIndex: 'var(--z-sheet)' } as React.CSSProperties}>
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 'var(--z-sheet)', overscrollBehavior: 'none', touchAction: 'none' } as React.CSSProperties}
+        >
           <motion.div
             className="absolute inset-0 bg-black/45"
             initial={{ opacity: 0 }}
@@ -104,8 +128,15 @@ export function Sheet({ open, onClose, title, children, footer, side = 'bottom',
               </div>
             )}
             <div
+              data-scrollable="true"
               className="min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(16px+var(--safe-bottom))] pt-2"
-              style={bodyMaxHeight !== undefined ? { maxHeight: bodyMaxHeight } : undefined}
+              style={
+                {
+                  overscrollBehavior: 'contain',
+                  WebkitOverflowScrolling: 'touch',
+                  ...(bodyMaxHeight !== undefined ? { maxHeight: bodyMaxHeight } : {}),
+                } as React.CSSProperties
+              }
             >
               {children}
             </div>

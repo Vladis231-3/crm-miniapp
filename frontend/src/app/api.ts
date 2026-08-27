@@ -15,11 +15,32 @@ declare global {
         };
         colorScheme?: 'light' | 'dark';
         themeParams?: Record<string, string>;
+        version?: string;
+        platform?: string;
+        isExpanded?: boolean;
+        viewportHeight?: number;
+        viewportStableHeight?: number;
+        headerColor?: string;
+        backgroundColor?: string;
+        isClosingConfirmationEnabled?: boolean;
+        isVerticalSwipesEnabled?: boolean;
         ready?: () => void;
         expand?: () => void;
+        close?: () => void;
+        enableClosingConfirmation?: () => void;
+        disableClosingConfirmation?: () => void;
+        disableVerticalSwipes?: () => void;
+        enableVerticalSwipes?: () => void;
+        setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
         showAlert?: (message: string, callback?: () => void) => void;
         onEvent?: (event: string, callback: () => void) => void;
         offEvent?: (event: string, callback: () => void) => void;
+        HapticFeedback?: {
+          impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+          notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+          selectionChanged: () => void;
+        };
         MainButton?: {
           show: () => void;
           hide: () => void;
@@ -94,6 +115,47 @@ export function getTelegramWebApp() {
 
 export function getTelegramInitData() {
   return window.Telegram?.WebApp?.initData || '';
+}
+
+/**
+ * iPhone + Telegram Mini App: фиксация вьюпорта и отключение свайпа-закрытия.
+ * - `ready()` + `expand()` — раскрывает на всю высоту
+ * - `disableVerticalSwipes()` (Bot API 7.7+) — отключает свайп вниз для закрытия (именно из-за него на iPhone
+ *   при скролле нижней панели или pull-to-top приложение "хочет закрыться").
+ * - fallback `enableClosingConfirmation()` — показывает диалог "Закрыть?" вместо мгновенного закрытия.
+ * - `setHeaderColor`/`setBackgroundColor` синхронизируют тему Telegram с приложением.
+ * Вызывать один раз при монтировании App (в useEffect). Безопасно вне Telegram — no-op.
+ */
+export function setupTelegramWebApp() {
+  const tg = window.Telegram?.WebApp;
+  if (!tg) return;
+
+  try {
+    tg.ready?.();
+  } catch {}
+  try {
+    tg.expand?.();
+  } catch {}
+
+  // Отключаем вертикальный свайп закрытия (iPhone). Если API недоступен — включаем подтверждение закрытия.
+  try {
+    if (typeof tg.disableVerticalSwipes === 'function') {
+      tg.disableVerticalSwipes();
+    } else if (typeof tg.enableClosingConfirmation === 'function') {
+      tg.enableClosingConfirmation();
+    }
+  } catch {}
+
+  // Синхронизация цветов шапки с темой (не критично, но приятно на iPhone)
+  try {
+    const isDark = tg.colorScheme === 'dark';
+    tg.setHeaderColor?.(isDark ? '#131316' : '#f7f7f8');
+    tg.setBackgroundColor?.(isDark ? '#131316' : '#f7f7f8');
+  } catch {}
+}
+
+export function isInsideTelegram(): boolean {
+  return Boolean(window.Telegram?.WebApp?.initData);
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {

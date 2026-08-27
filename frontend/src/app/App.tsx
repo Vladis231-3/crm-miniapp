@@ -33,6 +33,7 @@ ChevronRight, AlertCircle, Check, LogIn, Wrench, Sparkles, CarFront,
 import { AppProvider, useApp } from './context/AppContext';
 import { useTelegramMainButton } from './hooks/useTelegramMainButton';
 import { useTelegramBackButton } from './hooks/useTelegramBackButton';
+import { useTelegramSetup } from './hooks/useTelegramSetup';
 const ClientApp = lazy(() => import('./components/client/ClientApp').then(m => ({ default: m.ClientApp })));
 const AdminApp = lazy(() => import('./components/admin/AdminApp').then(m => ({ default: m.AdminApp })));
 const WorkerApp = lazy(() => import('./components/worker/WorkerApp').then(m => ({ default: m.WorkerApp })));
@@ -629,6 +630,7 @@ function WelcomeScreen() {
 }
 
 function AppContent() {
+  useTelegramSetup();
   const { isDark, session, logout, loading, checkConsent } = useApp();
   const [consentReady, setConsentReady] = useState(false);
   const [consentNeeded, setConsentNeeded] = useState(true);
@@ -664,33 +666,47 @@ function AppContent() {
 
   return (
     <div className={`${isDark ? 'dark' : ''} relative`}>
-      <Suspense fallback={<div className="p-6 text-sm text-gray-500">?????????</div>}>
-      <AnimatePresence mode="wait">
-        {session.role === 'client' && (
-          <motion.div key="client" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
-            <ClientApp />
-          </motion.div>
-        )}
-        {session.role === 'admin' && (
-          <motion.div key="admin" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
-            <ErrorBoundary>
-              <AdminApp />
-            </ErrorBoundary>
-          </motion.div>
-        )}
-        {session.role === 'worker' && (
-          <motion.div key="worker" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
-            <WorkerApp />
-          </motion.div>
-        )}
-        {(session.role === 'owner' || session.role === 'accountant') && (
-          <motion.div key="owner" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
-            <ErrorBoundary>
-              <OwnerApp />
-            </ErrorBoundary>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Suspense
+        fallback={
+          <div
+            className={`${
+              isDark ? 'dark bg-[#131316] text-[#E4E4E7]' : 'bg-[#F7F7F8] text-[#131316]'
+            } min-h-[50vh] flex items-center justify-center text-sm`}
+          >
+            Загрузка...
+          </div>
+        }
+      >
+        <AnimatePresence mode="wait">
+          {session.role === 'client' && (
+            <motion.div key="client" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
+              <ErrorBoundary>
+                <ClientApp />
+              </ErrorBoundary>
+            </motion.div>
+          )}
+          {session.role === 'admin' && (
+            <motion.div key="admin" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
+              <ErrorBoundary>
+                <AdminApp />
+              </ErrorBoundary>
+            </motion.div>
+          )}
+          {session.role === 'worker' && (
+            <motion.div key="worker" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
+              <ErrorBoundary>
+                <WorkerApp />
+              </ErrorBoundary>
+            </motion.div>
+          )}
+          {(session.role === 'owner' || session.role === 'accountant') && (
+            <motion.div key="owner" initial={{ opacity: 0, y: 14, scale: 0.995 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
+              <ErrorBoundary>
+                <OwnerApp />
+              </ErrorBoundary>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Suspense>
     </div>
   );
@@ -715,19 +731,30 @@ function LandingWrapper() {
 }
 
 export default function App() {
+  useTelegramSetup();
   const path = usePath();
 
   if (path === '/works') {
-    return <WorksPage />;
+    return (
+      <ErrorBoundary>
+        <WorksPage />
+      </ErrorBoundary>
+    );
   }
 
   if (path === '/about') {
-    return <LandingWrapper />;
+    return (
+      <ErrorBoundary>
+        <LandingWrapper />
+      </ErrorBoundary>
+    );
   }
 
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

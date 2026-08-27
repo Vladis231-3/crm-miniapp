@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-27 12:54 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-27 13:11 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **497**
-- Строк кода: **199 146**
-- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 35, `.tsx`: 304
+- Файлов кода: **498**
+- Строк кода: **199 318**
+- По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
 
@@ -379,7 +379,8 @@ concept1.0/
 │   │   │   │   └── AppContext.tsx
 │   │   │   ├── hooks/
 │   │   │   │   ├── useTelegramBackButton.ts
-│   │   │   │   └── useTelegramMainButton.ts
+│   │   │   │   ├── useTelegramMainButton.ts
+│   │   │   │   └── useTelegramSetup.ts
 │   │   │   ├── utils/
 │   │   │   │   ├── complaints.ts
 │   │   │   │   ├── date.ts
@@ -2511,76 +2512,80 @@ concept1.0/
 
 ## Frontend — CRM-минапп (frontend/src)
 
-### frontend/src/app/api.ts (192 строк)
+### frontend/src/app/api.ts (254 строк)
 
 - `API_BASE_URL` (стр. 1) — локальный
-- `getInitData` (стр. 55) — локальный
-- `getErrorDetail` (стр. 59) — локальный
-- `payload` (стр. 62) — локальный
-- `messages` (стр. 66) — локальный
-- `field` (стр. 67) — локальный
-- `msg` (стр. 68) — локальный
-- `getDownloadFileName` (стр. 78) — локальный
-- `disposition` (стр. 79) — локальный
-- `utf8Match` (стр. 80) — локальный
-- `plainMatch` (стр. 84) — локальный
-- `getTelegramWebApp` (стр. 91)
-- `getTelegramInitData` (стр. 95)
-- `apiRequest` (стр. 99)
-- `initData` (стр. 106) — локальный
-- `response` (стр. 111) — локальный
-- `apiDownload` (стр. 130)
-- `initData` (стр. 132) — локальный
-- `response` (стр. 137) — локальный
-- `fileName` (стр. 146) — локальный
-- `blob` (стр. 147) — локальный
-- `objectUrl` (стр. 148) — локальный
-- `anchor` (стр. 149) — локальный
-- `apiUploadFile` (стр. 159)
-- `initData` (стр. 160) — локальный
-- `formData` (стр. 161) — локальный
-- `response` (стр. 163) — локальный
-- `apiBlobUrl` (стр. 174)
-- `initData` (стр. 176) — локальный
-- `response` (стр. 181) — локальный
-- `blob` (стр. 190) — локальный
+- `getInitData` (стр. 76) — локальный
+- `getErrorDetail` (стр. 80) — локальный
+- `payload` (стр. 83) — локальный
+- `messages` (стр. 87) — локальный
+- `field` (стр. 88) — локальный
+- `msg` (стр. 89) — локальный
+- `getDownloadFileName` (стр. 99) — локальный
+- `disposition` (стр. 100) — локальный
+- `utf8Match` (стр. 101) — локальный
+- `plainMatch` (стр. 105) — локальный
+- `getTelegramWebApp` (стр. 112)
+- `getTelegramInitData` (стр. 116)
+- `setupTelegramWebApp` (стр. 129)
+- `tg` (стр. 130) — локальный
+- `isDark` (стр. 151) — локальный
+- `isInsideTelegram` (стр. 157)
+- `apiRequest` (стр. 161)
+- `initData` (стр. 168) — локальный
+- `response` (стр. 173) — локальный
+- `apiDownload` (стр. 192)
+- `initData` (стр. 194) — локальный
+- `response` (стр. 199) — локальный
+- `fileName` (стр. 208) — локальный
+- `blob` (стр. 209) — локальный
+- `objectUrl` (стр. 210) — локальный
+- `anchor` (стр. 211) — локальный
+- `apiUploadFile` (стр. 221)
+- `initData` (стр. 222) — локальный
+- `formData` (стр. 223) — локальный
+- `response` (стр. 225) — локальный
+- `apiBlobUrl` (стр. 236)
+- `initData` (стр. 238) — локальный
+- `response` (стр. 243) — локальный
+- `blob` (стр. 252) — локальный
 
-### frontend/src/app/App.tsx (733 строк)
+### frontend/src/app/App.tsx (760 строк)
 
-- `ClientApp` (стр. 36) — локальный
-- `AdminApp` (стр. 37) — локальный
-- `WorkerApp` (стр. 38) — локальный
-- `OwnerApp` (стр. 39) — локальный
-- `NOOP` (стр. 49) — локальный
-- `ConsentDialog` (стр. 51) — локальный
-- `primary` (стр. 56) — локальный
-- `sub` (стр. 57) — локальный
-- `bg` (стр. 58) — локальный
-- `text` (стр. 59) — локальный
-- `handleAgree` (стр. 61) — локальный
-- `WelcomeScreen` (стр. 285) — локальный
-- `bg` (стр. 305) — локальный
-- `text` (стр. 306) — локальный
-- `sub` (стр. 307) — локальный
-- `primary` (стр. 308) — локальный
-- `glass` (стр. 309) — локальный
-- `inputCls` (стр. 312) — локальный
-- `validate` (стр. 314) — локальный
-- `nameError` (стр. 316) — локальный
-- `carError` (стр. 317) — локальный
-- `plateError` (стр. 318) — локальный
-- `handleClientSubmit` (стр. 327) — локальный
-- `message` (стр. 338) — локальный
-- `handleStaffLink` (стр. 343) — локальный
-- `message` (стр. 349) — локальный
-- `navRef` (стр. 354) — локальный
-- `handleBack` (стр. 357) — локальный
-- `AppContent` (стр. 631) — локальный
-- `usePath` (стр. 699) — локальный
-- `onPopState` (стр. 702) — локальный
-- `LandingWrapper` (стр. 709) — локальный
-- `App` (стр. 717)
-- `path` (стр. 718) — локальный
+- `ClientApp` (стр. 37) — локальный
+- `AdminApp` (стр. 38) — локальный
+- `WorkerApp` (стр. 39) — локальный
+- `OwnerApp` (стр. 40) — локальный
+- `NOOP` (стр. 50) — локальный
+- `ConsentDialog` (стр. 52) — локальный
+- `primary` (стр. 57) — локальный
+- `sub` (стр. 58) — локальный
+- `bg` (стр. 59) — локальный
+- `text` (стр. 60) — локальный
+- `handleAgree` (стр. 62) — локальный
+- `WelcomeScreen` (стр. 286) — локальный
+- `bg` (стр. 306) — локальный
+- `text` (стр. 307) — локальный
+- `sub` (стр. 308) — локальный
+- `primary` (стр. 309) — локальный
+- `glass` (стр. 310) — локальный
+- `inputCls` (стр. 313) — локальный
+- `validate` (стр. 315) — локальный
+- `nameError` (стр. 317) — локальный
+- `carError` (стр. 318) — локальный
+- `plateError` (стр. 319) — локальный
+- `handleClientSubmit` (стр. 328) — локальный
+- `message` (стр. 339) — локальный
+- `handleStaffLink` (стр. 344) — локальный
+- `message` (стр. 350) — локальный
+- `navRef` (стр. 355) — локальный
+- `handleBack` (стр. 358) — локальный
+- `AppContent` (стр. 632) — локальный
+- `usePath` (стр. 715) — локальный
+- `onPopState` (стр. 718) — локальный
+- `LandingWrapper` (стр. 725) — локальный
+- `App` (стр. 733)
+- `path` (стр. 735) — локальный
 
 ### frontend/src/app/components/admin/AdminApp.tsx (3586 строк)
 
@@ -3062,7 +3067,7 @@ concept1.0/
 
 - `SectionHeader` (стр. 14)
 
-### frontend/src/app/components/atmosfera/Sheet.tsx (123 строк)
+### frontend/src/app/components/atmosfera/Sheet.tsx (154 строк)
 
 - `useIsWide` (стр. 27) — локальный
 - `mq` (стр. 32) — локальный
@@ -3071,7 +3076,13 @@ concept1.0/
 - `wide` (стр. 46) — локальный
 - `dockRight` (стр. 47) — локальный
 - `onKey` (стр. 51) — локальный
-- `prev` (стр. 53) — локальный
+- `scrollY` (стр. 54) — локальный
+- `prevOverflow` (стр. 55) — локальный
+- `prevPosition` (стр. 56) — локальный
+- `prevTop` (стр. 57) — локальный
+- `prevWidth` (стр. 58) — локальный
+- `isIOS` (стр. 59) — локальный
+- `prevHtmlOverflow` (стр. 67) — локальный
 
 ### frontend/src/app/components/atmosfera/StatTile.tsx (23 строк)
 
@@ -4177,6 +4188,19 @@ concept1.0/
 - `tg` (стр. 11) — локальный
 - `btn` (стр. 12) — локальный
 
+### frontend/src/app/hooks/useTelegramSetup.ts (52 строк)
+
+- `useTelegramSetup` (стр. 10)
+- `tg` (стр. 16) — локальный
+- `insideTelegram` (стр. 17) — локальный
+- `onTouchStart` (стр. 22) — локальный
+- `onTouchMove` (стр. 25) — локальный
+- `target` (стр. 26) — локальный
+- `scrollable` (стр. 28) — локальный
+- `dy` (стр. 34) — локальный
+- `atTop` (стр. 35) — локальный
+- `atBottom` (стр. 36) — локальный
+
 ### frontend/src/app/utils/complaints.ts (44 строк)
 
 - `MAX_WORKER_PERCENT` (стр. 3)
@@ -4453,6 +4477,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/App.tsx` (2026-08-27 16:11)
+- `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-27 16:08)
+- `frontend/src/app/hooks/useTelegramSetup.ts` (2026-08-27 16:07)
+- `frontend/src/app/api.ts` (2026-08-27 16:06)
+- `frontend/src/styles/theme.css` (2026-08-27 16:05)
+- `frontend/index.html` (2026-08-27 16:05)
 - `backend/app/main.py` (2026-08-27 15:51)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-27 15:49)
 - `frontend/src/app/components/admin/screens/AdminStatsPage.tsx` (2026-08-27 15:11)
@@ -4462,9 +4492,3 @@ concept1.0/
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-27 09:58)
 - `backend/app/schemas.py` (2026-08-27 09:28)
 - `backend/app/models.py` (2026-08-27 09:28)
-- `training/backend/app/google_calendar.py` (2026-08-25 10:37)
-- `backend/tests/test_worker_additional_services.py` (2026-08-25 10:34)
-- `backend/app/google_calendar.py` (2026-08-25 10:30)
-- `scripts/start_localhostrun_tunnel.cmd` (2026-08-25 09:54)
-- `scripts/start_pinggy_tunnel.cmd` (2026-08-25 09:54)
-- `native/electron/package.json` (2026-08-25 09:54)

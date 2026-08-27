@@ -182,3 +182,33 @@ input, select, textarea {
 .work-surface, .metric-surface, .action-surface, .service-tile, .timeline-card {
   transition: box-shadow var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease);
 }
+
+/* ===== iPhone + Telegram Mini App: фикс свайпа закрытия и pull-to-refresh ===== */
+html {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  /* iOS: запретить лишнее масштабирование жестами */
+  touch-action: manipulation;
+}
+body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  /* Предотвращает rubber-band на всю страницу — скроллит только внутренний контейнер */
+  touch-action: manipulation;
+}
+/* Основной скролл-контейнер миниапа (flex-1 overflow-y-auto) и все скролл-области */
+.overflow-y-auto,
+.overflow-auto,
+.min-h-0.flex-1.overflow-y-auto,
+div[class*="overflow-y-auto"] {
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Фиксированные нижние панели (Sheet, нотификации, навбар) не должны тянуть страницу */
+.fixed.inset-0,
+.fixed.bottom-0,
+[style*="--z-sheet"] {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
