@@ -6756,6 +6756,10 @@ def _dispatch_booking_reminders(
 
         link.worker_id for booking in bookings for link in booking.worker_links
 
+    } | {
+
+        link.worker_id for booking in bookings for asvc in (booking.additional_services or []) for link in (asvc.worker_links or [])
+
     }
 
     workers_map = (
@@ -8986,6 +8990,16 @@ def _additional_services_block(booking: Booking) -> str:
             lines.append(f"• {(getattr(asvc, 'name', '') or 'Доп. услуга').strip()}")
     return "\nДоп. услуги:\n" + "\n".join(lines)
 
+
+
+def _booking_all_worker_ids(booking: Booking) -> set[str]:
+    """Все мастера записи: основная услуга + доп. услуги."""
+    ids: set[str] = {link.worker_id for link in (booking.worker_links or [])}
+    for asvc in (getattr(booking, "additional_services", None) or []):
+        for link in (getattr(asvc, "worker_links", None) or []):
+            if getattr(link, "worker_id", None):
+                ids.add(link.worker_id)
+    return ids
 
 def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
 
@@ -12590,7 +12604,7 @@ def update_booking(
 
 
 
-    previous_worker_ids = {link.worker_id for link in booking.worker_links}
+    previous_worker_ids = _booking_all_worker_ids(booking)
 
     if payload.workers is not None:
 
@@ -12757,7 +12771,7 @@ def update_booking(
 
     db.refresh(booking)
 
-    current_worker_ids = {link.worker_id for link in booking.worker_links}
+    current_worker_ids = _booking_all_worker_ids(booking)
 
     if payload.workers is not None and session_data["role"] in {"admin", "owner"}:
 
