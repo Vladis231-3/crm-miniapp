@@ -183,16 +183,4 @@ input, select, textarea {
   transition: box-shadow var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease);
 }
 
-/* ===== iPhone + Telegram Mini App: мягкий фикс резины без блокировки скролла ===== */
-html {
-  overscroll-behavior: none;
-}
-body {
-  overscroll-behavior: none;
-}
-/* Внутренние скролл-контейнеры — оставляем нативный скролл, гасим только проброс на body */
-.overflow-y-auto,
-.overflow-auto {
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
+

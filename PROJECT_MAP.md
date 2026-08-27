@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-27 13:55 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-27 14:03 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4468,8 +4468,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/styles/theme.css` (2026-08-27 17:01)
 - `frontend/src/app/App.tsx` (2026-08-27 16:52)
-- `frontend/src/styles/theme.css` (2026-08-27 16:52)
 - `frontend/src/app/hooks/useTelegramSetup.ts` (2026-08-27 16:52)
 - `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-27 16:08)
 - `frontend/src/app/api.ts` (2026-08-27 16:06)
