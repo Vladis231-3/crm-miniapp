@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-27 06:51 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-27 10:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **497**
-- Строк кода: **198 689**
+- Строк кода: **198 723**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 35, `.tsx`: 304
 
 ## Архитектура
@@ -3380,7 +3380,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (11799 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (11833 строк)
 
 - `EXPENSE_CATEGORIES` (стр. 291) — локальный
 - `STOCK_UNITS` (стр. 292) — локальный
@@ -4442,12 +4442,13 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-27 09:47)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-27 13:07)
+- `scripts/.project-map-watch.lock` (2026-08-27 13:03)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-27 09:58)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-08-27 09:47)
 - `backend/app/main.py` (2026-08-27 09:46)
 - `backend/app/schemas.py` (2026-08-27 09:28)
 - `backend/app/models.py` (2026-08-27 09:28)
-- `scripts/.project-map-watch.lock` (2026-08-27 09:23)
 - `training/backend/app/google_calendar.py` (2026-08-25 10:37)
 - `backend/tests/test_worker_additional_services.py` (2026-08-25 10:34)
 - `backend/app/google_calendar.py` (2026-08-25 10:30)
@@ -4456,4 +4457,3 @@ concept1.0/
 - `native/electron/package.json` (2026-08-25 09:54)
 - `desktop/run_frozen.py` (2026-08-25 09:54)
 - `desktop/atmosfera-backend.spec` (2026-08-25 09:53)
-- `scripts/run-tunnel-watchdog.ps1` (2026-08-25 09:52)

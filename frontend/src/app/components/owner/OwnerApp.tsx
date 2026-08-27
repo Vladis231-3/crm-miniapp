@@ -302,7 +302,7 @@ const OWNER_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string 
   { value: 'admin_review', label: 'На уточнении' },
 ];
 function ownerBookingStatusRequiresScheduledSlot(status: BookingStatus) {
-  return ['new', 'confirmed', 'in_progress'].includes(status);
+  return ['new', 'confirmed', 'scheduled', 'in_progress'].includes(status);
 }
 function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
   if (role === 'admin') return 'Администратор';
@@ -1547,9 +1547,9 @@ export function OwnerApp() {
   const totalIncomes = weeklyIncomes.reduce((s, i) => s + i.amount, 0);
   const profit = totalRevenue + totalIncomes - totalExpenses;
   const averageCheck = weeklyCompletedBookings.length > 0 ? Math.round(totalRevenue / weeklyCompletedBookings.length) : 0;
-  const activeBookings = weeklyBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
+  const activeBookings = bookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
   const pipelineCounts = {
-    adminReview: weeklyBookings.filter((booking) => booking.status === 'admin_review').length,
+    adminReview: bookings.filter((booking) => booking.status === 'admin_review').length,
     confirmed: weeklyBookings.filter((booking) => booking.status === 'confirmed').length,
     scheduled: weeklyBookings.filter((booking) => booking.status === 'scheduled').length,
     inProgress: weeklyBookings.filter((booking) => booking.status === 'in_progress').length,
@@ -3506,9 +3506,9 @@ paymentSettled: false,
         }
         patch = {
           status: ownerBookingEditFull.status,
-          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : '',
-          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : '',
-          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : 'По согласованию',
+          date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : (ownerBookingEditFull.date.trim() || selectedBooking.date),
+          time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : (ownerBookingEditFull.time.trim() || selectedBooking.time || '00:00'),
+          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : (ownerBookingEditFull.box.trim() || 'По согласованию'),
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
           plate: normalizePlateInput(ownerBookingEditFull.plate, ownerBookingEditFull.plateType) || undefined,
@@ -3743,8 +3743,10 @@ paymentSettled: false,
     { name: 'Не приехал', status: 'no_show' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
   const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
-  const ownerCalendarRelevantBookings = bookings.filter((booking) => Boolean(booking.date?.trim()) && booking.status !== 'cancelled');
-  const ownerCalendarBookingsByDate = ownerCalendarRelevantBookings.reduce<Record<string, Booking[]>>((acc, booking) => {
+  const ownerCalendarRelevantBookings = bookings.filter((booking) => booking.status !== 'cancelled');
+  const ownerCalendarUndatedBookings = ownerCalendarRelevantBookings.filter((b) => !b.date?.trim());
+  const ownerCalendarDatedBookings = ownerCalendarRelevantBookings.filter((b) => Boolean(b.date?.trim()));
+  const ownerCalendarBookingsByDate = ownerCalendarDatedBookings.reduce<Record<string, Booking[]>>((acc, booking) => {
     const dateLabel = booking.date.trim();
     acc[dateLabel] = [...(acc[dateLabel] || []), booking];
     return acc;
@@ -4082,6 +4084,38 @@ paymentSettled: false,
                       ))}
                     </div>
                   </div>
+                  {ownerCalendarUndatedBookings.length > 0 && (
+                    <div className={`${glass} rounded-2xl p-4 mt-4`}>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без даты — требует уточнения</div>
+                      <div className="space-y-2">
+                        {ownerCalendarUndatedBookings.map((booking) => (
+                          <button
+                            key={booking.id}
+                            type="button"
+                            onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
+                            className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
+                                <SourceBadge source={booking.source} />
+                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                                {ownerStatusLabel(booking.status)}
+                              </span>
+                            </div>
+                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} · {booking.box}</div>
+                            {(booking.car || booking.plate) && (
+                              <div className={`text-xs ${sub} mt-0.5 truncate`}>
+                                {[booking.car, booking.plate].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                            <div className={`text-xs ${sub} mt-1`}>{booking.price.toLocaleString('ru')} ₽</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>

@@ -98,7 +98,7 @@ function adminServiceResourceGroupForCategory(category: string) {
 }
 
 const READY_TO_START_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled'];
-const STAFF_SCHEDULED_STATUSES: BookingStatus[] = ['new', 'confirmed', 'in_progress'];
+const STAFF_SCHEDULED_STATUSES: BookingStatus[] = ['new', 'confirmed', 'scheduled', 'in_progress'];
 const NEW_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string }> = [
   { value: 'admin_review', label: 'На уточнении' },
   { value: 'confirmed', label: 'Подтверждена' },
@@ -1182,9 +1182,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       })).filter(m => m.qty > 0 && m.name.trim());
       await updateBooking(selectedBooking.id, {
         status: editBookingDraft.status,
-        date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
-        time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
-        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
+        date: requiresScheduledSlot ? editBookingDraft.date.trim() : (editBookingDraft.date.trim() || selectedBooking.date),
+        time: requiresScheduledSlot ? editBookingDraft.time.trim() : (editBookingDraft.time.trim() || selectedBooking.time || '00:00'),
+        box: requiresScheduledSlot ? editBookingDraft.box.trim() : (editBookingDraft.box.trim() || 'По согласованию'),
         notes: editBookingDraft.notes.trim() || undefined,
         car: editBookingDraft.car.trim() || undefined,
         plate: editBookingDraft.plate.trim() || undefined,
@@ -1198,9 +1198,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       setSelectedBooking((current) => (current ? {
         ...current,
         status: editBookingDraft.status,
-        date: requiresScheduledSlot ? editBookingDraft.date.trim() : '',
-        time: requiresScheduledSlot ? editBookingDraft.time.trim() : '',
-        box: requiresScheduledSlot ? editBookingDraft.box.trim() : 'По согласованию',
+        date: requiresScheduledSlot ? editBookingDraft.date.trim() : (editBookingDraft.date.trim() || current.date),
+        time: requiresScheduledSlot ? editBookingDraft.time.trim() : (editBookingDraft.time.trim() || current.time || '00:00'),
+        box: requiresScheduledSlot ? editBookingDraft.box.trim() : (editBookingDraft.box.trim() || 'По согласованию'),
         notes: editBookingDraft.notes.trim(),
         car: editBookingDraft.car.trim(),
         plate: editBookingDraft.plate.trim(),
