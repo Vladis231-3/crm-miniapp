@@ -4123,7 +4123,7 @@ def _payroll_entry_payload(entry: PayrollEntry, actor_name: str) -> PayrollEntry
 
         kind=entry.kind,  # type: ignore[arg-type]
 
-        amount=entry.amount,
+        amount=money_int(entry.amount),
 
         note=entry.note or "",
 
@@ -4609,7 +4609,7 @@ def _expense_payload(expense: Expense) -> ExpensePayload:
 
         title=expense.title,
 
-        amount=expense.amount,
+        amount=money_int(expense.amount),
 
         category=expense.category,
 
@@ -4851,6 +4851,10 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
 
         "bookingReminders": True,
 
+        "bookingReminderHours": 24,
+
+        "bookingReminderDays": 1,
+
     }
 
     owner_integrations_default = {
@@ -5064,6 +5068,10 @@ def _empty_settings_payload() -> SettingsBundlePayload:
             weeklyReport=False,
 
             bookingReminders=False,
+
+            bookingReminderHours=24,
+
+            bookingReminderDays=1,
 
         ),
 
@@ -6345,6 +6353,25 @@ def _booking_reminder_target_date(days_ahead: int = 1) -> str:
     return (datetime.now() + timedelta(days=days_ahead)).strftime("%d.%m.%Y")
 
 
+def _get_booking_reminder_hours(owner_settings: dict[str, Any]) -> int:
+    """Вытащить из настроек владельца за сколько часов слать напоминание (1..168)."""
+    raw = owner_settings.get("bookingReminderHours")
+    if raw is not None:
+        try:
+            hours = int(raw)
+            return max(1, min(168, hours))
+        except Exception:
+            pass
+    # fallback старый ключ в днях
+    raw_days = owner_settings.get("bookingReminderDays")
+    if raw_days is not None:
+        try:
+            return max(1, min(168, int(raw_days) * 24))
+        except Exception:
+            pass
+    return 24
+
+
 
 
 
@@ -6672,8 +6699,6 @@ def _dispatch_booking_reminders(
 
 ) -> OwnerReminderDispatchPayload:
 
-    reminder_date = (target_date or "").strip() or _booking_reminder_target_date()
-
     owner_settings = _setting(
 
         db,
@@ -6696,9 +6721,40 @@ def _dispatch_booking_reminders(
 
             "bookingReminders": True,
 
+            "bookingReminderHours": 24,
+
+            "bookingReminderDays": 1,
+
         },
 
     )
+
+    # интервал напоминания: от 1 часа до 7 дней (1..168 часов)
+    reminder_hours = _get_booking_reminder_hours(owner_settings)
+
+    # ручной вызов с явной датой — сохраняет старое поведение (по дате)
+    explicit_date = (target_date or "").strip()
+    if explicit_date:
+        reminder_date = explicit_date
+        use_date_filter = True
+        target_dt = None
+        window = None
+    else:
+        # автоматический режим (cron / без даты) — учитываем настройки интервала
+        if reminder_hours >= 24 and reminder_hours % 24 == 0:
+            days = reminder_hours // 24
+            reminder_date = _booking_reminder_target_date(days_ahead=days)
+            use_date_filter = True
+            target_dt = None
+            window = None
+        else:
+            # часовой режим: напоминание за N часов до точного времени записи
+            now = datetime.now()
+            target_dt = now + timedelta(hours=reminder_hours)
+            reminder_date = target_dt.strftime("%d.%m.%Y")
+            use_date_filter = False
+            # окно ±40 минут, чтобы часовой cron (раз в час) гарантированно поймал запись
+            window = timedelta(minutes=40)
 
     if not owner_settings.get("bookingReminders", True) and not force:
 
@@ -6742,33 +6798,43 @@ def _dispatch_booking_reminders(
 
 
 
-    bookings = (
-
-        db.scalars(
-
-            select(Booking)
-
-            .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
-
-            .where(
-
-                Booking.date == reminder_date,
-
-                Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
-
+    # выборка записей: по дате (дни) или по точному времени (часы)
+    if use_date_filter:
+        bookings = (
+            db.scalars(
+                select(Booking)
+                .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
+                .where(
+                    Booking.date == reminder_date,
+                    Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
+                )
+                .order_by(Booking.time.asc(), Booking.created_at.asc())
             )
-
-            .order_by(Booking.time.asc(), Booking.created_at.asc())
-
+            .unique()
+            .all()
         )
-
-        .unique()
-
-        .all()
-
-    )
-
-
+    else:
+        # часовой режим: ищем записи где точное время записи ≈ now + reminder_hours (± window)
+        assert target_dt is not None and window is not None
+        all_candidates = (
+            db.scalars(
+                select(Booking)
+                .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
+                .where(Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)))
+                .order_by(Booking.time.asc(), Booking.created_at.asc())
+            )
+            .unique()
+            .all()
+        )
+        bookings = []
+        for cand in all_candidates:
+            dt = _parse_booking_datetime(cand.date, cand.time)
+            if dt is None:
+                continue
+            # _parse_booking_datetime возвращает naive local; сравниваем с naive target_dt
+            delta = abs((dt - target_dt).total_seconds())
+            if delta <= window.total_seconds():
+                bookings.append(cand)
 
     worker_ids = {
 
@@ -6806,7 +6872,10 @@ def _dispatch_booking_reminders(
 
         client = db.get(Client, booking.client_id)
 
-        client_key = f"client:{booking.id}:{reminder_date}"
+        if use_date_filter:
+            client_key = f"client:{booking.id}:{reminder_date}"
+        else:
+            client_key = f"client:{booking.id}:{booking.date}:{booking.time}:{reminder_hours}h"
 
         client_message = _booking_client_reminder_message(booking)
 
@@ -6852,7 +6921,10 @@ def _dispatch_booking_reminders(
 
                 continue
 
-            worker_key = f"worker:{link.worker_id}:{booking.id}:{reminder_date}"
+            if use_date_filter:
+                worker_key = f"worker:{link.worker_id}:{booking.id}:{reminder_date}"
+            else:
+                worker_key = f"worker:{link.worker_id}:{booking.id}:{booking.date}:{booking.time}:{reminder_hours}h"
 
             if not force and worker_key in deliveries:
 
@@ -14597,7 +14669,7 @@ def list_incomes(
 
             id=income.id,
 
-            amount=income.amount,
+            amount=money_int(income.amount),
 
             source=income.source,
 
@@ -14665,7 +14737,7 @@ def create_income(
 
         id=income.id,
 
-        amount=income.amount,
+        amount=money_int(income.amount),
 
         source=income.source,
 
@@ -14748,7 +14820,7 @@ def update_income(
 
         id=income.id,
 
-        amount=income.amount,
+        amount=money_int(income.amount),
 
         source=income.source,
 
@@ -16567,7 +16639,7 @@ def get_wallet(
 
                 id=i.id,
 
-                amount=i.amount,
+                amount=money_int(i.amount),
 
                 source=i.source,
 
@@ -16595,7 +16667,7 @@ def get_wallet(
 
                 title=e.title,
 
-                amount=e.amount,
+                amount=money_int(e.amount),
 
                 category=e.category,
 
@@ -20140,7 +20212,7 @@ def get_owner_archive(
     archive_incomes = [
         IncomePayload(
             id=i.id,
-            amount=i.amount,
+            amount=money_int(i.amount),
             source=i.source,
             note=i.note,
             createdById=i.created_by_id,
@@ -20154,7 +20226,7 @@ def get_owner_archive(
         ExpensePayload(
             id=e.id,
             title=e.title,
-            amount=e.amount,
+            amount=money_int(e.amount),
             category=e.category,
             date=e.date,
             note=e.note,
@@ -21549,7 +21621,7 @@ def owner_worker_salary_detail(
 
             id=e.id,
 
-            amount=e.amount,
+            amount=money_int(e.amount),
 
             note=e.note,
 
@@ -21959,7 +22031,7 @@ def worker_my_salary_detail(
 
             id=e.id,
 
-            amount=e.amount,
+            amount=money_int(e.amount),
 
             note=e.note,
 

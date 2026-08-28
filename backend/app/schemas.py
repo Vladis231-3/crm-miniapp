@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 import re
 
 from enum import Enum
@@ -155,6 +155,26 @@ def normalize_plate(value: str, plate_type: str = "russian") -> str:
     return normalized
 
 
+def _coerce_money_int(value: Any) -> int:
+    """Coerce Decimal/float/str monetary values to int rubles (ROUND_HALF_UP).
+
+    Handles Decimal('15881.54') from DB Numeric(18,2) that would otherwise
+    fail int validation (int_from_float). Used for Expense/Income/Payroll
+    payloads where DB stores Decimal but API contract is int rubles.
+    """
+    if isinstance(value, Decimal):
+        return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    if isinstance(value, float):
+        # str() avoids binary float artefacts: Decimal(15881.54) != Decimal('15881.54')
+        return int(Decimal(str(value)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    if isinstance(value, str):
+        try:
+            return int(Decimal(value).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        except Exception:
+            pass
+    return int(value) if not isinstance(value, int) else value
+
+
 class ClientVehiclePayload(BaseModel):
     car: str = ""
     plate: str = ""
@@ -293,6 +313,11 @@ class PayrollEntryPayload(BaseModel):
     createdByRole: StaffRole
     createdByName: str
     entryDate: str | None = None
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _validate_amount(cls, value: Any) -> int:
+        return _coerce_money_int(value)
 
 
 class WorkerPayrollBookingPayload(BaseModel):
@@ -656,6 +681,11 @@ class ExpensePayload(BaseModel):
     note: str | None = None
     resourceGroup: str = "wash"
 
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _validate_amount(cls, value: Any) -> int:
+        return _coerce_money_int(value)
+
 
 class PenaltyPayload(BaseModel):
     id: str
@@ -989,14 +1019,32 @@ def _normalize_booking_date(value: str) -> str:
     клиенты). Остальные — отклоняет, чтобы в БД не попадали «нестандартные»
     даты, из-за которых запись молча выпадает из зарплатных/отчётных периодов
     (сравнение дат в БД построено только на формате ДД.ММ.ГГГГ).
+    Пустая строка разрешена (статус admin_review без даты) — календарь
+    такую запись пропустит без ERROR, залогировав warning.
     """
     v = value.strip()
+    if not v:
+        return ""
     if re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", v):
         return v
     m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", v)
     if m:
         return f"{m.group(3)}.{m.group(2)}.{m.group(1)}"
     raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ или ГГГГ-ММ-ДД")
+
+
+def _normalize_booking_time(value: str) -> str:
+    """Normalize booking time to HH:MM (24h) canonical form. Empty allowed."""
+    v = value.strip()
+    if not v:
+        return ""
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", v)
+    if not m:
+        raise ValueError("Время должно быть в формате ЧЧ:ММ")
+    hh, mm = int(m.group(1)), int(m.group(2))
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        raise ValueError("Неверное время")
+    return f"{hh:02d}:{mm:02d}"
 
 
 class BookingCreateRequest(BaseModel):
@@ -1027,6 +1075,11 @@ class BookingCreateRequest(BaseModel):
     @classmethod
     def validate_date(cls, value: str) -> str:
         return _normalize_booking_date(value)
+
+    @field_validator("time")
+    @classmethod
+    def validate_time(cls, value: str) -> str:
+        return _normalize_booking_time(value)
 
     @field_validator("clientName")
     @classmethod
@@ -1088,6 +1141,13 @@ class BookingUpdateRequest(BaseModel):
         if value is None:
             return None
         return _normalize_booking_date(value)
+
+    @field_validator("time")
+    @classmethod
+    def validate_time(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _normalize_booking_time(value)
 
     @field_validator("clientName")
     @classmethod
@@ -1254,6 +1314,11 @@ class IncomePayload(BaseModel):
     date: str
     resourceGroup: str = "wash"
     createdAt: datetime
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _validate_amount(cls, value: Any) -> int:
+        return _coerce_money_int(value)
 
 
 class ExpenseCreateRequest(BaseModel):
