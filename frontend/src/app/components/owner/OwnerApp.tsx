@@ -1119,6 +1119,7 @@ export function OwnerApp() {
     serviceId: '',
     price: 0,
     duration: 30,
+    referralSource: '',
   });
 
   // Add additional service state
@@ -3517,6 +3518,7 @@ paymentSettled: false,
       serviceId: selectedBooking.serviceId || '',
       price: Math.max(0, selectedBooking.price - (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
       duration: selectedBooking.duration,
+      referralSource: (selectedBooking as any).referralSource || '',
     });
   };
 
@@ -3560,6 +3562,7 @@ paymentSettled: false,
           paymentType: ownerBookingEditFull.paymentType,
           paymentSettled: ownerBookingEditFull.paymentSettled,
           serviceId: ownerBookingEditFull.serviceId || undefined,
+          referralSource: ownerBookingEditFull.referralSource || '',
           price: Math.max(0, (ownerBookingEditFull.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         };
       } else if (ownerBookingEditMode === 'status') {
@@ -9949,6 +9952,22 @@ paymentSettled: false,
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
                         <textarea className={`${inputCls} min-h-[80px] resize-none`} placeholder="Добавить примечание..." value={ownerBookingEditFull.notes} onChange={e => setOwnerBookingEditFull(p => ({ ...p, notes: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Откуда о нас узнал</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {REFERRAL_SOURCES.map((source) => (
+                            <button
+                              key={source.value}
+                              type="button"
+                              onClick={() => setOwnerBookingEditFull((current) => ({ ...current, referralSource: source.value }))}
+                              className={`text-xs px-3 py-1.5 rounded-full border transition ${ownerBookingEditFull.referralSource === source.value ? 'text-white font-medium' : glass}`}
+                              style={ownerBookingEditFull.referralSource === source.value ? { background: primary, borderColor: primary } : {}}
+                            >
+                              {source.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>

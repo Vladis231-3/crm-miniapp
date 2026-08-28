@@ -425,7 +425,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [newBookingSaving, setNewBookingSaving] = useState(false);
   const [newBookingErrors, setNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
-  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', plateType: 'russian' as PlateType, clientName: '', clientPhone: '', serviceId: '', price: 0, duration: 30 });
+  const [editBookingDraft, setEditBookingDraft] = useState({ status: 'scheduled' as BookingStatus, date: tomorrowLabel, time: '10:00', box: liveBoxes[0]?.name || 'Бокс 1', notes: '', car: '', plate: '', plateType: 'russian' as PlateType, clientName: '', clientPhone: '', serviceId: '', price: 0, duration: 30, referralSource: '' });
   const [editBookingSaving, setEditBookingSaving] = useState(false);
   const [editBookingError, setEditBookingError] = useState<string | null>(null);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { adminRating: number; adminNote: string; referralSource: string }>>({});
@@ -1140,6 +1140,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       serviceId: booking.serviceId || '',
       price: Math.max(0, booking.price - (booking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) - (booking.services || []).reduce((s, svc) => s + svc.price, 0)),
       duration: booking.duration,
+      referralSource: (booking as any).referralSource || '',
     });
     setEditBookingMaterials((booking.materials || []).map((m: any) => ({ stockItemId: m.stockItemId, name: m.name, qty: m.qty, unit: m.unit, unitPrice: Number(m.unitPrice) })));
     setEditBookingError(null);
@@ -1193,6 +1194,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         clientPhone: editBookingDraft.clientPhone.trim() || undefined,
         serviceId: editBookingDraft.serviceId || undefined,
         price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
+        referralSource: editBookingDraft.referralSource || '',
         materials: normalizedEditMaterials as any,
       });
       setSelectedBooking((current) => (current ? {
@@ -1211,6 +1213,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         service: liveServices.find(s => s.id === editBookingDraft.serviceId)?.name || current.service,
         price: Math.max(0, (editBookingDraft.price || 0) + (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0) + (selectedBooking.services || []).reduce((s, svc) => s + svc.price, 0)),
         duration: editBookingDraft.duration,
+        referralSource: editBookingDraft.referralSource || '',
         materials: normalizedEditMaterials.map((m: any, i: number) => ({ id: `tmp-${i}`, stockItemId: m.stockItemId, name: m.name, qty: m.qty, unit: m.unit, unitPrice: m.unitPrice })) as any,
         materialsWrittenOff: current.materialsWrittenOff,
       } : null));
@@ -2786,6 +2789,22 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                         onChange={e => setEditBookingDraft((current) => ({ ...current, plate: normalizePlateInput(e.target.value, current.plateType) }))}
                       />
                     </div>
+                  </div>
+                </div>
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Откуда о нас узнал</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {REFERRAL_SOURCES.map((source) => (
+                      <button
+                        key={source.value}
+                        type="button"
+                        onClick={() => setEditBookingDraft((current) => ({ ...current, referralSource: source.value }))}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition ${editBookingDraft.referralSource === source.value ? 'text-white font-medium' : glass}`}
+                        style={editBookingDraft.referralSource === source.value ? { background: primary, borderColor: primary } : {}}
+                      >
+                        {source.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 {/* Materials */}
