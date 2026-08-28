@@ -868,6 +868,9 @@ class PayrollEntryCreateRequest(BaseModel):
     period: SalaryPeriod | None = None
     dateFrom: str | None = None
     dateTo: str | None = None
+    # Ключ идемпотентности (uuid из формы): повторная отправка с тем же
+    # ключом не создаёт дубликат операции, а возвращает результат первой.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("note")
     @classmethod
@@ -1683,6 +1686,9 @@ class PayOwnerSalaryRequest(BaseModel):
     ownerId: str
     amount: Decimal = Field(ge=1, le=10_000_000)
     note: str = ""
+    # Ключ идемпотентности выплаты владельцу: повторная отправка с тем же
+    # ключом не создаёт вторую выплату, а возвращает результат первой.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
 
 class PayOwnerSalaryResponse(BaseModel):

@@ -587,6 +587,83 @@ class ReverseBudgetSyncTest(MoneyFixTestBase):
         self.assertEqual(deduction_entries[0]["amount"], 250)
 
 
+class EditAdjustmentBudgetSyncTest(MoneyFixTestBase):
+    """M2: редактирование корректировки с отрицательной суммой синхронизирует
+    бюджетную запись (перевод между Expense/Income без дублей)."""
+
+    def _create_adjustment(self, amount: int) -> str:
+        create_response = self.client.post(
+            "/api/payroll/entries",
+            headers=self._auth_headers(self.owner_token),
+            json={"workerId": "w1", "kind": "adjustment", "amount": amount, "note": ""},
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+
+        from app.database import SessionLocal
+        from app.models import PayrollEntry
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            entry = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.worker_id == "w1", PayrollEntry.kind == "adjustment"
+                )
+            )
+            self.assertIsNotNone(entry)
+            assert entry is not None
+            return entry.id
+
+    def assert_budget(self, *, expenses: int, incomes: int) -> None:
+        from app.database import SessionLocal
+        from app.models import Expense, Income
+        from sqlalchemy import func, select
+
+        with SessionLocal() as db:
+            exp_count = db.scalar(
+                select(func.count()).where(Expense.title.like("Корректировка:%"))
+            )
+            inc_count = db.scalar(
+                select(func.count()).where(Income.source.like("Корректировка:%"))
+            )
+            self.assertEqual(exp_count, expenses, "неверное число Expense (корректировка)")
+            self.assertEqual(inc_count, incomes, "неверное число Income (корректировка)")
+
+    def test_negative_adjustment_syncs_income(self) -> None:
+        entry_id = self._create_adjustment(500)
+        self.assert_budget(expenses=1, incomes=0)
+
+        # Меняем знак: +500 → −300. Expense удаляется, создаётся Income.
+        response = self.client.put(
+            f"/api/payroll/entries/{entry_id}",
+            headers=self._auth_headers(self.owner_token),
+            json={"amount": -300, "note": "Минус"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assert_budget(expenses=0, incomes=1)
+
+        # Правка без смены знака не дублирует запись.
+        response = self.client.put(
+            f"/api/payroll/entries/{entry_id}",
+            headers=self._auth_headers(self.owner_token),
+            json={"amount": -400, "note": "Минус больше"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assert_budget(expenses=0, incomes=1)
+
+    def test_negative_to_positive_adjustment_undoes_income(self) -> None:
+        entry_id = self._create_adjustment(-500)
+        self.assert_budget(expenses=0, incomes=1)
+
+        # Меняем знак: −500 → +700. Income удаляется, создаётся Expense.
+        response = self.client.put(
+            f"/api/payroll/entries/{entry_id}",
+            headers=self._auth_headers(self.owner_token),
+            json={"amount": 700, "note": "Плюс"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assert_budget(expenses=1, incomes=0)
+
+
 class ComplaintPostingsConsistencyTest(MoneyFixTestBase):
     """T7: проводки копилки и долей владельцев учитывают жалобы так же, как расчётка."""
 
@@ -703,6 +780,155 @@ class ComplaintPostingsConsistencyTest(MoneyFixTestBase):
         )
         # Сверка баланса: мастер + копилка + владельцы = выручка
         self.assertEqual(int(split["masterTotal"]) + int(deposit) + int(owners_accrued), 10000)
+
+
+class PayrollEntriesIdempotencyTest(MoneyFixTestBase):
+    """T7: /api/payroll/entries с тем же clientRequestId не создаёт дубликат."""
+
+    def _create(self, request_key: str | None) -> dict:
+        response = self.client.post(
+            "/api/payroll/entries",
+            headers=self._auth_headers(self.owner_token),
+            json={
+                "workerId": "w1",
+                "kind": "bonus",
+                "amount": 700,
+                "note": "Премия",
+                **({"clientRequestId": request_key} if request_key else {}),
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()
+
+    def test_duplicate_request_creates_single_entry(self) -> None:
+        first = self._create("entry-key-123")
+        second = self._create("entry-key-123")
+
+        # Ответ — WorkerPayload одного и того же мастера.
+        self.assertEqual(first["id"], second["id"])
+
+        from app.database import SessionLocal
+        from app.models import Expense, PayrollEntry
+        from sqlalchemy import func, select
+
+        with SessionLocal() as db:
+            bonuses = db.scalar(
+                select(func.count()).where(
+                    PayrollEntry.worker_id == "w1", PayrollEntry.kind == "bonus"
+                )
+            )
+            expenses = db.scalar(
+                select(func.count()).where(Expense.title == "Премия: Иван")
+            )
+            self.assertEqual(bonuses, 1, "дубль PayrollEntry создан")
+            self.assertEqual(expenses, 1, "дубль Expense создан")
+
+    def test_different_keys_create_separate_entries(self) -> None:
+        self._create("entry-key-a")
+        self._create("entry-key-b")
+
+        from app.database import SessionLocal
+        from app.models import PayrollEntry
+        from sqlalchemy import func, select
+
+        with SessionLocal() as db:
+            bonuses = db.scalar(
+                select(func.count()).where(
+                    PayrollEntry.worker_id == "w1", PayrollEntry.kind == "bonus"
+                )
+            )
+            self.assertEqual(bonuses, 2)
+
+
+class OwnerPaySalaryIdempotencyTest(MoneyFixTestBase):
+    """T8: выплата владельцу с тем же clientRequestId не создаёт дубликат."""
+
+    def _pending_owner_with_share(self) -> str:
+        # Доли владельцев появляются при переходе записи в completed
+        # (фактические проводки: копилка + доли владельцев).
+        client_id, client_phone = self._create_client()
+        create_response = self.client.post(
+            "/api/bookings",
+            headers=self._auth_headers(self.owner_token),
+            json={
+                "clientId": client_id,
+                "clientName": "Тест Клиент",
+                "clientPhone": client_phone,
+                "service": "Мойка",
+                "serviceId": "s1",
+                "date": self._today(),
+                "time": "10:00",
+                "duration": 60,
+                "price": 10000,
+                "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "paymentSettled": False,
+                "car": "BMW",
+                "plate": "M001AA",
+                "notes": "",
+            },
+        )
+        self.assertEqual(create_response.status_code, 200, create_response.text)
+        booking_id = create_response.json()["id"]
+        complete_response = self.client.patch(
+            f"/api/bookings/{booking_id}",
+            headers=self._auth_headers(self.owner_token),
+            json={"status": "completed", "paymentSettled": True},
+        )
+        self.assertEqual(complete_response.status_code, 200, complete_response.text)
+
+        from app.database import SessionLocal
+        from app.models import OwnerProfitShare
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            share = db.scalar(
+                select(OwnerProfitShare).where(OwnerProfitShare.status == "pending")
+            )
+            self.assertIsNotNone(share, "pending-доля владельца не создана")
+            return share.owner_id
+
+    def _pay(self, owner_db_id: str, request_key: str | None) -> dict:
+        response = self.client.post(
+            "/api/owner/owners/pay-salary",
+            headers=self._auth_headers(self.owner_token),
+            json={
+                "ownerId": owner_db_id,
+                "amount": 100,
+                "note": "",
+                **({"clientRequestId": request_key} if request_key else {}),
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()
+
+    def test_duplicate_request_creates_single_payout(self) -> None:
+        owner_db_id = self._pending_owner_with_share()
+        first = self._pay(owner_db_id, "owner-key-123")
+        second = self._pay(owner_db_id, "owner-key-123")
+
+        self.assertEqual(first["payoutId"], second["payoutId"])
+
+        from app.database import SessionLocal
+        from app.models import PayrollEntry
+        from sqlalchemy import func, select
+
+        with SessionLocal() as db:
+            payouts = db.scalar(
+                select(func.count()).where(
+                    PayrollEntry.worker_id == owner_db_id,
+                    PayrollEntry.kind == "payout",
+                )
+            )
+            self.assertEqual(payouts, 1, "дубль выплаты владельцу создан")
+
+    def test_different_keys_create_separate_payouts(self) -> None:
+        owner_db_id = self._pending_owner_with_share()
+        first = self._pay(owner_db_id, "owner-key-a")
+        second = self._pay(owner_db_id, "owner-key-b")
+        self.assertNotEqual(first["payoutId"], second["payoutId"])
 
 
 if __name__ == "__main__":

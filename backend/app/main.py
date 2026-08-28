@@ -4280,6 +4280,10 @@ def _worker_payroll_summaries_from_data(
             _payroll_entry_payload(entry, actors.get(entry.actor_id, "Сотрудник"))
         )
     result: dict[str, WorkerPayrollSummaryPayload] = {}
+    from datetime import date as _date
+    # Инспекции смен не зависят от мастера — вычисляем один раз для всех,
+    # а не повторно на каждого мастера (иначе лишние чтения настроек в БД).
+    inspections = _admin_shift_inspections_state(db)
     for worker in workers:
         booking_items = booking_items_by_worker.get(worker.id, [])
         payroll_entries = entry_payloads_by_worker.get(worker.id, [])
@@ -4300,8 +4304,6 @@ def _worker_payroll_summaries_from_data(
         )
         accrued_from_bookings = sum(item.earned for item in booking_items)
         completed_revenue = sum(item.price for item in booking_items)
-        from datetime import date as _date
-        inspections = _admin_shift_inspections_state(db)
         shift_count, _shift_dates = _compute_shift_attendance(
             inspections,
             worker.id,
@@ -10797,6 +10799,47 @@ def resync_telegram_webhook(
 
 
 
+# ── Stock Categories helpers (unlimited nesting) ──
+def _stock_category_descendant_ids(db: Session, root_id: str) -> set[str]:
+    """Собрать все id потомков категории root_id (BFS, безлимитная глубина)."""
+    descendants: set[str] = set()
+    queue: list[str] = [root_id]
+    visited: set[str] = set()
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        children = db.scalars(select(StockCategory.id).where(StockCategory.parent_id == current)).all()
+        for child_id in children:
+            if child_id not in descendants:
+                descendants.add(child_id)
+                queue.append(child_id)
+    return descendants
+
+
+def _normalize_parent_id(value: str | None) -> str | None:
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return None
+    return value
+
+
+def _validate_stock_category_parent(db: Session, category_id: str | None, new_parent_id: str | None) -> None:
+    new_parent_id = _normalize_parent_id(new_parent_id)
+    if new_parent_id is None:
+        return
+    if category_id is not None and new_parent_id == category_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Категория не может быть родителем самой себя")
+    parent = db.get(StockCategory, new_parent_id)
+    if parent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Родительская категория не найдена")
+    if category_id is not None:
+        # запрет цикла: новый родитель не должен быть потомком текущей категории
+        descendants = _stock_category_descendant_ids(db, category_id)
+        if new_parent_id in descendants:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя переместить категорию в собственного потомка (цикл)")
+
+
 # ── Stock Categories CRUD ──
 
 
@@ -10820,10 +10863,17 @@ def create_stock_category(
     db: Session = Depends(get_db),
 ) -> StockCategoryPayload:
     _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории не может быть пустым")
+    if len(name) > 120:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории слишком длинное (макс. 120)")
+    normalized_parent = _normalize_parent_id(payload.parentId)
+    _validate_stock_category_parent(db, None, normalized_parent)
     cat = StockCategory(
         id=f"sc-{uuid4()}",
-        name=payload.name,
-        parent_id=payload.parentId,
+        name=name,
+        parent_id=normalized_parent,
     )
     db.add(cat)
     db.commit()
@@ -10843,8 +10893,22 @@ def update_stock_category(
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
     data = payload.model_dump(exclude_unset=True)
-    for field, value in data.items():
-        setattr(cat, field, value)
+    if "name" in data:
+        name = (data["name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории не может быть пустым")
+        if len(name) > 120:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории слишком длинное (макс. 120)")
+        cat.name = name
+    if "parentId" in data:
+        new_parent_id = _normalize_parent_id(data["parentId"])
+        _validate_stock_category_parent(db, category_id, new_parent_id)
+        cat.parent_id = new_parent_id
+    # поддержка snake_case если вдруг прилетит
+    if "parent_id" in data and "parentId" not in data:
+        new_parent_id = _normalize_parent_id(data["parent_id"])
+        _validate_stock_category_parent(db, category_id, new_parent_id)
+        cat.parent_id = new_parent_id
     db.commit()
     db.refresh(cat)
     return StockCategoryPayload(id=cat.id, name=cat.name, parentId=cat.parent_id)
@@ -10860,10 +10924,23 @@ def delete_stock_category(
     cat = db.get(StockCategory, category_id)
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-    for item in db.scalars(select(StockItem).where(StockItem.category_id == category_id)).all():
-        item.category_id = None
-    name = cat.name
-    db.delete(cat)
+    # Собрать всё поддерево (категория + все потомки любой глубины) — безлимитное удаление
+    all_ids = {category_id} | _stock_category_descendant_ids(db, category_id)
+    # Сбросить category_id у всех товаров, которые ссылаются на удаляемые категории
+    if all_ids:
+        for item in db.scalars(select(StockItem).where(StockItem.category_id.in_(list(all_ids)))).all():
+            item.category_id = None
+        # Удалить категории поддерева (сначала листья, затем корни — bulk delete)
+        # Используем ORM удаление по одному для корректного каскада, но достаточно bulk
+        for cid in all_ids:
+            obj = db.get(StockCategory, cid)
+            if obj is not None and obj.id != category_id:
+                db.delete(obj)
+        name = cat.name
+        db.delete(cat)
+    else:
+        name = cat.name
+        db.delete(cat)
     db.commit()
     return GenericMessage(message=f"Категория «{name}» удалена")
 
@@ -11601,6 +11678,18 @@ def _booking_money_split(
     пропорционально их процентам из профиля (новичок с меньшим % получает меньше).
     """
     svc = db.get(Service, booking.service_id) if booking.service_id else None
+
+    # Кэш услуг доп. услуг в рамках одного вызова: избегаем N+1 при пакетной
+    # обработке завершённых записей на странице зарплат.
+    _asvc_svc_cache: dict[str, Service | None] = {}
+
+    def _asvc_service(asvc):
+        if asvc.service_id is None:
+            return None
+        if asvc.service_id not in _asvc_svc_cache:
+            _asvc_svc_cache[asvc.service_id] = db.get(Service, asvc.service_id)
+        return _asvc_svc_cache[asvc.service_id]
+
     rg = _service_resource_group(svc)
 
     additional_total = sum(
@@ -11723,7 +11812,7 @@ def _booking_money_split(
         asvc_pays = _asvc_paid_amount(asvc)
         asvc_deposit = max(0, int(asvc.price) - asvc_pays)
         if asvc_deposit > 0:
-            asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
+            asvc_svc = _asvc_service(asvc)
             asvc_rg = _service_resource_group(asvc_svc)
             asvc_piggy_deposits.append(
                 {
@@ -11746,7 +11835,7 @@ def _booking_money_split(
             continue
         asvc_piggy_24 = money_int(asvc_remainder * 24 / 100)
         if asvc_piggy_24 > 0:
-            asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
+            asvc_svc = _asvc_service(asvc)
             asvc_rg = _service_resource_group(asvc_svc)
             asvc_piggy_deposits.append(
                 {
@@ -19020,6 +19109,8 @@ def create_payroll_entry(
 
         entry_date=entry_date,
 
+        request_key=payload.clientRequestId,
+
         created_at=_now(),
 
     )
@@ -19104,6 +19195,39 @@ def create_payroll_entry(
     if created_income_id is not None:
         entry.income_id = created_income_id
 
+    worker.updated_at = _now()
+
+    try:
+
+        db.commit()
+
+    except IntegrityError:
+
+        # Гонка/повторная отправка: операция с тем же clientRequestId уже
+        # проведена — возвращаем результат первой, дубликат не создаём.
+        db.rollback()
+        if payload.clientRequestId:
+            winner = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId,
+                    PayrollEntry.worker_id == worker.id,
+                )
+            )
+            if winner is not None:
+                db.refresh(worker)
+                payroll_summaries = _worker_payroll_summaries(
+                    db, [worker], complaints_by_worker
+                )
+                return _worker_payload_with_payroll(worker, payroll_summaries)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Операция с тем же ключом уже существует",
+        )
+
+    db.refresh(worker)
+
+    # Уведомление — только после успешного коммита, иначе воркер получит
+    # сообщение об операции, которая не сохранилась (например, при гонке).
     _notify_worker_about_payroll_entry(
 
         db,
@@ -19121,12 +19245,6 @@ def create_payroll_entry(
         note=payload.note.strip(),
 
     )
-
-    worker.updated_at = _now()
-
-    db.commit()
-
-    db.refresh(worker)
 
     payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
 
@@ -19170,9 +19288,12 @@ def update_payroll_entry(
 
 
 
-    if payload.amount < 0:
+    # Отрицательные суммы допустимы только для корректировок (adjustment):
+    # положительная корректировка даёт Expense, отрицательная — Income
+    # (та же логика, что и при создании операции).
+    if payload.amount < 0 and entry.kind != "adjustment":
 
-        raise HTTPException(status_code=400, detail="Сумма не может быть отрицательной")
+        raise HTTPException(status_code=400, detail="Сумма не может быть отрицательной для этого типа операции")
 
 
 
@@ -19180,21 +19301,81 @@ def update_payroll_entry(
 
     entry.note = payload.note.strip()
 
-    entry.actor_id = session_data["actorId"]
+    # Не перезаписываем автора операции при редактировании — сохраняем
+    # исходный аудиторский след (кто провёл операцию изначально).
 
-    entry.actor_role = session_data["role"]
 
-    # Keep linked budget records in sync
-    if entry.expense_id:
-        linked_expense = db.get(Expense, entry.expense_id)
+
+    # Синхронизация бюджета: тип бюджетной записи определяется видом операции
+    # и знаком суммы. При смене знака корректировки запись переводится между
+    # Expense и Income, не создавая задвоения.
+    new_amount = abs(payload.amount)
+    want_income = entry.kind == "deduction" or (
+        entry.kind == "adjustment" and payload.amount < 0
+    )
+
+    linked_expense = db.get(Expense, entry.expense_id) if entry.expense_id else None
+    linked_income = db.get(Income, entry.income_id) if entry.income_id else None
+    op_date = entry.entry_date or _now().strftime("%d.%m.%Y")
+
+    if want_income:
         if linked_expense is not None:
-            linked_expense.amount = payload.amount
-            linked_expense.note = payload.note.strip() or linked_expense.note
-    if entry.income_id:
-        linked_income = db.get(Income, entry.income_id)
+            db.delete(linked_expense)
+            entry.expense_id = None
         if linked_income is not None:
-            linked_income.amount = abs(payload.amount)
+            linked_income.amount = new_amount
             linked_income.note = payload.note.strip() or linked_income.note
+        else:
+            if entry.kind == "deduction":
+                source = f"Штраф: {worker.name}"
+                note = payload.note.strip() or "Штраф"
+            else:
+                source = f"Корректировка: {worker.name}"
+                note = payload.note.strip() or "Корректировка"
+            income = Income(
+                id=str(uuid4()),
+                amount=new_amount,
+                source=source,
+                note=note,
+                created_by_id=session_data["actorId"],
+                date=op_date,
+                resource_group="wash",
+                created_at=_now(),
+            )
+            db.add(income)
+            entry.income_id = income.id
+    else:
+        if linked_income is not None:
+            db.delete(linked_income)
+            entry.income_id = None
+        if linked_expense is not None:
+            linked_expense.amount = new_amount
+            linked_expense.note = payload.note.strip() or linked_expense.note
+        else:
+            if entry.kind == "adjustment":
+                title = f"Корректировка: {worker.name}"
+                note = payload.note.strip() or "Корректировка"
+            elif entry.kind == "bonus":
+                title = f"Премия: {worker.name}"
+                note = payload.note.strip() or "Премия"
+            elif entry.kind == "advance":
+                title = f"Аванс: {worker.name}"
+                note = payload.note.strip() or "Аванс"
+            else:  # payout
+                title = f"Выплата: {worker.name}"
+                note = payload.note.strip() or "Выплата"
+            expense = Expense(
+                id=f"exp-{uuid4()}",
+                title=title,
+                amount=new_amount,
+                category="Зарплата",
+                date=op_date,
+                note=note,
+                resource_group="wash",
+                created_at=_now(),
+            )
+            db.add(expense)
+            entry.expense_id = expense.id
 
     db.commit()
 
@@ -19285,10 +19466,18 @@ def delete_payroll_entry(
 
     kind_label = _payroll_entry_label(entry.kind)
 
+    kind_value = entry.kind
+
     amount_value = int(entry.amount)
 
+    worker.updated_at = _now()
 
+    db.delete(entry)
 
+    db.commit()
+
+    # Уведомление — только после успешного удаления: иначе воркер получит
+    # «Операция удалена» об операции, которая на самом деле не удалилась.
     _notify_worker_about_payroll_entry(
 
         db,
@@ -19299,21 +19488,13 @@ def delete_payroll_entry(
 
         actor_id=session_data["actorId"],
 
-        kind=entry.kind,
+        kind=kind_value,
 
         amount=amount_value,
 
         note="Операция удалена",
 
     )
-
-
-
-    worker.updated_at = _now()
-
-    db.delete(entry)
-
-    db.commit()
 
 
 
@@ -22052,26 +22233,6 @@ def owner_worker_pay_salary(
 
     entry.expense_id = expense.id
 
-    _notify_worker_about_payroll_entry(
-
-        db,
-
-        worker,
-
-        actor_role=session_data["role"],
-
-        actor_id=session_data["actorId"],
-
-        kind="payout",
-
-        amount=amount,
-
-        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
-
-    )
-
-
-
     worker.updated_at = _now()
 
     try:
@@ -22100,6 +22261,18 @@ def owner_worker_pay_salary(
         )
 
     db.refresh(worker)
+
+    # Уведомление — только после успешного коммита: при гонке проигравший
+    # запрос уходит в replay и воркеру не приходит лишнее сообщение.
+    _notify_worker_about_payroll_entry(
+        db,
+        worker,
+        actor_role=session_data["role"],
+        actor_id=session_data["actorId"],
+        kind="payout",
+        amount=amount,
+        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
+    )
 
 
 
@@ -22527,6 +22700,8 @@ def owner_pay_salary(
 
         note=payload.note.strip() or f"Выплата ЗП владельцу {owner.name}",
 
+        request_key=payload.clientRequestId,
+
         created_at=_now(),
 
     )
@@ -22567,7 +22742,42 @@ def owner_pay_salary(
 
     owner.updated_at = _now()
 
-    db.commit()
+    try:
+
+        db.commit()
+
+    except IntegrityError:
+
+        # Гонка/повторная отправка: выплата с тем же clientRequestId уже
+        # проведена — возвращаем результат первой, дубликат не создаём.
+        db.rollback()
+        if payload.clientRequestId:
+            winner = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId,
+                    PayrollEntry.worker_id == owner.id,
+                    PayrollEntry.kind == "payout",
+                )
+            )
+            if winner is not None:
+                new_balance = sum(
+                    s.amount for s in db.scalars(
+                        select(OwnerProfitShare).where(
+                            OwnerProfitShare.owner_id == payload.ownerId,
+                            OwnerProfitShare.status == "pending",
+                        )
+                    ).all()
+                )
+                return PayOwnerSalaryResponse(
+                    message="Выплата уже проведена ранее",
+                    payoutId=winner.id,
+                    expenseId=winner.expense_id or "",
+                    newBalance=new_balance,
+                )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Выплата с тем же ключом уже существует",
+        )
 
 
 

@@ -692,6 +692,8 @@ export interface PayrollEntryCreateInput {
   period?: string;
   dateFrom?: string;
   dateTo?: string;
+  /** Ключ идемпотентности: повторная отправка не создаёт дубликат операции. */
+  clientRequestId?: string;
 }
 
 export interface ContentStats {
