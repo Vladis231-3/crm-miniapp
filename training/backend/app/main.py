@@ -2602,15 +2602,32 @@ def _apply_default_shift_pay(db: Session) -> None:
 def _repair_text_value(value: str) -> str:
     if not value:
         return value
-    # Ремонтируем только явный mojibake (UTF-8 -> cp1251), не трогаем корректную кириллицу
-    if not any(marker in value for marker in ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "â€"]):
+    # Ремонтируем только явный mojibake, не трогаем корректную кириллицу
+    # Маркеры: "Ð","Ñ" = utf-8 -> latin1, "вЂ","в€","â€","Ã","Â" = utf-8 -> cp1251 / windows-1252
+    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â"]
+    if not any(m in value for m in markers):
         return value
-    try:
-        fixed = value.encode("cp1251").decode("utf-8")
-    except UnicodeError:
-        return value
-
-    return fixed if fixed != value else value
+    # Пробуем оба источника mojibake: cp1251 и latin1 (windows-1252)
+    for enc in ("cp1251", "latin1"):
+        try:
+            fixed = value.encode(enc).decode("utf-8")
+        except UnicodeError:
+            continue
+        if fixed == value:
+            continue
+        # Успешный ремонт должен убрать маркеры
+        if any(m in fixed for m in markers):
+            continue
+        return fixed
+    # Фолбэк: если обе кодировки дали маркеры, пробуем вернуть любой отличающийся результат
+    for enc in ("cp1251", "latin1"):
+        try:
+            fixed = value.encode(enc).decode("utf-8")
+        except UnicodeError:
+            continue
+        if fixed != value:
+            return fixed
+    return value
 
 
 
