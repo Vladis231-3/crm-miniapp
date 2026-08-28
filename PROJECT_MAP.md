@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-28 11:17 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-28 11:24 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **498**
-- Строк кода: **199 694**
+- Строк кода: **199 693**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
@@ -4327,7 +4327,7 @@ concept1.0/
 - `weekAgo` (стр. 149) — локальный
 - `created` (стр. 150) — локальный
 
-### frontend/src/main.tsx (7 строк)
+### frontend/src/main.tsx (6 строк)
 
 ## Carwash — лендинг (carwash/src)
 
@@ -4524,9 +4524,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/app/schemas.py` (2026-08-28 14:24)
+- `frontend/src/main.tsx` (2026-08-28 14:23)
+- `frontend/index.html` (2026-08-28 14:23)
 - `backend/app/main.py` (2026-08-28 14:15)
 - `backend/app/models.py` (2026-08-28 14:15)
-- `backend/app/schemas.py` (2026-08-28 14:12)
 - `training/backend/app/main.py` (2026-08-28 13:56)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-28 13:55)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-28 13:54)
@@ -4537,5 +4539,3 @@ concept1.0/
 - `scripts/.project-map-watch.lock` (2026-08-28 10:55)
 - `frontend/src/styles/theme.css` (2026-08-27 17:01)
 - `frontend/src/app/App.tsx` (2026-08-27 16:52)
-- `frontend/src/app/hooks/useTelegramSetup.ts` (2026-08-27 16:52)
-- `frontend/src/app/components/atmosfera/Sheet.tsx` (2026-08-27 16:08)
