@@ -650,7 +650,7 @@ class OwnerShiftOpeningRequest(BaseModel):
 class ExpensePayload(BaseModel):
     id: str
     title: str
-    amount: float
+    amount: int
     category: str
     date: str
     note: str | None = None
@@ -982,6 +982,23 @@ class SwitchRoleRequest(BaseModel):
     targetRole: StaffRole
 
 
+def _normalize_booking_date(value: str) -> str:
+    """Нормализует дату записи к канону ДД.ММ.ГГГГ.
+
+    Принимает и ДД.ММ.ГГГГ, и ГГГГ-ММ-ДД (форматы, которые могут слать
+    клиенты). Остальные — отклоняет, чтобы в БД не попадали «нестандартные»
+    даты, из-за которых запись молча выпадает из зарплатных/отчётных периодов
+    (сравнение дат в БД построено только на формате ДД.ММ.ГГГГ).
+    """
+    v = value.strip()
+    if re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", v):
+        return v
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", v)
+    if m:
+        return f"{m.group(3)}.{m.group(2)}.{m.group(1)}"
+    raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ или ГГГГ-ММ-ДД")
+
+
 class BookingCreateRequest(BaseModel):
     clientId: str
     clientName: str
@@ -1005,6 +1022,11 @@ class BookingCreateRequest(BaseModel):
     isRepeatVisit: bool = False
     notifyWorkers: bool = False
     materials: list[BookingMaterialPayload] = Field(default_factory=list)
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        return _normalize_booking_date(value)
 
     @field_validator("clientName")
     @classmethod
@@ -1059,6 +1081,13 @@ class BookingUpdateRequest(BaseModel):
     materials: list[BookingMaterialPayload] | None = None
     referralSource: str | None = None
     isRepeatVisit: bool | None = None
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _normalize_booking_date(value)
 
     @field_validator("clientName")
     @classmethod
@@ -1218,7 +1247,7 @@ class IncomeCreateRequest(BaseModel):
 
 class IncomePayload(BaseModel):
     id: str
-    amount: float
+    amount: int
     source: str
     note: str | None
     createdById: str
@@ -1669,17 +1698,17 @@ class OwnerProfitShareItem(BaseModel):
 class OwnerProfitShareSummary(BaseModel):
     ownerId: str
     ownerName: str
-    totalAccrued: float = 0
-    totalPaid: float = 0
-    balanceToPay: float = 0
+    totalAccrued: int = 0
+    totalPaid: int = 0
+    balanceToPay: int = 0
     shares: list[OwnerProfitShareItem] = Field(default_factory=list)
 
 
 class OwnerSalaryDetailResponse(BaseModel):
     owners: list[OwnerProfitShareSummary] = Field(default_factory=list)
-    totalAccrued: float = 0
-    totalPaid: float = 0
-    totalBalanceToPay: float = 0
+    totalAccrued: int = 0
+    totalPaid: int = 0
+    totalBalanceToPay: int = 0
 
 
 class PayOwnerSalaryRequest(BaseModel):
@@ -1695,7 +1724,7 @@ class PayOwnerSalaryResponse(BaseModel):
     message: str
     payoutId: str
     expenseId: str
-    newBalance: float
+    newBalance: int
 
 
 class OverrideEarnedRequest(BaseModel):
