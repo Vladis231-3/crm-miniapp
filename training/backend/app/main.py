@@ -2600,17 +2600,14 @@ def _apply_default_shift_pay(db: Session) -> None:
 
 
 def _repair_text_value(value: str) -> str:
-
-    if not value or not any(ord(char) > 127 for char in value):
-
+    if not value:
         return value
-
+    # Ремонтируем только явный mojibake (UTF-8 -> cp1251), не трогаем корректную кириллицу
+    if not any(marker in value for marker in ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "â€"]):
+        return value
     try:
-
         fixed = value.encode("cp1251").decode("utf-8")
-
     except UnicodeError:
-
         return value
 
     return fixed if fixed != value else value
