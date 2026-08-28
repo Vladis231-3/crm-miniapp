@@ -10097,6 +10097,47 @@ def resync_telegram_webhook(
 
 
 
+# ── Stock Categories helpers (unlimited nesting) ──
+def _stock_category_descendant_ids(db: Session, root_id: str) -> set[str]:
+    """Собрать все id потомков категории root_id (BFS, безлимитная глубина)."""
+    descendants: set[str] = set()
+    queue: list[str] = [root_id]
+    visited: set[str] = set()
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        children = db.scalars(select(StockCategory.id).where(StockCategory.parent_id == current)).all()
+        for child_id in children:
+            if child_id not in descendants:
+                descendants.add(child_id)
+                queue.append(child_id)
+    return descendants
+
+
+def _normalize_parent_id(value: str | None) -> str | None:
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return None
+    return value
+
+
+def _validate_stock_category_parent(db: Session, category_id: str | None, new_parent_id: str | None) -> None:
+    new_parent_id = _normalize_parent_id(new_parent_id)
+    if new_parent_id is None:
+        return
+    if category_id is not None and new_parent_id == category_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Категория не может быть родителем самой себя")
+    parent = db.get(StockCategory, new_parent_id)
+    if parent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Родительская категория не найдена")
+    if category_id is not None:
+        # запрет цикла: новый родитель не должен быть потомком текущей категории
+        descendants = _stock_category_descendant_ids(db, category_id)
+        if new_parent_id in descendants:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя переместить категорию в собственного потомка (цикл)")
+
+
 # ── Stock Categories CRUD ──
 
 
@@ -10120,10 +10161,17 @@ def create_stock_category(
     db: Session = Depends(get_db),
 ) -> StockCategoryPayload:
     _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории не может быть пустым")
+    if len(name) > 120:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории слишком длинное (макс. 120)")
+    normalized_parent = _normalize_parent_id(payload.parentId)
+    _validate_stock_category_parent(db, None, normalized_parent)
     cat = StockCategory(
         id=f"sc-{uuid4()}",
-        name=payload.name,
-        parent_id=payload.parentId,
+        name=name,
+        parent_id=normalized_parent,
     )
     db.add(cat)
     db.commit()
@@ -10143,8 +10191,21 @@ def update_stock_category(
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
     data = payload.model_dump(exclude_unset=True)
-    for field, value in data.items():
-        setattr(cat, field, value)
+    if "name" in data:
+        name = (data["name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории не может быть пустым")
+        if len(name) > 120:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название категории слишком длинное (макс. 120)")
+        cat.name = name
+    if "parentId" in data:
+        new_parent_id = _normalize_parent_id(data["parentId"])
+        _validate_stock_category_parent(db, category_id, new_parent_id)
+        cat.parent_id = new_parent_id
+    if "parent_id" in data and "parentId" not in data:
+        new_parent_id = _normalize_parent_id(data["parent_id"])
+        _validate_stock_category_parent(db, category_id, new_parent_id)
+        cat.parent_id = new_parent_id
     db.commit()
     db.refresh(cat)
     return StockCategoryPayload(id=cat.id, name=cat.name, parentId=cat.parent_id)
@@ -10160,10 +10221,19 @@ def delete_stock_category(
     cat = db.get(StockCategory, category_id)
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-    for item in db.scalars(select(StockItem).where(StockItem.category_id == category_id)).all():
-        item.category_id = None
-    name = cat.name
-    db.delete(cat)
+    all_ids = {category_id} | _stock_category_descendant_ids(db, category_id)
+    if all_ids:
+        for item in db.scalars(select(StockItem).where(StockItem.category_id.in_(list(all_ids)))).all():
+            item.category_id = None
+        for cid in all_ids:
+            obj = db.get(StockCategory, cid)
+            if obj is not None and obj.id != category_id:
+                db.delete(obj)
+        name = cat.name
+        db.delete(cat)
+    else:
+        name = cat.name
+        db.delete(cat)
     db.commit()
     return GenericMessage(message=f"Категория «{name}» удалена")
 

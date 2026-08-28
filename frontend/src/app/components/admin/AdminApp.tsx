@@ -56,6 +56,30 @@ import {
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
+// Helper for unlimited category nesting — returns categoryId + all descendant ids
+function stockCategoryIdsWithDescendants(rootId: string, categories: { id: string; parentId?: string }[]): string[] {
+  const map = new Map<string, string[]>();
+  categories.forEach((c) => {
+    if (!c.parentId) return;
+    if (!map.has(c.parentId)) map.set(c.parentId, []);
+    map.get(c.parentId)!.push(c.id);
+  });
+  const result: string[] = [rootId];
+  const queue = [rootId];
+  const visited = new Set<string>();
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (visited.has(cur)) continue;
+    visited.add(cur);
+    const children = map.get(cur) || [];
+    children.forEach((childId) => {
+      result.push(childId);
+      queue.push(childId);
+    });
+  }
+  return result;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новая заявка',
   confirmed: 'Подтверждена',
@@ -2882,10 +2906,10 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                           </div>
                         </div>
                         <div className="overflow-y-auto p-4 space-y-2">
-                          {stockItems
+                            {stockItems
                             .filter(item => {
                               if (!editMaterialPickerCategory) return true;
-                              const catIds = [editMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === editMaterialPickerCategory).map(c => c.id)];
+                              const catIds = stockCategoryIdsWithDescendants(editMaterialPickerCategory, stockCategories);
                               return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === editMaterialPickerCategory)?.name;
                             })
                             .filter(item => item.qty > 0)
@@ -2907,7 +2931,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                             ))}
                           {stockItems.filter(item => {
                             if (!editMaterialPickerCategory) return true;
-                            const catIds = [editMaterialPickerCategory, ...stockCategories.filter(c => c.parentId === editMaterialPickerCategory).map(c => c.id)];
+                            const catIds = stockCategoryIdsWithDescendants(editMaterialPickerCategory, stockCategories);
                             return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === editMaterialPickerCategory)?.name;
                           }).filter(item => item.qty > 0).length === 0 && (
                             <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
@@ -3422,7 +3446,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                           {stockItems
                             .filter(item => {
                               if (!materialPickerCategory) return true;
-                              const catIds = [materialPickerCategory, ...stockCategories.filter(c => c.parentId === materialPickerCategory).map(c => c.id)];
+                              const catIds = stockCategoryIdsWithDescendants(materialPickerCategory, stockCategories);
                               return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === materialPickerCategory)?.name;
                             })
                             .filter(item => item.qty > 0)
@@ -3444,7 +3468,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                             ))}
                           {stockItems.filter(item => {
                             if (!materialPickerCategory) return true;
-                            const catIds = [materialPickerCategory, ...stockCategories.filter(c => c.parentId === materialPickerCategory).map(c => c.id)];
+                            const catIds = stockCategoryIdsWithDescendants(materialPickerCategory, stockCategories);
                             return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === materialPickerCategory)?.name;
                           }).filter(item => item.qty > 0).length === 0 && (
                             <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
