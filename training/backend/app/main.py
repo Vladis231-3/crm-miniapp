@@ -2605,12 +2605,58 @@ def _apply_default_shift_pay(db: Session) -> None:
 def _repair_text_value(value: str) -> str:
     if not value:
         return value
-    # Ремонтируем только явный mojibake, не трогаем корректную кириллицу
-    # Маркеры: "Ð","Ñ" = utf-8 -> latin1, "вЂ","в€","â€","Ã","Â" = utf-8 -> cp1251 / windows-1252
-    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â"]
-    if not any(m in value for m in markers):
+    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "Р’", "С‹", "СЂ", "Сѓ", "С‡", "Рє", "Р°", "СЃ", "С‚", "Рј", "Рё", "РЅ", "Р»", "Рѕ", "в‚", "Ѕ", "—", "–"]
+    has_marker = any(m in value for m in markers)
+    if has_marker:
+        for enc in ("cp1251", "latin1"):
+            try:
+                byte_arr = bytearray()
+                for ch in value:
+                    try:
+                        byte_arr.extend(ch.encode(enc))
+                    except UnicodeEncodeError:
+                        byte_arr.extend(ch.encode("utf-8"))
+                fixed = byte_arr.decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed == value:
+                continue
+            if any(m in fixed for m in markers):
+                continue
+            return fixed
+        for enc in ("cp1251", "latin1"):
+            try:
+                fixed = value.encode(enc).decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed == value:
+                continue
+            if any(m in fixed for m in markers):
+                continue
+            return fixed
+        for enc in ("cp1251", "latin1"):
+            try:
+                fixed = value.encode(enc).decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed != value:
+                return fixed
         return value
-    # Гибридный ремонт: поддержка смешанного mojibake + корректных символов (напр. "ÐŸÑ€Ð¸Ð²ÐµÑ‚ •")
+    for enc in ("cp1251", "latin1"):
+        try:
+            fixed = value.encode(enc).decode("utf-8")
+        except UnicodeError:
+            continue
+        if fixed == value:
+            continue
+        cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
+        cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
+        if cyr_fixed > cyr_orig + 2 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Запись", "Клиент"]):
+            return fixed
+        if "₽" in fixed and "в‚" in value:
+            return fixed
+        if "Выручка" in fixed and "Р'С‹" in value:
+            return fixed
     for enc in ("cp1251", "latin1"):
         try:
             byte_arr = bytearray()
@@ -2622,30 +2668,7 @@ def _repair_text_value(value: str) -> str:
             fixed = byte_arr.decode("utf-8")
         except UnicodeError:
             continue
-        if fixed == value:
-            continue
-        if any(m in fixed for m in markers):
-            continue
-        return fixed
-    # Пробуем оба источника mojibake: cp1251 и latin1 (windows-1252) — классический путь
-    for enc in ("cp1251", "latin1"):
-        try:
-            fixed = value.encode(enc).decode("utf-8")
-        except UnicodeError:
-            continue
-        if fixed == value:
-            continue
-        # Успешный ремонт должен убрать маркеры
-        if any(m in fixed for m in markers):
-            continue
-        return fixed
-    # Фолбэк: если обе кодировки дали маркеры, пробуем вернуть любой отличающийся результат
-    for enc in ("cp1251", "latin1"):
-        try:
-            fixed = value.encode(enc).decode("utf-8")
-        except UnicodeError:
-            continue
-        if fixed != value:
+        if fixed != value and any(w in fixed for w in ["Выручка", "сегодня", "₽"]):
             return fixed
     return value
 
