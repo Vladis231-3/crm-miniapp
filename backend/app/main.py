@@ -10477,6 +10477,34 @@ def debug_encoding() -> dict:
     return {"ok": True, "test": "Привет мир", "test_hex": "Привет мир".encode("utf-8").hex(), "static": "АТМОСФЕРА"}
 
 
+@app.get("/api/debug/db")
+def debug_db(db: Session = Depends(get_db)) -> dict:
+    """Диагностика БД — первые 3 staff/service с hex."""
+    try:
+        from sqlalchemy import select
+
+        staff = []
+        for s in db.scalars(select(StaffUser)).limit(3).all():
+            staff.append(
+                {
+                    "id": s.id,
+                    "login": s.login,
+                    "name": s.name,
+                    "name_hex": (s.name or "").encode("utf-8").hex(),
+                    "city": s.city,
+                    "city_hex": (s.city or "").encode("utf-8").hex() if s.city else "",
+                }
+            )
+        services = []
+        for svc in db.scalars(select(Service)).limit(3).all():
+            services.append({"id": svc.id, "name": svc.name, "hex": (svc.name or "").encode("utf-8").hex()})
+        return {"ok": True, "staff": staff, "services": services}
+    except Exception as e:
+        import traceback
+
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:3000]}
+
+
 
 
 
