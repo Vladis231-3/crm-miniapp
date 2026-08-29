@@ -748,6 +748,8 @@ DEFAULT_ADMIN_SHIFT_SUPPLIES = [
 
 class AsciiJSONResponse(JSONResponse):
     def render(self, content) -> bytes:
+        # Пробуем отдать чистый ASCII \u0412... чтобы WebView, игнорирующий charset, всё равно показал В
+        # Если WebView всё равно декодирует как windows-1251, \u0412 (5c 75...) останется \u0412
         return _json_stdlib.dumps(content, ensure_ascii=True, allow_nan=False, indent=None, separators=(",", ":")).encode("utf-8")
 
 
