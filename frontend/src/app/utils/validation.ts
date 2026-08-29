@@ -1,9 +1,13 @@
 export type PlateType = 'russian' | 'motorcycle' | 'foreign';
 
-const NAME_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{0,59}$/;
-const REPEATED_LETTERS_PATTERN = /([A-Za-zА-Яа-яЁё])\1{3,}/i;
-const VEHICLE_PATTERN = /^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9 .-]{1,39}$/;
-const REPEATED_VEHICLE_PATTERN = /([A-Za-zА-Яа-яЁё0-9])\1{3,}/i;
+// Кириллица в regex — через \u-экранирование, чтобы бандл был 100% ASCII
+// (Telegram WebView на Android декодирует не-ASCII байты как windows-1251).
+// \u0410-\u042F = А-Я, \u0430-\u044F = а-я, \u0401 = Ё, \u0451 = ё
+const CYR = 'A-Za-z\\u0410-\\u042F\\u0430-\\u044F\\u0401\\u0451';
+const NAME_PATTERN = new RegExp(`^[${CYR}0-9][${CYR}0-9' -]{0,59}$`);
+const REPEATED_LETTERS_PATTERN = new RegExp(`([${CYR}])\\1{3,}`, 'i');
+const VEHICLE_PATTERN = new RegExp(`^[${CYR}0-9][${CYR}0-9 .-]{1,39}$`);
+const REPEATED_VEHICLE_PATTERN = new RegExp(`([${CYR}0-9])\\1{3,}`, 'i');
 const PLATE_ALLOWED_LETTERS = new Set(["а", "в", "е", "к", "м", "н", "о", "р", "с", "т", "у", "х"]);
 
 const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
@@ -33,8 +37,8 @@ const PLATE_LAYOUT_TO_LATIN: Record<string, string> = {
   Х: 'х', х: 'х',
   У: 'у', у: 'у',
 };
-const PLATE_PATTERN = /^[авекмнорстух]\d{3}[авекмнорстух]{2}\d{2,3}$/;
-const MOTORCYCLE_PLATE_PATTERN = /^\d{4}[авекмнорстух]{2}\d{2,3}$/;
+const PLATE_PATTERN = /^[\u0430\u0432\u0435\u043A\u043C\u043D\u043E\u0440\u0441\u0442\u0443\u0445]\d{3}[\u0430\u0432\u0435\u043A\u043C\u043D\u043E\u0440\u0441\u0442\u0443\u0445]{2}\d{2,3}$/;
+const MOTORCYCLE_PLATE_PATTERN = /^\d{4}[\u0430\u0432\u0435\u043A\u043C\u043D\u043E\u0440\u0441\u0442\u0443\u0445]{2}\d{2,3}$/;
 
 export function normalizePersonName(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
@@ -63,7 +67,7 @@ export function normalizeVehicleInput(value: string): string {
 
 export function validateVehicleName(value: string): string | null {
   const normalized = normalizeVehicleInput(value);
-  const lettersOnly = normalized.replace(/[^A-Za-zА-Яа-яЁё]/g, '');
+  const lettersOnly = normalized.replace(new RegExp(`[^${CYR}]`, 'g'), '');
   if (!normalized) return 'Введите автомобиль';
   if (lettersOnly.length < 2) return 'Введите реальный автомобиль';
   if (!VEHICLE_PATTERN.test(normalized)) return 'Введите марку и модель без лишних символов';

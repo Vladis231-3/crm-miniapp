@@ -103,7 +103,7 @@ from .google_calendar import (
     upsert_connection,
 )
 
-from .database import Base, engine, get_db
+from .database import Base, engine, get_db, session_scope
 
 from .exports import (
 
@@ -3003,6 +3003,46 @@ def _repair_text_data(db: Session) -> None:
         db.flush()
 
 
+
+
+
+_text_repair_attempted = False
+
+
+
+def get_db_with_text_repair() -> Any:
+
+    """get_db с гарантированным одноразовым ремонтом mojibake.
+
+    Vercel serverless не исполняет FastAPI startup-события, поэтому ремонт
+
+    выполняется при первом запросе с БД (один раз на процесс, собственная
+
+    сессия с commit). Повторный запуск безвреден — ремонт идемпотентен.
+
+    """
+
+    global _text_repair_attempted
+
+    if not _text_repair_attempted:
+
+        _text_repair_attempted = True
+
+        try:
+
+            with session_scope() as repair_db:
+
+                _repair_text_data(repair_db)
+
+        except Exception:
+
+            logger.warning("TEXT_REPAIR: стартовый ремонт mojibake не удался", exc_info=True)
+
+    yield from get_db()
+
+
+
+app.dependency_overrides[get_db] = get_db_with_text_repair
 
 
 

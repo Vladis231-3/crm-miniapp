@@ -111,6 +111,8 @@ class MojibakeEndpointTests(unittest.TestCase):
 
         self.restart_app()
         self._set_staff_telegram_ids()
+        # consume one-time text repair (fires on first get_db request)
+        self.client.get("/api/debug/db")
         self.admin_token = build_init_data(self.ADMIN_TG_ID)
         self.worker_token = build_init_data(self.WORKER_TG_ID)
         self.owner_token = build_init_data(self.OWNER_TG_ID)

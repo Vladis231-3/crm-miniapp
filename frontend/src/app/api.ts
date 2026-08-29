@@ -77,102 +77,85 @@ function getInitData(): string {
   return window.Telegram?.WebApp?.initData || import.meta.env.VITE_MOCK_INIT_DATA || '';
 }
 
-// Клиентский ремонт mojibake вида "Р'С‹СЂСѓС‡РєР°" (utf-8 -> windows-1251) и "ÐŸÑ€Ð¸Ð²ÐµÑ‚" (utf-8 -> latin1)
-let win1251EncodeMap: Map<string, number> | null = null;
-function getWin1251EncodeMap(): Map<string, number> {
-  if (win1251EncodeMap) return win1251EncodeMap;
-  win1251EncodeMap = new Map();
-  // Построим обратную таблицу windows-1251: байт -> unicode, затем инвертируем
-  const bytes = new Uint8Array(128);
-  for (let i = 0; i < 128; i++) bytes[i] = 0x80 + i;
+// Строгий детерминированный ремонт mojibake: строка является UTF-8 байтами,
+// ошибочно декодированными как windows-1251/windows-1252/latin-1.
+// Без эвристик и маркеров-слов — только строгие encode/decode (зеркало сервера).
+const MOJIBAKE_ENCODINGS = ['windows-1251', 'windows-1252', 'iso-8859-1'];
+
+const encodeMapCache = new Map<string, Map<string, number>>();
+function getEncodeMap(encoding: string): Map<string, number> {
+  const cached = encodeMapCache.get(encoding);
+  if (cached) return cached;
+  const map = new Map<string, number>();
   try {
-    const dec = new TextDecoder('windows-1251');
-    const chars = dec.decode(bytes);
+    const bytes = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) bytes[i] = i;
+    const chars = new TextDecoder(encoding).decode(bytes);
     for (let i = 0; i < chars.length; i++) {
       const ch = chars[i];
-      const b = 0x80 + i;
-      if (!win1251EncodeMap!.has(ch)) win1251EncodeMap!.set(ch, b);
+      if (!map.has(ch)) map.set(ch, i);
     }
   } catch {}
-  // ASCII 0x00-0x7F — прямое соответствие
-  for (let i = 0; i < 0x80; i++) win1251EncodeMap!.set(String.fromCharCode(i), i);
-  return win1251EncodeMap!;
+  for (let i = 0; i < 0x80; i++) {
+    const ch = String.fromCharCode(i);
+    if (!map.has(ch)) map.set(ch, i);
+  }
+  encodeMapCache.set(encoding, map);
+  return map;
 }
 
-function encodeWin1251(str: string): Uint8Array | null {
-  const map = getWin1251EncodeMap();
+function encodeWith(str: string, encoding: string): Uint8Array | null {
+  const map = getEncodeMap(encoding);
   const out = new Uint8Array(str.length);
   for (let i = 0; i < str.length; i++) {
-    const ch = str[i];
-    const b = map.get(ch);
+    const b = map.get(str[i]);
     if (b === undefined) return null;
     out[i] = b;
   }
   return out;
 }
 
-function repairMojibake(value: string): string {
-  if (!value) return value;
-  const markers = ['Ð', 'Ñ', 'вЂ', 'в€', 'â€', 'Ã', 'Â', 'Р’', 'С‹', 'СЂ', 'Сѓ', 'С‡', 'Рє', 'Р°', 'СЃ', 'С‚', 'в‚', 'Ѕ'];
-  const hasMarker = markers.some((m) => value.includes(m));
-  const has1251Mojibake = value.includes('Р') || value.includes('С') || value.includes('в‚');
-  if (!hasMarker && !has1251Mojibake) return value;
-
-  // 1) latin1 -> utf-8 (для "ÐŸÑ€Ð¸Ð²ÐµÑ‚")
-  if (value.includes('Ð') || value.includes('Ñ') || value.includes('Ã') || value.includes('Â')) {
-    try {
-      const bytes = Uint8Array.from([...value], (c) => c.charCodeAt(0) & 0xff);
-      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      if (decoded !== value && !markers.some((m) => decoded.includes(m))) {
-        if (decoded.includes('Выручка') || decoded.includes('сегодня') || decoded.includes('₽') || decoded.includes('Привет') || decoded.includes('Запись')) return decoded;
-        const cyr = (s: string) => [...s].filter((c) => c >= '\u0400' && c <= '\u04FF').length;
-        if (cyr(decoded) > cyr(value) + 2) return decoded;
-        return decoded;
-      }
-    } catch {}
-  }
-
-  // 2) windows-1251 -> utf-8 (для "Р'С‹СЂСѓС‡РєР°" -> "Выручка", "в‚Ѕ" -> "₽")
+function decodeUtf8Strict(bytes: Uint8Array): string | null {
   try {
-    const bytes = encodeWin1251(value);
-    if (bytes) {
-      const asUtf8 = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      if (asUtf8 !== value) {
-        if (asUtf8.includes('Выручка') || asUtf8.includes('сегодня') || asUtf8.includes('₽') || asUtf8.includes('Привет') || asUtf8.includes('АТМОСФЕРА')) return asUtf8;
-        const cyr = (s: string) => [...s].filter((c) => c >= '\u0400' && c <= '\u04FF').length;
-        if (cyr(asUtf8) > cyr(value) + 2) return asUtf8;
-        if (!markers.some((m) => asUtf8.includes(m))) return asUtf8;
-      }
-    }
-  } catch {}
-
-  // 3) Гибрид: часть latin1, часть utf-8 (для "ÐŸ... •")
-  if (hasMarker) {
-    try {
-      const out = new Uint8Array(value.length * 4);
-      let pos = 0;
-      const map = getWin1251EncodeMap();
-      for (const ch of value) {
-        let b = map.get(ch);
-        if (b !== undefined) {
-          out[pos++] = b;
-        } else {
-          const code = ch.charCodeAt(0);
-          if (code <= 0xff) out[pos++] = code & 0xff;
-          else {
-            const utf8 = new TextEncoder().encode(ch);
-            out.set(utf8, pos);
-            pos += utf8.length;
-          }
-        }
-      }
-      const sliced = out.slice(0, pos);
-      const decoded = new TextDecoder('utf-8', { fatal: true }).decode(sliced);
-      if (decoded.includes('Выручка') || decoded.includes('₽')) return decoded;
-    } catch {}
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
   }
+}
 
-  return value;
+function cyrCount(s: string): number {
+  const m = s.match(/[\u0400-\u04FF]/g);
+  return m ? m.length : 0;
+}
+
+function repairStep(value: string): string | null {
+  const variants = [value];
+  // Апостроф при конвертациях искажался: байт 0x92 (’) часто превращался в '/`
+  if (value.includes("'") || value.includes('`')) variants.push(value.replace(/['`]/g, '\u2019'));
+  const seen = new Set<string>([value]);
+  for (const text of variants) {
+    for (const encoding of MOJIBAKE_ENCODINGS) {
+      const bytes = encodeWith(text, encoding);
+      if (!bytes) continue;
+      const fixed = decodeUtf8Strict(bytes);
+      if (!fixed || fixed === value || seen.has(fixed)) continue;
+      // Результат обязан содержать кириллицу или ₽
+      if (cyrCount(fixed) === 0 && !fixed.includes('\u20BD')) continue;
+      return fixed;
+    }
+  }
+  return null;
+}
+
+function repairMojibake(value: string): string {
+  if (!value || !/[^\u0000-\u007F]/.test(value)) return value;
+  let current = value;
+  for (let i = 0; i < 3; i++) {
+    const step = repairStep(current);
+    if (step === null) break;
+    current = step;
+  }
+  return current;
 }
 
 function repairNested<T>(value: T): T {
