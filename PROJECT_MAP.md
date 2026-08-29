@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-29 07:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 07:41 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **498**
-- Строк кода: **200 034**
+- Строк кода: **200 087**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
@@ -3437,7 +3437,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12083 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12134 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 45) — локальный
 - `map` (стр. 46) — локальный
@@ -4031,208 +4031,208 @@ concept1.0/
 
 - `REFERRAL_SOURCES` (стр. 1)
 
-### frontend/src/app/context/AppContext.tsx (2056 строк)
+### frontend/src/app/context/AppContext.tsx (2058 строк)
 
-- `EMPTY_CONTENT` (стр. 911)
-- `timeToMinutes` (стр. 933) — локальный
-- `minutesToTime` (стр. 940) — локальный
-- `hours` (стр. 941) — локальный
-- `minutes` (стр. 942) — локальный
-- `buildTimeSlots` (стр. 946) — локальный
-- `timeRangesOverlap` (стр. 954) — локальный
-- `AppContext` (стр. 958) — локальный
-- `normalizeWorker` (стр. 960) — локальный
-- `normalizeBootstrap` (стр. 974) — локальный
-- `AppProvider` (стр. 998)
-- `THEME_OVERRIDE_KEY` (стр. 1006) — локальный
-- `readThemeOverride` (стр. 1007) — локальный
-- `raw` (стр. 1009) — локальный
-- `writeThemeOverride` (стр. 1015) — локальный
-- `override` (стр. 1024) — локальный
-- `upcomingDates` (стр. 1045) — локальный
-- `todayLabel` (стр. 1046) — локальный
-- `tomorrowLabel` (стр. 1047) — локальный
-- `applyBootstrap` (стр. 1049) — локальный
-- `normalized` (стр. 1050) — локальный
-- `refreshBootstrap` (стр. 1078) — локальный
-- `bootstrap` (стр. 1079) — локальный
-- `handleError` (стр. 1083) — локальный
-- `message` (стр. 1084) — локальный
-- `restoreSession` (стр. 1089) — локальный
-- `bootstrap` (стр. 1091) — локальный
-- `refreshActiveSessions` (стр. 1100) — локальный
-- `applyTelegramTheme` (стр. 1104) — локальный
-- `root` (стр. 1108) — локальный
-- `theme` (стр. 1109) — локальный
-- `cssVar` (стр. 1112) — локальный
-- `tg` (стр. 1119) — локальный
-- `logout` (стр. 1136) — локальный
-- `loginClient` (стр. 1160) — локальный
-- `bootstrap` (стр. 1164) — локальный
-- `linkStaff` (стр. 1178) — локальный
-- `bootstrap` (стр. 1182) — локальный
-- `switchRole` (стр. 1196) — локальный
-- `bootstrap` (стр. 1200) — локальный
-- `updateClientProfile` (стр. 1214) — локальный
-- `payload` (стр. 1215) — локальный
-- `saved` (стр. 1216) — локальный
-- `remindAdminAboutInactiveClients` (стр. 1220) — локальный
-- `response` (стр. 1221) — локальный
-- `addClient` (стр. 1225) — локальный
-- `created` (стр. 1226) — локальный
-- `normalized` (стр. 1227) — локальный
-- `updateClientCard` (стр. 1232) — локальный
-- `saved` (стр. 1233) — локальный
-- `normalized` (стр. 1234) — локальный
-- `deleteClient` (стр. 1238) — локальный
-- `listDepositClients` (стр. 1243) — локальный
-- `items` (стр. 1244) — локальный
-- `getDepositOverview` (стр. 1248) — локальный
-- `overview` (стр. 1249) — локальный
-- `updateDepositSubscription` (стр. 1257) — локальный
-- `overview` (стр. 1258) — локальный
-- `depositTopUp` (стр. 1266) — локальный
-- `txn` (стр. 1267) — локальный
-- `depositAdjust` (стр. 1271) — локальный
-- `overview` (стр. 1272) — локальный
-- `depositRecordWash` (стр. 1280) — локальный
-- `overview` (стр. 1281) — локальный
-- `depositSettleMonth` (стр. 1289) — локальный
-- `overview` (стр. 1290) — локальный
-- `downloadDepositExport` (стр. 1298) — локальный
-- `downloadDepositExportAll` (стр. 1302) — локальный
-- `sendDepositExport` (стр. 1306) — локальный
-- `sendDepositExportAll` (стр. 1310) — локальный
-- `addBooking` (стр. 1314) — локальный
-- `created` (стр. 1315) — локальный
-- `existingClient` (стр. 1335) — локальный
-- `nextClient` (стр. 1336) — локальный
-- `updateBooking` (стр. 1360) — локальный
-- `updated` (стр. 1361) — локальный
-- `deleteBooking` (стр. 1387) — локальный
-- `addBookingService` (стр. 1392) — локальный
-- `updated` (стр. 1393) — локальный
-- `addBookingAdditionalService` (стр. 1413) — локальный
-- `updated` (стр. 1414) — локальный
-- `updateBookingAdditionalService` (стр. 1434) — локальный
-- `updated` (стр. 1435) — локальный
-- `removeBookingAdditionalService` (стр. 1455) — локальный
-- `updated` (стр. 1456) — локальный
-- `addNotification` (стр. 1476) — локальный
-- `created` (стр. 1477) — локальный
-- `markNotificationRead` (стр. 1496) — локальный
-- `markAllNotificationsRead` (стр. 1501) — локальный
-- `addStockItem` (стр. 1515) — локальный
-- `created` (стр. 1516) — локальный
-- `updateStockItem` (стр. 1520) — локальный
-- `updated` (стр. 1521) — локальный
-- `writeOffStock` (стр. 1525) — локальный
-- `updated` (стр. 1526) — локальный
-- `getWriteOffHistory` (стр. 1530) — локальный
-- `deleteStockItem` (стр. 1534) — локальный
-- `addStockCategory` (стр. 1539) — локальный
-- `created` (стр. 1540) — локальный
-- `updateStockCategory` (стр. 1544) — локальный
-- `updated` (стр. 1545) — локальный
-- `deleteStockCategory` (стр. 1549) — локальный
-- `addExpense` (стр. 1558) — локальный
-- `created` (стр. 1559) — локальный
-- `addIncome` (стр. 1563) — локальный
-- `created` (стр. 1564) — локальный
-- `updateExpense` (стр. 1568) — локальный
-- `updated` (стр. 1569) — локальный
-- `updateIncome` (стр. 1573) — локальный
-- `updated` (стр. 1574) — локальный
-- `addPenalty` (стр. 1578) — локальный
-- `revokePenalty` (стр. 1583) — локальный
-- `revokeAllPenalties` (стр. 1588) — локальный
-- `createTelegramLinkCode` (стр. 1593) — локальный
-- `created` (стр. 1594) — локальный
-- `downloadOwnerExport` (стр. 1598) — локальный
-- `fallback` (стр. 1599) — локальный
-- `qs` (стр. 1602) — локальный
-- `qstr` (стр. 1606) — локальный
-- `sendOwnerExportToTelegram` (стр. 1612) — локальный
-- `qs` (стр. 1615) — локальный
-- `qstr` (стр. 1619) — локальный
-- `sendOwnerSummaryReport` (стр. 1625) — локальный
-- `response` (стр. 1626) — локальный
-- `dispatchOwnerReminders` (стр. 1630) — локальный
-- `saveServices` (стр. 1640) — локальный
-- `saveBoxes` (стр. 1645) — локальный
-- `saveSchedule` (стр. 1649) — локальный
-- `saveAdminProfile` (стр. 1653) — локальный
-- `saved` (стр. 1654) — локальный
-- `saveAdminNotificationSettings` (стр. 1658) — локальный
-- `saved` (стр. 1659) — локальный
-- `saveWorkerProfile` (стр. 1663) — локальный
-- `saved` (стр. 1664) — локальный
-- `normalized` (стр. 1665) — локальный
-- `saveWorkerNotificationSettings` (стр. 1672) — локальный
-- `saved` (стр. 1673) — локальный
-- `saveOwnerCompany` (стр. 1680) — локальный
-- `saved` (стр. 1681) — локальный
-- `saveOwnerNotificationSettings` (стр. 1685) — локальный
-- `saved` (стр. 1686) — локальный
-- `saveOwnerIntegrations` (стр. 1690) — локальный
-- `saved` (стр. 1691) — локальный
-- `saveOwnerSecurity` (стр. 1695) — локальный
-- `saved` (стр. 1696) — локальный
-- `saveWorkerSettings` (стр. 1700) — локальный
-- `saved` (стр. 1701) — локальный
-- `saveAdminWorkerPayroll` (стр. 1705) — локальный
-- `saved` (стр. 1706) — локальный
-- `normalized` (стр. 1707) — локальный
-- `nextWorker` (стр. 1709) — локальный
-- `saveContent` (стр. 1714) — локальный
-- `saved` (стр. 1715) — локальный
-- `createPayrollEntry` (стр. 1719) — локальный
-- `checkConsent` (стр. 1724) — локальный
-- `response` (стр. 1725) — локальный
-- `submitConsent` (стр. 1729) — локальный
-- `listShiftChecklists` (стр. 1733) — локальный
-- `entries` (стр. 1734) — локальный
-- `submitShiftChecklist` (стр. 1738) — локальный
-- `entry` (стр. 1739) — локальный
-- `listAdminShiftInspections` (стр. 1746) — локальный
-- `entries` (стр. 1747) — локальный
-- `submitAdminShiftInspection` (стр. 1755) — локальный
-- `entry` (стр. 1762) — локальный
-- `openShiftForMasters` (стр. 1773) — локальный
-- `entry` (стр. 1774) — локальный
-- `hireWorker` (стр. 1785) — локальный
-- `created` (стр. 1786) — локальный
-- `normalized` (стр. 1787) — локальный
-- `fireWorker` (стр. 1797) — локальный
-- `resetWorkerPassword` (стр. 1802) — локальный
-- `changePassword` (стр. 1809) — локальный
-- `requestOwnerDatabaseReset` (стр. 1816) — локальный
-- `response` (стр. 1817) — локальный
-- `approveOwnerDatabaseReset` (стр. 1834) — локальный
-- `response` (стр. 1835) — локальный
-- `executeOwnerDatabaseReset` (стр. 1851) — локальный
-- `response` (стр. 1852) — локальный
-- `getTimeSlotsForDate` (стр. 1860) — локальный
-- `parsedDate` (стр. 1861) — локальный
-- `day` (стр. 1863) — локальный
-- `openMinutes` (стр. 1866) — локальный
-- `closeMinutes` (стр. 1867) — локальный
-- `durationMinutes` (стр. 1870) — локальный
-- `scheduleSlots` (стр. 1871) — локальный
-- `candidateBoxes` (стр. 1872) — локальный
-- `boxNames` (стр. 1877) — локальный
-- `slotStart` (стр. 1879) — локальный
-- `slotEnd` (стр. 1881) — локальный
-- `bookingStart` (стр. 1888) — локальный
-- `getBookingAvailabilityForDate` (стр. 1895) — локальный
-- `durationMinutes` (стр. 1896) — локальный
-- `params` (стр. 1898) — локальный
-- `response` (стр. 1908) — локальный
-- `next` (стр. 1931) — локальный
-- `tg` (стр. 1937) — локальный
-- `useApp` (стр. 2048)
-- `ctx` (стр. 2049) — локальный
-- `getWorkerNotificationSettings` (стр. 2054)
+- `EMPTY_CONTENT` (стр. 913)
+- `timeToMinutes` (стр. 935) — локальный
+- `minutesToTime` (стр. 942) — локальный
+- `hours` (стр. 943) — локальный
+- `minutes` (стр. 944) — локальный
+- `buildTimeSlots` (стр. 948) — локальный
+- `timeRangesOverlap` (стр. 956) — локальный
+- `AppContext` (стр. 960) — локальный
+- `normalizeWorker` (стр. 962) — локальный
+- `normalizeBootstrap` (стр. 976) — локальный
+- `AppProvider` (стр. 1000)
+- `THEME_OVERRIDE_KEY` (стр. 1008) — локальный
+- `readThemeOverride` (стр. 1009) — локальный
+- `raw` (стр. 1011) — локальный
+- `writeThemeOverride` (стр. 1017) — локальный
+- `override` (стр. 1026) — локальный
+- `upcomingDates` (стр. 1047) — локальный
+- `todayLabel` (стр. 1048) — локальный
+- `tomorrowLabel` (стр. 1049) — локальный
+- `applyBootstrap` (стр. 1051) — локальный
+- `normalized` (стр. 1052) — локальный
+- `refreshBootstrap` (стр. 1080) — локальный
+- `bootstrap` (стр. 1081) — локальный
+- `handleError` (стр. 1085) — локальный
+- `message` (стр. 1086) — локальный
+- `restoreSession` (стр. 1091) — локальный
+- `bootstrap` (стр. 1093) — локальный
+- `refreshActiveSessions` (стр. 1102) — локальный
+- `applyTelegramTheme` (стр. 1106) — локальный
+- `root` (стр. 1110) — локальный
+- `theme` (стр. 1111) — локальный
+- `cssVar` (стр. 1114) — локальный
+- `tg` (стр. 1121) — локальный
+- `logout` (стр. 1138) — локальный
+- `loginClient` (стр. 1162) — локальный
+- `bootstrap` (стр. 1166) — локальный
+- `linkStaff` (стр. 1180) — локальный
+- `bootstrap` (стр. 1184) — локальный
+- `switchRole` (стр. 1198) — локальный
+- `bootstrap` (стр. 1202) — локальный
+- `updateClientProfile` (стр. 1216) — локальный
+- `payload` (стр. 1217) — локальный
+- `saved` (стр. 1218) — локальный
+- `remindAdminAboutInactiveClients` (стр. 1222) — локальный
+- `response` (стр. 1223) — локальный
+- `addClient` (стр. 1227) — локальный
+- `created` (стр. 1228) — локальный
+- `normalized` (стр. 1229) — локальный
+- `updateClientCard` (стр. 1234) — локальный
+- `saved` (стр. 1235) — локальный
+- `normalized` (стр. 1236) — локальный
+- `deleteClient` (стр. 1240) — локальный
+- `listDepositClients` (стр. 1245) — локальный
+- `items` (стр. 1246) — локальный
+- `getDepositOverview` (стр. 1250) — локальный
+- `overview` (стр. 1251) — локальный
+- `updateDepositSubscription` (стр. 1259) — локальный
+- `overview` (стр. 1260) — локальный
+- `depositTopUp` (стр. 1268) — локальный
+- `txn` (стр. 1269) — локальный
+- `depositAdjust` (стр. 1273) — локальный
+- `overview` (стр. 1274) — локальный
+- `depositRecordWash` (стр. 1282) — локальный
+- `overview` (стр. 1283) — локальный
+- `depositSettleMonth` (стр. 1291) — локальный
+- `overview` (стр. 1292) — локальный
+- `downloadDepositExport` (стр. 1300) — локальный
+- `downloadDepositExportAll` (стр. 1304) — локальный
+- `sendDepositExport` (стр. 1308) — локальный
+- `sendDepositExportAll` (стр. 1312) — локальный
+- `addBooking` (стр. 1316) — локальный
+- `created` (стр. 1317) — локальный
+- `existingClient` (стр. 1337) — локальный
+- `nextClient` (стр. 1338) — локальный
+- `updateBooking` (стр. 1362) — локальный
+- `updated` (стр. 1363) — локальный
+- `deleteBooking` (стр. 1389) — локальный
+- `addBookingService` (стр. 1394) — локальный
+- `updated` (стр. 1395) — локальный
+- `addBookingAdditionalService` (стр. 1415) — локальный
+- `updated` (стр. 1416) — локальный
+- `updateBookingAdditionalService` (стр. 1436) — локальный
+- `updated` (стр. 1437) — локальный
+- `removeBookingAdditionalService` (стр. 1457) — локальный
+- `updated` (стр. 1458) — локальный
+- `addNotification` (стр. 1478) — локальный
+- `created` (стр. 1479) — локальный
+- `markNotificationRead` (стр. 1498) — локальный
+- `markAllNotificationsRead` (стр. 1503) — локальный
+- `addStockItem` (стр. 1517) — локальный
+- `created` (стр. 1518) — локальный
+- `updateStockItem` (стр. 1522) — локальный
+- `updated` (стр. 1523) — локальный
+- `writeOffStock` (стр. 1527) — локальный
+- `updated` (стр. 1528) — локальный
+- `getWriteOffHistory` (стр. 1532) — локальный
+- `deleteStockItem` (стр. 1536) — локальный
+- `addStockCategory` (стр. 1541) — локальный
+- `created` (стр. 1542) — локальный
+- `updateStockCategory` (стр. 1546) — локальный
+- `updated` (стр. 1547) — локальный
+- `deleteStockCategory` (стр. 1551) — локальный
+- `addExpense` (стр. 1560) — локальный
+- `created` (стр. 1561) — локальный
+- `addIncome` (стр. 1565) — локальный
+- `created` (стр. 1566) — локальный
+- `updateExpense` (стр. 1570) — локальный
+- `updated` (стр. 1571) — локальный
+- `updateIncome` (стр. 1575) — локальный
+- `updated` (стр. 1576) — локальный
+- `addPenalty` (стр. 1580) — локальный
+- `revokePenalty` (стр. 1585) — локальный
+- `revokeAllPenalties` (стр. 1590) — локальный
+- `createTelegramLinkCode` (стр. 1595) — локальный
+- `created` (стр. 1596) — локальный
+- `downloadOwnerExport` (стр. 1600) — локальный
+- `fallback` (стр. 1601) — локальный
+- `qs` (стр. 1604) — локальный
+- `qstr` (стр. 1608) — локальный
+- `sendOwnerExportToTelegram` (стр. 1614) — локальный
+- `qs` (стр. 1617) — локальный
+- `qstr` (стр. 1621) — локальный
+- `sendOwnerSummaryReport` (стр. 1627) — локальный
+- `response` (стр. 1628) — локальный
+- `dispatchOwnerReminders` (стр. 1632) — локальный
+- `saveServices` (стр. 1642) — локальный
+- `saveBoxes` (стр. 1647) — локальный
+- `saveSchedule` (стр. 1651) — локальный
+- `saveAdminProfile` (стр. 1655) — локальный
+- `saved` (стр. 1656) — локальный
+- `saveAdminNotificationSettings` (стр. 1660) — локальный
+- `saved` (стр. 1661) — локальный
+- `saveWorkerProfile` (стр. 1665) — локальный
+- `saved` (стр. 1666) — локальный
+- `normalized` (стр. 1667) — локальный
+- `saveWorkerNotificationSettings` (стр. 1674) — локальный
+- `saved` (стр. 1675) — локальный
+- `saveOwnerCompany` (стр. 1682) — локальный
+- `saved` (стр. 1683) — локальный
+- `saveOwnerNotificationSettings` (стр. 1687) — локальный
+- `saved` (стр. 1688) — локальный
+- `saveOwnerIntegrations` (стр. 1692) — локальный
+- `saved` (стр. 1693) — локальный
+- `saveOwnerSecurity` (стр. 1697) — локальный
+- `saved` (стр. 1698) — локальный
+- `saveWorkerSettings` (стр. 1702) — локальный
+- `saved` (стр. 1703) — локальный
+- `saveAdminWorkerPayroll` (стр. 1707) — локальный
+- `saved` (стр. 1708) — локальный
+- `normalized` (стр. 1709) — локальный
+- `nextWorker` (стр. 1711) — локальный
+- `saveContent` (стр. 1716) — локальный
+- `saved` (стр. 1717) — локальный
+- `createPayrollEntry` (стр. 1721) — локальный
+- `checkConsent` (стр. 1726) — локальный
+- `response` (стр. 1727) — локальный
+- `submitConsent` (стр. 1731) — локальный
+- `listShiftChecklists` (стр. 1735) — локальный
+- `entries` (стр. 1736) — локальный
+- `submitShiftChecklist` (стр. 1740) — локальный
+- `entry` (стр. 1741) — локальный
+- `listAdminShiftInspections` (стр. 1748) — локальный
+- `entries` (стр. 1749) — локальный
+- `submitAdminShiftInspection` (стр. 1757) — локальный
+- `entry` (стр. 1764) — локальный
+- `openShiftForMasters` (стр. 1775) — локальный
+- `entry` (стр. 1776) — локальный
+- `hireWorker` (стр. 1787) — локальный
+- `created` (стр. 1788) — локальный
+- `normalized` (стр. 1789) — локальный
+- `fireWorker` (стр. 1799) — локальный
+- `resetWorkerPassword` (стр. 1804) — локальный
+- `changePassword` (стр. 1811) — локальный
+- `requestOwnerDatabaseReset` (стр. 1818) — локальный
+- `response` (стр. 1819) — локальный
+- `approveOwnerDatabaseReset` (стр. 1836) — локальный
+- `response` (стр. 1837) — локальный
+- `executeOwnerDatabaseReset` (стр. 1853) — локальный
+- `response` (стр. 1854) — локальный
+- `getTimeSlotsForDate` (стр. 1862) — локальный
+- `parsedDate` (стр. 1863) — локальный
+- `day` (стр. 1865) — локальный
+- `openMinutes` (стр. 1868) — локальный
+- `closeMinutes` (стр. 1869) — локальный
+- `durationMinutes` (стр. 1872) — локальный
+- `scheduleSlots` (стр. 1873) — локальный
+- `candidateBoxes` (стр. 1874) — локальный
+- `boxNames` (стр. 1879) — локальный
+- `slotStart` (стр. 1881) — локальный
+- `slotEnd` (стр. 1883) — локальный
+- `bookingStart` (стр. 1890) — локальный
+- `getBookingAvailabilityForDate` (стр. 1897) — локальный
+- `durationMinutes` (стр. 1898) — локальный
+- `params` (стр. 1900) — локальный
+- `response` (стр. 1910) — локальный
+- `next` (стр. 1933) — локальный
+- `tg` (стр. 1939) — локальный
+- `useApp` (стр. 2050)
+- `ctx` (стр. 2051) — локальный
+- `getWorkerNotificationSettings` (стр. 2056)
 
 ### frontend/src/app/hooks/useTelegramBackButton.ts (23 строк)
 
@@ -4526,15 +4526,15 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-29 10:28)
+- `frontend/src/app/context/AppContext.tsx` (2026-08-29 10:27)
 - `vercel.json` (2026-08-29 10:22)
 - `backend/app/seed.py` (2026-08-29 10:21)
 - `backend/app/schemas.py` (2026-08-29 10:21)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-29 10:20)
 - `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-29 10:20)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-29 10:20)
 - `scripts/.project-map-watch.lock` (2026-08-29 10:18)
 - `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-28 15:53)
-- `frontend/src/app/context/AppContext.tsx` (2026-08-28 15:50)
 - `backend/app/main.py` (2026-08-28 15:42)
 - `training/frontend/vercel.json` (2026-08-28 15:09)
 - `training/frontend/vite.config.ts` (2026-08-28 15:09)

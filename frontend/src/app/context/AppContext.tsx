@@ -639,6 +639,8 @@ export interface OwnerNotificationSettings {
   dailyReport: boolean;
   weeklyReport: boolean;
   bookingReminders: boolean;
+  bookingReminderHours: number;
+  bookingReminderDays?: number;
 }
 
 export interface OwnerReminderDispatchResult {
@@ -902,7 +904,7 @@ const EMPTY_SETTINGS: SettingsBundle = {
   adminProfile: { name: 'Администратор', email: '', phone: '', telegramChatId: '' },
   adminNotificationSettings: { newBooking: true, cancelled: true, paymentDue: false, workerAssigned: true, reminders: true },
   ownerCompany: { name: 'ATMOSFERA', legalName: '', inn: '', address: '', phone: '', email: '', operatingMode: 'open' },
-  ownerNotificationSettings: { telegramBot: true, emailReports: true, smsReminders: false, lowStock: true, dailyReport: true, weeklyReport: false, bookingReminders: true },
+  ownerNotificationSettings: { telegramBot: true, emailReports: true, smsReminders: false, lowStock: true, dailyReport: true, weeklyReport: false, bookingReminders: true, bookingReminderHours: 24, bookingReminderDays: 1 },
   ownerIntegrations: { telegram: true, yookassa: false, amoCrm: false, googleCalendar: false },
   ownerSecurity: { twoFactor: false },
   workerNotificationSettings: {},

@@ -7560,10 +7560,61 @@ paymentSettled: false,
               <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>РќР°РїРѕРјРёРЅР°РЅРёСЏ</div>
               <SettingRow
                 label="РђРІС‚РѕРЅР°РїРѕРјРёРЅР°РЅРёСЏ Рѕ Р·Р°РїРёСЃСЏС…"
-                desc="Р•Р¶РµРґРЅРµРІРЅС‹Р№ cron Vercel РѕС‚РїСЂР°РІР»СЏРµС‚ РЅР°РїРѕРјРёРЅР°РЅРёСЏ РЅР° Р·Р°РІС‚СЂР°С€РЅРёРµ Р·Р°РїРёСЃРё, Р° РІР»Р°РґРµР»РµС† РјРѕР¶РµС‚ РґСѓР±Р»РёСЂРѕРІР°С‚СЊ РёС… РІСЂСѓС‡РЅСѓСЋ"
+                desc="Часовой cron Vercel отправляет напоминания за выбранный интервал, владелец может дублировать их вручную"
                 value={notifSettings.bookingReminders}
                 onChange={() => setNotifSettings((current) => ({ ...current, bookingReminders: !current.bookingReminders }))}
               />
+              {notifSettings.bookingReminders && (
+                <div className={`${glass} rounded-2xl p-4 mb-2 mt-2`}>
+                  <div className="text-sm font-medium mb-2">Интервал напоминания</div>
+                  <div className={`text-xs ${sub} mb-3`}>За сколько до визита придёт напоминание клиенту и мастеру (от 1 часа до 7 дней)</div>
+                  <select
+                    value={String((notifSettings as any).bookingReminderHours ?? 24)}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      setNotifSettings(p => ({ ...p, bookingReminderHours: v, bookingReminderDays: v >= 24 ? Math.round(v/24) : 1 } as any));
+                    }}
+                    className={selectCls}
+                  >
+                    <option value="1">За 1 час</option>
+                    <option value="2">За 2 часа</option>
+                    <option value="3">За 3 часа</option>
+                    <option value="6">За 6 часов</option>
+                    <option value="12">За 12 часов</option>
+                    <option value="24">За 24 часа (1 день)</option>
+                    <option value="48">За 48 часов (2 дня)</option>
+                    <option value="72">За 72 часа (3 дня)</option>
+                    <option value="96">За 96 часов (4 дня)</option>
+                    <option value="120">За 120 часов (5 дней)</option>
+                    <option value="168">За 168 часов (7 дней)</option>
+                  </select>
+                  <div className="mt-3">
+                    <label className={`text-xs ${sub} block mb-1`}>Своё значение (1–168 часов)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={168}
+                      value={(notifSettings as any).bookingReminderHours ?? 24}
+                      onChange={e => {
+                        const v = Number(e.target.value);
+                        if (!Number.isFinite(v)) return;
+                        const clamped = Math.max(1, Math.min(168, Math.round(v)));
+                        setNotifSettings(p => ({ ...p, bookingReminderHours: clamped, bookingReminderDays: clamped >= 24 ? Math.round(clamped/24) : 1 } as any));
+                      }}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className={`text-xs ${sub} mt-2`}>
+                    {(() => {
+                      const h = (notifSettings as any).bookingReminderHours ?? 24;
+                      if (h < 24) return `Напоминание придёт за ${h} ч. до записи (проверка каждый час, ±40 мин)`;
+                      const d = Math.round(h/24);
+                      const label = d === 1 ? 'день' : d < 5 ? 'дня' : 'дней';
+                      return `Напоминание придёт за ${d} ${label} до даты записи (всей датой)`;
+                    })()}
+                  </div>
+                </div>
+              )}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
                 <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
               </button>
