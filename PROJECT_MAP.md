@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-29 07:59 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 08:26 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4527,6 +4527,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `vercel.json` (2026-08-29 11:26)
 - `.editorconfig` (2026-08-29 10:59)
 - `training/frontend/index.html` (2026-08-29 10:50)
 - `Showcase/index.html` (2026-08-29 10:49)
@@ -4535,7 +4536,6 @@ concept1.0/
 - `backend/app/main.py` (2026-08-29 10:48)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-29 10:28)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-29 10:27)
-- `vercel.json` (2026-08-29 10:22)
 - `backend/app/seed.py` (2026-08-29 10:21)
 - `backend/app/schemas.py` (2026-08-29 10:21)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-29 10:20)
