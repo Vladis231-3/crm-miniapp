@@ -10463,12 +10463,50 @@ def create_client(
 
     return _client_summary_payload(client, db)
 
-
 @app.get("/api/health", response_model=GenericMessage)
+
 
 def health() -> GenericMessage:
 
     return GenericMessage(message="ok")
+
+
+@app.get("/api/debug/encoding")
+def debug_encoding(db: Session = Depends(get_db)) -> dict:
+    """Временная диагностика кодировки — вернуть сырые значения БД и их hex."""
+    from sqlalchemy import select
+
+    staff_rows = []
+    for s in db.scalars(select(StaffUser)).all():
+        name = s.name or ""
+        staff_rows.append(
+            {
+                "id": s.id,
+                "login": s.login,
+                "name": name,
+                "name_hex": name.encode("utf-8").hex() if name else "",
+                "city": s.city,
+                "city_hex": (s.city or "").encode("utf-8").hex() if s.city else "",
+            }
+        )
+    svc_rows = []
+    for svc in db.scalars(select(Service)).limit(3).all():
+        svc_rows.append(
+            {"id": svc.id, "name": svc.name, "hex": (svc.name or "").encode("utf-8").hex() if svc.name else ""}
+        )
+    # AppSetting content hex sample
+    from sqlalchemy import select as sel2
+
+    setting = db.get(AppSetting, "content")
+    setting_hex = ""
+    if setting and isinstance(setting.value, dict):
+        try:
+            import json
+
+            setting_hex = json.dumps(setting.value, ensure_ascii=False)[:500].encode("utf-8").hex()
+        except Exception:
+            setting_hex = ""
+    return {"staff": staff_rows[:5], "services": svc_rows, "setting_sample_hex": setting_hex[:500]}
 
 
 
