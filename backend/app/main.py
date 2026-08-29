@@ -10484,7 +10484,7 @@ def debug_db(db: Session = Depends(get_db)) -> dict:
         from sqlalchemy import select
 
         staff = []
-        for s in db.scalars(select(StaffUser)).limit(3).all():
+        for s in db.scalars(select(StaffUser).limit(3)).all():
             staff.append(
                 {
                     "id": s.id,
@@ -10496,7 +10496,7 @@ def debug_db(db: Session = Depends(get_db)) -> dict:
                 }
             )
         services = []
-        for svc in db.scalars(select(Service)).limit(3).all():
+        for svc in db.scalars(select(Service).limit(3)).all():
             services.append({"id": svc.id, "name": svc.name, "hex": (svc.name or "").encode("utf-8").hex()})
         return {"ok": True, "staff": staff, "services": services}
     except Exception as e:
