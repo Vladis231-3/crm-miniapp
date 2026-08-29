@@ -919,6 +919,10 @@ async def add_security_headers(request: Request, call_next):
         response.headers.setdefault("Cache-Control", "no-store")
     if settings.is_production and request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Явный charset для JSON — чинит mojibake в iPhone/Telegram WebView когда клиент гадает кодировку
+    ctype = response.headers.get("content-type", "")
+    if ctype.startswith("application/json") and "charset" not in ctype.lower():
+        response.headers["content-type"] = "application/json; charset=utf-8"
     return response
 
 
@@ -2744,7 +2748,26 @@ def _repair_text_value(value: str) -> str:
     markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â"]
     if not any(m in value for m in markers):
         return value
-    # Пробуем оба источника mojibake: cp1251 и latin1 (windows-1252)
+    # Гибридный ремонт: поддержка смешанного mojibake + корректных символов (напр. "ÐŸÑ€Ð¸Ð²ÐµÑ‚ •")
+    # Для каждого символа пробуем закодировать через enc (если он mojibake-байт), иначе как utf-8.
+    # Это чинит случаи когда часть строки — mojibake latin1/cp1251, а часть — корректный "•"/"—"/кириллица.
+    for enc in ("cp1251", "latin1"):
+        try:
+            byte_arr = bytearray()
+            for ch in value:
+                try:
+                    byte_arr.extend(ch.encode(enc))
+                except UnicodeEncodeError:
+                    byte_arr.extend(ch.encode("utf-8"))
+            fixed = byte_arr.decode("utf-8")
+        except UnicodeError:
+            continue
+        if fixed == value:
+            continue
+        if any(m in fixed for m in markers):
+            continue
+        return fixed
+    # Пробуем оба источника mojibake: cp1251 и latin1 (windows-1252) — классический путь
     for enc in ("cp1251", "latin1"):
         try:
             fixed = value.encode(enc).decode("utf-8")
