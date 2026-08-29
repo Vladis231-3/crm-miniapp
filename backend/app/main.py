@@ -10472,29 +10472,9 @@ def health() -> GenericMessage:
 
 
 @app.get("/api/debug/encoding")
-def debug_encoding(db: Session = Depends(get_db)) -> dict:
-    """Временная диагностика кодировки — вернуть сырые значения БД и их hex."""
-    try:
-        from sqlalchemy import select
-
-        staff_rows = []
-        for s in db.scalars(select(StaffUser)).all():
-            name = s.name or ""
-            staff_rows.append(
-                {
-                    "id": s.id,
-                    "login": s.login,
-                    "name": name,
-                    "name_hex": name.encode("utf-8").hex() if name else "",
-                }
-            )
-            if len(staff_rows) >= 3:
-                break
-        return {"ok": True, "staff": staff_rows, "test": "Привет мир", "test_hex": "Привет мир".encode("utf-8").hex()}
-    except Exception as e:
-        import traceback
-
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:2000]}
+def debug_encoding() -> dict:
+    """Временная диагностика кодировки — без БД, просто тест."""
+    return {"ok": True, "test": "Привет мир", "test_hex": "Привет мир".encode("utf-8").hex(), "static": "АТМОСФЕРА"}
 
 
 
