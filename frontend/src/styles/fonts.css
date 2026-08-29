@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css?family=Inter:100,200,300,400,500,600,700,800,900&subset=cyrillic,latin,cyrillic-ext&display=swap');
-
 :root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
