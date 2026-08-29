@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-29 08:26 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 08:39 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4527,6 +4527,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/styles/fonts.css` (2026-08-29 11:39)
+- `frontend/src/styles/theme.css` (2026-08-29 11:38)
+- `frontend/src/app/App.tsx` (2026-08-29 11:37)
+- `frontend/index.html` (2026-08-29 11:36)
 - `vercel.json` (2026-08-29 11:26)
 - `.editorconfig` (2026-08-29 10:59)
 - `training/frontend/index.html` (2026-08-29 10:50)
@@ -4538,7 +4542,3 @@ concept1.0/
 - `frontend/src/app/context/AppContext.tsx` (2026-08-29 10:27)
 - `backend/app/seed.py` (2026-08-29 10:21)
 - `backend/app/schemas.py` (2026-08-29 10:21)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-29 10:20)
-- `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-29 10:20)
-- `scripts/.project-map-watch.lock` (2026-08-29 10:18)
-- `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-28 15:53)

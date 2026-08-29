@@ -13,7 +13,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Er
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 24, fontFamily: 'monospace', background: '#131316', color: '#ff6b6b', minHeight: '100vh' }}>
+        <div style={{ padding: 24, fontFamily: 'monospace', background: '#131316', color: '#ff6b6b', minHeight: '100dvh' }}>
           <h2 style={{ color: '#ff6b6b', marginBottom: 12 }}>Ошибка приложения</h2>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, color: '#E4E4E7' }}>{this.state.error.message}</pre>
           <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', background: '#4F46E5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
@@ -73,7 +73,7 @@ function ConsentDialog({ onConsent }: { onConsent: () => void }) {
   };
 
   return (
-    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-screen flex items-center justify-center p-5`}>
+    <div className={`${isDark ? 'dark' : ''} ${bg} ${text} min-h-[100dvh] flex items-center justify-center p-5`}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

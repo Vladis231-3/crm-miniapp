@@ -96,10 +96,20 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  html { font-size: var(--font-size); background: var(--background); }
-  body { @apply bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100vh; line-height: 1.55; font-feature-settings: 'ss01' 1, 'cv11' 1; }
+  html { font-size: var(--font-size); background: var(--background); height: -webkit-fill-available; }
+  body { @apply bg-background text-foreground; margin: 0; min-width: 320px; min-height: 100vh; min-height: 100dvh; min-height: -webkit-fill-available; line-height: 1.55; font-feature-settings: 'ss01' 1, 'cv11' 1; overscroll-behavior-y: contain; overflow-x: hidden; }
+  #root { min-height: 100vh; min-height: 100dvh; }
+  /* Фикс “плывущего” текста в Telegram на телефоне: 100vh → 100dvh */
+  @supports (min-height: 100dvh) {
+    .min-h-screen { min-height: 100dvh !important; }
+    .h-screen { height: 100dvh !important; }
+    .max-h-screen { max-height: 100dvh !important; }
+  }
   button, input, select, textarea { font: inherit; }
-  h1, h2, h3, h4 { letter-spacing: -.025em; text-wrap: balance; }
+  h1, h2, h3, h4 { letter-spacing: -.025em; text-wrap: pretty; }
+  @supports (text-wrap: balance) {
+    h1, h2 { text-wrap: balance; }
+  }
   h1 { font-size: clamp(2rem, 8vw, 3.5rem); font-weight: 650; line-height: 1.02; }
   h2 { font-size: clamp(1.5rem, 5vw, 2.25rem); font-weight: 650; line-height: 1.08; }
   h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.25; }
