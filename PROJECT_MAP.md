@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-29 10:00 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 10:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4558,11 +4558,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `vercel.json` (2026-08-29 13:07)
+- `frontend/index.html` (2026-08-29 13:07)
 - `frontend/src/styles/fonts.css` (2026-08-29 12:59)
 - `training/backend/app/main.py` (2026-08-29 12:48)
 - `backend/app/main.py` (2026-08-29 12:46)
-- `vercel.json` (2026-08-29 12:37)
-- `frontend/index.html` (2026-08-29 12:35)
 - `frontend/vite.config.ts` (2026-08-29 12:35)
 - `frontend/src/app/api.ts` (2026-08-29 12:18)
 - `frontend/src/styles/theme.css` (2026-08-29 11:38)

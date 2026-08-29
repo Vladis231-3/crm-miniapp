@@ -35,6 +35,10 @@
     {
       "source": "/assets/(.*).css",
       "headers": [{ "key": "Content-Type", "value": "text/css; charset=utf-8" }]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }]
     }
   ],
   "rewrites": [
