@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-29 10:34 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 10:40 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -287,7 +287,8 @@ concept1.0/
 │   ├── guidelines/
 │   │   └── Guidelines.md
 │   ├── public/
-│   │   └── google2855e110d983d030.html
+│   │   ├── google2855e110d983d030.html
+│   │   └── test-cyrillic.html
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── components/
@@ -4558,6 +4559,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/public/test-cyrillic.html` (2026-08-29 13:40)
 - `frontend/index.html` (2026-08-29 13:27)
 - `backend/app/main.py` (2026-08-29 13:27)
 - `training/backend/app/main.py` (2026-08-29 13:19)
@@ -4572,4 +4574,3 @@ concept1.0/
 - `Showcase/index.html` (2026-08-29 10:49)
 - `carwash/index.html` (2026-08-29 10:49)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-29 10:28)
-- `frontend/src/app/context/AppContext.tsx` (2026-08-29 10:27)

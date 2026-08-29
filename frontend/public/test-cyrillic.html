@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Cyrillic</title>
+<style>
+  body { font-family: system-ui, -apple-system, Roboto, sans-serif; padding: 20px; line-height: 2; }
+  .inter { font-family: "Inter", sans-serif; }
+  .roboto { font-family: Roboto, sans-serif; }
+  .mono { font-family: monospace; }
+</style>
+</head>
+<body>
+<h1>Тест кириллицы</h1>
+<p>Владелец (system-ui): <span style="font-family: system-ui">Владелец</span></p>
+<p>Выручка сегодня (system-ui): <span style="font-family: system-ui">Выручка сегодня</span></p>
+<p>Рубль (system-ui): <span style="font-family: system-ui">0 ₽ / 7 700 ₽</span></p>
+<p>Владелец (Inter): <span class="inter">Владелец</span></p>
+<p>Выручка (Inter): <span class="inter">Выручка сегодня</span></p>
+<p>Raw bytes d0 92 (В) as text: В</p>
+<p>Escaped \u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446: \u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446</p>
+<p>Moji Р’Р»Р°РґРµР»РµС† (should be Владелец if repaired): Р’Р»Р°РґРµР»РµС†</p>
+<script>
+  // Test TextDecoder
+  try {
+    const bytes = new Uint8Array([0xd0, 0x92, 0xd0, 0xbb, 0xd0, 0xb0]);
+    const s = new TextDecoder("utf-8").decode(bytes);
+    document.write("<p>TextDecoder utf-8 d0 92 d0 bb d0 b0 = " + s + " (should be Вла)</p>");
+  } catch(e) { document.write("<p>TextDecoder error "+e+"</p>"); }
+  try {
+    const dec = new TextDecoder("windows-1251");
+    const bytes2 = new Uint8Array([0xd0, 0x92, 0xd1, 0x8b]);
+    document.write("<p>windows-1251 d0 92 d1 8b = " + dec.decode(bytes2) + " (should be Вы)</p>");
+  } catch(e) { document.write("<p>windows-1251 not supported</p>"); }
+</script>
+</body>
+</html>
