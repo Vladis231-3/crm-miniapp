@@ -178,7 +178,7 @@ interface ArchiveHighlight {
   workerId?: string; ownerId?: string; txId?: string; incomeId?: string; expenseId?: string;
 }
 
-// в”Ђв”Ђ Р”РІРёР¶РµРЅРёРµ РґРµРЅРµРі (money flow) в”Ђв”Ђ
+// ── Движение денег (money flow) ──
 interface MoneyFlowDistWorker { workerId: string; workerName: string; earned: number; }
 interface MoneyFlowDistOwner { ownerId?: string | null; ownerName: string; amount: number; status: string; }
 interface MoneyFlowDistribution {
@@ -299,26 +299,26 @@ interface WalletData {
   archives: WeeklyArchiveInfo[];
 }
 
-const EXPENSE_CATEGORIES = ['РђРІС‚РѕРјРѕР№РєР°', 'Р”РµС‚РµР№Р»РёРЅРі', 'Р Р°СЃС…РѕРґРЅС‹Рµ РјР°С‚РµСЂРёР°Р»С‹', 'РђСЂРµРЅРґР°', 'РљРѕРјРјСѓРЅР°Р»СЊРЅС‹Рµ', 'Р—Р°СЂРїР»Р°С‚С‹', 'РћР±РѕСЂСѓРґРѕРІР°РЅРёРµ', 'РџСЂРѕС‡РµРµ'];
-const STOCK_UNITS = ['Р»', 'РєРі', 'С€С‚', 'С„Р»', 'Рј', 'Рї.Рј', 'СѓРї'];
+const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
+const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'п.м', 'уп'];
 const SERVICE_TYPE_OPTIONS = [
-  { value: 'РњРѕР№РєР°', label: 'РњРѕР№РєР°', resourceGroup: 'wash' },
-  { value: 'Р”РµС‚РµР№Р»РёРЅРі', label: 'Р”РµС‚РµР№Р»РёРЅРі', resourceGroup: 'detailing' },
-  { value: 'РђСЂРµРЅРґР° Р±РѕРєСЃР°', label: 'РђСЂРµРЅРґР° Р±РѕРєСЃР°', resourceGroup: 'wash' },
+  { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
+  { value: 'Детейлинг', label: 'Детейлинг', resourceGroup: 'detailing' },
+  { value: 'Аренда бокса', label: 'Аренда бокса', resourceGroup: 'wash' },
 ] as const;
 const OWNER_BOOKING_STATUS_OPTIONS: Array<{ value: BookingStatus; label: string }> = [
-  { value: 'confirmed', label: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅР°' },
-  { value: 'scheduled', label: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅР°' },
-  { value: 'completed', label: 'РџСЂРѕС€Р»Р°СЏ Р·Р°РІРµСЂС€С‘РЅРЅР°СЏ' },
-  { value: 'admin_review', label: 'РќР° СѓС‚РѕС‡РЅРµРЅРёРё' },
+  { value: 'confirmed', label: 'Подтверждена' },
+  { value: 'scheduled', label: 'Запланирована' },
+  { value: 'completed', label: 'Прошлая завершённая' },
+  { value: 'admin_review', label: 'На уточнении' },
 ];
 function ownerBookingStatusRequiresScheduledSlot(status: BookingStatus) {
   return ['new', 'confirmed', 'scheduled', 'in_progress'].includes(status);
 }
 function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
-  if (role === 'admin') return 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ';
-  if (role === 'accountant') return 'Р‘СѓС…РіР°Р»С‚РµСЂ';
-  return 'РњР°СЃС‚РµСЂ';
+  if (role === 'admin') return 'Администратор';
+  if (role === 'accountant') return 'Бухгалтер';
+  return 'Мастер';
 }
 
 function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
@@ -340,7 +340,7 @@ function ownerBookingBoxes(
 }
 
 function ownerLocationLabel(_serviceId: string, _services: Array<{ id: string; resourceGroup?: string }>) {
-  return 'РџРѕРјРµС‰РµРЅРёРµ';
+  return 'Помещение';
 }
 
 function parseOwnerBookingMinutes(value: string): number | null {
@@ -352,10 +352,10 @@ function parseOwnerBookingMinutes(value: string): number | null {
   return hours * 60 + minutes;
 }
 
-const OWNER_CALENDAR_WEEKDAYS = ['РЎР±', 'Р’СЃ', 'РџРЅ', 'Р’С‚', 'РЎСЂ', 'Р§С‚', 'РџС‚'];
+const OWNER_CALENDAR_WEEKDAYS = ['Сб', 'Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
 const OWNER_CALENDAR_MONTHS = [
-  'РЇРЅРІР°СЂСЊ', 'Р¤РµРІСЂР°Р»СЊ', 'РњР°СЂС‚', 'РђРїСЂРµР»СЊ', 'РњР°Р№', 'РСЋРЅСЊ',
-  'РСЋР»СЊ', 'РђРІРіСѓСЃС‚', 'РЎРµРЅС‚СЏР±СЂСЊ', 'РћРєС‚СЏР±СЂСЊ', 'РќРѕСЏР±СЂСЊ', 'Р”РµРєР°Р±СЂСЊ',
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
 const OWNER_CALENDAR_DEFAULT_OPEN = 9 * 60;
 const OWNER_CALENDAR_DEFAULT_CLOSE = 19 * 60;
@@ -500,36 +500,36 @@ type MoneyServiceDraft = {
 };
 
 const ORDER_STEPS = [
-  { id: 'materials', label: 'РњР°С‚РµСЂРёР°Р»С‹' },
-  { id: 'master', label: 'РњР°СЃС‚РµСЂР°' },
-  { id: 'piggy', label: 'РљРѕРїРёР»РєР°' },
-  { id: 'owners', label: 'Р’Р»Р°РґРµР»СЊС†С‹' },
+  { id: 'materials', label: 'Материалы' },
+  { id: 'master', label: 'Мастера' },
+  { id: 'piggy', label: 'Копилка' },
+  { id: 'owners', label: 'Владельцы' },
 ];
 
 function serviceMoneySummary(service: MoneyServiceDraft) {
-  const piggyTargetLabel = service.piggyTarget === 'wash' ? ' в†’ РјРѕР№РєР°'
-    : service.piggyTarget === 'detailing' ? ' в†’ РґРµС‚РµР№Р»РёРЅРі'
-      : service.piggyTarget === 'general' ? ' в†’ РѕР±С‰Р°СЏ'
+  const piggyTargetLabel = service.piggyTarget === 'wash' ? ' → мойка'
+    : service.piggyTarget === 'detailing' ? ' → детейлинг'
+      : service.piggyTarget === 'general' ? ' → общая'
         : '';
   const master = service.masterPayType === 'fixed'
-    ? `РјР°СЃС‚РµСЂ: С„РёРєСЃ ${service.masterPayValue ?? 0} в‚Ѕ`
+    ? `мастер: фикс ${service.masterPayValue ?? 0} ₽`
     : service.masterPayType === 'percent'
-      ? `РјР°СЃС‚РµСЂ: ${service.masterPayValue ?? 0}%`
-      : 'РјР°СЃС‚РµСЂ: % РёР· РїСЂРѕС„РёР»СЏ';
+      ? `мастер: ${service.masterPayValue ?? 0}%`
+      : 'мастер: % из профиля';
   const piggy = service.piggyPayType === 'fixed'
-    ? `РєРѕРїРёР»РєР°: ${service.piggyPayValue ?? 0} в‚Ѕ${piggyTargetLabel}`
+    ? `копилка: ${service.piggyPayValue ?? 0} ₽${piggyTargetLabel}`
     : service.piggyPayType === 'percent'
-      ? `РєРѕРїРёР»РєР°: ${service.piggyPayValue ?? 0}%${piggyTargetLabel}`
+      ? `копилка: ${service.piggyPayValue ?? 0}%${piggyTargetLabel}`
       : service.piggyPayType === 'rest'
-        ? `РєРѕРїРёР»РєР°: РІРµСЃСЊ РѕСЃС‚Р°С‚РѕРє${piggyTargetLabel}`
+        ? `копилка: весь остаток${piggyTargetLabel}`
         : service.piggyPayType === 'none'
-          ? 'РєРѕРїРёР»РєР°: РЅРµС‚'
-          : `РєРѕРїРёР»РєР°: 24%${piggyTargetLabel}`;
+          ? 'копилка: нет'
+          : `копилка: 24%${piggyTargetLabel}`;
   const owners = service.ownerSplitEnabled === false
-    ? 'РІР»Р°РґРµР»СЊС†С‹: РЅРµС‚'
+    ? 'владельцы: нет'
     : service.ownerPayType === 'percent'
-      ? `РІР»Р°РґРµР»СЊС†С‹: ${service.ownerPayValue ?? 0}% РѕСЃС‚Р°С‚РєР°`
-      : 'РІР»Р°РґРµР»СЊС†С‹: РѕСЃС‚Р°С‚РѕРє';
+      ? `владельцы: ${service.ownerPayValue ?? 0}% остатка`
+      : 'владельцы: остаток';
   return [master, piggy, owners];
 }
 
@@ -551,39 +551,39 @@ function previewServiceSplit(
   let ownersLabel: string;
   const computeMaster = (base: number) => {
     if (service.masterPayType === 'fixed') {
-      return { total: service.masterPayValue ?? 0, label: 'С„РёРєСЃ' };
+      return { total: service.masterPayValue ?? 0, label: 'фикс' };
     }
     if (service.masterPayType === 'percent') {
       return { total: Math.round(base * (service.masterPayValue ?? 0) / 100), label: `${service.masterPayValue ?? 0}%` };
     }
-    return { total: Math.round(base * samplePercent / 100), label: `${samplePercent}% (РёР· РїСЂРѕС„РёР»СЏ)` };
+    return { total: Math.round(base * samplePercent / 100), label: `${samplePercent}% (из профиля)` };
   };
   const computePiggy = (base: number) => {
-    if (piggyType === 'fixed') return { total: service.piggyPayValue ?? 0, label: 'С„РёРєСЃ' };
+    if (piggyType === 'fixed') return { total: service.piggyPayValue ?? 0, label: 'фикс' };
     if (piggyType === 'percent') return { total: Math.round(base * (service.piggyPayValue ?? 0) / 100), label: `${service.piggyPayValue ?? 0}%` };
-    if (piggyType === 'rest') return { total: base, label: 'РІРµСЃСЊ РѕСЃС‚Р°С‚РѕРє' };
-    if (piggyType === 'none') return { total: 0, label: 'РЅРµС‚' };
+    if (piggyType === 'rest') return { total: base, label: 'весь остаток' };
+    if (piggyType === 'none') return { total: 0, label: 'нет' };
     return { total: Math.round(base * 24 / 100), label: '24%' };
   };
   if (!pipeline) {
     const m = computeMaster(net);
     master = m.total; masterLabel = m.label;
     const p = piggyType === 'rest'
-      ? { total: Math.max(0, net - master), label: 'РІРµСЃСЊ РѕСЃС‚Р°С‚РѕРє' }
+      ? { total: Math.max(0, net - master), label: 'весь остаток' }
       : computePiggy(net);
     piggy = p.total; piggyLabel = p.label;
     const afterMasterPiggy = Math.max(0, net - master - piggy);
     if (service.ownerSplitEnabled !== false && afterMasterPiggy > 0) {
       if (service.ownerPayType === 'percent') {
         owners = Math.round(afterMasterPiggy * (service.ownerPayValue ?? 0) / 100);
-        ownersLabel = `${service.ownerPayValue ?? 0}% РѕСЃС‚Р°С‚РєР°`;
+        ownersLabel = `${service.ownerPayValue ?? 0}% остатка`;
       } else {
         owners = afterMasterPiggy;
-        ownersLabel = 'РѕСЃС‚Р°С‚РѕРє';
+        ownersLabel = 'остаток';
       }
     } else {
       owners = 0;
-      ownersLabel = service.ownerSplitEnabled === false ? 'РІС‹РєР»СЋС‡РµРЅРѕ' : '0';
+      ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
     }
   } else {
     let pool = samplePrice;
@@ -606,11 +606,11 @@ function previewServiceSplit(
         if (service.ownerSplitEnabled !== false && claimed > 0) {
           owners = Math.min(claimed, pool);
           ownersLabel = service.ownerPayType === 'percent'
-            ? `${service.ownerPayValue ?? 0}% РѕСЃС‚Р°С‚РєР°`
-            : isLast ? 'РѕСЃС‚Р°С‚РѕРє' : '50% РѕСЃС‚Р°С‚РєР°';
+            ? `${service.ownerPayValue ?? 0}% остатка`
+            : isLast ? 'остаток' : '50% остатка';
         } else {
           owners = 0;
-          ownersLabel = service.ownerSplitEnabled === false ? 'РІС‹РєР»СЋС‡РµРЅРѕ' : '0';
+          ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
         }
         pool = Math.max(0, pool - owners);
       }
@@ -620,10 +620,10 @@ function previewServiceSplit(
 }
 
 function ownerPaymentLabel(paymentType: 'cash' | 'transfer' | 'invoice', paymentSettled: boolean) {
-  if (!paymentSettled) return 'РќРµ РѕРїР»Р°С‡РµРЅРѕ';
-  if (paymentType === 'transfer') return 'РџРµСЂРµРІРѕРґ';
-  if (paymentType === 'invoice') return 'РџРѕ СЃС‡С‘С‚Сѓ';
-  return 'РќР°Р»РёС‡РЅС‹Рµ';
+  if (!paymentSettled) return 'Не оплачено';
+  if (paymentType === 'transfer') return 'Перевод';
+  if (paymentType === 'invoice') return 'По счёту';
+  return 'Наличные';
 }
 
 function normalizeOwnerPhoneSearchValue(value: string) {
@@ -632,7 +632,7 @@ function normalizeOwnerPhoneSearchValue(value: string) {
 
 type OwnerClientSearchMode = 'phone' | 'name' | 'plate';
 
-/** РџРѕРґРєР»СЋС‡С‘РЅРЅС‹Р№ Google-РєР°Р»РµРЅРґР°СЂСЊ С‡РµР»РѕРІРµРєР° (РјСѓР»СЊС‚РёРїРѕРґРєР»СЋС‡РµРЅРёРµ). */
+/** Подключённый Google-календарь человека (мультиподключение). */
 interface GoogleConnectionInfo { id: string; name: string; email: string; createdAt: string }
 
 
@@ -640,7 +640,7 @@ function numberFromInput(value: string) {
   return value === '' ? 0 : Number(value);
 }
 
-// Р”РµСЃСЏС‚РёС‡РЅС‹Р№ РІРІРѕРґ РІ СЂСѓСЃСЃРєРѕР№ Р»РѕРєР°Р»Рё: Р·Р°РїСЏС‚Р°СЏ РєР°Рє СЂР°Р·РґРµР»РёС‚РµР»СЊ (В«1234,56В»)
+// Десятичный ввод в русской локали: запятая как разделитель («1234,56»)
 function parseDecimalInput(value: string) {
   const normalized = String(value).trim().replace(/\s/g, '').replace(',', '.');
   const parsed = Number(normalized);
@@ -750,7 +750,7 @@ export function OwnerApp() {
   } = useApp();
   const isAccountant = session?.role === 'accountant';
   const modalMaxHeight = useVisualViewport();
-  const financeRoleTitle = isAccountant ? 'Р‘СѓС…РіР°Р»С‚РµСЂ' : 'Р’Р»Р°РґРµР»РµС†';
+  const financeRoleTitle = isAccountant ? 'Бухгалтер' : 'Владелец';
   const financeNotificationRole = isAccountant ? 'accountant' : 'owner';
 
   const [page, setPage] = useState<OwnerPage>('dashboard');
@@ -855,7 +855,7 @@ export function OwnerApp() {
     service: liveServices[0]?.id || '',
     date: todayLabel,
     time: '10:00',
-    box: liveBoxes[0]?.name || 'Р‘РѕРєСЃ 1',
+    box: liveBoxes[0]?.name || 'Бокс 1',
     status: 'admin_review' as BookingStatus,
     paymentType: 'cash' as 'cash' | 'transfer' | 'invoice',
     paymentSettled: false,
@@ -879,15 +879,15 @@ export function OwnerApp() {
   const [salaryBookingDetail, setSalaryBookingDetail] = useState<SalaryBookingItem | null>(null);
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
-  // РљР»СЋС‡ РёРґРµРјРїРѕС‚РµРЅС‚РЅРѕСЃС‚Рё: РіРµРЅРµСЂРёСЂСѓРµС‚СЃСЏ РѕРґРёРЅ СЂР°Р· РЅР° С„РѕСЂРјСѓ РІС‹РїР»Р°С‚С‹, РјРµРЅСЏРµС‚СЃСЏ
-  // РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕР№ РІС‹РїР»Р°С‚С‹. РџРѕРІС‚РѕСЂРЅС‹Р№ РєР»РёРє/СЂРµС‚СЂР°Р№ РѕС‚РїСЂР°РІРёС‚ С‚РѕС‚ Р¶Рµ РєР»СЋС‡ вЂ”
-  // Р±СЌРєРµРЅРґ РІРµСЂРЅС‘С‚ СЂРµР·СѓР»СЊС‚Р°С‚ РїРµСЂРІРѕР№ РІС‹РїР»Р°С‚С‹ РІРјРµСЃС‚Рѕ СЃРѕР·РґР°РЅРёСЏ РґСѓР±Р»РёРєР°С‚Р°.
+  // Ключ идемпотентности: генерируется один раз на форму выплаты, меняется
+  // после успешной выплаты. Повторный клик/ретрай отправит тот же ключ —
+  // бэкенд вернёт результат первой выплаты вместо создания дубликата.
   const newPayRequestId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [salaryPayRequestId, setSalaryPayRequestId] = useState(newPayRequestId);
-  // РРґРµРјРїРѕС‚РµРЅС‚РЅРѕСЃС‚СЊ РѕСЃС‚Р°Р»СЊРЅС‹С… Р·Р°СЂРїР»Р°С‚РЅС‹С… РѕРїРµСЂР°С†РёР№ (РїСЂРµРјРёРё/С€С‚СЂР°С„С‹/СЃРїРёСЃР°РЅРёСЏ,
-  // РїРѕРіР°С€РµРЅРёРµ РґРѕР»РіР° РєРѕРїРёР»РєРё): РєР»СЋС‡ Р¶РёРІС‘С‚ РґРѕ СѓСЃРїРµС€РЅРѕРіРѕ РїСЂРѕРІРµРґРµРЅРёСЏ РѕРїРµСЂР°С†РёРё.
+  // Идемпотентность остальных зарплатных операций (премии/штрафы/списания,
+  // погашение долга копилки): ключ живёт до успешного проведения операции.
   const entryRequestIdRef = useRef(newPayRequestId());
-  // РРґРµРјРїРѕС‚РµРЅС‚РЅРѕСЃС‚СЊ РІС‹РїР»Р°С‚С‹ РІР»Р°РґРµР»СЊС†Сѓ: РєР»СЋС‡ РјРµРЅСЏРµС‚СЃСЏ РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕР№ РІС‹РїР»Р°С‚С‹.
+  // Идемпотентность выплаты владельцу: ключ меняется после успешной выплаты.
   const [ownerPayRequestId, setOwnerPayRequestId] = useState(newPayRequestId);
   const [salaryLoading, setSalaryLoading] = useState(false);
   const [salaryError, setSalaryError] = useState<string | null>(null);
@@ -968,7 +968,7 @@ export function OwnerApp() {
   const [archiveCalendarMonth, setArchiveCalendarMonth] = useState(() => new Date().getMonth());
   const [archiveHighlight, setArchiveHighlight] = useState<ArchiveHighlight | null>(null);
 
-  // Money flow state (РґРІРёР¶РµРЅРёРµ РґРµРЅРµРі)
+  // Money flow state (движение денег)
   const [moneyFlowData, setMoneyFlowData] = useState<MoneyFlowResponse | null>(null);
   const [moneyFlowLoading, setMoneyFlowLoading] = useState(false);
   const [moneyFlowPeriod, setMoneyFlowPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all' | 'custom'>('month');
@@ -1009,7 +1009,7 @@ export function OwnerApp() {
   const [googleCopiedUri, setGoogleCopiedUri] = useState(false);
   const [googleJsonFile, setGoogleJsonFile] = useState<string | null>(null);
   const [googleJsonError, setGoogleJsonError] = useState<string | null>(null);
-  // РњСѓР»СЊС‚РёРїРѕРґРєР»СЋС‡РµРЅРёРµ: РєР°Р»РµРЅРґР°СЂРё РЅРµСЃРєРѕР»СЊРєРёС… Р»СЋРґРµР№.
+  // Мультиподключение: календари нескольких людей.
   const [googleConnections, setGoogleConnections] = useState<GoogleConnectionInfo[]>([]);
   const [googleInviteOpen, setGoogleInviteOpen] = useState(false);
   const [googleInviteName, setGoogleInviteName] = useState('');
@@ -1230,7 +1230,7 @@ export function OwnerApp() {
     }
     apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
-      .catch(e => { console.error('salary-detail error:', e); setSalaryError(e?.message || 'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…'); setSalaryDetail(null); })
+      .catch(e => { console.error('salary-detail error:', e); setSalaryError(e?.message || 'Ошибка загрузки данных'); setSalaryDetail(null); })
       .finally(() => setSalaryLoading(false));
   }, [selectedSalaryWorkerId, salaryPeriod, salarySegment, salaryDateFrom, salaryDateTo]);
   useEffect(() => setNotifSettings(settings.ownerNotificationSettings), [settings.ownerNotificationSettings]);
@@ -1259,7 +1259,7 @@ export function OwnerApp() {
         body: {
           ownerId,
           amount,
-          note: ownerPayNote.trim() || 'Р’С‹РїР»Р°С‚Р° РґРѕС…РѕРґР° РІР»Р°РґРµР»СЊС†Сѓ',
+          note: ownerPayNote.trim() || 'Выплата дохода владельцу',
           clientRequestId: ownerPayRequestId,
         },
       });
@@ -1267,12 +1267,12 @@ export function OwnerApp() {
       setOwnerPayAmount('');
       setOwnerPayNote('');
       setOwnerPayTarget(null);
-      setBottomToast(`Р’С‹РїР»Р°С‚Р° ${amount.toLocaleString('ru')} в‚Ѕ РІР»Р°РґРµР»СЊС†Сѓ РїСЂРѕРІРµРґРµРЅР°`);
+      setBottomToast(`Выплата ${amount.toLocaleString('ru')} ₽ владельцу проведена`);
       setTimeout(() => setBottomToast(null), 3000);
       const updated = await apiRequest<OwnerSalaryData>(`/api/owner/owners/salary-detail?period=${ownerSalaryPeriod}`);
       setOwnerSalaryData(updated);
     } catch (e) {
-      setBottomToast(e instanceof Error ? e.message : 'РћС€РёР±РєР° РІС‹РїР»Р°С‚С‹');
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка выплаты');
       setTimeout(() => setBottomToast(null), 4000);
     } finally { setOwnerSalaryLoading(false); }
   };
@@ -1323,7 +1323,7 @@ export function OwnerApp() {
         purpose: f.purpose,
         date: f.date,
       };
-      // РљС‚Рѕ РїРѕРєСѓРїР°Р» вЂ” РґРѕР»Рі РІ Р·Р°СЂРїР»Р°С‚Рµ РёРјРµРЅРЅРѕ Сѓ РЅРµРіРѕ
+      // Кто покупал — долг в зарплате именно у него
       if (f.spentById && f.spentById !== '__custom') {
         body.spentById = f.spentById;
       } else if (f.spentByName.trim()) {
@@ -1338,13 +1338,13 @@ export function OwnerApp() {
       const buyerLabel = f.spentById && f.spentById !== '__custom'
         ? (workers.find(w => w.id === f.spentById)?.name || f.spentByName || '')
         : (f.spentByName.trim() || '');
-      const debtHint = buyerLabel ? ` В· РґРѕР»Рі Сѓ ${buyerLabel} РІ Р·Р°СЂРїР»Р°С‚Рµ` : ' В· РґРѕР»Рі РІ Р·Р°СЂРїР»Р°С‚Рµ';
-      setBottomToast(`РЎРЅСЏС‚Рѕ ${amount.toLocaleString('ru')} в‚Ѕ РёР· РєРѕРїРёР»РєРё В«${f.target === 'wash' ? 'РњРѕР№РєР°' : 'Р”РµС‚РµР№Р»РёРЅРі'}В»${debtHint}`);
+      const debtHint = buyerLabel ? ` · долг у ${buyerLabel} в зарплате` : ' · долг в зарплате';
+      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»${debtHint}`);
       setTimeout(() => setBottomToast(null), 3000);
       await loadPiggyBank();
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
     } catch (e: unknown) {
-      setBottomToast(e instanceof Error ? e.message : 'РћС€РёР±РєР°');
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка');
       setTimeout(() => setBottomToast(null), 4000);
     }
   }
@@ -1365,7 +1365,7 @@ export function OwnerApp() {
     const current = resourceGroup === 'wash'
       ? (piggyBank?.remainingInPiggyBank ?? 0)
       : (piggyBank?.detailing?.netPiggy ?? 0);
-    // РљРѕРїРµР№РєРё РІР°Р¶РЅС‹: Р±Р°Р»Р°РЅСЃ РјРѕР¶РµС‚ Р±С‹С‚СЊ РґСЂРѕР±РЅС‹Рј, РѕРєСЂСѓРіР»СЏРµРј С‚РѕР»СЊРєРѕ РґРѕ 2 Р·РЅР°РєРѕРІ
+    // Копейки важны: баланс может быть дробным, округляем только до 2 знаков
     const currentPrecise = Math.round(current * 100) / 100;
     setPiggyAdjustResourceGroup(resourceGroup);
     setPiggyAdjustCurrentBalance(currentPrecise);
@@ -1379,7 +1379,7 @@ export function OwnerApp() {
     const delta = Math.round((newBalance - piggyAdjustCurrentBalance) * 100) / 100;
     if (delta === 0) {
       setShowPiggyAdjust(false);
-      setBottomToast('РЎСѓРјРјР° РЅРµ РёР·РјРµРЅРёР»Р°СЃСЊ');
+      setBottomToast('Сумма не изменилась');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
@@ -1397,10 +1397,10 @@ export function OwnerApp() {
       setPiggyAdjustForm({ newBalance: '', purpose: '', date: todayLabel });
       await loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined);
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
-      setBottomToast('РЎСѓРјРјР° РєРѕРїРёР»РєРё РѕР±РЅРѕРІР»РµРЅР°');
+      setBottomToast('Сумма копилки обновлена');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (e: unknown) {
-      setBottomToast(e instanceof Error ? e.message : 'РћС€РёР±РєР°');
+      setBottomToast(e instanceof Error ? e.message : 'Ошибка');
       setTimeout(() => setBottomToast(null), 4000);
     }
   }
@@ -1489,7 +1489,7 @@ export function OwnerApp() {
     setShiftOpenError(null);
     setShiftOpenSuccess(false);
     if (shiftOpenMasterIds.length === 0) {
-      setShiftOpenError('РћС‚РјРµС‚СЊС‚Рµ РјР°СЃС‚РµСЂРѕРІ, РєРѕС‚РѕСЂС‹Рµ РІС‹С€Р»Рё РІ СЃРјРµРЅСѓ');
+      setShiftOpenError('Отметьте мастеров, которые вышли в смену');
       return;
     }
     setShiftOpenSubmitting(true);
@@ -1504,7 +1504,7 @@ export function OwnerApp() {
       setShiftOpenSuccess(true);
       window.setTimeout(() => setShiftOpenSuccess(false), 3000);
     } catch (error) {
-      setShiftOpenError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ СЃРјРµРЅСѓ');
+      setShiftOpenError(error instanceof Error ? error.message : 'Не удалось открыть смену');
     } finally {
       setShiftOpenSubmitting(false);
     }
@@ -1514,12 +1514,12 @@ export function OwnerApp() {
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
-  // РђРєС‚РёРІРЅС‹Рµ РјР°СЃС‚РµСЂР° РґР»СЏ Р±Р»РѕРєР° В«РњР°СЃС‚РµСЂР° СЃРµРіРѕРґРЅСЏВ» (РќР°СЃС‚СЂРѕР№РєРё в†’ РЎРјРµРЅР°)
+  // Активные мастера для блока «Мастера сегодня» (Настройки → Смена)
   const activeMasters = workers
     .filter((worker) => worker.role === 'worker' && worker.active)
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-  // Р’С‹С…РѕРґ РјР°СЃС‚РµСЂР° СЃРµРіРѕРґРЅСЏ: РѕС‚РјРµС‡РµРЅ (checked) РІ РѕСЃРјРѕС‚СЂРµ/РѕС‚РєСЂС‹С‚РёРё СЃРјРµРЅС‹ Р·Р° СЃРµРіРѕРґРЅСЏС€РЅСЋСЋ РґР°С‚Сѓ.
-  // РўР° Р¶Рµ Р»РѕРіРёРєР°, С‡С‚Рѕ Сѓ Р±СЌРєРµРЅРґ-РїРѕРґСЃС‡С‘С‚Р° РІС‹С…РѕРґРѕРІ (_compute_shift_attendance).
+  // Выход мастера сегодня: отмечен (checked) в осмотре/открытии смены за сегодняшнюю дату.
+  // Та же логика, что у бэкенд-подсчёта выходов (_compute_shift_attendance).
   const masterCameOutTodayAt = (workerId: string): string | null => {
     const times = adminShiftInspections
       .filter((inspection) => formatDate(inspection.createdAt) === todayLabel)
@@ -1546,7 +1546,7 @@ export function OwnerApp() {
 
   const bookingFormBoxes = ownerBookingBoxes(bookingForm.service, services, boxes);
   const bookingFormLocationLabel = ownerLocationLabel(bookingForm.service, services);
-  const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'РџРѕРјРµС‰РµРЅРёРµ';
+  const editBookingLocationLabel = selectedBooking ? ownerLocationLabel(selectedBooking.serviceId, services) : 'Помещение';
   const todayRevenue = todayBookings.filter(b => b.status === 'completed').reduce((s, b) => s + b.price, 0);
 
   // Current week bounds (Saturday - Friday) for weekly KPI filtering
@@ -1608,9 +1608,9 @@ export function OwnerApp() {
     .reduce((s, i) => s + i.amount, 0);
 
   const resourceGroupLabel = (cat?: string) => {
-    if (cat === 'wash') return 'РђРІС‚РѕРјРѕР№РєР°';
-    if (cat === 'detailing') return 'Р”РµС‚РµР№Р»РёРЅРі';
-    return 'РћР±С‰РµРµ';
+    if (cat === 'wash') return 'Автомойка';
+    if (cat === 'detailing') return 'Детейлинг';
+    return 'Общее';
   };
   const payrollRows = (payrollData ?? workers).map(worker => {
     const workerPenalties = penalties.filter((penalty) => penalty.workerId === worker.id && isComplaintActive(penalty));
@@ -1625,18 +1625,18 @@ export function OwnerApp() {
   const payrollTotal = payrollRows.reduce((sum, row) => sum + (row.payrollSummary?.balance || 0), 0);
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const resetPreviewRows = resetPreview ? [
-    { label: 'РЎРѕС…СЂР°РЅСЏС‚СЃСЏ РІР»Р°РґРµР»СЊС†С‹', value: resetPreview.ownersPreserved },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ СЃРѕС‚СЂСѓРґРЅРёРєРё', value: resetPreview.employeesDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ РєР»РёРµРЅС‚С‹', value: resetPreview.clientsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ Р·Р°РїРёСЃРё', value: resetPreview.bookingsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ СѓРІРµРґРѕРјР»РµРЅРёСЏ', value: resetPreview.notificationsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ РїРѕР·РёС†РёРё СЃРєР»Р°РґР°', value: resetPreview.stockItemsDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ СЂР°СЃС…РѕРґС‹', value: resetPreview.expensesDeleted },
-    { label: 'РЈРґР°Р»СЏС‚СЃСЏ Р¶Р°Р»РѕР±С‹', value: resetPreview.penaltiesDeleted },
-    { label: 'РЎР±СЂРѕСЃСЏС‚СЃСЏ СѓСЃР»СѓРіРё', value: resetPreview.servicesReset },
-    { label: 'РЎР±СЂРѕСЃСЏС‚СЃСЏ Р±РѕРєСЃС‹', value: resetPreview.boxesReset },
-    { label: 'РЎР±СЂРѕСЃРёС‚СЃСЏ РіСЂР°С„РёРє', value: resetPreview.scheduleReset },
-    { label: 'РџРµСЂРµСЃРѕР·РґР°РґСѓС‚СЃСЏ РЅР°СЃС‚СЂРѕР№РєРё', value: resetPreview.settingsReset },
+    { label: 'Сохранятся владельцы', value: resetPreview.ownersPreserved },
+    { label: 'Удалятся сотрудники', value: resetPreview.employeesDeleted },
+    { label: 'Удалятся клиенты', value: resetPreview.clientsDeleted },
+    { label: 'Удалятся записи', value: resetPreview.bookingsDeleted },
+    { label: 'Удалятся уведомления', value: resetPreview.notificationsDeleted },
+    { label: 'Удалятся позиции склада', value: resetPreview.stockItemsDeleted },
+    { label: 'Удалятся расходы', value: resetPreview.expensesDeleted },
+    { label: 'Удалятся жалобы', value: resetPreview.penaltiesDeleted },
+    { label: 'Сбросятся услуги', value: resetPreview.servicesReset },
+    { label: 'Сбросятся боксы', value: resetPreview.boxesReset },
+    { label: 'Сбросится график', value: resetPreview.scheduleReset },
+    { label: 'Пересоздадутся настройки', value: resetPreview.settingsReset },
   ] : [];
   const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
@@ -1657,7 +1657,7 @@ export function OwnerApp() {
       ...current,
       {
         id: createDraftId('box'),
-        name: `Р‘РѕРєСЃ ${current.length + 1}`,
+        name: `Бокс ${current.length + 1}`,
         resourceGroup: 'wash',
         pricePerHour: 0,
         active: true,
@@ -1782,15 +1782,15 @@ export function OwnerApp() {
 
       if (wantsPasswordChange) {
         if (!password.current || !password.new_ || !password.confirm) {
-          setSecurityError('Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ РґР»СЏ СЃРјРµРЅС‹ РїР°СЂРѕР»СЏ');
+          setSecurityError('Заполните все поля для смены пароля');
           return;
         }
         if (password.new_.length < 8) {
-          setSecurityError('РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РјРёРЅРёРјСѓРј 8 СЃРёРјРІРѕР»РѕРІ');
+          setSecurityError('Новый пароль должен содержать минимум 8 символов');
           return;
         }
         if (password.new_ !== password.confirm) {
-          setSecurityError('РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РїР°СЂРѕР»СЏ РЅРµ СЃРѕРІРїР°РґР°РµС‚');
+          setSecurityError('Подтверждение пароля не совпадает');
           return;
         }
       }
@@ -1804,7 +1804,7 @@ export function OwnerApp() {
         setSecuritySaved(true);
         setTimeout(() => setSecuritySaved(false), 2000);
       } catch (error) {
-        setSecurityError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё');
+        setSecurityError(error instanceof Error ? error.message : 'Не удалось сохранить настройки безопасности');
       }
       return;
     }
@@ -1820,12 +1820,12 @@ export function OwnerApp() {
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить настройки');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
 
-  // В«Р“РѕС‚РѕРІРѕВ» РІ РјРѕРґР°Р»РєРµ РЅР°СЃС‚СЂРѕР№РєРё СѓСЃР»СѓРіРё: СЃРѕС…СЂР°РЅСЏРµС‚ СѓСЃР»СѓРіРё СЃСЂР°Р·Сѓ, С‡С‚РѕР±С‹ РЅРµ Р»РёСЃС‚Р°С‚СЊ СЃРїРёСЃРѕРє РґРѕ РєРЅРѕРїРєРё В«РЎРѕС…СЂР°РЅРёС‚СЊВ».
+  // «Готово» в модалке настройки услуги: сохраняет услуги сразу, чтобы не листать список до кнопки «Сохранить».
   const handleServiceSettingsDone = async () => {
     setServiceSettingsSaving(true);
     try {
@@ -1834,7 +1834,7 @@ export function OwnerApp() {
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ СѓСЃР»СѓРіСѓ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить услугу');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setServiceSettingsSaving(false);
@@ -1849,7 +1849,7 @@ export function OwnerApp() {
         '/api/owner/integrations/google/status'
       );
       if (!status.configured) {
-        // РЎРµСЂРІРµСЂ РЅРµ РЅР°СЃС‚СЂРѕРµРЅ: РїРѕРєР°Р·С‹РІР°РµРј РјР°СЃС‚РµСЂ РїРѕРґРєР»СЋС‡РµРЅРёСЏ СЃ РёРЅСЃС‚СЂСѓРєС†РёРµР№.
+        // Сервер не настроен: показываем мастер подключения с инструкцией.
         setGoogleSetupStatus(status);
         setGoogleSetupOpen(true);
         setGoogleConnectLoading(false);
@@ -1858,7 +1858,7 @@ export function OwnerApp() {
       const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
       window.location.href = authUrl;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°С‡Р°С‚СЊ РїРѕРґРєР»СЋС‡РµРЅРёРµ Google РљР°Р»РµРЅРґР°СЂСЏ';
+      const message = error instanceof Error ? error.message : 'Не удалось начать подключение Google Календаря';
       setGoogleConnectError(message);
       setGoogleConnectLoading(false);
       window.Telegram?.WebApp?.showAlert?.(message);
@@ -1873,11 +1873,11 @@ export function OwnerApp() {
         method: 'PUT',
         body: { clientId: googleClientId, clientSecret: googleClientSecret },
       });
-      // РљР»СЋС‡Рё СЃРѕС…СЂР°РЅРµРЅС‹ вЂ” СЃСЂР°Р·Сѓ РїРµСЂРµС…РѕРґРёРј Рє OAuth-Р°РІС‚РѕСЂРёР·Р°С†РёРё Google.
+      // Ключи сохранены — сразу переходим к OAuth-авторизации Google.
       const { authUrl } = await apiRequest<{ authUrl: string }>('/api/owner/integrations/google/auth-url');
       window.location.href = authUrl;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РєР»СЋС‡Рё Google РљР°Р»РµРЅРґР°СЂСЏ';
+      const message = error instanceof Error ? error.message : 'Не удалось сохранить ключи Google Календаря';
       setGoogleConnectError(message);
       setGoogleSavingKeys(false);
       window.Telegram?.WebApp?.showAlert?.(message);
@@ -1891,13 +1891,13 @@ export function OwnerApp() {
       setGoogleCopiedUri(true);
       setTimeout(() => setGoogleCopiedUri(false), 2000);
     } catch {
-      // Clipboard РЅРµРґРѕСЃС‚СѓРїРµРЅ вЂ” РѕСЃС‚Р°РІР»СЏРµРј URI РІРёРґРёРјС‹Рј РґР»СЏ СЂСѓС‡РЅРѕРіРѕ РєРѕРїРёСЂРѕРІР°РЅРёСЏ.
+      // Clipboard недоступен — оставляем URI видимым для ручного копирования.
     }
   };
 
   const openExternal = (url: string) => {
-    // Р’ Telegram РѕС‚РєСЂС‹РІР°РµРј РІРѕ РІРЅРµС€РЅРµРј Р±СЂР°СѓР·РµСЂРµ: РІРѕ РІСЃС‚СЂРѕРµРЅРЅРѕРј Google
-    // Р±Р»РѕРєРёСЂСѓРµС‚ РєРѕРЅСЃРѕР»СЊ Рё OAuth (С‡Р°СЃС‚С‹Рµ В«URL not foundВ» Рё РїСѓСЃС‚С‹Рµ СЃС‚СЂР°РЅРёС†С‹).
+    // В Telegram открываем во внешнем браузере: во встроенном Google
+    // блокирует консоль и OAuth (частые «URL not found» и пустые страницы).
     const webApp = window.Telegram?.WebApp;
     if (webApp && typeof webApp.openLink === 'function') {
       webApp.openLink(url);
@@ -1912,12 +1912,12 @@ export function OwnerApp() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? ''));
-        // Р¤Р°Р№Р» client_secret_*.json РёР· Google Cloud Console: {"web": {...}} РёР»Рё {"installed": {...}}
+        // Файл client_secret_*.json из Google Cloud Console: {"web": {...}} или {"installed": {...}}
         const source = parsed?.web || parsed?.installed || parsed;
         const clientId = typeof source?.client_id === 'string' ? source.client_id.trim() : '';
         const clientSecret = typeof source?.client_secret === 'string' ? source.client_secret.trim() : '';
         if (!clientId || !clientSecret) {
-          setGoogleJsonError('Р­С‚Рѕ РЅРµ С„Р°Р№Р» РЅР°СЃС‚СЂРѕРµРє Google. РЎРєР°С‡Р°Р№С‚Рµ JSON РІ РєРѕРЅСЃРѕР»Рё (Download JSON) СЂСЏРґРѕРј СЃ СЃРѕР·РґР°РЅРЅС‹Рј OAuth-РєР»РёРµРЅС‚РѕРј.');
+          setGoogleJsonError('Это не файл настроек Google. Скачайте JSON в консоли (Download JSON) рядом с созданным OAuth-клиентом.');
           setGoogleJsonFile(null);
           return;
         }
@@ -1925,12 +1925,12 @@ export function OwnerApp() {
         setGoogleClientSecret(clientSecret);
         setGoogleJsonFile(file.name || 'client_secret.json');
       } catch {
-        setGoogleJsonError('РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ С„Р°Р№Р». РЎРєР°С‡Р°Р№С‚Рµ JSON РІ Google Cloud Console Рё РїРѕРІС‚РѕСЂРёС‚Рµ.');
+        setGoogleJsonError('Не удалось прочитать файл. Скачайте JSON в Google Cloud Console и повторите.');
         setGoogleJsonFile(null);
       }
     };
     reader.onerror = () => {
-      setGoogleJsonError('РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ С„Р°Р№Р».');
+      setGoogleJsonError('Не удалось прочитать файл.');
       setGoogleJsonFile(null);
     };
     reader.readAsText(file);
@@ -1944,13 +1944,13 @@ export function OwnerApp() {
       await apiRequest('/api/owner/integrations/google/disconnect', { method: 'POST' });
       setIntegrations(p => ({ ...p, googleCalendar: false }));
     } catch (error) {
-      setGoogleConnectError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєР»СЋС‡РёС‚СЊ Google РљР°Р»РµРЅРґР°СЂСЊ');
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось отключить Google Календарь');
     }
   };
 
   const handleGoogleEditKeys = async () => {
-    // РЈРґР°Р»РёС‚СЊ СЃРѕС…СЂР°РЅС‘РЅРЅС‹Рµ РєР»СЋС‡Рё OAuth-РєР»РёРµРЅС‚Р° вЂ” СЃРЅРѕРІР° РїРѕРєР°Р¶РµС‚СЃСЏ РјР°СЃС‚РµСЂ
-    // СЃ РёРЅСЃС‚СЂСѓРєС†РёРµР№ В«РѕС‚РєСѓРґР° Р±СЂР°С‚СЊ РєР»СЋС‡ Рё РєСѓРґР° СЃС‚Р°РІРёС‚СЊВ» Рё Р·Р°РіСЂСѓР·РєРѕР№ .json.
+    // Удалить сохранённые ключи OAuth-клиента — снова покажется мастер
+    // с инструкцией «откуда брать ключ и куда ставить» и загрузкой .json.
     setGoogleConnectError(null);
     try {
       await apiRequest('/api/owner/integrations/google/credentials', { method: 'DELETE' });
@@ -1961,7 +1961,7 @@ export function OwnerApp() {
       setGoogleSetupOpen(true);
       setIntegrations(p => ({ ...p, googleCalendar: false }));
     } catch (error) {
-      setGoogleConnectError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ РєР»СЋС‡Рё Google РљР°Р»РµРЅРґР°СЂСЏ');
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось удалить ключи Google Календаря');
     }
   };
 
@@ -1976,7 +1976,7 @@ export function OwnerApp() {
       );
       setGoogleSyncResult(result);
     } catch (error) {
-      setGoogleSyncError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЋ');
+      setGoogleSyncError(error instanceof Error ? error.message : 'Не удалось выполнить синхронизацию');
     } finally {
       setGoogleSyncing(false);
     }
@@ -1994,7 +1994,7 @@ export function OwnerApp() {
       );
       setGoogleInviteLink(res.inviteUrl);
     } catch (error) {
-      setGoogleConnectError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ СЃСЃС‹Р»РєСѓ-РїСЂРёРіР»Р°С€РµРЅРёРµ');
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось создать ссылку-приглашение');
     } finally {
       setGoogleInviteLoading(false);
     }
@@ -2007,7 +2007,7 @@ export function OwnerApp() {
       setGoogleCopiedLink(true);
       setTimeout(() => setGoogleCopiedLink(false), 2000);
     } catch {
-      // Clipboard РЅРµРґРѕСЃС‚СѓРїРµРЅ вЂ” СЃСЃС‹Р»РєР° РѕСЃС‚Р°С‘С‚СЃСЏ РІРёРґРёРјРѕР№ РґР»СЏ СЂСѓС‡РЅРѕРіРѕ РєРѕРїРёСЂРѕРІР°РЅРёСЏ.
+      // Clipboard недоступен — ссылка остаётся видимой для ручного копирования.
     }
   };
 
@@ -2023,11 +2023,11 @@ export function OwnerApp() {
         setIntegrations(p => ({ ...p, googleCalendar: false }));
       }
     } catch (error) {
-      setGoogleConnectError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєР»СЋС‡РёС‚СЊ РєР°Р»РµРЅРґР°СЂСЊ');
+      setGoogleConnectError(error instanceof Error ? error.message : 'Не удалось отключить календарь');
     }
   };
 
-  // РЎРїРёСЃРѕРє РїРѕРґРєР»СЋС‡С‘РЅРЅС‹С… РєР°Р»РµРЅРґР°СЂРµР№ Р·Р°РіСЂСѓР¶Р°РµРј РїСЂРё РѕС‚РєСЂС‹С‚РёРё СЂР°Р·РґРµР»Р° РёРЅС‚РµРіСЂР°С†РёР№.
+  // Список подключённых календарей загружаем при открытии раздела интеграций.
   const googleIntegrationsOpen = page === 'settings' && settingsSection === 'integrations';
   useEffect(() => {
     if (!googleIntegrationsOpen) return;
@@ -2077,7 +2077,7 @@ export function OwnerApp() {
         setHistoryTotals(null);
       }
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РёСЃС‚РѕСЂРёСЋ Р·Р°РїРёСЃРµР№');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить историю записей');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setHistoryLoading(false);
@@ -2142,7 +2142,7 @@ export function OwnerApp() {
       const data = await apiRequest<ArchiveResponse>(`/api/owner/archive?${params.toString()}`);
       setArchiveData(data);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ Р°СЂС…РёРІ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить архив');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setArchiveLoading(false);
@@ -2157,7 +2157,7 @@ export function OwnerApp() {
     }
   }, [page, settingsSection, selectedHistoryBookingId, fetchArchive]);
 
-  // в”Ђв”Ђ Money flow: РґРІРёР¶РµРЅРёРµ РґРµРЅРµРі в”Ђв”Ђ
+  // ── Money flow: движение денег ──
   const moneyFlowPeriodDates = () => {
     const today = new Date();
     if (moneyFlowPeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
@@ -2192,7 +2192,7 @@ export function OwnerApp() {
       setMoneyFlowData(data);
       setExpandedFlowIds(new Set());
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґРІРёР¶РµРЅРёРµ РґРµРЅРµРі');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить движение денег');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setMoneyFlowLoading(false);
@@ -2334,7 +2334,7 @@ export function OwnerApp() {
       setSplitPiggyDraft(detail.piggyDeposit > 0 ? String(detail.piggyDeposit) : '');
       setSplitOwnersDraft(detail.ownerShares.map(o => ({ ...o })));
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось загрузить распределение');
       setTimeout(() => setBottomToast(null), 4000);
       setSelectedHistoryBookingId(null);
     } finally {
@@ -2377,11 +2377,11 @@ export function OwnerApp() {
         : '');
       setSplitPiggyDraft(updated.piggyDeposit > 0 ? String(updated.piggyDeposit) : '');
       setSplitOwnersDraft(updated.ownerShares.map(o => ({ ...o })));
-      setBottomToast('Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ СЃРѕС…СЂР°РЅРµРЅРѕ');
+      setBottomToast('Распределение сохранено');
       setTimeout(() => setBottomToast(null), 3000);
       void fetchBookingsHistory();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить распределение');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setSplitSaving(false);
@@ -2401,11 +2401,11 @@ export function OwnerApp() {
       setSplitMaterialsDraft('');
       setSplitPiggyDraft('');
       setSplitOwnersDraft(updated.ownerShares.map(o => ({ ...o })));
-      setBottomToast('РЎР±СЂРѕС€РµРЅРѕ Рє Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРјСѓ СЂР°СЃС‡С‘С‚Сѓ');
+      setBottomToast('Сброшено к автоматическому расчёту');
       setTimeout(() => setBottomToast(null), 3000);
       void fetchBookingsHistory();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃР±СЂРѕСЃРёС‚СЊ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сбросить распределение');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setSplitSaving(false);
@@ -2414,7 +2414,7 @@ export function OwnerApp() {
 
   const handleStartOwnerReset = async () => {
     if (!resetPassword.trim()) {
-      setResetError('Р’РІРµРґРёС‚Рµ С‚РµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ РІР»Р°РґРµР»СЊС†Р°, С‡С‚РѕР±С‹ Р·Р°РїСЂРѕСЃРёС‚СЊ РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ.');
+      setResetError('Введите текущий пароль владельца, чтобы запросить код создателя.');
       return;
     }
 
@@ -2435,7 +2435,7 @@ export function OwnerApp() {
       setResetPassword('');
       setResetInfo(response.message);
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСЂРѕСЃРёС‚СЊ РєРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ.');
+      setResetError(error instanceof Error ? error.message : 'Не удалось запросить код подтверждения.');
     } finally {
       setResetLoadingStep(null);
     }
@@ -2443,15 +2443,15 @@ export function OwnerApp() {
 
   const handleApproveOwnerReset = async () => {
     if (!resetRequestId) {
-      setResetError('РЎРЅР°С‡Р°Р»Р° Р·Р°РЅРѕРІРѕ Р·Р°РїСЂРѕСЃРёС‚Рµ РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ.');
+      setResetError('Сначала заново запросите код создателя.');
       return;
     }
     if (!resetCreatorCode.trim()) {
-      setResetError('Р’РІРµРґРёС‚Рµ РєРѕРґ, РєРѕС‚РѕСЂС‹Р№ РїСЂРёС€С‘Р» СЃРѕР·РґР°С‚РµР»СЋ РІ Telegram.');
+      setResetError('Введите код, который пришёл создателю в Telegram.');
       return;
     }
     if (!resetConfirmationPhrase.trim()) {
-      setResetError('Р’РІРµРґРёС‚Рµ РєРѕРЅС‚СЂРѕР»СЊРЅСѓСЋ С„СЂР°Р·Сѓ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ.');
+      setResetError('Введите контрольную фразу подтверждения.');
       return;
     }
 
@@ -2468,7 +2468,7 @@ export function OwnerApp() {
       setResetCreatorCode('');
       setResetInfo(response.message);
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґС‚РІРµСЂРґРёС‚СЊ РѕС‡РёСЃС‚РєСѓ.');
+      setResetError(error instanceof Error ? error.message : 'Не удалось подтвердить очистку.');
     } finally {
       setResetLoadingStep(null);
     }
@@ -2476,7 +2476,7 @@ export function OwnerApp() {
 
   const handleExecuteOwnerReset = async () => {
     if (!resetRequestId) {
-      setResetError('Р—Р°РїСЂРѕСЃ РЅР° РѕС‡РёСЃС‚РєСѓ РїРѕС‚РµСЂСЏРЅ. РќР°С‡РЅРёС‚Рµ Р·Р°РЅРѕРІРѕ.');
+      setResetError('Запрос на очистку потерян. Начните заново.');
       return;
     }
 
@@ -2488,7 +2488,7 @@ export function OwnerApp() {
       setBottomToast(response.message);
       setTimeout(() => setBottomToast(null), 5000);
     } catch (error) {
-      setResetError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РѕС‡РёСЃС‚РєСѓ CRM.');
+      setResetError(error instanceof Error ? error.message : 'Не удалось выполнить очистку CRM.');
     } finally {
       setResetLoadingStep(null);
     }
@@ -2506,7 +2506,7 @@ export function OwnerApp() {
       setExpenseAdded(false);
       setShowAddExpense(false);
       setExpenseForm({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '', note: '', date: todayLabel });
-      setBottomToast(`Р Р°СЃС…РѕРґ "${title}" РґРѕР±Р°РІР»РµРЅ РЅР° СЃСѓРјРјСѓ ${amount.toLocaleString('ru')} в‚Ѕ`);
+      setBottomToast(`Расход "${title}" добавлен на сумму ${amount.toLocaleString('ru')} ₽`);
       setTimeout(() => setBottomToast(null), 4000);
     }, 1800);
   };
@@ -2529,14 +2529,14 @@ export function OwnerApp() {
   const handleSaveExpense = async () => {
     if (!editingExpense) return;
     const title = editExpenseForm.title.trim();
-    if (!title) { setEditFinanceError('РќР°Р·РІР°РЅРёРµ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј'); return; }
+    if (!title) { setEditFinanceError('Название не может быть пустым'); return; }
     const amount = Number(editExpenseForm.amount);
     if (!Number.isFinite(amount) || amount < 1 || amount > 10_000_000) {
-      setEditFinanceError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РѕС‚ 1 РґРѕ 10 000 000');
+      setEditFinanceError('Сумма должна быть от 1 до 10 000 000');
       return;
     }
     if (!/^\d{2}\.\d{2}\.\d{4}$/.test(editExpenseForm.date)) {
-      setEditFinanceError('Р”Р°С‚Р° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“');
+      setEditFinanceError('Дата должна быть в формате ДД.ММ.ГГГГ');
       return;
     }
     setEditFinanceLoading(true);
@@ -2551,24 +2551,24 @@ export function OwnerApp() {
         resourceGroup: editExpenseForm.resourceGroup || undefined,
       });
       setEditingExpense(null);
-      setBottomToast('Р Р°СЃС…РѕРґ РѕР±РЅРѕРІР»С‘РЅ');
+      setBottomToast('Расход обновлён');
       setTimeout(() => setBottomToast(null), 3500);
     } catch (err) {
       if (err instanceof Error) {
         const msg = err.message;
         if (msg.includes('422') || msg.toLowerCase().includes('validation')) {
-          setEditFinanceError('РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё. РџСЂРѕРІРµСЂСЊС‚Рµ РІРІРµРґС‘РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ.');
+          setEditFinanceError('Ошибка валидации. Проверьте введённые данные.');
         } else if (msg.includes('404')) {
-          setEditFinanceError('Р—Р°РїРёСЃСЊ РЅРµ РЅР°Р№РґРµРЅР°. Р’РѕР·РјРѕР¶РЅРѕ, РѕРЅР° Р±С‹Р»Р° СѓРґР°Р»РµРЅР°.');
+          setEditFinanceError('Запись не найдена. Возможно, она была удалена.');
         } else if (msg.includes('500')) {
-          setEditFinanceError('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.');
+          setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
         } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) {
-          setEditFinanceError('РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ СЃРµСЂРІРµСЂРѕРј.');
+          setEditFinanceError('Нет соединения с сервером.');
         } else {
-          setEditFinanceError(msg || 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.');
+          setEditFinanceError(msg || 'Не удалось сохранить изменения. Попробуйте ещё раз.');
         }
       } else {
-        setEditFinanceError('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.');
+        setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
       }
     } finally {
       setEditFinanceLoading(false);
@@ -2592,14 +2592,14 @@ export function OwnerApp() {
   const handleSaveIncome = async () => {
     if (!editingIncome) return;
     const source = editIncomeForm.source.trim();
-    if (!source) { setEditFinanceError('РСЃС‚РѕС‡РЅРёРє РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј'); return; }
+    if (!source) { setEditFinanceError('Источник не может быть пустым'); return; }
     const amount = Number(editIncomeForm.amount);
     if (!Number.isFinite(amount) || amount < 1 || amount > 10_000_000) {
-      setEditFinanceError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РѕС‚ 1 РґРѕ 10 000 000');
+      setEditFinanceError('Сумма должна быть от 1 до 10 000 000');
       return;
     }
     if (!/^\d{2}\.\d{2}\.\d{4}$/.test(editIncomeForm.date)) {
-      setEditFinanceError('Р”Р°С‚Р° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“');
+      setEditFinanceError('Дата должна быть в формате ДД.ММ.ГГГГ');
       return;
     }
     setEditFinanceLoading(true);
@@ -2613,24 +2613,24 @@ export function OwnerApp() {
         resourceGroup: editIncomeForm.resourceGroup || undefined,
       });
       setEditingIncome(null);
-      setBottomToast('Р”РѕС…РѕРґ РѕР±РЅРѕРІР»С‘РЅ');
+      setBottomToast('Доход обновлён');
       setTimeout(() => setBottomToast(null), 3500);
     } catch (err) {
       if (err instanceof Error) {
         const msg = err.message;
         if (msg.includes('422') || msg.toLowerCase().includes('validation')) {
-          setEditFinanceError('РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё. РџСЂРѕРІРµСЂСЊС‚Рµ РІРІРµРґС‘РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ.');
+          setEditFinanceError('Ошибка валидации. Проверьте введённые данные.');
         } else if (msg.includes('404')) {
-          setEditFinanceError('Р—Р°РїРёСЃСЊ РЅРµ РЅР°Р№РґРµРЅР°. Р’РѕР·РјРѕР¶РЅРѕ, РѕРЅР° Р±С‹Р»Р° СѓРґР°Р»РµРЅР°.');
+          setEditFinanceError('Запись не найдена. Возможно, она была удалена.');
         } else if (msg.includes('500')) {
-          setEditFinanceError('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.');
+          setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
         } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) {
-          setEditFinanceError('РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ СЃРµСЂРІРµСЂРѕРј.');
+          setEditFinanceError('Нет соединения с сервером.');
         } else {
-          setEditFinanceError(msg || 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.');
+          setEditFinanceError(msg || 'Не удалось сохранить изменения. Попробуйте ещё раз.');
         }
       } else {
-        setEditFinanceError('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.');
+        setEditFinanceError('Не удалось сохранить изменения. Попробуйте ещё раз.');
       }
     } finally {
       setEditFinanceLoading(false);
@@ -2639,34 +2639,34 @@ export function OwnerApp() {
 
   const handleExport = async (kind: OwnerExportKind, params?: OwnerExportParams) => {
     const labels = {
-      report: { noun: 'Excel-С„Р°Р№Р»' },
+      report: { noun: 'Excel-файл' },
       pdf: { noun: 'PDF' },
-      'piggy-bank': { noun: 'РћС‚С‡С‘С‚ РїРѕ РєРѕРїРёР»РєРµ' },
+      'piggy-bank': { noun: 'Отчёт по копилке' },
     } as const;
 
     try {
       setExportingKind(kind);
       const fileName = await downloadOwnerExport(kind, params);
-      let subtitle = `Р¤Р°Р№Р» ${fileName} СЃРєР°С‡Р°РЅ`;
+      let subtitle = `Файл ${fileName} скачан`;
 
       try {
         const delivery = await sendOwnerExportToTelegram(kind, params);
-        subtitle = `${subtitle} Рё РѕС‚РїСЂР°РІР»РµРЅ РІ Telegram`;
+        subtitle = `${subtitle} и отправлен в Telegram`;
         setBottomToast(delivery.message);
         setTimeout(() => setBottomToast(null), 5000);
       } catch (deliveryError) {
-        const deliveryMessage = deliveryError instanceof Error ? deliveryError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ С„Р°Р№Р» РІ Telegram';
-        setBottomToast(`${labels[kind].noun} СЃРєР°С‡Р°РЅ, РЅРѕ РѕС‚РїСЂР°РІРєР° РІ Telegram РЅРµ СѓРґР°Р»Р°СЃСЊ: ${deliveryMessage}`);
+        const deliveryMessage = deliveryError instanceof Error ? deliveryError.message : 'Не удалось отправить файл в Telegram';
+        setBottomToast(`${labels[kind].noun} скачан, но отправка в Telegram не удалась: ${deliveryMessage}`);
         setTimeout(() => setBottomToast(null), 5000);
       }
 
       setExportSuccess({
-        title: `${labels[kind].noun} СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅ`,
+        title: `${labels[kind].noun} экспортирован`,
         subtitle,
       });
       setTimeout(() => setExportSuccess(null), 3200);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃС„РѕСЂРјРёСЂРѕРІР°С‚СЊ СЌРєСЃРїРѕСЂС‚';
+      const message = nextError instanceof Error ? nextError.message : 'Не удалось сформировать экспорт';
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
@@ -2716,7 +2716,7 @@ export function OwnerApp() {
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ СЃРІРѕРґРЅС‹Р№ РѕС‚С‡С‘С‚';
+      const message = nextError instanceof Error ? nextError.message : 'Не удалось отправить сводный отчёт';
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
@@ -2725,15 +2725,15 @@ export function OwnerApp() {
   };
 
   const handleDeleteSettingsClient = async (clientId: string, clientName: string) => {
-    const confirmed = window.confirm(`РЈРґР°Р»РёС‚СЊ РєР»РёРµРЅС‚Р° "${clientName}"? РџСЂРѕС„РёР»СЊ Рё РґРѕСЃС‚СѓРї РІ Mini App Р±СѓРґСѓС‚ СѓРґР°Р»РµРЅС‹, РёСЃС‚РѕСЂРёСЏ Р·Р°РїРёСЃРµР№ РѕСЃС‚Р°РЅРµС‚СЃСЏ.`);
+    const confirmed = window.confirm(`Удалить клиента "${clientName}"? Профиль и доступ в Mini App будут удалены, история записей останется.`);
     if (!confirmed) return;
     try {
       await deleteClient(clientId);
       if (settingsClientId === clientId) setSettingsClientId(null);
-      setBottomToast('РљР»РёРµРЅС‚ СѓРґР°Р»С‘РЅ');
+      setBottomToast('Клиент удалён');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ РєР»РёРµРЅС‚Р°');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось удалить клиента');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -2788,10 +2788,10 @@ export function OwnerApp() {
       setNewVehicleCar('');
       setNewVehiclePlate('');
       setEditingSettingsClientCard(false);
-      setBottomToast('РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р° СЃРѕС…СЂР°РЅРµРЅР°');
+      setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РєР°СЂС‚РѕС‡РєСѓ РєР»РёРµРЅС‚Р°');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить карточку клиента');
       setTimeout(() => setBottomToast(null), 4000);
     } finally {
       setSavingClientId(null);
@@ -2802,10 +2802,10 @@ export function OwnerApp() {
     try {
       await saveWorkerSettings(employeeSettings);
       loadPayrollData();
-      setBottomToast('РќР°СЃС‚СЂРѕР№РєРё Р·Р°СЂРїР»Р°С‚ СЃРѕС…СЂР°РЅРµРЅС‹');
+      setBottomToast('Настройки зарплат сохранены');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ Р·Р°СЂРїР»Р°С‚С‹');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось сохранить зарплаты');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -2844,7 +2844,7 @@ export function OwnerApp() {
     }
     apiRequest<SalaryDetailResponse>(`/api/owner/workers/${selectedSalaryWorkerId}/salary-detail?${params.toString()}`)
       .then(setSalaryDetail)
-      .catch(e => { console.error('salary-detail refresh error:', e); setSalaryError(e?.message || 'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…'); setSalaryDetail(null); })
+      .catch(e => { console.error('salary-detail refresh error:', e); setSalaryError(e?.message || 'Ошибка загрузки данных'); setSalaryDetail(null); })
       .finally(() => setSalaryLoading(false));
   };
 
@@ -2863,7 +2863,7 @@ export function OwnerApp() {
       setEditingOverrideValue('');
       refreshSalaryDetail();
     } catch {
-      setBottomToast('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё');
+      setBottomToast('Ошибка при сохранении');
     }
   };
 
@@ -2895,10 +2895,10 @@ export function OwnerApp() {
       await saveServices(next);
       setServiceEditDraft(null);
       setSalaryDetail(prev => prev ? { ...prev, bookings: prev.bookings.map(b => b.id === draft.sourceBookingId ? { ...b, service: draft.name.trim() || b.service } : b) } : prev);
-      setBottomToast('РЈСЃР»СѓРіР° СЃРѕС…СЂР°РЅРµРЅР°');
+      setBottomToast('Услуга сохранена');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (e) {
-      setBottomToast(e instanceof Error ? e.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ СѓСЃР»СѓРіСѓ');
+      setBottomToast(e instanceof Error ? e.message : 'Не удалось сохранить услугу');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -2907,7 +2907,7 @@ export function OwnerApp() {
     if (!selectedSalaryWorkerId || !salaryDetail) return;
     const amount = Number(bonusAmount);
     if (!Number.isFinite(amount) || amount < 1) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ СЃСѓРјРјСѓ РїСЂРµРјРёРё');
+      setBottomToast('Укажите сумму премии');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
@@ -2916,7 +2916,7 @@ export function OwnerApp() {
         workerId: selectedSalaryWorkerId,
         kind: 'bonus',
         amount: Math.round(amount),
-        note: bonusNote.trim() || 'РџСЂРµРјРёСЏ',
+        note: bonusNote.trim() || 'Премия',
         period: salaryPeriod,
         clientRequestId: entryRequestIdRef.current,
         ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
@@ -2924,11 +2924,11 @@ export function OwnerApp() {
       entryRequestIdRef.current = newPayRequestId();
       setBonusAmount('');
       setBonusNote('');
-      setBottomToast(`РџСЂРµРјРёСЏ ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РґР»СЏ ${salaryDetail.workerName} РЅР°С‡РёСЃР»РµРЅР°`);
+      setBottomToast(`Премия ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} начислена`);
       setTimeout(() => setBottomToast(null), 3000);
       refreshSalaryDetail();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°С‡РёСЃР»РёС‚СЊ РїСЂРµРјРёСЋ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось начислить премию');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -2937,7 +2937,7 @@ export function OwnerApp() {
     if (!selectedSalaryWorkerId || !salaryDetail) return;
     const amount = Number(fineAmount);
     if (!Number.isFinite(amount) || amount < 1) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ СЃСѓРјРјСѓ С€С‚СЂР°С„Р°');
+      setBottomToast('Укажите сумму штрафа');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
@@ -2946,7 +2946,7 @@ export function OwnerApp() {
         workerId: selectedSalaryWorkerId,
         kind: 'deduction',
         amount: Math.round(amount),
-        note: fineNote.trim() || 'РЁС‚СЂР°С„',
+        note: fineNote.trim() || 'Штраф',
         period: salaryPeriod,
         clientRequestId: entryRequestIdRef.current,
         ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
@@ -2954,11 +2954,11 @@ export function OwnerApp() {
       entryRequestIdRef.current = newPayRequestId();
       setFineAmount('');
       setFineNote('');
-      setBottomToast(`РЁС‚СЂР°С„ ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РґР»СЏ ${salaryDetail.workerName} РІС‹РїРёСЃР°РЅ`);
+      setBottomToast(`Штраф ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} выписан`);
       setTimeout(() => setBottomToast(null), 3000);
       refreshSalaryDetail();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРёСЃР°С‚СЊ С€С‚СЂР°С„');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось выписать штраф');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -2967,7 +2967,7 @@ export function OwnerApp() {
     if (!selectedSalaryWorkerId || !salaryDetail) return;
     const amount = Number(writeOffAmount);
     if (!Number.isFinite(amount) || amount < 1) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ СЃСѓРјРјСѓ СЃРїРёСЃР°РЅРёСЏ');
+      setBottomToast('Укажите сумму списания');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
@@ -2976,7 +2976,7 @@ export function OwnerApp() {
         workerId: selectedSalaryWorkerId,
         kind: 'deduction',
         amount: Math.round(amount),
-        note: writeOffNote.trim() || 'РЎРїРёСЃР°РЅРёРµ',
+        note: writeOffNote.trim() || 'Списание',
         period: salaryPeriod,
         clientRequestId: entryRequestIdRef.current,
         ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
@@ -2984,31 +2984,31 @@ export function OwnerApp() {
       entryRequestIdRef.current = newPayRequestId();
       setWriteOffAmount('');
       setWriteOffNote('');
-      setBottomToast(`РЎРїРёСЃР°РЅРёРµ ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РґР»СЏ ${salaryDetail.workerName} РїСЂРѕРІРµРґРµРЅРѕ`);
+      setBottomToast(`Списание ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} проведено`);
       setTimeout(() => setBottomToast(null), 3000);
       refreshSalaryDetail();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЃС‚Рё СЃРїРёСЃР°РЅРёРµ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось провести списание');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
 
   const handleRepayPiggyDebt = async (workerId: string, amount: number) => {
     if (!workerId || !amount || amount <= 0) return;
-    const workerName = workers.find(w => w.id === workerId)?.name || 'СЃРѕС‚СЂСѓРґРЅРёРєР°';
-    const ok = window.confirm(`РџРѕРіР°СЃРёС‚СЊ РґРѕР»Рі РїРѕ РєРѕРїРёР»РєРµ ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РґР»СЏ ${workerName}? Р‘СѓРґРµС‚ РЅР°С‡РёСЃР»РµРЅР° РїСЂРµРјРёСЏ РЅР° СЌС‚Сѓ СЃСѓРјРјСѓ.`);
+    const workerName = workers.find(w => w.id === workerId)?.name || 'сотрудника';
+    const ok = window.confirm(`Погасить долг по копилке ${Math.round(amount).toLocaleString('ru')} ₽ для ${workerName}? Будет начислена премия на эту сумму.`);
     if (!ok) return;
     try {
       await createPayrollEntry({
         workerId,
         kind: 'bonus',
         amount: Math.round(amount),
-        note: 'РџРѕРіР°С€РµРЅРёРµ РґРѕР»РіР° РїРѕ РєРѕРїРёР»РєРµ',
+        note: 'Погашение долга по копилке',
         period: 'all',
         clientRequestId: entryRequestIdRef.current,
       });
       entryRequestIdRef.current = newPayRequestId();
-      setBottomToast(`Р”РѕР»Рі ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РїРѕРіР°С€РµРЅ РґР»СЏ ${workerName}`);
+      setBottomToast(`Долг ${Math.round(amount).toLocaleString('ru')} ₽ погашен для ${workerName}`);
       setTimeout(() => setBottomToast(null), 3000);
       setRepayAmounts(p => {
         const n = { ...p };
@@ -3030,7 +3030,7 @@ export function OwnerApp() {
         setPayrollData(updated);
       } catch {}
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРіР°СЃРёС‚СЊ РґРѕР»Рі');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось погасить долг');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -3039,7 +3039,7 @@ export function OwnerApp() {
     if (!editingEntryId || !selectedSalaryWorkerId) return;
     const amount = Number(editAmount);
     if (!Number.isFinite(amount) || amount < 0) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ РєРѕСЂСЂРµРєС‚РЅСѓСЋ СЃСѓРјРјСѓ');
+      setBottomToast('Укажите корректную сумму');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
@@ -3051,29 +3051,29 @@ export function OwnerApp() {
       setEditingEntryId(null);
       setEditAmount('');
       setEditNote('');
-      setBottomToast('РћРїРµСЂР°С†РёСЏ РѕР±РЅРѕРІР»РµРЅР°');
+      setBottomToast('Операция обновлена');
       setTimeout(() => setBottomToast(null), 3000);
       refreshSalaryDetail();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ');
+      setBottomToast(error instanceof Error ? error.message : 'Ошибка обновления');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
 
   const handleDeleteEntry = async () => {
     if (!editingEntryId || !selectedSalaryWorkerId) return;
-    const confirmed = window.confirm('РЈРґР°Р»РёС‚СЊ РѕРїРµСЂР°С†РёСЋ? РЎРІСЏР·Р°РЅРЅР°СЏ Р·Р°РїРёСЃСЊ Р±СЋРґР¶РµС‚Р° Р±СѓРґРµС‚ СѓРґР°Р»РµРЅР° С‚РѕР¶Рµ.');
+    const confirmed = window.confirm('Удалить операцию? Связанная запись бюджета будет удалена тоже.');
     if (!confirmed) return;
     try {
       await apiRequest(`/api/payroll/entries/${editingEntryId}`, { method: 'DELETE' });
       setEditingEntryId(null);
       setEditAmount('');
       setEditNote('');
-      setBottomToast('РћРїРµСЂР°С†РёСЏ СѓРґР°Р»РµРЅР°');
+      setBottomToast('Операция удалена');
       setTimeout(() => setBottomToast(null), 3000);
       refreshSalaryDetail();
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РћС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ');
+      setBottomToast(error instanceof Error ? error.message : 'Ошибка удаления');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -3083,11 +3083,11 @@ export function OwnerApp() {
       setSendingReminders(true);
       const response = await dispatchOwnerReminders({ targetDate: tomorrowLabel, force: true });
       setBottomToast(
-        `${response.message} РљР»РёРµРЅС‚Р°Рј: ${response.clientReminders}, РјР°СЃС‚РµСЂР°Рј: ${response.workerReminders}, Telegram: ${response.telegramDelivered}.`,
+        `${response.message} Клиентам: ${response.clientReminders}, мастерам: ${response.workerReminders}, Telegram: ${response.telegramDelivered}.`,
       );
       setTimeout(() => setBottomToast(null), 5000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РЅР°РїРѕРјРёРЅР°РЅРёСЏ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось отправить напоминания');
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
       setSendingReminders(false);
@@ -3101,7 +3101,7 @@ export function OwnerApp() {
       setBottomToast(message);
       setTimeout(() => setBottomToast(null), 5000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ Р·Р°РґР°С‡Сѓ Р°РґРјРёРЅСѓ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось отправить задачу админу');
       setTimeout(() => setBottomToast(null), 5000);
     } finally {
       setSendingInactiveReminder(false);
@@ -3115,29 +3115,29 @@ export function OwnerApp() {
       title: penaltyForm.title,
       reason: penaltyForm.reason,
     });
-    const workerName = workers.find((worker) => worker.id === penaltyForm.workerId)?.name || 'РјР°СЃС‚РµСЂ';
+    const workerName = workers.find((worker) => worker.id === penaltyForm.workerId)?.name || 'мастер';
     setPenaltyForm({ workerId: penaltyForm.workerId, title: '', reason: '' });
-    setBottomToast(`Р–Р°Р»РѕР±Р° СЃРѕС…СЂР°РЅРµРЅР° РґР»СЏ ${workerName}`);
+    setBottomToast(`Жалоба сохранена для ${workerName}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
   const handleRevokePenalty = async (penaltyId: string, workerName: string) => {
     await revokePenalty(penaltyId);
-    setBottomToast(`Р–Р°Р»РѕР±Р° СЃРЅСЏС‚Р° РґРѕСЃСЂРѕС‡РЅРѕ РґР»СЏ ${workerName}`);
+    setBottomToast(`Жалоба снята досрочно для ${workerName}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
   const handleRevokeAllPenalties = async (workerId: string, workerName: string) => {
-    const confirmed = window.confirm(`РЎРЅСЏС‚СЊ РІСЃРµ Р°РєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹ Сѓ РјР°СЃС‚РµСЂР° "${workerName}"?`);
+    const confirmed = window.confirm(`Снять все активные жалобы у мастера "${workerName}"?`);
     if (!confirmed) return;
     await revokeAllPenalties(workerId);
-    setBottomToast(`Р’СЃРµ Р°РєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹ СЃРЅСЏС‚С‹ РґР»СЏ ${workerName}`);
+    setBottomToast(`Все активные жалобы сняты для ${workerName}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
   const handleFireWorker = async (workerId: string, workerName: string) => {
     const employee = employeeSettings.find((item) => item.id === workerId);
-    const employeeTitle = employee ? employeeRoleLabel(employee.role) : 'РЎРѕС‚СЂСѓРґРЅРёРє';
+    const employeeTitle = employee ? employeeRoleLabel(employee.role) : 'Сотрудник';
     const confirmed = window.confirm(`\u0423\u0432\u043e\u043b\u0438\u0442\u044c \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430 "${workerName}"? \u0414\u043e\u0441\u0442\u0443\u043f \u0431\u0443\u0434\u0435\u0442 \u043e\u0442\u043a\u043b\u044e\u0447\u0451\u043d, \u0430 \u0431\u0443\u0434\u0443\u0449\u0438\u0435 \u0437\u0430\u043f\u0438\u0441\u0438 \u0441\u043d\u0438\u043c\u0443\u0442\u0441\u044f \u0441 \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0430.`);
     if (!confirmed) return;
 
@@ -3157,11 +3157,11 @@ export function OwnerApp() {
   const handleResetPassword = async () => {
     if (!resetPasswordTarget) return;
     if (resetPasswordValue.length < 8) {
-      setResetPasswordError('РџР°СЂРѕР»СЊ РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РјРёРЅРёРјСѓРј 8 СЃРёРјРІРѕР»РѕРІ');
+      setResetPasswordError('Пароль должен содержать минимум 8 символов');
       return;
     }
     if (resetPasswordValue !== resetPasswordConfirm) {
-      setResetPasswordError('РџР°СЂРѕР»Рё РЅРµ СЃРѕРІРїР°РґР°СЋС‚');
+      setResetPasswordError('Пароли не совпадают');
       return;
     }
     try {
@@ -3171,10 +3171,10 @@ export function OwnerApp() {
       setResetPasswordValue('');
       setResetPasswordConfirm('');
       setResetPasswordError('');
-      setBottomToast(`РџР°СЂРѕР»СЊ СЃР±СЂРѕС€РµРЅ РґР»СЏ ${resetPasswordTarget.name}`);
+      setBottomToast(`Пароль сброшен для ${resetPasswordTarget.name}`);
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setResetPasswordError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃР±СЂРѕСЃРёС‚СЊ РїР°СЂРѕР»СЊ');
+      setResetPasswordError(error instanceof Error ? error.message : 'Не удалось сбросить пароль');
     } finally {
       setEmployeeActionLoading(null);
     }
@@ -3252,7 +3252,7 @@ export function OwnerApp() {
     const nextErrors: { name?: string; phone?: string; car?: string; plate?: string; general?: string } = {};
     const nameError = validatePersonName(createClientForm.name);
     if (nameError) nextErrors.name = nameError;
-    // РўРµР»РµС„РѕРЅ РЅРµРѕР±СЏР·Р°С‚РµР»РµРЅ вЂ” РІР°Р»РёРґРёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё РІРІРµРґС‘РЅ
+    // Телефон необязателен — валидируем только если введён
     if (createClientForm.phone.trim()) {
       const phoneError = validatePhoneValue(createClientForm.phone);
       if (phoneError) nextErrors.phone = phoneError;
@@ -3282,12 +3282,12 @@ export function OwnerApp() {
       setCreateClientForm({ name: '', phone: '', car: '', plate: '', plateType: 'russian', notes: '', referralSource: '' });
       setCreateClientErrors({});
       setShowCreateClient(false);
-      setBottomToast('РљР»РёРµРЅС‚ СЃРѕР·РґР°РЅ. РњРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РїСЂРѕС€Р»СѓСЋ Р·Р°РїРёСЃСЊ РІ РµРіРѕ РёСЃС‚РѕСЂРёСЋ.');
+      setBottomToast('Клиент создан. Можно добавить прошлую запись в его историю.');
       setTimeout(() => setBottomToast(null), 3500);
       openBookingForClient(created);
     } catch (error) {
       setCreateClientErrors({
-        general: error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РєР»РёРµРЅС‚Р°',
+        general: error instanceof Error ? error.message : 'Не удалось создать клиента',
       });
     } finally {
       setCreateClientSaving(false);
@@ -3301,23 +3301,23 @@ export function OwnerApp() {
     const normalizedCar = normalizeVehicleInput(bookingForm.car);
     const normalizedPlate = normalizePlateInput(bookingForm.plate, bookingForm.plateType);
     if (!clientName) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ РёРјСЏ РєР»РёРµРЅС‚Р°');
+      setBottomToast('Укажите имя клиента');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
     const requiresScheduledSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(bookingForm.status);
     if (requiresScheduledSlot && !bookingForm.box.trim()) {
-      setBottomToast('Р”Р»СЏ Р·Р°РїРёСЃРё РЅР° СЌС‚Рѕ РІСЂРµРјСЏ СѓРєР°Р¶РёС‚Рµ РїРѕРјРµС‰РµРЅРёРµ');
+      setBottomToast('Для записи на это время укажите помещение');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
     if (requiresScheduledSlot && !bookingForm.date.trim()) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ РґР°С‚Сѓ Р·Р°РїРёСЃРё');
+      setBottomToast('Укажите дату записи');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
     if (requiresScheduledSlot && !bookingForm.time.trim()) {
-      setBottomToast('РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ Р·Р°РїРёСЃРё');
+      setBottomToast('Укажите время записи');
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
@@ -3354,15 +3354,15 @@ export function OwnerApp() {
         notifyWorkers: !bookingForm.isOutsource && notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
-        await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `РЎРѕР·РґР°РЅР° Р·Р°РїРёСЃСЊ РЅР° ${svc?.name || bookingForm.service} вЂ” ${bookingForm.date} РІ ${bookingForm.time}`, read: false });
-        await addNotification({ recipientRole: 'admin', message: `РќРѕРІР°СЏ Р·Р°РїРёСЃСЊ: ${clientName} вЂ” ${bookingForm.date} РІ ${bookingForm.time}`, read: false });
+        await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc?.name || bookingForm.service} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
+        await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientName} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
       }
       setShowCreateBooking(false);
       resetBookingForm();
-      setBottomToast(bookingForm.status === 'completed' ? 'РџСЂРѕС€Р»Р°СЏ Р·Р°РїРёСЃСЊ РґРѕР±Р°РІР»РµРЅР° РІ РёСЃС‚РѕСЂРёСЋ РєР»РёРµРЅС‚Р°' : 'Р—Р°РїРёСЃСЊ СЃРѕР·РґР°РЅР° Рё РєР»РёРµРЅС‚ СѓРІРµРґРѕРјР»С‘РЅ');
+      setBottomToast(bookingForm.status === 'completed' ? 'Прошлая запись добавлена в историю клиента' : 'Запись создана и клиент уведомлён');
       setTimeout(() => setBottomToast(null), 3000);
     } catch (error) {
-      setBottomToast(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ');
+      setBottomToast(error instanceof Error ? error.message : 'Не удалось создать запись');
       setTimeout(() => setBottomToast(null), 4000);
     }
   };
@@ -3437,13 +3437,13 @@ paymentSettled: false,
     const hasTime = Boolean(ownerNewBookingForm.time.trim());
     const requiresScheduledSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerNewBookingForm.status);
     if (requiresScheduledSlot) {
-      if (!hasDate) nextErrors.date = 'РЈРєР°Р¶РёС‚Рµ РґР°С‚Сѓ Р·Р°РїРёСЃРё';
-      if (!hasTime) nextErrors.time = 'РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ Р·Р°РїРёСЃРё';
+      if (!hasDate) nextErrors.date = 'Укажите дату записи';
+      if (!hasTime) nextErrors.time = 'Укажите время записи';
     } else if (ownerNewBookingForm.status !== 'completed' && (hasDate || hasTime)) {
-      if (!hasDate) nextErrors.date = 'РЈРєР°Р¶РёС‚Рµ РґР°С‚Сѓ РёР»Рё РѕС‡РёСЃС‚РёС‚Рµ РґР°С‚Сѓ Рё РІСЂРµРјСЏ';
-      else if (!hasTime) nextErrors.time = 'РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РёР»Рё РѕС‡РёСЃС‚РёС‚Рµ РґР°С‚Сѓ Рё РІСЂРµРјСЏ';
+      if (!hasDate) nextErrors.date = 'Укажите дату или очистите дату и время';
+      else if (!hasTime) nextErrors.time = 'Укажите время или очистите дату и время';
     }
-    if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'РЈРєР°Р¶РёС‚Рµ РїРѕРјРµС‰РµРЅРёРµ РґР»СЏ Р·Р°РїРёСЃРё';
+    if (requiresScheduledSlot && !ownerNewBookingForm.box.trim()) nextErrors.general = 'Укажите помещение для записи';
     setOwnerNewBookingErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -3459,11 +3459,11 @@ paymentSettled: false,
     const hasDateTime = Boolean(ownerNewBookingForm.date.trim() && ownerNewBookingForm.time.trim());
     const parsedDate = hasDateTime ? parseFlexibleDate(ownerNewBookingForm.date.trim()) : null;
     if (hasDateTime && !parsedDate) {
-      setOwnerNewBookingErrors({ date: 'РЈРєР°Р¶РёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“' });
+      setOwnerNewBookingErrors({ date: 'Укажите дату в формате ДД.ММ.ГГГГ' });
       return;
     }
-    const clientLabel = normalizedClientName || 'РљР»РёРµРЅС‚ Р±РµР· РёРјРµРЅРё';
-    const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'РђРІС‚Рѕ РЅРµ СѓРєР°Р·Р°РЅРѕ';
+    const clientLabel = normalizedClientName || 'Клиент без имени';
+    const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
     const createdWorkers = ownerNewBookingWorkers.map((item) => {
       const worker = ownerNewBookingMasterWorkers.find((candidate) => candidate.id === item.id);
       return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount };
@@ -3483,7 +3483,7 @@ paymentSettled: false,
         price: ownerNewBookingForm.price,
         status: ownerNewBookingForm.status,
         workers: createdWorkers,
-        box: ownerNewBookingForm.box.trim() || 'РџРѕ СЃРѕРіР»Р°СЃРѕРІР°РЅРёСЋ',
+        box: ownerNewBookingForm.box.trim() || 'По согласованию',
         paymentType: ownerNewBookingForm.paymentType,
         paymentSettled: ownerNewBookingForm.paymentSettled,
         isOutsource: ownerNewBookingForm.isOutsource,
@@ -3503,16 +3503,16 @@ paymentSettled: false,
       });
       const requestScheduleLabel = hasDateTime
         ? `${normalizedDate} ${ownerNewBookingForm.time.trim()}`
-        : 'Р±РµР· РґР°С‚С‹ Рё РІСЂРµРјРµРЅРё';
+        : 'без даты и времени';
       await addNotification({ recipientRole: 'owner', message: `${clientLabel} вЂў ${carLabel} вЂў ${requestScheduleLabel}`, read: false });
-      await addNotification({ recipientRole: 'admin', message: `РќРѕРІР°СЏ Р·Р°РїРёСЃСЊ: ${clientLabel} вЂў ${requestScheduleLabel}`, read: false });
+      await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientLabel} • ${requestScheduleLabel}`, read: false });
       setOwnerNewBookingSaveSuccess(notify ? 'notify' : 'silent');
       setTimeout(() => {
         closeOwnerNewBookingModal();
       }, 1800);
     } catch (error) {
       setOwnerNewBookingErrors({
-        general: error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ Р·Р°РїРёСЃСЊ',
+        general: error instanceof Error ? error.message : 'Не удалось сохранить запись',
       });
     } finally {
       setOwnerNewBookingSaving(false);
@@ -3527,16 +3527,16 @@ paymentSettled: false,
     const nextErrors: { date?: string; time?: string } = {};
     const parsedDate = parseFlexibleDate(dateValue.trim());
     if (!parsedDate) {
-      nextErrors.date = 'РЈРєР°Р¶РёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“';
+      nextErrors.date = 'Укажите дату в формате ДД.ММ.ГГГГ';
       return nextErrors;
     }
     const scheduleDay = schedule.find((entry) => entry.dayIndex === getScheduleDayIndex(parsedDate));
     if (!scheduleDay || !scheduleDay.active) {
-      nextErrors.date = 'РќР° РІС‹Р±СЂР°РЅРЅСѓСЋ РґР°С‚Сѓ Р·Р°РїРёСЃСЊ РЅРµРґРѕСЃС‚СѓРїРЅР°';
+      nextErrors.date = 'На выбранную дату запись недоступна';
     }
     const slotStart = parseOwnerBookingMinutes(timeValue.trim());
     if (slotStart === null) {
-      nextErrors.time = 'РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РІ С„РѕСЂРјР°С‚Рµ Р§Р§:РњРњ';
+      nextErrors.time = 'Укажите время в формате ЧЧ:ММ';
       return nextErrors;
     }
     if (!nextErrors.date && scheduleDay) {
@@ -3544,9 +3544,9 @@ paymentSettled: false,
       const closeMinutes = parseOwnerBookingMinutes(scheduleDay.close);
       const slotEnd = slotStart + Math.max(1, durationMinutes);
       if (openMinutes === null || closeMinutes === null) {
-        nextErrors.time = 'Р”Р»СЏ СЌС‚РѕРіРѕ РґРЅСЏ РЅРµ РЅР°СЃС‚СЂРѕРµРЅС‹ С‡Р°СЃС‹ СЂР°Р±РѕС‚С‹';
+        nextErrors.time = 'Для этого дня не настроены часы работы';
       } else if (slotStart < openMinutes || slotEnd > closeMinutes) {
-        nextErrors.time = `Р Р°Р±РѕС‡РµРµ РІСЂРµРјСЏ: ${scheduleDay.open}-${scheduleDay.close}`;
+        nextErrors.time = `Рабочее время: ${scheduleDay.open}-${scheduleDay.close}`;
       }
     }
     return nextErrors;
@@ -3560,7 +3560,7 @@ paymentSettled: false,
       status: initialStatus || selectedBooking.status,
       date: selectedBooking.date || todayLabel,
       time: selectedBooking.time || '10:00',
-      box: selectedBooking.box || boxes[0]?.name || 'Р‘РѕРєСЃ 1',
+      box: selectedBooking.box || boxes[0]?.name || 'Бокс 1',
       notes: selectedBooking.notes || '',
       car: selectedBooking.car || '',
       plate: selectedBooking.plate || '',
@@ -3585,7 +3585,7 @@ paymentSettled: false,
       if (ownerBookingEditMode === 'full') {
         const editServiceId = ownerBookingEditFull.serviceId || selectedBooking.serviceId;
         const svc = services.find(s => s.id === editServiceId);
-        const isDetailing = svc?.category === 'Р”РµС‚РµР№Р»РёРЅРі';
+        const isDetailing = svc?.category === 'Детейлинг';
         const requiresScheduledSlot = !isDetailing || ownerBookingEditFull.status !== 'admin_review';
         const slotChanged = ownerBookingEditFull.date !== selectedBooking.date
           || ownerBookingEditFull.time !== selectedBooking.time
@@ -3594,19 +3594,19 @@ paymentSettled: false,
         if (slotChanged || statusNeedsSlot) {
           const slotErrors = validateOwnerEditSlot(ownerBookingEditFull.date, ownerBookingEditFull.time, ownerBookingEditFull.duration);
           if (slotErrors.date || slotErrors.time) {
-            setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'РџСЂРѕРІРµСЂСЊС‚Рµ РґР°С‚Сѓ Рё РІСЂРµРјСЏ');
+            setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'Проверьте дату и время');
             return;
           }
         }
         if (requiresScheduledSlot && !ownerBookingEditFull.box.trim()) {
-          setOwnerBookingEditError('РЈРєР°Р¶РёС‚Рµ Р±РѕРєСЃ РґР»СЏ Р·Р°РїРёСЃРё');
+          setOwnerBookingEditError('Укажите бокс для записи');
           return;
         }
         patch = {
           status: ownerBookingEditFull.status,
           date: requiresScheduledSlot ? ownerBookingEditFull.date.trim() : (ownerBookingEditFull.date.trim() || selectedBooking.date),
           time: requiresScheduledSlot ? ownerBookingEditFull.time.trim() : (ownerBookingEditFull.time.trim() || selectedBooking.time || '00:00'),
-          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : (ownerBookingEditFull.box.trim() || 'РџРѕ СЃРѕРіР»Р°СЃРѕРІР°РЅРёСЋ'),
+          box: requiresScheduledSlot ? ownerBookingEditFull.box.trim() : (ownerBookingEditFull.box.trim() || 'По согласованию'),
           notes: ownerBookingEditFull.notes.trim() || undefined,
           car: ownerBookingEditFull.car.trim() || undefined,
           plate: normalizePlateInput(ownerBookingEditFull.plate, ownerBookingEditFull.plateType) || undefined,
@@ -3622,7 +3622,7 @@ paymentSettled: false,
       } else if (ownerBookingEditMode === 'status') {
         const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerBookingEditStatus);
         if (statusNeedsSlot && (!selectedBooking.date || !selectedBooking.time)) {
-          setOwnerBookingEditError('Р”Р»СЏ СЌС‚РѕРіРѕ СЃС‚Р°С‚СѓСЃР° РЅСѓР¶РЅС‹ РґР°С‚Р° Рё РІСЂРµРјСЏ вЂ” СѓРєР°Р¶РёС‚Рµ РёС… РІ СЂРµР¶РёРјРµ В«РџРѕР»РЅРѕРµВ»');
+          setOwnerBookingEditError('Для этого статуса нужны дата и время — укажите их в режиме «Полное»');
           openOwnerFullEditMode(ownerBookingEditStatus);
           return;
         }
@@ -3630,7 +3630,7 @@ paymentSettled: false,
       } else if (ownerBookingEditMode === 'price') {
         const price = Number(ownerBookingEditPrice);
         if (isNaN(price) || price < 0) {
-          setOwnerBookingEditError('Р’РІРµРґРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅСѓСЋ С†РµРЅСѓ');
+          setOwnerBookingEditError('Введите корректную цену');
           return;
         }
         patch = { price };
@@ -3643,7 +3643,7 @@ paymentSettled: false,
         };
       } else if (ownerBookingEditMode === 'datetime') {
         if (!ownerBookingEditDate || !parseFlexibleDate(ownerBookingEditDate)) {
-          setOwnerBookingEditError('Р’РІРµРґРёС‚Рµ РєРѕСЂСЂРµРєС‚РЅСѓСЋ РґР°С‚Сѓ');
+          setOwnerBookingEditError('Введите корректную дату');
           return;
         }
         const slotChanged = ownerBookingEditDate !== selectedBooking.date || ownerBookingEditTime !== selectedBooking.time;
@@ -3651,7 +3651,7 @@ paymentSettled: false,
         if (slotChanged || statusNeedsSlot) {
           const slotErrors = validateOwnerEditSlot(ownerBookingEditDate, ownerBookingEditTime, selectedBooking.duration);
           if (slotErrors.date || slotErrors.time) {
-            setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'РџСЂРѕРІРµСЂСЊС‚Рµ РґР°С‚Сѓ Рё РІСЂРµРјСЏ');
+            setOwnerBookingEditError(slotErrors.date || slotErrors.time || 'Проверьте дату и время');
             return;
           }
         }
@@ -3679,7 +3679,7 @@ paymentSettled: false,
       } as typeof prev : null);
       setOwnerBookingEditMode(null);
     } catch (error) {
-      setOwnerBookingEditError(error instanceof Error ? error.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ');
+      setOwnerBookingEditError(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
     } finally {
       setOwnerBookingEditSaving(false);
     }
@@ -3687,8 +3687,8 @@ paymentSettled: false,
 
   const handleDeleteOwnerBooking = () => {
     if (!selectedBooking) return;
-    const name = selectedBooking.clientName || `Р·Р°РїРёСЃСЊ #${selectedBooking.id.slice(0, 6)}`;
-    if (!window.confirm(`РЈРґР°Р»РёС‚СЊ Р·Р°РїРёСЃСЊ РєР»РёРµРЅС‚Р° "${name}"? Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ РЅРµР»СЊР·СЏ РѕС‚РјРµРЅРёС‚СЊ.`)) return;
+    const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
+    if (!window.confirm(`Удалить запись клиента "${name}"? Это действие нельзя отменить.`)) return;
     deleteBooking(selectedBooking.id);
     setShowBookingDetail(false);
     setSelectedBooking(null);
@@ -3714,7 +3714,7 @@ paymentSettled: false,
       });
       const updatedBooking = await addBookingAdditionalService(selectedBooking.id, {
         serviceId: ownerAddServiceDraft.serviceId,
-        name: svc?.name || 'Р”РѕРї. СѓСЃР»СѓРіР°',
+        name: svc?.name || 'Доп. услуга',
         price: ownerAddServiceDraft.price,
         duration: ownerAddServiceDraft.duration,
         priceMode: ownerAddServiceDraft.priceMode,
@@ -3725,7 +3725,7 @@ paymentSettled: false,
       setSelectedBooking(updatedBooking);
       setShowOwnerAddService(false);
     } catch (err: any) {
-      setOwnerAddServiceError(err?.detail || err?.message || 'РћС€РёР±РєР° РїСЂРё РґРѕР±Р°РІР»РµРЅРёРё СѓСЃР»СѓРіРё');
+      setOwnerAddServiceError(err?.detail || err?.message || 'Ошибка при добавлении услуги');
     } finally {
       setOwnerAddServiceSaving(false);
     }
@@ -3759,7 +3759,7 @@ paymentSettled: false,
       setSelectedBooking(updatedBooking);
       setOwnerEditAsvcId(null);
     } catch (err: any) {
-      setOwnerEditAsvcError(err?.detail || err?.message || 'РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё СѓСЃР»СѓРіРё');
+      setOwnerEditAsvcError(err?.detail || err?.message || 'Ошибка при сохранении услуги');
     } finally {
       setOwnerEditAsvcSaving(false);
     }
@@ -3767,40 +3767,40 @@ paymentSettled: false,
 
   const kpiCards = [
     {
-      label: 'Р’С‹СЂСѓС‡РєР° СЃРµРіРѕРґРЅСЏ',
-      value: `${todayRevenue.toLocaleString('ru')} в‚Ѕ`,
+      label: 'Выручка сегодня',
+      value: `${todayRevenue.toLocaleString('ru')} ₽`,
       icon: TrendingUp,
       color: primary,
       action: () => setKpiModal({
         kind: 'bookings',
-        title: 'Р’С‹СЂСѓС‡РєР° СЃРµРіРѕРґРЅСЏ',
+        title: 'Выручка сегодня',
         color: primary,
-        totalLabel: 'РІС‹СЂСѓС‡РєР° Р·Р° СЃРµРіРѕРґРЅСЏ',
+        totalLabel: 'выручка за сегодня',
         total: todayRevenue,
         bookings: todayBookings.filter(b => b.status === 'completed'),
       }),
     },
     {
-      label: 'Р Р°СЃС…РѕРґС‹ Р·Р° РЅРµРґРµР»СЋ',
-      value: `${totalExpenses.toLocaleString('ru')} в‚Ѕ`,
+      label: 'Расходы за неделю',
+      value: `${totalExpenses.toLocaleString('ru')} ₽`,
       icon: DollarSign,
       color: '#FF6B6B',
       action: () => setKpiModal({
         kind: 'expenses',
-        title: 'Р Р°СЃС…РѕРґС‹ Р·Р° РЅРµРґРµР»СЋ',
+        title: 'Расходы за неделю',
         color: '#FF6B6B',
         total: totalExpenses,
         expenses: [...weeklyExpenses].sort((a, b) => b.date.localeCompare(a.date)),
       }),
     },
     {
-      label: 'РџСЂРёР±С‹Р»СЊ Р·Р° РЅРµРґРµР»СЋ',
-      value: `${Math.abs(profit).toLocaleString('ru')} в‚Ѕ${profit < 0 ? ' (СѓР±С‹С‚РѕРє)' : ''}`,
+      label: 'Прибыль за неделю',
+      value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`,
       icon: BarChart3,
       color: profit >= 0 ? accent : '#FF6B6B',
       action: () => setKpiModal({
         kind: 'finance',
-        title: 'РџСЂРёР±С‹Р»СЊ Р·Р° РЅРµРґРµР»СЋ',
+        title: 'Прибыль за неделю',
         color: profit >= 0 ? accent : '#FF6B6B',
         revenue: totalRevenue,
         incomes: totalIncomes,
@@ -3809,7 +3809,7 @@ paymentSettled: false,
       }),
     },
     {
-      label: 'РќР° СѓС‚РѕС‡РЅРµРЅРёРё',
+      label: 'На уточнении',
       value: pipelineCounts.adminReview,
       icon: Users,
       color: '#F59E0B',
@@ -3834,14 +3834,14 @@ paymentSettled: false,
   });
 
   const statusData = [
-    { name: 'РќРѕРІС‹Рµ', status: 'new' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'new').length, color: '#6366F1' },
-    { name: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅС‹', status: 'confirmed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
-    { name: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅРѕ', status: 'scheduled' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
-    { name: 'Р’ СЂР°Р±РѕС‚Рµ', status: 'in_progress' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
-    { name: 'Р—Р°РІРµСЂС€РµРЅРѕ', status: 'completed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
-    { name: 'РќРµ РїСЂРёРµС…Р°Р»', status: 'no_show' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Новые', status: 'new' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', status: 'confirmed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Запланировано', status: 'scheduled' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
+    { name: 'В работе', status: 'in_progress' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
+    { name: 'Завершено', status: 'completed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'Не приехал', status: 'no_show' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
-  const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'РќРµС‚ РґР°РЅРЅС‹С…';
+  const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
   const ownerCalendarRelevantBookings = bookings.filter((booking) => booking.status !== 'cancelled');
   const ownerCalendarUndatedBookings = ownerCalendarRelevantBookings.filter((b) => !b.date?.trim());
   const ownerCalendarDatedBookings = ownerCalendarRelevantBookings.filter((b) => Boolean(b.date?.trim()));
@@ -3913,8 +3913,8 @@ paymentSettled: false,
       visits: clientCompleted.length,
       totalSpent: clientCompleted.reduce((sum, booking) => sum + booking.price, 0),
       activeCount: clientBookings.filter((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status)).length,
-      favoriteService: favoriteServiceEntry?.[0] || 'РќРµС‚ РґР°РЅРЅС‹С…',
-      lastVisit: clientCompleted[0]?.date || clientBookings[0]?.date || 'РџРѕРєР° РЅРµС‚',
+      favoriteService: favoriteServiceEntry?.[0] || 'Нет данных',
+      lastVisit: clientCompleted[0]?.date || clientBookings[0]?.date || 'Пока нет',
     };
   }).sort((left, right) => right.totalSpent - left.totalSpent);
   const filteredClientInsights = clientInsights.filter((client) => {
@@ -3976,14 +3976,14 @@ paymentSettled: false,
   const selectedSettingsClientLastVisit = selectedSettingsClientBookings.find((booking) => booking.status === 'completed');
 
   const ownerStatusLabel = (status: string) => ({
-    new: 'РќРѕРІР°СЏ',
-    confirmed: 'РџРѕРґС‚РІ.',
-    scheduled: 'Р—Р°РїР».',
-    in_progress: 'Р’ СЂР°Р±РѕС‚Рµ',
-    completed: 'Р—Р°РІРµСЂС€РµРЅРѕ',
-    no_show: 'РќРµ РїСЂРёРµС…Р°Р»',
-    admin_review: 'РЈС‚РѕС‡РЅРµРЅРёРµ',
-    cancelled: 'РћС‚РјРµРЅРµРЅР°',
+    new: 'Новая',
+    confirmed: 'Подтв.',
+    scheduled: 'Запл.',
+    in_progress: 'В работе',
+    completed: 'Завершено',
+    no_show: 'Не приехал',
+    admin_review: 'Уточнение',
+    cancelled: 'Отменена',
   }[status] || status);
 
   const ownerStatusBadge = (status: string) => ({
@@ -4009,11 +4009,11 @@ paymentSettled: false,
   }[status] || 'bg-slate-500');
 
   const piggyBankLabel = (key: string) => ({
-    wash: 'РєРѕРїРёР»РєР° РјРѕР№РєРё',
-    detailing: 'РєРѕРїРёР»РєР° РґРµС‚РµР№Р»РёРЅРіР°',
-    self_service: 'РєРѕРїРёР»РєР° СЃР°РјРѕРѕР±СЃР»СѓР¶РёРІР°РЅРёСЏ',
-    general: 'РѕР±С‰Р°СЏ РєРѕРїРёР»РєР°',
-  }[key] || (key ? `РєРѕРїРёР»РєР° В«${key}В»` : 'РєРѕРїРёР»РєР°'));
+    wash: 'копилка мойки',
+    detailing: 'копилка детейлинга',
+    self_service: 'копилка самообслуживания',
+    general: 'общая копилка',
+  }[key] || (key ? `копилка «${key}»` : 'копилка'));
 
   const SwitchToggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-all shrink-0"
@@ -4022,7 +4022,7 @@ paymentSettled: false,
     </button>
   );
 
-  // РџРѕРґРїРёСЃСЊ РёСЃС‚РѕС‡РЅРёРєР° Р·Р°РїРёСЃРё: В«Р‘РѕС‚В» / В«GoogleВ» / В«Р’СЂСѓС‡РЅСѓСЋВ» (РѕР±С‰РёР№ РєРѕРјРїРѕРЅРµРЅС‚ SourceBadge).
+  // Подпись источника записи: «Бот» / «Google» / «Вручную» (общий компонент SourceBadge).
 
   const SettingRow = ({ label, desc, value, onChange }: { label: string; desc?: string; value: boolean; onChange: () => void }) => (
     <div className={`${glass} rounded-xl p-4 mb-2 flex items-center justify-between`}>
@@ -4051,7 +4051,7 @@ paymentSettled: false,
                   void switchRole(nextRole as Role);
                 }
               }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
-                {session?.role === 'owner' ? 'Р’Р»Р°РґРµР»РµС† в†’ РђРґРјРёРЅ' : session?.role === 'admin' ? 'РђРґРјРёРЅ в†’ Р’Р»Р°РґРµР»РµС†' : 'РЎРјРµРЅРёС‚СЊ СЂРѕР»СЊ'}
+                {session?.role === 'owner' ? 'Владелец → Админ' : session?.role === 'admin' ? 'Админ → Владелец' : 'Сменить роль'}
               </button>
             </div>
           )}
@@ -4079,19 +4079,19 @@ paymentSettled: false,
                         type="button"
                         onClick={() => setOwnerCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
                         className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
-                        aria-label="РџСЂРµРґС‹РґСѓС‰РёР№ РјРµСЃСЏС†"
+                        aria-label="Предыдущий месяц"
                       >
                         <ChevronLeft size={18} strokeWidth={1.75} />
                       </button>
                       <div className="text-center min-w-0">
                         <div className="font-semibold">{ownerCalendarMonthLabel}</div>
-                        <div className={`text-xs ${sub} mt-0.5`}>РќР°Р¶РјРёС‚Рµ РЅР° РґРµРЅСЊ, С‡С‚РѕР±С‹ РѕС‚РєСЂС‹С‚СЊ СЂР°СЃРїРёСЃР°РЅРёРµ РїРѕ С‡Р°СЃР°Рј</div>
+                        <div className={`text-xs ${sub} mt-0.5`}>Нажмите на день, чтобы открыть расписание по часам</div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setOwnerCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
                         className={`p-2 rounded-xl ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
-                        aria-label="РЎР»РµРґСѓСЋС‰РёР№ РјРµСЃСЏС†"
+                        aria-label="Следующий месяц"
                       >
                         <ChevronRight size={18} strokeWidth={1.75} />
                       </button>
@@ -4107,7 +4107,7 @@ paymentSettled: false,
                       className="w-full mb-4 py-2.5 rounded-xl text-sm font-medium"
                       style={{ background: `${primary}18`, color: primary }}
                     >
-                      РЎРµРіРѕРґРЅСЏ В· {todayLabel}
+                      Сегодня · {todayLabel}
                     </button>
                     <div className="grid grid-cols-7 gap-1 mb-1">
                       {OWNER_CALENDAR_WEEKDAYS.map((weekday) => (
@@ -4169,12 +4169,12 @@ paymentSettled: false,
                     </div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Р—Р°РіСЂСѓР¶РµРЅРЅРѕСЃС‚СЊ</div>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Загруженность</div>
                     <div className="flex flex-wrap gap-3 text-xs">
                       {[
-                        { tone: 'empty' as const, label: 'РќРµС‚ РЅР°РіСЂСѓР·РєРё' },
-                        { tone: 'medium' as const, label: 'РЎСЂРµРґРЅСЏСЏ' },
-                        { tone: 'heavy' as const, label: 'Р’С‹СЃРѕРєР°СЏ' },
+                        { tone: 'empty' as const, label: 'Нет нагрузки' },
+                        { tone: 'medium' as const, label: 'Средняя' },
+                        { tone: 'heavy' as const, label: 'Высокая' },
                       ].map((item) => (
                         <div key={item.tone} className="flex items-center gap-2">
                           <span className="w-8 h-2 rounded-full" style={{ background: ownerCalendarLoadColors[item.tone] }} />
@@ -4185,7 +4185,7 @@ paymentSettled: false,
                   </div>
                   {ownerCalendarUndatedBookings.length > 0 && (
                     <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Р‘РµР· РґР°С‚С‹ вЂ” С‚СЂРµР±СѓРµС‚ СѓС‚РѕС‡РЅРµРЅРёСЏ</div>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без даты — требует уточнения</div>
                       <div className="space-y-2">
                         {ownerCalendarUndatedBookings.map((booking) => (
                           <button
@@ -4196,7 +4196,7 @@ paymentSettled: false,
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="font-medium text-sm truncate">{booking.clientName || 'Р‘РµР· РёРјРµРЅРё'}</div>
+                                <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
                                 <SourceBadge source={booking.source} />
                               </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
@@ -4209,7 +4209,7 @@ paymentSettled: false,
                                 {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
                               </div>
                             )}
-                            <div className={`text-xs ${sub} mt-1`}>{booking.price.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-xs ${sub} mt-1`}>{booking.price.toLocaleString('ru')} ₽</div>
                           </button>
                         ))}
                       </div>
@@ -4225,7 +4225,7 @@ paymentSettled: false,
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${isDark ? 'bg-white/6' : 'bg-black/5'}`}
                     >
                       <ArrowLeft size={16} strokeWidth={1.75} />
-                      РњРµСЃСЏС†
+                      Месяц
                     </button>
                     <button
                       type="button"
@@ -4237,7 +4237,7 @@ paymentSettled: false,
                       className="px-3 py-2 rounded-xl text-sm"
                       style={{ background: `${primary}18`, color: primary }}
                     >
-                      РЎРµРіРѕРґРЅСЏ
+                      Сегодня
                     </button>
                   </div>
                   <div className={`${glass} rounded-2xl p-4 mb-4`}>
@@ -4245,7 +4245,7 @@ paymentSettled: false,
                       <div>
                         <h2 className="font-semibold capitalize">{ownerCalendarSelectedDayTitle}</h2>
                         <div className={`text-sm ${sub} mt-1`}>
-                          {calendarBookings.length} {calendarBookings.length === 1 ? 'Р·Р°РїРёСЃСЊ' : calendarBookings.length < 5 ? 'Р·Р°РїРёСЃРё' : 'Р·Р°РїРёСЃРµР№'}
+                          {calendarBookings.length} {calendarBookings.length === 1 ? 'запись' : calendarBookings.length < 5 ? 'записи' : 'записей'}
                           {` В· ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00вЂ“${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
                         </div>
                       </div>
@@ -4255,7 +4255,7 @@ paymentSettled: false,
                   {calendarBookings.length === 0 ? (
                     <div className={`${glass} rounded-2xl p-8 text-center`}>
                       <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                      <p className={sub}>РќР° СЌС‚РѕС‚ РґРµРЅСЊ Р·Р°РїРёСЃРµР№ РЅРµС‚</p>
+                      <p className={sub}>На этот день записей нет</p>
                     </div>
                   ) : (
                     <div className={`${glass} rounded-2xl p-3`}>
@@ -4282,9 +4282,9 @@ paymentSettled: false,
                                       {' '}
                                       <SourceBadge source={booking.source} className="mr-1" />
                                       {booking.isRepeatVisit && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">РџРѕРІС‚РѕСЂРЅС‹Р№</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                                       )}
-                                      {booking.clientName || 'Р‘РµР· РёРјРµРЅРё'}
+                                      {booking.clientName || 'Без имени'}
                                     </div>
                                     <div className={`text-[11px] truncate ${sub}`}>
                                       {booking.service}
@@ -4306,7 +4306,7 @@ paymentSettled: false,
                   )}
                   {ownerCalendarUntimedBookings.length > 0 && (
                     <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Р‘РµР· С‚РѕС‡РЅРѕРіРѕ РІСЂРµРјРµРЅРё</div>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без точного времени</div>
                       <div className="space-y-2">
                         {ownerCalendarUntimedBookings.map((booking) => (
                           <button
@@ -4317,10 +4317,10 @@ paymentSettled: false,
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="font-medium text-sm truncate">{booking.clientName || 'Р‘РµР· РёРјРµРЅРё'}</div>
+                                <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
                                 <SourceBadge source={booking.source} />
                                 {booking.isRepeatVisit && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">РџРѕРІС‚РѕСЂРЅС‹Р№</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                                 )}
                               </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
@@ -4358,7 +4358,7 @@ paymentSettled: false,
                       <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
                     </div>
                     <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
-                    <div className={`text-[10px] ${sub} mt-1`}>РџРѕРґСЂРѕР±РЅРµРµ</div>
+                    <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
                   </motion.button>
                 ))}
               </div>
@@ -4371,7 +4371,7 @@ paymentSettled: false,
                 >
                   <span className="flex items-center gap-2.5">
                     <Clock size={18} strokeWidth={1.75} />
-                    РћС‚РєСЂС‹С‚РёРµ СЃРјРµРЅС‹
+                    Открытие смены
                   </span>
                   <ChevronRight size={18} strokeWidth={1.75} />
                 </button>
@@ -4379,14 +4379,14 @@ paymentSettled: false,
               {/* Today bookings */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">РЎРµРіРѕРґРЅСЏ вЂ” {todayLabel}</h3>
-                  <span className={`text-sm ${sub}`}>{todayBookings.length} Р·Р°РїРёСЃРµР№</span>
+                  <h3 className="font-semibold text-sm">Сегодня — {todayLabel}</h3>
+                  <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
                 </div>
                 <div className="space-y-3">
                   {todayBookings.length === 0 ? (
                     <div className={`${glass} rounded-2xl p-8 text-center`}>
                       <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                      <p className={sub}>Р—Р°РїРёСЃРµР№ РЅР° СЃРµРіРѕРґРЅСЏ РЅРµС‚</p>
+                      <p className={sub}>Записей на сегодня нет</p>
                     </div>
                   ) : todayBookings.map(booking => (
                     <motion.button key={booking.id} whileTap={{ scale: 0.98 }}
@@ -4400,7 +4400,7 @@ paymentSettled: false,
                               <span className="truncate">{booking.time} В· {booking.clientName}</span>
                               <SourceBadge source={booking.source} />
                               {booking.isRepeatVisit && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">РџРѕРІС‚РѕСЂРЅС‹Р№</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                               )}
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
@@ -4412,13 +4412,13 @@ paymentSettled: false,
                             </div>
                           )}
                           <div className="flex justify-between mt-2">
-                            <span className={`text-xs ${sub}`}>{booking.box} В· {booking.duration} РјРёРЅ</span>
-                            <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                            <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {booking.workers.length > 0 && (
-                            <div className={`text-xs ${sub} mt-1`}>РњР°СЃС‚РµСЂР°: {booking.workers.map(w => {
+                            <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
                               const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
-                              return `${w.workerName}${_fixed ? ` В· С„РёРєСЃ ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` В· ${(w.fixedAmount || 0).toLocaleString('ru')} в‚Ѕ` : ` ${w.percent}%`}`;
+                              return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
                             }).join(', ')}</div>
                           )}
                         </div>
@@ -4429,48 +4429,48 @@ paymentSettled: false,
               </div>
               {/* Revenue chart */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} mb-3`}>Р’Р«Р РЈР§РљРђ VS Р РђРЎРҐРћР”Р« (РќР•Р”Р•Р›РЇ)</div>
+                <div className={`text-xs font-medium ${sub} mb-3`}>ВЫРУЧКА VS РАСХОДЫ (НЕДЕЛЯ)</div>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                     <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Р’С‹СЂСѓС‡РєР°" />
-                    <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Р Р°СЃС…РѕРґС‹" />
+                    <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Выручка" />
+                    <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Расходы" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
                   {
-                    label: 'РЎСЂРµРґРЅРёР№ С‡РµРє',
-                    value: `${averageCheck.toLocaleString('ru')} в‚Ѕ`,
+                    label: 'Средний чек',
+                    value: `${averageCheck.toLocaleString('ru')} ₽`,
                     color: primary,
-                    action: () => setKpiModal({ kind: 'services', title: 'РЈСЃР»СѓРіРё Р·Р° РЅРµРґРµР»СЋ', color: primary, services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
+                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: primary, services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
                   },
                   {
-                    label: 'РђРєС‚РёРІРЅС‹С… Р·Р°РїРёСЃРµР№',
+                    label: 'Активных записей',
                     value: activeBookings.length,
                     color: accent,
                     action: () => setKpiModal({
                       kind: 'bookings',
-                      title: 'РђРєС‚РёРІРЅС‹Рµ Р·Р°РїРёСЃРё',
+                      title: 'Активные записи',
                       color: accent,
-                      totalLabel: 'Р°РєС‚РёРІРЅС‹С… Р·Р°РїРёСЃРµР№',
+                      totalLabel: 'активных записей',
                       total: activeBookings.length,
                       isMoney: false,
                       bookings: activeBookings,
                     }),
                   },
                   {
-                    label: 'РўРѕРї-СѓСЃР»СѓРіР°',
+                    label: 'Топ-услуга',
                     value: topServiceName,
                     color: '#312E81',
-                    action: () => setKpiModal({ kind: 'services', title: 'РЈСЃР»СѓРіРё Р·Р° РЅРµРґРµР»СЋ', color: '#312E81', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
+                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: '#312E81', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
                   },
                   {
-                    label: 'РќРµ РїСЂРёРµС…Р°Р»Рё',
+                    label: 'Не приехали',
                     value: pipelineCounts.noShow,
                     color: '#F97316',
                     action: () => setShowStatusList('no_show'),
@@ -4483,23 +4483,23 @@ paymentSettled: false,
                       <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
                     </div>
                     <div className="font-bold mt-2" style={{ color: card.color }}>{card.value}</div>
-                    <div className={`text-[10px] ${sub} mt-1`}>РџРѕРґСЂРѕР±РЅРµРµ</div>
+                    <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
                   </motion.button>
                 ))}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className={`text-xs font-medium ${sub}`}>Р’РћР РћРќРљРђ Р—РђРџРРЎР•Р™</div>
-                    <div className={`text-xs ${sub} mt-1`}>РћС‚ РЅРѕРІС‹С… Р·Р°СЏРІРѕРє РґРѕ РІС‹РїРѕР»РЅРµРЅРЅС‹С… РІРёР·РёС‚РѕРІ</div>
+                    <div className={`text-xs font-medium ${sub}`}>ВОРОНКА ЗАПИСЕЙ</div>
+                    <div className={`text-xs ${sub} mt-1`}>От новых заявок до выполненных визитов</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { status: 'confirmed' as BookingStatus, label: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅС‹', value: pipelineCounts.confirmed, color: '#06B6D4' },
-                    { status: 'admin_review' as BookingStatus, label: 'РќР° СѓС‚РѕС‡РЅРµРЅРёРё', value: pipelineCounts.adminReview, color: '#F59E0B' },
-                    { status: 'scheduled' as BookingStatus, label: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅС‹', value: pipelineCounts.scheduled, color: '#3B82F6' },
-                    { status: 'in_progress' as BookingStatus, label: 'Р’ СЂР°Р±РѕС‚Рµ', value: pipelineCounts.inProgress, color: '#EAB308' },
+                    { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
+                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
+                    { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
+                    { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
                     <motion.button key={item.status} whileTap={{ scale: 0.96 }} onClick={() => setShowStatusList(item.status)}
                       className={`${glass} rounded-xl px-3 py-3 text-left active:opacity-80`}>
@@ -4510,21 +4510,21 @@ paymentSettled: false,
                 </div>
               </div>
               {/* Quick actions */}
-              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Р‘С‹СЃС‚СЂС‹Рµ РґРµР№СЃС‚РІРёСЏ</h3>
+              <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Быстрые действия</h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
                   {(isAccountant
                     ? [
-                        { label: 'Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
-                        { label: exportingKind === 'report' ? 'Р’С‹РіСЂСѓР·РєР°...' : 'Р­РєСЃРїРѕСЂС‚ Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
+                        { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
                       ]
                     : [
-                        { label: 'РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ', icon: Plus, color: primary, action: () => { resetBookingForm(); setShowCreateBooking(true); }, disabled: false },
-                        { label: 'РќРѕРІС‹Р№ РєР»РёРµРЅС‚', icon: Users, color: '#06B6D4', action: () => setShowCreateClient(true), disabled: false },
-                        { label: 'Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
-                        { label: exportingKind === 'report' ? 'Р’С‹РіСЂСѓР·РєР°...' : 'Р­РєСЃРїРѕСЂС‚ Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
-                        { label: sendingReminders ? 'РћС‚РїСЂР°РІРєР°...' : 'РќР°РїРѕРјРЅРёС‚СЊ Рѕ Р·Р°РїРёСЃСЏС…', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
-                        { label: sendingInactiveReminder ? 'РћС‚РїСЂР°РІРєР°...' : 'РћР±Р·РІРѕРЅ 2+ РЅРµРґРµР»СЊ', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
-                        { label: 'РќР°СЃС‚СЂРѕР№РєРё', icon: Settings, color: '#312E81', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
+                        { label: 'Создать запись', icon: Plus, color: primary, action: () => { resetBookingForm(); setShowCreateBooking(true); }, disabled: false },
+                        { label: 'Новый клиент', icon: Users, color: '#06B6D4', action: () => setShowCreateClient(true), disabled: false },
+                        { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
+                        { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
+                        { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
+                        { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
+                        { label: 'Настройки', icon: Settings, color: '#312E81', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
                       ]).map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} strokeWidth={1.75} style={{ color: a.color }} /></div>
@@ -4535,7 +4535,7 @@ paymentSettled: false,
               {/* Status pie + recent */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className={`${glass} rounded-2xl p-3`}>
-                  <div className={`text-xs ${sub} mb-2`}>РЎС‚Р°С‚СѓСЃС‹</div>
+                  <div className={`text-xs ${sub} mb-2`}>Статусы</div>
                   <PieChart width={80} height={80}>
                     <Pie data={statusData} cx={35} cy={35} innerRadius={22} outerRadius={36} dataKey="value" strokeWidth={0}>
                       {statusData.map((e, i) => <Cell key={i} fill={e.color} />)}
@@ -4554,15 +4554,15 @@ paymentSettled: false,
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => setPage('stock')} className={`${glass} rounded-2xl p-3 text-left active:opacity-80`}>
                   <div className={`text-xs ${sub} mb-2 flex items-center gap-1`}>
-                    РЎРєР»Р°Рґ
+                    Склад
                     <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
                   </div>
-                  <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} в‚Ѕ</div>
-                  <div className={`text-xs ${sub} mb-2`}>{stockItems.length} РїРѕР·РёС†РёР№</div>
+                  <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} ₽</div>
+                  <div className={`text-xs ${sub} mb-2`}>{stockItems.length} позиций</div>
                   {stockItems.filter(s => s.qty <= 5).length > 0 && (
                     <div className="flex items-center gap-1 text-red-500 text-xs">
                       <AlertCircle size={11} strokeWidth={1.75} />
-                      {stockItems.filter(s => s.qty <= 5).length} РЅР° РёСЃС…РѕРґРµ
+                      {stockItems.filter(s => s.qty <= 5).length} на исходе
                     </div>
                   )}
                 </motion.button>
@@ -4570,12 +4570,12 @@ paymentSettled: false,
 
               {stockItems.filter(s => s.qty <= 5).length > 0 && (
                 <div className="mt-3">
-                  <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>РџСЂРµРґСѓРїСЂРµР¶РґРµРЅРёСЏ СЃРєР»Р°РґР°</h3>
+                  <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Предупреждения склада</h3>
                   {stockItems.filter(s => s.qty <= 5).map(s => (
                     <motion.button key={s.id} whileTap={{ scale: 0.98 }} onClick={() => setPage('stock')}
                       className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-2 flex items-center gap-2 w-full text-left active:opacity-80">
                       <AlertCircle size={15} strokeWidth={1.75} className="text-red-500 shrink-0" />
-                      <span className="text-sm">РќРёР·РєРёР№ РѕСЃС‚Р°С‚РѕРє: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
+                      <span className="text-sm">Низкий остаток: <span className="font-medium">{s.name}</span> ({s.qty} {s.unit})</span>
                       <ChevronRight size={14} strokeWidth={1.75} className="ml-auto shrink-0 text-red-500/70" />
                     </motion.button>
                   ))}
@@ -4589,12 +4589,12 @@ paymentSettled: false,
           {/* в”Ђв”Ђ PAYROLL в”Ђв”Ђ */}
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-1">Р—Р°СЂРїР»Р°С‚С‹ РјР°СЃС‚РµСЂРѕРІ</h2>
-              <div className={`text-xs ${sub} mb-3`}>РњР°СЃС‚РµСЂР° (Р±РµР· РІР»Р°РґРµР»СЊС†РµРІ вЂ” РІР»Р°РґРµР»СЊС†С‹ РЅРёР¶Рµ РІ РµРґРёРЅРѕРј РѕРєРЅРµ)</div>
+              <h2 className="font-semibold mb-1">Зарплаты мастеров</h2>
+              <div className={`text-xs ${sub} mb-3`}>Мастера (без владельцев — владельцы ниже в едином окне)</div>
 
               {/* Search */}
               <div className="mb-3">
-                <input type="text" placeholder="РџРѕРёСЃРє РјР°СЃС‚РµСЂР° РїРѕ РёРјРµРЅРё..." value={salaryWorkerSearch}
+                <input type="text" placeholder="Поиск мастера по имени..." value={salaryWorkerSearch}
                   onChange={e => setSalaryWorkerSearch(e.target.value)}
                   className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
               </div>
@@ -4605,47 +4605,47 @@ paymentSettled: false,
                   <button key={p} onClick={() => setPayrollPeriod(p)}
                     className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                     style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
-                    {p === 'day' ? 'Р”РµРЅСЊ' : p === 'week' ? 'РќРµРґРµР»СЏ' : p === 'month' ? 'РњРµСЃСЏС†' : p === 'all' ? 'Р’СЃС‘' : 'РЎРІРѕС‘'}
+                    {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                   </button>
                 ))}
               </div>
               {payrollPeriod === 'custom' && (
                 <div className="flex gap-2 mb-3">
                   <div className="flex-1">
-                    <label className={`text-[11px] ${sub} block mb-1`}>РћС‚</label>
+                    <label className={`text-[11px] ${sub} block mb-1`}>От</label>
                     <input type="date" value={payrollDateFrom} onChange={(e) => setPayrollDateFrom(e.target.value)}
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
                   <div className="flex-1">
-                    <label className={`text-[11px] ${sub} block mb-1`}>Р”Рѕ</label>
+                    <label className={`text-[11px] ${sub} block mb-1`}>До</label>
                     <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)}
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
                 </div>
               )}
-              <div className={`text-[11px] ${sub} mb-3 px-1`}>Р­С‚РѕС‚ РїРµСЂРёРѕРґ С‚Р°РєР¶Рµ РїСЂРёРјРµРЅСЏРµС‚СЃСЏ Рє Р±Р»РѕРєСѓ В«Р Р°Р±РѕС‚Р° РєР°Рє РјР°СЃС‚РµСЂВ» РІ РєР°СЂС‚РѕС‡РєР°С… РІР»Р°РґРµР»СЊС†РµРІ РЅРёР¶Рµ</div>
+              <div className={`text-[11px] ${sub} mb-3 px-1`}>Этот период также применяется к блоку «Работа как мастер» в карточках владельцев ниже</div>
 
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-1`}>РћР±С‰РёР№ С„РѕРЅРґ РІС‹РїР»Р°С‚</div>
-                <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} в‚Ѕ</div>
+                <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
+                <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
               </div>}
               <button onClick={() => { void handleSavePayrollSettings(); }} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-4" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />РЎРѕС…СЂР°РЅРёС‚СЊ РЅР°СЃС‚СЂРѕР№РєРё Р·Р°СЂРїР»Р°С‚
+                <Save size={16} strokeWidth={1.75} />Сохранить настройки зарплат
               </button>
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-2`}>Р–Р°Р»РѕР±С‹ РјР°СЃС‚РµСЂР°Рј</div>
+                <div className={`text-xs ${sub} mb-2`}>Жалобы мастерам</div>
                 <div className={`text-xs ${sub} mb-3`}>
-                  3 Р°РєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹ СЃРЅРёР¶Р°СЋС‚ РїСЂРѕС†РµРЅС‚ РјР°СЃС‚РµСЂР° РЅР° 10 Рї.Рї. РЅР° РЅРµРґРµР»СЋ.
+                  3 активные жалобы снижают процент мастера на 10 п.п. на неделю.
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <select className={selectCls} value={penaltyForm.workerId} onChange={e => setPenaltyForm(p => ({ ...p, workerId: e.target.value }))}>
                     {workers.map(worker => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
                   </select>
-                  <input className={inputCls} placeholder="РќР°Р·РІР°РЅРёРµ Р¶Р°Р»РѕР±С‹" value={penaltyForm.title} onChange={e => setPenaltyForm(p => ({ ...p, title: e.target.value }))} />
+                  <input className={inputCls} placeholder="Название жалобы" value={penaltyForm.title} onChange={e => setPenaltyForm(p => ({ ...p, title: e.target.value }))} />
                 </div>
-                <textarea className={`${inputCls} h-20 resize-none mb-3`} placeholder="РџСЂРёС‡РёРЅР° РёР»Рё РєРѕРјРјРµРЅС‚Р°СЂРёР№" value={penaltyForm.reason} onChange={e => setPenaltyForm(p => ({ ...p, reason: e.target.value }))} />
+                <textarea className={`${inputCls} h-20 resize-none mb-3`} placeholder="Причина или комментарий" value={penaltyForm.reason} onChange={e => setPenaltyForm(p => ({ ...p, reason: e.target.value }))} />
                 <button onClick={handleAddPenalty} className="w-full py-3 rounded-2xl text-white font-semibold" style={{ background: '#EF4444' }}>
-                  Р’С‹РґР°С‚СЊ Р¶Р°Р»РѕР±Сѓ
+                  Выдать жалобу
                 </button>
               </div>}
               {payrollRows.filter(row => row.worker.role !== 'owner').filter(row => row.worker.name.toLowerCase().includes(salaryWorkerSearch.toLowerCase())).map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
@@ -4654,11 +4654,11 @@ paymentSettled: false,
                     <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
                     <div className="flex-1">
                       <div className="font-semibold">{worker.name}</div>
-                      <div className={`text-xs ${sub}`}>{employeeRoleLabel(worker.role === 'owner' ? 'admin' : worker.role)} В· Р±Р°Р·Р° {worker.defaultPercent}%{worker.salaryPerShift > 0 ? ` В· Р·Р° РІС‹С…РѕРґ: ${worker.salaryPerShift.toLocaleString('ru')} в‚Ѕ` : ''}</div>
+                      <div className={`text-xs ${sub}`}>{employeeRoleLabel(worker.role === 'owner' ? 'admin' : worker.role)} · база {worker.defaultPercent}%{worker.salaryPerShift > 0 ? ` · за выход: ${worker.salaryPerShift.toLocaleString('ru')} ₽` : ''}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} Р·Р°РєР°Р·РѕРІ В· {complaintState.activeCount} Р°РєС‚РёРІРЅС‹С… Р¶Р°Р»РѕР±</div>
+                      <div className="font-bold" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} заказов · {complaintState.activeCount} активных жалоб</div>
                     </div>
                   </div>
                     <button
@@ -4677,42 +4677,42 @@ paymentSettled: false,
                     className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
                     style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}
                   >
-                    РћС‚РєСЂС‹С‚СЊ Р·Р°СЂРїР»Р°С‚Сѓ РјР°СЃС‚РµСЂР°
+                    Открыть зарплату мастера
                   </button>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[11px] ${sub}`}>Р—Р°СЂР°Р±РѕС‚Р°РЅРѕ СЃ Р·Р°РєР°Р·РѕРІ</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Заработано с заказов</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
                       <div className="text-sm font-semibold text-red-500">{complaintState.effectivePercent}%</div>
-                      <div className={`text-[11px] ${sub}`}>РўРµРєСѓС‰РёР№ %</div>
+                      <div className={`text-[11px] ${sub}`}>Текущий %</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{(payrollSummary?.baseSalary || worker.salaryBase).toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[11px] ${sub}`}>РћРєР»Р°Рґ</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.baseSalary || worker.salaryBase).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Оклад</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{(payrollSummary?.completedRevenue || 0).toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[11px] ${sub}`}>Р’С‹СЂСѓС‡РєР° РїРѕ Р·Р°РєР°Р·Р°Рј</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.completedRevenue || 0).toLocaleString('ru')} ₽</div>
+                      <div className={`text-[11px] ${sub}`}>Выручка по заказам</div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className={`${glass} rounded-xl p-3`}>
-                      <div className={`text-[11px] ${sub} mb-1`}>РќР°С‡РёСЃР»РµРЅРѕ</div>
-                      <div className="text-sm font-semibold">{(payrollSummary?.totalAccrued || 0).toLocaleString('ru')} в‚Ѕ</div>
+                      <div className={`text-[11px] ${sub} mb-1`}>Начислено</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub} mt-1`}>
                         {(payrollSummary && payrollSummary.shiftPayTotal > 0) && (
-                          <span>Р—Р° СЃРјРµРЅС‹: +{payrollSummary.shiftPayTotal.toLocaleString('ru')} в‚Ѕ ({payrollSummary.shiftCount} РІС‹С….) В· </span>
+                          <span>За смены: +{payrollSummary.shiftPayTotal.toLocaleString('ru')} ₽ ({payrollSummary.shiftCount} вых.) · </span>
                         )}
-                        РџСЂРµРјРёРё: {(payrollSummary?.bonusTotal || 0).toLocaleString('ru')} в‚Ѕ В· РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё: {(payrollSummary?.adjustmentTotal || 0).toLocaleString('ru')} в‚Ѕ
+                        Премии: {(payrollSummary?.bonusTotal || 0).toLocaleString('ru')} ₽ · Корректировки: {(payrollSummary?.adjustmentTotal || 0).toLocaleString('ru')} ₽
                       </div>
                     </div>
                     <div className={`${glass} rounded-xl p-3`}>
-                      <div className={`text-[11px] ${sub} mb-1`}>РЈРґРµСЂР¶Р°РЅРѕ / РІС‹РґР°РЅРѕ</div>
-                      <div className="text-sm font-semibold">{(payrollSummary?.totalDeducted || 0).toLocaleString('ru')} в‚Ѕ</div>
+                      <div className={`text-[11px] ${sub} mb-1`}>Удержано / выдано</div>
+                      <div className="text-sm font-semibold">{(payrollSummary?.totalDeducted || 0).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub} mt-1`}>
-                        РђРІР°РЅСЃС‹: {(payrollSummary?.advanceTotal || 0).toLocaleString('ru')} в‚Ѕ В· Р’С‹РїР»Р°С‚С‹: {(payrollSummary?.payoutTotal || 0).toLocaleString('ru')} в‚Ѕ
+                        Авансы: {(payrollSummary?.advanceTotal || 0).toLocaleString('ru')} ₽ · Выплаты: {(payrollSummary?.payoutTotal || 0).toLocaleString('ru')} ₽
                       </div>
                     </div>
                   </div>
@@ -4726,16 +4726,16 @@ paymentSettled: false,
                       <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
                         <div className="flex items-center justify-between mb-2">
                           <div>
-                            <div className={`text-xs ${sub}`}>Р”РѕР»Рі РїРѕ РєРѕРїРёР»РєРµ</div>
-                            <div className={`text-[11px] ${sub}`}>{debt.count} СЃРїРёСЃР°РЅРёР№ В· РґРѕР»Рі {debt.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
-                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
+                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
                         <div className="flex gap-2">
                           <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayAmounts(p => ({ ...p, [worker.id]: e.target.value }))} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
-                          <button onClick={() => handleRepayPiggyDebt(worker.id, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>РџРѕРіР°СЃРёС‚СЊ</button>
+                          <button onClick={() => handleRepayPiggyDebt(worker.id, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
                         </div>
-                        {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Р’РІРµРґРёС‚Рµ СЃСѓРјРјСѓ РѕС‚ 1 РґРѕ {Math.round(debt.totalSpent).toLocaleString('ru')} в‚Ѕ</div>}
+                        {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                       </div>
                     );
                   })()}
@@ -4746,18 +4746,18 @@ paymentSettled: false,
                       <>
                         <div className="grid grid-cols-2 gap-2 mb-3">
                           <div>
-                            <label className={`text-[11px] ${sub} block mb-1`}>РџСЂРѕС†РµРЅС‚</label>
+                            <label className={`text-[11px] ${sub} block mb-1`}>Процент</label>
                             <input className={inputCls} type="number" step="0.00001" min={0} max={100} value={payrollDraft.percent === '' ? '' : payrollDraft.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: '' } : item)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: Math.min(100, Math.max(0, n)) } : item)); } }} onBlur={() => setEmployeeSettings(current => current.map(item => item.id === worker.id ? { ...item, percent: item.percent === '' ? 0 : item.percent } : item))} />
                           </div>
                           <div>
-                            <label className={`text-[11px] ${sub} block mb-1`}>РћРєР»Р°Рґ</label>
+                            <label className={`text-[11px] ${sub} block mb-1`}>Оклад</label>
                             <input className={inputCls} type="number" min={0} value={payrollDraft.salaryBase} onChange={e => setEmployeeSettings((current) => current.map((item) => item.id === worker.id ? { ...item, salaryBase: Math.max(0, Number(e.target.value) || 0) } : item))} />
                           </div>
                         </div>
                         {!isAccountant && <div className="flex items-center justify-between rounded-xl px-3 py-3 mb-3 border border-white/10">
                           <div>
-                            <div className="text-sm font-medium">РђРєС‚РёРІРЅРѕСЃС‚СЊ РјР°СЃС‚РµСЂР°</div>
-                            <div className={`text-[11px] ${sub}`}>РњРѕР¶РЅРѕ РІСЂРµРјРµРЅРЅРѕ СЃРЅСЏС‚СЊ РјР°СЃС‚РµСЂР° СЃ РЅРѕРІС‹С… Р·Р°РїРёСЃРµР№</div>
+                            <div className="text-sm font-medium">Активность мастера</div>
+                            <div className={`text-[11px] ${sub}`}>Можно временно снять мастера с новых записей</div>
                           </div>
                           <button
                             onClick={() => setEmployeeSettings((current) => current.map((item) => item.id === worker.id ? { ...item, active: !item.active } : item))}
@@ -4773,13 +4773,13 @@ paymentSettled: false,
 
                   {!isAccountant && (complaintState.reductionActive ? (
                     <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
-                      РЎРЅРёР¶РµРЅРёРµ Р°РєС‚РёРІРЅРѕ: в€’10 Рї.Рї. РґРѕ {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'РєРѕРЅС†Р° РЅРµРґРµР»Рё'}.
+                      Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
                     </div>
                   ) : (
                     <div className={`text-xs ${sub} mb-3`}>
                       {complaintState.activeCount === 0
-                        ? 'РђРєС‚РёРІРЅС‹С… Р¶Р°Р»РѕР± РЅРµС‚.'
-                        : `Р”Рѕ СЃРЅРёР¶РµРЅРёСЏ РїСЂРѕС†РµРЅС‚Р° РѕСЃС‚Р°Р»РѕСЃСЊ ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} Р¶Р°Р»РѕР±С‹.`}
+                        ? 'Активных жалоб нет.'
+                        : `До снижения процента осталось ${Math.max(0, COMPLAINT_THRESHOLD - complaintState.activeCount)} жалобы.`}
                     </div>
                   ))}
                   {!isAccountant && complaintState.activeCount > 0 && (
@@ -4787,7 +4787,7 @@ paymentSettled: false,
                       onClick={() => { void handleRevokeAllPenalties(worker.id, worker.name); }}
                       className="mb-3 w-full py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-500/20 bg-red-500/10"
                     >
-                      РЎРЅСЏС‚СЊ РІСЃРµ Р¶Р°Р»РѕР±С‹
+                      Снять все жалобы
                     </button>
                   )}
                   {!isAccountant && recentPenalties.length > 0 && (
@@ -4799,18 +4799,18 @@ paymentSettled: false,
                             <div className={`text-xs ${sub}`}>{item.reason}</div>
                             <div className={`text-[11px] ${sub} mt-1`}>
                               {isComplaintActive(item)
-                                ? `РђРєС‚РёРІРЅР° РґРѕ ${formatComplaintDate(item.activeUntil)}`
+                                ? `Активна до ${formatComplaintDate(item.activeUntil)}`
                                 : item.revokedAt
-                                  ? `РЎРЅСЏС‚Р° ${formatComplaintDate(item.revokedAt)}`
-                                  : `РСЃС‚РµРєР»Р° ${formatComplaintDate(item.activeUntil)}`}
+                                  ? `Снята ${formatComplaintDate(item.revokedAt)}`
+                                  : `Истекла ${formatComplaintDate(item.activeUntil)}`}
                             </div>
                           </div>
                           {isComplaintActive(item) ? (
                             <button onClick={() => { void handleRevokePenalty(item.id, worker.name); }} className="text-xs text-red-500 shrink-0">
-                              РЎРЅСЏС‚СЊ
+                              Снять
                             </button>
                           ) : (
-                            <span className={`text-xs ${sub} shrink-0`}>{item.revokedAt ? 'РЎРЅСЏС‚Р°' : 'РСЃС‚РµРєР»Р°'}</span>
+                            <span className={`text-xs ${sub} shrink-0`}>{item.revokedAt ? 'Снята' : 'Истекла'}</span>
                           )}
                         </div>
                       ))}
@@ -4822,23 +4822,23 @@ paymentSettled: false,
                       className="mb-3 w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
                       style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}
                     >
-                      Р’СЃРµ Р¶Р°Р»РѕР±С‹ ({complaintState.activeCount})
+                      Все жалобы ({complaintState.activeCount})
                     </button>
                   )}
                 </div>
               ))}
 
-              {/* в”Ђв”Ђ Р’Р›РђР”Р•Р›Р¬Р¦Р« вЂ” Р•Р”РРќРћР• РћРљРќРћ Р—Рџ (СЂР°Р±РѕС‚Р° + РїР°СЃСЃРёРІ) в”Ђв”Ђ */}
+              {/* ── ВЛАДЕЛЬЦЫ — ЕДИНОЕ ОКНО ЗП (работа + пассив) ── */}
               {!isAccountant && (
                 <div className="mt-6">
-                  <h2 className="font-semibold mb-1">Р’Р»Р°РґРµР»СЊС†С‹ вЂ” РµРґРёРЅРѕРµ РѕРєРЅРѕ Р—Рџ</h2>
-                  <div className={`text-xs ${sub} mb-3`}>Р”Р»СЏ РєР°Р¶РґРѕРіРѕ РІР»Р°РґРµР»СЊС†Р°: Р—Рџ Р·Р° СЂР°Р±РѕС‚Сѓ РєР°Рє РјР°СЃС‚РµСЂР°/Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° + РїР°СЃСЃРёРІРЅС‹Р№ РґРѕС…РѕРґ СЃ Р·Р°РєР°Р·РѕРІ РґСЂСѓРіРёС… РјР°СЃС‚РµСЂРѕРІ</div>
+                  <h2 className="font-semibold mb-1">Владельцы — единое окно ЗП</h2>
+                  <div className={`text-xs ${sub} mb-3`}>Для каждого владельца: ЗП за работу как мастера/администратора + пассивный доход с заказов других мастеров</div>
                   <div className="flex gap-1 mb-3 flex-wrap">
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                       <button key={p} onClick={() => setOwnerSalaryPeriod(p)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                         style={{ background: ownerSalaryPeriod === p ? primary : 'transparent', color: ownerSalaryPeriod === p ? '#fff' : sub }}>
-                        {{ day: 'Р”РµРЅСЊ', week: 'РќРµРґРµР»СЏ', month: 'РњРµСЃСЏС†', all: 'Р’СЃС‘', custom: 'РЎРІРѕРё' }[p]}
+                        {{ day: 'День', week: 'Неделя', month: 'Месяц', all: 'Всё', custom: 'Свои' }[p]}
                       </button>
                     ))}
                   </div>
@@ -4852,10 +4852,10 @@ paymentSettled: false,
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                     </div>
                   )}
-                  {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Р—Р°РіСЂСѓР·РєР°...</div>}
+                  {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Загрузка...</div>}
                   {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => {
                     const rawId = owner.ownerId.replace('owner-tg-', '');
-                    const ownerDisplayName = rawId === '476719812' ? 'Р®СЂР°' : rawId === '1768985608' ? 'РњР°РєСЃРёРј' : owner.ownerName;
+                    const ownerDisplayName = rawId === '476719812' ? 'Юра' : rawId === '1768985608' ? 'Максим' : owner.ownerName;
                     return (
                     <div key={owner.ownerId}
                       id={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? archiveHighlightId(archiveHighlight) : undefined}
@@ -4867,49 +4867,49 @@ paymentSettled: false,
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold">{ownerDisplayName}</div>
-                          <div className={`text-xs ${sub}`}>Р’Р»Р°РґРµР»РµС† вЂ” РµРґРёРЅРѕРµ РѕРєРЅРѕ Р—Рџ</div>
+                          <div className={`text-xs ${sub}`}>Владелец — единое окно ЗП</div>
                         </div>
                       </div>
                       {(() => {
                         const linked = payrollRows.find(r => r.worker.id === owner.ownerId);
                         if (!linked) {
-                          return <div className={`text-xs ${sub} mb-3 px-1`}>РќРµ РІС‹РїРѕР»РЅСЏРµС‚ Р·Р°РєР°Р·С‹ РєР°Рє РјР°СЃС‚РµСЂ вЂ” С‚РѕР»СЊРєРѕ РїР°СЃСЃРёРІРЅС‹Р№ РґРѕС…РѕРґ РЅРёР¶Рµ</div>;
+                          return <div className={`text-xs ${sub} mb-3 px-1`}>Не выполняет заказы как мастер — только пассивный доход ниже</div>;
                         }
                         const ps = linked.payrollSummary;
                         return (
                           <div className="mb-3">
-                            <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>Р—Рџ Р·Р° СЂР°Р±РѕС‚Сѓ РєР°Рє РјР°СЃС‚РµСЂ / Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ</div>
+                            <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>ЗП за работу как мастер / администратор</div>
                             <div className="grid grid-cols-2 gap-2 mb-2">
                               <div className={`${glass} rounded-xl p-3 text-center`}>
-                                <div className="text-sm font-semibold">{(ps?.accruedFromBookings || 0).toLocaleString('ru')} в‚Ѕ</div>
-                                <div className={`text-[11px] ${sub}`}>Р—Р°СЂР°Р±РѕС‚Р°РЅРѕ СЃ Р·Р°РєР°Р·РѕРІ</div>
+                                <div className="text-sm font-semibold">{(ps?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub}`}>Заработано с заказов</div>
                               </div>
                               <div className={`${glass} rounded-xl p-3 text-center`}>
                                 <div className="text-sm font-semibold" style={{ color: linked.complaintState.effectivePercent !== linked.worker.defaultPercent ? '#ef4444' : accent }}>{linked.complaintState.effectivePercent}%</div>
-                                <div className={`text-[11px] ${sub}`}>РўРµРєСѓС‰РёР№ % В· Р±Р°Р·Р° {linked.worker.defaultPercent}%</div>
+                                <div className={`text-[11px] ${sub}`}>Текущий % · база {linked.worker.defaultPercent}%</div>
                               </div>
                               <div className={`${glass} rounded-xl p-3 text-center`}>
-                                <div className="text-sm font-semibold">{(ps?.baseSalary ?? linked.worker.salaryBase).toLocaleString('ru')} в‚Ѕ</div>
-                                <div className={`text-[11px] ${sub}`}>РћРєР»Р°Рґ</div>
+                                <div className="text-sm font-semibold">{(ps?.baseSalary ?? linked.worker.salaryBase).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub}`}>Оклад</div>
                               </div>
                               <div className={`${glass} rounded-xl p-3 text-center`}>
-                                <div className="text-sm font-semibold">{(ps?.completedRevenue || 0).toLocaleString('ru')} в‚Ѕ</div>
-                                <div className={`text-[11px] ${sub}`}>Р’С‹СЂСѓС‡РєР° РїРѕ Р·Р°РєР°Р·Р°Рј</div>
+                                <div className="text-sm font-semibold">{(ps?.completedRevenue || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub}`}>Выручка по заказам</div>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 mb-2">
                               <div className={`${glass} rounded-xl p-3`}>
-                                <div className={`text-[11px] ${sub} mb-1`}>РќР°С‡РёСЃР»РµРЅРѕ</div>
-                                <div className="text-sm font-semibold">{(ps?.totalAccrued || 0).toLocaleString('ru')} в‚Ѕ</div>
-                                <div className={`text-[11px] ${sub} mt-1`}>{ps?.shiftPayTotal ? `РЎРјРµРЅС‹: +${ps.shiftPayTotal.toLocaleString('ru')} в‚Ѕ (${ps.shiftCount}) В· ` : ''}РџСЂРµРјРёРё: {(ps?.bonusTotal || 0).toLocaleString('ru')} в‚Ѕ</div>
+                                <div className={`text-[11px] ${sub} mb-1`}>Начислено</div>
+                                <div className="text-sm font-semibold">{(ps?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub} mt-1`}>{ps?.shiftPayTotal ? `Смены: +${ps.shiftPayTotal.toLocaleString('ru')} ₽ (${ps.shiftCount}) · ` : ''}Премии: {(ps?.bonusTotal || 0).toLocaleString('ru')} ₽</div>
                               </div>
                               <div className={`${glass} rounded-xl p-3`}>
-                                <div className={`text-[11px] ${sub} mb-1`}>Рљ РІС‹РїР»Р°С‚Рµ Р·Р° СЂР°Р±РѕС‚Сѓ</div>
-                                <div className="text-sm font-semibold" style={{ color: (ps?.balance || 0) > 0 ? accent : sub }}>{(ps?.balance || 0).toLocaleString('ru')} в‚Ѕ</div>
-                                <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} Р·Р°РєР°Р·РѕРІ В· {linked.complaintState.activeCount} Р¶Р°Р»РѕР±</div>
+                                <div className={`text-[11px] ${sub} mb-1`}>К выплате за работу</div>
+                                <div className="text-sm font-semibold" style={{ color: (ps?.balance || 0) > 0 ? accent : sub }}>{(ps?.balance || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} заказов · {linked.complaintState.activeCount} жалоб</div>
                               </div>
                             </div>
-                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>РћС‚РєСЂС‹С‚СЊ Р·Р°СЂРїР»Р°С‚Сѓ РјР°СЃС‚РµСЂР° вЂ” РґРµС‚Р°Р»Рё, РїСЂРµРјРёРё, С€С‚СЂР°С„С‹</button>
+                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера — детали, премии, штрафы</button>
                           </div>
                         );
                       })()}
@@ -4924,32 +4924,32 @@ paymentSettled: false,
                           <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
                             <div className="flex items-center justify-between mb-2">
                               <div>
-                                <div className={`text-xs ${sub}`}>Р”РѕР»Рі РїРѕ РєРѕРїРёР»РєРµ</div>
-                                <div className={`text-[11px] ${sub}`}>{debt.count} СЃРїРёСЃР°РЅРёР№ В· РґРѕР»Рі {debt.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
+                                <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                                <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                               </div>
-                              <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
+                              <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                             </div>
                             <div className="flex gap-2">
                               <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayAmounts(p => ({ ...p, [repayId]: e.target.value }))} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
-                              <button onClick={() => handleRepayPiggyDebt(repayId, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>РџРѕРіР°СЃРёС‚СЊ</button>
+                              <button onClick={() => handleRepayPiggyDebt(repayId, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
                             </div>
-                            {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Р’РІРµРґРёС‚Рµ СЃСѓРјРјСѓ РѕС‚ 1 РґРѕ {Math.round(debt.totalSpent).toLocaleString('ru')} в‚Ѕ</div>}
+                            {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                           </div>
                         );
                       })()}
-                      <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>РџР°СЃСЃРёРІРЅС‹Р№ РґРѕС…РѕРґ вЂ” РґРѕР»СЏ СЃ Р·Р°РєР°Р·РѕРІ РґСЂСѓРіРёС… РјР°СЃС‚РµСЂРѕРІ</div>
+                      <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>Пассивный доход — доля с заказов других мастеров</div>
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         <div className={`${glass} rounded-xl p-3 text-center`}>
-                          <div className="text-sm font-semibold" style={{ color: accent }}>{owner.totalAccrued.toLocaleString('ru')} в‚Ѕ</div>
-                          <div className={`text-[11px] ${sub}`}>РќР°С‡РёСЃР»РµРЅРѕ</div>
+                          <div className="text-sm font-semibold" style={{ color: accent }}>{owner.totalAccrued.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>Начислено</div>
                         </div>
                         <div className={`${glass} rounded-xl p-3 text-center`}>
-                          <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{owner.totalPaid.toLocaleString('ru')} в‚Ѕ</div>
-                          <div className={`text-[11px] ${sub}`}>Р’С‹РїР»Р°С‡РµРЅРѕ</div>
+                          <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{owner.totalPaid.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>Выплачено</div>
                         </div>
                         <div className={`${glass} rounded-xl p-3 text-center`}>
-                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} в‚Ѕ</div>
-                          <div className={`text-[11px] ${sub}`}>РћСЃС‚Р°С‚РѕРє</div>
+                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
+                          <div className={`text-[11px] ${sub}`}>Остаток</div>
                         </div>
                       </div>
                       {owner.shares.length > 0 && (
@@ -4958,21 +4958,21 @@ paymentSettled: false,
                             onClick={() => setExpandedOwnerShares(prev => ({ ...prev, [owner.ownerId]: !prev[owner.ownerId] }))}
                             className="w-full flex items-center gap-1.5 text-left mb-2 active:opacity-70">
                             <ChevronRight size={14} strokeWidth={1.75} className={`${sub} transition-transform ${expandedOwnerShares[owner.ownerId] ? 'rotate-90' : ''}`} />
-                            <span className={`text-xs ${sub}`}>РќР°С‡РёСЃР»РµРЅРёСЏ РїРѕ Р·Р°РєР°Р·Р°Рј ({owner.shares.length})</span>
+                            <span className={`text-xs ${sub}`}>Начисления по заказам ({owner.shares.length})</span>
                           </button>
                           {expandedOwnerShares[owner.ownerId] && owner.shares.map(share => (
                             <div key={share.id} onClick={() => setSelectedShareDetail(share)} className="flex items-center justify-between py-1.5 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                               <div className="min-w-0 mr-2">
-                                <div className="text-xs font-medium truncate">{share.service || 'Р—Р°РєР°Р·'}</div>
+                                <div className="text-xs font-medium truncate">{share.service || 'Заказ'}</div>
                                 <div className={`text-[10px] ${sub}`}>
                                   {share.date}{share.time ? ` ${share.time}` : ''}
                                   {share.clientName ? ` В· ${share.clientName}` : ''}
                                 </div>
                                 {share.price > 0 && (
-                                  <div className={`text-[10px] ${sub}`}>РЎС‚РѕРёРјРѕСЃС‚СЊ Р·Р°РєР°Р·Р°: {share.price.toLocaleString('ru')} в‚Ѕ</div>
+                                  <div className={`text-[10px] ${sub}`}>Стоимость заказа: {share.price.toLocaleString('ru')} ₽</div>
                                 )}
                               </div>
-                              <div className="text-xs font-semibold shrink-0 ml-2">+{share.amount.toLocaleString('ru')} в‚Ѕ</div>
+                              <div className="text-xs font-semibold shrink-0 ml-2">+{share.amount.toLocaleString('ru')} ₽</div>
                             </div>
                           ))}
                         </div>
@@ -4981,20 +4981,20 @@ paymentSettled: false,
                         onClick={() => setOwnerPayTarget(ownerPayTarget === owner.ownerId ? null : owner.ownerId)}
                         className="w-full py-2.5 rounded-xl text-sm font-medium mb-2"
                         style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)', border: `1px solid ${primary}33` }}>
-                        Р’С‹РїР»Р°С‚РёС‚СЊ
+                        Выплатить
                       </button>
                       {ownerPayTarget === owner.ownerId && (
                         <div className={`${glass} rounded-xl p-3 mt-2`}>
                           <div className="flex gap-2 mb-2">
-                            <input type="number" min={1} placeholder="РЎСѓРјРјР°" value={ownerPayAmount}
+                            <input type="number" min={1} placeholder="Сумма" value={ownerPayAmount}
                               onChange={e => setOwnerPayAmount(e.target.value)}
                               className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
                             <button onClick={() => handlePayOwnerSalary(owner.ownerId)}
                               className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: primary }}>
-                              {ownerSalaryLoading ? '...' : 'Р’С‹РїР»Р°С‚РёС‚СЊ'}
+                              {ownerSalaryLoading ? '...' : 'Выплатить'}
                             </button>
                           </div>
-                          <input type="text" placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)" value={ownerPayNote}
+                          <input type="text" placeholder="Примечание (необязательно)" value={ownerPayNote}
                             onChange={e => setOwnerPayNote(e.target.value)}
                             className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                         </div>
@@ -5011,7 +5011,7 @@ paymentSettled: false,
           {page === 'salary-detail' && (
             <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
-                <ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ Рє Р·Р°СЂРїР»Р°С‚Р°Рј
+                <ArrowLeft size={16} strokeWidth={1.75} />Назад к зарплатам
               </button>
 
               {/* Filter bar вЂ” always visible when worker is selected */}
@@ -5027,7 +5027,7 @@ paymentSettled: false,
                       <div className="flex-1">
                         <div className="font-semibold">{salaryDetail.workerName}</div>
                         <div className={`text-xs ${sub}`}>
-                          Р‘Р°Р·Р°: {salaryDetail.salaryBase.toLocaleString('ru')} в‚Ѕ В· %: {salaryDetail.defaultPercent}% В· Р—Р° СЃРјРµРЅСѓ: {salaryDetail.salaryPerShift.toLocaleString('ru')} в‚Ѕ В· {salaryDetail.active ? 'РђРєС‚РёРІРµРЅ' : 'РќРµР°РєС‚РёРІРµРЅ'}
+                          База: {salaryDetail.salaryBase.toLocaleString('ru')} ₽ · %: {salaryDetail.defaultPercent}% · За смену: {salaryDetail.salaryPerShift.toLocaleString('ru')} ₽ · {salaryDetail.active ? 'Активен' : 'Неактивен'}
                         </div>
                       </div>
                     </div>
@@ -5039,7 +5039,7 @@ paymentSettled: false,
                       <button key={p} onClick={() => setSalaryPeriod(p)}
                         className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                         style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
-                        {p === 'day' ? 'Р”РµРЅСЊ' : p === 'week' ? 'РќРµРґРµР»СЏ' : p === 'month' ? 'РњРµСЃСЏС†' : p === 'all' ? 'Р’СЃС‘' : 'РЎРІРѕС‘'}
+                        {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                       </button>
                     ))}
                   </div>
@@ -5049,19 +5049,19 @@ paymentSettled: false,
                       <button key={s} onClick={() => setSalarySegment(s)}
                         className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
                         style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
-                        {s === 'all' ? 'Р’СЃРµ' : s === 'wash' ? 'РњРѕР№РєР°' : 'Р”РµС‚РµР№Р»РёРЅРі'}
+                        {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
                       </button>
                     ))}
                   </div>
                   {salaryPeriod === 'custom' && (
                     <div className="flex gap-2 mt-3">
                       <div className="flex-1">
-                        <label className={`text-[11px] ${sub} block mb-1`}>РћС‚</label>
+                        <label className={`text-[11px] ${sub} block mb-1`}>От</label>
                         <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryDateFrom(e.target.value); }}
                           className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       </div>
                       <div className="flex-1">
-                        <label className={`text-[11px] ${sub} block mb-1`}>Р”Рѕ</label>
+                        <label className={`text-[11px] ${sub} block mb-1`}>До</label>
                         <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryDateTo(e.target.value); }}
                           className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       </div>
@@ -5074,14 +5074,14 @@ paymentSettled: false,
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <AlertCircle size={36} strokeWidth={1.75} className={`mx-auto mb-3 text-red-400`} />
                   <p className="text-sm text-red-400 mb-2">{salaryError}</p>
-                  <button onClick={refreshSalaryDetail} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: primary, color: '#fff' }}>РџРѕРІС‚РѕСЂРёС‚СЊ</button>
+                  <button onClick={refreshSalaryDetail} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ background: primary, color: '#fff' }}>Повторить</button>
                 </div>
               )}
               {!salaryLoading && !salaryDetail && selectedSalaryWorkerId && !salaryError && (
-                <div className={`text-sm ${sub} py-10 text-center`}>Р’С‹Р±РµСЂРёС‚Рµ РїРµСЂРёРѕРґ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР°</div>
+                <div className={`text-sm ${sub} py-10 text-center`}>Выберите период для просмотра</div>
               )}
               {salaryLoading && (
-                <div className={`text-sm ${sub} py-10 text-center`}>Р—Р°РіСЂСѓР·РєР°...</div>
+                <div className={`text-sm ${sub} py-10 text-center`}>Загрузка...</div>
               )}
               {salaryDetail && (
                 <>
@@ -5089,16 +5089,16 @@ paymentSettled: false,
                   {/* Aggregate cards */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{salaryDetail.totalEarned.toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[10px] ${sub}`}>Р—Р°СЂР°Р±РѕС‚Р°РЅРѕ</div>
+                      <div className="text-sm font-semibold">{salaryDetail.totalEarned.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub}`}>Заработано</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[10px] ${sub}`}>Р’С‹РїР»Р°С‡РµРЅРѕ</div>
+                      <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub}`}>Выплачено</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : sub }}>{salaryDetail.balanceToPay.toLocaleString('ru')} в‚Ѕ</div>
-                      <div className={`text-[10px] ${sub}`}>Рљ РІС‹РїР»Р°С‚Рµ</div>
+                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : sub }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub}`}>К выплате</div>
                     </div>
                   </div>
                   {(() => {
@@ -5111,16 +5111,16 @@ paymentSettled: false,
                       <div className={`${glass} rounded-xl p-3 mb-3 border border-amber-500/20 bg-amber-500/10`}>
                         <div className="flex items-center justify-between mb-2">
                           <div>
-                            <div className={`text-xs ${sub}`}>Р”РѕР»Рі РїРѕ РєРѕРїРёР»РєРµ</div>
-                            <div className={`text-[11px] ${sub}`}>{debt.count} СЃРїРёСЃР°РЅРёР№ В· РґРѕР»Рі {debt.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-xs ${sub}`}>Долг по копилке</div>
+                            <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
-                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
+                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
                         <div className="flex gap-2">
                           <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayDetailAmount(e.target.value)} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
-                          <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>РџРѕРіР°СЃРёС‚СЊ</button>
+                          <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
                         </div>
-                        {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Р’РІРµРґРёС‚Рµ СЃСѓРјРјСѓ РѕС‚ 1 РґРѕ {Math.round(debt.totalSpent).toLocaleString('ru')} в‚Ѕ</div>}
+                        {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                       </div>
                     );
                   })()}
@@ -5128,25 +5128,25 @@ paymentSettled: false,
                   {/* Bookings list */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
                     <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-semibold text-sm">Р—Р°РїРёСЃРё ({salaryDetail.completedBookingsCount})</h3>
-                      <span className={`text-[11px] ${sub}`}>РЎРјРµРЅ: {salaryDetail.shiftCount}</span>
+                      <h3 className="font-semibold text-sm">Записи ({salaryDetail.completedBookingsCount})</h3>
+                      <span className={`text-[11px] ${sub}`}>Смен: {salaryDetail.shiftCount}</span>
                     </div>
                     {salaryDetail.shiftDates && salaryDetail.shiftDates.length > 0 && (
-                      <div className={`text-[11px] ${sub} mb-2`}>Р’С‹С…РѕРґС‹: {salaryDetail.shiftDates.join(', ')}</div>
+                      <div className={`text-[11px] ${sub} mb-2`}>Выходы: {salaryDetail.shiftDates.join(', ')}</div>
                     )}
                     {salaryDetail.bookings.length === 0 ? (
-                      <div className={`text-xs ${sub} py-3 text-center`}>РќРµС‚ Р·Р°РїРёСЃРµР№ Р·Р° РІС‹Р±СЂР°РЅРЅС‹Р№ РїРµСЂРёРѕРґ</div>
+                      <div className={`text-xs ${sub} py-3 text-center`}>Нет записей за выбранный период</div>
                     ) : (
                       salaryDetail.bookings.map(b => (
                         <div key={b.id} onClick={() => setSalaryBookingDetail(b)} className="flex items-center justify-between py-2 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex-1 min-w-0 mr-2">
                             <div className="text-xs font-medium truncate">
                               {b.date} {b.time} В·{' '}
-                              <span className="underline decoration-dotted underline-offset-2 truncate max-w-full" style={{ color: primary }} title="РџРѕРґСЂРѕР±РЅРµРµ РѕР± СѓСЃР»СѓРіРµ">
+                              <span className="underline decoration-dotted underline-offset-2 truncate max-w-full" style={{ color: primary }} title="Подробнее об услуге">
                                 {b.service}
                               </span>
                             </div>
-                            <div className={`text-[10px] ${sub}`}>{b.box} В· {b.payType === 'fixed' ? `С„РёРєСЃ ${b.earned.toLocaleString('ru')} в‚Ѕ` : `${b.percent}%`}</div>
+                            <div className={`text-[10px] ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${b.earned.toLocaleString('ru')} ₽` : `${b.percent}%`}</div>
                             {(b.car || b.plate) && (
                               <div className={`text-[10px] ${sub} mt-0.5`}>
                                 {[b.car, b.plate].filter(Boolean).join(' В· ')}
@@ -5171,14 +5171,14 @@ paymentSettled: false,
                             ) : (
                               <div className="flex items-center gap-1.5">
                                 <div className="text-right">
-                                  <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} в‚Ѕ</div>
-                                  <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'РњРѕР№РєР°' : 'Р”РµС‚РµР№Р»РёРЅРі'}</div>
+                                  <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} ₽</div>
+                                  <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг'}</div>
                                 </div>
                                 {b.linkId && (
                                   <button onClick={() => {
                                     setEditingOverrideLinkId(b.linkId!);
                                     setEditingOverrideValue(String(b.overrideEarned ?? b.earned));
-                                  }} className="text-xs opacity-50 hover:opacity-100 transition" title="РР·РјРµРЅРёС‚СЊ Р·Р°СЂР°Р±РѕС‚РѕРє">вњЏпёЏ</button>
+                                  }} className="text-xs opacity-50 hover:opacity-100 transition" title="Изменить заработок">✏️</button>
                                 )}
                               </div>
                             )}
@@ -5190,60 +5190,60 @@ paymentSettled: false,
 
                   {/* Bonus form */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#22c55e' }}>РџСЂРµРјРёСЏ РјР°СЃС‚РµСЂСѓ</h3>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#22c55e' }}>Премия мастеру</h3>
                     <div className="flex gap-2 mb-3">
-                      <input type="number" placeholder="РЎСѓРјРјР°" value={bonusAmount}
+                      <input type="number" placeholder="Сумма" value={bonusAmount}
                         onChange={e => setBonusAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={handleAddBonus}
                         className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
-                        РќР°С‡РёСЃР»РёС‚СЊ
+                        Начислить
                       </button>
                     </div>
-                    <input type="text" placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ (Р·Р° С‡С‚Рѕ РїСЂРµРјРёСЏ)" value={bonusNote}
+                    <input type="text" placeholder="Примечание (за что премия)" value={bonusNote}
                       onChange={e => setBonusNote(e.target.value)}
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
 
                   {/* Fine form */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>РЁС‚СЂР°С„ РјР°СЃС‚РµСЂСѓ</h3>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Штраф мастеру</h3>
                     <div className="flex gap-2 mb-3">
-                      <input type="number" placeholder="РЎСѓРјРјР°" value={fineAmount}
+                      <input type="number" placeholder="Сумма" value={fineAmount}
                         onChange={e => setFineAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={handleAddFine}
                         className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#ef4444' }}>
-                        Р’С‹РїРёСЃР°С‚СЊ С€С‚СЂР°С„
+                        Выписать штраф
                       </button>
                     </div>
-                    <input type="text" placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ (Р·Р° С‡С‚Рѕ С€С‚СЂР°С„)" value={fineNote}
+                    <input type="text" placeholder="Примечание (за что штраф)" value={fineNote}
                       onChange={e => setFineNote(e.target.value)}
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
 
                   {/* Write-off form */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>РЎРїРёСЃР°РЅРёРµ РјР°СЃС‚РµСЂСѓ</h3>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Списание мастеру</h3>
                     <div className="flex gap-2 mb-3">
-                      <input type="number" placeholder="РЎСѓРјРјР°" value={writeOffAmount}
+                      <input type="number" placeholder="Сумма" value={writeOffAmount}
                         onChange={e => setWriteOffAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={handleAddWriteOff}
                         className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#ef4444' }}>
-                        РЎРїРёСЃР°С‚СЊ
+                        Списать
                       </button>
                     </div>
-                    <input type="text" placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ (Р·Р° С‡С‚Рѕ СЃРїРёСЃР°РЅРёРµ)" value={writeOffNote}
+                    <input type="text" placeholder="Примечание (за что списание)" value={writeOffNote}
                       onChange={e => setWriteOffNote(e.target.value)}
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
 
                   {/* Payout form */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-3">Р’С‹РїР»Р°С‚Р° РјР°СЃС‚РµСЂСѓ</h3>
+                    <h3 className="font-semibold text-sm mb-3">Выплата мастеру</h3>
                     <div className="flex gap-2 mb-3">
-                      <input type="number" placeholder="РЎСѓРјРјР°" value={salaryPayAmount}
+                      <input type="number" placeholder="Сумма" value={salaryPayAmount}
                         onChange={e => setSalaryPayAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={async () => {
@@ -5252,13 +5252,13 @@ paymentSettled: false,
                         const balance = Number(salaryDetail.balanceToPay ?? 0);
                         if (amount > balance) {
                           const ok = window.confirm(
-                            `РЎСѓРјРјР° ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РїСЂРµРІС‹С€Р°РµС‚ РґРѕСЃС‚СѓРїРЅС‹Р№ Р±Р°Р»Р°РЅСЃ (${balance.toLocaleString('ru')} в‚Ѕ) Р·Р° РїРµСЂРёРѕРґ. Р’С‹РґР°С‚СЊ СЃРІРµСЂС… Р±Р°Р»Р°РЅСЃР°?`
+                            `Сумма ${Math.round(amount).toLocaleString('ru')} ₽ превышает доступный баланс (${balance.toLocaleString('ru')} ₽) за период. Выдать сверх баланса?`
                           );
                           if (!ok) return;
                         }
                         setSalaryLoading(true);
                         try {
-                          const periodLabel = salaryPeriod === 'day' ? 'РґРµРЅСЊ' : salaryPeriod === 'week' ? 'РЅРµРґРµР»СЋ' : salaryPeriod === 'month' ? 'РјРµСЃСЏС†' : salaryPeriod === 'custom' ? 'РІС‹Р±СЂР°РЅРЅС‹Р№ РїРµСЂРёРѕРґ' : 'РІРµСЃСЊ РїРµСЂРёРѕРґ';
+                          const periodLabel = salaryPeriod === 'day' ? 'день' : salaryPeriod === 'week' ? 'неделю' : salaryPeriod === 'month' ? 'месяц' : salaryPeriod === 'custom' ? 'выбранный период' : 'весь период';
                           await apiRequest<{ message: string; payoutId: string; newBalance: number; expenseId: string }>(
                             `/api/owner/workers/${selectedSalaryWorkerId}/pay-salary`, {
                             method: 'POST',
@@ -5266,7 +5266,7 @@ paymentSettled: false,
                               period: salaryPeriod,
                               segment: salarySegment,
                               amount: Math.round(amount),
-                              note: salaryPayNote.trim() || `Р’С‹РїР»Р°С‚Р° Р·Р° ${periodLabel}`,
+                              note: salaryPayNote.trim() || `Выплата за ${periodLabel}`,
                               clientRequestId: salaryPayRequestId,
                               ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
                             },
@@ -5274,33 +5274,33 @@ paymentSettled: false,
                           setSalaryPayAmount('');
                           setSalaryPayNote('');
                           setSalaryPayRequestId(newPayRequestId());
-                          setBottomToast(`Р’С‹РїР»Р°С‚Р° ${Math.round(amount).toLocaleString('ru')} в‚Ѕ РґР»СЏ ${salaryDetail.workerName} РїСЂРѕРІРµРґРµРЅР°`);
+                          setBottomToast(`Выплата ${Math.round(amount).toLocaleString('ru')} ₽ для ${salaryDetail.workerName} проведена`);
                           setTimeout(() => setBottomToast(null), 3000);
                           refreshSalaryDetail();
                         } catch (e) {
-                          setBottomToast(e instanceof Error ? e.message : 'РћС€РёР±РєР° РІС‹РїР»Р°С‚С‹');
+                          setBottomToast(e instanceof Error ? e.message : 'Ошибка выплаты');
                           setTimeout(() => setBottomToast(null), 4000);
                         } finally { setSalaryLoading(false); }
                       }} className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: primary }}>
-                        {salaryLoading ? '...' : 'Р’С‹РїР»Р°С‚РёС‚СЊ'}
+                        {salaryLoading ? '...' : 'Выплатить'}
                       </button>
                     </div>
-                    <input type="text" placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)" value={salaryPayNote}
+                    <input type="text" placeholder="Примечание (необязательно)" value={salaryPayNote}
                       onChange={e => setSalaryPayNote(e.target.value)}
                       className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                   </div>
 
                   {/* Operations history */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-2">РСЃС‚РѕСЂРёСЏ РѕРїРµСЂР°С†РёР№</h3>
+                    <h3 className="font-semibold text-sm mb-2">История операций</h3>
                     {salaryDetail.entries.length === 0 ? (
-                      <div className={`text-xs ${sub} py-3 text-center`}>РћРїРµСЂР°С†РёР№ РЅРµ Р±С‹Р»Рѕ</div>
+                      <div className={`text-xs ${sub} py-3 text-center`}>Операций не было</div>
                     ) : (
                       salaryDetail.entries.slice(0, 20).map(e => {
                         const isEditing = editingEntryId === e.id;
                         const kindLabel: Record<string, string> = {
-                          bonus: 'РџСЂРµРјРёСЏ', deduction: 'РЁС‚СЂР°С„', payout: 'Р’С‹РїР»Р°С‚Р°',
-                          advance: 'РђРІР°РЅСЃ', adjustment: 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°',
+                          bonus: 'Премия', deduction: 'Штраф', payout: 'Выплата',
+                          advance: 'Аванс', adjustment: 'Корректировка',
                         };
                         const kindColor: Record<string, string> = {
                           bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
@@ -5314,17 +5314,17 @@ paymentSettled: false,
                                 <div className="flex gap-2 mb-1">
                                   <input type="number" value={editAmount} onChange={e2 => setEditAmount(e2.target.value)} className={`${inputCls} flex-1 text-xs py-1 px-2 rounded-lg`} />
                                   <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} strokeWidth={1.75} /></button>
-                                  <button onClick={() => { void handleDeleteEntry(); }} title="РЈРґР°Р»РёС‚СЊ РѕРїРµСЂР°С†РёСЋ" className="p-1 rounded-lg border" style={{ borderColor: '#ef444440', color: '#ef4444' }}><Trash2 size={14} strokeWidth={1.75} /></button>
+                                  <button onClick={() => { void handleDeleteEntry(); }} title="Удалить операцию" className="p-1 rounded-lg border" style={{ borderColor: '#ef444440', color: '#ef4444' }}><Trash2 size={14} strokeWidth={1.75} /></button>
                                   <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: sub }}><X size={14} strokeWidth={1.75} /></button>
                                 </div>
-                                <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />
+                                <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="Примечание" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />
                               </div>
                             ) : (
                               <>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs font-medium">
                                     <span className="font-semibold" style={{ color: kindColor[e.kind] || sub }}>{kindLabel[e.kind] || e.kind}</span>
-                                    {' В· '}{e.amount.toLocaleString('ru')} в‚Ѕ
+                                    {' · '}{e.amount.toLocaleString('ru')} ₽
                                   </div>
                                   {e.note && <div className={`text-[10px] ${sub}`}>{e.note}</div>}
                                 </div>
@@ -5430,7 +5430,7 @@ paymentSettled: false,
                 revenue: reportCompletedBookings.filter(booking => booking.serviceId === service.id).reduce((sum, booking) => sum + booking.price, 0),
                 count: reportCompletedBookings.filter(booking => booking.serviceId === service.id).length,
               })).filter(service => service.count > 0);
-              const reportTopServiceName = [...reportByService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'РќРµС‚ РґР°РЅРЅС‹С…';
+              const reportTopServiceName = [...reportByService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
               const reportBoxLoadData = boxes.filter((box) => box.active).map((box) => {
                 const boxBookings = reportCompletedBookings.filter((booking) => booking.box === box.name);
                 return {
@@ -5453,7 +5453,7 @@ paymentSettled: false,
               const reportReferralData = (() => {
                 const map = new Map<string, { label: string; count: number; revenue: number }>();
                 reportCompletedBookings.forEach((b) => {
-                  const src = (b.referralSource?.trim() || 'РќРµ СѓРєР°Р·Р°РЅРѕ');
+                  const src = (b.referralSource?.trim() || 'Не указано');
                   const cur = map.get(src) || { label: src, count: 0, revenue: 0 };
                   cur.count += 1;
                   cur.revenue += b.price;
@@ -5465,10 +5465,10 @@ paymentSettled: false,
               return (
             <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="font-semibold">РћС‚С‡С‘С‚С‹</h2>
+                <h2 className="font-semibold">Отчёты</h2>
                 <div className="flex gap-1.5">
                   <button onClick={() => { setPage('settings'); setSettingsSection('money-flow'); }} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium" style={{ background: `${primary}18`, color: primary }}>
-                    <ArrowLeftRight size={12} strokeWidth={1.75} />Р”РІРёР¶РµРЅРёРµ РґРµРЅРµРі
+                    <ArrowLeftRight size={12} strokeWidth={1.75} />Движение денег
                   </button>
                   <button onClick={() => openExportModal('report')} disabled={exportingKind !== null} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
                     <Download size={12} strokeWidth={1.75} />{exportingKind === 'report' ? '...' : 'Excel'}
@@ -5479,13 +5479,13 @@ paymentSettled: false,
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#71717A] mb-3">РЎРІРѕРґРЅС‹Рµ Telegram-РѕС‚С‡С‘С‚С‹</div>
+                <div className="text-xs text-[#71717A] mb-3">Сводные Telegram-отчёты</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { period: 'daily', segment: 'wash', label: 'Р”РµРЅСЊ В· РјРѕР№РєР°' },
-                    { period: 'daily', segment: 'detailing', label: 'Р”РµРЅСЊ В· РґРµС‚РµР№Р»РёРЅРі' },
-                    { period: 'weekly', segment: 'wash', label: 'РќРµРґРµР»СЏ В· РјРѕР№РєР°' },
-                    { period: 'weekly', segment: 'detailing', label: 'РќРµРґРµР»СЏ В· РґРµС‚РµР№Р»РёРЅРі' },
+                    { period: 'daily', segment: 'wash', label: 'День · мойка' },
+                    { period: 'daily', segment: 'detailing', label: 'День · детейлинг' },
+                    { period: 'weekly', segment: 'wash', label: 'Неделя · мойка' },
+                    { period: 'weekly', segment: 'detailing', label: 'Неделя · детейлинг' },
                   ].map((item) => {
                     const key = `${item.period}-${item.segment}`;
                     return (
@@ -5496,7 +5496,7 @@ paymentSettled: false,
                         className="rounded-xl px-3 py-3 text-sm font-medium text-left disabled:opacity-60"
                         style={{ background: sendingSummaryReport === key ? `${primary}35` : `${primary}15`, color: primary }}
                       >
-                        {sendingSummaryReport === key ? 'РћС‚РїСЂР°РІРєР°...' : item.label}
+                        {sendingSummaryReport === key ? 'Отправка...' : item.label}
                       </button>
                     );
                   })}
@@ -5504,10 +5504,10 @@ paymentSettled: false,
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  { label: 'РЎСЂРµРґРЅРёР№ С‡РµРє', value: `${reportAverageCheck.toLocaleString('ru')} в‚Ѕ`, color: primary },
-                  { label: 'РўРѕРї-СѓСЃР»СѓРіР°', value: reportTopServiceName, color: '#312E81' },
-                  { label: 'РђРєС‚РёРІРЅС‹С… РєР»РёРµРЅС‚РѕРІ', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
-                  { label: 'Р”РѕР»РіРё РєР»РёРµРЅС‚РѕРІ', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} в‚Ѕ`, color: '#EF4444' },
+                  { label: 'Средний чек', value: `${reportAverageCheck.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Топ-услуга', value: reportTopServiceName, color: '#312E81' },
+                  { label: 'Активных клиентов', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
+                  { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
                 ].map((item) => (
                   <div key={item.label} className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub}`}>{item.label}</div>
@@ -5516,13 +5516,13 @@ paymentSettled: false,
                 ))}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р¤РРќРђРќРЎРћР’Р«Р™ РРўРћР“</div>
+                <div className={`text-xs ${sub} mb-3`}>ФИНАНСОВЫЙ ИТОГ</div>
                 {[
-                  { label: 'Р’С‹СЂСѓС‡РєР°', value: `${reportTotalRevenue.toLocaleString('ru')} в‚Ѕ`, color: accent },
-                  { label: 'Р”РѕРї. РґРѕС…РѕРґС‹', value: `${reportTotalIncomes.toLocaleString('ru')} в‚Ѕ`, color: primary },
-                  { label: 'Р Р°СЃС…РѕРґС‹', value: `${reportTotalExpenses.toLocaleString('ru')} в‚Ѕ`, color: '#FF6B6B' },
-                  { label: 'РџСЂРёР±С‹Р»СЊ', value: `${Math.abs(reportProfit).toLocaleString('ru')} в‚Ѕ${reportProfit < 0 ? ' (СѓР±С‹С‚РѕРє)' : ''}`, color: reportProfit >= 0 ? accent : '#FF6B6B' },
-                  { label: 'РњР°СЂР¶Р°', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#312E81' },
+                  { label: 'Выручка', value: `${reportTotalRevenue.toLocaleString('ru')} ₽`, color: accent },
+                  { label: 'Доп. доходы', value: `${reportTotalIncomes.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Расходы', value: `${reportTotalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
+                  { label: 'Прибыль', value: `${Math.abs(reportProfit).toLocaleString('ru')} ₽${reportProfit < 0 ? ' (убыток)' : ''}`, color: reportProfit >= 0 ? accent : '#FF6B6B' },
+                  { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#312E81' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className="text-sm">{r.label}</span>
@@ -5531,10 +5531,10 @@ paymentSettled: false,
                 ))}
               </div>
 
-              {/* РћС‚РєСѓРґР° СѓР·РЅР°Р»Рё */}
+              {/* Откуда узнали */}
               {reportReferralData.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-xs ${sub} mb-3`}>РћРўРљРЈР”Рђ РЈР—РќРђР›Р В· {reportReferralTotal} Р·Р°РІРµСЂС€С‘РЅРЅС‹С… Р·Р°РїРёСЃРµР№</div>
+                  <div className={`text-xs ${sub} mb-3`}>ОТКУДА УЗНАЛИ · {reportReferralTotal} завершённых записей</div>
                   <div className="flex gap-4 items-center">
                     <div className="w-[140px] h-[140px] shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
@@ -5545,7 +5545,7 @@ paymentSettled: false,
                               return <Cell key={entry.label} fill={palette[idx % palette.length]} />;
                             })}
                           </Pie>
-                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} Р·Р°Рї. В· ${p.payload.revenue.toLocaleString('ru')} в‚Ѕ`, p.payload.label]} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} зап. · ${p.payload.revenue.toLocaleString('ru')} ₽`, p.payload.label]} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -5560,55 +5560,55 @@ paymentSettled: false,
                               <span className="truncate font-medium">{row.label}</span>
                               <span className={sub}>В· {pct}%</span>
                             </span>
-                            <span className="shrink-0 tabular-nums font-semibold">{row.count} В· {row.revenue.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className="shrink-0 tabular-nums font-semibold">{row.count} · {row.revenue.toLocaleString('ru')} ₽</span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
                   <div className={`mt-3 pt-3 border-t text-[11px] ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    РЎС‡РёС‚Р°СЋС‚СЃСЏ С‚РѕР»СЊРєРѕ Р·Р°РІРµСЂС€С‘РЅРЅС‹Рµ Р·Р°РїРёСЃРё Р·Р° РІС‹Р±СЂР°РЅРЅС‹Р№ РїРµСЂРёРѕРґ. РСЃС‚РѕС‡РЅРёРє Р±РµСЂС‘С‚СЃСЏ РёР· РєР°СЂС‚РѕС‡РєРё Р·Р°РїРёСЃРё (В«РћС‚РєСѓРґР° СѓР·РЅР°Р»В»).
+                    Считаются только завершённые записи за выбранный период. Источник берётся из карточки записи («Откуда узнал»).
                   </div>
                 </div>
               )}
 
-              {/* РљРѕРїРёР»РєР° РІ РѕС‚С‡С‘С‚Р°С… */}
+              {/* Копилка в отчётах */}
               {piggyBank && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
                   <div className="flex items-center justify-between mb-3">
-                    <span className={`text-xs font-medium ${sub} uppercase tracking-wider`}>рџ’° РљРћРџРР›РљРђ</span>
+                    <span className={`text-xs font-medium ${sub} uppercase tracking-wider`}>💰 КОПИЛКА</span>
                     <button onClick={handlePiggyBankExport} disabled={exportingKind !== null}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-white disabled:opacity-60" style={{ background: accent }}>
                       <Download size={11} strokeWidth={1.75} />{exportingKind === 'piggy-bank' ? '...' : 'Excel'}
                     </button>
                   </div>
                   <div className="flex justify-between py-2 text-sm">
-                    <span className={sub}>Р‘Р°Р»Р°РЅСЃ</span>
-                    <span className="font-semibold" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>{piggyBankBalance.toLocaleString('ru')} в‚Ѕ</span>
+                    <span className={sub}>Баланс</span>
+                    <span className="font-semibold" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>{piggyBankBalance.toLocaleString('ru')} ₽</span>
                   </div>
                   {piggyBank.detailing && (
                     <>
                       <div className="flex justify-between py-2 text-sm">
-                        <span className={sub}>РќР°С‡РёСЃР»РµРЅРѕ 24%</span>
-                        <span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Начислено 24%</span>
+                        <span style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2 text-sm">
-                        <span className={sub}>РЎРЅСЏС‚Рѕ РЅР° РјР°С‚РµСЂРёР°Р»С‹</span>
-                        <span style={{ color: '#FF6B6B' }}>в€’{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Снято на материалы</span>
+                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р’РѕР·РІСЂР°С‚ РјР°С‚РµСЂРёР°Р»РѕРІ</span>
-                        <span style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Возврат материалов</span>
+                        <span style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
                       </div>
                     </>
                   )}
                 </div>
               )}
 
-              {/* Р”РѕС…РѕРґС‹ */}
+              {/* Доходы */}
               {reportFilteredIncomes.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-xs ${sub} mb-3`}>Р”РћРҐРћР”Р«</div>
+                  <div className={`text-xs ${sub} mb-3`}>ДОХОДЫ</div>
                   <div className="space-y-2">
                     {reportFilteredIncomes.slice(0, 10).map(inc => (
                       <div key={inc.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -5616,7 +5616,7 @@ paymentSettled: false,
                           <div className="text-sm font-medium">{inc.source}</div>
                           <div className={`text-xs ${sub}`}>{inc.date}{inc.note ? ` В· ${inc.note}` : ''}</div>
                         </div>
-                        <div className="font-semibold text-sm" style={{ color: primary }}>+{inc.amount.toLocaleString('ru')} в‚Ѕ</div>
+                        <div className="font-semibold text-sm" style={{ color: primary }}>+{inc.amount.toLocaleString('ru')} ₽</div>
                       </div>
                     ))}
                   </div>
@@ -5624,25 +5624,25 @@ paymentSettled: false,
               )}
               {/* Services chart */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р’Р«Р РЈР§РљРђ РџРћ РЈРЎР›РЈР“РђРњ</div>
+                <div className={`text-xs ${sub} mb-3`}>ВЫРУЧКА ПО УСЛУГАМ</div>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={reportByService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
                     <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Р’С‹СЂСѓС‡РєР°" />
+                    <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р—РђР“Р РЈР—РљРђ РџРћ Р‘РћРљРЎРђРњ</div>
+                <div className={`text-xs ${sub} mb-3`}>ЗАГРУЗКА ПО БОКСАМ</div>
                 <div className="space-y-3">
                   {reportBoxLoadData.map((box) => (
                     <div key={box.name}>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium">{box.name}</span>
-                        <span className={`text-xs ${sub}`}>{box.count} Р·Р°РїРёСЃРµР№ В· {box.revenue.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={`text-xs ${sub}`}>{box.count} записей · {box.revenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="h-2 rounded-full" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                         <div className="h-2 rounded-full" style={{ width: `${Math.min(100, box.count * 18)}%`, background: primary }} />
@@ -5652,17 +5652,17 @@ paymentSettled: false,
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-3`}>Р­Р¤Р¤Р•РљРўРР’РќРћРЎРўР¬ РњРђРЎРўР•Р РћР’</div>
+                <div className={`text-xs ${sub} mb-3`}>ЭФФЕКТИВНОСТЬ МАСТЕРОВ</div>
                 <div className="space-y-2">
                   {reportWorkerEfficiencyData.map((worker) => (
                     <div key={worker.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{worker.name}</div>
-                        <div className={`text-xs ${sub}`}>{worker.completed} Р·Р°РІРµСЂС€С‘РЅРЅС‹С… В· СЃСЂРµРґРЅРёР№ С‡РµРє {worker.averageCheck.toLocaleString('ru')} в‚Ѕ</div>
+                        <div className={`text-xs ${sub}`}>{worker.completed} завершённых · средний чек {worker.averageCheck.toLocaleString('ru')} ₽</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-semibold">{worker.revenue.toLocaleString('ru')} в‚Ѕ</div>
-                        <div className={`text-xs ${sub}`}>РІС‹СЂСѓС‡РєР°</div>
+                        <div className="font-semibold">{worker.revenue.toLocaleString('ru')} ₽</div>
+                        <div className={`text-xs ${sub}`}>выручка</div>
                       </div>
                     </div>
                   ))}
@@ -5671,8 +5671,8 @@ paymentSettled: false,
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className={`text-xs ${sub} uppercase tracking-wider`}>РљР»РёРµРЅС‚СЃРєРёРµ РєР°СЂС‚РѕС‡РєРё</div>
-                    <div className={`text-xs ${sub} mt-1`}>РСЃС‚РѕСЂРёСЏ РІРёР·РёС‚РѕРІ, С‚СЂР°С‚С‹, Р»СЋР±РёРјС‹Рµ СѓСЃР»СѓРіРё, Р·Р°РјРµС‚РєРё Рё РґРѕР»РіРё</div>
+                    <div className={`text-xs ${sub} uppercase tracking-wider`}>Клиентские карточки</div>
+                    <div className={`text-xs ${sub} mt-1`}>История визитов, траты, любимые услуги, заметки и долги</div>
                   </div>
                   <button
                     onClick={() => setShowCreateClient(true)}
@@ -5680,12 +5680,12 @@ paymentSettled: false,
                     style={{ background: primary }}
                   >
                     <Plus size={14} strokeWidth={1.75} />
-                    РќРѕРІС‹Р№ РєР»РёРµРЅС‚
+                    Новый клиент
                   </button>
                 </div>
                 <input
                   className={inputCls}
-                  placeholder="РџРѕРёСЃРє РїРѕ РёРјРµРЅРё, С‚РµР»РµС„РѕРЅСѓ, Р°РІС‚Рѕ, СѓСЃР»СѓРіРµ"
+                  placeholder="Поиск по имени, телефону, авто, услуге"
                   value={clientSearch}
                   onChange={(event) => setClientSearch(event.target.value)}
                 />
@@ -5696,12 +5696,12 @@ paymentSettled: false,
                       <div key={client.id} className={`${glass} rounded-2xl p-4`}>
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                           <div>
-                            <div className="font-semibold flex items-center gap-2 flex-wrap">{client.name}<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: `${primary}14`, color: primary, border: `1px solid ${primary}22` }}>{client.referralSource?.trim() || 'РќРµ СѓРєР°Р·Р°РЅРѕ'}</span></div>
-                            <div className={`text-xs ${sub}`}>{client.phone} В· {client.car || 'РђРІС‚Рѕ РЅРµ СѓРєР°Р·Р°РЅРѕ'} {client.plate ? `В· ${client.plate}` : ''} В· <span className="font-medium">РћС‚РєСѓРґР°: {client.referralSource?.trim() || 'РќРµ СѓРєР°Р·Р°РЅРѕ'}</span></div>
+                            <div className="font-semibold flex items-center gap-2 flex-wrap">{client.name}<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: `${primary}14`, color: primary, border: `1px solid ${primary}22` }}>{client.referralSource?.trim() || 'Не указано'}</span></div>
+                            <div className={`text-xs ${sub}`}>{client.phone} · {client.car || 'Авто не указано'} {client.plate ? `· ${client.plate}` : ''} · <span className="font-medium">Откуда: {client.referralSource?.trim() || 'Не указано'}</span></div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} в‚Ѕ</div>
-                            <div className={`text-xs ${sub}`}>{client.visits} РІРёР·РёС‚РѕРІ В· РїРѕСЃР»РµРґРЅРёР№ {client.lastVisit}</div>
+                            <div className="text-sm font-semibold">{client.totalSpent.toLocaleString('ru')} ₽</div>
+                            <div className={`text-xs ${sub}`}>{client.visits} визитов · последний {client.lastVisit}</div>
                             <div className="mt-2 flex gap-3">
                               <button
                                 type="button"
@@ -5709,7 +5709,7 @@ paymentSettled: false,
                                 className="text-xs font-medium"
                                 style={{ color: primary }}
                               >
-                                + РџСЂРѕС€Р»Р°СЏ Р·Р°РїРёСЃСЊ
+                                + Прошлая запись
                               </button>
                               <button
                                 type="button"
@@ -5717,35 +5717,35 @@ paymentSettled: false,
                                 className="text-xs font-medium"
                                 style={{ color: primary }}
                               >
-                                + РќРѕРІР°СЏ Р·Р°РїРёСЃСЊ
+                                + Новая запись
                               </button>
                             </div>
                           </div>
                         </div>
                         {(client.adminNote || draft.adminNote) && (
                           <div className={`rounded-xl px-3 py-2.5 mb-3 text-sm border ${isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                            <div className={`text-xs font-medium mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>вљ‘ РџСЂРёРјРµС‡Р°РЅРёРµ:</div>
+                            <div className={`text-xs font-medium mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>⚑ Примечание:</div>
                             {draft.adminNote || client.adminNote}
                           </div>
                         )}
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           <div className={`${glass} rounded-xl px-3 py-2`}>
-                            <div className={`text-[11px] ${sub}`}>Р›СЋР±РёРјР°СЏ СѓСЃР»СѓРіР°</div>
+                            <div className={`text-[11px] ${sub}`}>Любимая услуга</div>
                             <div className="text-sm font-medium mt-1">{client.favoriteService}</div>
                           </div>
                           <div className={`${glass} rounded-xl px-3 py-2`}>
-                            <div className={`text-[11px] ${sub}`}>РђРєС‚РёРІРЅС‹С… Р·Р°РїРёСЃРµР№</div>
+                            <div className={`text-[11px] ${sub}`}>Активных записей</div>
                             <div className="text-sm font-medium mt-1">{client.activeCount}</div>
                           </div>
                           <div className={`${glass} rounded-xl px-3 py-2`}>
-                            <div className={`text-[11px] ${sub}`}>Р”РѕР»Рі</div>
-                            <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-[11px] ${sub}`}>Долг</div>
+                            <div className="text-sm font-medium mt-1">{client.debtBalance.toLocaleString('ru')} ₽</div>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                           <textarea
                             className={`${inputCls} h-24 resize-none`}
-                            placeholder="Р—Р°РјРµС‚РєРё РїРѕ РєР»РёРµРЅС‚Сѓ"
+                            placeholder="Заметки по клиенту"
                             value={draft.notes}
                             onChange={(event) => setClientCardDrafts((current) => ({
                               ...current,
@@ -5756,7 +5756,7 @@ paymentSettled: false,
                             <input
                               className={inputCls}
                               type="number"
-                              placeholder="Р”РѕР»Рі РєР»РёРµРЅС‚Р°"
+                              placeholder="Долг клиента"
                               value={draft.debtBalance}
                               onChange={(event) => setClientCardDrafts((current) => ({
                                 ...current,
@@ -5765,7 +5765,7 @@ paymentSettled: false,
                             />
                             <textarea
                               className={`${inputCls} h-20 resize-none`}
-                              placeholder="РћСЃРѕР±РѕРµ РїСЂРёРјРµС‡Р°РЅРёРµ (РІСЃРµРіРґР° РІРёРґРЅРѕ)"
+                              placeholder="Особое примечание (всегда видно)"
                               value={draft.adminNote}
                               onChange={(event) => setClientCardDrafts((current) => ({
                                 ...current,
@@ -5778,7 +5778,7 @@ paymentSettled: false,
                               className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
                               style={{ background: primary }}
                             >
-                              {savingClientId === client.id ? 'РЎРѕС…СЂР°РЅСЏРµРј...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ РєР°СЂС‚РѕС‡РєСѓ'}
+                              {savingClientId === client.id ? 'Сохраняем...' : 'Сохранить карточку'}
                             </button>
                           </div>
                         </div>
@@ -5787,14 +5787,14 @@ paymentSettled: false,
                   })}
                 </div>
               </div>
-              <h3 className={`text-xs font-medium ${sub} mb-3`}>Р РђРЎРҐРћР”Р«</h3>
+              <h3 className={`text-xs font-medium ${sub} mb-3`}>РАСХОДЫ</h3>
               {expenses.map(e => (
                 <div key={e.id} className={`${glass} rounded-xl p-3 mb-2 flex justify-between`}>
                   <div>
                     <div className="text-sm font-medium">{e.title}</div>
                     <div className={`text-xs ${sub}`}>{e.category} В· {e.date}</div>
                   </div>
-                  <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>в€’{e.amount.toLocaleString('ru')} в‚Ѕ</div>
+                  <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                 </div>
               ))}
               </motion.div>
@@ -5802,16 +5802,16 @@ paymentSettled: false,
           })()
         )}
 
-          {/* в”Ђв”Ђ SETTINGS: MONEY FLOW (РґРІРёР¶РµРЅРёРµ РґРµРЅРµРі) в”Ђв”Ђ */}
+          {/* ── SETTINGS: MONEY FLOW (движение денег) ── */}
           {!isAccountant && page === 'settings' && settingsSection === 'money-flow' && !selectedHistoryBookingId && (
             <motion.div key="settings-money-flow" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-1">Р”РІРёР¶РµРЅРёРµ РґРµРЅРµРі</h2>
-              <p className={`text-xs ${sub} mb-4`}>РљР°Р¶РґС‹Р№ СЂСѓР±Р»СЊ: РєР°Рє РїСЂРёС€С‘Р», РєСѓРґР° СЂР°СЃРїСЂРµРґРµР»РёР»СЃСЏ Рё РєРѕРјСѓ СЃРєРѕР»СЊРєРѕ РІС‹РїР»Р°С‚РёР»Рё.</p>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-1">Движение денег</h2>
+              <p className={`text-xs ${sub} mb-4`}>Каждый рубль: как пришёл, куда распределился и кому сколько выплатили.</p>
 
-              {/* РџРµСЂРёРѕРґ */}
+              {/* Период */}
               <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
-                {[{ id: 'day', label: 'Р”РµРЅСЊ' }, { id: 'week', label: 'РќРµРґРµР»СЏ' }, { id: 'month', label: 'РњРµСЃСЏС†' }, { id: 'year', label: 'Р“РѕРґ' }, { id: 'all', label: 'Р’СЃС‘' }, { id: 'custom', label: 'РЎРІРѕРё' }].map(option => (
+                {[{ id: 'day', label: 'День' }, { id: 'week', label: 'Неделя' }, { id: 'month', label: 'Месяц' }, { id: 'year', label: 'Год' }, { id: 'all', label: 'Всё' }, { id: 'custom', label: 'Свои' }].map(option => (
                   <button key={option.id} onClick={() => setMoneyFlowPeriod(option.id as typeof moneyFlowPeriod)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap ${moneyFlowPeriod === option.id ? 'text-white' : glass}`}
                     style={moneyFlowPeriod === option.id ? { background: primary } : undefined}>
@@ -5829,33 +5829,33 @@ paymentSettled: false,
               {moneyFlowLoading && !moneyFlowData ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <RefreshCw size={20} className={`mx-auto mb-2 animate-spin ${sub}`} />
-                  <div className={`text-sm ${sub}`}>Р—Р°РіСЂСѓР·РєР°вЂ¦</div>
+                  <div className={`text-sm ${sub}`}>Загрузка…</div>
                 </div>
               ) : !moneyFlowData ? (
-                <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>РќРµС‚ РґР°РЅРЅС‹С… Р·Р° РїРµСЂРёРѕРґ</div>
+                <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>Нет данных за период</div>
               ) : (() => {
                 const s = moneyFlowData.summary;
                 const kindColor: Record<string, string> = { in: '#10B981', out: '#EF4444', allocation: '#8B5CF6', move: '#94A3B8' };
                 const typeMeta: Record<string, { color: string; label: string }> = {
-                  booking_payment: { color: '#10B981', label: 'Р’С‹СЂСѓС‡РєР°' },
-                  booking_deposit_payment: { color: '#0EA5E9', label: 'РћРїР»Р°С‚Р° СЃ РґРµРїРѕР·РёС‚Р°' },
-                  booking_unpaid: { color: '#F59E0B', label: 'РќРµ РѕРїР»Р°С‡РµРЅРѕ' },
-                  income: { color: '#22C55E', label: 'Р”РѕС…РѕРґ' },
-                  deposit_topup: { color: '#0EA5E9', label: 'РџРѕРїРѕР»РЅРµРЅРёРµ РґРµРїРѕР·РёС‚Р°' },
-                  deposit_adjust: { color: '#0EA5E9', label: 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° РґРµРїРѕР·РёС‚Р°' },
-                  expense: { color: '#EF4444', label: 'Р Р°СЃС…РѕРґ' },
-                  payout_worker: { color: '#F59E0B', label: 'Р’С‹РїР»Р°С‚Р° РјР°СЃС‚РµСЂСѓ' },
-                  payout_owner: { color: '#8B5CF6', label: 'Р’С‹РїР»Р°С‚Р° РІР»Р°РґРµР»СЊС†Сѓ' },
-                  advance: { color: '#F97316', label: 'РђРІР°РЅСЃ' },
-                  salary_bonus: { color: '#22C55E', label: 'РџСЂРµРјРёСЏ' },
-                  salary_deduction: { color: '#EF4444', label: 'Р’С‹С‡РµС‚ РёР· Р·Р°СЂРїР»Р°С‚С‹' },
-                  salary_adjustment: { color: '#64748B', label: 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° Р·Р°СЂРїР»Р°С‚С‹' },
-                  piggy_withdrawal: { color: '#94A3B8', label: 'РЎРЅСЏС‚РёРµ РёР· РєРѕРїРёР»РєРё' },
-                  piggy_adjust: { color: '#94A3B8', label: 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° РєРѕРїРёР»РєРё' },
-                  piggy_repayment: { color: '#94A3B8', label: 'Р’РѕР·РІСЂР°С‚ РІ РєРѕРїРёР»РєСѓ' },
-                  piggy_deposit_return: { color: '#94A3B8', label: 'Р’РѕР·РІСЂР°С‚ РјРѕРµРє РІ РєРѕРїРёР»РєСѓ' },
+                  booking_payment: { color: '#10B981', label: 'Выручка' },
+                  booking_deposit_payment: { color: '#0EA5E9', label: 'Оплата с депозита' },
+                  booking_unpaid: { color: '#F59E0B', label: 'Не оплачено' },
+                  income: { color: '#22C55E', label: 'Доход' },
+                  deposit_topup: { color: '#0EA5E9', label: 'Пополнение депозита' },
+                  deposit_adjust: { color: '#0EA5E9', label: 'Корректировка депозита' },
+                  expense: { color: '#EF4444', label: 'Расход' },
+                  payout_worker: { color: '#F59E0B', label: 'Выплата мастеру' },
+                  payout_owner: { color: '#8B5CF6', label: 'Выплата владельцу' },
+                  advance: { color: '#F97316', label: 'Аванс' },
+                  salary_bonus: { color: '#22C55E', label: 'Премия' },
+                  salary_deduction: { color: '#EF4444', label: 'Вычет из зарплаты' },
+                  salary_adjustment: { color: '#64748B', label: 'Корректировка зарплаты' },
+                  piggy_withdrawal: { color: '#94A3B8', label: 'Снятие из копилки' },
+                  piggy_adjust: { color: '#94A3B8', label: 'Корректировка копилки' },
+                  piggy_repayment: { color: '#94A3B8', label: 'Возврат в копилку' },
+                  piggy_deposit_return: { color: '#94A3B8', label: 'Возврат моек в копилку' },
                 };
-                const fmt = (n: number) => `${n < 0 ? 'в€’' : ''}${Math.abs(n).toLocaleString('ru-RU')} в‚Ѕ`;
+                const fmt = (n: number) => `${n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('ru-RU')} ₽`;
                 const flowIcon = (entry: MoneyFlowEntry) => {
                   if (entry.type.startsWith('piggy_')) return PiggyBank;
                   if (entry.type === 'payout_owner') return Crown;
@@ -5867,7 +5867,7 @@ paymentSettled: false,
                 const workersPeople = moneyFlowData.people.filter(p => p.role === 'worker');
                 const ownersPeople = moneyFlowData.people.filter(p => p.role === 'owner');
                 const filtered = moneyFlowData.entries.filter(e => moneyFlowFilter === 'all' || e.kind === moneyFlowFilter);
-                // РіСЂСѓРїРїРёСЂРѕРІРєР° РїРѕ РґРЅСЏРј
+                // группировка по дням
                 const dayGroups: Array<{ date: string; items: MoneyFlowEntry[]; cashIn: number; cashOut: number }> = [];
                 for (const e of filtered) {
                   let g = dayGroups.find(x => x.date === e.date);
@@ -5878,32 +5878,32 @@ paymentSettled: false,
                 }
                 return (
                   <>
-                    {/* РЎРІРѕРґРєР° */}
+                    {/* Сводка */}
                     <div className={`${glass} rounded-2xl p-4 mb-3`}>
                       <div className="flex items-center justify-between mb-3">
-                        <span className={`text-xs font-medium ${sub}`}>РљРђРЎРЎРђ Р—Рђ РџР•Р РРћР”</span>
+                        <span className={`text-xs font-medium ${sub}`}>КАССА ЗА ПЕРИОД</span>
                         <span className="text-xs font-semibold" style={{ color: s.cashBalance >= 0 ? '#10B981' : '#EF4444' }}>{fmt(s.cashBalance)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setMoneyFlowFilter('in')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.in}14` }}>
-                          <div className={`text-[11px] ${sub} mb-1`}>РџСЂРёС€Р»Рѕ</div>
-                          <div className="font-semibold text-base" style={{ color: kindColor.in }}>+{s.totalIn.toLocaleString('ru-RU')} в‚Ѕ</div>
+                          <div className={`text-[11px] ${sub} mb-1`}>Пришло</div>
+                          <div className="font-semibold text-base" style={{ color: kindColor.in }}>+{s.totalIn.toLocaleString('ru-RU')} ₽</div>
                         </button>
                         <button onClick={() => setMoneyFlowFilter('out')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.out}14` }}>
-                          <div className={`text-[11px] ${sub} mb-1`}>Р’С‹С€Р»Рѕ</div>
-                          <div className="font-semibold text-base" style={{ color: kindColor.out }}>в€’{s.totalOut.toLocaleString('ru-RU')} в‚Ѕ</div>
+                          <div className={`text-[11px] ${sub} mb-1`}>Вышло</div>
+                          <div className="font-semibold text-base" style={{ color: kindColor.out }}>−{s.totalOut.toLocaleString('ru-RU')} ₽</div>
                         </button>
                       </div>
                       <div className="mt-3 space-y-1.5">
                         {[
-                          { label: 'Р’С‹СЂСѓС‡РєР° РїРѕ Р·Р°РїРёСЃСЏРј', v: s.bookingRevenue, hint: `${s.bookingCount} Р·Р°Рї.` },
-                          { label: 'РџСЂРѕС‡РёРµ РґРѕС…РѕРґС‹', v: s.otherIncome },
-                          { label: 'РџРѕРїРѕР»РЅРµРЅРёСЏ РґРµРїРѕР·РёС‚РѕРІ (РїСЂРµРґРѕРїР»Р°С‚Р°)', v: s.depositTopups },
-                          { label: 'Р’С‹РїР»Р°С‚С‹ РјР°СЃС‚РµСЂР°Рј', v: s.workerPayouts },
-                          { label: 'Р’С‹РїР»Р°С‚С‹ РІР»Р°РґРµР»СЊС†Р°Рј', v: s.ownerPayouts },
-                          { label: 'РђРІР°РЅСЃС‹', v: s.advances },
-                          { label: 'Р Р°СЃС…РѕРґС‹', v: s.expensesTotal },
-                        ].filter(r => r.v !== 0 || r.label.startsWith('Р’С‹СЂСѓС‡РєР°')).map(r => (
+                          { label: 'Выручка по записям', v: s.bookingRevenue, hint: `${s.bookingCount} зап.` },
+                          { label: 'Прочие доходы', v: s.otherIncome },
+                          { label: 'Пополнения депозитов (предоплата)', v: s.depositTopups },
+                          { label: 'Выплаты мастерам', v: s.workerPayouts },
+                          { label: 'Выплаты владельцам', v: s.ownerPayouts },
+                          { label: 'Авансы', v: s.advances },
+                          { label: 'Расходы', v: s.expensesTotal },
+                        ].filter(r => r.v !== 0 || r.label.startsWith('Выручка')).map(r => (
                           <div key={r.label} className="flex justify-between text-xs">
                             <span className={sub}>{r.label}{r.hint ? ` В· ${r.hint}` : ''}</span>
                             <span className="font-medium tabular-nums">{fmt(r.v)}</span>
@@ -5911,14 +5911,14 @@ paymentSettled: false,
                         ))}
                       </div>
                       <div className="mt-3 pt-3 border-t" style={{ borderColor: 'rgba(148,163,184,0.15)' }}>
-                        <div className={`text-xs font-medium ${sub} mb-1.5`}>Р РђРЎРџР Р•Р”Р•Р›Р•РќРћ РџРћ Р—РђРџРРЎРЇРњ</div>
+                        <div className={`text-xs font-medium ${sub} mb-1.5`}>РАСПРЕДЕЛЕНО ПО ЗАПИСЯМ</div>
                         <div className="space-y-1.5">
                           {[
-                            { label: 'РњР°СЃС‚РµСЂР°Рј РЅР°С‡РёСЃР»РµРЅРѕ', v: s.allocatedWorkers, c: '#F59E0B' },
-                            { label: 'Р’ РєРѕРїРёР»РєСѓ', v: s.allocatedPiggy, c: '#F59E0B' },
-                            { label: 'Р’Р»Р°РґРµР»СЊС†Р°Рј', v: s.allocatedOwners, c: '#8B5CF6' },
-                            { label: 'РњР°С‚РµСЂРёР°Р»С‹', v: s.allocatedMaterials, c: '#EF4444' },
-                            { label: 'РђСѓС‚СЃРѕСЂСЃ', v: s.allocatedOutsource, c: '#0EA5E9' },
+                            { label: 'Мастерам начислено', v: s.allocatedWorkers, c: '#F59E0B' },
+                            { label: 'В копилку', v: s.allocatedPiggy, c: '#F59E0B' },
+                            { label: 'Владельцам', v: s.allocatedOwners, c: '#8B5CF6' },
+                            { label: 'Материалы', v: s.allocatedMaterials, c: '#EF4444' },
+                            { label: 'Аутсорс', v: s.allocatedOutsource, c: '#0EA5E9' },
                           ].filter(r => r.v !== 0).map(r => (
                             <div key={r.label} className="flex justify-between text-xs">
                               <span className={sub}>{r.label}</span>
@@ -5929,10 +5929,10 @@ paymentSettled: false,
                       </div>
                     </div>
 
-                    {/* Р›СЋРґРё: РєРѕРјСѓ СЃРєРѕР»СЊРєРѕ РІС‹РїР»Р°С‚РёР»Рё */}
+                    {/* Люди: кому сколько выплатили */}
                     {(workersPeople.length > 0 || ownersPeople.length > 0) && (
                       <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                        <div className={`text-xs font-medium ${sub} mb-3`}>РљРћРњРЈ РЎРљРћР›Р¬РљРћ Р’Р«РџР›РђРўРР›Р</div>
+                        <div className={`text-xs font-medium ${sub} mb-3`}>КОМУ СКОЛЬКО ВЫПЛАТИЛИ</div>
                         <div className="space-y-2">
                           {workersPeople.map(p => (
                             <div key={p.personId} className="flex items-center gap-3">
@@ -5941,13 +5941,13 @@ paymentSettled: false,
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{p.personName}</div>
-                                <div className={`text-[11px] ${sub}`}>РќР°С‡РёСЃР»РµРЅРѕ {p.accrued.toLocaleString('ru-RU')} В· Р’С‹РїР»Р°С‡РµРЅРѕ {p.paid.toLocaleString('ru-RU')}</div>
+                                <div className={`text-[11px] ${sub}`}>Начислено {p.accrued.toLocaleString('ru-RU')} · Выплачено {p.paid.toLocaleString('ru-RU')}</div>
                               </div>
                               <div className="text-right shrink-0">
                                 <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#10B981' : p.balance < 0 ? '#EF4444' : '#94A3B8' }}>
-                                  {p.balance > 0 ? '+' : ''}{p.balance.toLocaleString('ru-RU')} в‚Ѕ
+                                  {p.balance > 0 ? '+' : ''}{p.balance.toLocaleString('ru-RU')} ₽
                                 </div>
-                                {p.balance > 0 && <div className={`text-[11px] ${sub}`}>Рє РІС‹РїР»Р°С‚Рµ</div>}
+                                {p.balance > 0 && <div className={`text-[11px] ${sub}`}>к выплате</div>}
                               </div>
                             </div>
                           ))}
@@ -5958,13 +5958,13 @@ paymentSettled: false,
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{p.personName}</div>
-                                <div className={`text-[11px] ${sub}`}>Р”РѕР»СЏ РїСЂРёР±С‹Р»Рё {p.accrued.toLocaleString('ru-RU')} В· Р’С‹РїР»Р°С‡РµРЅРѕ {p.paid.toLocaleString('ru-RU')}</div>
+                                <div className={`text-[11px] ${sub}`}>Доля прибыли {p.accrued.toLocaleString('ru-RU')} · Выплачено {p.paid.toLocaleString('ru-RU')}</div>
                               </div>
                               <div className="text-right shrink-0">
                                 <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#8B5CF6' : '#94A3B8' }}>
-                                  {p.balance.toLocaleString('ru-RU')} в‚Ѕ
+                                  {p.balance.toLocaleString('ru-RU')} ₽
                                 </div>
-                                {p.balance > 0 && <div className={`text-[11px] ${sub}`}>Рє РІС‹РїР»Р°С‚Рµ</div>}
+                                {p.balance > 0 && <div className={`text-[11px] ${sub}`}>к выплате</div>}
                               </div>
                             </div>
                           ))}
@@ -5972,9 +5972,9 @@ paymentSettled: false,
                       </div>
                     )}
 
-                    {/* Р¤РёР»СЊС‚СЂ С‚РёРїРѕРІ */}
+                    {/* Фильтр типов */}
                     <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
-                      {[{ id: 'all', label: 'Р’СЃРµ' }, { id: 'in', label: 'РџСЂРёС…РѕРґ' }, { id: 'allocation', label: 'Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ' }, { id: 'out', label: 'Р’С‹РїР»Р°С‚С‹' }].map(option => (
+                      {[{ id: 'all', label: 'Все' }, { id: 'in', label: 'Приход' }, { id: 'allocation', label: 'Распределение' }, { id: 'out', label: 'Выплаты' }].map(option => (
                         <button key={option.id} onClick={() => setMoneyFlowFilter(option.id as typeof moneyFlowFilter)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap ${moneyFlowFilter === option.id ? 'text-white' : glass}`}
                           style={moneyFlowFilter === option.id ? { background: primary } : undefined}>
@@ -5983,9 +5983,9 @@ paymentSettled: false,
                       ))}
                     </div>
 
-                    {/* Р–СѓСЂРЅР°Р» РїРѕ РґРЅСЏРј */}
+                    {/* Журнал по дням */}
                     {dayGroups.length === 0 ? (
-                      <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>РћРїРµСЂР°С†РёР№ РЅРµ РЅР°Р№РґРµРЅРѕ</div>
+                      <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>Операций не найдено</div>
                     ) : dayGroups.map(group => (
                       <div key={group.date} className="mb-4">
                         <div className="flex justify-between items-baseline mb-2 px-1">
@@ -6012,11 +6012,11 @@ paymentSettled: false,
                                   <div className={`text-[11px] ${sub} truncate`}>
                                     {meta.label}{entry.methodLabel ? ` В· ${entry.methodLabel}` : ''}{entry.counterparty ? ` В· ${entry.counterparty}` : ''}
                                   </div>
-                                  {d && <div className={`text-[11px] mt-0.5 ${expanded ? '' : sub}`} style={{ color: expanded ? primary : undefined }}>{expanded ? 'в–І РЎРєСЂС‹С‚СЊ С†РµРїРѕС‡РєСѓ' : 'в–ј РџРѕРєР°Р·Р°С‚СЊ С†РµРїРѕС‡РєСѓ СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ'}</div>}
+                                  {d && <div className={`text-[11px] mt-0.5 ${expanded ? '' : sub}`} style={{ color: expanded ? primary : undefined }}>{expanded ? '▲ Скрыть цепочку' : '▼ Показать цепочку распределения'}</div>}
                                 </div>
                                 <div className="text-right shrink-0">
                                   <div className="text-sm font-semibold tabular-nums" style={{ color: meta.color }}>
-                                    {entry.kind === 'in' ? '+' : entry.kind === 'out' ? 'в€’' : ''}{entry.amount.toLocaleString('ru-RU')} в‚Ѕ
+                                    {entry.kind === 'in' ? '+' : entry.kind === 'out' ? '−' : ''}{entry.amount.toLocaleString('ru-RU')} ₽
                                   </div>
                                   {entry.time && <div className={`text-[11px] ${sub}`}>{entry.time}</div>}
                                 </div>
@@ -6025,11 +6025,11 @@ paymentSettled: false,
                                 <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: 'rgba(148,163,184,0.12)' }}>
                                   <div className="space-y-1.5 mt-2">
                                     {[
-                                      { label: 'РњР°С‚РµСЂРёР°Р»С‹', v: d.materialsCost, c: '#EF4444' },
-                                      ...d.workers.map((w, i) => ({ label: `РњР°СЃС‚РµСЂ: ${w.workerName}`, v: w.earned, c: '#F59E0B', key: `w${i}` })),
-                                      { label: 'РђСѓС‚СЃРѕСЂСЃ', v: d.outsourceTotal, c: '#0EA5E9' },
-                                      { label: 'РљРѕРїРёР»РєР°', v: d.piggyDeposit, c: '#F59E0B' },
-                                      ...d.owners.map((o, i) => ({ label: `Р’Р»Р°РґРµР»РµС†: ${o.ownerName}${o.status === 'paid' ? ' вњ“ РІС‹РїР»Р°С‡РµРЅРѕ' : ''}`, v: o.amount, c: '#8B5CF6', key: `o${i}` })),
+                                      { label: 'Материалы', v: d.materialsCost, c: '#EF4444' },
+                                      ...d.workers.map((w, i) => ({ label: `Мастер: ${w.workerName}`, v: w.earned, c: '#F59E0B', key: `w${i}` })),
+                                      { label: 'Аутсорс', v: d.outsourceTotal, c: '#0EA5E9' },
+                                      { label: 'Копилка', v: d.piggyDeposit, c: '#F59E0B' },
+                                      ...d.owners.map((o, i) => ({ label: `Владелец: ${o.ownerName}${o.status === 'paid' ? ' ✓ выплачено' : ''}`, v: o.amount, c: '#8B5CF6', key: `o${i}` })),
                                     ].filter(r => r.v !== 0).map(r => (
                                       <div key={r.key ?? r.label} className="flex justify-between text-xs">
                                         <span className={sub}>{r.label}</span>
@@ -6039,13 +6039,13 @@ paymentSettled: false,
                                   </div>
                                   {distSum > 0 && (
                                     <div className="mt-2 pt-2 text-[11px] flex justify-between" style={{ borderTop: '1px solid rgba(148,163,184,0.12)' }}>
-                                      <span className={sub}>РС‚РѕРіРѕ СЂР°СЃРїСЂРµРґРµР»РµРЅРѕ РёР· {entry.amount.toLocaleString('ru-RU')} в‚Ѕ</span>
+                                      <span className={sub}>Итого распределено из {entry.amount.toLocaleString('ru-RU')} ₽</span>
                                       <span className="font-semibold tabular-nums">{fmt(distSum)}</span>
                                     </div>
                                   )}
                                   {entry.bookingId && (
                                     <button onClick={() => openHistoryBooking(entry.bookingId!)} className="mt-2 w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: `${primary}18`, color: primary }}>
-                                      <Split size={13} /> РћС‚РєСЂС‹С‚СЊ РїРѕР»РЅСѓСЋ СЂР°СЃС‡С‘С‚РєСѓ
+                                      <Split size={13} /> Открыть полную расчётку
                                     </button>
                                   )}
                                 </div>
@@ -6064,26 +6064,26 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS MAIN в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && !settingsSection && (
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <h2 className="font-semibold mb-4">РќР°СЃС‚СЂРѕР№РєРё</h2>
+              <h2 className="font-semibold mb-4">Настройки</h2>
               {[
-                { id: 'company', icon: Building2, label: 'РџСЂРѕС„РёР»СЊ РєРѕРјРїР°РЅРёРё', desc: 'ATMOSFERA В· РРџ РРІР°РЅРѕРІ', color: primary },
-                { id: 'schedule', icon: Clock, label: 'Р Р°СЃРїРёСЃР°РЅРёРµ СЂР°Р±РѕС‚С‹', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' В· ') || 'Р“СЂР°С„РёРє РЅРµ Р·Р°РґР°РЅ', color: '#F59E0B' },
-                { id: 'boxes', icon: Box, label: 'РЈРїСЂР°РІР»РµРЅРёРµ Р±РѕРєСЃР°РјРё', desc: `${boxes.filter(b => b.active).length} Р°РєС‚РёРІРЅС‹С… Р±РѕРєСЃР°`, color: '#F59E0B' },
-                { id: 'services', icon: Sliders, label: 'РЈСЃР»СѓРіРё Рё С†РµРЅС‹', desc: `${services.filter(s => s.active).length} Р°РєС‚РёРІРЅС‹С… СѓСЃР»СѓРі`, color: '#312E81' },
-                { id: 'employees', icon: Users, label: 'РЎРѕС‚СЂСѓРґРЅРёРєРё', desc: `${employeeSettings.filter(e => e.active).length} РјР°СЃС‚РµСЂР°`, color: accent },
-                { id: 'shift', icon: Clock, label: 'РћС‚РєСЂС‹С‚РёРµ СЃРјРµРЅС‹', desc: 'РћС‚РєСЂС‹С‚СЊ СЃРјРµРЅСѓ РґР»СЏ РјР°СЃС‚РµСЂРѕРІ', color: accent },
-                { id: 'clients', icon: Phone, label: 'РљР»РёРµРЅС‚С‹', desc: `${clients.length} РєР°СЂС‚РѕС‡РµРє РєР»РёРµРЅС‚РѕРІ`, color: '#0EA5E9' },
-                { id: 'finance', icon: BarChart3, label: 'Р¤РёРЅР°РЅСЃС‹', desc: 'РћС‚С‡С‘С‚ РїРѕ РјРѕР№РєРµ Рё РґРµС‚РµР№Р»РёРЅРіСѓ', color: '#22C55E' },
-                { id: 'deposit', icon: Wallet, label: 'Р”РµРїРѕР·РёС‚', desc: 'РђР±РѕРЅРµРЅС‚СЃРєРёРµ РєР»РёРµРЅС‚С‹, РјРѕР№РєРё РІ РґРѕР»Рі', color: '#F59E0B' },
-                { id: 'wallet', icon: Wallet, label: 'РљРѕС€РµР»С‘Рє', desc: 'Р”РѕС…РѕРґС‹ Рё СЂР°СЃС…РѕРґС‹ Р·Р° РЅРµРґРµР»СЋ', color: '#0EA5E9' },
-                { id: 'money-flow', icon: ArrowLeftRight, label: 'Р”РІРёР¶РµРЅРёРµ РґРµРЅРµРі', desc: 'Р’СЃРµ РїСЂРёС…РѕРґС‹, СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ Рё РІС‹РїР»Р°С‚С‹', color: '#8B5CF6' },
-                { id: 'bookings-history', icon: History, label: 'РСЃС‚РѕСЂРёСЏ Р·Р°РїРёСЃРµР№', desc: 'Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РґРµРЅРµРі РїРѕ Р·Р°РїРёСЃСЏРј', color: '#6366F1' },
-                { id: 'archive', icon: Archive, label: 'РђСЂС…РёРІ', desc: 'Р“Р»Р°РІРЅР°СЏ Р±РёР±Р»РёРѕС‚РµРєР°: РІСЃРµ Р·Р°РїРёСЃРё Рё СЂР°СЃС‡С‘С‚С‹', color: '#10B981' },
-                { id: 'notifications', icon: Bell, label: 'РЈРІРµРґРѕРјР»РµРЅРёСЏ', desc: 'Telegram, Email', color: '#EC4899' },
-                { id: 'integrations', icon: Globe, label: 'РРЅС‚РµРіСЂР°С†РёРё', desc: `${Object.values(integrations).filter(Boolean).length} РїРѕРґРєР»СЋС‡РµРЅРѕ`, color: '#06B6D4' },
-                { id: 'content', icon: FileText, label: 'РљРѕРЅС‚РµРЅС‚ СЃР°Р№С‚Р°', desc: 'Р“Р»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ, Рѕ СЃС‚СѓРґРёРё, РїРѕСЂС‚С„РѕР»РёРѕ', color: '#0EA5E9' },
-                { id: 'reports', icon: FileText, label: 'РћС‚С‡С‘С‚С‹', desc: 'РЎРІРѕРґРЅС‹Рµ РѕС‚С‡С‘С‚С‹ РїРѕ РјРѕР№РєРµ Рё РґРµС‚РµР№Р»РёРЅРіСѓ', color: '#F59E0B' },
-                { id: 'security', icon: Shield, label: 'Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ', desc: '2FA РІРєР»СЋС‡РµРЅР°', color: '#EF4444' },
+                { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
+                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' · ') || 'График не задан', color: '#F59E0B' },
+                { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
+                { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#312E81' },
+                { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
+                { id: 'shift', icon: Clock, label: 'Открытие смены', desc: 'Открыть смену для мастеров', color: accent },
+                { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
+                { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
+                { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#F59E0B' },
+                { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
+                { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#8B5CF6' },
+                { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
+                { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
+                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
+                { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
+                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
+                { id: 'reports', icon: FileText, label: 'Отчёты', desc: 'Сводные отчёты по мойке и детейлингу', color: '#F59E0B' },
+                { id: 'security', icon: Shield, label: 'Безопасность', desc: '2FA включена', color: '#EF4444' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => {
@@ -6107,12 +6107,12 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: SHIFT OPENING в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'shift' && (
             <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-1">РћС‚РєСЂС‹С‚РёРµ СЃРјРµРЅС‹</h2>
-              <p className={`text-xs ${sub} mb-4`}>РћС‚РјРµС‚СЊ РјР°СЃС‚РµСЂРѕРІ, РєРѕС‚РѕСЂС‹Рµ РІС‹С€Р»Рё РЅР° СЃРјРµРЅСѓ. РЎРјРµРЅР° СЃСЂР°Р·Сѓ РѕС‚РєСЂС‹С‚Р° Рё РїРѕРїР°РґР°РµС‚ РІ РїРѕСЃРµС‰Р°РµРјРѕСЃС‚СЊ вЂ” РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРµ С‚СЂРµР±СѓРµС‚СЃСЏ.</p>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-1">Открытие смены</h2>
+              <p className={`text-xs ${sub} mb-4`}>Отметь мастеров, которые вышли на смену. Смена сразу открыта и попадает в посещаемость — подтверждение не требуется.</p>
 
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">РњР°СЃС‚РµСЂР° РЅР° СЃРјРµРЅРµ</div>
+                <div className="font-medium mb-3">Мастера на смене</div>
                 <div className="space-y-2">
                   {workers.filter((worker) => worker.role === 'worker' && worker.active).map((worker) => {
                     const checked = shiftOpenMasterIds.includes(worker.id);
@@ -6127,13 +6127,13 @@ paymentSettled: false,
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-sm font-medium">{worker.name}</div>
-                            <div className={`text-xs ${sub}`}>{worker.experience || 'РњР°СЃС‚РµСЂ'}</div>
+                            <div className={`text-xs ${sub}`}>{worker.experience || 'Мастер'}</div>
                           </div>
                           <div
                             className="h-6 min-w-6 rounded-full px-2 flex items-center justify-center text-[11px] font-semibold text-white"
                             style={{ background: checked ? primary : '#9CA3AF' }}
                           >
-                            {checked ? 'Р•СЃС‚СЊ' : 'РќРµС‚'}
+                            {checked ? 'Есть' : 'Нет'}
                           </div>
                         </div>
                       </button>
@@ -6141,38 +6141,38 @@ paymentSettled: false,
                   })}
                 </div>
                 <div className={`mt-3 text-xs ${sub}`}>
-                  РћС‚РјРµС‚СЊ С‚РѕР»СЊРєРѕ С‚РµС… РјР°СЃС‚РµСЂРѕРІ, РєРѕС‚РѕСЂС‹Рµ СЂРµР°Р»СЊРЅРѕ РІС‹С€Р»Рё РІ СЃРјРµРЅСѓ.
+                  Отметь только тех мастеров, которые реально вышли в смену.
                 </div>
               </div>
 
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="font-medium mb-3">РљРѕРјРјРµРЅС‚Р°СЂРёР№ Рє СЃРјРµРЅРµ</div>
+                <div className="font-medium mb-3">Комментарий к смене</div>
                 <textarea
                   className={`${inputCls} min-h-[88px] resize-none`}
-                  placeholder="РљРѕРјРјРµРЅС‚Р°СЂРёР№ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)"
+                  placeholder="Комментарий (необязательно)"
                   value={shiftOpenNote}
                   onChange={(event) => setShiftOpenNote(event.target.value)}
                 />
                 {shiftOpenError && <div className="mt-3 text-xs text-red-500">{shiftOpenError}</div>}
-                {shiftOpenSuccess && <div className="mt-3 text-xs" style={{ color: accent }}>РЎРјРµРЅР° РѕС‚РєСЂС‹С‚Р° РґР»СЏ РѕС‚РјРµС‡РµРЅРЅС‹С… РјР°СЃС‚РµСЂРѕРІ</div>}
+                {shiftOpenSuccess && <div className="mt-3 text-xs" style={{ color: accent }}>Смена открыта для отмеченных мастеров</div>}
                 <button onClick={() => { void handleOpenShiftForMasters(); }} disabled={shiftOpenSubmitting} className="mt-3 w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60" style={{ background: primary }}>
-                  {shiftOpenSubmitting ? 'РћС‚РєСЂС‹РІР°РµРј СЃРјРµРЅСѓ...' : 'РћС‚РєСЂС‹С‚СЊ СЃРјРµРЅСѓ'}
+                  {shiftOpenSubmitting ? 'Открываем смену...' : 'Открыть смену'}
                 </button>
               </div>
 
-              {/* РњР°СЃС‚РµСЂР° СЃРµРіРѕРґРЅСЏ: СѓСЃР»СѓРіРё Рё РІС‹С…РѕРґ */}
+              {/* Мастера сегодня: услуги и выход */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-1">
-                  <div className="font-medium">РњР°СЃС‚РµСЂР° СЃРµРіРѕРґРЅСЏ</div>
+                  <div className="font-medium">Мастера сегодня</div>
                   <span className={`text-xs font-medium ${sub}`}>
-                    Р’С‹С€Р»Рё: {mastersCameOutToday} РёР· {activeMasters.length}
+                    Вышли: {mastersCameOutToday} из {activeMasters.length}
                   </span>
                 </div>
                 <div className={`text-xs ${sub} mb-3`}>
-                  РЈСЃР»СѓРіРё РЅР° {todayLabel} В· РІС‹С…РѕРґ вЂ” РїРѕ РѕС‚РєСЂС‹С‚С‹Рј СЃРјРµРЅР°Рј Рё РѕС‚РјРµС‚РєР°Рј РІ РѕСЃРјРѕС‚СЂР°С…
+                  Услуги на {todayLabel} · выход — по открытым сменам и отметкам в осмотрах
                 </div>
                 {activeMasters.length === 0 ? (
-                  <div className={`text-sm ${sub}`}>РќРµС‚ Р°РєС‚РёРІРЅС‹С… РјР°СЃС‚РµСЂРѕРІ.</div>
+                  <div className={`text-sm ${sub}`}>Нет активных мастеров.</div>
                 ) : (
                   <div className="space-y-3">
                     {activeMasters.map((master) => {
@@ -6187,16 +6187,16 @@ paymentSettled: false,
                             <div className="text-sm font-medium">{master.name}</div>
                             {cameOutAt ? (
                               <span className="text-[11px] px-2.5 py-1 rounded-full font-medium bg-green-500/15 text-green-600 whitespace-nowrap">
-                                Р’С‹С€РµР» РІ {cameOutAt}
+                                Вышел в {cameOutAt}
                               </span>
                             ) : (
                               <span className="text-[11px] px-2.5 py-1 rounded-full font-medium bg-black/10 dark:bg-white/10 text-gray-500 whitespace-nowrap">
-                                РќРµ РІС‹С€РµР»
+                                Не вышел
                               </span>
                             )}
                           </div>
                           {masterBookings.length === 0 ? (
-                            <div className={`text-xs ${sub}`}>РќРµС‚ Р·Р°РїРёСЃРµР№ РЅР° СЃРµРіРѕРґРЅСЏ</div>
+                            <div className={`text-xs ${sub}`}>Нет записей на сегодня</div>
                           ) : (
                             <>
                               <div className="space-y-1.5">
@@ -6207,13 +6207,13 @@ paymentSettled: false,
                                       <span className={sub}> В· {booking.clientName}</span>
                                       <div className={`${sub} truncate`}>{booking.service}</div>
                                     </div>
-                                    <span className="font-semibold whitespace-nowrap">{booking.price.toLocaleString('ru')} в‚Ѕ</span>
+                                    <span className="font-semibold whitespace-nowrap">{booking.price.toLocaleString('ru')} ₽</span>
                                   </div>
                                 ))}
                               </div>
                               <div className="flex items-center justify-between text-xs pt-1.5 mt-1.5 border-t border-black/5 dark:border-white/10">
-                                <span className={sub}>РС‚РѕРіРѕ</span>
-                                <span className="font-semibold">{masterTotal.toLocaleString('ru')} в‚Ѕ</span>
+                                <span className={sub}>Итого</span>
+                                <span className="font-semibold">{masterTotal.toLocaleString('ru')} ₽</span>
                               </div>
                             </>
                           )}
@@ -6225,9 +6225,9 @@ paymentSettled: false,
               </div>
 
               <div className="space-y-3">
-                <div className="font-medium">РџРѕСЃР»РµРґРЅРёРµ РѕС‚РєСЂС‹С‚РёСЏ</div>
+                <div className="font-medium">Последние открытия</div>
                 {adminShiftInspections.length === 0 ? (
-                  <div className={`text-sm ${sub}`}>РЎРјРµРЅС‹ РµС‰С‘ РЅРµ РѕС‚РєСЂС‹РІР°Р»РёСЃСЊ.</div>
+                  <div className={`text-sm ${sub}`}>Смены ещё не открывались.</div>
                 ) : (
                   adminShiftInspections.slice(0, 10).map((inspection) => (
                     <div key={inspection.id} className={`${glass} rounded-2xl p-4`}>
@@ -6237,14 +6237,14 @@ paymentSettled: false,
                           <div className={`text-xs ${sub}`}>{inspection.createdAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
                         </div>
                         <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${inspection.status === 'pending' ? 'bg-amber-500/15 text-amber-600' : inspection.status === 'approved' ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
-                          {inspection.status === 'pending' ? 'РќР° РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРё' : inspection.status === 'approved' ? 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРѕ' : 'РћС‚РєР°Р·Р°РЅРѕ'}
+                          {inspection.status === 'pending' ? 'На подтверждении' : inspection.status === 'approved' ? 'Подтверждено' : 'Отказано'}
                         </div>
                       </div>
                       <div className={`text-xs ${sub}`}>
-                        РњР°СЃС‚РµСЂР°: {inspection.masters.filter((item) => item.checked).map((item) => item.workerName).join(', ') || 'РќРµ РІС‹Р±СЂР°РЅС‹'}
+                        Мастера: {inspection.masters.filter((item) => item.checked).map((item) => item.workerName).join(', ') || 'Не выбраны'}
                       </div>
                       {inspection.note && <div className={`text-xs ${sub} mt-1`}>{inspection.note}</div>}
-                      {inspection.issueNote && <div className="mt-2 text-xs text-red-500">РџСЂРѕР±Р»РµРјР°: {inspection.issueNote}</div>}
+                      {inspection.issueNote && <div className="mt-2 text-xs text-red-500">Проблема: {inspection.issueNote}</div>}
                     </div>
                   ))
                 )}
@@ -6255,16 +6255,16 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: BOOKINGS HISTORY в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'bookings-history' && !selectedHistoryBookingId && (
             <motion.div key="s-bookings-history" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РСЃС‚РѕСЂРёСЏ Р·Р°РїРёСЃРµР№</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">История записей</h2>
 
               <div className="flex flex-wrap gap-2 mb-3">
                 {[
-                  { id: 'day', label: 'Р”РµРЅСЊ' },
-                  { id: 'week', label: 'РќРµРґРµР»СЏ' },
-                  { id: 'month', label: 'РњРµСЃСЏС†' },
-                  { id: 'all', label: 'Р’СЃС‘' },
-                  { id: 'custom', label: 'РЎРІРѕРё' },
+                  { id: 'day', label: 'День' },
+                  { id: 'week', label: 'Неделя' },
+                  { id: 'month', label: 'Месяц' },
+                  { id: 'all', label: 'Всё' },
+                  { id: 'custom', label: 'Свои' },
                 ].map(option => (
                   <button key={option.id}
                     onClick={() => setHistoryPeriod(option.id as typeof historyPeriod)}
@@ -6288,11 +6288,11 @@ paymentSettled: false,
 
               <div className="flex flex-wrap gap-2 mb-3">
                 {[
-                  { id: '', label: 'Р’СЃРµ' },
-                  { id: 'completed', label: 'Р—Р°РІРµСЂС€РµРЅРѕ' },
-                  { id: 'in_progress', label: 'Р’ СЂР°Р±РѕС‚Рµ' },
-                  { id: 'cancelled', label: 'РћС‚РјРµРЅРµРЅРѕ' },
-                  { id: 'no_show', label: 'РќРµ РїСЂРёРµС…Р°Р»' },
+                  { id: '', label: 'Все' },
+                  { id: 'completed', label: 'Завершено' },
+                  { id: 'in_progress', label: 'В работе' },
+                  { id: 'cancelled', label: 'Отменено' },
+                  { id: 'no_show', label: 'Не приехал' },
                 ].map(option => (
                   <button key={option.id || 'all'}
                     onClick={() => setHistoryStatusFilter(option.id)}
@@ -6308,7 +6308,7 @@ paymentSettled: false,
                   <Search size={15} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                   <input
                     className="w-full bg-transparent outline-none pl-9 pr-3 py-2.5 text-sm"
-                    placeholder="РљР»РёРµРЅС‚, С‚РµР»РµС„РѕРЅ, СѓСЃР»СѓРіР°, Р°РІС‚Рѕ..."
+                    placeholder="Клиент, телефон, услуга, авто..."
                     value={historySearchInput}
                     onChange={e => setHistorySearchInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') setHistoryQuery(historySearchInput.trim()); }}
@@ -6316,7 +6316,7 @@ paymentSettled: false,
                 </div>
                 <button onClick={() => setHistoryQuery(historySearchInput.trim())}
                   className="px-4 rounded-xl text-sm font-semibold text-white shrink-0" style={{ background: '#6366F1' }}>
-                  РќР°Р№С‚Рё
+                  Найти
                 </button>
               </div>
 
@@ -6324,38 +6324,38 @@ paymentSettled: false,
                 <div className="grid gap-3 mb-4">
                   {historyTotals.workers.length > 0 && (
                     <div className={`${glass} rounded-2xl p-3`}>
-                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>РњР°СЃС‚РµСЂР° В· РёС‚РѕРі Р·Р° РїРµСЂРёРѕРґ</div>
+                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Мастера · итог за период</div>
                       {historyTotals.workers.map(w => (
                         <div key={w.workerId} className={`py-1.5 ${w !== historyTotals!.workers[0] ? 'border-t' : ''}`}
                           style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)' }}>
                           <div className="flex items-center justify-between text-sm">
                             <span className="font-semibold">{w.workerName}</span>
-                            <span className="font-bold">{w.balance.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className="font-bold">{w.balance.toLocaleString('ru')} ₽</span>
                           </div>
                           <div className={`text-xs mt-0.5 space-y-0.5 ${sub}`}>
                             {w.accruedFromBookings > 0 && (
-                              <div className="flex justify-between"><span>РїРѕ Р·Р°РїРёСЃСЏРј ({w.bookingCount})</span><span className="font-medium">+{w.accruedFromBookings.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>по записям ({w.bookingCount})</span><span className="font-medium">+{w.accruedFromBookings.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.baseSalary > 0 && (
-                              <div className="flex justify-between"><span>РѕРєР»Р°Рґ</span><span className="font-medium">+{w.baseSalary.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>оклад</span><span className="font-medium">+{w.baseSalary.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.shiftPayTotal > 0 && (
-                              <div className="flex justify-between"><span>СЃРјРµРЅС‹ ({w.shiftCount})</span><span className="font-medium">+{w.shiftPayTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>смены ({w.shiftCount})</span><span className="font-medium">+{w.shiftPayTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.bonusTotal > 0 && (
-                              <div className="flex justify-between"><span>Р±РѕРЅСѓСЃС‹</span><span className="font-medium">+{w.bonusTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>бонусы</span><span className="font-medium">+{w.bonusTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.adjustmentTotal !== 0 && (
-                              <div className="flex justify-between"><span>РїРѕРїСЂР°РІРєРё</span><span className="font-medium">{w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>поправки</span><span className="font-medium">{w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.advanceTotal > 0 && (
-                              <div className="flex justify-between"><span>Р°РІР°РЅСЃС‹</span><span className="font-medium">в€’{w.advanceTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>авансы</span><span className="font-medium">−{w.advanceTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.deductionTotal > 0 && (
-                              <div className="flex justify-between"><span>РІС‹С‡РµС‚С‹</span><span className="font-medium">в€’{w.deductionTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>вычеты</span><span className="font-medium">−{w.deductionTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.payoutTotal > 0 && (
-                              <div className="flex justify-between"><span>РІС‹РїР»Р°С‡РµРЅРѕ</span><span className="font-medium">в€’{w.payoutTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                              <div className="flex justify-between"><span>выплачено</span><span className="font-medium">−{w.payoutTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                           </div>
                         </div>
@@ -6364,25 +6364,25 @@ paymentSettled: false,
                   )}
                   {historyTotals.piggy.length > 0 && (
                     <div className={`${glass} rounded-2xl p-3`}>
-                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>РљРѕРїРёР»РєР° В· РёС‚РѕРі Р·Р° РїРµСЂРёРѕРґ</div>
+                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Копилка · итог за период</div>
                       {historyTotals.piggy.map(p => (
                         <div key={p.resourceGroup} className="flex items-center justify-between py-1 text-sm">
                           <span className={sub}>{piggyBankLabel(p.resourceGroup)}</span>
-                          <span className="font-bold">{p.amount.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className="font-bold">{p.amount.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
                     </div>
                   )}
                   {historyTotals.owners.length > 0 && (
                     <div className={`${glass} rounded-2xl p-3`}>
-                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Р’Р»Р°РґРµР»СЊС†С‹ В· РёС‚РѕРі Р·Р° РїРµСЂРёРѕРґ</div>
+                      <div className={`text-xs font-semibold ${sub} mb-1.5 uppercase tracking-wide`}>Владельцы · итог за период</div>
                       {historyTotals.owners.map(o => (
                         <div key={o.ownerId} className="flex items-center justify-between py-1 text-sm">
                           <span className={sub}>{o.ownerName}</span>
                           <span className="font-bold">
-                            {o.totalAccrued > 0 && <span>{o.totalAccrued.toLocaleString('ru')} в‚Ѕ Рє РІС‹РїР»Р°С‚Рµ</span>}
-                            {o.totalPaid > 0 && <span>{o.totalAccrued > 0 ? ' В· ' : ''}РІС‹РїР»Р°С‡РµРЅРѕ {o.totalPaid.toLocaleString('ru')} в‚Ѕ</span>}
-                            {o.totalAccrued === 0 && o.totalPaid === 0 && '0 в‚Ѕ'}
+                            {o.totalAccrued > 0 && <span>{o.totalAccrued.toLocaleString('ru')} ₽ к выплате</span>}
+                            {o.totalPaid > 0 && <span>{o.totalAccrued > 0 ? ' · ' : ''}выплачено {o.totalPaid.toLocaleString('ru')} ₽</span>}
+                            {o.totalAccrued === 0 && o.totalPaid === 0 && '0 ₽'}
                           </span>
                         </div>
                       ))}
@@ -6392,9 +6392,9 @@ paymentSettled: false,
               )}
 
               {historyLoading && historyItems.length === 0 ? (
-                <div className={`text-center py-10 text-sm ${sub}`}>Р—Р°РіСЂСѓР·РєР°...</div>
+                <div className={`text-center py-10 text-sm ${sub}`}>Загрузка...</div>
               ) : historyItems.length === 0 ? (
-                <div className={`text-center py-10 text-sm ${sub}`}>Р—Р°РїРёСЃРµР№ РЅРµ РЅР°Р№РґРµРЅРѕ</div>
+                <div className={`text-center py-10 text-sm ${sub}`}>Записей не найдено</div>
               ) : (
                 (() => {
                   const grouped = historyItems.reduce<Record<string, BookingHistoryItem[]>>((acc, item) => {
@@ -6415,7 +6415,7 @@ paymentSettled: false,
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="text-sm font-semibold truncate">{item.service}</div>
-                                <div className="text-sm font-bold shrink-0">{item.price.toLocaleString('ru')} в‚Ѕ</div>
+                                <div className="text-sm font-bold shrink-0">{item.price.toLocaleString('ru')} ₽</div>
                               </div>
                               <div className={`text-xs ${sub} mt-0.5 truncate`}>
                                 {item.clientName}{item.car ? ` В· ${item.car}` : ''}{item.plate ? `, ${item.plate}` : ''}
@@ -6443,10 +6443,10 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: BOOKINGS HISTORY DETAIL в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && (settingsSection === 'bookings-history' || settingsSection === 'archive' || settingsSection === 'money-flow') && selectedHistoryBookingId && (
             <motion.div key="s-booking-split" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
+              <button onClick={closeHistoryBooking} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
 
               {splitLoading || !splitDetail ? (
-                <div className={`text-center py-10 text-sm ${sub}`}>Р—Р°РіСЂСѓР·РєР°...</div>
+                <div className={`text-center py-10 text-sm ${sub}`}>Загрузка...</div>
               ) : (
                 <>
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
@@ -6460,27 +6460,27 @@ paymentSettled: false,
                     <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                       <div>{splitDetail.date} В· {splitDetail.time} В· {splitDetail.box}</div>
                       {splitDetail.clientPhone && <div>{splitDetail.clientPhone}</div>}
-                      <div>РњР°СЃС‚РµСЂР°: {splitDetail.workers.length > 0
+                      <div>Мастера: {splitDetail.workers.length > 0
                         ? splitDetail.workers.map(w => w.workerName).join(', ')
-                        : 'РЅРµ РЅР°Р·РЅР°С‡РµРЅ'}</div>
+                        : 'не назначен'}</div>
                       <div className="flex items-center gap-2">
-                        <span>РћРїР»Р°С‚Р°: {splitDetail.paymentType === 'cash' ? 'РЅР°Р»РёС‡РЅС‹Рµ' : splitDetail.paymentType === 'card' ? 'РєР°СЂС‚Р°' : 'СЃС‡С‘С‚'}</span>
-                        {splitDetail.paymentSettled && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-600">РћРїР»Р°С‡РµРЅР°</span>}
+                        <span>Оплата: {splitDetail.paymentType === 'cash' ? 'наличные' : splitDetail.paymentType === 'card' ? 'карта' : 'счёт'}</span>
+                        {splitDetail.paymentSettled && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500/15 text-green-600">Оплачена</span>}
                       </div>
                     </div>
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
-                      <div className={`text-xs ${sub}`}>РС‚РѕРіРѕРІР°СЏ С†РµРЅР°</div>
-                      <div className="text-lg font-bold" style={{ color: primary }}>{splitDetail.price.toLocaleString('ru')} в‚Ѕ</div>
+                      <div className={`text-xs ${sub}`}>Итоговая цена</div>
+                      <div className="text-lg font-bold" style={{ color: primary }}>{splitDetail.price.toLocaleString('ru')} ₽</div>
                     </div>
                     <div className="mt-2 space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className={sub}>{splitDetail.service}</span>
-                        <span className="font-medium">{splitDetail.mainPrice.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className="font-medium">{splitDetail.mainPrice.toLocaleString('ru')} ₽</span>
                       </div>
                       {splitDetail.additionalServices.map(a => (
                         <div key={`${a.name}-${a.price}`} className="flex justify-between text-xs">
-                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (РІС‹С‡РµС‚)' : ''}{a.isOutsource ? ` (Р°СѓС‚СЃРѕСЂСЃ: ${(a.outsourceAmount || 0).toLocaleString('ru')} в‚Ѕ)` : ''}</span>
-                          <span className="font-medium">{a.priceMode === 'subtract' ? 'в€’' : ''}{a.price.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
+                          <span className="font-medium">{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
                     </div>
@@ -6488,42 +6488,42 @@ paymentSettled: false,
 
                   {!splitDetail.canEdit && (
                     <div className="rounded-2xl p-3 mb-3 text-xs font-medium bg-amber-500/10 text-amber-600">
-                      Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РјРѕР¶РЅРѕ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ С‚РѕР»СЊРєРѕ РґР»СЏ Р·Р°РІРµСЂС€С‘РЅРЅС‹С… Р·Р°РїРёСЃРµР№.
+                      Распределение можно редактировать только для завершённых записей.
                     </div>
                   )}
 
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-3">Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РґРµРЅРµРі</h3>
+                    <h3 className="font-semibold text-sm mb-3">Распределение денег</h3>
 
                     <div className="mb-4 rounded-xl p-3 space-y-1.5" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                      <div className="flex justify-between text-xs"><span className={sub}>Р¦РµРЅР° Р·Р°РїРёСЃРё</span><span className="font-semibold">{splitDetail.price.toLocaleString('ru')} в‚Ѕ</span></div>
-                      <div className="flex justify-between text-xs"><span className={sub}>РћСЃРЅРѕРІРЅР°СЏ СѓСЃР»СѓРіР°</span><span>{splitDetail.mainPrice.toLocaleString('ru')} в‚Ѕ</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Цена записи</span><span className="font-semibold">{splitDetail.price.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Основная услуга</span><span>{splitDetail.mainPrice.toLocaleString('ru')} ₽</span></div>
                       {splitDetail.additionalServices.map(a => (
                         <div key={`calc-${a.name}-${a.price}`} className="flex justify-between text-xs">
-                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (РІС‹С‡РµС‚)' : ''}{a.isOutsource ? ` (Р°СѓС‚СЃРѕСЂСЃ: ${(a.outsourceAmount || 0).toLocaleString('ru')} в‚Ѕ)` : ''}</span>
-                          <span>{a.priceMode === 'subtract' ? 'в€’' : ''}{a.price.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
+                          <span>{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
-                      <div className="flex justify-between text-xs"><span className={sub}>в€’ РњР°С‚РµСЂРёР°Р»С‹</span><span>в€’{splitDetail.materialsCost.toLocaleString('ru')} в‚Ѕ</span></div>
-                      <div className="flex justify-between text-xs"><span className={sub}>Р’С‹СЂСѓС‡РєР° (РЅРµС‚С‚Рѕ)</span><span className="font-semibold">{splitDetail.net.toLocaleString('ru')} в‚Ѕ</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>− Материалы</span><span>−{splitDetail.materialsCost.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>Выручка (нетто)</span><span className="font-semibold">{splitDetail.net.toLocaleString('ru')} ₽</span></div>
                       {splitDetail.subtractTotal > 0 && (
-                        <div className="flex justify-between text-xs"><span className={sub}>в€’ Р”РѕРї. СѓСЃР»СѓРіРё (РІС‹С‡РµС‚)</span><span>в€’{splitDetail.subtractTotal.toLocaleString('ru')} в‚Ѕ</span></div>
+                        <div className="flex justify-between text-xs"><span className={sub}>− Доп. услуги (вычет)</span><span>−{splitDetail.subtractTotal.toLocaleString('ru')} ₽</span></div>
                       )}
-                      <div className="flex justify-between text-xs border-t border-white/10 pt-1"><span className={sub}>Р‘Р°Р·Р° СЂР°СЃС‡С‘С‚Р°</span><span className="font-semibold">{splitDetail.splitBase.toLocaleString('ru')} в‚Ѕ</span></div>
+                      <div className="flex justify-between text-xs border-t border-white/10 pt-1"><span className={sub}>База расчёта</span><span className="font-semibold">{splitDetail.splitBase.toLocaleString('ru')} ₽</span></div>
 
-                      <div className={`text-[10px] font-semibold uppercase tracking-wide pt-2 ${sub}`}>РљРѕРјСѓ Рё РєСѓРґР° РїРѕС€Р»Рѕ</div>
+                      <div className={`text-[10px] font-semibold uppercase tracking-wide pt-2 ${sub}`}>Кому и куда пошло</div>
 
                       {splitDetail.workers.map(w => {
                         const how = w.overrideEarned !== null && w.overrideEarned !== undefined
-                          ? 'РІСЂСѓС‡РЅСѓСЋ'
+                          ? 'вручную'
                           : w.payType === 'fixed'
-                            ? `С„РёРєСЃ ${(w.fixedAmount ?? 0).toLocaleString('ru')} в‚Ѕ`
-                            : `${w.percent}% РѕС‚ Р±Р°Р·С‹`;
+                            ? `фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽`
+                            : `${w.percent}% от базы`;
                         return (
                           <button key={`ledger-w-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)}
                             className="flex justify-between text-xs w-full text-left hover:opacity-80">
-                            <span className={`${sub} truncate`} title={`РњР°СЃС‚РµСЂ: ${w.workerName}`}>В· {w.workerName} ({how})</span>
-                            <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={`${sub} truncate`} title={`Мастер: ${w.workerName}`}>· {w.workerName} ({how})</span>
+                            <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
                           </button>
                         );
                       })}
@@ -6531,10 +6531,10 @@ paymentSettled: false,
                       {splitDetail.asvcWorkers.map(w => (
                         <button key={`ledger-aw-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)}
                           className="flex justify-between text-xs w-full text-left hover:opacity-80">
-                          <span className={`${sub} truncate`} title={`РњР°СЃС‚РµСЂ РґРѕРї. СѓСЃР»СѓРіРё: ${w.workerName} вЂ” ${w.additionalServiceName}`}>
-                            В· {w.workerName} вЂ” В«{w.additionalServiceName}В»{w.payType === 'fixed' ? ` (С„РёРєСЃ ${(w.fixedAmount ?? 0).toLocaleString('ru')} в‚Ѕ)` : ` (${w.percent}%)`}
+                          <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName} — ${w.additionalServiceName}`}>
+                            · {w.workerName} — «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
                           </span>
-                          <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
 
@@ -6542,25 +6542,25 @@ paymentSettled: false,
                         const asvcPiggyTotal = splitDetail.asvcPiggyDeposits.reduce((s, d) => s + (d.amount || 0), 0);
                         const mainPiggyDeposit = Math.max(0, splitDetail.piggyDeposit - asvcPiggyTotal);
                         const piggyHow = splitDetail.piggyPayType === 'rest'
-                          ? ' (РІРµСЃСЊ РѕСЃС‚Р°С‚РѕРє)'
+                          ? ' (весь остаток)'
                           : splitDetail.piggyPayValue > 0
-                            ? ` (${splitDetail.piggyPayValue}% РѕС‚ Р±Р°Р·С‹)`
+                            ? ` (${splitDetail.piggyPayValue}% от базы)`
                             : splitDetail.piggyPayType === 'fixed'
-                              ? ` (С„РёРєСЃ ${splitDetail.piggyPayValue.toLocaleString('ru')} в‚Ѕ)`
+                              ? ` (фикс ${splitDetail.piggyPayValue.toLocaleString('ru')} ₽)`
                               : '';
                         return (
                           <>
                             <button className="flex justify-between text-xs w-full text-left hover:opacity-80"
                               onClick={() => gotoPiggyBank()}>
-                              <span className={`${sub} truncate`}>В· РІ {piggyBankLabel(splitDetail.piggyTarget)}{piggyHow}</span>
-                              <span className="font-medium shrink-0" style={{ color: '#F59E0B' }}>{mainPiggyDeposit.toLocaleString('ru')} в‚Ѕ</span>
+                              <span className={`${sub} truncate`}>· в {piggyBankLabel(splitDetail.piggyTarget)}{piggyHow}</span>
+                              <span className="font-medium shrink-0" style={{ color: '#F59E0B' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
                             </button>
                             {splitDetail.asvcPiggyDeposits.map(d => (
                               <div key={`ledger-ap-${d.name}-${d.amount}`} className="flex justify-between text-xs">
-                                <span className={`${sub} truncate`} title={`РћСЃС‚Р°С‚РѕРє РѕС‚ В«${d.name}В» в†’ РІ ${piggyBankLabel(d.resourceGroup)}`}>
-                                  В· В«{d.name}В» в†’ РІ {piggyBankLabel(d.resourceGroup)}
+                                <span className={`${sub} truncate`} title={`Остаток от «${d.name}» → в ${piggyBankLabel(d.resourceGroup)}`}>
+                                  · «{d.name}» → в {piggyBankLabel(d.resourceGroup)}
                                 </span>
-                                <span className="font-medium">{d.amount.toLocaleString('ru')} в‚Ѕ</span>
+                                <span className="font-medium">{d.amount.toLocaleString('ru')} ₽</span>
                               </div>
                             ))}
                           </>
@@ -6571,9 +6571,9 @@ paymentSettled: false,
                         <button key={`ledger-o-${o.ownerId}`} onClick={() => gotoOwnerSalary(o.ownerId)}
                           className="flex justify-between text-xs w-full text-left hover:opacity-80">
                           <span className={`${sub} truncate`}>
-                            В· {o.ownerName}{o.status === 'paid' ? ' (РІС‹РїР»Р°С‡РµРЅРѕ)' : ' (Рє РІС‹РїР»Р°С‚Рµ)'}
+                            · {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}
                           </span>
-                          <span className="font-medium shrink-0" style={{ color: '#312E81' }}>{Math.round(o.amount).toLocaleString('ru')} в‚Ѕ</span>
+                          <span className="font-medium shrink-0" style={{ color: '#312E81' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
 
@@ -6588,19 +6588,19 @@ paymentSettled: false,
                         return (
                           <>
                             <div className="flex justify-between text-xs border-t border-white/10 pt-1">
-                              <span className={sub}>РС‚РѕРіРѕ СЂР°СЃРїСЂРµРґРµР»РµРЅРѕ</span>
-                              <span className="font-semibold">{totalDistributed.toLocaleString('ru')} в‚Ѕ</span>
+                              <span className={sub}>Итого распределено</span>
+                              <span className="font-semibold">{totalDistributed.toLocaleString('ru')} ₽</span>
                             </div>
                             <div className="flex justify-between text-xs">
-                              <span className={sub}>РЎРІРµСЂРєР° (Р±Р°Р·Р° + РѕРїР»Р°С‚С‹ РґРѕРї. СѓСЃР»СѓРі)</span>
+                              <span className={sub}>Сверка (база + оплаты доп. услуг)</span>
                               <span className={ok ? 'font-medium text-green-600' : 'font-medium text-amber-500'}>
-                                {ok ? 'вњ“ СЃС…РѕРґРёС‚СЃСЏ' : `СЂР°Р·РЅРёС†Р° ${diff.toLocaleString('ru')} в‚Ѕ`}
+                                {ok ? '✓ сходится' : `разница ${diff.toLocaleString('ru')} ₽`}
                               </span>
                             </div>
                             {!ok && undistributed > 1 && (
                               <div className="flex justify-between text-xs">
-                                <span className={sub}>РќРµ СЂР°СЃРїСЂРµРґРµР»РµРЅРѕ</span>
-                                <span className="font-medium text-red-500">{undistributed.toLocaleString('ru')} в‚Ѕ</span>
+                                <span className={sub}>Не распределено</span>
+                                <span className="font-medium text-red-500">{undistributed.toLocaleString('ru')} ₽</span>
                               </div>
                             )}
                           </>
@@ -6611,8 +6611,8 @@ paymentSettled: false,
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium">РњР°С‚РµСЂРёР°Р»С‹</div>
-                          <div className={`text-[11px] ${sub}`}>Р°РІС‚Рѕ: {splitDetail.materialsCostAuto.toLocaleString('ru')} в‚Ѕ</div>
+                          <div className="text-sm font-medium">Материалы</div>
+                          <div className={`text-[11px] ${sub}`}>авто: {splitDetail.materialsCostAuto.toLocaleString('ru')} ₽</div>
                         </div>
                         <div className="w-28 shrink-0">
                           <input
@@ -6637,9 +6637,9 @@ paymentSettled: false,
                               <div className="text-sm font-medium truncate">{w.workerName}</div>
                               <div className={`text-[11px] ${sub}`}>
                                 {w.payType === 'fixed'
-                                  ? `Р¤РёРєСЃ: ${(w.fixedAmount ?? 0).toLocaleString('ru')} в‚Ѕ`
+                                  ? `Фикс: ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽`
                                   : `${w.percent}%`}
-                                {hasOverride ? ` В· Р°РІС‚Рѕ: ${auto.toLocaleString('ru')} в‚Ѕ` : ''}
+                                {hasOverride ? ` · авто: ${auto.toLocaleString('ru')} ₽` : ''}
                               </div>
                             </div>
                             <div className="w-28 shrink-0">
@@ -6664,9 +6664,9 @@ paymentSettled: false,
 
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium">РљРѕРїРёР»РєР°</div>
+                          <div className="text-sm font-medium">Копилка</div>
                           <div className={`text-[11px] ${sub}`}>
-                            РІ {piggyBankLabel(splitDetail.piggyTarget)} В· Р°РІС‚Рѕ: {splitDetail.piggyDepositAuto.toLocaleString('ru')} в‚Ѕ
+                            в {piggyBankLabel(splitDetail.piggyTarget)} · авто: {splitDetail.piggyDepositAuto.toLocaleString('ru')} ₽
                           </div>
                         </div>
                         <div className="w-28 shrink-0">
@@ -6691,7 +6691,7 @@ paymentSettled: false,
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium truncate">{o.ownerName}</div>
                               <div className={`text-[11px] ${sub}`}>
-                                {paid ? 'Р’С‹РїР»Р°С‡РµРЅРѕ' : `Р°РІС‚Рѕ: ${auto.toLocaleString('ru')} в‚Ѕ`}
+                                {paid ? 'Выплачено' : `авто: ${auto.toLocaleString('ru')} ₽`}
                               </div>
                             </div>
                             <div className="w-28 shrink-0">
@@ -6712,14 +6712,14 @@ paymentSettled: false,
                     {splitDetail.piggyTransactions.length > 0 && (
                       <>
                         <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-black/5'} my-3`} />
-                        <h4 className="text-xs font-semibold mb-2">Р”РІРёР¶РµРЅРёСЏ РїРѕ РєРѕРїРёР»РєРµ</h4>
+                        <h4 className="text-xs font-semibold mb-2">Движения по копилке</h4>
                         <div className="space-y-1.5">
                           {splitDetail.piggyTransactions.map(tx => {
                             const positive = tx.amount > 0;
                             const label = {
-                              deposit_24percent: 'Р”РµРїРѕР·РёС‚',
-                              material_withdrawal: 'РЎРїРёСЃР°РЅРёРµ РјР°С‚РµСЂРёР°Р»РѕРІ',
-                              material_repayment: 'Р’РѕР·РІСЂР°С‚ РјР°С‚РµСЂРёР°Р»РѕРІ',
+                              deposit_24percent: 'Депозит',
+                              material_withdrawal: 'Списание материалов',
+                              material_repayment: 'Возврат материалов',
                             }[tx.transactionType] || tx.transactionType;
                             return (
                               <div key={tx.id} className="flex items-start justify-between gap-2 text-xs">
@@ -6730,7 +6730,7 @@ paymentSettled: false,
                                   </div>
                                 </div>
                                 <div className={`font-semibold shrink-0 ${positive ? 'text-green-600' : 'text-red-500'}`}>
-                                  {positive ? '+' : ''}{Math.round(tx.amount).toLocaleString('ru')} в‚Ѕ
+                                  {positive ? '+' : ''}{Math.round(tx.amount).toLocaleString('ru')} ₽
                                 </div>
                               </div>
                             );
@@ -6746,14 +6746,14 @@ paymentSettled: false,
                         disabled={splitSaving}
                         className="w-full py-3.5 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-3 disabled:opacity-60"
                         style={{ background: primary }}>
-                        <Save size={16} strokeWidth={1.75} />{splitSaving ? 'РЎРѕС…СЂР°РЅСЏРµРј...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ'}
+                        <Save size={16} strokeWidth={1.75} />{splitSaving ? 'Сохраняем...' : 'Сохранить изменения'}
                       </button>
                       {splitDetail.hasCustom && (
                         <button onClick={() => void handleResetMoneySplit()}
                           disabled={splitSaving}
                           className="w-full py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60 mb-4"
                           style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
-                          <RefreshCw size={15} strokeWidth={1.75} />РЎР±СЂРѕСЃРёС‚СЊ Рє Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРјСѓ СЂР°СЃС‡С‘С‚Сѓ
+                          <RefreshCw size={15} strokeWidth={1.75} />Сбросить к автоматическому расчёту
                         </button>
                       )}
                     </>
@@ -6766,18 +6766,18 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: ARCHIVE в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'archive' && !selectedHistoryBookingId && (
             <motion.div key="s-archive" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => { setSettingsSection(null); setArchiveHighlight(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-1">РђСЂС…РёРІ</h2>
-              <div className={`text-xs ${sub} mb-4`}>Р“Р»Р°РІРЅР°СЏ Р±РёР±Р»РёРѕС‚РµРєР° Рё РєР°СЂС‚РѕС‚РµРєР°: РІСЃРµ Р·Р°РїРёСЃРё, РґРѕС…РѕРґС‹, СЂР°СЃС…РѕРґС‹ Рё СЂР°СЃС‡С‘С‚С‹ Р·Р° РїРµСЂРёРѕРґ</div>
+              <button onClick={() => { setSettingsSection(null); setArchiveHighlight(null); }} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-1">Архив</h2>
+              <div className={`text-xs ${sub} mb-4`}>Главная библиотека и картотека: все записи, доходы, расходы и расчёты за период</div>
 
               <div className="flex flex-wrap gap-2 mb-3">
                 {[
-                  { id: 'day', label: 'Р”РµРЅСЊ' },
-                  { id: 'week', label: 'РќРµРґРµР»СЏ' },
-                  { id: 'month', label: 'РњРµСЃСЏС†' },
-                  { id: 'year', label: 'Р“РѕРґ' },
-                  { id: 'all', label: 'Р’СЃС‘' },
-                  { id: 'custom', label: 'РЎРІРѕРё' },
+                  { id: 'day', label: 'День' },
+                  { id: 'week', label: 'Неделя' },
+                  { id: 'month', label: 'Месяц' },
+                  { id: 'year', label: 'Год' },
+                  { id: 'all', label: 'Всё' },
+                  { id: 'custom', label: 'Свои' },
                 ].map(option => (
                   <button key={option.id}
                     onClick={() => setArchivePeriod(option.id as typeof archivePeriod)}
@@ -6788,7 +6788,7 @@ paymentSettled: false,
                 ))}
                 <button onClick={() => { setArchiveCalendarStep('year'); setArchiveCalendarOpen(true); }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${glass} ${sub}`}>
-                  <CalendarDays size={14} strokeWidth={1.75} />РљР°Р»РµРЅРґР°СЂСЊ
+                  <CalendarDays size={14} strokeWidth={1.75} />Календарь
                 </button>
               </div>
 
@@ -6809,9 +6809,9 @@ paymentSettled: false,
                   <div className={`${glass} rounded-2xl p-4 w-full max-w-sm`} onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-sm">
-                        {archiveCalendarStep === 'year' ? 'Р’С‹Р±РµСЂРёС‚Рµ РіРѕРґ'
-                          : archiveCalendarStep === 'month' ? `Р“РѕРґ ${archiveCalendarYear}`
-                          : `${archiveCalendarYear} В· ${['РЇРЅРІР°СЂСЊ', 'Р¤РµРІСЂР°Р»СЊ', 'РњР°СЂС‚', 'РђРїСЂРµР»СЊ', 'РњР°Р№', 'РСЋРЅСЊ', 'РСЋР»СЊ', 'РђРІРіСѓСЃС‚', 'РЎРµРЅС‚СЏР±СЂСЊ', 'РћРєС‚СЏР±СЂСЊ', 'РќРѕСЏР±СЂСЊ', 'Р”РµРєР°Р±СЂСЊ'][archiveCalendarMonth]}`}
+                        {archiveCalendarStep === 'year' ? 'Выберите год'
+                          : archiveCalendarStep === 'month' ? `Год ${archiveCalendarYear}`
+                          : `${archiveCalendarYear} · ${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][archiveCalendarMonth]}`}
                       </h3>
                       <button onClick={() => setArchiveCalendarOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10"><X size={16} strokeWidth={1.75} /></button>
                     </div>
@@ -6842,7 +6842,7 @@ paymentSettled: false,
                           <button onClick={() => setArchiveCalendarYear(y => y + 1)} className={`p-1.5 rounded-lg ${glass}`}><ChevronRight size={16} strokeWidth={1.75} /></button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          {['РЇРЅРІР°СЂСЊ', 'Р¤РµРІСЂР°Р»СЊ', 'РњР°СЂС‚', 'РђРїСЂРµР»СЊ', 'РњР°Р№', 'РСЋРЅСЊ', 'РСЋР»СЊ', 'РђРІРіСѓСЃС‚', 'РЎРµРЅС‚СЏР±СЂСЊ', 'РћРєС‚СЏР±СЂСЊ', 'РќРѕСЏР±СЂСЊ', 'Р”РµРєР°Р±СЂСЊ'].map((m, idx) => (
+                          {['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'].map((m, idx) => (
                             <button key={m}
                               onClick={() => { setArchiveCalendarMonth(idx); setArchiveCalendarStep('week'); }}
                               className={`py-2 rounded-xl text-sm font-medium transition-colors ${archiveCalendarMonth === idx ? 'text-white' : `${glass}`}`}
@@ -6865,7 +6865,7 @@ paymentSettled: false,
                               setArchiveCalendarOpen(false);
                             }}
                             className={`w-full ${glass} rounded-xl px-3 py-2.5 text-left flex items-center justify-between`}>
-                            <span className="text-sm font-medium">РќРµРґРµР»СЏ {idx + 1}</span>
+                            <span className="text-sm font-medium">Неделя {idx + 1}</span>
                             <span className={`text-xs ${sub}`}>
                               {w.start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} вЂ“ {w.end.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </span>
@@ -6878,29 +6878,29 @@ paymentSettled: false,
               )}
 
               {archiveLoading ? (
-                <div className={`text-center py-12 text-sm ${sub}`}>Р—Р°РіСЂСѓР·РєР° Р°СЂС…РёРІР°...</div>
+                <div className={`text-center py-12 text-sm ${sub}`}>Загрузка архива...</div>
               ) : !archiveData ? (
                 <div className="text-center py-12">
-                  <div className={`text-sm ${sub} mb-3`}>РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ Р°СЂС…РёРІ</div>
-                  <button onClick={() => void fetchArchive()} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: '#10B98120', color: '#10B981' }}>РџРѕРІС‚РѕСЂРёС‚СЊ</button>
+                  <div className={`text-sm ${sub} mb-3`}>Не удалось загрузить архив</div>
+                  <button onClick={() => void fetchArchive()} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: '#10B98120', color: '#10B981' }}>Повторить</button>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {[
-                      { label: 'Р’С‹СЂСѓС‡РєР° (РЅРµС‚С‚Рѕ)', value: archiveData.summary.net, color: '#10B981', onClick: gotoHistory, hint: 'РСЃС‚РѕСЂРёСЏ Р·Р°РїРёСЃРµР№' },
-                      { label: 'РџСЂРёР±С‹Р»СЊ', value: archiveData.summary.profit, color: accent, onClick: gotoWallet, hint: 'РљРѕС€РµР»С‘Рє' },
-                      { label: 'РњР°СЃС‚РµСЂР°', value: archiveData.summary.masterTotal, color: '#6366F1', onClick: gotoPayroll, hint: 'Р—Р°СЂРїР»Р°С‚С‹' },
-                      { label: 'Р’Р»Р°РґРµР»СЊС†С‹', value: archiveData.summary.ownersAccrued, color: '#312E81', onClick: gotoPayroll, hint: 'Р—Р°СЂРїР»Р°С‚С‹' },
-                      { label: 'Р”РѕС…РѕРґС‹', value: archiveData.summary.totalIncome, color: '#22C55E', onClick: gotoWallet, hint: 'РљРѕС€РµР»С‘Рє' },
-                      { label: 'Р Р°СЃС…РѕРґС‹', value: archiveData.summary.totalExpense, color: '#EF4444', onClick: gotoWallet, hint: 'РљРѕС€РµР»С‘Рє' },
-                      { label: 'РљРѕРїРёР»РєР°', value: archiveData.summary.piggyDeposit, color: '#F59E0B', onClick: () => gotoPiggyBank(), hint: 'РљРѕРїРёР»РєР°' },
+                      { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#10B981', onClick: gotoHistory, hint: 'История записей' },
+                      { label: 'Прибыль', value: archiveData.summary.profit, color: accent, onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#6366F1', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#312E81', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#22C55E', onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#EF4444', onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#F59E0B', onClick: () => gotoPiggyBank(), hint: 'Копилка' },
                     ].map(card => (
                       <button key={card.label} onClick={card.onClick}
                         className={`${glass} rounded-2xl p-3 text-left transition active:scale-[0.98]`}>
                         <div className={`text-[11px] ${sub}`}>{card.label}</div>
                         <div className="font-bold text-base mt-0.5" style={{ color: card.color }}>
-                          {card.value.toLocaleString('ru')} в‚Ѕ
+                          {card.value.toLocaleString('ru')} ₽
                         </div>
                         <div className={`text-[10px] mt-0.5`} style={{ color: card.color }}>в†’ {card.hint}</div>
                       </button>
@@ -6909,12 +6909,12 @@ paymentSettled: false,
 
                   <div className="flex flex-wrap gap-2 mb-3">
                     {[
-                      { id: 'bookings', label: 'Р—Р°РїРёСЃРё', count: archiveData.summary.bookingCount },
-                      { id: 'incomes', label: 'Р”РѕС…РѕРґС‹', count: archiveData.summary.incomeCount },
-                      { id: 'expenses', label: 'Р Р°СЃС…РѕРґС‹', count: archiveData.summary.expenseCount },
-                      { id: 'piggy', label: 'РљРѕРїРёР»РєР°', count: archiveData.summary.piggyTxCount },
-                      { id: 'payroll', label: 'Р—Р°СЂРїР»Р°С‚С‹', count: archiveData.payroll.length },
-                      { id: 'owners', label: 'Р’Р»Р°РґРµР»СЊС†С‹', count: archiveData.owners.length },
+                      { id: 'bookings', label: 'Записи', count: archiveData.summary.bookingCount },
+                      { id: 'incomes', label: 'Доходы', count: archiveData.summary.incomeCount },
+                      { id: 'expenses', label: 'Расходы', count: archiveData.summary.expenseCount },
+                      { id: 'piggy', label: 'Копилка', count: archiveData.summary.piggyTxCount },
+                      { id: 'payroll', label: 'Зарплаты', count: archiveData.payroll.length },
+                      { id: 'owners', label: 'Владельцы', count: archiveData.owners.length },
                     ].map(option => (
                       <button key={option.id}
                         onClick={() => setArchiveTab(option.id as ArchiveTab)}
@@ -6927,7 +6927,7 @@ paymentSettled: false,
 
                   {archiveTab === 'bookings' && (
                     archiveData.bookings.length === 0 ? (
-                      <div className={`text-center py-10 text-sm ${sub}`}>Р—Р° СЌС‚РѕС‚ РїРµСЂРёРѕРґ РЅРµС‚ Р·Р°РІРµСЂС€С‘РЅРЅС‹С… Р·Р°РїРёСЃРµР№</div>
+                      <div className={`text-center py-10 text-sm ${sub}`}>За этот период нет завершённых записей</div>
                     ) : (
                       <div className="space-y-2">
                         {archiveData.bookings.map(b => (
@@ -6944,34 +6944,34 @@ paymentSettled: false,
                                 </div>
                                 <div className={`text-xs ${sub} mt-0.5`}>{b.date} В· {b.time} В· {b.box}</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0">{b.price.toLocaleString('ru')} в‚Ѕ</div>
+                              <div className="font-bold text-sm shrink-0">{b.price.toLocaleString('ru')} ₽</div>
                             </div>
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[11px]">
                               {b.workers.length > 0 && (
-                                <span className={sub}>РњР°СЃС‚РµСЂР°:{' '}
+                                <span className={sub}>Мастера:{' '}
                                   {b.workers.map((w, i) => (
                                     <button key={`${b.id}-${w.workerId}`}
                                       onClick={(e) => { e.stopPropagation(); gotoWorkerSalary(w.workerId); }}
                                       className="font-semibold hover:opacity-70" style={{ color: '#6366F1' }}>
-                                      {i > 0 ? ' В· ' : ''}{w.workerName} +{w.earned.toLocaleString('ru')} в‚Ѕ
+                                      {i > 0 ? ' · ' : ''}{w.workerName} +{w.earned.toLocaleString('ru')} ₽
                                     </button>
                                   ))}
                                 </span>
                               )}
-                              <span className={sub}>РљРѕРїРёР»РєР°: <b className="font-semibold" style={{ color: '#F59E0B' }}>+{b.piggyDeposit.toLocaleString('ru')} в‚Ѕ</b></span>
-                              <span className={sub}>Р’Р»Р°РґРµР»СЊС†С‹: <b className="font-semibold" style={{ color: '#312E81' }}>+{b.ownersTotal.toLocaleString('ru')} в‚Ѕ</b></span>
-                              <span className={sub}>РќРµС‚С‚Рѕ: <b className="font-semibold" style={{ color: '#10B981' }}>{b.net.toLocaleString('ru')} в‚Ѕ</b></span>
+                              <span className={sub}>Копилка: <b className="font-semibold" style={{ color: '#F59E0B' }}>+{b.piggyDeposit.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#312E81' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Нетто: <b className="font-semibold" style={{ color: '#10B981' }}>{b.net.toLocaleString('ru')} ₽</b></span>
                             </div>
                             {b.additionalServices.map(a => (
                               <div key={`${b.id}-${a.name}`} className="flex justify-between text-[11px] mt-1">
-                                <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (РІС‹С‡РµС‚)' : ''}{a.isOutsource ? ` (Р°СѓС‚СЃРѕСЂСЃ: ${(a.outsourceAmount || 0).toLocaleString('ru')} в‚Ѕ)` : ''}</span>
-                                <span className="font-medium">{a.priceMode === 'subtract' ? 'в€’' : '+'}{a.price.toLocaleString('ru')} в‚Ѕ</span>
+                                <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
+                                <span className="font-medium">{a.priceMode === 'subtract' ? '−' : '+'}{a.price.toLocaleString('ru')} ₽</span>
                               </div>
                             ))}
                             {b.materialsCost > 0 && (
                               <div className="flex justify-between text-[11px] mt-1">
-                                <span className={sub}>РњР°С‚РµСЂРёР°Р»С‹</span>
-                                <span className="font-medium" style={{ color: '#EF4444' }}>в€’{b.materialsCost.toLocaleString('ru')} в‚Ѕ</span>
+                                <span className={sub}>Материалы</span>
+                                <span className="font-medium" style={{ color: '#EF4444' }}>−{b.materialsCost.toLocaleString('ru')} ₽</span>
                               </div>
                             )}
                           </div>
@@ -6982,7 +6982,7 @@ paymentSettled: false,
 
                   {archiveTab === 'incomes' && (
                     archiveData.incomes.length === 0 ? (
-                      <div className={`text-center py-10 text-sm ${sub}`}>Р”РѕС…РѕРґРѕРІ Р·Р° РїРµСЂРёРѕРґ РЅРµС‚</div>
+                      <div className={`text-center py-10 text-sm ${sub}`}>Доходов за период нет</div>
                     ) : (
                       <div className="space-y-2">
                         {archiveData.incomes.map(i => (
@@ -6996,7 +6996,7 @@ paymentSettled: false,
                                 <div className="text-sm font-medium truncate">{i.source}</div>
                                 <div className={`text-xs ${sub} mt-0.5`}>{i.date}{i.note ? ` В· ${i.note}` : ''}</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#22C55E' }}>+{i.amount.toLocaleString('ru')} в‚Ѕ</div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#22C55E' }}>+{i.amount.toLocaleString('ru')} ₽</div>
                             </div>
                           </button>
                         ))}
@@ -7006,7 +7006,7 @@ paymentSettled: false,
 
                   {archiveTab === 'expenses' && (
                     archiveData.expenses.length === 0 ? (
-                      <div className={`text-center py-10 text-sm ${sub}`}>Р Р°СЃС…РѕРґРѕРІ Р·Р° РїРµСЂРёРѕРґ РЅРµС‚</div>
+                      <div className={`text-center py-10 text-sm ${sub}`}>Расходов за период нет</div>
                     ) : (
                       <div className="space-y-2">
                         {archiveData.expenses.map(e => (
@@ -7018,9 +7018,9 @@ paymentSettled: false,
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{e.title}</div>
-                                <div className={`text-xs ${sub} mt-0.5`}>{e.category} В· {e.date}{e.resourceGroup ? ` В· ${e.resourceGroup === 'wash' ? 'рџљ— РњРѕР№РєР°' : 'вњЁ Р”РµС‚РµР№Р»РёРЅРі'}` : ''}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#EF4444' }}>в€’{e.amount.toLocaleString('ru')} в‚Ѕ</div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#EF4444' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                             </div>
                           </button>
                         ))}
@@ -7030,17 +7030,17 @@ paymentSettled: false,
 
                   {archiveTab === 'piggy' && (
                     archiveData.piggyTransactions.length === 0 ? (
-                      <div className={`text-center py-10 text-sm ${sub}`}>Р”РІРёР¶РµРЅРёР№ РєРѕРїРёР»РєРё Р·Р° РїРµСЂРёРѕРґ РЅРµС‚</div>
+                      <div className={`text-center py-10 text-sm ${sub}`}>Движений копилки за период нет</div>
                     ) : (
                       <div className="space-y-2">
                         {archiveData.piggyTransactions.map(tx => {
                           const isDeposit = tx.amount > 0;
-                          const txLabel = tx.transactionType === 'deposit_24percent' ? '24% РѕС‚ Р·Р°РєР°Р·Р°'
-                            : tx.transactionType === 'material_repayment' ? 'Р’РѕР·РІСЂР°С‚ РјР°С‚РµСЂРёР°Р»РѕРІ'
-                            : tx.transactionType === 'material_withdrawal' ? 'РЎРЅСЏС‚РёРµ РЅР° РјР°С‚РµСЂРёР°Р»С‹'
-                            : tx.transactionType === 'custom_deposit' ? 'РџРѕРїРѕР»РЅРµРЅРёРµ'
-                            : tx.transactionType === 'custom_withdrawal' ? 'РЎРЅСЏС‚РёРµ'
-                            : 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°';
+                          const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
+                            : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                            : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
+                            : tx.transactionType === 'custom_deposit' ? 'Пополнение'
+                            : tx.transactionType === 'custom_withdrawal' ? 'Снятие'
+                            : 'Корректировка';
                           return (
                             <button key={tx.id}
                               id={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? archiveHighlightId(archiveHighlight) : undefined}
@@ -7061,7 +7061,7 @@ paymentSettled: false,
                                   </div>
                                 </div>
                                 <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
-                                  {isDeposit ? '+' : 'в€’'}{Math.abs(tx.amount).toLocaleString('ru')} в‚Ѕ
+                                  {isDeposit ? '+' : '−'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
                                 </div>
                               </div>
                             </button>
@@ -7073,7 +7073,7 @@ paymentSettled: false,
 
                   {archiveTab === 'payroll' && (
                     archiveData.payroll.length === 0 ? (
-                      <div className={`text-center py-10 text-sm ${sub}`}>Р—Р°СЂРїР»Р°С‚РЅС‹С… РґР°РЅРЅС‹С… Р·Р° РїРµСЂРёРѕРґ РЅРµС‚</div>
+                      <div className={`text-center py-10 text-sm ${sub}`}>Зарплатных данных за период нет</div>
                     ) : (
                       <div className="space-y-2">
                         {archiveData.payroll.map(w => (
@@ -7083,17 +7083,17 @@ paymentSettled: false,
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{w.workerName}</div>
                                 <div className={`text-[11px] ${sub} mt-0.5 space-y-0.5`}>
-                                  <div>Р·Р°РїРёСЃРµР№: {w.bookingCount} В· РїРѕ Р·Р°РїРёСЃСЏРј: +{w.accruedFromBookings.toLocaleString('ru')} в‚Ѕ{w.baseSalary > 0 ? ` В· РѕРєР»Р°Рґ: +${w.baseSalary.toLocaleString('ru')} в‚Ѕ` : ''}{w.shiftPayTotal > 0 ? ` В· СЃРјРµРЅС‹ (${w.shiftCount}): +${w.shiftPayTotal.toLocaleString('ru')} в‚Ѕ` : ''}</div>
+                                  <div>записей: {w.bookingCount} · по записям: +{w.accruedFromBookings.toLocaleString('ru')} ₽{w.baseSalary > 0 ? ` · оклад: +${w.baseSalary.toLocaleString('ru')} ₽` : ''}{w.shiftPayTotal > 0 ? ` · смены (${w.shiftCount}): +${w.shiftPayTotal.toLocaleString('ru')} ₽` : ''}</div>
                                   {(w.bonusTotal > 0 || w.adjustmentTotal !== 0) && (
-                                    <div>Р±РѕРЅСѓСЃС‹: +{w.bonusTotal.toLocaleString('ru')} в‚Ѕ В· РїРѕРїСЂР°РІРєРё: {w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} в‚Ѕ</div>
+                                    <div>бонусы: +{w.bonusTotal.toLocaleString('ru')} ₽ · поправки: {w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</div>
                                   )}
                                   {(w.advanceTotal > 0 || w.deductionTotal > 0 || w.payoutTotal > 0) && (
-                                    <div>Р°РІР°РЅСЃС‹: в€’{w.advanceTotal.toLocaleString('ru')} в‚Ѕ В· РІС‹С‡РµС‚С‹: в€’{w.deductionTotal.toLocaleString('ru')} в‚Ѕ В· РІС‹РїР»Р°С‚С‹: в€’{w.payoutTotal.toLocaleString('ru')} в‚Ѕ</div>
+                                    <div>авансы: −{w.advanceTotal.toLocaleString('ru')} ₽ · вычеты: −{w.deductionTotal.toLocaleString('ru')} ₽ · выплаты: −{w.payoutTotal.toLocaleString('ru')} ₽</div>
                                   )}
                                 </div>
                               </div>
                               <div className="font-bold text-sm shrink-0" style={{ color: w.balance >= 0 ? '#6366F1' : '#EF4444' }}>
-                                {w.balance.toLocaleString('ru')} в‚Ѕ
+                                {w.balance.toLocaleString('ru')} ₽
                               </div>
                             </div>
                           </button>
@@ -7104,7 +7104,7 @@ paymentSettled: false,
 
                   {archiveTab === 'owners' && (
                     archiveData.owners.length === 0 ? (
-                      <div className={`text-center py-10 text-sm ${sub}`}>Р”РѕР»РµР№ РІР»Р°РґРµР»СЊС†РµРІ Р·Р° РїРµСЂРёРѕРґ РЅРµС‚</div>
+                      <div className={`text-center py-10 text-sm ${sub}`}>Долей владельцев за период нет</div>
                     ) : (
                       <div className="space-y-2">
                         {archiveData.owners.map(o => (
@@ -7113,10 +7113,10 @@ paymentSettled: false,
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{o.ownerName}</div>
-                                <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} Р·Р°РїРёСЃРµР№ В· РЅР°С‡РёСЃР»РµРЅРѕ: +{o.totalAccrued.toLocaleString('ru')} в‚Ѕ В· РІС‹РїР»Р°С‡РµРЅРѕ: в€’{o.totalPaid.toLocaleString('ru')} в‚Ѕ</div>
+                                <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} записей · начислено: +{o.totalAccrued.toLocaleString('ru')} ₽ · выплачено: −{o.totalPaid.toLocaleString('ru')} ₽</div>
                               </div>
                               <div className="font-bold text-sm shrink-0" style={{ color: '#312E81' }}>
-                                {(o.totalAccrued - o.totalPaid).toLocaleString('ru')} в‚Ѕ
+                                {(o.totalAccrued - o.totalPaid).toLocaleString('ru')} ₽
                               </div>
                             </div>
                           </button>
@@ -7131,19 +7131,19 @@ paymentSettled: false,
 
           {/* в”Ђв”Ђ SETTINGS: COMPANY в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'company' && (            <motion.div key="s-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РџСЂРѕС„РёР»СЊ РєРѕРјРїР°РЅРёРё</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Профиль компании</h2>
               <div className="flex flex-col items-center mb-5">
                 <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mb-2" style={{ background: primary }}>A</div>
-                <button className="text-xs" style={{ color: primary }}>РР·РјРµРЅРёС‚СЊ Р»РѕРіРѕС‚РёРї</button>
+                <button className="text-xs" style={{ color: primary }}>Изменить логотип</button>
               </div>
               <div className="space-y-3">
                 {[
-                  { label: 'РќР°Р·РІР°РЅРёРµ', key: 'name', placeholder: 'ATMOSFERA' },
-                  { label: 'Р®СЂ. РЅР°Р·РІР°РЅРёРµ', key: 'legalName', placeholder: 'РРџ РРІР°РЅРѕРІ Р.Р.' },
-                  { label: 'РРќРќ', key: 'inn', placeholder: '771234567890' },
-                  { label: 'РђРґСЂРµСЃ', key: 'address', placeholder: 'РњРѕСЃРєРІР°, СѓР». Р“Р°СЂР°Р¶РЅР°СЏ, 15' },
-                  { label: 'РўРµР»РµС„РѕРЅ', key: 'phone', placeholder: '+7 (495) 000-00-00' },
+                  { label: 'Название', key: 'name', placeholder: 'ATMOSFERA' },
+                  { label: 'Юр. название', key: 'legalName', placeholder: 'ИП Иванов И.И.' },
+                  { label: 'ИНН', key: 'inn', placeholder: '771234567890' },
+                  { label: 'Адрес', key: 'address', placeholder: 'Москва, ул. Гаражная, 15' },
+                  { label: 'Телефон', key: 'phone', placeholder: '+7 (495) 000-00-00' },
                   { label: 'Email', key: 'email', placeholder: 'info@atmosfera.ru' },
                 ].map(f => (
                   <div key={f.key}>
@@ -7154,7 +7154,7 @@ paymentSettled: false,
               </div>
 
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7162,8 +7162,8 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: SCHEDULE в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'schedule' && (
             <motion.div key="s-schedule" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">Р Р°СЃРїРёСЃР°РЅРёРµ СЂР°Р±РѕС‚С‹</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Расписание работы</h2>
               {scheduleState.map((day, i) => (
                 <div key={day.day} className={`${glass} rounded-2xl p-4 mb-2`}>
                   <div className="flex items-center justify-between mb-2">
@@ -7176,11 +7176,11 @@ paymentSettled: false,
                   {day.active && (
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РћС‚РєСЂС‹С‚РёРµ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Открытие</label>
                         <input className={inputCls} type="time" value={day.open} onChange={e => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, open: e.target.value } : d))} />
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Р—Р°РєСЂС‹С‚РёРµ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Закрытие</label>
                         <input className={inputCls} type="time" value={day.close} onChange={e => setScheduleState(prev => prev.map((d, j) => j === i ? { ...d, close: e.target.value } : d))} />
                       </div>
                     </div>
@@ -7188,7 +7188,7 @@ paymentSettled: false,
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-4" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7233,21 +7233,21 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: BOXES в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'boxes' && (
             <motion.div key="s-boxes" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="font-semibold">РЈРїСЂР°РІР»РµРЅРёРµ Р±РѕРєСЃР°РјРё</h2>
+                <h2 className="font-semibold">Управление боксами</h2>
                 <button
                   onClick={handleAddBoxDraft}
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
                   <Plus size={15} strokeWidth={1.75} />
-                  Р”РѕР±Р°РІРёС‚СЊ Р±РѕРєСЃ
+                  Добавить бокс
                 </button>
               </div>
               {boxes.length === 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>
-                  Р‘РѕРєСЃРѕРІ РїРѕРєР° РЅРµС‚. Р”РѕР±Р°РІСЊС‚Рµ РїРµСЂРІС‹Р№ Р±РѕРєСЃ Рё СЃРѕС…СЂР°РЅРёС‚Рµ РёР·РјРµРЅРµРЅРёСЏ.
+                  Боксов пока нет. Добавьте первый бокс и сохраните изменения.
                 </div>
               )}
               {boxes.map((box, i) => (
@@ -7257,7 +7257,7 @@ paymentSettled: false,
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${primary}18` }}>
                         <Box size={14} strokeWidth={1.75} style={{ color: primary }} />
                       </div>
-                      <span className="font-medium">{box.name || `Р‘РѕРєСЃ ${i + 1}`}</span>
+                      <span className="font-medium">{box.name || `Бокс ${i + 1}`}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleRemoveBoxDraft(box.id)} className={`p-2 rounded-xl ${glass} text-red-500`}>
@@ -7272,32 +7272,32 @@ paymentSettled: false,
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ Р±РѕРєСЃР°</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Название бокса</label>
                       <input className={inputCls} value={box.name} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, name: e.target.value } : b))} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ/С‡Р°СЃ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽/час)</label>
                       <input className={inputCls} type="number" value={numberInputValue(box.pricePerHour)} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, pricePerHour: numberFromInput(e.target.value) } : b))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р“СЂСѓРїРїР° СЂРµСЃСѓСЂСЃРѕРІ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Группа ресурсов</label>
                       <select className={selectCls} value={box.resourceGroup} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, resourceGroup: e.target.value } : b))}>
-                        <option value="wash">РњРѕР№РєР°</option>
-                        <option value="detailing">Р”РµС‚РµР№Р»РёРЅРі</option>
+                        <option value="wash">Мойка</option>
+                        <option value="detailing">Детейлинг</option>
                       </select>
                     </div>
                   </div>
                   <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>РћРїРёСЃР°РЅРёРµ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                     <input className={inputCls} value={box.description} onChange={e => setBoxes(p => p.map((b, j) => j === i ? { ...b, description: e.target.value } : b))} />
                   </div>
 
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7305,25 +7305,25 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: SERVICES в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'services' && (
             <motion.div key="s-services" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="font-semibold">РЈСЃР»СѓРіРё Рё С†РµРЅС‹</h2>
+                <h2 className="font-semibold">Услуги и цены</h2>
                 <button
                   onClick={handleAddServiceDraft}
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
                   <Plus size={15} strokeWidth={1.75} />
-                  Р”РѕР±Р°РІРёС‚СЊ СѓСЃР»СѓРіСѓ
+                  Добавить услугу
                 </button>
               </div>
               <div className="relative mb-3">
                 <Search size={15} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
-                <input className={`${inputCls} pl-9`} type="text" placeholder="РџРѕРёСЃРє СѓСЃР»СѓРі..." value={servicesSearchQuery} onChange={e => setServicesSearchQuery(e.target.value)} />
+                <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={servicesSearchQuery} onChange={e => setServicesSearchQuery(e.target.value)} />
               </div>
               {services.length === 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>
-                  РЈСЃР»СѓРі РїРѕРєР° РЅРµС‚. Р”РѕР±Р°РІСЊС‚Рµ РїРµСЂРІСѓСЋ СѓСЃР»СѓРіСѓ Рё СЃРѕС…СЂР°РЅРёС‚Рµ РёР·РјРµРЅРµРЅРёСЏ.
+                  Услуг пока нет. Добавьте первую услугу и сохраните изменения.
                 </div>
               )}
               {services.map((s, idx) => ({ s, idx })).filter(({ s }) => {
@@ -7337,7 +7337,7 @@ paymentSettled: false,
                   return sum + (stockItem ? Number(m.qty || 0) * stockItem.unitPrice : 0);
                 }, 0);
                 const summaryLines = (service.materials ?? []).length > 0
-                  ? [`РјР°С‚РµСЂРёР°Р»С‹: ${Math.round(cardMaterialsCost).toLocaleString('ru')} в‚Ѕ`, ...summary]
+                  ? [`материалы: ${Math.round(cardMaterialsCost).toLocaleString('ru')} ₽`, ...summary]
                   : summary;
                 return (
                 <div key={service.id} className={`${glass} rounded-2xl p-4 mb-3`}>
@@ -7347,16 +7347,16 @@ paymentSettled: false,
                         <Sliders size={14} strokeWidth={1.75} style={{ color: primary }} />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-medium truncate text-sm">{service.name || `РЈСЃР»СѓРіР° ${i + 1}`}</div>
+                        <div className="font-medium truncate text-sm">{service.name || `Услуга ${i + 1}`}</div>
                         <div className={`text-xs ${sub} truncate`}>
-                          {service.category} В· {service.price ? `${service.price.toLocaleString('ru')} в‚Ѕ` : 'С†РµРЅР° РЅРµ СѓРєР°Р·Р°РЅР°'} В· {service.duration} РјРёРЅ
+                          {service.category} · {service.price ? `${service.price.toLocaleString('ru')} ₽` : 'цена не указана'} · {service.duration} мин
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => { setEditingServiceId(service.id); setShowServiceSettings(true); }}
-                        title="РќР°СЃС‚СЂРѕРёС‚СЊ СѓСЃР»СѓРіСѓ"
+                        title="Настроить услугу"
                         className="p-2 rounded-xl"
                         style={{ background: `${primary}14`, color: primary }}
                       >
@@ -7384,7 +7384,7 @@ paymentSettled: false,
                       className="mt-1 text-xs font-medium flex items-center gap-1"
                       style={{ color: primary }}
                     >
-                      <Settings size={11} strokeWidth={1.75} /> РўРѕРЅРєР°СЏ РЅР°СЃС‚СЂРѕР№РєР° СЂР°СЃС‡С‘С‚Р°
+                      <Settings size={11} strokeWidth={1.75} /> Тонкая настройка расчёта
                     </button>
                   </div>
                 </div>
@@ -7404,22 +7404,22 @@ paymentSettled: false,
                 </div>
               )}
                             <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
-              <p className={`text-xs ${sub} text-center mt-2`}>РР·РјРµРЅРµРЅРёСЏ РїСЂРёРјРµРЅСЏСЋС‚СЃСЏ Рє РЅРѕРІС‹Рј Р·Р°РІРµСЂС€С‘РЅРЅС‹Рј Р·Р°РїРёСЃСЏРј</p>
+              <p className={`text-xs ${sub} text-center mt-2`}>Изменения применяются к новым завершённым записям</p>
             </motion.div>
           )}
 
           {/* в”Ђв”Ђ SETTINGS: EMPLOYEES в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'employees' && (
             <motion.div key="s-employees" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РЎРѕС‚СЂСѓРґРЅРёРєРё</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Сотрудники</h2>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className="font-medium">РќР°РЅСЏС‚СЊ СЃРѕС‚СЂСѓРґРЅРёРєР°</div>
-                    <div className={`text-xs ${sub}`}>РЎРѕР·РґР°Р№С‚Рµ Р»РѕРіРёРЅ Рё РїР°СЂРѕР»СЊ РґР»СЏ РЅРѕРІРѕРіРѕ РјР°СЃС‚РµСЂР°</div>
+                    <div className="font-medium">Нанять сотрудника</div>
+                    <div className={`text-xs ${sub}`}>Создайте логин и пароль для нового мастера</div>
                   </div>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${accent}18` }}>
                     <Plus size={18} strokeWidth={1.75} style={{ color: accent }} />
@@ -7427,35 +7427,35 @@ paymentSettled: false,
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р РѕР»СЊ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Роль</label>
                     <select
                       className={selectCls}
                       value={newEmployee.role}
                       onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value as 'admin' | 'worker' | 'accountant' }))}
                     >
-                      <option value="worker">РњР°СЃС‚РµСЂ</option>
-                      <option value="admin">РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ</option>
-                      <option value="accountant">Р‘СѓС…РіР°Р»С‚РµСЂ</option>
+                      <option value="worker">Мастер</option>
+                      <option value="admin">Администратор</option>
+                      <option value="accountant">Бухгалтер</option>
                     </select>
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РРјСЏ</label>
-                    <input className={inputCls} value={newEmployee.name} onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))} placeholder="РРІР°РЅ РРІР°РЅРѕРІ" />
+                    <label className={`text-xs ${sub} block mb-1`}>Имя</label>
+                    <input className={inputCls} value={newEmployee.name} onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))} placeholder="Иван Иванов" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р›РѕРіРёРЅ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Логин</label>
                     <input className={inputCls} value={newEmployee.login} onChange={e => setNewEmployee(p => ({ ...p, login: e.target.value }))} placeholder="worker_ivan" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РџР°СЂРѕР»СЊ</label>
-                    <input className={inputCls} type="password" value={newEmployee.password} onChange={e => setNewEmployee(p => ({ ...p, password: e.target.value }))} placeholder="РњРёРЅРёРјСѓРј 1 СЃРёРјРІРѕР»" />
+                    <label className={`text-xs ${sub} block mb-1`}>Пароль</label>
+                    <input className={inputCls} type="password" value={newEmployee.password} onChange={e => setNewEmployee(p => ({ ...p, password: e.target.value }))} placeholder="Минимум 1 символ" />
                   </div>
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>Telegram chat id</label>
-                    <input className={inputCls} value={newEmployee.telegramChatId} onChange={e => setNewEmployee(p => ({ ...p, telegramChatId: e.target.value }))} placeholder="РќР°РїСЂРёРјРµСЂ: 123456789" />
+                    <input className={inputCls} value={newEmployee.telegramChatId} onChange={e => setNewEmployee(p => ({ ...p, telegramChatId: e.target.value }))} placeholder="Например: 123456789" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РўРµР»РµС„РѕРЅ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
                     <input className={inputCls} value={newEmployee.phone} onChange={e => setNewEmployee(p => ({ ...p, phone: e.target.value }))} placeholder="+7 (___) ___-__-__" />
                   </div>
                   <div>
@@ -7463,17 +7463,17 @@ paymentSettled: false,
                     <input className={inputCls} value={newEmployee.email} onChange={e => setNewEmployee(p => ({ ...p, email: e.target.value }))} placeholder="worker@atmosfera.ru" />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>% РѕС‚ РІС‹СЂСѓС‡РєРё</label>
+                    <label className={`text-xs ${sub} block mb-1`}>% от выручки</label>
                     <input className={inputCls} type="number" step="0.00001" min={0} max={100} value={newEmployee.percent === '' ? '' : newEmployee.percent} onChange={e => { const r = e.target.value; if (r === '') { setNewEmployee(p => ({ ...p, percent: '' })); return; } const n = parseFloat(r); if (!isNaN(n)) { setNewEmployee(p => ({ ...p, percent: Math.min(100, Math.max(0, n)) })); } }} onBlur={() => setNewEmployee(p => ({ ...p, percent: p.percent === '' ? 0 : p.percent }))} />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РћРєР»Р°Рґ (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
                     <input className={inputCls} type="number" min={0} value={newEmployee.salaryBase} onChange={e => setNewEmployee(p => ({ ...p, salaryBase: Math.max(0, +e.target.value) }))} />
                   </div>
                 </div>
                 <button onClick={() => void handleHireWorker()} disabled={employeeActionLoading?.type === 'hire'} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-3 disabled:opacity-60" style={{ background: accent }}>
                   <Plus size={16} strokeWidth={1.75} />
-                  РќР°РЅСЏС‚СЊ СЃРѕС‚СЂСѓРґРЅРёРєР°
+                  Нанять сотрудника
                 </button>
               </div>
               {employeeSettings.map((emp, i) => (
@@ -7492,7 +7492,7 @@ paymentSettled: false,
                         onClick={() => { void handleFireWorker(emp.id, emp.name); }}
                         className="px-2 py-1 rounded-lg text-[11px] font-medium text-red-500 border border-red-500/20 bg-red-500/10 disabled:opacity-60"
                       >
-                        РЈРІРѕР»РёС‚СЊ
+                        Уволить
                       </button>
                       <button
                         onClick={() => {
@@ -7504,32 +7504,32 @@ paymentSettled: false,
                         className="px-2 py-1 rounded-lg text-[11px] font-medium border disabled:opacity-60"
                         style={{ color: primary, borderColor: `${primary}30`, background: `${primary}10` }}
                       >
-                        РЎР±СЂРѕСЃРёС‚СЊ
+                        Сбросить
                       </button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>% РѕС‚ РІС‹СЂСѓС‡РєРё</label>
+                      <label className={`text-xs ${sub} block mb-1`}>% от выручки</label>
                       <input className={inputCls} type="number" step="0.00001" min={0} max={100} value={emp.percent === '' ? '' : emp.percent} onChange={e => { const r = e.target.value; if (r === '') { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: '' } : em)); return; } const n = parseFloat(r); if (!isNaN(n)) { setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: Math.min(100, Math.max(0, n)) } : em)); } }} onBlur={() => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, percent: em.percent === '' ? 0 : em.percent } : em))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РћРєР»Р°Рґ (в‚Ѕ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Оклад (₽)</label>
                       <input className={inputCls} type="number" value={emp.salaryBase} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, salaryBase: +e.target.value } : em))} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РћРєР»Р°Рґ Р·Р° РІС‹С…РѕРґ (в‚Ѕ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Оклад за выход (₽)</label>
                       <input className={inputCls} type="number" min={0} value={emp.salaryPerShift || 0} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, salaryPerShift: Math.max(0, +e.target.value) } : em))} />
                     </div>
                   </div>
                   <div className="mt-2">
                     <label className={`text-xs ${sub} block mb-1`}>Telegram chat id</label>
-                    <input className={inputCls} value={emp.telegramChatId} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, telegramChatId: e.target.value } : em))} placeholder="РќР°РїСЂРёРјРµСЂ: 123456789" />
+                    <input className={inputCls} value={emp.telegramChatId} onChange={e => setEmployeeSettings(p => p.map((em, j) => j === i ? { ...em, telegramChatId: e.target.value } : em))} placeholder="Например: 123456789" />
                   </div>
                 </div>
               ))}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7537,29 +7537,29 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: NOTIFICATIONS в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'notifications' && (
             <motion.div key="s-notifs" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РЈРІРµРґРѕРјР»РµРЅРёСЏ</h2>
-              <div className={`text-xs font-medium ${sub} mb-2 uppercase tracking-wider`}>РљР°РЅР°Р»С‹</div>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Уведомления</h2>
+              <div className={`text-xs font-medium ${sub} mb-2 uppercase tracking-wider`}>Каналы</div>
               {[
                 { key: 'telegramBot', label: 'Telegram Bot', desc: '@atmosfera_bot' },
-                { key: 'emailReports', label: 'Email РѕС‚С‡С‘С‚С‹', desc: 'owner@atmosfera.ru' },
-                { key: 'smsReminders', label: 'SMS РЅР°РїРѕРјРёРЅР°РЅРёСЏ', desc: 'Р”Р»СЏ РєР»РёРµРЅС‚РѕРІ' },
+                { key: 'emailReports', label: 'Email отчёты', desc: 'owner@atmosfera.ru' },
+                { key: 'smsReminders', label: 'SMS напоминания', desc: 'Для клиентов' },
               ].map(item => (
                 <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
                   onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
               ))}
-              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>РћС‚С‡С‘С‚С‹</div>
+              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Отчёты</div>
               {[
-                { key: 'lowStock', label: 'РќРёР·РєРёР№ РѕСЃС‚Р°С‚РѕРє СЃРєР»Р°РґР°', desc: 'РџСЂРё СЃРЅРёР¶РµРЅРёРё РґРѕ 5 РµРґРёРЅРёС†' },
-                { key: 'dailyReport', label: 'Р•Р¶РµРґРЅРµРІРЅС‹Р№ РѕС‚С‡С‘С‚', desc: 'Р’ 21:00 РєР°Р¶РґС‹Р№ РґРµРЅСЊ' },
-                { key: 'weeklyReport', label: 'Р•Р¶РµРЅРµРґРµР»СЊРЅС‹Р№ РѕС‚С‡С‘С‚', desc: 'РџРѕ РїРѕРЅРµРґРµР»СЊРЅРёРєР°Рј РІ 9:00' },
+                { key: 'lowStock', label: 'Низкий остаток склада', desc: 'При снижении до 5 единиц' },
+                { key: 'dailyReport', label: 'Ежедневный отчёт', desc: 'В 21:00 каждый день' },
+                { key: 'weeklyReport', label: 'Еженедельный отчёт', desc: 'По понедельникам в 9:00' },
               ].map(item => (
                 <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
                   onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
               ))}
-              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>РќР°РїРѕРјРёРЅР°РЅРёСЏ</div>
+              <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Напоминания</div>
               <SettingRow
-                label="РђРІС‚РѕРЅР°РїРѕРјРёРЅР°РЅРёСЏ Рѕ Р·Р°РїРёСЃСЏС…"
+                label="Автонапоминания о записях"
                 desc="Часовой cron Vercel отправляет напоминания за выбранный интервал, владелец может дублировать их вручную"
                 value={notifSettings.bookingReminders}
                 onChange={() => setNotifSettings((current) => ({ ...current, bookingReminders: !current.bookingReminders }))}
@@ -7616,7 +7616,7 @@ paymentSettled: false,
                 </div>
               )}
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7624,12 +7624,12 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: INTEGRATIONS в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'integrations' && (
             <motion.div key="s-integrations" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">РРЅС‚РµРіСЂР°С†РёРё</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Интеграции</h2>
               {[
-                { key: 'telegram', label: 'Telegram Bot', desc: 'РЈРІРµРґРѕРјР»РµРЅРёСЏ Рё СѓРїСЂР°РІР»РµРЅРёРµ С‡РµСЂРµР· Telegram', color: '#229ED9' },
-                { key: 'yookassa', label: 'Р®РљР°СЃСЃР°', desc: 'РџСЂРёС‘Рј РѕРЅР»Р°Р№РЅ-РїР»Р°С‚РµР¶РµР№', color: '#7B61FF' },
-                { key: 'amoCrm', label: 'amoCRM', desc: 'РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РєР»РёРµРЅС‚СЃРєРѕР№ Р±Р°Р·С‹', color: '#E6007E' },
+                { key: 'telegram', label: 'Telegram Bot', desc: 'Уведомления и управление через Telegram', color: '#229ED9' },
+                { key: 'yookassa', label: 'ЮКасса', desc: 'Приём онлайн-платежей', color: '#7B61FF' },
+                { key: 'amoCrm', label: 'amoCRM', desc: 'Синхронизация клиентской базы', color: '#E6007E' },
               ].map(item => (
                 <div key={item.key} className={`${glass} rounded-2xl p-4 mb-2 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
@@ -7652,18 +7652,18 @@ paymentSettled: false,
                     <Globe size={18} strokeWidth={1.75} style={{ color: '#4285F4' }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-medium">Google РљР°Р»РµРЅРґР°СЂСЊ</div>
-                    <div className={`text-xs ${sub}`}>Р”РІСѓСЃС‚РѕСЂРѕРЅРЅСЏСЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЂР°СЃРїРёСЃР°РЅРёСЏ</div>
+                    <div className="text-sm font-medium">Google Календарь</div>
+                    <div className={`text-xs ${sub}`}>Двусторонняя синхронизация расписания</div>
                   </div>
                   {integrations.googleCalendar ? (
-                    <span className="text-[11px] px-2 py-1 rounded-full shrink-0" style={{ background: '#22C55E18', color: '#22C55E' }}>РџРѕРґРєР»СЋС‡РµРЅРѕ</span>
+                    <span className="text-[11px] px-2 py-1 rounded-full shrink-0" style={{ background: '#22C55E18', color: '#22C55E' }}>Подключено</span>
                   ) : (
                     <button
                       onClick={() => { void handleGoogleConnect(); }}
                       disabled={googleConnectLoading}
                       className="text-xs px-3 py-1.5 rounded-full text-white font-medium shrink-0 disabled:opacity-50"
                       style={{ background: '#4285F4' }}>
-                      {googleConnectLoading ? 'РџРѕРґРєР»СЋС‡РµРЅРёРµ...' : 'РџРѕРґРєР»СЋС‡РёС‚СЊ'}
+                      {googleConnectLoading ? 'Подключение...' : 'Подключить'}
                     </button>
                   )}
                 </div>
@@ -7677,11 +7677,11 @@ paymentSettled: false,
                       onClick={e => { e.preventDefault(); openExternal('https://console.cloud.google.com/apis/credentials'); }}
                       className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-medium"
                       style={{ background: '#4285F4' }}>
-                      РЎРѕР·РґР°С‚СЊ OAuth-РєР»РёРµРЅС‚ РІ Google <ExternalLink size={12} strokeWidth={1.75} />
+                      Создать OAuth-клиент в Google <ExternalLink size={12} strokeWidth={1.75} />
                     </a>
                     <div className={`text-[11px] ${sub}`}>
-                      Р•СЃР»Рё Google РѕС‚РєСЂРѕРµС‚ РјРµРЅСЋ СЃ РїСЂРѕРµРєС‚Р°РјРё: СЃРѕР·РґР°Р№С‚Рµ РїСЂРѕРµРєС‚ (СЌС‚Рѕ Р±РµСЃРїР»Р°С‚РЅРѕ),
-                      Р·Р°С‚РµРј РЅР°Р¶РјРёС‚Рµ <span className="font-medium">Р’РєР»СЋС‡РёС‚СЊ Google Calendar API</span> вЂ”
+                      Если Google откроет меню с проектами: создайте проект (это бесплатно),
+                      затем нажмите <span className="font-medium">Включить Google Calendar API</span> —
                       <a
                         href="https://console.cloud.google.com/apis/library/calendar.googleapis.com"
                         target="_blank"
@@ -7690,9 +7690,9 @@ paymentSettled: false,
                         className="underline"
                         style={{ color: '#4285F4' }}
                       >
-                        РїСЂСЏРјР°СЏ СЃСЃС‹Р»РєР°
-                      </a>, РїРѕСЃР»Рµ С‡РµРіРѕ РІРµСЂРЅРёС‚РµСЃСЊ РЅР° СЌС‚Сѓ СЃС‚СЂР°РЅРёС†Сѓ Рё СЃРѕР·РґР°Р№С‚Рµ OAuth Client ID
-                      (Web application), РґРѕР±Р°РІРёРІ РІ РЅРµРіРѕ СЌС‚РѕС‚ Р°РґСЂРµСЃ:
+                        прямая ссылка
+                      </a>, после чего вернитесь на эту страницу и создайте OAuth Client ID
+                      (Web application), добавив в него этот адрес:
                       <div className="flex items-center gap-1.5 mt-1">
                         <code className="flex-1 text-[11px] px-2 py-1 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
                           {googleSetupStatus.redirectUri}
@@ -7701,14 +7701,14 @@ paymentSettled: false,
                           onClick={() => { void handleGoogleCopyUri(); }}
                           className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
                           style={{ color: '#4285F4', background: '#4285F418' }}>
-                          {googleCopiedUri ? 'РћРє' : 'РљРѕРїРёСЂРѕРІР°С‚СЊ'}
+                          {googleCopiedUri ? 'Ок' : 'Копировать'}
                         </button>
                       </div>
                     </div>
                     <label
                       className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
                       style={{ color: googleJsonFile ? '#22C55E' : '#4285F4', background: googleJsonFile ? '#22C55E18' : '#4285F418' }}>
-                      {googleJsonFile ? `вњ“ ${googleJsonFile}` : 'Р—Р°РіСЂСѓР·РёС‚СЊ С„Р°Р№Р» РЅР°СЃС‚СЂРѕРµРє (.json)'}
+                      {googleJsonFile ? `✓ ${googleJsonFile}` : 'Загрузить файл настроек (.json)'}
                       <span className="hidden">
                         <input
                           type="file"
@@ -7723,7 +7723,7 @@ paymentSettled: false,
                     </label>
                     {googleJsonError && <div className="text-[11px] text-red-500">{googleJsonError}</div>}
                     {!googleJsonFile && (
-                      <div className={`text-[11px] ${sub}`}>РёР»Рё РІСЃС‚Р°РІСЊС‚Рµ РІСЂСѓС‡РЅСѓСЋ:</div>
+                      <div className={`text-[11px] ${sub}`}>или вставьте вручную:</div>
                     )}
                     <input
                       className={`${inputCls}`}
@@ -7746,35 +7746,35 @@ paymentSettled: false,
                         disabled={googleSavingKeys || !googleClientId.trim() || !googleClientSecret.trim()}
                         className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                         style={{ background: '#4285F4' }}>
-                        {googleSavingKeys ? 'РџРѕРґРєР»СЋС‡РµРЅРёРµ...' : 'РџРѕРґРєР»СЋС‡РёС‚СЊ'}
+                        {googleSavingKeys ? 'Подключение...' : 'Подключить'}
                       </button>
                       <button
                         onClick={() => { setGoogleSetupOpen(false); setGoogleConnectError(null); }}
                         className="px-4 py-2.5 rounded-xl text-sm font-medium"
                         style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
-                        РћС‚РјРµРЅР°
+                        Отмена
                       </button>
                     </div>
                     <div className={`text-[11px] ${sub} leading-relaxed`}>
-                      Р•СЃР»Рё Google РїРѕРєР°Р¶РµС‚ РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёРµ В«РЅРµРїСЂРѕРІРµСЂРµРЅРЅРѕРµ РїСЂРёР»РѕР¶РµРЅРёРµВ» вЂ” СЌС‚Рѕ РЅРѕСЂРјР°Р»СЊРЅРѕ
-                      РґР»СЏ Р»РёС‡РЅРѕРіРѕ РїРѕРґРєР»СЋС‡РµРЅРёСЏ: РЅР°Р¶РјРёС‚Рµ <span className="font-medium">Advanced</span> в†’
-                      <span className="font-medium"> Continue (unsafe)</span>. Р•СЃР»Рё РІРјРµСЃС‚Рѕ РІС…РѕРґР° РїРѕСЏРІРёС‚СЃСЏ
-                      <span className="font-medium"> 403 access_denied</span> РёР»Рё В«С‚РѕР»СЊРєРѕ С‚РµСЃС‚РѕРІС‹Рµ
-                      РїРѕР»СЊР·РѕРІР°С‚РµР»РёВ» вЂ” РѕС‚РєСЂРѕР№С‚Рµ РЅР°СЃС‚СЂРѕР№РєРё РґРѕСЃС‚СѓРїР° Рё РґРѕР±Р°РІСЊС‚Рµ СЃРІРѕР№ email РІ Test users
-                      (РёР»Рё РЅР°Р¶РјРёС‚Рµ <span className="font-medium">Publish app</span>):
+                      Если Google покажет предупреждение «непроверенное приложение» — это нормально
+                      для личного подключения: нажмите <span className="font-medium">Advanced</span> →
+                      <span className="font-medium"> Continue (unsafe)</span>. Если вместо входа появится
+                      <span className="font-medium"> 403 access_denied</span> или «только тестовые
+                      пользователи» — откройте настройки доступа и добавьте свой email в Test users
+                      (или нажмите <span className="font-medium">Publish app</span>):
                       <button
                         onClick={() => openExternal('https://console.cloud.google.com/apis/credentials/consent')}
                         className="flex items-center justify-center gap-1.5 mt-1.5 w-full py-2 rounded-xl text-[11px] font-medium"
                         style={{ color: '#4285F4', background: '#4285F418' }}>
-                        РћС‚РєСЂС‹С‚СЊ OAuth consent screen <ExternalLink size={11} strokeWidth={1.75} />
+                        Открыть OAuth consent screen <ExternalLink size={11} strokeWidth={1.75} />
                       </button>
                     </div>
                   </div>
                 )}
                 {!integrations.googleCalendar && (
                   <div className={`text-xs ${sub}`}>
-                    РџРѕРґРєР»СЋС‡РёС‚Рµ Google РљР°Р»РµРЅРґР°СЂСЊ, С‡С‚РѕР±С‹ Р·Р°РїРёСЃРё РёР· Р±РѕС‚Р° Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРѕСЏРІР»СЏР»РёСЃСЊ РІ РєР°Р»РµРЅРґР°СЂРµ,
-                    Р° СЃРѕР±С‹С‚РёСЏ РёР· Google вЂ” РІ СЂР°СЃРїРёСЃР°РЅРёРё (РѕС‚РјРµС‡РµРЅС‹ РєР°Рє В«GoogleВ»).
+                    Подключите Google Календарь, чтобы записи из бота автоматически появлялись в календаре,
+                    а события из Google — в расписании (отмечены как «Google»).
                   </div>
                 )}
                 {integrations.googleCalendar && (
@@ -7782,7 +7782,7 @@ paymentSettled: false,
                     {googleConnections.length > 0 && (
                       <div className="space-y-1.5">
                         <div className={`text-[11px] font-semibold uppercase tracking-wide ${sub}`}>
-                          РџРѕРґРєР»СЋС‡С‘РЅРЅС‹Рµ РєР°Р»РµРЅРґР°СЂРё ({googleConnections.length})
+                          Подключённые календари ({googleConnections.length})
                         </div>
                         {googleConnections.map(conn => (
                           <div
@@ -7793,15 +7793,15 @@ paymentSettled: false,
                               {(conn.name || '?').slice(0, 1).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium truncate">{conn.name || 'Р‘РµР· РёРјРµРЅРё'}</div>
-                              <div className={`text-[11px] ${sub} truncate`}>{conn.email || 'email РЅРµ РїРѕР»СѓС‡РµРЅ'}</div>
+                              <div className="text-xs font-medium truncate">{conn.name || 'Без имени'}</div>
+                              <div className={`text-[11px] ${sub} truncate`}>{conn.email || 'email не получен'}</div>
                             </div>
                             <button
                               onClick={() => { void handleGoogleRemoveConnection(conn.id); }}
-                              title="РћС‚РєР»СЋС‡РёС‚СЊ СЌС‚РѕС‚ РєР°Р»РµРЅРґР°СЂСЊ"
+                              title="Отключить этот календарь"
                               className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
                               style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` }}>
-                              РЈР±СЂР°С‚СЊ
+                              Убрать
                             </button>
                           </div>
                         ))}
@@ -7812,23 +7812,23 @@ paymentSettled: false,
                       disabled={googleSyncing}
                       className="w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
                       style={{ background: '#4285F418', color: '#4285F4' }}>
-                      {googleSyncing ? 'РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ...' : 'РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃРµР№С‡Р°СЃ'}
+                      {googleSyncing ? 'Синхронизация...' : 'Синхронизировать сейчас'}
                     </button>
                     {googleSyncResult && (
                       <div className={`text-xs ${sub} space-y-0.5`}>
                         {googleSyncResult.skipped ? (
-                          <div>РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РїСЂРѕРїСѓС‰РµРЅР° (РЅРµС‚ С‚РѕРєРµРЅРѕРІ РёР»Рё РЅРµС‡РµРіРѕ РґРµР»Р°С‚СЊ)</div>
+                          <div>Синхронизация пропущена (нет токенов или нечего делать)</div>
                         ) : googleSyncResult.created === undefined ? (
-                          <div>РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ Р·Р°РІРµСЂС€РµРЅР°</div>
+                          <div>Синхронизация завершена</div>
                         ) : (
                           <div>
-                            РЎРѕР·РґР°РЅРѕ: {googleSyncResult.created} В· РћР±РЅРѕРІР»РµРЅРѕ: {googleSyncResult.updated} В· РћС‚РјРµРЅРµРЅРѕ: {googleSyncResult.cancelled}
+                            Создано: {googleSyncResult.created} · Обновлено: {googleSyncResult.updated} · Отменено: {googleSyncResult.cancelled}
                           </div>
                         )}
                         {googleSyncResult.lastSyncAt && (
-                          <div>РџРѕСЃР»РµРґРЅСЏСЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ: {new Date(googleSyncResult.lastSyncAt).toLocaleString('ru-RU')}</div>
+                          <div>Последняя синхронизация: {new Date(googleSyncResult.lastSyncAt).toLocaleString('ru-RU')}</div>
                         )}
-                        {googleSyncResult.error && <div className="text-red-500">РћС€РёР±РєР°: {googleSyncResult.error}</div>}
+                        {googleSyncResult.error && <div className="text-red-500">Ошибка: {googleSyncResult.error}</div>}
                         {googleSyncResult.errorDetails && (
                           <div className="text-[11px] leading-relaxed mt-1 text-red-500/90">{googleSyncResult.errorDetails}</div>
                         )}
@@ -7842,7 +7842,7 @@ paymentSettled: false,
                       }}
                       className="w-full py-2 rounded-xl text-xs font-medium"
                       style={{ color: '#4285F4', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
-                      {googleInviteOpen ? 'РЎРєСЂС‹С‚СЊ РїСЂРёРіР»Р°С€РµРЅРёРµ' : '+ РџСЂРёРіР»Р°СЃРёС‚СЊ С‡РµР»РѕРІРµРєР° (РµРіРѕ Google-РєР°Р»РµРЅРґР°СЂСЊ)'}
+                      {googleInviteOpen ? 'Скрыть приглашение' : '+ Пригласить человека (его Google-календарь)'}
                     </button>
                     {googleInviteOpen && (
                       <div className="space-y-2 rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
@@ -7850,7 +7850,7 @@ paymentSettled: false,
                           <>
                             <input
                               className={`${inputCls}`}
-                              placeholder="РРјСЏ С‡РµР»РѕРІРµРєР° (РЅР°РїСЂРёРјРµСЂ: РђРЅРЅР°)"
+                              placeholder="Имя человека (например: Анна)"
                               value={googleInviteName}
                               onChange={e => setGoogleInviteName(e.target.value)}
                               maxLength={120}
@@ -7860,19 +7860,19 @@ paymentSettled: false,
                               disabled={googleInviteLoading || !googleInviteName.trim()}
                               className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                               style={{ background: '#4285F4' }}>
-                              {googleInviteLoading ? 'РЎРѕР·РґР°РЅРёРµ СЃСЃС‹Р»РєРё...' : 'РЎРѕР·РґР°С‚СЊ СЃСЃС‹Р»РєСѓ-РїСЂРёРіР»Р°С€РµРЅРёРµ'}
+                              {googleInviteLoading ? 'Создание ссылки...' : 'Создать ссылку-приглашение'}
                             </button>
                             <div className={`text-[11px] ${sub} leading-relaxed`}>
-                              РћС‚РїСЂР°РІСЊС‚Рµ СЃСЃС‹Р»РєСѓ С‡РµР»РѕРІРµРєСѓ (Telegram Рё С‚.Рї.). РћРЅ РѕС‚РєСЂРѕРµС‚ РµС‘,
-                              РІРѕР№РґС‘С‚ РІ СЃРІРѕР№ Google-Р°РєРєР°СѓРЅС‚ Рё РїРѕРґС‚РІРµСЂРґРёС‚ РґРѕСЃС‚СѓРї вЂ” РїРѕСЃР»Рµ СЌС‚РѕРіРѕ
-                              РІСЃРµ Р·Р°РїРёСЃРё Р±СѓРґСѓС‚ РїРѕСЏРІР»СЏС‚СЊСЃСЏ Рё РІ РµРіРѕ РєР°Р»РµРЅРґР°СЂРµ.
+                              Отправьте ссылку человеку (Telegram и т.п.). Он откроет её,
+                              войдёт в свой Google-аккаунт и подтвердит доступ — после этого
+                              все записи будут появляться и в его календаре.
                             </div>
                           </>
                         ) : (
                           <>
                             <div className={`text-[11px] ${sub} leading-relaxed`}>
-                              РЎСЃС‹Р»РєР° РґР»СЏ <span className="font-medium">{googleInviteName.trim() || 'С‡РµР»РѕРІРµРєР°'}</span>.
-                              РџРµСЂРµС€Р»РёС‚Рµ РµС‘ вЂ” РїРѕСЃР»Рµ Р°РІС‚РѕСЂРёР·Р°С†РёРё РєР°Р»РµРЅРґР°СЂСЊ РїРѕСЏРІРёС‚СЃСЏ РІ СЃРїРёСЃРєРµ РІС‹С€Рµ:
+                              Ссылка для <span className="font-medium">{googleInviteName.trim() || 'человека'}</span>.
+                              Перешлите её — после авторизации календарь появится в списке выше:
                             </div>
                             <div className="flex items-center gap-1.5">
                               <code className="flex-1 text-[10px] px-2 py-1.5 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
@@ -7882,14 +7882,14 @@ paymentSettled: false,
                                 onClick={() => { void handleGoogleCopyLink(); }}
                                 className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
                                 style={{ color: '#4285F4', background: '#4285F418' }}>
-                                {googleCopiedLink ? 'РћРє' : 'РљРѕРїРёСЂРѕРІР°С‚СЊ'}
+                                {googleCopiedLink ? 'Ок' : 'Копировать'}
                               </button>
                             </div>
                             <button
                               onClick={() => { setGoogleInviteLink(''); setGoogleInviteName(''); }}
                               className="w-full py-2 rounded-xl text-[11px] font-medium"
                               style={{ color: '#4285F4', background: `${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` }}>
-                              РЎРѕР·РґР°С‚СЊ РµС‰С‘ РѕРґРЅСѓ СЃСЃС‹Р»РєСѓ
+                              Создать ещё одну ссылку
                             </button>
                           </>
                         )}
@@ -7899,19 +7899,19 @@ paymentSettled: false,
                       onClick={() => { void handleGoogleDisconnect(); }}
                       className="w-full py-2 rounded-xl text-xs font-medium"
                       style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
-                      РћС‚РєР»СЋС‡РёС‚СЊ Google РљР°Р»РµРЅРґР°СЂСЊ
+                      Отключить Google Календарь
                     </button>
                     <button
                       onClick={() => { void handleGoogleEditKeys(); }}
                       className="w-full py-2 rounded-xl text-xs font-medium"
                       style={{ color: '#4285F4', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
-                      РР·РјРµРЅРёС‚СЊ РєР»СЋС‡Рё РїРѕРґРєР»СЋС‡РµРЅРёСЏ
+                      Изменить ключи подключения
                     </button>
                   </div>
                 )}
               </div>
               <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mt-2" style={{ background: primary }}>
-                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'Сохранено!' : 'Сохранить'}
               </button>
             </motion.div>
           )}
@@ -7919,7 +7919,7 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: CONTENT в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'content' && (
             <motion.div key="s-content" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <ContentEditor
                 initialContent={content}
                 onSave={saveContent}
@@ -7935,12 +7935,12 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: SECURITY в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'security' && (
             <motion.div key="s-security" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Безопасность</h2>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                <div className={`text-xs font-medium ${sub} mb-3`}>РЎРњР•РќРђ РџРђР РћР›РЇ</div>
+                <div className={`text-xs font-medium ${sub} mb-3`}>СМЕНА ПАРОЛЯ</div>
                 <div className="space-y-3">
-                  {[{ key: 'current', label: 'РўРµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ' }, { key: 'new_', label: 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ' }, { key: 'confirm', label: 'РџРѕРІС‚РѕСЂРёС‚Рµ РїР°СЂРѕР»СЊ' }].map(f => (
+                  {[{ key: 'current', label: 'Текущий пароль' }, { key: 'new_', label: 'Новый пароль' }, { key: 'confirm', label: 'Повторите пароль' }].map(f => (
                     <div key={f.key}>
                       <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
                       <div className="relative">
@@ -7959,13 +7959,13 @@ paymentSettled: false,
                   ))}
                 </div>
                 {securityError && <div className="mt-3 text-xs text-red-500">{securityError}</div>}
-                {securitySaved && <div className="mt-3 text-xs text-green-600">РќР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё СЃРѕС…СЂР°РЅРµРЅС‹</div>}
+                {securitySaved && <div className="mt-3 text-xs text-green-600">Настройки безопасности сохранены</div>}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-3`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium">Р”РІСѓС…С„Р°РєС‚РѕСЂРЅР°СЏ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёСЏ</div>
-                    <div className={`text-xs ${sub}`}>РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїСЂРёС…РѕРґРёС‚ РІ Telegram РІР»Р°РґРµР»СЊС†Р°</div>
+                    <div className="text-sm font-medium">Двухфакторная аутентификация</div>
+                    <div className={`text-xs ${sub}`}>Код подтверждения приходит в Telegram владельца</div>
                   </div>
                   <button
                     onClick={() => {
@@ -7980,8 +7980,8 @@ paymentSettled: false,
                 </div>
                 <div className={`text-xs ${sub} mt-3`}>
                   {staffProfile?.telegramChatId
-                    ? `Telegram РїРѕРґРєР»СЋС‡С‘РЅ: ${staffProfile.telegramChatId}`
-                    : 'РЎРЅР°С‡Р°Р»Р° РїСЂРёРІСЏР¶РёС‚Рµ Telegram РІР»Р°РґРµР»СЊС†Р°, РёРЅР°С‡Рµ 2FA РЅРµ РІРєР»СЋС‡РёС‚СЃСЏ.'}
+                    ? `Telegram подключён: ${staffProfile.telegramChatId}`
+                    : 'Сначала привяжите Telegram владельца, иначе 2FA не включится.'}
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-3 border ${isDark ? 'border-red-400/20' : 'border-red-200'}`}>
@@ -7990,16 +7990,16 @@ paymentSettled: false,
                     <AlertCircle size={18} strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold">РћРїР°СЃРЅР°СЏ Р·РѕРЅР°: РїРѕР»РЅР°СЏ РѕС‡РёСЃС‚РєР° CRM</div>
+                    <div className="text-sm font-semibold">Опасная зона: полная очистка CRM</div>
                     <div className={`text-xs ${sub} mt-1`}>
-                      Р­С‚Р° РѕРїРµСЂР°С†РёСЏ СѓРґР°Р»РёС‚ РїРѕС‡С‚Рё РІСЃРµ СЂР°Р±РѕС‡РёРµ РґР°РЅРЅС‹Рµ CRM Рё РїРµСЂРµСЃРѕР·РґР°СЃС‚ СЃРёСЃС‚РµРјСѓ РґРѕ СЃС‚Р°СЂС‚РѕРІРѕРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ. РЎРѕС…СЂР°РЅСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ РІР»Р°РґРµР»СЊС†С‹ Рё С‚РµРєСѓС‰Р°СЏ СЃРµСЃСЃРёСЏ РёРЅРёС†РёР°С‚РѕСЂР°.
+                      Эта операция удалит почти все рабочие данные CRM и пересоздаст систему до стартового состояния. Сохранятся только владельцы и текущая сессия инициатора.
                     </div>
                   </div>
                 </div>
 
                 <div className={`mt-4 rounded-2xl border p-3 text-xs ${isDark ? 'border-red-400/20 bg-red-500/10 text-red-100' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                  <div className="font-semibold">Р‘СѓРґСѓС‚ СѓРґР°Р»РµРЅС‹ РєР»РёРµРЅС‚С‹, Р·Р°РїРёСЃРё, СЃРѕС‚СЂСѓРґРЅРёРєРё, СЃРєР»Р°Рґ, СЂР°СЃС…РѕРґС‹, Р¶Р°Р»РѕР±С‹, СѓРІРµРґРѕРјР»РµРЅРёСЏ, Р»РёС€РЅРёРµ СЃРµСЃСЃРёРё Рё РІСЂРµРјРµРЅРЅС‹Рµ РєРѕРґС‹.</div>
-                  <div className="mt-2">РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РёРґС‘С‚ РІ С‚СЂРё С€Р°РіР°: РїР°СЂРѕР»СЊ РІР»Р°РґРµР»СЊС†Р°, РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ РёР· Telegram Рё С‚РѕС‡РЅС‹Р№ РІРІРѕРґ РєРѕРЅС‚СЂРѕР»СЊРЅРѕР№ С„СЂР°Р·С‹.</div>
+                  <div className="font-semibold">Будут удалены клиенты, записи, сотрудники, склад, расходы, жалобы, уведомления, лишние сессии и временные коды.</div>
+                  <div className="mt-2">Подтверждение идёт в три шага: пароль владельца, код создателя из Telegram и точный ввод контрольной фразы.</div>
                 </div>
 
                 {resetPreviewRows.length > 0 && (
@@ -8025,11 +8025,11 @@ paymentSettled: false,
 
                 <div className="mt-4 space-y-3">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РЁР°Рі 1. Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ РІР»Р°РґРµР»СЊС†Р°</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Шаг 1. Введите пароль владельца</label>
                     <input
                       className={inputCls}
                       type="password"
-                      placeholder="РўРµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ"
+                      placeholder="Текущий пароль"
                       value={resetPassword}
                       onChange={(e) => {
                         setResetError(null);
@@ -8047,7 +8047,7 @@ paymentSettled: false,
                       className="flex-1 py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
                       style={{ background: '#EF4444' }}
                     >
-                      {resetLoadingStep === 'start' ? 'Р—Р°РїСЂР°С€РёРІР°РµРј РєРѕРґ...' : resetStage === 'idle' ? 'Р—Р°РїСЂРѕСЃРёС‚СЊ РєРѕРґ СЃРѕР·РґР°С‚РµР»СЏ' : 'Р—Р°РїСЂРѕСЃРёС‚СЊ РЅРѕРІС‹Р№ РєРѕРґ'}
+                      {resetLoadingStep === 'start' ? 'Запрашиваем код...' : resetStage === 'idle' ? 'Запросить код создателя' : 'Запросить новый код'}
                     </button>
                     {resetStage !== 'idle' && (
                       <button
@@ -8056,7 +8056,7 @@ paymentSettled: false,
                         disabled={Boolean(resetLoadingStep)}
                         className={`flex-1 py-3 rounded-2xl font-semibold border ${isDark ? 'border-white/10 text-[#E4E4E7]' : 'border-black/10 text-[#131316]'} disabled:opacity-60`}
                       >
-                        РЎР±СЂРѕСЃРёС‚СЊ СЃС†РµРЅР°СЂРёР№
+                        Сбросить сценарий
                       </button>
                     )}
                   </div>
@@ -8065,20 +8065,20 @@ paymentSettled: false,
                 {resetStage !== 'idle' && (
                   <div className="mt-4 space-y-3">
                     <div className={`text-xs ${sub}`}>
-                      РЁР°Рі 2. РџСЂРѕРІРµСЂСЊС‚Рµ Telegram СЃРѕР·РґР°С‚РµР»СЏ Рё РІРІРµРґРёС‚Рµ РєРѕРґ
-                      {resetCodeExpiresAt ? ` РґРѕ ${resetCodeExpiresAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}.
+                      Шаг 2. Проверьте Telegram создателя и введите код
+                      {resetCodeExpiresAt ? ` до ${resetCodeExpiresAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}.
                     </div>
                     <div className={`${glass} rounded-xl px-3 py-3`}>
-                      <div className={`text-[11px] ${sub}`}>РљРѕРЅС‚СЂРѕР»СЊРЅР°СЏ С„СЂР°Р·Р°</div>
-                      <div className="text-sm font-semibold mt-1 break-words">{resetRequiredPhrase || 'Р¤СЂР°Р·Р° РїРѕСЏРІРёС‚СЃСЏ РїРѕСЃР»Рµ Р·Р°РїСЂРѕСЃР° РєРѕРґР°'}</div>
+                      <div className={`text-[11px] ${sub}`}>Контрольная фраза</div>
+                      <div className="text-sm font-semibold mt-1 break-words">{resetRequiredPhrase || 'Фраза появится после запроса кода'}</div>
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>РљРѕРґ СЃРѕР·РґР°С‚РµР»СЏ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Код создателя</label>
                       <input
                         className={inputCls}
                         type="text"
                         inputMode="numeric"
-                        placeholder="6 С†РёС„СЂ РёР· Telegram"
+                        placeholder="6 цифр из Telegram"
                         value={resetCreatorCode}
                         onChange={(e) => {
                           setResetError(null);
@@ -8088,11 +8088,11 @@ paymentSettled: false,
                       />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р’РІРµРґРёС‚Рµ С„СЂР°Р·Сѓ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Введите фразу подтверждения</label>
                       <input
                         className={inputCls}
                         type="text"
-                        placeholder="РџРћР”РўР’Р•Р Р–Р”РђР® РџРћР›РќРЈР® РћР§РРЎРўРљРЈ"
+                        placeholder="ПОДТВЕРЖДАЮ ПОЛНУЮ ОЧИСТКУ"
                         value={resetConfirmationPhrase}
                         onChange={(e) => {
                           setResetError(null);
@@ -8108,21 +8108,21 @@ paymentSettled: false,
                       className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
                       style={{ background: '#B91C1C' }}
                     >
-                      {resetLoadingStep === 'approve' ? 'РџСЂРѕРІРµСЂСЏРµРј РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ...' : resetStage === 'armed' ? 'Р¤РёРЅР°Р»СЊРЅС‹Р№ С€Р°Рі СѓР¶Рµ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ' : 'РџРѕРґС‚РІРµСЂРґРёС‚СЊ Рё СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РѕС‡РёСЃС‚РєСѓ'}
+                      {resetLoadingStep === 'approve' ? 'Проверяем подтверждения...' : resetStage === 'armed' ? 'Финальный шаг уже разблокирован' : 'Подтвердить и разблокировать очистку'}
                     </button>
                   </div>
                 )}
 
                 {resetStage === 'armed' && (
                   <div className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-red-400/20 bg-red-500/10' : 'border-red-200 bg-red-50'}`}>
-                    <div className="text-sm font-semibold text-red-500">Р¤РёРЅР°Р»СЊРЅРѕРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ</div>
+                    <div className="text-sm font-semibold text-red-500">Финальное подтверждение</div>
                     <div className={`text-xs mt-2 ${isDark ? 'text-red-100' : 'text-red-700'}`}>
-                      Р‘СѓРґСѓС‚ СѓРґР°Р»РµРЅС‹ СЃРѕС‚СЂСѓРґРЅРёРєРё, РєР»РёРµРЅС‚С‹, РІСЃРµ Р·Р°РїРёСЃРё, СЃРєР»Р°Рґ, СЂР°СЃС…РѕРґС‹, Р¶Р°Р»РѕР±С‹, СѓРІРµРґРѕРјР»РµРЅРёСЏ, РІСЂРµРјРµРЅРЅС‹Рµ РєРѕРґС‹ Рё РїРѕС‡С‚Рё РІСЃРµ РЅР°СЃС‚СЂРѕР№РєРё CRM. Р”РµР№СЃС‚РІРёРµ РЅРµРѕР±СЂР°С‚РёРјРѕ.
+                      Будут удалены сотрудники, клиенты, все записи, склад, расходы, жалобы, уведомления, временные коды и почти все настройки CRM. Действие необратимо.
                     </div>
                     <div className={`text-xs mt-3 ${sub}`}>
                       {resetCountdown > 0
-                        ? `РљРЅРѕРїРєР° Р°РєС‚РёРІРёСЂСѓРµС‚СЃСЏ С‡РµСЂРµР· ${resetCountdown} СЃРµРє. Р—Р° СЌС‚Рѕ РІСЂРµРјСЏ РµС‰С‘ СЂР°Р· РїСЂРѕРІРµСЂСЊС‚Рµ, С‡С‚Рѕ РёРјРµРЅРЅРѕ Р±СѓРґРµС‚ СѓРґР°Р»РµРЅРѕ.`
-                        : 'РўР°Р№РјРµСЂ Р·Р°РІРµСЂС€С‘РЅ. Р•СЃР»Рё РІСЃС‘ РІРµСЂРЅРѕ, РјРѕР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ РїРѕР»РЅСѓСЋ РѕС‡РёСЃС‚РєСѓ CRM.'}
+                        ? `Кнопка активируется через ${resetCountdown} сек. За это время ещё раз проверьте, что именно будет удалено.`
+                        : 'Таймер завершён. Если всё верно, можно запускать полную очистку CRM.'}
                     </div>
                     <button
                       type="button"
@@ -8132,10 +8132,10 @@ paymentSettled: false,
                       style={{ background: '#991B1B' }}
                     >
                       {resetLoadingStep === 'execute'
-                        ? 'РЈРґР°Р»СЏРµРј РґР°РЅРЅС‹Рµ...'
+                        ? 'Удаляем данные...'
                         : resetCountdown > 0
-                          ? `РљРЅРѕРїРєР° Р°РєС‚РёРІРёСЂСѓРµС‚СЃСЏ С‡РµСЂРµР· ${resetCountdown} СЃРµРє`
-                          : 'РџРѕРґС‚РІРµСЂР¶РґР°СЋ РїРѕР»РЅСѓСЋ РѕС‡РёСЃС‚РєСѓ CRM'}
+                          ? `Кнопка активируется через ${resetCountdown} сек`
+                          : 'Подтверждаю полную очистку CRM'}
                     </button>
                   </div>
                 )}
@@ -8144,21 +8144,21 @@ paymentSettled: false,
                 {resetInfo && <div className="mt-4 text-xs text-green-600">{resetInfo}</div>}
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-2`}>РђРљРўРР’РќР«Р• РЎР•РЎРЎРР</div>
+                <div className={`text-xs ${sub} mb-2`}>АКТИВНЫЕ СЕССИИ</div>
                 {activeSessions.length === 0 ? (
-                  <div className={`text-xs ${sub}`}>РќРµС‚ Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёР№</div>
+                  <div className={`text-xs ${sub}`}>Нет активных сессий</div>
                 ) : activeSessions.map(item => (
                   <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0 gap-3" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">
-                        {item.device}{item.current ? ' В· РўРµРєСѓС‰Р°СЏ' : ''}
+                        {item.device}{item.current ? ' · Текущая' : ''}
                       </div>
                       <div className={`text-xs ${sub}`}>
                         {item.ipAddress} В· {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <button onClick={() => void revokeSession(item.id)} className="text-xs text-red-500 shrink-0">
-                      Р—Р°РІРµСЂС€РёС‚СЊ
+                      Завершить
                     </button>
                   </div>
                 ))}
@@ -8169,7 +8169,7 @@ paymentSettled: false,
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: '#EF4444' }}
               >
-                <Shield size={16} strokeWidth={1.75} />{securitySaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : password.current || password.new_ || password.confirm ? 'РР·РјРµРЅРёС‚СЊ РїР°СЂРѕР»СЊ' : 'РЎРѕС…СЂР°РЅРёС‚СЊ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ'}
+                <Shield size={16} strokeWidth={1.75} />{securitySaved ? 'Сохранено!' : password.current || password.new_ || password.confirm ? 'Изменить пароль' : 'Сохранить безопасность'}
               </button>
             </motion.div>
           )}
@@ -8177,19 +8177,19 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SETTINGS: FINANCE в”Ђв”Ђ */}
           {!isAccountant && page === 'settings' && settingsSection === 'finance' && (
             <motion.div key="s-finance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />РќР°Р·Р°Рґ</button>
-              <h2 className="font-semibold mb-4">Р¤РёРЅР°РЅСЃС‹</h2>
+              <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
+              <h2 className="font-semibold mb-4">Финансы</h2>
 
-              {/* РћР±С‰РёР№ РёС‚РѕРі */}
+              {/* Общий итог */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РћР‘Р©РР™ РРўРћР“</div>
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>ОБЩИЙ ИТОГ</div>
                 {[
-                  { label: 'Р’С‹СЂСѓС‡РєР°', value: `${totalRevenue.toLocaleString('ru')} в‚Ѕ`, color: accent },
-                  { label: 'Р”РѕРї. РґРѕС…РѕРґС‹', value: `${totalIncomes.toLocaleString('ru')} в‚Ѕ`, color: primary },
-                  { label: 'Р Р°СЃС…РѕРґС‹', value: `${totalExpenses.toLocaleString('ru')} в‚Ѕ`, color: '#FF6B6B' },
+                  { label: 'Выручка', value: `${totalRevenue.toLocaleString('ru')} ₽`, color: accent },
+                  { label: 'Доп. доходы', value: `${totalIncomes.toLocaleString('ru')} ₽`, color: primary },
+                  { label: 'Расходы', value: `${totalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
                   {
-                    label: profit >= 0 ? 'РџСЂРёР±С‹Р»СЊ' : 'РџСЂРёР±С‹Р»СЊ (СѓР±С‹С‚РѕРє)',
-                    value: `${Math.abs(profit).toLocaleString('ru')} в‚Ѕ${profit < 0 ? ' (СѓР±С‹С‚РѕРє)' : ''}`,
+                    label: profit >= 0 ? 'Прибыль' : 'Прибыль (убыток)',
+                    value: `${Math.abs(profit).toLocaleString('ru')} ₽${profit < 0 ? ' (убыток)' : ''}`,
                     color: profit >= 0 ? accent : '#FF6B6B',
                   },
                 ].map(r => (
@@ -8200,133 +8200,133 @@ paymentSettled: false,
                 ))}
               </div>
 
-              {/* РљРѕРїРёР»РєР° В· РђРІС‚РѕРјРѕР№РєР° */}
+              {/* Копилка · Автомойка */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>рџљ— РљРћРџРР›РљРђ В· РђР’РўРћРњРћР™РљРђ</div>
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 КОПИЛКА · АВТОМОЙКА</div>
                 {piggyBankLoading ? (
-                  <div className={`text-sm ${sub} text-center py-4`}>Р—Р°РіСЂСѓР·РєР°...</div>
+                  <div className={`text-sm ${sub} text-center py-4`}>Загрузка...</div>
                 ) : piggyBank?.wash ? (
                   <>
-                    {/* РЎР°РјРѕРѕР±СЃР»СѓР¶РёРІР°РЅРёРµ */}
+                    {/* Самообслуживание */}
                     <div className="mb-3">
-                      <div className={`text-xs font-medium ${sub} mb-2`}>в–ё РЎР°РјРѕРѕР±СЃР»СѓР¶РёРІР°РЅРёРµ (1В 000В в‚Ѕ/С‡)</div>
+                      <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание (1 000 ₽/ч)</div>
                       <div className="flex justify-between py-1.5 text-sm">
-                        <span className={sub}>Р’С‹СЂСѓС‡РєР°</span>
-                        <span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Выручка</span>
+                        <span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm">
-                        <span className={sub}>Р—Рџ РјР°СЃС‚РµСЂР°</span>
-                        <span style={{ color: '#FF6B6B' }}>в€’{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>ЗП мастера</span>
+                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р’ РєРѕРїРёР»РєСѓ (90%)</span>
-                        <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>В копилку (90%)</span>
+                        <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} ₽</span>
                       </div>
                     </div>
-                    {/* РљР»Р°СЃСЃРёС‡РµСЃРєР°СЏ РјРѕР№РєР° */}
+                    {/* Классическая мойка */}
                     <div className="mb-3">
-                      <div className={`text-xs font-medium ${sub} mb-2`}>в–ё РљР»Р°СЃСЃРёС‡РµСЃРєР°СЏ РјРѕР№РєР°</div>
+                      <div className={`text-xs font-medium ${sub} mb-2`}>▸ Классическая мойка</div>
                       <div className="flex justify-between py-1.5 text-sm">
-                        <span className={sub}>Р’С‹СЂСѓС‡РєР°</span>
-                        <span className="font-semibold">{piggyBank.wash.classicRevenue.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Выручка</span>
+                        <span className="font-semibold">{piggyBank.wash.classicRevenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm">
-                        <span className={sub}>Р—Рџ РјР°СЃС‚РµСЂР°</span>
-                        <span style={{ color: '#FF6B6B' }}>в€’{piggyBank.wash.classicMaster.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>ЗП мастера</span>
+                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р’ РєРѕРїРёР»РєСѓ</span>
-                        <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>В копилку</span>
+                        <span className="font-semibold" style={{ color: accent }}>+{piggyBank.wash.classicPiggy.toLocaleString('ru')} ₽</span>
                       </div>
                     </div>
-                    {/* РС‚РѕРіРѕ */}
+                    {/* Итого */}
                     <div className="flex justify-between py-2 text-sm font-semibold">
-                      <span>Р’СЃРµРіРѕ РІ РєРѕРїРёР»РєСѓ</span>
-                      <span style={{ color: accent }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} в‚Ѕ</span>
+                      <span>Всего в копилку</span>
+                      <span style={{ color: accent }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р’С‹СЂСѓС‡РєР°</span>
-                      <span className="font-semibold">{piggyBank.wash.totalRevenue.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Выручка</span>
+                      <span className="font-semibold">{piggyBank.wash.totalRevenue.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р—Рџ РјР°СЃС‚РµСЂРѕРІ РІСЃРµРіРѕ</span>
-                      <span style={{ color: '#FF6B6B' }}>в€’{piggyBank.wash.totalMaster.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>ЗП мастеров всего</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={sub}>Р’С‹С…РѕРґ РјР°СЃС‚РµСЂРѕРІ (СЃРјРµРЅС‹)</span>
-                      <span style={{ color: '#FF6B6B' }}>в€’{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Выход мастеров (смены)</span>
+                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р”РѕРї. РґРѕС…РѕРґС‹</span>
-                      <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.washIncomes ?? 0).toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Доп. доходы</span>
+                      <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.washIncomes ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р Р°СЃС…РѕРґС‹ РЅР° РјРѕР№РєСѓ</span>
-                      <span style={{ color: '#FF6B6B' }}>в€’{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Расходы на мойку</span>
+                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-                      <span>рџЏ¦ РћСЃС‚Р°С‚РѕРє РІ РєРѕРїРёР»РєРµ</span>
+                      <span>🏦 Остаток в копилке</span>
                       <span style={{ color: (piggyBank.remainingInPiggyBank ?? 0) >= 0 ? accent : '#FF6B6B' }}>
-                        {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : 'в€’'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} в‚Ѕ
+                        {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </>
                 ) : (
-                  <div className={`text-sm ${sub} text-center py-4`}>РќРµС‚ РґР°РЅРЅС‹С…</div>
+                  <div className={`text-sm ${sub} text-center py-4`}>Нет данных</div>
                 )}
               </div>
 
-              {/* РљРѕРїРёР»РєР° В· Р”РµС‚РµР№Р»РёРЅРі */}
+              {/* Копилка · Детейлинг */}
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>вњЁ РљРћРџРР›РљРђ В· Р”Р•РўР•Р™Р›РРќР“</div>
+                <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>✨ КОПИЛКА · ДЕТЕЙЛИНГ</div>
                 {piggyBankLoading ? (
-                  <div className={`text-sm ${sub} text-center py-4`}>Р—Р°РіСЂСѓР·РєР°...</div>
+                  <div className={`text-sm ${sub} text-center py-4`}>Загрузка...</div>
                 ) : piggyBank?.detailing ? (
                   <>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р’С‹СЂСѓС‡РєР°</span>
-                      <span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Выручка</span>
+                      <span className="font-semibold">{piggyBank.detailing.detailingRevenue.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р—Рџ РјР°СЃС‚РµСЂРѕРІ</span>
-                      <span style={{ color: '#FF6B6B' }}>в€’{piggyBank.detailing.detailingMaster.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>ЗП мастеров</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={sub}>РќР°С‡РёСЃР»РµРЅРѕ 24%</span>
-                      <span className="font-semibold" style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Начислено 24%</span>
+                      <span className="font-semibold" style={{ color: accent }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>РЎРЅСЏС‚Рѕ РЅР° РјР°С‚РµСЂРёР°Р»С‹</span>
-                      <span style={{ color: '#FF6B6B' }}>в€’{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Снято на материалы</span>
+                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={sub}>Р’РѕР·РІСЂР°С‚ РјР°С‚РµСЂРёР°Р»РѕРІ</span>
-                      <span className="font-semibold" style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Возврат материалов</span>
+                      <span className="font-semibold" style={{ color: accent }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
-                      <span className={sub}>Р Р°СЃС…РѕРґС‹ РЅР° РґРµС‚РµР№Р»РёРЅРі</span>
-                      <span style={{ color: '#FF6B6B' }}>в€’{(piggyBank.detailingExpenses ?? 0).toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Расходы на детейлинг</span>
+                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.detailingExpenses ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                      <span className={sub}>Р”РѕРї. РґРѕС…РѕРґС‹</span>
-                      <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} в‚Ѕ</span>
+                      <span className={sub}>Доп. доходы</span>
+                      <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-                      <span>рџЏ¦ РќРµС‚С‚Рѕ РІ РєРѕРїРёР»РєРµ</span>
+                      <span>🏦 Нетто в копилке</span>
                       <span style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? accent : '#FF6B6B' }}>
-                        {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : 'в€’'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} в‚Ѕ
+                        {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </>
                 ) : (
-                  <div className={`text-sm ${sub} text-center py-4`}>РќРµС‚ РґР°РЅРЅС‹С…</div>
+                  <div className={`text-sm ${sub} text-center py-4`}>Нет данных</div>
                 )}
               </div>
 
-              {/* РџРѕСЃР»РµРґРЅРёРµ СЂР°СЃС…РѕРґС‹ */}
+              {/* Последние расходы */}
               {expenses.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РџРћРЎР›Р•Р”РќРР• Р РђРЎРҐРћР”Р«</div>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>ПОСЛЕДНИЕ РАСХОДЫ</div>
                   <div className="space-y-2">
                     {expenses.slice(0, 10).map(e => (
                       <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -8335,8 +8335,8 @@ paymentSettled: false,
                           <div className={`text-xs ${sub}`}>{e.category} В· {resourceGroupLabel(e.resourceGroup)} В· {e.date}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>в€’{e.amount.toLocaleString('ru')} в‚Ѕ</div>
-                          <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ">
+                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                          <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
                             <Edit3 size={13} strokeWidth={1.75} className={sub} />
                           </button>
                         </div>
@@ -8346,10 +8346,10 @@ paymentSettled: false,
                 </div>
               )}
 
-              {/* РџРѕСЃР»РµРґРЅРёРµ РґРѕС…РѕРґС‹ */}
+              {/* Последние доходы */}
               {incomes.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РџРћРЎР›Р•Р”РќРР• Р”РћРҐРћР”Р«</div>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>ПОСЛЕДНИЕ ДОХОДЫ</div>
                   <div className="space-y-2">
                     {incomes.slice(0, 10).map(i => (
                       <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -8358,8 +8358,8 @@ paymentSettled: false,
                           <div className={`text-xs ${sub}`}>{resourceGroupLabel(i.resourceGroup)} В· {i.date}{i.note ? ` В· ${i.note}` : ''}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} в‚Ѕ</div>
-                          <button onClick={() => openEditIncome(i)} className={`p-1.5 rounded-lg ${glass}`} title="Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ">
+                          <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                          <button onClick={() => openEditIncome(i)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
                             <Edit3 size={13} strokeWidth={1.75} className={sub} />
                           </button>
                         </div>
@@ -8381,50 +8381,50 @@ paymentSettled: false,
             style={{ background: isDark ? '#1C1C1F' : '#fff' }}
             onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }} />
-            <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'РЈСЃР»СѓРіР°'}</h3>
+            <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'Услуга'}</h3>
             <div className={`text-xs ${sub} mb-4`}>{selectedShareDetail.date}{selectedShareDetail.time ? ` В· ${selectedShareDetail.time}` : ''}</div>
             <div className="space-y-3">
               <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                <span className={`text-sm ${sub}`}>РЎС‚РѕРёРјРѕСЃС‚СЊ</span>
-                <span className="text-sm font-semibold">{selectedShareDetail.price.toLocaleString('ru')} в‚Ѕ</span>
+                <span className={`text-sm ${sub}`}>Стоимость</span>
+                <span className="text-sm font-semibold">{selectedShareDetail.price.toLocaleString('ru')} ₽</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                <span className={`text-sm ${sub}`}>Р”РѕР»СЏ РІР»Р°РґРµР»СЊС†Р°</span>
-                <span className="text-sm font-semibold" style={{ color: accent }}>+{selectedShareDetail.amount.toLocaleString('ru')} в‚Ѕ</span>
+                <span className={`text-sm ${sub}`}>Доля владельца</span>
+                <span className="text-sm font-semibold" style={{ color: accent }}>+{selectedShareDetail.amount.toLocaleString('ru')} ₽</span>
               </div>
               {selectedShareDetail.workerName && (
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                  <span className={`text-sm ${sub}`}>РњР°СЃС‚РµСЂ</span>
+                  <span className={`text-sm ${sub}`}>Мастер</span>
                   <span className="text-sm font-semibold">{selectedShareDetail.workerName}</span>
                 </div>
               )}
               {selectedShareDetail.clientName && (
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                  <span className={`text-sm ${sub}`}>РљР»РёРµРЅС‚</span>
+                  <span className={`text-sm ${sub}`}>Клиент</span>
                   <span className="text-sm font-semibold">{selectedShareDetail.clientName}</span>
                 </div>
               )}
               {selectedShareDetail.clientPhone && (
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                  <span className={`text-sm ${sub}`}>РўРµР»РµС„РѕРЅ</span>
+                  <span className={`text-sm ${sub}`}>Телефон</span>
                   <a href={`tel:${selectedShareDetail.clientPhone}`} className="text-sm font-semibold" style={{ color: primary }}>{selectedShareDetail.clientPhone}</a>
                 </div>
               )}
               {selectedShareDetail.car && (
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                  <span className={`text-sm ${sub}`}>РђРІС‚РѕРјРѕР±РёР»СЊ</span>
+                  <span className={`text-sm ${sub}`}>Автомобиль</span>
                   <span className="text-sm font-semibold">{selectedShareDetail.car}</span>
                 </div>
               )}
               {selectedShareDetail.plate && (
                 <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                  <span className={`text-sm ${sub}`}>Р“РѕСЃ. РЅРѕРјРµСЂ</span>
+                  <span className={`text-sm ${sub}`}>Гос. номер</span>
                   <span className="text-sm font-semibold">{selectedShareDetail.plate}</span>
                 </div>
               )}
             </div>
             <button onClick={() => setSelectedShareDetail(null)} className="w-full mt-5 py-3 rounded-2xl text-sm font-semibold" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }}>
-              Р—Р°РєСЂС‹С‚СЊ
+              Закрыть
             </button>
           </div>
         </div>
@@ -8434,26 +8434,26 @@ paymentSettled: false,
       <div className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
         {(isAccountant
           ? [
-              { id: 'dashboard', icon: LayoutDashboard, label: 'Р“Р»Р°РІРЅР°СЏ' },
-              { id: 'calendar', icon: CalendarDays, label: 'РљР°Р»РµРЅРґР°СЂСЊ' },
-              { id: 'payroll', icon: Wallet, label: 'Р—Р°СЂРїР»Р°С‚С‹' },
-              { id: 'piggy-bank', icon: PiggyBank, label: 'РљРѕРїРёР»РєР°' },
-              { id: 'stock', icon: Package, label: 'РЎРєР»Р°Рґ' },
-              { id: 'reports', icon: FileChartColumn, label: 'РћС‚С‡С‘С‚С‹' },
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Главная' },
+              { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
+              { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
+              { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
+              { id: 'stock', icon: Package, label: 'Склад' },
+              { id: 'reports', icon: FileChartColumn, label: 'Отчёты' },
             ]
           : [
-              { id: 'dashboard', icon: LayoutDashboard, label: 'Р“Р»Р°РІРЅР°СЏ' },
-              { id: 'calendar', icon: CalendarDays, label: 'РљР°Р»РµРЅРґР°СЂСЊ' },
-              { id: 'payroll', icon: Wallet, label: 'Р—Р°СЂРїР»Р°С‚С‹' },
-              { id: 'piggy-bank', icon: PiggyBank, label: 'РљРѕРїРёР»РєР°' },
-              { id: 'stock', icon: Package, label: 'РЎРєР»Р°Рґ' },
-              { id: 'clients', icon: UsersRound, label: 'РљР»РёРµРЅС‚С‹' },
-              { id: 'settings', icon: Settings2, label: 'РќР°СЃС‚СЂРѕР№РєРё' },
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Главная' },
+              { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
+              { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
+              { id: 'piggy-bank', icon: PiggyBank, label: 'Копилка' },
+              { id: 'stock', icon: Package, label: 'Склад' },
+              { id: 'clients', icon: UsersRound, label: 'Клиенты' },
+              { id: 'settings', icon: Settings2, label: 'Настройки' },
             ]).map(t => {
           if (t.id === 'clients') {
             const isActive = page === 'settings' && settingsSection === 'clients';
             return (
-              <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setPage('settings'); setSettingsSection('clients'); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label="РљР»РёРµРЅС‚С‹">
+              <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setPage('settings'); setSettingsSection('clients'); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label="Клиенты">
                 {isActive && (
                   <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
                 )}
@@ -8487,7 +8487,7 @@ paymentSettled: false,
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
-                  {exportModalStep === 'segment' ? 'Р—Р° С‡С‚Рѕ РѕС‚С‡С‘С‚?' : exportModalStep === 'period' ? 'Р—Р° РєР°РєРѕР№ РїРµСЂРёРѕРґ?' : 'Р’С‹Р±РµСЂРёС‚Рµ РґР°С‚С‹'}
+                  {exportModalStep === 'segment' ? 'За что отчёт?' : exportModalStep === 'period' ? 'За какой период?' : 'Выберите даты'}
                 </h3>
                 <button onClick={() => setShowExportModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
@@ -8495,9 +8495,9 @@ paymentSettled: false,
               {exportModalStep === 'segment' && (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: 'all', label: 'Р’СЃС‘ РІРјРµСЃС‚Рµ' },
-                    { value: 'wash', label: 'РњРѕР№РєР°' },
-                    { value: 'detailing', label: 'Р”РµС‚РµР№Р»РёРЅРі' },
+                    { value: 'all', label: 'Всё вместе' },
+                    { value: 'wash', label: 'Мойка' },
+                    { value: 'detailing', label: 'Детейлинг' },
                   ].map(opt => (
                     <button key={opt.value} onClick={() => { setExportModalSegment(opt.value as 'all' | 'wash' | 'detailing'); setExportModalStep('period'); }}
                       className={`rounded-xl py-3 px-2 text-sm font-medium disabled:opacity-60 ${exportModalSegment !== opt.value ? `${glass} ${sub}` : ''}`}
@@ -8512,9 +8512,9 @@ paymentSettled: false,
                 <>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { value: 'daily', label: 'Р”РµРЅСЊ' },
-                      { value: 'weekly', label: 'РќРµРґРµР»СЏ' },
-                      { value: 'custom', label: 'РЎРІРѕС‘ РІСЂРµРјСЏ' },
+                      { value: 'daily', label: 'День' },
+                      { value: 'weekly', label: 'Неделя' },
+                      { value: 'custom', label: 'Своё время' },
                     ].map(opt => (
                       <button key={opt.value} onClick={() => { setExportModalPeriod(opt.value as 'daily' | 'weekly' | 'custom'); if (opt.value !== 'custom') { void handleExportWithParams(); } else { setExportModalStep('date'); } }}
                         className={`rounded-xl py-3 px-2 text-sm font-medium ${exportModalPeriod !== opt.value ? `${glass} ${sub}` : ''}`}
@@ -8524,7 +8524,7 @@ paymentSettled: false,
                     ))}
                   </div>
                   <button onClick={() => setExportModalStep('segment')} className={`mt-4 text-xs ${sub} flex items-center gap-1`}>
-                    <ArrowLeft size={12} strokeWidth={1.75} /> РќР°Р·Р°Рґ
+                    <ArrowLeft size={12} strokeWidth={1.75} /> Назад
                   </button>
                 </>
               )}
@@ -8544,10 +8544,10 @@ paymentSettled: false,
                   </div>
                   <button onClick={() => void handleExportWithParams()} disabled={!exportModalDateFrom || !exportModalDateTo}
                     className="w-full py-3 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-                    РЎС„РѕСЂРјРёСЂРѕРІР°С‚СЊ РѕС‚С‡С‘С‚
+                    Сформировать отчёт
                   </button>
                   <button onClick={() => setExportModalStep('period')} className={`mt-3 text-xs ${sub} flex items-center gap-1`}>
-                    <ArrowLeft size={12} strokeWidth={1.75} /> РќР°Р·Р°Рґ
+                    <ArrowLeft size={12} strokeWidth={1.75} /> Назад
                   </button>
                 </>
               )}
@@ -8565,12 +8565,12 @@ paymentSettled: false,
               className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[70vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                <h3 className="font-semibold mt-2">РЈРІРµРґРѕРјР»РµРЅРёСЏ</h3>
+                <h3 className="font-semibold mt-2">Уведомления</h3>
                 <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-2">
                 {ownerNotifications.length === 0 ? (
-                  <p className={`text-sm ${sub} text-center py-8`}>РќРµС‚ СѓРІРµРґРѕРјР»РµРЅРёР№</p>
+                  <p className={`text-sm ${sub} text-center py-8`}>Нет уведомлений</p>
                 ) : ownerNotifications.map(n => (
                   <div key={n.id} onClick={() => markNotificationRead(n.id)} className={`${glass} rounded-xl p-3 cursor-pointer border-l-2`} style={{ borderLeftColor: n.read ? 'transparent' : primary }}>
                     <p className="text-sm">{n.message}</p>
@@ -8600,43 +8600,43 @@ paymentSettled: false,
                         className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${accent}20` }}>
                         <Check size={28} strokeWidth={1.75} style={{ color: accent }} />
                       </motion.div>
-                      <div className="font-semibold">Р Р°СЃС…РѕРґ РґРѕР±Р°РІР»РµРЅ!</div>
+                      <div className="font-semibold">Расход добавлен!</div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ</h3>
+                <h3 className="font-semibold">Добавить расход</h3>
                 <button onClick={() => setShowAddExpense(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
-                <div><label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ</label><input className={inputCls} placeholder="Р—Р°РєСѓРїРєР° С…РёРјРёРё..." value={expenseForm.title} onChange={e => setExpenseForm(p => ({ ...p, title: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° (в‚Ѕ)</label><input className={inputCls} type="number" placeholder="0" value={expenseForm.amount} onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Название</label><input className={inputCls} placeholder="Закупка химии..." value={expenseForm.title} onChange={e => setExpenseForm(p => ({ ...p, title: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="number" placeholder="0" value={expenseForm.amount} onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Категория</label><select className={selectCls} value={expenseForm.category} onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ СѓСЃР»СѓРіРё</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
                   <select className={selectCls} value={expenseForm.resourceGroup} onChange={e => setExpenseForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
-                    <option value="">РћР±С‰РµРµ</option>
-                    <option value="wash">РђРІС‚РѕРјРѕР№РєР°</option>
-                    <option value="detailing">Р”РµС‚РµР№Р»РёРЅРі</option>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
                   </select>
                   {expenseForm.resourceGroup && (
-                    <p className="text-[11px] mt-1.5" style={{ color: accent }}>РЎРїРёСЃР°РЅРёРµ РёР· РєРѕРїРёР»РєРё {expenseForm.resourceGroup === 'wash' ? 'рџљ— РњРѕР№РєР°' : 'вњЁ Р”РµС‚РµР№Р»РёРЅРі'}</p>
+                    <p className="text-[11px] mt-1.5" style={{ color: accent }}>Списание из копилки {expenseForm.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}</p>
                   )}
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(expenseForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setExpenseForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                   {expenseForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) || parseFlexibleDate(expenseForm.date) === null) && (
-                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Р’РІРµРґРёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“</p>
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label><input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ..." value={expenseForm.note} onChange={e => setExpenseForm(p => ({ ...p, note: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={expenseForm.note} onChange={e => setExpenseForm(p => ({ ...p, note: e.target.value }))} /></div>
               </div>
-              <button onClick={handleAddExpense} disabled={!expenseForm.title || !expenseForm.amount || !expenseForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) || parseFlexibleDate(expenseForm.date) === null} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: '#FF6B6B' }}>Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ</button>
+              <button onClick={handleAddExpense} disabled={!expenseForm.title || !expenseForm.amount || !expenseForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(expenseForm.date) || parseFlexibleDate(expenseForm.date) === null} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: '#FF6B6B' }}>Добавить расход</button>
             </motion.div>
           </motion.div>
         )}
@@ -8648,16 +8648,16 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">{piggyWithdrawKind === 'materials' ? 'РЎРЅСЏС‚СЊ РЅР° РјР°С‚РµСЂРёР°Р»С‹' : 'РЎРЅСЏС‚СЊ РЅР° РїСЂРѕС‡РёРµ СЂР°СЃС…РѕРґС‹'}</h3>
+                <h3 className="font-semibold">{piggyWithdrawKind === 'materials' ? 'Снять на материалы' : 'Снять на прочие расходы'}</h3>
                 <button onClick={() => setShowPiggyWithdraw(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1.5`}>РР· РєР°РєРѕР№ РєРѕРїРёР»РєРё</label>
+                  <label className={`text-xs ${sub} block mb-1.5`}>Из какой копилки</label>
                   <div className="grid grid-cols-2 gap-2">
                     {([
-                      { value: 'detailing', label: 'вњЁ Р”РµС‚РµР№Р»РёРЅРі' },
-                      { value: 'wash', label: 'рџљ— РњРѕР№РєР°' },
+                      { value: 'detailing', label: '✨ Детейлинг' },
+                      { value: 'wash', label: '🚗 Мойка' },
                     ] as const).map(opt => {
                       const active = piggyWithdrawForm.target === opt.value;
                       return (
@@ -8671,39 +8671,39 @@ paymentSettled: false,
                   </div>
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљС‚Рѕ РїРѕРєСѓРїР°Р»</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Кто покупал</label>
                   <select className={selectCls} value={piggyWithdrawForm.spentById} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentById: e.target.value, spentByName: e.target.value !== '__custom' ? '' : p.spentByName }))}>
-                    <option value="">вЂ” РЇ (Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё) вЂ”</option>
+                    <option value="">— Я (автоматически) —</option>
                     {workers.map(w => (
-                      <option key={w.id} value={w.id}>{w.name} В· {w.role === 'worker' ? 'РњР°СЃС‚РµСЂ' : w.role === 'admin' ? 'РђРґРјРёРЅ' : w.role === 'accountant' ? 'Р‘СѓС…РіР°Р»С‚РµСЂ' : w.role}</option>
+                      <option key={w.id} value={w.id}>{w.name} · {w.role === 'worker' ? 'Мастер' : w.role === 'admin' ? 'Админ' : w.role === 'accountant' ? 'Бухгалтер' : w.role}</option>
                     ))}
                     {staffProfile && !workers.some(w => w.id === staffProfile.id) && (
-                      <option value={staffProfile.id}>{staffProfile.name} В· Р’Р»Р°РґРµР»РµС† (СЏ)</option>
+                      <option value={staffProfile.id}>{staffProfile.name} · Владелец (я)</option>
                     )}
-                    <option value="__custom">Р”СЂСѓРіРѕР№ (РІРїРёСЃР°С‚СЊ РёРјСЏ)</option>
+                    <option value="__custom">Другой (вписать имя)</option>
                   </select>
-                  <div className={`text-[11px] ${sub} mt-1`}>РЎСѓРјРјР° СѓРґРµСЂР¶РёС‚СЃСЏ РёР· Р·Р°СЂРїР»Р°С‚С‹ РїРѕРєСѓРїР°С‚РµР»СЏ В· РІ РёСЃС‚РѕСЂРёРё Р±СѓРґРµС‚ РІРёРґРЅРѕ РєС‚Рѕ РїРѕРєСѓРїР°Р»</div>
+                  <div className={`text-[11px] ${sub} mt-1`}>Сумма удержится из зарплаты покупателя · в истории будет видно кто покупал</div>
                 </div>
                 {piggyWithdrawForm.spentById === '__custom' && (
-                  <div><label className={`text-xs ${sub} block mb-1`}>РРјСЏ РїРѕРєСѓРїР°С‚РµР»СЏ</label><input className={inputCls} placeholder="РќР°РїСЂРёРјРµСЂ: РРІР°РЅ" value={piggyWithdrawForm.spentByName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentByName: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Имя покупателя</label><input className={inputCls} placeholder="Например: Иван" value={piggyWithdrawForm.spentByName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentByName: e.target.value }))} /></div>
                 )}
-                <div><label className={`text-xs ${sub} block mb-1`}>РќР° С‡С‚Рѕ</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'РќР°РїСЂРёРјРµСЂ: РџР»РµРЅРєР° PPF' : 'РќР°РїСЂРёРјРµСЂ: Р РµРјРѕРЅС‚ РѕР±РѕСЂСѓРґРѕРІР°РЅРёСЏ'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° (в‚Ѕ)</label><input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РљРѕРјРјРµРЅС‚Р°СЂРёР№</label><input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'Например: Пленка PPF' : 'Например: Ремонт оборудования'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Комментарий</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(piggyWithdrawForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setPiggyWithdrawForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                   {piggyWithdrawForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null) && (
-                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Р’РІРµРґРёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“</p>
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
                 </div>
               </div>
               <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null || (piggyWithdrawForm.spentById === '__custom' && !piggyWithdrawForm.spentByName.trim())}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawKind === 'materials' ? accent : '#F59E0B' }}>
-                РЎРЅСЏС‚СЊ {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} в‚Ѕ` : ''}
+                Снять {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
               </button>
             </motion.div>
           </motion.div>
@@ -8717,36 +8717,36 @@ paymentSettled: false,
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
-                  РР·РјРµРЅРёС‚СЊ СЃСѓРјРјСѓ В· {piggyAdjustResourceGroup === 'wash' ? 'рџљ— РњРѕР№РєР°' : 'вњЁ Р”РµС‚РµР№Р»РёРЅРі'}
+                  Изменить сумму · {piggyAdjustResourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}
                 </h3>
                 <button onClick={() => setShowPiggyAdjust(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className={`text-sm mb-4 p-3 rounded-xl ${glass} flex justify-between`}>
-                <span className={sub}>РўРµРєСѓС‰РёР№ Р±Р°Р»Р°РЅСЃ</span>
+                <span className={sub}>Текущий баланс</span>
                 <span className="font-semibold" style={{ color: piggyAdjustCurrentBalance >= 0 ? accent : '#FF6B6B' }}>
-                  {piggyAdjustCurrentBalance.toLocaleString('ru')} в‚Ѕ
+                  {piggyAdjustCurrentBalance.toLocaleString('ru')} ₽
                 </span>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РќРѕРІР°СЏ СЃСѓРјРјР° (в‚Ѕ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Новая сумма (₽)</label>
                   <input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyAdjustForm.newBalance} onChange={e => setPiggyAdjustForm(p => ({ ...p, newBalance: e.target.value }))} />
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label><input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ..." value={piggyAdjustForm.purpose} onChange={e => setPiggyAdjustForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={piggyAdjustForm.purpose} onChange={e => setPiggyAdjustForm(p => ({ ...p, purpose: e.target.value }))} /></div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(piggyAdjustForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setPiggyAdjustForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                   {piggyAdjustForm.date && (!/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null) && (
-                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Р’РІРµРґРёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“</p>
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
                 </div>
               </div>
               <button onClick={() => { void handlePiggyAdjust(); }} disabled={!piggyAdjustForm.newBalance || Number.isNaN(parseDecimalInput(piggyAdjustForm.newBalance)) || !piggyAdjustForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-                РЎРѕС…СЂР°РЅРёС‚СЊ
+                Сохранить
               </button>
             </motion.div>
           </motion.div>
@@ -8762,7 +8762,7 @@ paymentSettled: false,
               className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#1C1C1F' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                <h3 className="font-semibold mt-2">РђСЂС…РёРІ РЅРµРґРµР»СЊ</h3>
+                <h3 className="font-semibold mt-2">Архив недель</h3>
                 <button onClick={() => { setShowArchivesModal(false); setSelectedArchive(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-3">
@@ -8770,48 +8770,48 @@ paymentSettled: false,
                   /* Expanded week detail */
                   <div>
                     <button onClick={() => setSelectedArchive(null)} className="flex items-center gap-1 text-sm mb-4" style={{ color: primary }}>
-                      <ChevronLeft size={16} strokeWidth={1.75} /> РќР°Р·Р°Рґ Рє СЃРїРёСЃРєСѓ
+                      <ChevronLeft size={16} strokeWidth={1.75} /> Назад к списку
                     </button>
                     <div className={`${glass} rounded-2xl p-4`}>
                       <div className="text-sm font-medium mb-3">
                         {selectedArchive.weekStart.split('-').reverse().join('.')} вЂ“ {selectedArchive.weekEnd.split('-').reverse().join('.')}
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р’С‹СЂСѓС‡РєР°</span>
-                        <span className="font-semibold" style={{ color: accent }}>+{selectedArchive.totalRevenue.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Выручка</span>
+                        <span className="font-semibold" style={{ color: accent }}>+{selectedArchive.totalRevenue.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р”РѕРї. РґРѕС…РѕРґС‹</span>
-                        <span className="font-semibold" style={{ color: primary }}>+{selectedArchive.totalIncome.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Доп. доходы</span>
+                        <span className="font-semibold" style={{ color: primary }}>+{selectedArchive.totalIncome.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р Р°СЃС…РѕРґС‹</span>
-                        <span className="font-semibold" style={{ color: '#FF6B6B' }}>в€’{selectedArchive.totalExpense.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={sub}>Расходы</span>
+                        <span className="font-semibold" style={{ color: '#FF6B6B' }}>−{selectedArchive.totalExpense.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ</span>
+                        <span className={sub}>Чистая прибыль</span>
                         <span className="font-semibold" style={{ color: (selectedArchive.totalRevenue + selectedArchive.totalIncome - selectedArchive.totalExpense) >= 0 ? accent : '#FF6B6B' }}>
-                          {(selectedArchive.totalRevenue + selectedArchive.totalIncome - selectedArchive.totalExpense).toLocaleString('ru')} в‚Ѕ
+                          {(selectedArchive.totalRevenue + selectedArchive.totalIncome - selectedArchive.totalExpense).toLocaleString('ru')} ₽
                         </span>
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                        <span className={sub}>Р‘Р°Р»Р°РЅСЃ РєРѕРїРёР»РєРё</span>
+                        <span className={sub}>Баланс копилки</span>
                         <span className="font-semibold" style={{ color: selectedArchive.piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
-                          {selectedArchive.piggyBankBalance >= 0 ? '+' : ''}{selectedArchive.piggyBankBalance.toLocaleString('ru')} в‚Ѕ
+                          {selectedArchive.piggyBankBalance >= 0 ? '+' : ''}{selectedArchive.piggyBankBalance.toLocaleString('ru')} ₽
                         </span>
                       </div>
                       <div className="grid grid-cols-3 gap-3 mt-4 text-center">
                         <div className={`${glass} rounded-xl p-3`}>
                           <div className="font-bold text-lg" style={{ color: accent }}>{selectedArchive.bookingCount}</div>
-                          <div className={`text-[10px] ${sub}`}>Р—Р°РїРёСЃРµР№</div>
+                          <div className={`text-[10px] ${sub}`}>Записей</div>
                         </div>
                         <div className={`${glass} rounded-xl p-3`}>
                           <div className="font-bold text-lg" style={{ color: primary }}>{selectedArchive.incomeCount}</div>
-                          <div className={`text-[10px] ${sub}`}>Р”РѕС…РѕРґРѕРІ</div>
+                          <div className={`text-[10px] ${sub}`}>Доходов</div>
                         </div>
                         <div className={`${glass} rounded-xl p-3`}>
                           <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{selectedArchive.expenseCount}</div>
-                          <div className={`text-[10px] ${sub}`}>Р Р°СЃС…РѕРґРѕРІ</div>
+                          <div className={`text-[10px] ${sub}`}>Расходов</div>
                         </div>
                       </div>
                     </div>
@@ -8834,34 +8834,34 @@ paymentSettled: false,
                             <div className="grid grid-cols-4 gap-1 text-center mb-2">
                               <div>
                                 <div className="text-[11px]" style={{ color: accent }}>+{a.totalRevenue.toLocaleString('ru')}</div>
-                                <div className={`text-[9px] ${sub}`}>Р’С‹СЂСѓС‡РєР°</div>
+                                <div className={`text-[9px] ${sub}`}>Выручка</div>
                               </div>
                               <div>
                                 <div className="text-[11px]" style={{ color: primary }}>+{a.totalIncome.toLocaleString('ru')}</div>
-                                <div className={`text-[9px] ${sub}`}>Р”РѕС…РѕРґС‹</div>
+                                <div className={`text-[9px] ${sub}`}>Доходы</div>
                               </div>
                               <div>
                                 <div className="text-[11px]" style={{ color: '#FF6B6B' }}>в€’{a.totalExpense.toLocaleString('ru')}</div>
-                                <div className={`text-[9px] ${sub}`}>Р Р°СЃС…РѕРґС‹</div>
+                                <div className={`text-[9px] ${sub}`}>Расходы</div>
                               </div>
                               <div>
                                 <div className="text-[11px]" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>{profit >= 0 ? '+' : ''}{profit.toLocaleString('ru')}</div>
-                                <div className={`text-[9px] ${sub}`}>РС‚РѕРі</div>
+                                <div className={`text-[9px] ${sub}`}>Итог</div>
                               </div>
                             </div>
                             <div className="flex items-center justify-between">
                               <div className={`text-[10px] ${sub}`}>
-                                {a.bookingCount} Р·Р°Рї. В· {a.incomeCount} РґРѕС…РѕРґРѕРІ В· {a.expenseCount} СЂР°СЃС….
+                                {a.bookingCount} зап. · {a.incomeCount} доходов · {a.expenseCount} расх.
                               </div>
                               <div className="text-[11px] font-semibold" style={{ color: a.piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>
-                                рџЏ¦ {a.piggyBankBalance.toLocaleString('ru')} в‚Ѕ
+                                🏦 {a.piggyBankBalance.toLocaleString('ru')} ₽
                               </div>
                             </div>
                           </button>
                         );
                       })
                     ) : (
-                      <div className={`text-center py-8 text-sm ${sub}`}>РќРµС‚ Р°СЂС…РёРІРЅС‹С… Р·Р°РїРёСЃРµР№</div>
+                      <div className={`text-center py-8 text-sm ${sub}`}>Нет архивных записей</div>
                     )}
                   </div>
                 )}
@@ -8880,44 +8880,44 @@ paymentSettled: false,
               className={`fixed bottom-0 left-0 right-0 z-50 ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[85vh] overflow-y-auto`}>
               <div className="p-4 border-b flex justify-between items-center sticky top-0" style={{ background: isDark ? '#1C1C1F' : '#ffffff', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                <h3 className="font-semibold mt-2">Р¤РёРЅР°РЅСЃС‹</h3>
+                <h3 className="font-semibold mt-2">Финансы</h3>
                 <button onClick={() => setShowFinancePanel(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-4">
-                {/* РЎРІРѕРґРєР° */}
+                {/* Сводка */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Р’С‹СЂСѓС‡РєР°</div>
-                    <div className="font-bold text-lg" style={{ color: accent }}>{totalRevenue.toLocaleString('ru')} в‚Ѕ</div>
+                    <div className={`text-xs ${sub} mb-1`}>Выручка</div>
+                    <div className="font-bold text-lg" style={{ color: accent }}>{totalRevenue.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Р Р°СЃС…РѕРґС‹</div>
-                    <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{totalExpenses.toLocaleString('ru')} в‚Ѕ</div>
+                    <div className={`text-xs ${sub} mb-1`}>Расходы</div>
+                    <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{totalExpenses.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Р”РѕРї. РґРѕС…РѕРґС‹</div>
-                    <div className="font-bold text-lg" style={{ color: primary }}>{totalIncomes.toLocaleString('ru')} в‚Ѕ</div>
+                    <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
+                    <div className="font-bold text-lg" style={{ color: primary }}>{totalIncomes.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>РџСЂРёР±С‹Р»СЊ</div>
+                    <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
                     <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
-                      {Math.abs(profit).toLocaleString('ru')} в‚Ѕ{profit < 0 ? ' (СѓР±С‹С‚РѕРє)' : ''}
+                      {Math.abs(profit).toLocaleString('ru')} ₽{profit < 0 ? ' (убыток)' : ''}
                     </div>
                   </div>
                 </div>
 
-                {/* РљРѕРїРёР»РєР° */}
+                {/* Копилка */}
                 <div className={`${glass} rounded-2xl p-3 flex items-center justify-between cursor-pointer`} onClick={() => { setShowFinancePanel(false); setPage('piggy-bank'); }}>
                   <div className="flex items-center gap-2">
                     <PiggyBank size={18} strokeWidth={1.75} style={{ color: accent }} />
-                    <span className="text-sm font-medium">РљРѕРїРёР»РєР°</span>
+                    <span className="text-sm font-medium">Копилка</span>
                   </div>
                   <div className="font-bold text-sm" style={{ color: (piggyBank?.combinedBalance ?? piggyBankBalance) >= 0 ? accent : '#FF6B6B' }}>
-                    {(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} в‚Ѕ
+                    {(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
                   </div>
                 </div>
 
-                {/* РљРЅРѕРїРєРё РґРµР№СЃС‚РІРёР№ */}
+                {/* Кнопки действий */}
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={() => { setShowFinancePanel(false); setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }}
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
@@ -8925,7 +8925,7 @@ paymentSettled: false,
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,107,107,0.2)' }}>
                       <DollarSign size={20} strokeWidth={1.75} style={{ color: '#FF6B6B' }} />
                     </div>
-                    <span className="text-sm font-medium" style={{ color: '#FF6B6B' }}>Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ</span>
+                    <span className="text-sm font-medium" style={{ color: '#FF6B6B' }}>Добавить расход</span>
                   </button>
                   <button onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }}
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl text-center"
@@ -8933,14 +8933,14 @@ paymentSettled: false,
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${primary}20` }}>
                       <TrendingUp size={20} strokeWidth={1.75} style={{ color: primary }} />
                     </div>
-                    <span className="text-sm font-medium" style={{ color: primary }}>Р”РѕР±Р°РІРёС‚СЊ РґРѕС…РѕРґ</span>
+                    <span className="text-sm font-medium" style={{ color: primary }}>Добавить доход</span>
                   </button>
                 </div>
 
-                {/* Р РђРЎРҐРћР”Р« */}
+                {/* РАСХОДЫ */}
                 {expenses.length > 0 && (
                   <div>
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Р РђРЎРҐРћР”Р«</div>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>РАСХОДЫ</div>
                     <div className="space-y-2">
                       {expenses.slice(0, 5).map(e => (
                         <div key={e.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
@@ -8949,12 +8949,12 @@ paymentSettled: false,
                             <div className={`text-xs ${sub}`}>{e.category} В· {e.date}</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>в€’{e.amount.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                             {(session?.role === 'owner' || session?.role === 'accountant') && (
                               <button
                                 onClick={() => openEditExpense(e)}
                                 className={`p-1.5 rounded-lg ${glass}`}
-                                title="Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ СЂР°СЃС…РѕРґ"
+                                title="Редактировать расход"
                               >
                                 <Edit3 size={13} strokeWidth={1.75} className={sub} />
                               </button>
@@ -8966,10 +8966,10 @@ paymentSettled: false,
                   </div>
                 )}
 
-                {/* Р”РћРҐРћР”Р« */}
+                {/* ДОХОДЫ */}
                 {incomes.length > 0 && (
                   <div>
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Р”РћРҐРћР”Р«</div>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>ДОХОДЫ</div>
                     <div className="space-y-2">
                       {incomes.slice(0, 5).map(i => (
                         <div key={i.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
@@ -8978,12 +8978,12 @@ paymentSettled: false,
                             <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` В· ${i.note}` : ''}</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} в‚Ѕ</div>
+                            <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
                             {session?.role === 'owner' && (
                               <button
                                 onClick={() => openEditIncome(i)}
                                 className={`p-1.5 rounded-lg ${glass}`}
-                                title="Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РґРѕС…РѕРґ"
+                                title="Редактировать доход"
                               >
                                 <Edit3 size={13} strokeWidth={1.75} className={sub} />
                               </button>
@@ -9008,39 +9008,39 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р”РѕР±Р°РІРёС‚СЊ РґРѕС…РѕРґ</h3>
+                <h3 className="font-semibold">Добавить доход</h3>
                 <button onClick={() => { setShowAddIncome(false); setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' }); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° (в‚Ѕ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label>
                   <input className={inputCls} type="number" placeholder="0" value={incomeForm.amount} onChange={e => setIncomeForm(p => ({ ...p, amount: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РСЃС‚РѕС‡РЅРёРє / РѕРїРёСЃР°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="РђСЂРµРЅРґР°, РїСЂРѕРґР°Р¶Р° С‚РѕРІР°СЂР°..." value={incomeForm.source} onChange={e => setIncomeForm(p => ({ ...p, source: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Источник / описание</label>
+                  <input className={inputCls} placeholder="Аренда, продажа товара..." value={incomeForm.source} onChange={e => setIncomeForm(p => ({ ...p, source: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ СѓСЃР»СѓРіРё</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
                   <select className={selectCls} value={incomeForm.resourceGroup} onChange={e => setIncomeForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
-                    <option value="">РћР±С‰РµРµ</option>
-                    <option value="wash">РђРІС‚РѕРјРѕР№РєР°</option>
-                    <option value="detailing">Р”РµС‚РµР№Р»РёРЅРі</option>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
                   </select>
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(incomeForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setIncomeForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                   {incomeForm.date && !parseFlexibleDate(incomeForm.date) && (
-                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Р’РІРµРґРёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“</p>
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ" value={incomeForm.note} onChange={e => setIncomeForm(p => ({ ...p, note: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                  <input className={inputCls} placeholder="Необязательно" value={incomeForm.note} onChange={e => setIncomeForm(p => ({ ...p, note: e.target.value }))} />
                 </div>
               </div>
               <button
@@ -9051,10 +9051,10 @@ paymentSettled: false,
                     await addIncome({ amount: Number(incomeForm.amount), source: incomeForm.source.trim(), note: incomeForm.note.trim() || undefined, date: incomeForm.date, resourceGroup: incomeForm.resourceGroup || undefined });
                     setShowAddIncome(false);
                     setIncomeForm({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' });
-                    setBottomToast(`Р”РѕС…РѕРґ "${incomeForm.source.trim()}" РґРѕР±Р°РІР»РµРЅ РЅР° СЃСѓРјРјСѓ ${Number(incomeForm.amount).toLocaleString('ru')} в‚Ѕ`);
+                    setBottomToast(`Доход "${incomeForm.source.trim()}" добавлен на сумму ${Number(incomeForm.amount).toLocaleString('ru')} ₽`);
                     setTimeout(() => setBottomToast(null), 4000);
                   } catch (err) {
-                    setBottomToast(err instanceof Error ? err.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ РґРѕР±Р°РІРёС‚СЊ РґРѕС…РѕРґ');
+                    setBottomToast(err instanceof Error ? err.message : 'Не удалось добавить доход');
                     setTimeout(() => setBottomToast(null), 4000);
                   }
                 }}
@@ -9062,7 +9062,7 @@ paymentSettled: false,
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50"
                 style={{ background: primary }}
               >
-                Р”РѕР±Р°РІРёС‚СЊ РґРѕС…РѕРґ
+                Добавить доход
               </button>
             </motion.div>
           </motion.div>
@@ -9077,30 +9077,30 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">РђРєС‚РёРІРЅС‹Рµ Р¶Р°Р»РѕР±С‹</h3>
+                <h3 className="font-semibold">Активные жалобы</h3>
                 <button onClick={() => setShowComplaintsWorkerId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3">
                 {penalties.filter(p => p.workerId === showComplaintsWorkerId && isComplaintActive(p)).map(penalty => {
-                  const ownerName = workers.find(w => w.id === penalty.ownerId)?.name || 'РќРµРёР·РІРµСЃС‚РЅРѕ';
+                  const ownerName = workers.find(w => w.id === penalty.ownerId)?.name || 'Неизвестно';
                   return (
                     <div key={penalty.id} className={`${glass} rounded-xl p-3`}>
                       <div className="font-medium text-sm">{penalty.title}</div>
                       <div className={`text-xs ${sub} mt-1`}>{penalty.reason}</div>
                       <div className={`text-[11px] ${sub} mt-2`}>
-                        Р’С‹РґР°РЅР°: {formatComplaintDate(penalty.createdAt)}
+                        Выдана: {formatComplaintDate(penalty.createdAt)}
                       </div>
                       <div className={`text-[11px] ${sub}`}>
-                        РљРµРј: {ownerName}
+                        Кем: {ownerName}
                       </div>
                       <div className={`text-[11px] ${sub}`}>
-                        РђРєС‚РёРІРЅР° РґРѕ: {formatComplaintDate(penalty.activeUntil)}
+                        Активна до: {formatComplaintDate(penalty.activeUntil)}
                       </div>
                     </div>
                   );
                 })}
                 {penalties.filter(p => p.workerId === showComplaintsWorkerId && isComplaintActive(p)).length === 0 && (
-                  <div className={`text-sm ${sub} text-center py-6`}>РќРµС‚ Р°РєС‚РёРІРЅС‹С… Р¶Р°Р»РѕР±</div>
+                  <div className={`text-sm ${sub} text-center py-6`}>Нет активных жалоб</div>
                 )}
               </div>
             </motion.div>
@@ -9116,7 +9116,7 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">РќРѕРІС‹Р№ РєР»РёРµРЅС‚</h3>
+                <h3 className="font-semibold">Новый клиент</h3>
                 <button
                   onClick={() => {
                     setShowCreateClient(false);
@@ -9129,10 +9129,10 @@ paymentSettled: false,
               </div>
               <div className="space-y-3 mb-4">
                 {[
-                  { label: 'РРјСЏ', key: 'name', placeholder: 'РРІР°РЅ РРІР°РЅРѕРІ', type: 'text' },
-                  { label: 'РўРµР»РµС„РѕРЅ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)', key: 'phone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
-                  { label: 'РђРІС‚РѕРјРѕР±РёР»СЊ', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'Р“РѕСЃРЅРѕРјРµСЂ', key: 'plate', placeholder: 'Р°123РІСЃ777', type: 'text' },
+                  { label: 'Имя', key: 'name', placeholder: 'Иван Иванов', type: 'text' },
+                  { label: 'Телефон (необязательно)', key: 'phone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
+                  { label: 'Автомобиль', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
+                  { label: 'Госномер', key: 'plate', placeholder: 'а123вс777', type: 'text' },
                 ].map((field) => (
                   <div key={field.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{field.label}</label>
@@ -9144,13 +9144,13 @@ paymentSettled: false,
                               className={`text-[10px] px-1.5 py-0.5 rounded ${createClientForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
                               style={createClientForm.plateType === t ? { background: primary } : {}}
                               onClick={() => setCreateClientForm(p => ({ ...p, plateType: t }))}
-                            >{t === 'russian' ? 'РђРІС‚Рѕ' : t === 'motorcycle' ? 'РњРѕС‚Рѕ' : 'РРЅРѕ'}</button>
+                            >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
                           ))}
                         </div>
                         <input
                           className={`${inputCls} flex-1 ${createClientErrors[field.key as keyof typeof createClientErrors] ? 'border-red-400' : ''}`}
                           type={field.type}
-                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234Р°РІ77' : createClientForm.plateType === 'foreign' ? 'xyz1234' : 'Р°123РІСЃ777'}
+                          placeholder={createClientForm.plateType === 'motorcycle' ? '1234ав77' : createClientForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                           maxLength={createClientForm.plateType === 'foreign' ? 15 : 9}
                           value={(createClientForm as any)[field.key]}
                           onChange={(event) => {
@@ -9180,16 +9180,16 @@ paymentSettled: false,
                   </div>
                 ))}
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р—Р°РјРµС‚РєР°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Заметка</label>
                   <input
                     className={inputCls}
-                    placeholder="Р’РЅСѓС‚СЂРµРЅРЅСЏСЏ Р·Р°РјРµС‚РєР°"
+                    placeholder="Внутренняя заметка"
                     value={createClientForm.notes}
                     onChange={(event) => setCreateClientForm((current) => ({ ...current, notes: event.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°Рє СѓР·РЅР°Р» Рѕ РЅР°СЃ</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
                   <select
                     className={selectCls}
                     value={createClientForm.referralSource}
@@ -9201,7 +9201,7 @@ paymentSettled: false,
                   </select>
                 </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
-                  РџРѕСЃР»Рµ СЃРѕР·РґР°РЅРёСЏ РѕС‚РєСЂРѕРµС‚СЃСЏ С„РѕСЂРјР° РїСЂРѕС€Р»РѕР№ Р·Р°РїРёСЃРё РґР»СЏ РёСЃС‚РѕСЂРёРё РєР»РёРµРЅС‚Р°.
+                  После создания откроется форма прошлой записи для истории клиента.
                 </div>
                 {createClientErrors.general && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />{createClientErrors.general}</div>
@@ -9213,7 +9213,7 @@ paymentSettled: false,
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50"
                 style={{ background: primary }}
               >
-                {createClientSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕР·РґР°С‚СЊ РєР»РёРµРЅС‚Р°'}
+                {createClientSaving ? 'Сохранение...' : 'Создать клиента'}
               </button>
             </motion.div>
           </motion.div>
@@ -9231,15 +9231,15 @@ paymentSettled: false,
             >
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-base">РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ</h3>
+                <h3 className="font-semibold text-base">Создать запись</h3>
                 <button onClick={() => setShowCreateBooking(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4 pb-32">
-                <div><label className={`text-xs ${sub} block mb-1`}>РљР»РёРµРЅС‚</label><div className="flex gap-1.5 items-center"><input className={`${inputCls} flex-1`} placeholder="РРІР°РЅ РРІР°РЅРѕРІ" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /><button type="button" onClick={() => setShowClientSearch(true)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ background: `${primary}20`, color: primary }}>?</button></div></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РўРµР»РµС„РѕРЅ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)</label><input className={inputCls} type="tel" placeholder="+7 (___) ___-__-__" value={bookingForm.clientPhone} onChange={e => setBookingForm(p => ({ ...p, clientPhone: e.target.value }))} /></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Клиент</label><div className="flex gap-1.5 items-center"><input className={`${inputCls} flex-1`} placeholder="Иван Иванов" value={bookingForm.clientName} onChange={e => setBookingForm(p => ({ ...p, clientName: e.target.value }))} /><button type="button" onClick={() => setShowClientSearch(true)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style={{ background: `${primary}20`, color: primary }}>?</button></div></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Телефон (необязательно)</label><input className={inputCls} type="tel" placeholder="+7 (___) ___-__-__" value={bookingForm.clientPhone} onChange={e => setBookingForm(p => ({ ...p, clientPhone: e.target.value }))} /></div>
                 {bookingFormClientVehicles.length > 0 && (
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РђРІС‚Рѕ РєР»РёРµРЅС‚Р°</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Авто клиента</label>
                     <div className="flex flex-wrap gap-1.5">
                       {bookingFormClientVehicles.map((vehicle, index) => {
                         const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(bookingForm.car)
@@ -9248,7 +9248,7 @@ paymentSettled: false,
                           <button key={index} type="button" onClick={() => setBookingForm(p => ({ ...p, car: vehicle.car || '', plate: vehicle.plate || '', plateType: (vehicle.plateType as PlateType) || 'russian' }))}
                             className={`text-xs px-2.5 py-1.5 rounded-xl border transition hover:opacity-80 ${isActive ? 'text-white font-medium' : `${sub}`}`}
                             style={isActive ? { background: primary, borderColor: primary } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }}>
-                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' В· ') || 'РђРІС‚Рѕ'}
+                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' · ') || 'Авто'}
                           </button>
                         );
                       })}
@@ -9256,9 +9256,9 @@ paymentSettled: false,
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className={`text-xs ${sub} block mb-1`}>РђРІС‚РѕРјРѕР±РёР»СЊ</label><input className={inputCls} placeholder="Lada Vesta" value={bookingForm.car} onChange={e => setBookingForm(p => ({ ...p, car: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Автомобиль</label><input className={inputCls} placeholder="Lada Vesta" value={bookingForm.car} onChange={e => setBookingForm(p => ({ ...p, car: e.target.value }))} /></div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р“РѕСЃРЅРѕРјРµСЂ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Госномер</label>
                     <div className="flex gap-1.5">
                       <div className="flex flex-col gap-1 shrink-0">
                         {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
@@ -9266,15 +9266,15 @@ paymentSettled: false,
                             className={`text-[10px] px-1.5 py-0.5 rounded ${bookingForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
                             style={bookingForm.plateType === t ? { background: primary } : {}}
                             onClick={() => setBookingForm(p => ({ ...p, plateType: t }))}
-                          >{t === 'russian' ? 'РђРІС‚Рѕ' : t === 'motorcycle' ? 'РњРѕС‚Рѕ' : 'РРЅРѕ'}</button>
+                          >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
                         ))}
                       </div>
-                      <input className={`${inputCls} flex-1`} maxLength={bookingForm.plateType === 'foreign' ? 15 : 9} placeholder={bookingForm.plateType === 'motorcycle' ? '1234Р°РІ77' : bookingForm.plateType === 'foreign' ? 'xyz1234' : 'Р°123РІСЃ777'} value={bookingForm.plate} onChange={e => setBookingForm(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
+                      <input className={`${inputCls} flex-1`} maxLength={bookingForm.plateType === 'foreign' ? 15 : 9} placeholder={bookingForm.plateType === 'motorcycle' ? '1234ав77' : bookingForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'} value={bookingForm.plate} onChange={e => setBookingForm(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
                     </div>
                   </div>
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЈСЃР»СѓРіР°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <ServiceSearchSelect
                     value={bookingForm.service}
                     services={services}
@@ -9285,7 +9285,7 @@ paymentSettled: false,
                     sub={sub}
                     primary={primary}
                     isDark={isDark}
-                    placeholder="Р’С‹Р±РµСЂРёС‚Рµ СѓСЃР»СѓРіСѓ"
+                    placeholder="Выберите услугу"
                     onCreateNew={handleCreateServiceFromQuery}
                     onChange={(serviceId) => {
                       const svc = services.find(s => s.id === serviceId);
@@ -9303,26 +9303,26 @@ paymentSettled: false,
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label><input className={inputCls} type="number" value={numberInputValue(bookingForm.price)} onChange={e => setBookingForm(p => ({ ...p, price: numberFromInput(e.target.value) }))} /></div>
-                  <div><label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚. (РјРёРЅ)</label><input className={inputCls} type="number" value={numberInputValue(bookingForm.duration)} onChange={e => setBookingForm(p => ({ ...p, duration: numberFromInput(e.target.value) }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label><input className={inputCls} type="number" value={numberInputValue(bookingForm.price)} onChange={e => setBookingForm(p => ({ ...p, price: numberFromInput(e.target.value) }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label><input className={inputCls} type="number" value={numberInputValue(bookingForm.duration)} onChange={e => setBookingForm(p => ({ ...p, duration: numberFromInput(e.target.value) }))} /></div>
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>РЎС‚Р°С‚СѓСЃ</label><select className={selectCls} value={bookingForm.status} onChange={e => setBookingForm(p => ({ ...p, status: e.target.value as BookingStatus }))}>
+                <div><label className={`text-xs ${sub} block mb-1`}>Статус</label><select className={selectCls} value={bookingForm.status} onChange={e => setBookingForm(p => ({ ...p, status: e.target.value as BookingStatus }))}>
                   {OWNER_BOOKING_STATUS_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select></div>
                 <div className="mb-4">
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(bookingForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setBookingForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                 </div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Р’СЂРµРјСЏ</label><select className={selectCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))}><option value="">--:--</option>{TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}</select></div>
+                <div><label className={`text-xs ${sub} block mb-1`}>Время</label><select className={selectCls} value={bookingForm.time} onChange={e => setBookingForm(p => ({ ...p, time: e.target.value }))}><option value="">--:--</option>{TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}</select></div>
 
                 <div><label className={`text-xs ${sub} block mb-1`}>{bookingFormLocationLabel}</label><select className={selectCls} value={bookingForm.box} onChange={e => setBookingForm(p => ({ ...p, box: e.target.value }))}>{bookingFormBoxes.map(box => <option key={box.id} value={box.name}>{box.name}</option>)}</select></div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°Рє СѓР·РЅР°Р» Рѕ РЅР°СЃ</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
                   <select className={selectCls} value={bookingForm.referralSource} onChange={e => setBookingForm(p => ({ ...p, referralSource: e.target.value }))}>
                     {REFERRAL_SOURCES.map((source) => (
                       <option key={source.value} value={source.value}>{source.label}</option>
@@ -9330,7 +9330,7 @@ paymentSettled: false,
                   </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РџРѕРІС‚РѕСЂРЅС‹Р№ РІРёР·РёС‚</span>
+                  <span>Повторный визит</span>
                   <input
                     type="checkbox"
                     checked={bookingForm.isRepeatVisit}
@@ -9338,15 +9338,15 @@ paymentSettled: false,
                   />
                 </label>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЎРїРѕСЃРѕР± РѕРїР»Р°С‚С‹</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
                   <select className={selectCls} value={bookingForm.paymentType} onChange={e => setBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
-                    <option value="cash">РќР°Р»РёС‡РЅС‹Рµ</option>
-                    <option value="transfer">РџРµСЂРµРІРѕРґ</option>
-                    <option value="invoice">РџРѕ СЃС‡С‘С‚Сѓ</option>
+                    <option value="cash">Наличные</option>
+                    <option value="transfer">Перевод</option>
+                    <option value="invoice">По счёту</option>
                   </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РћРїР»Р°С‡РµРЅРѕ</span>
+                  <span>Оплачено</span>
                   <input
                     type="checkbox"
                     checked={bookingForm.paymentSettled}
@@ -9354,7 +9354,7 @@ paymentSettled: false,
                   />
                 </label>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РђСѓС‚СЃРѕСЂСЃ</span>
+                  <span>Аутсорс</span>
                   <input
                     type="checkbox"
                     checked={bookingForm.isOutsource}
@@ -9367,7 +9367,7 @@ paymentSettled: false,
                 </label>
                 {bookingForm.isOutsource && (
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° Р°СѓС‚СЃРѕСЂСЃРµСЂСѓ (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
                     <input className={inputCls} type="number" value={numberInputValue(bookingForm.outsourceAmount)}
                       onChange={e => setBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
                   </div>
@@ -9379,8 +9379,8 @@ paymentSettled: false,
                 <>
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className={`text-xs ${sub} block`}>РќР°Р·РЅР°С‡РёС‚СЊ РјР°СЃС‚РµСЂРѕРІ</label>
-                    <span className={`text-xs ${sub}`}>{_isFixed ? `Р¤РёРєСЃ ${formatFixedMasterAmount()}` : `Р’С‹Р±СЂР°РЅРѕ: ${bookingWorkers.length}`}</span>
+                    <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : `Выбрано: ${bookingWorkers.length}`}</span>
                   </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto">
                     {workers.filter(worker => worker.role === 'worker' || worker.role === 'owner').map(worker => {
@@ -9390,7 +9390,7 @@ paymentSettled: false,
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
                               <div className="text-sm font-medium">{worker.name}</div>
-                              <div className={`text-xs ${sub}`}>{worker.specialty || worker.experience || 'РњР°СЃС‚РµСЂ'}</div>
+                              <div className={`text-xs ${sub}`}>{worker.specialty || worker.experience || 'Мастер'}</div>
                             </div>
                             <button
                               onClick={() => assigned
@@ -9399,7 +9399,7 @@ paymentSettled: false,
                               className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
                               style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                             >
-                              {assigned ? 'Р’С‹Р±СЂР°РЅ' : 'Р’С‹Р±СЂР°С‚СЊ'}
+                              {assigned ? 'Выбран' : 'Выбрать'}
                             </button>
                           </div>
                           {assigned && (
@@ -9409,13 +9409,13 @@ paymentSettled: false,
                               ) : (
                                 <>
                                   <button onClick={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
-                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>в‚Ѕ</button>
+                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>₽</button>
                                   <button onClick={() => setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
                                     className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-indigo-600 text-white' : glass}`}>%</button>
                                   {assigned.payType === 'fixed' ? (
                                     <input type="number" min={0} value={assigned.fixedAmount ?? ''}
                                       onChange={e => { const r = e.target.value; if (r === '') { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
-                                      className={`flex-1 ${inputCls} py-1.5`} placeholder="СЃСѓРјРјР°" />
+                                      className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
                                   ) : (
                                     <>
                                       <span className={`text-xs ${sub}`}>%</span>
@@ -9441,7 +9441,7 @@ paymentSettled: false,
                   </div>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 ${bookingForm.status === 'completed' ? 'opacity-60' : ''}`}>
-                  <span>РЈРІРµРґРѕРјРёС‚СЊ РјР°СЃС‚РµСЂРѕРІ</span>
+                  <span>Уведомить мастеров</span>
                   <input
                     type="checkbox"
                     checked={notifyBookingWorkers && bookingForm.status !== 'completed'}
@@ -9450,14 +9450,14 @@ paymentSettled: false,
                   />
                 </label>
                 {bookingForm.status === 'completed' && (
-                  <div className={`text-xs ${sub} rounded-xl px-3 py-2`}>Р”Р»СЏ РїСЂРѕС€Р»С‹С… Р·Р°РїРёСЃРµР№ СѓРІРµРґРѕРјР»РµРЅРёСЏ РјР°СЃС‚РµСЂР°Рј РЅРµ РѕС‚РїСЂР°РІР»СЏСЋС‚СЃСЏ.</div>
+                  <div className={`text-xs ${sub} rounded-xl px-3 py-2`}>Для прошлых записей уведомления мастерам не отправляются.</div>
                 )}
                 </>
                   );
                 })()}
               </div>
               <button onClick={handleCreateBooking} className="w-full py-3.5 rounded-2xl font-semibold text-white" style={{ background: primary }}>
-                {bookingForm.status === 'completed' ? 'Р”РѕР±Р°РІРёС‚СЊ РІ РёСЃС‚РѕСЂРёСЋ' : 'РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ'}
+                {bookingForm.status === 'completed' ? 'Добавить в историю' : 'Создать запись'}
               </button>
             </motion.div>
           </>
@@ -9474,14 +9474,14 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold">РќР°Р№РґРµРЅРЅС‹Рµ РєР»РёРµРЅС‚С‹</h3>
+                  <h3 className="font-semibold">Найденные клиенты</h3>
                   <button onClick={() => setShowClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className={`text-xs ${sub}`}>
                   {(() => {
                     const q = bookingForm.clientName.trim().toLowerCase();
                     const matches = q ? clients.filter(c => c.name.toLowerCase().includes(q)) : [];
-                    return matches.length > 0 ? `РќР°Р№РґРµРЅРѕ ${matches.length} РєР»РёРµРЅС‚${matches.length === 1 ? '' : 'РѕРІ'}` : 'Р’РІРµРґРёС‚Рµ РёРјСЏ РґР»СЏ РїРѕРёСЃРєР°';
+                    return matches.length > 0 ? `Найдено ${matches.length} клиент${matches.length === 1 ? '' : 'ов'}` : 'Введите имя для поиска';
                   })()}
                 </div>
               </div>
@@ -9503,7 +9503,7 @@ paymentSettled: false,
                         return clientVehicles.length > 0 ? (
                           <div className={`text-xs ${sub} mt-0.5`}>
                             {clientVehicles.map((vehicle, vehicleIndex) => (
-                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' вЂў ') || 'РђРІС‚Рѕ'}</div>
+                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' • ') || 'Авто'}</div>
                             ))}
                           </div>
                         ) : null;
@@ -9511,7 +9511,7 @@ paymentSettled: false,
                     </button>
                   )) : (
                     <div className={`text-sm ${sub} text-center py-8`}>
-                      {q ? 'РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ' : 'РќР°С‡РЅРёС‚Рµ РІРІРѕРґРёС‚СЊ РёРјСЏ РєР»РёРµРЅС‚Р°'}
+                      {q ? 'Ничего не найдено' : 'Начните вводить имя клиента'}
                     </div>
                   );
                 })()}
@@ -9529,7 +9529,7 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р—Р°РїРёСЃСЊ</h3>
+                <h3 className="font-semibold">Запись</h3>
                 <button onClick={() => { setShowBookingDetail(false); setOwnerBookingEditMode(null); setOwnerBookingEditError(null); }} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3">
@@ -9537,17 +9537,17 @@ paymentSettled: false,
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <div className="font-medium text-sm">{selectedBooking.clientName || 'РљР»РёРµРЅС‚ Р±РµР· РёРјРµРЅРё'}</div>
+                      <div className="font-medium text-sm">{selectedBooking.clientName || 'Клиент без имени'}</div>
                       <SourceBadge source={selectedBooking.source} />
                       {selectedBooking.isRepeatVisit && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">РџРѕРІС‚РѕСЂРЅС‹Р№ РІРёР·РёС‚</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный визит</span>
                       )}
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(selectedBooking.status)}`}>{ownerStatusLabel(selectedBooking.status)}</span>
                   </div>
                   <div className={`text-xs ${sub} mb-2`}>{selectedBooking.service} вЂў {selectedBooking.date} вЂў {selectedBooking.time}</div>
                   {selectedBooking.referralSource && (
-                    <div className={`text-xs ${sub} mb-2`}>РћС‚РєСѓРґР° СѓР·РЅР°Р»: {selectedBooking.referralSource}</div>
+                    <div className={`text-xs ${sub} mb-2`}>Откуда узнал: {selectedBooking.referralSource}</div>
                   )}
                   {(() => {
                     const additionalTotal = (selectedBooking.additionalServices || []).reduce((s, as) => s + (as.priceMode === 'subtract' ? 0 : as.price), 0);
@@ -9557,63 +9557,63 @@ paymentSettled: false,
                     <>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
-                      <div className={`text-[11px] ${sub}`}>РЈСЃР»СѓРіР°</div>
+                      <div className={`text-[11px] ${sub}`}>Услуга</div>
                       <div>{selectedBooking.service}</div>
-                      <div className="font-semibold">{baseServicePrice.toLocaleString('ru')} в‚Ѕ</div>
+                      <div className="font-semibold">{baseServicePrice.toLocaleString('ru')} ₽</div>
                     </div>
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
-                      <div className={`text-[11px] ${sub}`}>РћРїР»Р°С‚Р°</div>
-                      <div>{selectedBooking.paymentSettled ? (selectedBooking.paymentType === 'cash' ? 'РќР°Р»РёС‡РЅС‹Рµ' : selectedBooking.paymentType === 'transfer' ? 'РџРµСЂРµРІРѕРґ' : 'РџРѕ СЃС‡С‘С‚Сѓ') : 'РќРµ РѕРїР»Р°С‡РµРЅРѕ'}</div>
+                      <div className={`text-[11px] ${sub}`}>Оплата</div>
+                      <div>{selectedBooking.paymentSettled ? (selectedBooking.paymentType === 'cash' ? 'Наличные' : selectedBooking.paymentType === 'transfer' ? 'Перевод' : 'По счёту') : 'Не оплачено'}</div>
                     </div>
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
-                      <div className={`text-[11px] ${sub}`}>РђРІС‚Рѕ</div>
-                      <div>{selectedBooking.car || 'РќРµ СѓРєР°Р·Р°РЅРѕ'}</div>
+                      <div className={`text-[11px] ${sub}`}>Авто</div>
+                      <div>{selectedBooking.car || 'Не указано'}</div>
                     </div>
                     <div className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-2`}>
-                      <div className={`text-[11px] ${sub}`}>РќРѕРјРµСЂ</div>
-                      <div>{selectedBooking.plate || 'РќРµ СѓРєР°Р·Р°РЅ'}</div>
+                      <div className={`text-[11px] ${sub}`}>Номер</div>
+                      <div>{selectedBooking.plate || 'Не указан'}</div>
                     </div>
                   </div>
                   <div className="mt-2 space-y-1 text-xs">
-                    <div className={sub}>Р‘РѕРєСЃ: {selectedBooking.box || 'РќРµ РІС‹Р±СЂР°РЅ'}</div>
-                    <div className={sub}>Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ: {selectedBooking.duration} РјРёРЅ</div>
-                    <div className={sub}>РњР°СЃС‚РµСЂР°: {selectedBooking.workers.length ? selectedBooking.workers.map(w => {
+                    <div className={sub}>Бокс: {selectedBooking.box || 'Не выбран'}</div>
+                    <div className={sub}>Длительность: {selectedBooking.duration} мин</div>
+                    <div className={sub}>Мастера: {selectedBooking.workers.length ? selectedBooking.workers.map(w => {
                       const _fixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
-                      return `${w.workerName}${_fixed ? ` В· С„РёРєСЃ ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` В· ${(w.fixedAmount || 0).toLocaleString('ru')} в‚Ѕ` : ` ${w.percent}%`}`;
-                    }).join(', ') : 'РќРµ РЅР°Р·РЅР°С‡РµРЅС‹'}</div>
-                    <div className={sub}>РўРµР»РµС„РѕРЅ: {selectedBooking.clientPhone || 'РќРµ СѓРєР°Р·Р°РЅ'}</div>
-                    <div className={sub}>РљРѕРјРјРµРЅС‚Р°СЂРёР№: {selectedBooking.notes?.trim() || 'РќРµС‚'}</div>
+                      return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
+                    }).join(', ') : 'Не назначены'}</div>
+                    <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
+                    <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
                   </div>
                   {((selectedBooking.services && selectedBooking.services.length > 0) || (selectedBooking.additionalServices && selectedBooking.additionalServices.length > 0)) && (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Р”РћРџ. РЈРЎР›РЈР“Р</div>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>ДОП. УСЛУГИ</div>
                       {selectedBooking.additionalServices && selectedBooking.additionalServices.map(as => (
                         <div key={as.id} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{as.name}</span>
-                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? 'в€’ ' : ''}{as.price.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.isOutsource ? (
                             <div className="flex justify-between items-center mt-1">
-                              <span className={`text-xs ${sub}`}>РђСѓС‚СЃРѕСЂСЃ В· Р°СѓС‚СЃРѕСЂСЃРµСЂСѓ</span>
-                              <span className="text-xs font-medium text-red-500">в€’ {(as.outsourceAmount || 0).toLocaleString('ru')} в‚Ѕ</span>
+                              <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
+                              <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
                             </div>
                           ) : (
                             as.workers.map(w => {
                               const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
                               return (
                                 <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                  <span className={`text-xs ${sub}`}>{w.workerName} В· {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} в‚Ѕ` : `${w.percent}%`}</span>
-                                  <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} в‚Ѕ</span>
+                                  <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                                  <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
                                 </div>
                               );
                             })
                           )}
                           <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">
-                            РЈРґР°Р»РёС‚СЊ
+                            Удалить
                           </button>
                           <button onClick={() => handleOpenOwnerEditAsvc(as)} className="text-xs mt-1 ml-2" style={{ color: primary }}>
-                            РР·РјРµРЅРёС‚СЊ
+                            Изменить
                           </button>
                         </div>
                       ))}
@@ -9621,30 +9621,30 @@ paymentSettled: false,
                         <div key={`legacy-${i}`} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{s.name}</span>
-                            <span className="font-semibold">{s.price.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className="font-semibold">{s.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {selectedBooking.workers.length > 0 && selectedBooking.workers.map(w => {
                             const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(s.price * (w.percent || 0) / 100);
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
-                                <span className={`text-xs ${sub}`}>{w.workerName} В· {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} в‚Ѕ` : `${w.percent}%`}</span>
-                                <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} в‚Ѕ</span>
+                                <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
+                                <span className="text-xs font-medium text-green-500">+{earned.toLocaleString('ru')} ₽</span>
                               </div>
                             );
                           })}
                         </div>
                       ))}
                       <div className="flex justify-between items-center pt-3 mt-1 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-                        <span className="text-sm font-semibold">РС‚РѕРіРѕРІР°СЏ СЃСѓРјРјР°</span>
-                        <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className="text-sm font-semibold">Итоговая сумма</span>
+                        <span className="text-base font-bold" style={{ color: primary }}>{selectedBooking.price.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
-                        <div className="flex justify-between"><span>Р‘Р°Р·РѕРІР°СЏ СѓСЃР»СѓРіР° В«{selectedBooking.service}В»</span><span>{baseServicePrice.toLocaleString('ru')} в‚Ѕ</span></div>
+                        <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
                         {(selectedBooking.additionalServices || []).map(as => (
-                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? 'в€’ ' : '+ '}{as.name}{as.isOutsource ? ' (Р°СѓС‚СЃРѕСЂСЃ)' : ''}</span><span>{as.priceMode === 'subtract' ? 'в€’ ' : ''}{as.price.toLocaleString('ru')} в‚Ѕ</span></div>
+                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}{as.isOutsource ? ' (аутсорс)' : ''}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                         {(selectedBooking.services || []).filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
-                          <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} в‚Ѕ</span></div>
+                          <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                       </div>
                     </div>
@@ -9657,9 +9657,9 @@ paymentSettled: false,
                 {/* Materials card */}
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>РњРђРўР•Р РРђР›Р« {selectedBooking.materialsWrittenOff ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600">СЃРїРёСЃР°РЅРѕ</span> : (selectedBooking.materials?.length ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600">РЅРµ СЃРїРёСЃР°РЅРѕ</span> : null)}</div>
+                    <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>МАТЕРИАЛЫ {selectedBooking.materialsWrittenOff ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600">списано</span> : (selectedBooking.materials?.length ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600">не списано</span> : null)}</div>
                     {selectedBooking.materialsWrittenOff && (
-                      <span className={`text-[10px] ${sub}`}>СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ РІРѕР·РјРѕР¶РЅРѕ вЂ” СЃРїРёСЃР°РЅРёРµ СѓР¶Рµ РІС‹РїРѕР»РЅРµРЅРѕ</span>
+                      <span className={`text-[10px] ${sub}`}>редактирование возможно — списание уже выполнено</span>
                     )}
                   </div>
                   {selectedBooking.materials && selectedBooking.materials.length > 0 ? (
@@ -9668,28 +9668,28 @@ paymentSettled: false,
                         <div key={m.id} className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
                           <div className="min-w-0">
                             <div className="text-sm font-medium truncate">{m.name}</div>
-                            <div className={`text-xs ${sub}`}>{m.qty} {m.unit} Г— {Number(m.unitPrice).toLocaleString('ru')} в‚Ѕ = {(Number(m.qty) * Number(m.unitPrice)).toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-xs ${sub}`}>{m.qty} {m.unit} × {Number(m.unitPrice).toLocaleString('ru')} ₽ = {(Number(m.qty) * Number(m.unitPrice)).toLocaleString('ru')} ₽</div>
                           </div>
                         </div>
                       ))}
-                      <div className={`text-xs ${sub} pt-1`}>РС‚РѕРіРѕ: {selectedBooking.materials.reduce((s: number, m: any) => s + Number(m.qty) * Number(m.unitPrice), 0).toLocaleString('ru')} в‚Ѕ</div>
+                      <div className={`text-xs ${sub} pt-1`}>Итого: {selectedBooking.materials.reduce((s: number, m: any) => s + Number(m.qty) * Number(m.unitPrice), 0).toLocaleString('ru')} ₽</div>
                     </div>
                   ) : (
-                    <div className={`text-xs ${sub}`}>РњР°С‚РµСЂРёР°Р»С‹ РЅРµ СѓРєР°Р·Р°РЅС‹. Р”РѕР±Р°РІСЊ СЃРїРёСЃР°РЅРёРµ С‡РµСЂРµР· В«РњР°С‚РµСЂРёР°Р»С‹В».</div>
+                    <div className={`text-xs ${sub}`}>Материалы не указаны. Добавь списание через «Материалы».</div>
                   )}
                 </div>
 
                 {/* Edit buttons */}
                 <div className={`${glass} rounded-2xl p-4`}>
-                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Р Р•Р”РђРљРўРР РћР’РђРўР¬</div>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РЕДАКТИРОВАТЬ</div>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { mode: 'full' as const, label: 'РџРѕР»РЅРѕРµ' },
-                      { mode: 'status' as const, label: 'РЎС‚Р°С‚СѓСЃ' },
-                      { mode: 'price' as const, label: 'Р¦РµРЅР°' },
-                      { mode: 'workers' as const, label: 'РњР°СЃС‚РµСЂР°' },
-                      { mode: 'datetime' as const, label: 'Р”Р°С‚Р° Рё РІСЂРµРјСЏ' },
-                      { mode: 'materials' as const, label: 'РњР°С‚РµСЂРёР°Р»С‹' },
+                      { mode: 'full' as const, label: 'Полное' },
+                      { mode: 'status' as const, label: 'Статус' },
+                      { mode: 'price' as const, label: 'Цена' },
+                      { mode: 'workers' as const, label: 'Мастера' },
+                      { mode: 'datetime' as const, label: 'Дата и время' },
+                      { mode: 'materials' as const, label: 'Материалы' },
                     ].map(({ mode, label }) => (
                       <button
                         key={mode}
@@ -9724,21 +9724,21 @@ paymentSettled: false,
                     className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
                     style={{ background: `${primary}15`, color: primary }}
                   >
-                    <Plus size={15} strokeWidth={1.75} />Р”РѕР±Р°РІРёС‚СЊ РґРѕРї. СѓСЃР»СѓРіСѓ
+                    <Plus size={15} strokeWidth={1.75} />Добавить доп. услугу
                   </button>
                 </div>
 
                 {/* Edit panels */}
                 {ownerBookingEditMode === 'status' && (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-2`}>РР·РјРµРЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ</div>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить статус</div>
                     <select className={selectCls} value={ownerBookingEditStatus} onChange={e => setOwnerBookingEditStatus(e.target.value as BookingStatus)}>
                       {OWNER_BOOKING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                       <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
-                        {ownerBookingEditSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
                   </div>
@@ -9746,12 +9746,12 @@ paymentSettled: false,
 
                 {ownerBookingEditMode === 'price' && (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-2`}>РР·РјРµРЅРёС‚СЊ С†РµРЅСѓ</div>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить цену</div>
                     <input className={inputCls} type="number" min={0} value={ownerBookingEditPrice} onChange={e => setOwnerBookingEditPrice(e.target.value)} placeholder="0" />
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                       <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
-                        {ownerBookingEditSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
                   </div>
@@ -9761,7 +9761,7 @@ paymentSettled: false,
                   const _isFixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
                   return (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-2`}>РР·РјРµРЅРёС‚СЊ РјР°СЃС‚РµСЂРѕРІ {_isFixed ? `(С„РёРєСЃ ${formatFixedMasterAmount()})` : ''}</div>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить мастеров {_isFixed ? `(фикс ${formatFixedMasterAmount()})` : ''}</div>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
 {workers.filter(w => (w.role === 'worker' || w.role === 'owner') && w.active).map(worker => {
                         const assigned = ownerBookingEditWorkers.find(item => item.id === worker.id);
@@ -9776,7 +9776,7 @@ paymentSettled: false,
                                 className="px-3 py-1 rounded-lg text-xs shrink-0"
                                 style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                               >
-                                {assigned ? 'Р’С‹Р±СЂР°РЅ' : 'Р’С‹Р±СЂР°С‚СЊ'}
+                                {assigned ? 'Выбран' : 'Выбрать'}
                               </button>
                             </div>
                             {assigned && (
@@ -9786,13 +9786,13 @@ paymentSettled: false,
                                 ) : (
                                   <>
                                     <button onClick={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
-                                      className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>в‚Ѕ</button>
+                                      className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>₽</button>
                                     <button onClick={() => setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
                                       className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-indigo-600 text-white' : glass}`}>%</button>
                                     {assigned.payType === 'fixed' ? (
                                       <input type="number" min={0} value={assigned.fixedAmount ?? ''}
                                         onChange={e => { const r = e.target.value; if (r === '') { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerBookingEditWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
-                                        className={`flex-1 ${inputCls} py-1.5`} placeholder="СЃСѓРјРјР°" />
+                                        className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
                                     ) : (
                                       <>
                                         <span className={`text-xs ${sub}`}>%</span>
@@ -9811,9 +9811,9 @@ paymentSettled: false,
                       })}
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                       <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
-                        {ownerBookingEditSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
                   </div>
@@ -9822,26 +9822,26 @@ paymentSettled: false,
 
                 {ownerBookingEditMode === 'datetime' && (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-2`}>РР·РјРµРЅРёС‚СЊ РґР°С‚Сѓ Рё РІСЂРµРјСЏ</div>
+                    <div className={`text-xs font-medium ${sub} mb-2`}>Изменить дату и время</div>
                     <div className="space-y-2">
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                         <input className={inputCls} type="date" value={toISODate(ownerBookingEditDate)} onChange={e => {
                           const val = parseFlexibleDate(e.target.value);
                           setOwnerBookingEditDate(val ? formatDate(val) : e.target.value);
                         }} />
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Р’СЂРµРјСЏ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Время</label>
                         <select className={selectCls} value={ownerBookingEditTime} onChange={e => setOwnerBookingEditTime(e.target.value)}>
                           {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
                         </select>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                       <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
-                        {ownerBookingEditSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
                   </div>
@@ -9850,9 +9850,9 @@ paymentSettled: false,
                 {ownerBookingEditMode === 'materials' && (
                   <div className={`${glass} rounded-2xl p-4`}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className={`text-xs font-medium ${sub}`}>РњР°С‚РµСЂРёР°Р»С‹ (СЃРїРёСЃР°РЅРёРµ)</div>
+                      <div className={`text-xs font-medium ${sub}`}>Материалы (списание)</div>
                       <button onClick={() => { setOwnerEditMaterialPickerCategory(null); setShowOwnerEditMaterialPicker(true); }}
-                        className="px-3 py-1 rounded-lg text-xs shrink-0" style={{ background: `${primary}15`, color: primary }}>+ Р”РѕР±Р°РІРёС‚СЊ</button>
+                        className="px-3 py-1 rounded-lg text-xs shrink-0" style={{ background: `${primary}15`, color: primary }}>+ Добавить</button>
                     </div>
                     {ownerBookingEditMaterials.length > 0 ? (
                       <div className="space-y-2 mb-3">
@@ -9863,7 +9863,7 @@ paymentSettled: false,
                             <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
                               <div className="min-w-0 flex-1">
                                 <div className="text-sm font-medium truncate">{mat.name}</div>
-                                <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} Г— {mat.unitPrice.toLocaleString('ru')} в‚Ѕ = {(safeQty * mat.unitPrice).toLocaleString('ru')} в‚Ѕ</div>
+                                <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(safeQty * mat.unitPrice).toLocaleString('ru')} ₽</div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <input type="text" inputMode="decimal"
@@ -9892,15 +9892,15 @@ paymentSettled: false,
                         })}
                       </div>
                     ) : (
-                      <div className={`text-xs ${sub} mb-3`}>РџРѕРєР° РЅРµ РІС‹Р±СЂР°РЅРѕ. РќР°Р¶РјРё В«Р”РѕР±Р°РІРёС‚СЊВ» Рё РІС‹Р±РµСЂРё СЃРѕ СЃРєР»Р°РґР°.</div>
+                      <div className={`text-xs ${sub} mb-3`}>Пока не выбрано. Нажми «Добавить» и выбери со склада.</div>
                     )}
                     {selectedBooking.materialsWrittenOff && (
-                      <div className={`text-xs mb-3 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>РЎРїРёСЃР°РЅРёРµ СѓР¶Рµ РІС‹РїРѕР»РЅРµРЅРѕ. РќРѕРІС‹Рµ РјР°С‚РµСЂРёР°Р»С‹ Р±СѓРґСѓС‚ СѓС‡С‚РµРЅС‹, РЅРѕ РїРѕРІС‚РѕСЂРЅРѕРіРѕ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРіРѕ СЃРїРёСЃР°РЅРёСЏ СЃРѕ СЃРєР»Р°РґР° РЅРµ Р±СѓРґРµС‚ вЂ” РїСЂРё РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё СЃРїРёС€Рё РІСЂСѓС‡РЅСѓСЋ С‡РµСЂРµР· СЃРєР»Р°Рґ.</div>
+                      <div className={`text-xs mb-3 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено. Новые материалы будут учтены, но повторного автоматического списания со склада не будет — при необходимости спиши вручную через склад.</div>
                     )}
                     <div className="flex gap-2">
-                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                       <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
-                        {ownerBookingEditSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
                     <AnimatePresence>
@@ -9912,13 +9912,13 @@ paymentSettled: false,
                             className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                             <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                               <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-semibold">Р’С‹Р±СЂР°С‚СЊ РјР°С‚РµСЂРёР°Р»</h3>
+                                <h3 className="font-semibold">Выбрать материал</h3>
                                 <button onClick={() => setShowOwnerEditMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                               </div>
                               <div className="flex gap-1.5 flex-wrap">
                                 <button onClick={() => setOwnerEditMaterialPickerCategory(null)}
                                   className={`text-xs px-2.5 py-1 rounded-full ${!ownerEditMaterialPickerCategory ? 'text-white font-medium' : glass}`}
-                                  style={!ownerEditMaterialPickerCategory ? { background: primary } : {}}>Р’СЃРµ</button>
+                                  style={!ownerEditMaterialPickerCategory ? { background: primary } : {}}>Все</button>
                                 {stockCategories.filter(c => !c.parentId).map(cat => (
                                   <button key={cat.id} onClick={() => setOwnerEditMaterialPickerCategory(cat.id)}
                                     className={`text-xs px-2.5 py-1 rounded-full ${ownerEditMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
@@ -9938,7 +9938,7 @@ paymentSettled: false,
                                   <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
                                     <div className="min-w-0 flex-1">
                                       <div className="text-sm font-medium">{item.name}</div>
-                                      <div className={`text-xs ${sub}`}>Р’ РЅР°Р»РёС‡РёРё: {item.qty} {item.unit} В· {item.unitPrice.toLocaleString('ru')} в‚Ѕ/{item.unit}</div>
+                                      <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
                                     </div>
                                     <button onClick={() => {
                                       if (!ownerBookingEditMaterials.find(m => m.stockItemId === item.id)) {
@@ -9947,7 +9947,7 @@ paymentSettled: false,
                                       setShowOwnerEditMaterialPicker(false);
                                     }}
                                       className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
-                                      style={{ background: primary }}>Р’С‹Р±СЂР°С‚СЊ</button>
+                                      style={{ background: primary }}>Выбрать</button>
                                   </div>
                                 ))}
                               {stockItems.filter(item => {
@@ -9955,7 +9955,7 @@ paymentSettled: false,
                                 const catIds = stockCategoryIdsWithDescendants(ownerEditMaterialPickerCategory, stockCategories);
                                 return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === ownerEditMaterialPickerCategory)?.name;
                               }).filter(item => item.qty > 0).length === 0 && (
-                                <div className={`text-sm ${sub} text-center py-6`}>РќРµС‚ РјР°С‚РµСЂРёР°Р»РѕРІ РІ СЌС‚РѕР№ РєР°С‚РµРіРѕСЂРёРё</div>
+                                <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
                               )}
                             </div>
                           </motion.div>
@@ -9967,19 +9967,19 @@ paymentSettled: false,
 
                 {ownerBookingEditMode === 'full' && (
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs font-medium ${sub} mb-3`}>РџРѕР»РЅРѕРµ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ</div>
+                    <div className={`text-xs font-medium ${sub} mb-3`}>Полное редактирование</div>
                     <div className="space-y-3">
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РЎС‚Р°С‚СѓСЃ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Статус</label>
                         <select className={selectCls} value={ownerBookingEditFull.status} onChange={e => setOwnerBookingEditFull(p => ({ ...p, status: e.target.value as BookingStatus }))}>
                           {OWNER_BOOKING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          <option value="in_progress">Р’ СЂР°Р±РѕС‚Рµ</option>
-                          <option value="no_show">РќРµ РїСЂРёРµС…Р°Р»</option>
-                          <option value="cancelled">РћС‚РјРµРЅРµРЅРѕ</option>
+                          <option value="in_progress">В работе</option>
+                          <option value="no_show">Не приехал</option>
+                          <option value="cancelled">Отменено</option>
                         </select>
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РЈСЃР»СѓРіР°</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                         <ServiceSearchSelect
                           value={ownerBookingEditFull.serviceId}
                           services={services}
@@ -10009,24 +10009,24 @@ paymentSettled: false,
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РЎС‚РѕРёРјРѕСЃС‚СЊ (в‚Ѕ)</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Стоимость (₽)</label>
                           <input className={inputCls} type="number" min={0} value={numberInputValue(ownerBookingEditFull.price)} onChange={e => setOwnerBookingEditFull(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
                         </div>
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ (РјРёРЅ)</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
                           <input className={inputCls} type="number" min={1} value={numberInputValue(ownerBookingEditFull.duration)} onChange={e => setOwnerBookingEditFull(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р°</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                           <input className={inputCls} type="date" value={toISODate(ownerBookingEditFull.date)} onChange={e => {
                             const val = parseFlexibleDate(e.target.value);
                             setOwnerBookingEditFull(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                           }} />
                         </div>
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Р’СЂРµРјСЏ</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Время</label>
                           <select className={selectCls} value={ownerBookingEditFull.time} onChange={e => setOwnerBookingEditFull(p => ({ ...p, time: e.target.value }))}>
                             {TIME_SLOTS.map(slot => <option key={slot} value={slot}>{slot}</option>)}
                           </select>
@@ -10040,21 +10040,21 @@ paymentSettled: false,
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РРјСЏ РєР»РёРµРЅС‚Р°</label>
-                          <input className={inputCls} placeholder="РРјСЏ" value={ownerBookingEditFull.clientName} onChange={e => setOwnerBookingEditFull(p => ({ ...p, clientName: e.target.value }))} />
+                          <label className={`text-xs ${sub} block mb-1`}>Имя клиента</label>
+                          <input className={inputCls} placeholder="Имя" value={ownerBookingEditFull.clientName} onChange={e => setOwnerBookingEditFull(p => ({ ...p, clientName: e.target.value }))} />
                         </div>
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РўРµР»РµС„РѕРЅ</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Телефон</label>
                           <input className={inputCls} placeholder="+7..." value={ownerBookingEditFull.clientPhone} onChange={e => setOwnerBookingEditFull(p => ({ ...p, clientPhone: e.target.value }))} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РђРІС‚РѕРјРѕР±РёР»СЊ</label>
-                          <input className={inputCls} placeholder="РњР°СЂРєР° РјРѕРґРµР»СЊ" value={ownerBookingEditFull.car} onChange={e => setOwnerBookingEditFull(p => ({ ...p, car: e.target.value }))} />
+                          <label className={`text-xs ${sub} block mb-1`}>Автомобиль</label>
+                          <input className={inputCls} placeholder="Марка модель" value={ownerBookingEditFull.car} onChange={e => setOwnerBookingEditFull(p => ({ ...p, car: e.target.value }))} />
                         </div>
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РќРѕРјРµСЂ</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Номер</label>
                           <div className="flex gap-1.5">
                             <div className="flex flex-col gap-1 shrink-0">
                               {(['russian', 'motorcycle', 'foreign'] as PlateType[]).map((t) => (
@@ -10062,19 +10062,19 @@ paymentSettled: false,
                                   className={`text-[10px] px-1.5 py-0.5 rounded ${ownerBookingEditFull.plateType === t ? 'text-white font-medium' : `${sub}`}`}
                                   style={ownerBookingEditFull.plateType === t ? { background: primary } : {}}
                                   onClick={() => setOwnerBookingEditFull(p => ({ ...p, plateType: t }))}
-                                >{t === 'russian' ? 'РђРІС‚Рѕ' : t === 'motorcycle' ? 'РњРѕС‚Рѕ' : 'РРЅРѕ'}</button>
+                                >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
                               ))}
                             </div>
-                            <input className={`${inputCls} flex-1`} maxLength={ownerBookingEditFull.plateType === 'foreign' ? 15 : 9} placeholder={ownerBookingEditFull.plateType === 'motorcycle' ? '1234Р°РІ77' : ownerBookingEditFull.plateType === 'foreign' ? 'xyz1234' : 'Р°123РІСЃ777'} value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
+                            <input className={`${inputCls} flex-1`} maxLength={ownerBookingEditFull.plateType === 'foreign' ? 15 : 9} placeholder={ownerBookingEditFull.plateType === 'motorcycle' ? '1234ав77' : ownerBookingEditFull.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'} value={ownerBookingEditFull.plate} onChange={e => setOwnerBookingEditFull(p => ({ ...p, plate: normalizePlateInput(e.target.value, p.plateType) }))} />
                           </div>
                         </div>
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label>
-                        <textarea className={`${inputCls} min-h-[80px] resize-none`} placeholder="Р”РѕР±Р°РІРёС‚СЊ РїСЂРёРјРµС‡Р°РЅРёРµ..." value={ownerBookingEditFull.notes} onChange={e => setOwnerBookingEditFull(p => ({ ...p, notes: e.target.value }))} />
+                        <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                        <textarea className={`${inputCls} min-h-[80px] resize-none`} placeholder="Добавить примечание..." value={ownerBookingEditFull.notes} onChange={e => setOwnerBookingEditFull(p => ({ ...p, notes: e.target.value }))} />
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РћС‚РєСѓРґР° Рѕ РЅР°СЃ СѓР·РЅР°Р»</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Откуда о нас узнал</label>
                         <div className="flex flex-wrap gap-1.5">
                           {REFERRAL_SOURCES.map((source) => (
                             <button
@@ -10091,26 +10091,26 @@ paymentSettled: false,
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РўРёРї РѕРїР»Р°С‚С‹</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Тип оплаты</label>
                           <select className={selectCls} value={ownerBookingEditFull.paymentType} onChange={e => setOwnerBookingEditFull(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
-                            <option value="cash">РќР°Р»РёС‡РЅС‹Рµ</option>
-                            <option value="transfer">РџРµСЂРµРІРѕРґ</option>
-                            <option value="invoice">РџРѕ СЃС‡С‘С‚Сѓ</option>
+                            <option value="cash">Наличные</option>
+                            <option value="transfer">Перевод</option>
+                            <option value="invoice">По счёту</option>
                           </select>
                         </div>
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РћРїР»Р°С‚Р° РїРѕР»СѓС‡РµРЅР°</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Оплата получена</label>
                           <label className="flex items-center gap-2 mt-2 cursor-pointer">
                             <input type="checkbox" className="w-4 h-4 accent-indigo-500" checked={ownerBookingEditFull.paymentSettled} onChange={e => setOwnerBookingEditFull(p => ({ ...p, paymentSettled: e.target.checked }))} />
-                            <span className="text-sm">РџРѕРґС‚РІРµСЂР¶РґРµРЅР°</span>
+                            <span className="text-sm">Подтверждена</span>
                           </label>
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
+                      <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
                       <button onClick={() => void handleSaveOwnerBookingEdit()} disabled={ownerBookingEditSaving} className="flex-1 py-2.5 rounded-xl text-sm text-white disabled:opacity-50" style={{ background: primary }}>
-                        {ownerBookingEditSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                        {ownerBookingEditSaving ? 'Сохранение...' : 'Сохранить'}
                       </button>
                     </div>
                   </div>
@@ -10122,7 +10122,7 @@ paymentSettled: false,
                   </div>
                 )}
                 <button onClick={handleDeleteOwnerBooking} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
-                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />РЈРґР°Р»РёС‚СЊ Р·Р°РїРёСЃСЊ
+                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Удалить запись
                 </button>
               </div>
             </motion.div>
@@ -10141,14 +10141,14 @@ paymentSettled: false,
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">{ownerStatusLabel(showStatusList)}</h3>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(showStatusList)}`}>{statusListItems.length} Р·Р°РїРёСЃРµР№</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${ownerStatusBadge(showStatusList)}`}>{statusListItems.length} записей</span>
                   <button onClick={() => setShowStatusList(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
               </div>
               {statusListItems.length === 0 ? (
                 <div className={`${glass} rounded-2xl p-8 text-center`}>
                   <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                  <p className={sub}>РќРµС‚ Р·Р°РїРёСЃРµР№ СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј В«{ownerStatusLabel(showStatusList)}В»</p>
+                  <p className={sub}>Нет записей со статусом «{ownerStatusLabel(showStatusList)}»</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -10164,7 +10164,7 @@ paymentSettled: false,
                               <div className="font-semibold text-sm truncate">{booking.date} В· {booking.time} В· {booking.clientName}</div>
                               <SourceBadge source={booking.source} />
                               {booking.isRepeatVisit && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">РџРѕРІС‚РѕСЂРЅС‹Р№</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                               )}
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
@@ -10176,8 +10176,8 @@ paymentSettled: false,
                             </div>
                           )}
                           <div className="flex justify-between mt-2">
-                            <span className={`text-xs ${sub}`}>{booking.box} В· {booking.duration} РјРёРЅ</span>
-                            <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                            <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
                           </div>
                         </div>
                       </div>
@@ -10203,22 +10203,22 @@ paymentSettled: false,
                 <div className="flex items-center gap-2">
                   {kpiModal.kind === 'bookings' && (
                     <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
-                      {kpiModal.total.toLocaleString('ru')}{kpiModal.isMoney !== false ? ' в‚Ѕ' : ''} В· {kpiModal.bookings.length} {kpiModal.totalLabel}
+                      {kpiModal.total.toLocaleString('ru')}{kpiModal.isMoney !== false ? ' ₽' : ''} · {kpiModal.bookings.length} {kpiModal.totalLabel}
                     </span>
                   )}
                   {kpiModal.kind === 'expenses' && (
                     <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
-                      {kpiModal.total.toLocaleString('ru')} в‚Ѕ В· {kpiModal.expenses.length} СЂР°СЃС…РѕРґРѕРІ
+                      {kpiModal.total.toLocaleString('ru')} ₽ · {kpiModal.expenses.length} расходов
                     </span>
                   )}
                   {kpiModal.kind === 'services' && (
                     <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
-                      {kpiModal.services.length} СѓСЃР»СѓРі
+                      {kpiModal.services.length} услуг
                     </span>
                   )}
                   {kpiModal.kind === 'finance' && (
                     <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${kpiModal.color}18`, color: kpiModal.color }}>
-                      {kpiModal.profit >= 0 ? '+' : ''}{kpiModal.profit.toLocaleString('ru')} в‚Ѕ
+                      {kpiModal.profit >= 0 ? '+' : ''}{kpiModal.profit.toLocaleString('ru')} ₽
                     </span>
                   )}
                   <button onClick={() => setKpiModal(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
@@ -10229,7 +10229,7 @@ paymentSettled: false,
                 kpiModal.bookings.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
                     <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                    <p className={sub}>Р—Р°РїРёСЃРµР№ РїРѕРєР° РЅРµС‚</p>
+                    <p className={sub}>Записей пока нет</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -10245,7 +10245,7 @@ paymentSettled: false,
                                 <div className="font-semibold text-sm truncate">{booking.date} В· {booking.time} В· {booking.clientName}</div>
                                 <SourceBadge source={booking.source} />
                                 {booking.isRepeatVisit && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">РџРѕРІС‚РѕСЂРЅС‹Р№</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                                 )}
                               </div>
                               <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
@@ -10257,8 +10257,8 @@ paymentSettled: false,
                               </div>
                             )}
                             <div className="flex justify-between mt-2">
-                              <span className={`text-xs ${sub}`}>{booking.box} В· {booking.duration} РјРёРЅ</span>
-                              <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} в‚Ѕ</span>
+                              <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                              <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
                             </div>
                           </div>
                         </div>
@@ -10272,7 +10272,7 @@ paymentSettled: false,
                 kpiModal.expenses.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
                     <DollarSign size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                    <p className={sub}>Р Р°СЃС…РѕРґРѕРІ Р·Р° РїРµСЂРёРѕРґ РЅРµС‚</p>
+                    <p className={sub}>Расходов за период нет</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -10282,7 +10282,7 @@ paymentSettled: false,
                           <div className="text-sm font-medium truncate">{expense.title}</div>
                           <div className={`text-xs ${sub}`}>{expense.category} В· {expense.date}</div>
                         </div>
-                        <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>в€’{expense.amount.toLocaleString('ru')} в‚Ѕ</div>
+                        <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>−{expense.amount.toLocaleString('ru')} ₽</div>
                       </div>
                     ))}
                   </div>
@@ -10293,7 +10293,7 @@ paymentSettled: false,
                 kpiModal.services.length === 0 ? (
                   <div className={`${glass} rounded-2xl p-8 text-center`}>
                     <BarChart3 size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-                    <p className={sub}>РќРµС‚ РґР°РЅРЅС‹С… РїРѕ СѓСЃР»СѓРіР°Рј</p>
+                    <p className={sub}>Нет данных по услугам</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -10304,9 +10304,9 @@ paymentSettled: false,
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{service.name}</div>
-                          <div className={`text-xs ${sub}`}>{service.count} Р·Р°РїРёСЃРµР№</div>
+                          <div className={`text-xs ${sub}`}>{service.count} записей</div>
                         </div>
-                        <div className="font-semibold text-sm shrink-0">{service.revenue.toLocaleString('ru')} в‚Ѕ</div>
+                        <div className="font-semibold text-sm shrink-0">{service.revenue.toLocaleString('ru')} ₽</div>
                       </div>
                     ))}
                   </div>
@@ -10316,15 +10316,15 @@ paymentSettled: false,
               {kpiModal.kind === 'finance' && (
                 <div className="space-y-2">
                   {[
-                    { label: 'Р’С‹СЂСѓС‡РєР° Р·Р° РЅРµРґРµР»СЋ', value: kpiModal.revenue, color: accent },
-                    { label: 'Р”РѕС…РѕРґС‹ Р·Р° РЅРµРґРµР»СЋ', value: kpiModal.incomes, color: '#06B6D4' },
-                    { label: 'Р Р°СЃС…РѕРґС‹ Р·Р° РЅРµРґРµР»СЋ', value: -kpiModal.expenses, color: '#FF6B6B' },
-                    { label: 'РџСЂРёР±С‹Р»СЊ Р·Р° РЅРµРґРµР»СЋ', value: kpiModal.profit, color: kpiModal.color },
+                    { label: 'Выручка за неделю', value: kpiModal.revenue, color: accent },
+                    { label: 'Доходы за неделю', value: kpiModal.incomes, color: '#06B6D4' },
+                    { label: 'Расходы за неделю', value: -kpiModal.expenses, color: '#FF6B6B' },
+                    { label: 'Прибыль за неделю', value: kpiModal.profit, color: kpiModal.color },
                   ].map(row => (
                     <div key={row.label} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
                       <div className="text-sm">{row.label}</div>
                       <div className="font-semibold text-sm" style={{ color: row.color }}>
-                        {row.value >= 0 ? '+' : ''}{row.value.toLocaleString('ru')} в‚Ѕ
+                        {row.value >= 0 ? '+' : ''}{row.value.toLocaleString('ru')} ₽
                       </div>
                     </div>
                   ))}
@@ -10344,14 +10344,14 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р”РѕР±Р°РІРёС‚СЊ РґРѕРї. СѓСЃР»СѓРіСѓ</h3>
+                <h3 className="font-semibold">Добавить доп. услугу</h3>
                 <button onClick={() => setShowOwnerAddService(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
-              <p className={`text-xs ${sub} mb-4`}>Р”Р»СЏ: {selectedBooking.clientName} ({selectedBooking.service})</p>
+              <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
 
-              {/* в”Ђв”Ђ РЈСЃР»СѓРіР° в”Ђв”Ђ */}
+              {/* ── Услуга ── */}
               <div>
-                <label className={`text-xs ${sub} block mb-1`}>РЈСЃР»СѓРіР°</label>
+                <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                 <ServiceSearchSelect
                   value={ownerAddServiceDraft.serviceId}
                   services={liveServices}
@@ -10362,7 +10362,7 @@ paymentSettled: false,
                   sub={sub}
                   primary={primary}
                   isDark={isDark}
-                  placeholder="Р’С‹Р±РµСЂРёС‚Рµ СѓСЃР»СѓРіСѓ"
+                  placeholder="Выберите услугу"
                   onCreateNew={handleCreateServiceFromQuery}
                   onChange={(serviceId) => {
                     const svc = liveServices.find(s => s.id === serviceId);
@@ -10383,50 +10383,50 @@ paymentSettled: false,
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
-              {/* в”Ђв”Ђ Р¦РµРЅР° Рё РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ в”Ђв”Ђ */}
+              {/* ── Цена и длительность ── */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
                   <input className={inputCls} type="number" value={numberInputValue(ownerAddServiceDraft.price)} onChange={e => setOwnerAddServiceDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚. (РјРёРЅ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                   <input className={inputCls} type="number" value={numberInputValue(ownerAddServiceDraft.duration)} onChange={e => setOwnerAddServiceDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                 </div>
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
-              {/* в”Ђв”Ђ Р РµР¶РёРј РїСЂРёРјРµРЅРµРЅРёСЏ С†РµРЅС‹ в”Ђв”Ђ */}
+              {/* ── Режим применения цены ── */}
               <div>
-                <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµРЅРёС‚СЊ Рє РѕСЃРЅРѕРІРЅРѕР№ СѓСЃР»СѓРіРµ</label>
+                <label className={`text-xs ${sub} block mb-1`}>Применить к основной услуге</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setOwnerAddServiceDraft(p => ({ ...p, priceMode: 'add' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={ownerAddServiceDraft.priceMode === 'add' ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                   >
-                    + РџР»СЋСЃ
+                    + Плюс
                   </button>
                   <button
                     onClick={() => setOwnerAddServiceDraft(p => ({ ...p, priceMode: 'subtract' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={ownerAddServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
-                    в€’ РњРёРЅСѓСЃ
+                    − Минус
                   </button>
                 </div>
                 {ownerAddServiceDraft.priceMode === 'subtract' && (
-                  <p className={`text-xs ${sub} mt-1.5`}>РЎСѓРјРјР° РЅРµ РїСЂРёР±Р°РІР»СЏРµС‚СЃСЏ Рє СЃС‚РѕРёРјРѕСЃС‚Рё РєР»РёРµРЅС‚Р° Рё РІС‹С‡РёС‚Р°РµС‚СЃСЏ РёР· Р±Р°Р·С‹ СЂР°СЃС‡С‘С‚Р° Р·Рї РјР°СЃС‚РµСЂРѕРІ РѕСЃРЅРѕРІРЅРѕР№ СѓСЃР»СѓРіРё</p>
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма не прибавляется к стоимости клиента и вычитается из базы расчёта зп мастеров основной услуги</p>
                 )}
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
-              {/* в”Ђв”Ђ РђСѓС‚СЃРѕСЂСЃ в”Ђв”Ђ */}
+              {/* ── Аутсорс ── */}
               <div className="mb-2">
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РђСѓС‚СЃРѕСЂСЃ</span>
+                  <span>Аутсорс</span>
                   <input
                     type="checkbox"
                     checked={ownerAddServiceDraft.isOutsource}
@@ -10439,7 +10439,7 @@ paymentSettled: false,
                 </label>
                 {ownerAddServiceDraft.isOutsource && (
                   <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° Р°СѓС‚СЃРѕСЂСЃРµСЂСѓ (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
                     <input className={inputCls} type="number" min={0} value={numberInputValue(ownerAddServiceDraft.outsourceAmount)}
                       onChange={e => setOwnerAddServiceDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
                   </div>
@@ -10448,12 +10448,12 @@ paymentSettled: false,
 
               {!ownerAddServiceDraft.isOutsource && (
               <>
-              {/* в”Ђв”Ђ РњР°СЃС‚РµСЂР° в”Ђв”Ђ */}
+              {/* ── Мастера ── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>РќР°Р·РЅР°С‡РёС‚СЊ РјР°СЃС‚РµСЂРѕРІ</label>
+                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Назначить мастеров</label>
                   {ownerAddServiceWorkers.length > 0 && (
-                    <span className={`text-xs ${sub}`}>Р’С‹Р±СЂР°РЅРѕ: {ownerAddServiceWorkers.length}</span>
+                    <span className={`text-xs ${sub}`}>Выбрано: {ownerAddServiceWorkers.length}</span>
                   )}
                 </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -10473,19 +10473,19 @@ paymentSettled: false,
                             className="px-3 py-1 rounded-lg text-xs shrink-0"
                             style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                           >
-                            {assigned ? 'Р’С‹Р±СЂР°РЅ' : 'Р’С‹Р±СЂР°С‚СЊ'}
+                            {assigned ? 'Выбран' : 'Выбрать'}
                           </button>
                         </div>
                         {assigned && (
                           <div className="flex items-center gap-2 mt-2">
                             <button onClick={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
-                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>в‚Ѕ</button>
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>₽</button>
                             <button onClick={() => setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
                               className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-indigo-600 text-white' : glass}`}>%</button>
                             {assigned.payType === 'fixed' ? (
                               <input type="number" min={0} value={assigned.fixedAmount ?? ''}
                                 onChange={e => { const r = e.target.value; if (r === '') { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerAddServiceWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
-                                className={`flex-1 ${inputCls} py-1.5`} placeholder="СЃСѓРјРјР°" />
+                                className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
                             ) : (
                               <>
                                 <span className={`text-xs ${sub}`}>%</span>
@@ -10505,26 +10505,26 @@ paymentSettled: false,
               </>
               )}
 
-              {/* в”Ђв”Ђ РС‚РѕРіРѕ в”Ђв”Ђ */}
+              {/* ── Итого ── */}
               {ownerAddServiceDraft.serviceId && (
                 <>
                   <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
                   <div className={`${glass} rounded-2xl p-4 space-y-2`}>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>РС‚РѕРіРѕ</div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Итого</div>
                     <div className="flex justify-between items-center">
-                      <span className={`text-sm ${sub}`}>РљР»РёРµРЅС‚ Р·Р°РїР»Р°С‚РёС‚</span>
-                      <span className="text-sm font-semibold">{ownerAddServiceDraft.priceMode === 'subtract' ? '0 в‚Ѕ (РЅРµ РїСЂРёР±Р°РІР»СЏРµС‚СЃСЏ)' : `+ ${ownerAddServiceDraft.price.toLocaleString('ru')} в‚Ѕ`}</span>
+                      <span className={`text-sm ${sub}`}>Клиент заплатит</span>
+                      <span className="text-sm font-semibold">{ownerAddServiceDraft.priceMode === 'subtract' ? '0 ₽ (не прибавляется)' : `+ ${ownerAddServiceDraft.price.toLocaleString('ru')} ₽`}</span>
                     </div>
                     {ownerAddServiceDraft.priceMode === 'subtract' && (
                       <div className="flex justify-between items-center">
-                        <span className={`text-sm ${sub}`}>Р‘Р°Р·Р° Р·Рї РјР°СЃС‚РµСЂРѕРІ РѕСЃРЅРѕРІРЅРѕР№ СѓСЃР»СѓРіРё</span>
-                        <span className="text-sm font-semibold text-red-500">в€’ {ownerAddServiceDraft.price.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={`text-sm ${sub}`}>База зп мастеров основной услуги</span>
+                        <span className="text-sm font-semibold text-red-500">− {ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
                       </div>
                     )}
                     {ownerAddServiceDraft.isOutsource ? (
                       <div className="flex justify-between items-center">
-                        <span className={`text-sm ${sub}`}>РђСѓС‚СЃРѕСЂСЃРµСЂСѓ</span>
-                        <span className="text-sm font-medium text-red-500">в€’ {ownerAddServiceDraft.outsourceAmount.toLocaleString('ru')} в‚Ѕ</span>
+                        <span className={`text-sm ${sub}`}>Аутсорсеру</span>
+                        <span className="text-sm font-medium text-red-500">− {ownerAddServiceDraft.outsourceAmount.toLocaleString('ru')} ₽</span>
                       </div>
                     ) : ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
                       const w = workers.find(wk => wk.id === item.id);
@@ -10534,8 +10534,8 @@ paymentSettled: false,
                       const _fixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                       return (
                         <div key={item.id} className="flex justify-between items-center">
-                          <span className={`text-sm ${sub}`}>{w?.name || 'РњР°СЃС‚РµСЂ'}{_fixed ? ` В· С„РёРєСЃ ${formatFixedMasterAmount()}` : item.payType === 'fixed' ? ` В· ${(item.fixedAmount || 0).toLocaleString('ru')} в‚Ѕ` : ` В· ${pct}%`}</span>
-                          <span className="text-sm font-medium text-green-500">{_fixed ? formatFixedMasterAmount() : `${earned.toLocaleString('ru')} в‚Ѕ`}</span>
+                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'}{_fixed ? ` · фикс ${formatFixedMasterAmount()}` : item.payType === 'fixed' ? ` · ${(item.fixedAmount || 0).toLocaleString('ru')} ₽` : ` · ${pct}%`}</span>
+                          <span className="text-sm font-medium text-green-500">{_fixed ? formatFixedMasterAmount() : `${earned.toLocaleString('ru')} ₽`}</span>
                         </div>
                       );
                     })}
@@ -10550,9 +10550,9 @@ paymentSettled: false,
               )}
 
               <div className="flex gap-2 mt-4">
-                <button onClick={() => setShowOwnerAddService(false)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>РћС‚РјРµРЅР°</button>
+                <button onClick={() => setShowOwnerAddService(false)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
                 <button onClick={() => void handleAddOwnerService()} disabled={ownerAddServiceSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
-                  {ownerAddServiceSaving ? 'Р”РѕР±Р°РІР»РµРЅРёРµ...' : 'Р”РѕР±Р°РІРёС‚СЊ'}
+                  {ownerAddServiceSaving ? 'Добавление...' : 'Добавить'}
                 </button>
               </div>
             </motion.div>
@@ -10569,55 +10569,55 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">РР·РјРµРЅРёС‚СЊ РґРѕРї. СѓСЃР»СѓРіСѓ</h3>
+                <h3 className="font-semibold">Изменить доп. услугу</h3>
                 <button onClick={() => setOwnerEditAsvcId(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
-              <p className={`text-xs ${sub} mb-4`}>Р”Р»СЏ: {selectedBooking.clientName} ({selectedBooking.service})</p>
+              <p className={`text-xs ${sub} mb-4`}>Для: {selectedBooking.clientName} ({selectedBooking.service})</p>
 
-              {/* в”Ђв”Ђ Р¦РµРЅР° Рё РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ в”Ђв”Ђ */}
+              {/* ── Цена и длительность ── */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
                   <input className={inputCls} type="number" value={numberInputValue(ownerEditAsvcDraft.price)} onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚. (РјРёРЅ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                   <input className={inputCls} type="number" value={numberInputValue(ownerEditAsvcDraft.duration)} onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, duration: numberFromInput(e.target.value) }))} />
                 </div>
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
-              {/* в”Ђв”Ђ Р РµР¶РёРј РїСЂРёРјРµРЅРµРЅРёСЏ С†РµРЅС‹ в”Ђв”Ђ */}
+              {/* ── Режим применения цены ── */}
               <div>
-                <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµРЅРёС‚СЊ Рє РѕСЃРЅРѕРІРЅРѕР№ СѓСЃР»СѓРіРµ</label>
+                <label className={`text-xs ${sub} block mb-1`}>Применить к основной услуге</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setOwnerEditAsvcDraft(p => ({ ...p, priceMode: 'add' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={ownerEditAsvcDraft.priceMode === 'add' ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                   >
-                    + РџР»СЋСЃ
+                    + Плюс
                   </button>
                   <button
                     onClick={() => setOwnerEditAsvcDraft(p => ({ ...p, priceMode: 'subtract' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={ownerEditAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
-                    в€’ РњРёРЅСѓСЃ
+                    − Минус
                   </button>
                 </div>
                 {ownerEditAsvcDraft.priceMode === 'subtract' && (
-                  <p className={`text-xs ${sub} mt-1.5`}>РЎСѓРјРјР° РЅРµ РїСЂРёР±Р°РІР»СЏРµС‚СЃСЏ Рє СЃС‚РѕРёРјРѕСЃС‚Рё РєР»РёРµРЅС‚Р° Рё РІС‹С‡РёС‚Р°РµС‚СЃСЏ РёР· Р±Р°Р·С‹ СЂР°СЃС‡С‘С‚Р° Р·Рї РјР°СЃС‚РµСЂРѕРІ РѕСЃРЅРѕРІРЅРѕР№ СѓСЃР»СѓРіРё</p>
+                  <p className={`text-xs ${sub} mt-1.5`}>Сумма не прибавляется к стоимости клиента и вычитается из базы расчёта зп мастеров основной услуги</p>
                 )}
               </div>
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
-              {/* в”Ђв”Ђ РђСѓС‚СЃРѕСЂСЃ в”Ђв”Ђ */}
+              {/* ── Аутсорс ── */}
               <div className="mb-2">
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РђСѓС‚СЃРѕСЂСЃ</span>
+                  <span>Аутсорс</span>
                   <input
                     type="checkbox"
                     checked={ownerEditAsvcDraft.isOutsource}
@@ -10630,7 +10630,7 @@ paymentSettled: false,
                 </label>
                 {ownerEditAsvcDraft.isOutsource && (
                   <div className="mt-2">
-                    <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° Р°СѓС‚СЃРѕСЂСЃРµСЂСѓ (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
                     <input className={inputCls} type="number" min={0} value={numberInputValue(ownerEditAsvcDraft.outsourceAmount)}
                       onChange={e => setOwnerEditAsvcDraft(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
                   </div>
@@ -10639,12 +10639,12 @@ paymentSettled: false,
 
               {!ownerEditAsvcDraft.isOutsource && (
               <>
-              {/* в”Ђв”Ђ РњР°СЃС‚РµСЂР° в”Ђв”Ђ */}
+              {/* ── Мастера ── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>РќР°Р·РЅР°С‡РёС‚СЊ РјР°СЃС‚РµСЂРѕРІ</label>
+                  <label className={`text-xs font-medium ${sub} uppercase tracking-wider`}>Назначить мастеров</label>
                   {ownerEditAsvcWorkers.length > 0 && (
-                    <span className={`text-xs ${sub}`}>Р’С‹Р±СЂР°РЅРѕ: {ownerEditAsvcWorkers.length}</span>
+                    <span className={`text-xs ${sub}`}>Выбрано: {ownerEditAsvcWorkers.length}</span>
                   )}
                 </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -10664,19 +10664,19 @@ paymentSettled: false,
                             className="px-3 py-1 rounded-lg text-xs shrink-0"
                             style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                           >
-                            {assigned ? 'Р’С‹Р±СЂР°РЅ' : 'Р’С‹Р±СЂР°С‚СЊ'}
+                            {assigned ? 'Выбран' : 'Выбрать'}
                           </button>
                         </div>
                         {assigned && (
                           <div className="flex items-center gap-2 mt-2">
                             <button onClick={() => setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
-                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>в‚Ѕ</button>
+                              className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>₽</button>
                             <button onClick={() => setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
                               className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-indigo-600 text-white' : glass}`}>%</button>
                             {assigned.payType === 'fixed' ? (
                               <input type="number" min={0} value={assigned.fixedAmount ?? ''}
                                 onChange={e => { const r = e.target.value; if (r === '') { setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerEditAsvcWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
-                                className={`flex-1 ${inputCls} py-1.5`} placeholder="СЃСѓРјРјР°" />
+                                className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
                             ) : (
                               <>
                                 <span className={`text-xs ${sub}`}>%</span>
@@ -10703,9 +10703,9 @@ paymentSettled: false,
               )}
 
               <div className="flex gap-2 mt-4">
-                <button onClick={() => setOwnerEditAsvcId(null)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>РћС‚РјРµРЅР°</button>
+                <button onClick={() => setOwnerEditAsvcId(null)} className={`flex-1 py-3 rounded-2xl text-sm font-medium ${glass}`}>Отмена</button>
                 <button onClick={() => void handleSaveOwnerEditAsvc()} disabled={ownerEditAsvcSaving} className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white disabled:opacity-50 min-h-[44px]" style={{ background: primary }}>
-                  {ownerEditAsvcSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                  {ownerEditAsvcSaving ? 'Сохранение...' : 'Сохранить'}
                 </button>
               </div>
             </motion.div>
@@ -10722,7 +10722,7 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm relative flex flex-col`}>
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center" style={{ background: surface, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                <h3 className="font-semibold mt-2">РќРѕРІР°СЏ Р·Р°РїРёСЃСЊ</h3>
+                <h3 className="font-semibold mt-2">Новая запись</h3>
                 <button onClick={closeOwnerNewBookingModal} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               {/* Scrollable content container */}
@@ -10739,18 +10739,18 @@ paymentSettled: false,
                           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${primary}20` }}>
                           <Check size={28} strokeWidth={1.75} style={{ color: primary }} />
                         </motion.div>
-                        <div className="font-semibold">Р—Р°РїРёСЃСЊ СЃРѕС…СЂР°РЅРµРЅР°!</div>
-                        <div className={`text-sm ${sub} mt-1`}>{ownerNewBookingSaveSuccess === 'notify' ? 'РњР°СЃС‚РµСЂР° СѓРІРµРґРѕРјР»РµРЅС‹' : OWNER_BOOKING_STATUS_OPTIONS.find((o) => o.value === ownerNewBookingForm.status)?.label || ownerNewBookingForm.status}</div>
+                        <div className="font-semibold">Запись сохранена!</div>
+                        <div className={`text-sm ${sub} mt-1`}>{ownerNewBookingSaveSuccess === 'notify' ? 'Мастера уведомлены' : OWNER_BOOKING_STATUS_OPTIONS.find((o) => o.value === ownerNewBookingForm.status)?.label || ownerNewBookingForm.status}</div>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
                 <div className="p-4 space-y-3">
                 {[
-                  { label: 'РљР»РёРµРЅС‚ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)', key: 'clientName', placeholder: 'Р’РІРµРґРёС‚Рµ РёРјСЏ РєР»РёРµРЅС‚Р°', type: 'text' },
-                  { label: 'РўРµР»РµС„РѕРЅ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
-                  { label: 'РђРІС‚РѕРјРѕР±РёР»СЊ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
-                  { label: 'РќРѕРјРµСЂ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)', key: 'plate', placeholder: 'Р°123РІСЃ777', type: 'text' },
+                  { label: 'Клиент (необязательно)', key: 'clientName', placeholder: 'Введите имя клиента', type: 'text' },
+                  { label: 'Телефон (необязательно)', key: 'clientPhone', placeholder: '+7 (___) ___-__-__', type: 'tel' },
+                  { label: 'Автомобиль (необязательно)', key: 'car', placeholder: 'Lada Vesta', type: 'text' },
+                  { label: 'Номер (необязательно)', key: 'plate', placeholder: 'а123вс777', type: 'text' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className={`text-xs ${sub} block mb-1`}>{f.label}</label>
@@ -10762,11 +10762,11 @@ paymentSettled: false,
                               className={`text-[10px] px-1.5 py-0.5 rounded ${ownerNewBookingForm.plateType === t ? 'text-white font-medium' : `${sub}`}`}
                               style={ownerNewBookingForm.plateType === t ? { background: primary } : {}}
                               onClick={() => setOwnerNewBookingForm(p => ({ ...p, plateType: t }))}
-                            >{t === 'russian' ? 'РђРІС‚Рѕ' : t === 'motorcycle' ? 'РњРѕС‚Рѕ' : 'РРЅРѕ'}</button>
+                            >{t === 'russian' ? 'Авто' : t === 'motorcycle' ? 'Мото' : 'Ино'}</button>
                           ))}
                         </div>
                         <input className={`${inputCls} flex-1 ${ownerNewBookingErrors[f.key as keyof typeof ownerNewBookingErrors] ? 'border-red-400' : ''}`} type={f.type}
-                          placeholder={ownerNewBookingForm.plateType === 'motorcycle' ? '1234Р°РІ77' : ownerNewBookingForm.plateType === 'foreign' ? 'xyz1234' : 'Р°123РІСЃ777'}
+                          placeholder={ownerNewBookingForm.plateType === 'motorcycle' ? '1234ав77' : ownerNewBookingForm.plateType === 'foreign' ? 'xyz1234' : 'а123вс777'}
                           maxLength={ownerNewBookingForm.plateType === 'foreign' ? 15 : 9}
                           value={(ownerNewBookingForm as any)[f.key]} onChange={e => {
                             const nextValue = normalizePlateInput(e.target.value, ownerNewBookingForm.plateType);
@@ -10803,7 +10803,7 @@ paymentSettled: false,
                 ))}
                 {ownerNewBookingClientVehicles.length > 0 && (
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РђРІС‚Рѕ РєР»РёРµРЅС‚Р°</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Авто клиента</label>
                     <div className="flex flex-wrap gap-1.5">
                       {ownerNewBookingClientVehicles.map((vehicle, index) => {
                         const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(ownerNewBookingForm.car)
@@ -10815,7 +10815,7 @@ paymentSettled: false,
                           }}
                             className={`text-xs px-2.5 py-1.5 rounded-xl border transition hover:opacity-80 ${isActive ? 'text-white font-medium' : `${sub}`}`}
                             style={isActive ? { background: primary, borderColor: primary } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }}>
-                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' В· ') || 'РђРІС‚Рѕ'}
+                            {[vehicle.car, vehicle.plate].filter(Boolean).join(' · ') || 'Авто'}
                           </button>
                         );
                       })}
@@ -10823,7 +10823,7 @@ paymentSettled: false,
                   </div>
                 )}
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЈСЃР»СѓРіР°</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Услуга</label>
                   <ServiceSearchSelect
                     value={ownerNewBookingForm.serviceId}
                     services={services}
@@ -10855,11 +10855,11 @@ paymentSettled: false,
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
                     <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.price)} onChange={e => setOwnerNewBookingForm(p => ({ ...p, price: numberFromInput(e.target.value) }))} />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚. (РјРёРЅ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Длит. (мин)</label>
                     <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.duration)} onChange={e => {
                       const nextDuration = numberFromInput(e.target.value);
                       setOwnerNewBookingForm(p => ({
@@ -10871,10 +10871,10 @@ paymentSettled: false,
                   </div>
                 </div>
                 <div className={`rounded-2xl px-3 py-3 text-sm ${glass}`}>
-                  Р”Р»СЏ Р±Р°Р·С‹ РєР»РёРµРЅС‚РѕРІ РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ СЃС‚Р°С‚СѓСЃ "РџСЂРѕС€Р»Р°СЏ Р·Р°РІРµСЂС€С‘РЅРЅР°СЏ": С‚Р°РєР°СЏ Р·Р°РїРёСЃСЊ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РІ РёСЃС‚РѕСЂРёРё Рё Р±СѓРґРµС‚ РІРёРґРЅР° РєР»РёРµРЅС‚Сѓ РїРѕСЃР»Рµ РїРµСЂРІРѕРіРѕ РІС…РѕРґР° РїРѕ СЌС‚РѕРјСѓ С‚РµР»РµС„РѕРЅСѓ.
+                  Для базы клиентов можно выбрать статус "Прошлая завершённая": такая запись сохраняется в истории и будет видна клиенту после первого входа по этому телефону.
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЎС‚Р°С‚СѓСЃ Р·Р°РїРёСЃРё</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Статус записи</label>
                   <select
                     className={selectCls}
                     value={ownerNewBookingForm.status}
@@ -10906,7 +10906,7 @@ paymentSettled: false,
                   </select>
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р° (РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РїСЂРѕС€Р»СѓСЋ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата (можно выбрать прошлую)</label>
                   <input className={inputCls} type="date" value={toISODate(ownerNewBookingForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     const nextDate = val ? formatDate(val) : e.target.value;
@@ -10920,7 +10920,7 @@ paymentSettled: false,
                   {ownerNewBookingErrors.date && <div className="mt-1 text-xs text-red-500">{ownerNewBookingErrors.date}</div>}
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р’СЂРµРјСЏ (РІС‹РїР°РґР°СЋС‰РёР№ СЃРїРёСЃРѕРє)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Время (выпадающий список)</label>
                   <select className={selectCls} value={ownerNewBookingForm.time} onChange={e => {
                     const nextTime = e.target.value;
                     setOwnerNewBookingForm(p => ({
@@ -10945,11 +10945,11 @@ paymentSettled: false,
                 ) : (
                   <div>
                     <label className={`text-xs ${sub} block mb-1`}>{ownerNewBookingLocationLabel}</label>
-                    <div className={`${inputCls} ${sub}`}>РџРѕРјРµС‰РµРЅРёРµ РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РїРѕР·Р¶Рµ, РєРѕРіРґР° Р±СѓРґРµС‚ СЃРѕРіР»Р°СЃРѕРІР°РЅРѕ РІСЂРµРјСЏ</div>
+                    <div className={`${inputCls} ${sub}`}>Помещение можно выбрать позже, когда будет согласовано время</div>
                   </div>
                 )}
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РђСѓС‚СЃРѕСЂСЃ</span>
+                  <span>Аутсорс</span>
                   <input
                     type="checkbox"
                     checked={ownerNewBookingForm.isOutsource}
@@ -10962,7 +10962,7 @@ paymentSettled: false,
                 </label>
                 {ownerNewBookingForm.isOutsource && (
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° Р°СѓС‚СЃРѕСЂСЃРµСЂСѓ (в‚Ѕ)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Сумма аутсорсеру (₽)</label>
                     <input className={inputCls} type="number" value={numberInputValue(ownerNewBookingForm.outsourceAmount)}
                       onChange={e => setOwnerNewBookingForm(p => ({ ...p, outsourceAmount: numberFromInput(e.target.value) }))} />
                   </div>
@@ -10973,8 +10973,8 @@ paymentSettled: false,
                   return (
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className={`text-xs ${sub} block`}>РќР°Р·РЅР°С‡РёС‚СЊ РјР°СЃС‚РµСЂРѕРІ</label>
-                    <span className={`text-xs ${sub}`}>{_isFixed ? `Р¤РёРєСЃ ${formatFixedMasterAmount()}` : ownerNewBookingWorkers.some(w => w.payType === 'fixed') ? `Р’С‹Р±СЂР°РЅРѕ: ${ownerNewBookingWorkers.length}` : `РЎСѓРјРјР°: ${totalOwnerNewBookingPercent}%`}</span>
+                    <label className={`text-xs ${sub} block`}>Назначить мастеров</label>
+                    <span className={`text-xs ${sub}`}>{_isFixed ? `Фикс ${formatFixedMasterAmount()}` : ownerNewBookingWorkers.some(w => w.payType === 'fixed') ? `Выбрано: ${ownerNewBookingWorkers.length}` : `Сумма: ${totalOwnerNewBookingPercent}%`}</span>
                   </div>
                   <div className="space-y-2">
                     {ownerNewBookingMasterWorkers.map(worker => {
@@ -10996,7 +10996,7 @@ paymentSettled: false,
                               className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
                               style={assigned ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}
                             >
-                              {assigned ? 'Р’С‹Р±СЂР°РЅ' : 'Р’С‹Р±СЂР°С‚СЊ'}
+                              {assigned ? 'Выбран' : 'Выбрать'}
                             </button>
                           </div>
                           {assigned && (
@@ -11006,13 +11006,13 @@ paymentSettled: false,
                               ) : (
                                 <>
                                   <button onClick={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'fixed', fixedAmount: 0 } : item))}
-                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>в‚Ѕ</button>
+                                    className={`text-xs px-2 py-1 rounded ${assigned.payType === 'fixed' ? 'bg-indigo-600 text-white' : glass}`}>₽</button>
                                   <button onClick={() => setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, payType: 'percent', fixedAmount: undefined } : item))}
                                     className={`text-xs px-2 py-1 rounded ${assigned.payType === 'percent' ? 'bg-indigo-600 text-white' : glass}`}>%</button>
                                   {assigned.payType === 'fixed' ? (
                                     <input type="number" min={0} value={assigned.fixedAmount ?? ''}
                                       onChange={e => { const r = e.target.value; if (r === '') { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: undefined } : item)); return; } const n = parseInt(r); if (!isNaN(n)) { setOwnerNewBookingWorkers(current => current.map(item => item.id === worker.id ? { ...item, fixedAmount: Math.max(0, n) } : item)); } }}
-                                      className={`flex-1 ${inputCls} py-1.5`} placeholder="СЃСѓРјРјР°" />
+                                      className={`flex-1 ${inputCls} py-1.5`} placeholder="сумма" />
                                   ) : (
                                     <>
                                       <span className={`text-xs ${sub}`}>%</span>
@@ -11042,10 +11042,10 @@ paymentSettled: false,
                 {/* Materials section */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className={`text-xs ${sub} block`}>РњР°С‚РµСЂРёР°Р»С‹</label>
+                    <label className={`text-xs ${sub} block`}>Материалы</label>
                     <button onClick={() => { setOwnerMaterialPickerCategory(null); setShowOwnerMaterialPicker(true); }}
                       className="px-3 py-1 rounded-lg text-xs transition-all shrink-0"
-                      style={{ background: `${primary}15`, color: primary }}>+ Р’С‹Р±СЂР°С‚СЊ РјР°С‚РµСЂРёР°Р»</button>
+                      style={{ background: `${primary}15`, color: primary }}>+ Выбрать материал</button>
                   </div>
                   {ownerNewBookingMaterials.length > 0 && (
                     <div className="space-y-2 mb-2">
@@ -11056,7 +11056,7 @@ paymentSettled: false,
                         <div key={idx} className={`${glass} rounded-xl px-3 py-2 flex items-center justify-between gap-2`}>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium">{mat.name}</div>
-                            <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} Г— {mat.unitPrice.toLocaleString('ru')} в‚Ѕ = {(safeQty * mat.unitPrice).toLocaleString('ru')} в‚Ѕ</div>
+                            <div className={`text-xs ${sub}`}>{safeQty} {mat.unit} × {mat.unitPrice.toLocaleString('ru')} ₽ = {(safeQty * mat.unitPrice).toLocaleString('ru')} ₽</div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <input type="text" inputMode="decimal"
@@ -11086,7 +11086,7 @@ paymentSettled: false,
                     </div>
                   )}
                   {ownerNewBookingMaterials.length === 0 && (
-                    <div className={`text-xs ${sub} mb-2`}>РњР°С‚РµСЂРёР°Р»С‹ РЅРµ РІС‹Р±СЂР°РЅС‹</div>
+                    <div className={`text-xs ${sub} mb-2`}>Материалы не выбраны</div>
                   )}
                 </div>
                 {/* Material picker modal */}
@@ -11099,13 +11099,13 @@ paymentSettled: false,
                         className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-sm max-h-[60vh] flex flex-col`}>
                         <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                           <div className="flex justify-between items-center mb-2">
-                            <h3 className="font-semibold">Р’С‹Р±СЂР°С‚СЊ РјР°С‚РµСЂРёР°Р»</h3>
+                            <h3 className="font-semibold">Выбрать материал</h3>
                             <button onClick={() => setShowOwnerMaterialPicker(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                           </div>
                           <div className="flex gap-1.5 flex-wrap">
                             <button onClick={() => setOwnerMaterialPickerCategory(null)}
                               className={`text-xs px-2.5 py-1 rounded-full ${!ownerMaterialPickerCategory ? 'text-white font-medium' : glass}`}
-                              style={!ownerMaterialPickerCategory ? { background: primary } : {}}>Р’СЃРµ</button>
+                              style={!ownerMaterialPickerCategory ? { background: primary } : {}}>Все</button>
                             {stockCategories.filter(c => !c.parentId).map(cat => (
                               <button key={cat.id} onClick={() => setOwnerMaterialPickerCategory(cat.id)}
                                 className={`text-xs px-2.5 py-1 rounded-full ${ownerMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
@@ -11125,7 +11125,7 @@ paymentSettled: false,
                               <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
                                 <div className="min-w-0 flex-1">
                                   <div className="text-sm font-medium">{item.name}</div>
-                                  <div className={`text-xs ${sub}`}>Р’ РЅР°Р»РёС‡РёРё: {item.qty} {item.unit} В· {item.unitPrice.toLocaleString('ru')} в‚Ѕ/{item.unit}</div>
+                                  <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
                                 </div>
                                 <button onClick={() => {
                                   if (!ownerNewBookingMaterials.find(m => m.stockItemId === item.id)) {
@@ -11134,7 +11134,7 @@ paymentSettled: false,
                                   setShowOwnerMaterialPicker(false);
                                 }}
                                   className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
-                                  style={{ background: primary }}>Р’С‹Р±СЂР°С‚СЊ</button>
+                                  style={{ background: primary }}>Выбрать</button>
                               </div>
                             ))}
                           {stockItems.filter(item => {
@@ -11142,7 +11142,7 @@ paymentSettled: false,
                             const catIds = stockCategoryIdsWithDescendants(ownerMaterialPickerCategory, stockCategories);
                             return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === ownerMaterialPickerCategory)?.name;
                           }).filter(item => item.qty > 0).length === 0 && (
-                            <div className={`text-sm ${sub} text-center py-6`}>РќРµС‚ РјР°С‚РµСЂРёР°Р»РѕРІ РІ СЌС‚РѕР№ РєР°С‚РµРіРѕСЂРёРё</div>
+                            <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
                           )}
                         </div>
                       </motion.div>
@@ -11150,17 +11150,17 @@ paymentSettled: false,
                   )}
                 </AnimatePresence>
                 {!ownerNewBookingForm.isOutsource && !isFixedMasterService(services, ownerNewBookingForm.service, services.find(s => s.id === ownerNewBookingForm.service)?.name) && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100 && (
-                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />РЎСѓРјРјР° РїСЂРѕС†РµРЅС‚РѕРІ РјР°СЃС‚РµСЂРѕРІ РїСЂРµРІС‹С€Р°РµС‚ 100%</div>
+                  <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />Сумма процентов мастеров превышает 100%</div>
                 )}
                 {ownerNewBookingErrors.general && (
                   <div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14} strokeWidth={1.75} />{ownerNewBookingErrors.general}</div>
                 )}
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="Р”РѕРї. РёРЅС„РѕСЂРјР°С†РёСЏ..." value={ownerNewBookingForm.notes} onChange={e => setOwnerNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                  <input className={inputCls} placeholder="Доп. информация..." value={ownerNewBookingForm.notes} onChange={e => setOwnerNewBookingForm(p => ({ ...p, notes: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°Рє СѓР·РЅР°Р» Рѕ РЅР°СЃ</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Как узнал о нас</label>
                   <select className={selectCls} value={ownerNewBookingForm.referralSource} onChange={e => setOwnerNewBookingForm(p => ({ ...p, referralSource: e.target.value }))}>
                     {REFERRAL_SOURCES.map((source) => (
                       <option key={source.value} value={source.value}>{source.label}</option>
@@ -11168,7 +11168,7 @@ paymentSettled: false,
                   </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РџРѕРІС‚РѕСЂРЅС‹Р№ РІРёР·РёС‚</span>
+                  <span>Повторный визит</span>
                   <input
                     type="checkbox"
                     checked={ownerNewBookingForm.isRepeatVisit}
@@ -11176,15 +11176,15 @@ paymentSettled: false,
                   />
                 </label>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЎРїРѕСЃРѕР± РѕРїР»Р°С‚С‹</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Способ оплаты</label>
                   <select className={selectCls} value={ownerNewBookingForm.paymentType} onChange={e => setOwnerNewBookingForm(p => ({ ...p, paymentType: e.target.value as 'cash' | 'transfer' | 'invoice' }))}>
-                    <option value="cash">РќР°Р»РёС‡РЅС‹Рµ</option>
-                    <option value="transfer">РџРµСЂРµРІРѕРґ</option>
-                    <option value="invoice">РџРѕ СЃС‡С‘С‚Сѓ</option>
+                    <option value="cash">Наличные</option>
+                    <option value="transfer">Перевод</option>
+                    <option value="invoice">По счёту</option>
                   </select>
                 </div>
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                  <span>РћРїР»Р°С‡РµРЅРѕ</span>
+                  <span>Оплачено</span>
                   <input
                     type="checkbox"
                     checked={ownerNewBookingForm.paymentSettled}
@@ -11194,10 +11194,10 @@ paymentSettled: false,
               </div>
               <div className="p-4 space-y-2">
                 <button onClick={() => { void handleSaveOwnerNewBooking(true); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50 min-h-[44px] min-w-[44px]" style={{ background: primary }}>
-                  {ownerNewBookingSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ Рё СѓРІРµРґРѕРјРёС‚СЊ'}
+                  {ownerNewBookingSaving ? 'Сохранение...' : 'Сохранить и уведомить'}
                 </button>
                 <button onClick={() => { void handleSaveOwnerNewBooking(false); }} disabled={!ownerNewBookingForm.serviceId || (!ownerNewBookingForm.isOutsource && ownerNewBookingWorkers.some(w => w.payType !== 'fixed') && totalOwnerNewBookingPercent > 100) || ownerNewBookingSaving} className={`w-full py-3 rounded-2xl font-medium ${glass} disabled:opacity-50 min-h-[44px] min-w-[44px]`}>
-                  РЎРѕС…СЂР°РЅРёС‚СЊ Р±РµР· СѓРІРµРґРѕРјР»РµРЅРёСЏ
+                  Сохранить без уведомления
                 </button>
               </div>
               </div>{/* end overflow-y-auto */}
@@ -11215,14 +11215,14 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl w-full max-w-md max-h-[70vh] flex flex-col`}>
               <div className="p-4 border-b shrink-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold">РќР°Р№РґРµРЅРЅС‹Рµ РєР»РёРµРЅС‚С‹</h3>
+                  <h3 className="font-semibold">Найденные клиенты</h3>
                   <button onClick={() => setShowOwnerClientSearch(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className={`text-xs ${sub}`}>
                   {(() => {
                     const q = ownerNewBookingForm.clientName.trim().toLowerCase();
                     const matches = q ? clients.filter(c => c.name.toLowerCase().includes(q)) : [];
-                    return matches.length > 0 ? `РќР°Р№РґРµРЅРѕ ${matches.length} РєР»РёРµРЅС‚${matches.length === 1 ? '' : 'РѕРІ'}` : 'Р’РІРµРґРёС‚Рµ РёРјСЏ РґР»СЏ РїРѕРёСЃРєР°';
+                    return matches.length > 0 ? `Найдено ${matches.length} клиент${matches.length === 1 ? '' : 'ов'}` : 'Введите имя для поиска';
                   })()}
                 </div>
               </div>
@@ -11244,7 +11244,7 @@ paymentSettled: false,
                         return clientVehicles.length > 0 ? (
                           <div className={`text-xs ${sub} mt-0.5`}>
                             {clientVehicles.map((vehicle, vehicleIndex) => (
-                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' вЂў ') || 'РђРІС‚Рѕ'}</div>
+                              <div key={vehicleIndex}>{[vehicle.car, vehicle.plate].filter(Boolean).join(' • ') || 'Авто'}</div>
                             ))}
                           </div>
                         ) : null;
@@ -11252,7 +11252,7 @@ paymentSettled: false,
                     </button>
                   )) : (
                     <div className={`text-sm ${sub} text-center py-8`}>
-                      {q ? 'РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ' : 'РќР°С‡РЅРёС‚Рµ РІРІРѕРґРёС‚СЊ РёРјСЏ РєР»РёРµРЅС‚Р°'}
+                      {q ? 'Ничего не найдено' : 'Начните вводить имя клиента'}
                     </div>
                   );
                 })()}
@@ -11285,47 +11285,47 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ СЂР°СЃС…РѕРґ</h3>
+                <h3 className="font-semibold">Редактировать расход</h3>
                 <button onClick={() => setEditingExpense(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="РќР°Р·РІР°РЅРёРµ СЂР°СЃС…РѕРґР°..." value={editExpenseForm.title} onChange={e => setEditExpenseForm(p => ({ ...p, title: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Название</label>
+                  <input className={inputCls} placeholder="Название расхода..." value={editExpenseForm.title} onChange={e => setEditExpenseForm(p => ({ ...p, title: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° (в‚Ѕ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label>
                   <input className={inputCls} type="number" placeholder="0" value={editExpenseForm.amount} onChange={e => setEditExpenseForm(p => ({ ...p, amount: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория</label>
                   <select className={selectCls} value={editExpenseForm.category} onChange={e => setEditExpenseForm(p => ({ ...p, category: e.target.value }))}>
                     {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р° (Р”Р”.РњРњ.Р“Р“Р“Р“)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата (ДД.ММ.ГГГГ)</label>
                   <input className={inputCls} type="date" value={toISODate(editExpenseForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setEditExpenseForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                   {editExpenseForm.date && !/^\d{2}\.\d{2}\.\d{4}$/.test(editExpenseForm.date) && (
-                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Р’РІРµРґРёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“</p>
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ..." value={editExpenseForm.note} onChange={e => setEditExpenseForm(p => ({ ...p, note: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                  <input className={inputCls} placeholder="Необязательно..." value={editExpenseForm.note} onChange={e => setEditExpenseForm(p => ({ ...p, note: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ СѓСЃР»СѓРіРё</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
                   <select className={selectCls} value={editExpenseForm.resourceGroup} onChange={e => setEditExpenseForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
-                    <option value="">РћР±С‰РµРµ</option>
-                    <option value="wash">РђРІС‚РѕРјРѕР№РєР°</option>
-                    <option value="detailing">Р”РµС‚РµР№Р»РёРЅРі</option>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
                   </select>
                   {editExpenseForm.resourceGroup && (
-                    <p className="text-[11px] mt-1.5" style={{ color: accent }}>РЎРїРёСЃР°РЅРёРµ РёР· РєРѕРїРёР»РєРё {editExpenseForm.resourceGroup === 'wash' ? 'рџљ— РњРѕР№РєР°' : 'вњЁ Р”РµС‚РµР№Р»РёРЅРі'}</p>
+                    <p className="text-[11px] mt-1.5" style={{ color: accent }}>Списание из копилки {editExpenseForm.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}</p>
                   )}
                 </div>
               </div>
@@ -11340,7 +11340,7 @@ paymentSettled: false,
                   onClick={() => setEditingExpense(null)}
                   className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}
                 >
-                  РћС‚РјРµРЅР°
+                  Отмена
                 </button>
                 <button
                   onClick={() => { void handleSaveExpense(); }}
@@ -11349,8 +11349,8 @@ paymentSettled: false,
                   style={{ background: '#FF6B6B' }}
                 >
                   {editFinanceLoading ? (
-                    <><RefreshCw size={14} strokeWidth={1.75} className="animate-spin" /> РЎРѕС…СЂР°РЅРµРЅРёРµ...</>
-                  ) : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                    <><RefreshCw size={14} strokeWidth={1.75} className="animate-spin" /> Сохранение...</>
+                  ) : 'Сохранить'}
                 </button>
               </div>
             </motion.div>
@@ -11366,38 +11366,38 @@ paymentSettled: false,
               className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РґРѕС…РѕРґ</h3>
+                <h3 className="font-semibold">Редактировать доход</h3>
                 <button onClick={() => setEditingIncome(null)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° (в‚Ѕ)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label>
                   <input className={inputCls} type="number" placeholder="0" value={editIncomeForm.amount} onChange={e => setEditIncomeForm(p => ({ ...p, amount: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РСЃС‚РѕС‡РЅРёРє / РѕРїРёСЃР°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="РђСЂРµРЅРґР°, РїСЂРѕРґР°Р¶Р° С‚РѕРІР°СЂР°..." value={editIncomeForm.source} onChange={e => setEditIncomeForm(p => ({ ...p, source: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Источник / описание</label>
+                  <input className={inputCls} placeholder="Аренда, продажа товара..." value={editIncomeForm.source} onChange={e => setEditIncomeForm(p => ({ ...p, source: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Р”Р°С‚Р° (Р”Р”.РњРњ.Р“Р“Р“Р“)</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Дата (ДД.ММ.ГГГГ)</label>
                   <input className={inputCls} type="date" value={toISODate(editIncomeForm.date)} onChange={e => {
                     const val = parseFlexibleDate(e.target.value);
                     setEditIncomeForm(p => ({ ...p, date: val ? formatDate(val) : e.target.value }));
                   }} />
                   {editIncomeForm.date && !/^\d{2}\.\d{2}\.\d{4}$/.test(editIncomeForm.date) && (
-                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Р’РІРµРґРёС‚Рµ РґР°С‚Сѓ РІ С„РѕСЂРјР°С‚Рµ Р”Р”.РњРњ.Р“Р“Р“Р“</p>
+                    <p className="text-xs mt-1" style={{ color: '#FF6B6B' }}>Введите дату в формате ДД.ММ.ГГГГ</p>
                   )}
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РџСЂРёРјРµС‡Р°РЅРёРµ</label>
-                  <input className={inputCls} placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ..." value={editIncomeForm.note} onChange={e => setEditIncomeForm(p => ({ ...p, note: e.target.value }))} />
+                  <label className={`text-xs ${sub} block mb-1`}>Примечание</label>
+                  <input className={inputCls} placeholder="Необязательно..." value={editIncomeForm.note} onChange={e => setEditIncomeForm(p => ({ ...p, note: e.target.value }))} />
                 </div>
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>РљР°С‚РµРіРѕСЂРёСЏ СѓСЃР»СѓРіРё</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория услуги</label>
                   <select className={selectCls} value={editIncomeForm.resourceGroup} onChange={e => setEditIncomeForm(p => ({ ...p, resourceGroup: e.target.value as '' | 'wash' | 'detailing' }))}>
-                    <option value="">РћР±С‰РµРµ</option>
-                    <option value="wash">РђРІС‚РѕРјРѕР№РєР°</option>
-                    <option value="detailing">Р”РµС‚РµР№Р»РёРЅРі</option>
+                    <option value="">Общее</option>
+                    <option value="wash">Автомойка</option>
+                    <option value="detailing">Детейлинг</option>
                   </select>
                 </div>
               </div>
@@ -11412,7 +11412,7 @@ paymentSettled: false,
                   onClick={() => setEditingIncome(null)}
                   className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}
                 >
-                  РћС‚РјРµРЅР°
+                  Отмена
                 </button>
                 <button
                   onClick={() => { void handleSaveIncome(); }}
@@ -11421,8 +11421,8 @@ paymentSettled: false,
                   style={{ background: primary }}
                 >
                   {editFinanceLoading ? (
-                    <><RefreshCw size={14} strokeWidth={1.75} className="animate-spin" /> РЎРѕС…СЂР°РЅРµРЅРёРµ...</>
-                  ) : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
+                    <><RefreshCw size={14} strokeWidth={1.75} className="animate-spin" /> Сохранение...</>
+                  ) : 'Сохранить'}
                 </button>
               </div>
             </motion.div>
@@ -11482,13 +11482,13 @@ paymentSettled: false,
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold">РќР°СЃС‚СЂРѕР№РєР° СѓСЃР»СѓРіРё</h3>
+                  <h3 className="font-semibold">Настройка услуги</h3>
                   <button onClick={() => setShowServiceSettings(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="mb-4">
                   <div className="relative">
                     <Search size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
-                    <input className={`${inputCls} pl-9`} type="text" placeholder="РџРѕРёСЃРє СѓСЃР»СѓРі..." value={serviceEditSearchQuery} onChange={e => { setServiceEditSearchQuery(e.target.value); setShowServiceMaterialPicker(false); }} />
+                    <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={serviceEditSearchQuery} onChange={e => { setServiceEditSearchQuery(e.target.value); setShowServiceMaterialPicker(false); }} />
                   </div>
                   {(() => {
                     const q = serviceEditSearchQuery.trim().toLowerCase();
@@ -11499,7 +11499,7 @@ paymentSettled: false,
                     return (
                       <div className={`${isDark ? 'bg-[#1C1C1F] border border-white/10' : 'bg-white border border-black/5 shadow-sm'} mt-1 rounded-2xl max-h-48 overflow-y-auto`}>
                         {matches.length === 0 ? (
-                          <div className={`px-4 py-3 text-sm ${sub}`}>РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ</div>
+                          <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>
                         ) : (
                           matches.map((m) => {
                             const active = m.id === editingServiceId;
@@ -11526,11 +11526,11 @@ paymentSettled: false,
                 <div className="space-y-4 mb-5">
                   {showServiceMaterialPicker ? (
                     <div>
-                      <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Р’С‹Р±РѕСЂ РјР°С‚РµСЂРёР°Р»Р° СЃРѕ СЃРєР»Р°РґР°</div>
+                      <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Выбор материала со склада</div>
                       <div className="overflow-x-auto pb-1 flex gap-1.5 mb-2">
                         <button onClick={() => setServiceMaterialPickerCategory(null)}
                           className={`text-xs px-2.5 py-1 rounded-full ${!serviceMaterialPickerCategory ? 'text-white font-medium' : glass}`}
-                          style={!serviceMaterialPickerCategory ? { background: primary } : {}}>Р’СЃРµ</button>
+                          style={!serviceMaterialPickerCategory ? { background: primary } : {}}>Все</button>
                         {stockCategories.filter(c => !c.parentId).map(cat => (
                           <button key={cat.id} onClick={() => setServiceMaterialPickerCategory(cat.id)}
                             className={`text-xs px-2.5 py-1 rounded-full ${serviceMaterialPickerCategory === cat.id ? 'text-white font-medium' : glass}`}
@@ -11549,7 +11549,7 @@ paymentSettled: false,
                             <div key={item.id} className={`${glass} rounded-xl p-3 flex items-center justify-between gap-3`}>
                               <div className="min-w-0 flex-1">
                                 <div className="text-sm font-medium">{item.name}</div>
-                                <div className={`text-xs ${sub}`}>Р’ РЅР°Р»РёС‡РёРё: {item.qty} {item.unit} В· {item.unitPrice.toLocaleString('ru')} в‚Ѕ/{item.unit}</div>
+                                <div className={`text-xs ${sub}`}>В наличии: {item.qty} {item.unit} · {item.unitPrice.toLocaleString('ru')} ₽/{item.unit}</div>
                               </div>
                               <button onClick={() => {
                                 if (!(svc.materials ?? []).some(m => m.stockItemId === item.id)) {
@@ -11558,7 +11558,7 @@ paymentSettled: false,
                                 setShowServiceMaterialPicker(false);
                               }}
                                 className="px-3 py-1.5 rounded-lg text-xs shrink-0 text-white"
-                                style={{ background: primary }}>Р’С‹Р±СЂР°С‚СЊ</button>
+                                style={{ background: primary }}>Выбрать</button>
                             </div>
                           ))}
                         {stockItems.filter(item => {
@@ -11566,22 +11566,22 @@ paymentSettled: false,
                           const catIds = stockCategoryIdsWithDescendants(serviceMaterialPickerCategory, stockCategories);
                           return item.categoryId ? catIds.includes(item.categoryId) : item.category === stockCategories.find(c => c.id === serviceMaterialPickerCategory)?.name;
                         }).filter(item => item.qty > 0).length === 0 && (
-                          <div className={`text-sm ${sub} text-center py-6`}>РќРµС‚ РјР°С‚РµСЂРёР°Р»РѕРІ РІ СЌС‚РѕР№ РєР°С‚РµРіРѕСЂРёРё</div>
+                          <div className={`text-sm ${sub} text-center py-6`}>Нет материалов в этой категории</div>
                         )}
                       </div>
-                      <button onClick={() => setShowServiceMaterialPicker(false)} className={`mt-3 w-full py-2.5 rounded-xl text-sm ${glass}`}>РќР°Р·Р°Рґ Рє РЅР°СЃС‚СЂРѕР№РєР°Рј</button>
+                      <button onClick={() => setShowServiceMaterialPicker(false)} className={`mt-3 w-full py-2.5 rounded-xl text-sm ${glass}`}>Назад к настройкам</button>
                     </div>
                   ) : (
                   <>
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>РћСЃРЅРѕРІРЅРѕРµ</div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Основное</div>
                     <div className="space-y-2">
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Название</label>
                         <input className={inputCls} value={svc.name} onChange={e => patch({ name: e.target.value })} />
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РўРёРї СѓСЃР»СѓРіРё</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
                         <select
                           className={selectCls}
                           value={svc.category}
@@ -11594,26 +11594,26 @@ paymentSettled: false,
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
                           <input className={inputCls} type="number" value={numberInputValue(svc.price)} onChange={e => patch({ price: numberFromInput(e.target.value) })} />
                         </div>
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ (РјРёРЅ)</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
                           <input className={inputCls} type="number" value={numberInputValue(svc.duration)} onChange={e => patch({ duration: numberFromInput(e.target.value) })} />
                         </div>
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РћРїРёСЃР°РЅРёРµ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                         <input className={inputCls} value={svc.desc} onChange={e => patch({ desc: e.target.value })} />
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РґРµРЅРµРі</div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Распределение денег</div>
                     <div className="space-y-2">
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РњР°С‚РµСЂРёР°Р»С‹ СЃРѕ СЃРєР»Р°РґР° (СЃРїРёСЃС‹РІР°СЋС‚СЃСЏ РїСЂРё Р·Р°РІРµСЂС€РµРЅРёРё Р·Р°РїРёСЃРё)</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Материалы со склада (списываются при завершении записи)</label>
                         {(svc.materials ?? []).length > 0 && (
                           <div className="space-y-1.5 mb-2">
                             {svc.materials!.map((mat, mi) => {
@@ -11625,9 +11625,9 @@ paymentSettled: false,
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-medium truncate">{mat.name}</div>
                                     <div className={`text-xs ${sub}`}>
-                                      {stockItem ? `Р’ РЅР°Р»РёС‡РёРё: ${stockItem.qty} ${stockItem.unit} В· ${stockItem.unitPrice.toLocaleString('ru')} в‚Ѕ/${stockItem.unit}` : 'РџРѕР·РёС†РёСЏ СѓРґР°Р»РµРЅР° СЃРѕ СЃРєР»Р°РґР°'}
+                                      {stockItem ? `В наличии: ${stockItem.qty} ${stockItem.unit} · ${stockItem.unitPrice.toLocaleString('ru')} ₽/${stockItem.unit}` : 'Позиция удалена со склада'}
                                     </div>
-                                    {insufficient && <div className="text-xs text-red-500">РќР° СЃРєР»Р°РґРµ С‚РѕР»СЊРєРѕ {stockItem!.qty} {stockItem!.unit}</div>}
+                                    {insufficient && <div className="text-xs text-red-500">На складе только {stockItem!.qty} {stockItem!.unit}</div>}
                                   </div>
                                   <div className="flex items-center gap-1 shrink-0">
                                     <input className={`${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-lg px-1.5 py-1 w-14 text-right text-sm outline-none shrink-0`} type="number" min="0" step="0.1" value={numberInputValue(mat.qty)} onChange={e => patchMaterialQty(mi, e.target.value ? Number(e.target.value) : 0)} />
@@ -11640,63 +11640,63 @@ paymentSettled: false,
                           </div>
                         )}
                         <button onClick={() => setShowServiceMaterialPicker(true)} className={`w-full py-2 rounded-xl text-sm ${glass} flex items-center justify-center gap-1.5`} style={{ color: primary }}>
-                          <Plus size={14} strokeWidth={1.75} /> Р”РѕР±Р°РІРёС‚СЊ РјР°С‚РµСЂРёР°Р»
+                          <Plus size={14} strokeWidth={1.75} /> Добавить материал
                         </button>
                         {svcMaterialsCost > 0 && (
                           <div className={`text-xs mt-1.5 flex justify-between ${sub}`}>
-                            <span>РЎС‚РѕРёРјРѕСЃС‚СЊ РјР°С‚РµСЂРёР°Р»РѕРІ (РїРѕ С†РµРЅР°Рј СЃРєР»Р°РґР°)</span>
-                            <span className="font-medium text-slate-400">{Math.round(svcMaterialsCost).toLocaleString('ru')} в‚Ѕ</span>
+                            <span>Стоимость материалов (по ценам склада)</span>
+                            <span className="font-medium text-slate-400">{Math.round(svcMaterialsCost).toLocaleString('ru')} ₽</span>
                           </div>
                         )}
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РћРїР»Р°С‚Р° РјР°СЃС‚РµСЂСѓ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
                         <select className={selectCls} value={svc.masterPayType || ''} onChange={e => patch({ masterPayType: e.target.value })}>
-                          <option value="">% РёР· РїСЂРѕС„РёР»СЏ (РєР°Рє СЃРµР№С‡Р°СЃ)</option>
-                          <option value="percent">% РѕС‚ С†РµРЅС‹ (РѕР±С‰Р°СЏ, РґРµР»РёС‚СЃСЏ РјРµР¶РґСѓ РјР°СЃС‚РµСЂР°РјРё)</option>
-                          <option value="fixed">Р¤РёРєСЃРёСЂРѕРІР°РЅРЅР°СЏ СЃСѓРјРјР° (РѕР±С‰Р°СЏ)</option>
+                          <option value="">% из профиля (как сейчас)</option>
+                          <option value="percent">% от цены (общая, делится между мастерами)</option>
+                          <option value="fixed">Фиксированная сумма (общая)</option>
                         </select>
                       </div>
                       {svc.masterPayType === 'fixed' && (
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РЎСѓРјРјР° РјР°СЃС‚РµСЂСѓ (в‚Ѕ)</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Сумма мастеру (₽)</label>
                           <input className={inputCls} type="number" value={numberInputValue(svc.masterPayValue ?? 0)} onChange={e => patch({ masterPayValue: numberFromInput(e.target.value) })} />
                         </div>
                       )}
                       {svc.masterPayType === 'percent' && (
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>РџСЂРѕС†РµРЅС‚ РјР°СЃС‚РµСЂСѓ (%)</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Процент мастеру (%)</label>
                           <input className={inputCls} type="number" value={numberInputValue(svc.masterPayValue ?? 0)} onChange={e => patch({ masterPayValue: numberFromInput(e.target.value) })} />
                         </div>
                       )}
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Р’ РєРѕРїРёР»РєСѓ</label>
+                        <label className={`text-xs ${sub} block mb-1`}>В копилку</label>
                         <select className={selectCls} value={svc.piggyPayType || ''} onChange={e => patch({ piggyPayType: e.target.value })}>
-                          <option value="">РЎС‚Р°РЅРґР°СЂС‚ (24%)</option>
-                          <option value="percent">% РѕС‚ С†РµРЅС‹</option>
-                          <option value="fixed">Р¤РёРєСЃРёСЂРѕРІР°РЅРЅР°СЏ СЃСѓРјРјР°</option>
-                          <option value="rest">Р’РµСЃСЊ РѕСЃС‚Р°С‚РѕРє</option>
-                          <option value="none">РќРµС‚</option>
+                          <option value="">Стандарт (24%)</option>
+                          <option value="percent">% от цены</option>
+                          <option value="fixed">Фиксированная сумма</option>
+                          <option value="rest">Весь остаток</option>
+                          <option value="none">Нет</option>
                         </select>
                       </div>
                       {svc.piggyPayType && svc.piggyPayType !== 'none' && svc.piggyPayType !== 'rest' && svc.piggyPayType !== '' && (
                         <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Р—РЅР°С‡РµРЅРёРµ ({svc.piggyPayType === 'fixed' ? 'в‚Ѕ' : '%'})</label>
+                          <label className={`text-xs ${sub} block mb-1`}>Значение ({svc.piggyPayType === 'fixed' ? '₽' : '%'})</label>
                           <input className={inputCls} type="number" value={numberInputValue(svc.piggyPayValue ?? 0)} onChange={e => patch({ piggyPayValue: numberFromInput(e.target.value) })} />
                         </div>
                       )}
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>РљСѓРґР° РїР°РґР°РµС‚ РґРµРїРѕР·РёС‚</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Куда падает депозит</label>
                         <select className={selectCls} value={svc.piggyTarget || ''} onChange={e => patch({ piggyTarget: e.target.value })}>
-                          <option value="">РђРІС‚Рѕ (РїРѕ С‚РёРїСѓ СѓСЃР»СѓРіРё)</option>
-                          <option value="wash">РњРѕР№РєР°</option>
-                          <option value="detailing">Р”РµС‚РµР№Р»РёРЅРі</option>
-                          <option value="general">РћР±С‰Р°СЏ</option>
+                          <option value="">Авто (по типу услуги)</option>
+                          <option value="wash">Мойка</option>
+                          <option value="detailing">Детейлинг</option>
+                          <option value="general">Общая</option>
                         </select>
                       </div>
                       <div className={`${glass} rounded-2xl p-3 space-y-2`}>
                         <label className="flex items-center justify-between gap-3 text-sm">
-                          <span>Р’Р»Р°РґРµР»СЊС†С‹ РїРѕР»СѓС‡Р°СЋС‚ РѕСЃС‚Р°С‚РѕРє</span>
+                          <span>Владельцы получают остаток</span>
                           <input
                             type="checkbox"
                             checked={svc.ownerSplitEnabled !== false}
@@ -11705,22 +11705,22 @@ paymentSettled: false,
                         </label>
                         {svc.ownerSplitEnabled !== false && (
                           <div>
-                            <label className={`text-xs ${sub} block mb-1`}>Р”РѕР»СЏ РІР»Р°РґРµР»СЊС†РµРІ</label>
+                            <label className={`text-xs ${sub} block mb-1`}>Доля владельцев</label>
                             <select className={selectCls} value={svc.ownerPayType || ''} onChange={e => patch({ ownerPayType: e.target.value })}>
-                              <option value="">Р’РµСЃСЊ РѕСЃС‚Р°С‚РѕРє (50/50)</option>
-                              <option value="percent">РџСЂРѕС†РµРЅС‚ РѕС‚ РѕСЃС‚Р°С‚РєР°</option>
+                              <option value="">Весь остаток (50/50)</option>
+                              <option value="percent">Процент от остатка</option>
                             </select>
                           </div>
                         )}
                         {svc.ownerSplitEnabled !== false && svc.ownerPayType === 'percent' && (
                           <div>
-                            <label className={`text-xs ${sub} block mb-1`}>РџСЂРѕС†РµРЅС‚ РІР»Р°РґРµР»СЊС†Р°Рј (%)</label>
+                            <label className={`text-xs ${sub} block mb-1`}>Процент владельцам (%)</label>
                             <input className={inputCls} type="number" value={numberInputValue(svc.ownerPayValue ?? 0)} onChange={e => patch({ ownerPayValue: numberFromInput(e.target.value) })} />
                           </div>
                         )}
                       </div>
                       <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3`}>
-                        <span>Р¤РёРєСЃ РѕРїР»Р°С‚Р° РјР°СЃС‚РµСЂСѓ ({formatFixedMasterAmount()})</span>
+                        <span>Фикс оплата мастеру ({formatFixedMasterAmount()})</span>
                         <input
                           type="checkbox"
                           checked={Boolean(svc.isFixedMaster)}
@@ -11731,17 +11731,17 @@ paymentSettled: false,
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>РџРѕСЂСЏРґРѕРє СЂР°СЃС‡С‘С‚Р°</div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Порядок расчёта</div>
                     <div className={`${glass} rounded-2xl p-3 space-y-1`}>
                       {(() => {
                         const pipelineActive = effectiveOrder.join(',') !== ORDER_STEPS.map(o => o.id).join(',');
                         return pipelineActive ? (
                           <div className="text-[11px] font-medium px-2 py-1 rounded-lg mb-1 bg-emerald-500/10 text-emerald-600">
-                            вњ“ РљРѕРЅРІРµР№РµСЂ: % СЃС‡РёС‚Р°СЋС‚СЃСЏ РѕС‚ С‚РµРєСѓС‰РµРіРѕ РѕСЃС‚Р°С‚РєР° РїРѕ С€Р°РіР°Рј
+                            ✓ Конвейер: % считаются от текущего остатка по шагам
                           </div>
                         ) : (
                           <div className="text-[11px] font-medium px-2 py-1 rounded-lg mb-1 bg-amber-500/10 text-amber-600">
-                            РљР»Р°СЃСЃРёС‡РµСЃРєРёР№ СЂРµР¶РёРј: % РѕС‚ РїРѕР»РЅРѕР№ Р±Р°Р·С‹ (РјР°С‚РµСЂРёР°Р»С‹ в†’ РјР°СЃС‚РµСЂР° в†’ РєРѕРїРёР»РєР° в†’ РІР»Р°РґРµР»СЊС†С‹). РџРµСЂРµСЃС‚Р°РІСЊС‚Рµ С€Р°РіРё вЂ” РІРєР»СЋС‡РёС‚СЃСЏ РєРѕРЅРІРµР№РµСЂ.
+                            Классический режим: % от полной базы (материалы → мастера → копилка → владельцы). Переставьте шаги — включится конвейер.
                           </div>
                         );
                       })()}
@@ -11763,11 +11763,11 @@ paymentSettled: false,
                         );
                       })}
                     </div>
-                    <p className={`text-xs ${sub} mt-1.5`}>% Рё 24% СЃС‡РёС‚Р°СЋС‚СЃСЏ РѕС‚ С‚РµРєСѓС‰РµРіРѕ РѕСЃС‚Р°С‚РєР° РІ СЌС‚РѕРј РїРѕСЂСЏРґРєРµ. Р’Р»Р°РґРµР»СЊС†С‹ Р·Р°Р±РёСЂР°СЋС‚ РІРµСЃСЊ РѕСЃС‚Р°С‚РѕРє, РµСЃР»Рё СЃС‚РѕСЏС‚ РїРѕСЃР»РµРґРЅРёРјРё (РёРЅР°С‡Рµ 50%).</p>
+                    <p className={`text-xs ${sub} mt-1.5`}>% и 24% считаются от текущего остатка в этом порядке. Владельцы забирают весь остаток, если стоят последними (иначе 50%).</p>
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РїСЂРё С†РµРЅРµ {samplePrice.toLocaleString('ru')} в‚Ѕ</div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Предпросмотр при цене {samplePrice.toLocaleString('ru')} ₽</div>
                     <div className={`${glass} rounded-2xl p-3 space-y-2`}>
                       <div className="h-2.5 rounded-full overflow-hidden flex">
                         {preview.materials > 0 && <div style={{ width: `${(preview.materials / total) * 100}%`, background: '#64748B' }} />}
@@ -11777,22 +11777,22 @@ paymentSettled: false,
                       </div>
                       <div className="text-xs space-y-1">
                         <div className="flex justify-between">
-                          <span className={sub}>Р¦РµРЅР°</span>
-                          <span>{samplePrice.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className={sub}>Цена</span>
+                          <span>{samplePrice.toLocaleString('ru')} ₽</span>
                         </div>
                         {preview.materials > 0 && (
                           <div className="flex justify-between">
-                            <span className={sub}>РњР°С‚РµСЂРёР°Р»С‹</span>
-                            <span className="text-slate-400">в€’ {preview.materials.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={sub}>Материалы</span>
+                            <span className="text-slate-400">− {preview.materials.toLocaleString('ru')} ₽</span>
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span className={sub}>РњР°СЃС‚РµСЂР° ({preview.masterLabel})</span>
-                          <span style={{ color: accent }}>{preview.master.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className={sub}>Мастера ({preview.masterLabel})</span>
+                          <span style={{ color: accent }}>{preview.master.toLocaleString('ru')} ₽</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className={sub}>РљРѕРїРёР»РєР° ({preview.piggyLabel})</span>
-                          <span style={{ color: '#EAB308' }}>{preview.piggy.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className={sub}>Копилка ({preview.piggyLabel})</span>
+                          <span style={{ color: '#EAB308' }}>{preview.piggy.toLocaleString('ru')} ₽</span>
                         </div>
                         {preview.owners > 0 ? (
                           <>
@@ -11802,16 +11802,16 @@ paymentSettled: false,
                               return (
                                 <>
                                   <div className="flex justify-between">
-                                    <span className={sub}>РњР°РєСЃРёРј</span>
-                                    <span style={{ color: primary }}>{ownerFirst.toLocaleString('ru')} в‚Ѕ</span>
+                                    <span className={sub}>Максим</span>
+                                    <span style={{ color: primary }}>{ownerFirst.toLocaleString('ru')} ₽</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className={sub}>Р®СЂР°</span>
-                                    <span style={{ color: primary }}>{ownerHalf.toLocaleString('ru')} в‚Ѕ</span>
+                                    <span className={sub}>Юра</span>
+                                    <span style={{ color: primary }}>{ownerHalf.toLocaleString('ru')} ₽</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className={sub}>Р’Р»Р°РґРµР»СЊС†С‹ ({preview.ownersLabel})</span>
-                                    <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} в‚Ѕ</span>
+                                    <span className={sub}>Владельцы ({preview.ownersLabel})</span>
+                                    <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
                                   </div>
                                 </>
                               );
@@ -11819,31 +11819,31 @@ paymentSettled: false,
                           </>
                         ) : (
                           <div className="flex justify-between">
-                            <span className={sub}>Р’Р»Р°РґРµР»СЊС†С‹ ({preview.ownersLabel})</span>
-                            <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={sub}>Владельцы ({preview.ownersLabel})</span>
+                            <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
                           </div>
                         )}
                         <div className="border-t pt-1 flex justify-between" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
-                          <span className={sub}>РС‚РѕРіРѕ СЂР°СЃРїСЂРµРґРµР»РµРЅРѕ</span>
-                          <span className="font-medium">{distributed.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className={sub}>Итого распределено</span>
+                          <span className="font-medium">{distributed.toLocaleString('ru')} ₽</span>
                         </div>
                         {distributed < samplePrice - 1 && (
                           <div className="flex justify-between text-xs">
-                            <span className={sub}>РќРµ СЂР°СЃРїСЂРµРґРµР»РµРЅРѕ</span>
-                            <span className="font-medium text-red-500">{(samplePrice - distributed).toLocaleString('ru')} в‚Ѕ</span>
+                            <span className={sub}>Не распределено</span>
+                            <span className="font-medium text-red-500">{(samplePrice - distributed).toLocaleString('ru')} ₽</span>
                           </div>
                         )}
                       </div>
                     </div>
                     <p className={`text-xs ${sub} mt-2`}>
-                      РџРѕСЂСЏРґРѕРє: СЃРЅР°С‡Р°Р»Р° РјР°С‚РµСЂРёР°Р»С‹, РїРѕС‚РѕРј РјР°СЃС‚РµСЂР°, РєРѕРїРёР»РєР°, РѕСЃС‚Р°С‚РѕРє вЂ” РІР»Р°РґРµР»СЊС†Р°Рј. Р•СЃР»Рё РјР°СЃС‚РµСЂРѕРІ РЅРµСЃРєРѕР»СЊРєРѕ, СЃСѓРјРјР° РјР°СЃС‚РµСЂР° РґРµР»РёС‚СЃСЏ РїСЂРѕРїРѕСЂС†РёРѕРЅР°Р»СЊРЅРѕ РёС… % РёР· РїСЂРѕС„РёР»СЏ.
+                      Порядок: сначала материалы, потом мастера, копилка, остаток — владельцам. Если мастеров несколько, сумма мастера делится пропорционально их % из профиля.
                     </p>
                   </div>
                   </>
                   )}
                 </div>
                 <button onClick={() => void handleServiceSettingsDone()} disabled={serviceSettingsSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-60" style={{ background: primary }}>
-                  {serviceSettingsSaving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'Р“РѕС‚РѕРІРѕ'}
+                  {serviceSettingsSaving ? 'Сохранение...' : 'Готово'}
                 </button>
               </motion.div>
             </motion.div>
@@ -11856,8 +11856,8 @@ paymentSettled: false,
         {salaryBookingDetail && (() => {
           const b = salaryBookingDetail;
           const svc = b.serviceId ? services.find(s => s.id === b.serviceId) : undefined;
-          const paymentLabel = b.paymentType === 'cash' ? 'РќР°Р»РёС‡РЅС‹Рµ' : b.paymentType === 'transfer' ? 'РџРµСЂРµРІРѕРґ' : b.paymentType === 'invoice' ? 'РџРѕ СЃС‡С‘С‚Сѓ' : b.paymentType || 'РќРµ СѓРєР°Р·Р°РЅ';
-          const segmentLabel = b.resourceGroup === 'wash' ? 'РњРѕР№РєР°' : 'Р”РµС‚РµР№Р»РёРЅРі';
+          const paymentLabel = b.paymentType === 'cash' ? 'Наличные' : b.paymentType === 'transfer' ? 'Перевод' : b.paymentType === 'invoice' ? 'По счёту' : b.paymentType || 'Не указан';
+          const segmentLabel = b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг';
           return (
             <>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] bg-black/50" onClick={() => setSalaryBookingDetail(null)} />
@@ -11868,17 +11868,17 @@ paymentSettled: false,
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-2 mb-1" />
                 <div className="flex justify-between items-center px-5 py-3 sticky top-0" style={{ background: surface }}>
-                  <h3 className="font-semibold">Р”РµС‚Р°Р»Рё СѓСЃР»СѓРіРё</h3>
+                  <h3 className="font-semibold">Детали услуги</h3>
                   <button onClick={() => setSalaryBookingDetail(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="px-5 pb-6 space-y-3">
                   {/* Service */}
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                    <div className={`text-xs ${sub} mb-1`}>РЈСЃР»СѓРіР°</div>
+                    <div className={`text-xs ${sub} mb-1`}>Услуга</div>
                     <div className="font-semibold">{b.service}</div>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${b.resourceGroup === 'wash' ? 'bg-cyan-500/15 text-cyan-600' : 'bg-purple-500/15 text-purple-600'}`}>{segmentLabel}</span>
-                      {svc?.duration ? <span className={`text-[10px] px-2 py-0.5 rounded-full ${glass}`}>вЏ± {svc.duration} РјРёРЅ</span> : null}
+                      {svc?.duration ? <span className={`text-[10px] px-2 py-0.5 rounded-full ${glass}`}>⏱ {svc.duration} мин</span> : null}
                     </div>
                     {svc?.desc && <div className={`text-xs ${sub} mt-2`}>{svc.desc}</div>}
                   </div>
@@ -11886,7 +11886,7 @@ paymentSettled: false,
                   {/* Client */}
                   {(b.clientName || b.clientPhone) && (
                     <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                      <div className={`text-xs ${sub} mb-1`}>РљР»РёРµРЅС‚</div>
+                      <div className={`text-xs ${sub} mb-1`}>Клиент</div>
                       <div className="font-semibold">{b.clientName || 'вЂ”'}</div>
                       {b.clientPhone && (
                         <a href={`tel:${b.clientPhone}`} className={`text-sm flex items-center gap-1 mt-0.5`} style={{ color: primary }}>
@@ -11899,40 +11899,40 @@ paymentSettled: false,
                   {/* Car */}
                   {(b.car || b.plate) && (
                     <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                      <div className={`text-xs ${sub} mb-1`}>РђРІС‚РѕРјРѕР±РёР»СЊ</div>
+                      <div className={`text-xs ${sub} mb-1`}>Автомобиль</div>
                       <div className="font-semibold">{b.car || 'вЂ”'}</div>
-                      {b.plate && <div className={`text-sm ${sub}`}>Р“РѕСЃ. РЅРѕРјРµСЂ: {b.plate}</div>}
+                      {b.plate && <div className={`text-sm ${sub}`}>Гос. номер: {b.plate}</div>}
                     </div>
                   )}
 
                   {/* Date & time */}
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                    <div className={`text-xs ${sub} mb-1`}>Р”Р°С‚Р° Рё РІСЂРµРјСЏ</div>
+                    <div className={`text-xs ${sub} mb-1`}>Дата и время</div>
                     <div className="font-semibold">{b.date} В· {b.time}</div>
-                    {b.box && <div className={`text-sm ${sub}`}>Р‘РѕРєСЃ: {b.box}</div>}
+                    {b.box && <div className={`text-sm ${sub}`}>Бокс: {b.box}</div>}
                   </div>
 
                   {/* Payment */}
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                    <div className={`text-xs ${sub} mb-1`}>РћРїР»Р°С‚Р°</div>
+                    <div className={`text-xs ${sub} mb-1`}>Оплата</div>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-lg" style={{ color: accent }}>{b.price.toLocaleString('ru')} в‚Ѕ</div>
+                      <div className="font-semibold text-lg" style={{ color: accent }}>{b.price.toLocaleString('ru')} ₽</div>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${b.paymentSettled ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-500'}`}>
-                        {b.paymentSettled ? 'РћРїР»Р°С‡РµРЅРѕ' : 'РќРµ РѕРїР»Р°С‡РµРЅРѕ'}
+                        {b.paymentSettled ? 'Оплачено' : 'Не оплачено'}
                       </span>
                     </div>
-                    {b.paymentType && <div className={`text-sm ${sub} mt-1`}>РЎРїРѕСЃРѕР±: {paymentLabel}</div>}
+                    {b.paymentType && <div className={`text-sm ${sub} mt-1`}>Способ: {paymentLabel}</div>}
                   </div>
 
                   {/* Worker earnings */}
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                    <div className={`text-xs ${sub} mb-1`}>Р—Р°СЂР°Р±РѕС‚РѕРє РјР°СЃС‚РµСЂР°</div>
+                    <div className={`text-xs ${sub} mb-1`}>Заработок мастера</div>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-lg" style={{ color: primary }}>{b.earned.toLocaleString('ru')} в‚Ѕ</div>
+                      <div className="font-semibold text-lg" style={{ color: primary }}>{b.earned.toLocaleString('ru')} ₽</div>
                       <div className={`text-xs ${sub}`}>
                         {b.payType === 'fixed'
-                          ? `С„РёРєСЃ ${b.earned.toLocaleString('ru')} в‚Ѕ`
-                          : `${b.percent}%${b.overrideEarned != null ? ' (РІСЂСѓС‡РЅСѓСЋ)' : ''}`}
+                          ? `фикс ${b.earned.toLocaleString('ru')} ₽`
+                          : `${b.percent}%${b.overrideEarned != null ? ' (вручную)' : ''}`}
                       </div>
                     </div>
                   </div>
@@ -11940,11 +11940,11 @@ paymentSettled: false,
                   {/* Additional services */}
                   {(b.additionalServices?.length || 0) > 0 && (
                     <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                      <div className={`text-xs ${sub} mb-1`}>Р”РѕРї. СѓСЃР»СѓРіРё</div>
+                      <div className={`text-xs ${sub} mb-1`}>Доп. услуги</div>
                       {b.additionalServices!.map((asvc, i) => (
                         <div key={i} className="flex justify-between text-sm py-0.5">
                           <span className="truncate pr-2">{asvc.name}</span>
-                          <span className="shrink-0">{asvc.priceMode === 'subtract' ? 'в€’' : '+'}{asvc.price.toLocaleString('ru')} в‚Ѕ</span>
+                          <span className="shrink-0">{asvc.priceMode === 'subtract' ? '−' : '+'}{asvc.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
                     </div>
@@ -11953,7 +11953,7 @@ paymentSettled: false,
                   {/* Notes */}
                   {b.notes && (
                     <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                      <div className={`text-xs ${sub} mb-1`}>РљРѕРјРјРµРЅС‚Р°СЂРёР№</div>
+                      <div className={`text-xs ${sub} mb-1`}>Комментарий</div>
                       <div className="text-sm">{b.notes}</div>
                     </div>
                   )}
@@ -11965,7 +11965,7 @@ paymentSettled: false,
                       className="w-full py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2"
                       style={{ background: `${primary}18`, color: primary }}
                     >
-                      <Edit3 size={15} strokeWidth={1.75} /> РР·РјРµРЅРёС‚СЊ СѓСЃР»СѓРіСѓ
+                      <Edit3 size={15} strokeWidth={1.75} /> Изменить услугу
                     </button>
                   )}
                 </div>
@@ -11990,16 +11990,16 @@ paymentSettled: false,
               >
                 <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold">Р РµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ СѓСЃР»СѓРіРё</h3>
+                  <h3 className="font-semibold">Редактирование услуги</h3>
                   <button onClick={() => setServiceEditDraft(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="space-y-2">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РќР°Р·РІР°РЅРёРµ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Название</label>
                     <input className={inputCls} value={serviceEditDraft.name} onChange={e => patchDraft({ name: e.target.value })} />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РўРёРї СѓСЃР»СѓРіРё</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Тип услуги</label>
                     <select className={selectCls} value={serviceEditDraft.category} onChange={e => patchDraft({ category: e.target.value })}>
                       {SERVICE_TYPE_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
@@ -12008,22 +12008,22 @@ paymentSettled: false,
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р¦РµРЅР° (в‚Ѕ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
                       <input className={inputCls} type="number" value={numberInputValue(serviceEditDraft.price)} onChange={e => patchDraft({ price: numberFromInput(e.target.value) })} />
                     </div>
                     <div>
-                      <label className={`text-xs ${sub} block mb-1`}>Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ (РјРёРЅ)</label>
+                      <label className={`text-xs ${sub} block mb-1`}>Длительность (мин)</label>
                       <input className={inputCls} type="number" value={numberInputValue(serviceEditDraft.duration)} onChange={e => patchDraft({ duration: numberFromInput(e.target.value) })} />
                     </div>
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1`}>РћРїРёСЃР°РЅРёРµ</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Описание</label>
                     <input className={inputCls} value={serviceEditDraft.desc} onChange={e => patchDraft({ desc: e.target.value })} />
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={() => setServiceEditDraft(null)} className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}>РћС‚РјРµРЅР°</button>
-                  <button onClick={() => void handleSaveServiceQuickEdit()} className="flex-[2] py-3 rounded-2xl font-semibold text-sm text-white" style={{ background: primary }}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+                  <button onClick={() => setServiceEditDraft(null)} className={`flex-1 py-3 rounded-2xl font-semibold text-sm ${glass}`}>Отмена</button>
+                  <button onClick={() => void handleSaveServiceQuickEdit()} className="flex-[2] py-3 rounded-2xl font-semibold text-sm text-white" style={{ background: primary }}>Сохранить</button>
                 </div>
               </motion.div>
             </motion.div>
@@ -12051,7 +12051,7 @@ paymentSettled: false,
             className="fixed top-16 left-4 right-4 z-[100] flex items-center gap-3 p-3 rounded-2xl shadow-lg"
             style={{ background: surface, border: `1px solid ${primary}40` }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${primary}20` }}><Check size={14} strokeWidth={1.75} style={{ color: primary }} /></div>
-            <span className="text-sm font-medium">РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹</span>
+            <span className="text-sm font-medium">Настройки сохранены</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -12073,7 +12073,7 @@ paymentSettled: false,
                       <Shield size={18} strokeWidth={1.75} style={{ color: accent }} />
                     </div>
                     <div>
-                      <div className="font-semibold">РЎР±СЂРѕСЃ РїР°СЂРѕР»СЏ</div>
+                      <div className="font-semibold">Сброс пароля</div>
                       <div className={`text-xs ${sub}`}>{resetPasswordTarget.name}</div>
                     </div>
                   </div>
@@ -12083,21 +12083,21 @@ paymentSettled: false,
 
                 <div className="space-y-3 mb-4">
                   <div>
-                    <label className={`text-xs ${sub} block mb-1.5`}>РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ</label>
+                    <label className={`text-xs ${sub} block mb-1.5`}>Новый пароль</label>
                     <input
                       className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
-                      placeholder="РњРёРЅРёРјСѓРј 8 СЃРёРјРІРѕР»РѕРІ"
+                      placeholder="Минимум 8 символов"
                       value={resetPasswordValue}
                       onChange={e => { setResetPasswordValue(e.target.value); setResetPasswordError(''); }}
                     />
                   </div>
                   <div>
-                    <label className={`text-xs ${sub} block mb-1.5`}>РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ</label>
+                    <label className={`text-xs ${sub} block mb-1.5`}>Подтверждение</label>
                     <input
                       className={`${isDark ? 'bg-white/5 border-white/10 text-[#E4E4E7] placeholder-white/30' : 'bg-gray-50 border-black/10 text-[#131316] placeholder-gray-400'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`}
                       type="text"
-                      placeholder="РџРѕРІС‚РѕСЂРёС‚Рµ РїР°СЂРѕР»СЊ"
+                      placeholder="Повторите пароль"
                       value={resetPasswordConfirm}
                       onChange={e => { setResetPasswordConfirm(e.target.value); setResetPasswordError(''); }}
                     />
@@ -12117,7 +12117,7 @@ paymentSettled: false,
                   className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
                   style={{ background: accent }}
                 >
-                  {employeeActionLoading?.type === 'reset-password' ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎР±СЂРѕСЃРёС‚СЊ РїР°СЂРѕР»СЊ'}
+                  {employeeActionLoading?.type === 'reset-password' ? 'Сохранение...' : 'Сбросить пароль'}
                 </button>
               </div>
             </motion.div>

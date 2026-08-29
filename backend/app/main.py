@@ -927,10 +927,19 @@ async def add_security_headers(request: Request, call_next):
         response.headers.setdefault("Cache-Control", "no-store")
     if settings.is_production and request.url.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # Явный charset для JSON — чинит mojibake в iPhone/Telegram WebView когда клиент гадает кодировку
+    # Явный charset для JSON/HTML/JS/CSS — чинит mojibake в iPhone/Telegram WebView когда клиент гадает кодировку
     ctype = response.headers.get("content-type", "")
-    if ctype.startswith("application/json") and "charset" not in ctype.lower():
+    ctype_low = ctype.lower()
+    if ctype.startswith("application/json") and "charset" not in ctype_low:
         response.headers["content-type"] = "application/json; charset=utf-8"
+    elif ctype.startswith("text/html") and "charset" not in ctype_low:
+        response.headers["content-type"] = "text/html; charset=utf-8"
+    elif ctype.startswith("application/javascript") and "charset" not in ctype_low:
+        response.headers["content-type"] = "application/javascript; charset=utf-8"
+    elif ctype.startswith("text/css") and "charset" not in ctype_low:
+        response.headers["content-type"] = "text/css; charset=utf-8"
+    elif ctype.startswith("text/plain") and "charset" not in ctype_low:
+        response.headers["content-type"] = "text/plain; charset=utf-8"
     return response
 
 
