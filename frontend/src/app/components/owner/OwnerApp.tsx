@@ -1670,12 +1670,14 @@ export function OwnerApp() {
     setBoxes((current) => current.filter((box) => box.id !== boxId));
   };
 
-  const handleAddServiceDraft = () => {
+  const handleAddServiceDraft = (initialName?: string) => {
+    const draftName = initialName?.trim() || 'Новая услуга';
+    const newId = createDraftId('service');
     setServicesState((current) => [
       {
-        id: createDraftId('service'),
-        name: 'РќРѕРІР°СЏ СѓСЃР»СѓРіР°',
-        category: 'РњРѕР№РєР°',
+        id: newId,
+        name: draftName,
+        category: 'Мойка',
         resourceGroup: 'wash',
         washType: '',
         price: 0,
@@ -1697,6 +1699,28 @@ export function OwnerApp() {
       },
       ...current,
     ]);
+    return newId;
+  };
+
+  /** CTA для ServiceSearchSelect: создаёт черновик услуги с именем из поиска и перенаправляет на форму услуг */
+  const handleCreateServiceFromQuery = (queryName: string) => {
+    const name = queryName.trim().slice(0, 80) || 'Новая услуга';
+    // закрыть модалки создания записей, чтобы пользователь увидел форму услуг
+    setShowCreateBooking(false);
+    setShowOwnerAddService(false);
+    setShowBookingDetail(false);
+    setOwnerBookingEditMode(null);
+    const newId = handleAddServiceDraft(name);
+    setPage('settings');
+    setSettingsSection('services');
+    setServicesSearchQuery('');
+    // открыть тонкую настройку для новой услуги
+    setTimeout(() => {
+      setEditingServiceId(newId);
+      setShowServiceSettings(true);
+    }, 80);
+    setBottomToast(`Создайте услугу «${name}» и сохраните изменения`);
+    setTimeout(() => setBottomToast(null), 3500);
   };
 
   const handleRemoveServiceDraft = (serviceId: string) => {
@@ -7366,7 +7390,20 @@ paymentSettled: false,
                 </div>
               );
               })}
-              <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
+              {servicesSearchQuery.trim() && services.filter((s) => [s.name, s.category, s.desc || ''].some((v) => v.toLowerCase().includes(servicesSearchQuery.trim().toLowerCase()))).length === 0 && (
+                <div className={`${glass} rounded-2xl p-4 mb-3 text-center`}>
+                  <div className={`text-sm ${sub} mb-2`}>По запросу «{servicesSearchQuery.trim()}» услуг не найдено</div>
+                  <button
+                    onClick={() => handleCreateServiceFromQuery(servicesSearchQuery.trim())}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-white"
+                    style={{ background: primary }}
+                  >
+                    Возможно вы хотите создать новую? «{servicesSearchQuery.trim().slice(0, 30)}»
+                  </button>
+                  <div className={`text-xs ${sub} mt-2`}>Перенаправит на форму создания новой услуги</div>
+                </div>
+              )}
+                            <button onClick={handleSaveSettings} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2" style={{ background: primary }}>
                 <Save size={16} strokeWidth={1.75} />{settingsSaved ? 'РЎРѕС…СЂР°РЅРµРЅРѕ!' : 'РЎРѕС…СЂР°РЅРёС‚СЊ'}
               </button>
               <p className={`text-xs ${sub} text-center mt-2`}>РР·РјРµРЅРµРЅРёСЏ РїСЂРёРјРµРЅСЏСЋС‚СЃСЏ Рє РЅРѕРІС‹Рј Р·Р°РІРµСЂС€С‘РЅРЅС‹Рј Р·Р°РїРёСЃСЏРј</p>
@@ -9198,6 +9235,7 @@ paymentSettled: false,
                     primary={primary}
                     isDark={isDark}
                     placeholder="Р’С‹Р±РµСЂРёС‚Рµ СѓСЃР»СѓРіСѓ"
+                    onCreateNew={handleCreateServiceFromQuery}
                     onChange={(serviceId) => {
                       const svc = services.find(s => s.id === serviceId);
                       setBookingForm(p => {
@@ -9901,6 +9939,7 @@ paymentSettled: false,
                           sub={sub}
                           primary={primary}
                           isDark={isDark}
+                          onCreateNew={handleCreateServiceFromQuery}
                           onChange={serviceId => {
                             const svc = services.find(s => s.id === serviceId);
                             setOwnerBookingEditFull(p => {
@@ -10273,6 +10312,7 @@ paymentSettled: false,
                   primary={primary}
                   isDark={isDark}
                   placeholder="Р’С‹Р±РµСЂРёС‚Рµ СѓСЃР»СѓРіСѓ"
+                  onCreateNew={handleCreateServiceFromQuery}
                   onChange={(serviceId) => {
                     const svc = liveServices.find(s => s.id === serviceId);
                     setOwnerAddServiceDraft(p => {
@@ -10743,6 +10783,7 @@ paymentSettled: false,
                     sub={sub}
                     primary={primary}
                     isDark={isDark}
+                    onCreateNew={handleCreateServiceFromQuery}
                     onChange={serviceId => {
                       const svc = services.find(s => s.id === serviceId);
                       setOwnerNewBookingForm(p => {

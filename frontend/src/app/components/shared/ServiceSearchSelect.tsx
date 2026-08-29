@@ -13,6 +13,10 @@ interface ServiceSearchSelectProps {
   primary?: string;
   isDark?: boolean;
   placeholder?: string;
+  /** Если передан, при пустом результате показывается CTA "Возможно вы хотите создать новую?" */
+  onCreateNew?: (query: string) => void;
+  /** Текст кнопки создания — по умолчанию "Возможно вы хотите создать новую?" */
+  createNewLabel?: string;
 }
 
 export function ServiceSearchSelect({
@@ -26,6 +30,8 @@ export function ServiceSearchSelect({
   primary = '',
   isDark = false,
   placeholder = 'Выберите услугу',
+  onCreateNew,
+  createNewLabel = 'Возможно вы хотите создать новую?',
 }: ServiceSearchSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -93,25 +99,64 @@ export function ServiceSearchSelect({
 
       {isOpen && (
         <div
-          className={`absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'bg-[#1C1C1F] border border-white/10' : 'bg-white border border-black/5 shadow-sm'}`}
+          className={`absolute z-50 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'bg-[#1C1C1F] border border-white/10' : 'bg-white border border-black/5 shadow-sm'}`}
         >
           {filtered.length === 0 ? (
-            <div className={`px-4 py-3 text-sm ${sub}`}>Ничего не найдено</div>
+            <div className={`px-4 py-3 text-sm ${sub} space-y-2`}>
+              <div>Ничего не найдено</div>
+              {query.trim() && onCreateNew && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const q = query.trim();
+                    setIsOpen(false);
+                    setQuery('');
+                    onCreateNew(q);
+                  }}
+                  className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  style={{ background: primary || 'var(--primary-600)' }}
+                >
+                  {createNewLabel}
+                  {query.trim().length <= 30 ? ` «${query.trim()}»` : ''}
+                </button>
+              )}
+              {query.trim() && onCreateNew && (
+                <div className="text-xs opacity-70">Перенаправит на форму создания новой услуги</div>
+              )}
+            </div>
           ) : (
-            filtered.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={`w-full text-left px-4 py-3 text-sm hover:bg-white/10 transition-colors ${s.id === value ? (primary ? `font-semibold` : '') : ''}`}
-                style={s.id === value && primary ? { color: primary } : {}}
-                onClick={() => handleSelect(s.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{s.name}</span>
-                  {s.id === value && <CheckIcon />}
+            <>
+              {filtered.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/10 transition-colors ${s.id === value ? (primary ? `font-semibold` : '') : ''}`}
+                  style={s.id === value && primary ? { color: primary } : {}}
+                  onClick={() => handleSelect(s.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{s.name}</span>
+                    {s.id === value && <CheckIcon />}
+                  </div>
+                </button>
+              ))}
+              {query.trim() && filtered.length > 0 && filtered.length < services.length && onCreateNew && !services.some((s) => s.name.toLowerCase() === query.trim().toLowerCase()) && (
+                <div className="border-t p-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const q = query.trim();
+                      setIsOpen(false);
+                      setQuery('');
+                      onCreateNew(q);
+                    }}
+                    className={`w-full rounded-xl px-3 py-2 text-xs font-medium ${isDark ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-black/5 hover:bg-black/10 text-foreground'}`}
+                  >
+                    {createNewLabel}
+                  </button>
                 </div>
-              </button>
-            ))
+              )}
+            </>
           )}
         </div>
       )}

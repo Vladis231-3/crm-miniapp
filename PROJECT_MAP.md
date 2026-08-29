@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-28 12:50 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 07:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **498**
-- Строк кода: **199 889**
+- Строк кода: **200 034**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
@@ -1240,9 +1240,9 @@ concept1.0/
 - `class DepositMonth(Base):` (стр. 582)
 - `class OwnerProfitShare(Base):` (стр. 600)
 
-### backend/app/schemas.py (2350 строк)
+### backend/app/schemas.py (2362 строк)
 
-Классы и функции (226):
+Классы и функции (227):
 
 - `normalize_person_namedef normalize_person_name(value: str) -> str: normalized = re.sub(r"\s+", " ", value).strip() if len(normalized) < 1: raise ValueError("Введите настоящее имя") if not NAME_PATTERN.` (стр. 52)
 - `normalize_phone_digitsdef normalize_phone_digits(value: str) -> str: digits = re.sub(r"\D", "", value) if len(digits) == 10: digits = f"7{digits}" elif len(digits) == 11 and digits[0] in {"7", "8"}: dig` (стр. 61)
@@ -1315,136 +1315,136 @@ concept1.0/
 - `class OperatingMode(str, Enum):` (стр. 807)
 - `class OwnerCompanyPayload(BaseModel):` (стр. 812)
 - `class OwnerNotificationSettings(BaseModel):` (стр. 822)
-- `class OwnerIntegrationsPayload(BaseModel):` (стр. 832)
-- `class GoogleCredentialsPayload(BaseModel):` (стр. 839)
-- `class GoogleInvitePayload(BaseModel):` (стр. 847)
-- `class OwnerSecurityPayload(BaseModel):` (стр. 853)
-- `class AuthSessionPayload(BaseModel):` (стр. 857)
-- `class EmployeeSettingPayload(BaseModel):` (стр. 866)
-- `class WorkerCreateRequest(BaseModel):` (стр. 877)
-- `class PayrollEntryCreateRequest(BaseModel):` (стр. 889)
-- `PayrollEntryCreateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 907)
-- `class PayrollEntryUpdateRequest(BaseModel):` (стр. 911)
-- `PayrollEntryUpdateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 917)
-- `class SettingsBundlePayload(BaseModel):` (стр. 921)
-- `class SessionPayload(BaseModel):` (стр. 931)
-- `class BootstrapPayload(BaseModel):` (стр. 939)
-- `class ClientRegisterRequest(BaseModel):` (стр. 957)
-- `ClientRegisterRequest.lift_profiledef lift_profile(cls, raw: Any) -> Any: if isinstance(raw, dict) and isinstance(raw.get("profile"), dict):` (стр. 969)
-- `ClientRegisterRequest.validate_namedef validate_name(cls, value: str) -> str: if not value.strip():` (стр. 978)
-- `ClientRegisterRequest.validate_phonedef validate_phone(cls, value: str) -> str: if not value.strip():` (стр. 985)
-- `ClientRegisterRequest.validate_vehicledef validate_vehicle(self) -> "ClientRegisterRequest": if self.plate.strip():` (стр. 991)
-- `class ConsentRecordPayload(BaseModel):` (стр. 997)
-- `class ConsentCheckResponse(BaseModel):` (стр. 1002)
-- `class StaffLinkRequest(BaseModel):` (стр. 1006)
-- `class SwitchRoleRequest(BaseModel):` (стр. 1011)
-- `_normalize_booking_datedef _normalize_booking_date(value: str) -> str: """Нормализует дату записи к канону ДД.ММ.ГГГГ. Принимает и ДД.ММ.ГГГГ, и ГГГГ-ММ-ДД (форматы, которые могут слать клиенты). Остальн` (стр. 1015)
-- `_normalize_booking_timedef _normalize_booking_time(value: str) -> str: """Normalize booking time to HH:MM (24h) canonical form. Empty allowed.""" v = value.strip() if not v: return "" m = re.fullmatch(r"` (стр. 1036)
-- `class BookingCreateRequest(BaseModel):` (стр. 1050)
-- `BookingCreateRequest.validate_datedef validate_date(cls, value: str) -> str: return _normalize_booking_date(value)` (стр. 1076)
-- `BookingCreateRequest.validate_timedef validate_time(cls, value: str) -> str: return _normalize_booking_time(value)` (стр. 1081)
-- `BookingCreateRequest.validate_client_namedef validate_client_name(cls, value: str) -> str: if not value.strip():` (стр. 1086)
-- `BookingCreateRequest.validate_client_phonedef validate_client_phone(cls, value: str) -> str: if not value.strip():` (стр. 1093)
-- `BookingCreateRequest.validate_vehicledef validate_vehicle(self) -> "BookingCreateRequest": if self.car is not None and self.car.strip():` (стр. 1099)
-- `class AddBookingServiceRequest(BaseModel):` (стр. 1107)
-- `class BookingUpdateRequest(BaseModel):` (стр. 1114)
-- `BookingUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None return _normalize_booking_date(value)` (стр. 1140)
-- `BookingUpdateRequest.validate_timedef validate_time(cls, value: str | None) -> str | None: if value is None: return None return _normalize_booking_time(value)` (стр. 1147)
-- `BookingUpdateRequest.validate_client_namedef validate_client_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1154)
-- `BookingUpdateRequest.validate_client_phonedef validate_client_phone(cls, value: str | None) -> str | None: if value is None: return None return normalize_phone(value)` (стр. 1161)
-- `BookingUpdateRequest.validate_vehicledef validate_vehicle(self) -> "BookingUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1167)
-- `class ClientCardUpdateRequest(BaseModel):` (стр. 1180)
-- `ClientCardUpdateRequest.validate_namedef validate_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1198)
-- `ClientCardUpdateRequest.validate_phonedef validate_phone(cls, value: str | None) -> str | None: if value is None or not value.strip():` (стр. 1205)
-- `ClientCardUpdateRequest.validate_vehicledef validate_vehicle(self) -> "ClientCardUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1211)
-- `class NotificationCreateRequest(BaseModel):` (стр. 1224)
-- `class ReadAllNotificationsRequest(BaseModel):` (стр. 1231)
-- `class StockItemCreateRequest(BaseModel):` (стр. 1235)
-- `class StockItemUpdateRequest(BaseModel):` (стр. 1244)
-- `class StockCategoryCreateRequest(BaseModel):` (стр. 1253)
-- `class StockCategoryUpdateRequest(BaseModel):` (стр. 1258)
-- `class StockWriteOffRequest(BaseModel):` (стр. 1263)
-- `class StockWriteOffPayload(BaseModel):` (стр. 1267)
-- `class IncomeCreateRequest(BaseModel):` (стр. 1285)
-- `IncomeCreateRequest.validate_sourcedef validate_source(cls, value: str) -> str: stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или состоять только из пробелов") return stripp` (стр. 1294)
-- `IncomeCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1302)
-- `class IncomePayload(BaseModel):` (стр. 1308)
-- `IncomePayload._validate_amountdef _validate_amount(cls, value: Any) -> int: return _coerce_money_int(value)` (стр. 1320)
-- `class ExpenseCreateRequest(BaseModel):` (стр. 1324)
-- `ExpenseCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1334)
-- `class PenaltyCreateRequest(BaseModel):` (стр. 1340)
-- `class OwnerReminderDispatchRequest(BaseModel):` (стр. 1346)
-- `class OwnerReminderDispatchPayload(BaseModel):` (стр. 1351)
-- `class StaffLoginRequest(BaseModel):` (стр. 1359)
-- `class ChangePasswordRequest(BaseModel):` (стр. 1364)
-- `class OwnerDatabaseResetPreviewPayload(BaseModel):` (стр. 1369)
-- `class OwnerDatabaseResetStartRequest(BaseModel):` (стр. 1384)
-- `class OwnerDatabaseResetApproveRequest(BaseModel):` (стр. 1388)
-- `class OwnerDatabaseResetExecuteRequest(BaseModel):` (стр. 1394)
-- `class OwnerDatabaseResetStartPayload(BaseModel):` (стр. 1398)
-- `class OwnerDatabaseResetApprovePayload(BaseModel):` (стр. 1407)
-- `class OwnerDatabaseResetExecutePayload(BaseModel):` (стр. 1415)
-- `class ContentAboutPayload(BaseModel):` (стр. 1420)
-- `class ContentServicePayload(BaseModel):` (стр. 1426)
-- `class ContentWorksPayload(BaseModel):` (стр. 1437)
-- `class ContentStatsPayload(BaseModel):` (стр. 1443)
-- `class ContentTitlePayload(BaseModel):` (стр. 1448)
-- `ContentTitlePayload.to_full_titledef to_full_title(self) -> str: return f"{self.before}{self.highlight}{self.after}"` (стр. 1453)
-- `class ContentHeroPayload(BaseModel):` (стр. 1457)
-- `class ContentPayload(BaseModel):` (стр. 1473)
-- `class ContactPayload(BaseModel):` (стр. 1480)
-- `class ResetPasswordRequest(BaseModel):` (стр. 1487)
-- `class GenericMessage(BaseModel):` (стр. 1491)
-- `class TelegramDeliveryResult(BaseModel):` (стр. 1495)
-- `class TelegramBroadcastPayload(BaseModel):` (стр. 1501)
-- `class OwnerExportDeliveryPayload(BaseModel):` (стр. 1507)
-- `class ShiftAttendancePayload(BaseModel):` (стр. 1514)
-- `class ExpenseUpdateRequest(BaseModel):` (стр. 1525)
-- `ExpenseUpdateRequest.validate_titledef validate_title(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("title не может быть пустым или с` (стр. 1535)
-- `ExpenseUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1545)
-- `ExpenseUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "ExpenseUpdateRequest": if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):` (стр. 1553)
-- `class IncomeUpdateRequest(BaseModel):` (стр. 1559)
-- `IncomeUpdateRequest.validate_sourcedef validate_source(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или` (стр. 1568)
-- `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1578)
-- `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "IncomeUpdateRequest": # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as` (стр. 1586)
-- `class PiggyBankTransactionPayload(BaseModel):` (стр. 1594)
-- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1618)
-- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1635)
-- `PiggyBankWithdrawRequest.validate_spent_by_namedef validate_spent_by_name(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() return stripped or None` (стр. 1642)
-- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1649)
-- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1657)
-- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1664)
-- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1677)
-- `class PiggyBankSpenderDebt(BaseModel):` (стр. 1688)
-- `class PiggyBankResponse(BaseModel):` (стр. 1695)
-- `class WeeklyArchivePayload(BaseModel):` (стр. 1715)
-- `class WalletResponse(BaseModel):` (стр. 1729)
-- `class OwnerProfitShareItem(BaseModel):` (стр. 1746)
-- `class OwnerProfitShareSummary(BaseModel):` (стр. 1763)
-- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1772)
-- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1779)
-- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1788)
-- `class OverrideEarnedRequest(BaseModel):` (стр. 1795)
-- `class BookingHistoryItem(BaseModel):` (стр. 1799)
-- `class BookingTotalsWorkerItem(BaseModel):` (стр. 1816)
-- `class BookingTotalsOwnerItem(BaseModel):` (стр. 1834)
-- `class BookingTotalsPiggyItem(BaseModel):` (стр. 1841)
-- `class BookingHistoryTotals(BaseModel):` (стр. 1847)
-- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 1853)
-- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1864)
-- `class BookingPiggyTxItem(BaseModel):` (стр. 1872)
-- `class BookingAdditionalServiceItem(BaseModel):` (стр. 1881)
-- `class BookingAsvcPiggyItem(BaseModel):` (стр. 1890)
-- `class BookingAsvcWorkerItem(BaseModel):` (стр. 1896)
-- `class BookingMoneySplitDetail(BaseModel):` (стр. 1907)
-- `class BookingWorkerEarnedUpdate(BaseModel):` (стр. 1955)
-- `class BookingMoneySplitOwnerUpdate(BaseModel):` (стр. 1960)
-- `class BookingMoneySplitUpdateRequest(BaseModel):` (стр. 1965)
-- `class ArchiveBookingWorkerItem(BaseModel):` (стр. 1975)
-- `class ArchiveAdditionalServiceItem(BaseModel):` (стр. 1985)
-- `class ArchiveBookingItem(BaseModel):` (стр. 1991)
-- `class ArchivePayrollItem(BaseModel):` (стр. 2018)
-- ...ещё 26
+- `OwnerNotificationSettings._coerce_hoursdef _coerce_hours(self) -> "OwnerNotificationSettings": if "bookingReminderHours" not in self.model_fields_set and "bookingReminderDays" in self.model_fields_set and self.bookingRe` (стр. 834)
+- `class OwnerIntegrationsPayload(BaseModel):` (стр. 844)
+- `class GoogleCredentialsPayload(BaseModel):` (стр. 851)
+- `class GoogleInvitePayload(BaseModel):` (стр. 859)
+- `class OwnerSecurityPayload(BaseModel):` (стр. 865)
+- `class AuthSessionPayload(BaseModel):` (стр. 869)
+- `class EmployeeSettingPayload(BaseModel):` (стр. 878)
+- `class WorkerCreateRequest(BaseModel):` (стр. 889)
+- `class PayrollEntryCreateRequest(BaseModel):` (стр. 901)
+- `PayrollEntryCreateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 919)
+- `class PayrollEntryUpdateRequest(BaseModel):` (стр. 923)
+- `PayrollEntryUpdateRequest.validate_notedef validate_note(cls, value: str) -> str: return value.strip()` (стр. 929)
+- `class SettingsBundlePayload(BaseModel):` (стр. 933)
+- `class SessionPayload(BaseModel):` (стр. 943)
+- `class BootstrapPayload(BaseModel):` (стр. 951)
+- `class ClientRegisterRequest(BaseModel):` (стр. 969)
+- `ClientRegisterRequest.lift_profiledef lift_profile(cls, raw: Any) -> Any: if isinstance(raw, dict) and isinstance(raw.get("profile"), dict):` (стр. 981)
+- `ClientRegisterRequest.validate_namedef validate_name(cls, value: str) -> str: if not value.strip():` (стр. 990)
+- `ClientRegisterRequest.validate_phonedef validate_phone(cls, value: str) -> str: if not value.strip():` (стр. 997)
+- `ClientRegisterRequest.validate_vehicledef validate_vehicle(self) -> "ClientRegisterRequest": if self.plate.strip():` (стр. 1003)
+- `class ConsentRecordPayload(BaseModel):` (стр. 1009)
+- `class ConsentCheckResponse(BaseModel):` (стр. 1014)
+- `class StaffLinkRequest(BaseModel):` (стр. 1018)
+- `class SwitchRoleRequest(BaseModel):` (стр. 1023)
+- `_normalize_booking_datedef _normalize_booking_date(value: str) -> str: """Нормализует дату записи к канону ДД.ММ.ГГГГ. Принимает и ДД.ММ.ГГГГ, и ГГГГ-ММ-ДД (форматы, которые могут слать клиенты). Остальн` (стр. 1027)
+- `_normalize_booking_timedef _normalize_booking_time(value: str) -> str: """Normalize booking time to HH:MM (24h) canonical form. Empty allowed.""" v = value.strip() if not v: return "" m = re.fullmatch(r"` (стр. 1048)
+- `class BookingCreateRequest(BaseModel):` (стр. 1062)
+- `BookingCreateRequest.validate_datedef validate_date(cls, value: str) -> str: return _normalize_booking_date(value)` (стр. 1088)
+- `BookingCreateRequest.validate_timedef validate_time(cls, value: str) -> str: return _normalize_booking_time(value)` (стр. 1093)
+- `BookingCreateRequest.validate_client_namedef validate_client_name(cls, value: str) -> str: if not value.strip():` (стр. 1098)
+- `BookingCreateRequest.validate_client_phonedef validate_client_phone(cls, value: str) -> str: if not value.strip():` (стр. 1105)
+- `BookingCreateRequest.validate_vehicledef validate_vehicle(self) -> "BookingCreateRequest": if self.car is not None and self.car.strip():` (стр. 1111)
+- `class AddBookingServiceRequest(BaseModel):` (стр. 1119)
+- `class BookingUpdateRequest(BaseModel):` (стр. 1126)
+- `BookingUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None return _normalize_booking_date(value)` (стр. 1152)
+- `BookingUpdateRequest.validate_timedef validate_time(cls, value: str | None) -> str | None: if value is None: return None return _normalize_booking_time(value)` (стр. 1159)
+- `BookingUpdateRequest.validate_client_namedef validate_client_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1166)
+- `BookingUpdateRequest.validate_client_phonedef validate_client_phone(cls, value: str | None) -> str | None: if value is None: return None return normalize_phone(value)` (стр. 1173)
+- `BookingUpdateRequest.validate_vehicledef validate_vehicle(self) -> "BookingUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1179)
+- `class ClientCardUpdateRequest(BaseModel):` (стр. 1192)
+- `ClientCardUpdateRequest.validate_namedef validate_name(cls, value: str | None) -> str | None: if value is None: return None return normalize_person_name(value)` (стр. 1210)
+- `ClientCardUpdateRequest.validate_phonedef validate_phone(cls, value: str | None) -> str | None: if value is None or not value.strip():` (стр. 1217)
+- `ClientCardUpdateRequest.validate_vehicledef validate_vehicle(self) -> "ClientCardUpdateRequest": if self.car is not None and not self.car.strip():` (стр. 1223)
+- `class NotificationCreateRequest(BaseModel):` (стр. 1236)
+- `class ReadAllNotificationsRequest(BaseModel):` (стр. 1243)
+- `class StockItemCreateRequest(BaseModel):` (стр. 1247)
+- `class StockItemUpdateRequest(BaseModel):` (стр. 1256)
+- `class StockCategoryCreateRequest(BaseModel):` (стр. 1265)
+- `class StockCategoryUpdateRequest(BaseModel):` (стр. 1270)
+- `class StockWriteOffRequest(BaseModel):` (стр. 1275)
+- `class StockWriteOffPayload(BaseModel):` (стр. 1279)
+- `class IncomeCreateRequest(BaseModel):` (стр. 1297)
+- `IncomeCreateRequest.validate_sourcedef validate_source(cls, value: str) -> str: stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или состоять только из пробелов") return stripp` (стр. 1306)
+- `IncomeCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1314)
+- `class IncomePayload(BaseModel):` (стр. 1320)
+- `IncomePayload._validate_amountdef _validate_amount(cls, value: Any) -> int: return _coerce_money_int(value)` (стр. 1332)
+- `class ExpenseCreateRequest(BaseModel):` (стр. 1336)
+- `ExpenseCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1346)
+- `class PenaltyCreateRequest(BaseModel):` (стр. 1352)
+- `class OwnerReminderDispatchRequest(BaseModel):` (стр. 1358)
+- `class OwnerReminderDispatchPayload(BaseModel):` (стр. 1363)
+- `class StaffLoginRequest(BaseModel):` (стр. 1371)
+- `class ChangePasswordRequest(BaseModel):` (стр. 1376)
+- `class OwnerDatabaseResetPreviewPayload(BaseModel):` (стр. 1381)
+- `class OwnerDatabaseResetStartRequest(BaseModel):` (стр. 1396)
+- `class OwnerDatabaseResetApproveRequest(BaseModel):` (стр. 1400)
+- `class OwnerDatabaseResetExecuteRequest(BaseModel):` (стр. 1406)
+- `class OwnerDatabaseResetStartPayload(BaseModel):` (стр. 1410)
+- `class OwnerDatabaseResetApprovePayload(BaseModel):` (стр. 1419)
+- `class OwnerDatabaseResetExecutePayload(BaseModel):` (стр. 1427)
+- `class ContentAboutPayload(BaseModel):` (стр. 1432)
+- `class ContentServicePayload(BaseModel):` (стр. 1438)
+- `class ContentWorksPayload(BaseModel):` (стр. 1449)
+- `class ContentStatsPayload(BaseModel):` (стр. 1455)
+- `class ContentTitlePayload(BaseModel):` (стр. 1460)
+- `ContentTitlePayload.to_full_titledef to_full_title(self) -> str: return f"{self.before}{self.highlight}{self.after}"` (стр. 1465)
+- `class ContentHeroPayload(BaseModel):` (стр. 1469)
+- `class ContentPayload(BaseModel):` (стр. 1485)
+- `class ContactPayload(BaseModel):` (стр. 1492)
+- `class ResetPasswordRequest(BaseModel):` (стр. 1499)
+- `class GenericMessage(BaseModel):` (стр. 1503)
+- `class TelegramDeliveryResult(BaseModel):` (стр. 1507)
+- `class TelegramBroadcastPayload(BaseModel):` (стр. 1513)
+- `class OwnerExportDeliveryPayload(BaseModel):` (стр. 1519)
+- `class ShiftAttendancePayload(BaseModel):` (стр. 1526)
+- `class ExpenseUpdateRequest(BaseModel):` (стр. 1537)
+- `ExpenseUpdateRequest.validate_titledef validate_title(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("title не может быть пустым или с` (стр. 1547)
+- `ExpenseUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1557)
+- `ExpenseUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "ExpenseUpdateRequest": if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):` (стр. 1565)
+- `class IncomeUpdateRequest(BaseModel):` (стр. 1571)
+- `IncomeUpdateRequest.validate_sourcedef validate_source(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или` (стр. 1580)
+- `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1590)
+- `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> "IncomeUpdateRequest": # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as` (стр. 1598)
+- `class PiggyBankTransactionPayload(BaseModel):` (стр. 1606)
+- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1630)
+- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1647)
+- `PiggyBankWithdrawRequest.validate_spent_by_namedef validate_spent_by_name(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() return stripped or None` (стр. 1654)
+- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1661)
+- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1669)
+- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1676)
+- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1689)
+- `class PiggyBankSpenderDebt(BaseModel):` (стр. 1700)
+- `class PiggyBankResponse(BaseModel):` (стр. 1707)
+- `class WeeklyArchivePayload(BaseModel):` (стр. 1727)
+- `class WalletResponse(BaseModel):` (стр. 1741)
+- `class OwnerProfitShareItem(BaseModel):` (стр. 1758)
+- `class OwnerProfitShareSummary(BaseModel):` (стр. 1775)
+- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1784)
+- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1791)
+- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1800)
+- `class OverrideEarnedRequest(BaseModel):` (стр. 1807)
+- `class BookingHistoryItem(BaseModel):` (стр. 1811)
+- `class BookingTotalsWorkerItem(BaseModel):` (стр. 1828)
+- `class BookingTotalsOwnerItem(BaseModel):` (стр. 1846)
+- `class BookingTotalsPiggyItem(BaseModel):` (стр. 1853)
+- `class BookingHistoryTotals(BaseModel):` (стр. 1859)
+- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 1865)
+- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1876)
+- `class BookingPiggyTxItem(BaseModel):` (стр. 1884)
+- `class BookingAdditionalServiceItem(BaseModel):` (стр. 1893)
+- `class BookingAsvcPiggyItem(BaseModel):` (стр. 1902)
+- `class BookingAsvcWorkerItem(BaseModel):` (стр. 1908)
+- `class BookingMoneySplitDetail(BaseModel):` (стр. 1919)
+- `class BookingWorkerEarnedUpdate(BaseModel):` (стр. 1967)
+- `class BookingMoneySplitOwnerUpdate(BaseModel):` (стр. 1972)
+- `class BookingMoneySplitUpdateRequest(BaseModel):` (стр. 1977)
+- `class ArchiveBookingWorkerItem(BaseModel):` (стр. 1987)
+- `class ArchiveAdditionalServiceItem(BaseModel):` (стр. 1997)
+- `class ArchiveBookingItem(BaseModel):` (стр. 2003)
+- ...ещё 27
 
 ### backend/app/security.py (110 строк)
 
@@ -2601,7 +2601,7 @@ concept1.0/
 - `App` (стр. 732)
 - `path` (стр. 734) — локальный
 
-### frontend/src/app/components/admin/AdminApp.tsx (3629 строк)
+### frontend/src/app/components/admin/AdminApp.tsx (3664 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 60) — локальный
 - `map` (стр. 61) — локальный
@@ -2791,18 +2791,18 @@ concept1.0/
 - `worker` (стр. 1085) — локальный
 - `updatedBooking` (стр. 1088) — локальный
 - `handleRemoveService` (стр. 1108) — локальный
-- `handleOpenEditAsvc` (стр. 1112) — локальный
-- `handleSaveEditAsvc` (стр. 1120) — локальный
-- `workersList` (стр. 1125) — локальный
-- `worker` (стр. 1126) — локальный
-- `updatedBooking` (стр. 1129) — локальный
-- `closeAddServiceModal` (стр. 1146) — локальный
-- `openEditModal` (стр. 1152) — локальный
-- `handleSaveEditedBooking` (стр. 1176) — локальный
-- `editServiceId` (стр. 1178) — локальный
-- `detailingBooking` (стр. 1179) — локальный
-- `requiresScheduledSlot` (стр. 1180) — локальный
-- `statusNeedsSlot` (стр. 1182) — локальный
+- `handleCreateServiceFromQuery` (стр. 1112) — локальный
+- `name` (стр. 1113) — локальный
+- `createDraftId` (стр. 1114) — локальный
+- `newId` (стр. 1115) — локальный
+- `handleOpenEditAsvc` (стр. 1143) — локальный
+- `handleSaveEditAsvc` (стр. 1151) — локальный
+- `workersList` (стр. 1156) — локальный
+- `worker` (стр. 1157) — локальный
+- `updatedBooking` (стр. 1160) — локальный
+- `closeAddServiceModal` (стр. 1177) — локальный
+- `openEditModal` (стр. 1183) — локальный
+- `handleSaveEditedBooking` (стр. 1207) — локальный
 
 ### frontend/src/app/components/admin/ContentEditor.tsx (441 строк)
 
@@ -2999,7 +2999,7 @@ concept1.0/
 - `cat` (стр. 529) — локальный
 - `InlineRename` (стр. 704) — локальный
 
-### frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx (815 строк)
+### frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx (827 строк)
 
 - `SERVICE_TYPE_OPTIONS` (стр. 7) — локальный
 - `adminServiceResourceGroupForCategory` (стр. 13) — локальный
@@ -3019,42 +3019,42 @@ concept1.0/
 - `NotificationsSection` (стр. 213)
 - `ProfileSection` (стр. 250)
 - `PricingSection` (стр. 327)
-- `q` (стр. 346) — локальный
-- `matches` (стр. 347) — локальный
-- `SecuritySection` (стр. 427)
-- `ContentSectionShell` (стр. 522)
-- `SHIFT_PHOTO_CATEGORIES` (стр. 539) — локальный
-- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 557) — локальный
-- `SHIFT_PHOTO_TARGET_BYTES` (стр. 558) — локальный
-- `SHIFT_PHOTO_MIN_QUALITY` (стр. 559) — локальный
-- `dataUrlApproxBytes` (стр. 561) — локальный
-- `padding` (стр. 563) — локальный
-- `loadImage` (стр. 567) — локальный
-- `image` (стр. 569) — локальный
-- `compressShiftPhoto` (стр. 576) — локальный
-- `objectUrl` (стр. 577) — локальный
-- `image` (стр. 579) — локальный
-- `scale` (стр. 580) — локальный
-- `width` (стр. 581) — локальный
-- `height` (стр. 582) — локальный
-- `canvas` (стр. 583) — локальный
-- `context` (стр. 586) — локальный
-- `ShiftSection` (стр. 601)
-- `shiftSupplies` (стр. 614) — локальный
-- `uploadedShiftPhotos` (стр. 625) — локальный
-- `handleShiftPhotoChange` (стр. 631) — локальный
-- `file` (стр. 632) — локальный
-- `dataUrl` (стр. 636) — локальный
-- `handleSubmitShiftInspection` (стр. 645) — локальный
-- `primaryPhoto` (стр. 649) — локальный
-- `uploadedCategoriesLabel` (стр. 652) — локальный
-- `composedNote` (стр. 653) — локальный
-- `saved` (стр. 657) — локальный
-- `statusPill` (стр. 674) — локальный
-- `statusLabel` (стр. 680) — локальный
-- `statusTitle` (стр. 682) — локальный
-- `photo` (стр. 698) — локальный
-- `checked` (стр. 731) — локальный
+- `q` (стр. 348) — локальный
+- `matches` (стр. 349) — локальный
+- `SecuritySection` (стр. 439)
+- `ContentSectionShell` (стр. 534)
+- `SHIFT_PHOTO_CATEGORIES` (стр. 551) — локальный
+- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 569) — локальный
+- `SHIFT_PHOTO_TARGET_BYTES` (стр. 570) — локальный
+- `SHIFT_PHOTO_MIN_QUALITY` (стр. 571) — локальный
+- `dataUrlApproxBytes` (стр. 573) — локальный
+- `padding` (стр. 575) — локальный
+- `loadImage` (стр. 579) — локальный
+- `image` (стр. 581) — локальный
+- `compressShiftPhoto` (стр. 588) — локальный
+- `objectUrl` (стр. 589) — локальный
+- `image` (стр. 591) — локальный
+- `scale` (стр. 592) — локальный
+- `width` (стр. 593) — локальный
+- `height` (стр. 594) — локальный
+- `canvas` (стр. 595) — локальный
+- `context` (стр. 598) — локальный
+- `ShiftSection` (стр. 613)
+- `shiftSupplies` (стр. 626) — локальный
+- `uploadedShiftPhotos` (стр. 637) — локальный
+- `handleShiftPhotoChange` (стр. 643) — локальный
+- `file` (стр. 644) — локальный
+- `dataUrl` (стр. 648) — локальный
+- `handleSubmitShiftInspection` (стр. 657) — локальный
+- `primaryPhoto` (стр. 661) — локальный
+- `uploadedCategoriesLabel` (стр. 664) — локальный
+- `composedNote` (стр. 665) — локальный
+- `saved` (стр. 669) — локальный
+- `statusPill` (стр. 686) — локальный
+- `statusLabel` (стр. 692) — локальный
+- `statusTitle` (стр. 694) — локальный
+- `photo` (стр. 710) — локальный
+- `checked` (стр. 743) — локальный
 
 ### frontend/src/app/components/admin/shared/AssignWorkersDialog.tsx (160 строк)
 
@@ -3437,7 +3437,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12042 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12083 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 45) — локальный
 - `map` (стр. 46) — локальный
@@ -3782,18 +3782,20 @@ concept1.0/
 
 - `ServiceSearchInput` (стр. 15)
 
-### frontend/src/app/components/shared/ServiceSearchSelect.tsx (128 строк)
+### frontend/src/app/components/shared/ServiceSearchSelect.tsx (173 строк)
 
-- `ServiceSearchSelect` (стр. 18)
-- `containerRef` (стр. 32) — локальный
-- `inputRef` (стр. 33) — локальный
-- `selectedService` (стр. 35) — локальный
-- `filtered` (стр. 37) — локальный
-- `handleClickOutside` (стр. 42) — локальный
-- `handleSelect` (стр. 51) — локальный
-- `handleInputChange` (стр. 57) — локальный
-- `handleInputFocus` (стр. 62) — локальный
-- `CheckIcon` (стр. 122) — локальный
+- `ServiceSearchSelect` (стр. 22)
+- `containerRef` (стр. 38) — локальный
+- `inputRef` (стр. 39) — локальный
+- `selectedService` (стр. 41) — локальный
+- `filtered` (стр. 43) — локальный
+- `handleClickOutside` (стр. 48) — локальный
+- `handleSelect` (стр. 57) — локальный
+- `handleInputChange` (стр. 63) — локальный
+- `handleInputFocus` (стр. 68) — локальный
+- `q` (стр. 111) — локальный
+- `q` (стр. 148) — локальный
+- `CheckIcon` (стр. 167) — локальный
 
 ### frontend/src/app/components/shared/Skeleton.tsx (31 строк)
 
@@ -4524,18 +4526,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `vercel.json` (2026-08-29 10:22)
+- `backend/app/seed.py` (2026-08-29 10:21)
+- `backend/app/schemas.py` (2026-08-29 10:21)
+- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-29 10:20)
+- `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-29 10:20)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-29 10:20)
+- `scripts/.project-map-watch.lock` (2026-08-29 10:18)
+- `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-28 15:53)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-28 15:50)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-28 15:50)
-- `backend/app/schemas.py` (2026-08-28 15:48)
-- `vercel.json` (2026-08-28 15:46)
-- `backend/app/seed.py` (2026-08-28 15:45)
 - `backend/app/main.py` (2026-08-28 15:42)
-- `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-08-28 15:38)
-- `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-08-28 15:38)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-28 15:38)
 - `training/frontend/vercel.json` (2026-08-28 15:09)
 - `training/frontend/vite.config.ts` (2026-08-28 15:09)
 - `training/frontend/src/styles/theme.css` (2026-08-28 15:09)
 - `training/frontend/src/styles/tailwind.css` (2026-08-28 15:09)
 - `training/frontend/src/styles/fonts.css` (2026-08-28 15:09)
-- `training/frontend/src/styles/index.css` (2026-08-28 15:09)

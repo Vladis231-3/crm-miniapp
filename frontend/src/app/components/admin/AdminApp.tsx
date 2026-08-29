@@ -1109,6 +1109,37 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     setServicesState((current) => current.filter((s) => s.id !== serviceId));
   };
 
+  const handleCreateServiceFromQuery = (queryName: string) => {
+    const name = queryName.trim().slice(0, 80) || 'Новая услуга';
+    const createDraftId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const newId = createDraftId('service');
+    setServicesState((current) => [
+      {
+        id: newId,
+        name,
+        category: 'Мойка',
+        resourceGroup: 'wash',
+        washType: '',
+        price: 0,
+        duration: 30,
+        desc: '',
+        active: true,
+        materialConsumption: null,
+        isFixedMaster: false,
+      } as any,
+      ...current,
+    ]);
+    // закрыть модалки создания записи
+    setShowNewBooking(false);
+    setShowAddServiceModal(false);
+    setShowSlideOver(false);
+    setPage('settings');
+    setSettingsSection('pricing');
+    setPricingSearchQuery(name);
+    setBottomToast(`Создайте услугу «${name}» и сохраните изменения`);
+    setTimeout(() => setBottomToast(null), 3500);
+  };
+
   const handleOpenEditAsvc = (asvc: AdditionalService) => {
     setEditAsvcId(asvc.id);
     setEditAsvcDraft({ price: asvc.price, duration: asvc.duration, priceMode: asvc.priceMode || 'add', isOutsource: !!asvc.isOutsource, outsourceAmount: asvc.outsourceAmount || 0 });
@@ -1624,6 +1655,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               onBack={() => setSettingsSection(null)}
               onSave={handleSaveSettings}
               saved={settingsSaved}
+              onCreateNew={handleCreateServiceFromQuery}
             />
           )}
 
@@ -2207,6 +2239,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   sub={sub}
                   primary={primary}
                   isDark={isDark}
+                  onCreateNew={handleCreateServiceFromQuery}
                   onChange={serviceId => {
                     const svc = services.find(s => s.id === serviceId);
                     setAddServiceDraft((current) => {
@@ -2670,6 +2703,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     primary={primary}
                     isDark={isDark}
                     placeholder="Выберите услугу"
+                    onCreateNew={handleCreateServiceFromQuery}
                     onChange={(serviceId) => {
                       const svc = liveServices.find(s => s.id === serviceId);
                       setEditBookingDraft((current) => {
@@ -3181,6 +3215,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     sub={sub}
                     primary={primary}
                     isDark={isDark}
+                    onCreateNew={handleCreateServiceFromQuery}
                     onChange={serviceId => {
                       const svc = services.find(s => s.id === serviceId);
                       setNewBookingForm(p => {

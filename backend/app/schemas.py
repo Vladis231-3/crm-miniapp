@@ -827,6 +827,18 @@ class OwnerNotificationSettings(BaseModel):
     dailyReport: bool
     weeklyReport: bool
     bookingReminders: bool = True
+    bookingReminderHours: int = Field(default=24, ge=1, le=168)
+    bookingReminderDays: int | None = Field(default=None, ge=1, le=7)
+
+    @model_validator(mode="after")
+    def _coerce_hours(self) -> "OwnerNotificationSettings":
+        if "bookingReminderHours" not in self.model_fields_set and "bookingReminderDays" in self.model_fields_set and self.bookingReminderDays is not None:
+            self.bookingReminderHours = max(1, min(168, int(self.bookingReminderDays) * 24))
+        if self.bookingReminderHours >= 24:
+            self.bookingReminderDays = max(1, min(7, round(self.bookingReminderHours / 24)))
+        else:
+            self.bookingReminderDays = 1
+        return self
 
 
 class OwnerIntegrationsPayload(BaseModel):

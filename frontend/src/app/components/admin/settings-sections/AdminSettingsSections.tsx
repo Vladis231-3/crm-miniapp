@@ -333,6 +333,7 @@ export function PricingSection({
   onBack,
   onSave,
   saved,
+  onCreateNew,
 }: {
   services: Array<{ id: string; name: string; category: string; desc?: string; price: number; duration: number; materialConsumption?: number | null; isFixedMaster?: boolean }>;
   searchQuery: string;
@@ -342,6 +343,7 @@ export function PricingSection({
   onBack: () => void;
   onSave: () => void;
   saved: boolean;
+  onCreateNew?: (query: string) => void;
 }) {
   const q = searchQuery.trim().toLowerCase();
   const matches = (svc: { name: string; category: string; desc?: string }) =>
@@ -416,7 +418,17 @@ export function PricingSection({
         );
       })}
       {searchQuery.trim() && services.filter((svc) => matches(svc)).length === 0 && (
-        <div className={`${glassCls} mb-3 rounded-2xl p-4 text-sm ${subCls}`}>По запросу «{searchQuery.trim()}» услуг не найдено</div>
+        <div className={`${glassCls} mb-3 rounded-2xl p-4 text-center`}>
+          <div className={`text-sm ${subCls} mb-2`}>По запросу «{searchQuery.trim()}» услуг не найдено</div>
+          <button
+            onClick={() => onCreateNew?.(searchQuery.trim())}
+            className="w-full rounded-xl py-2.5 text-sm font-semibold text-white"
+            style={{ background: 'var(--primary-600)' }}
+          >
+            Возможно вы хотите создать новую? «{searchQuery.trim().slice(0, 30)}»
+          </button>
+          <div className={`text-xs ${subCls} mt-2`}>Перенаправит на форму создания новой услуги</div>
+        </div>
       )}
       <SettingsSaveButton saved={saved} onClick={onSave} label="Сохранить цены" />
     </SectionShell>
