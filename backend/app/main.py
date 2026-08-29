@@ -43,6 +43,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from fastapi.encoders import jsonable_encoder
+import json as _json_stdlib
 
 from math import isinf as _math_isinf
 
@@ -745,7 +746,12 @@ DEFAULT_ADMIN_SHIFT_SUPPLIES = [
 
 
 
-app = FastAPI(title=settings.app_name)
+class AsciiJSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        return _json_stdlib.dumps(content, ensure_ascii=True, allow_nan=False, indent=None, separators=(",", ":")).encode("utf-8")
+
+
+app = FastAPI(title=settings.app_name, default_response_class=AsciiJSONResponse)
 
 app.add_middleware(
 

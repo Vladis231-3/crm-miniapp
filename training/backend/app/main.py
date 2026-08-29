@@ -37,9 +37,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from fastapi.responses import FileResponse, HTMLResponse, Response
-
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+
+from fastapi.encoders import jsonable_encoder
+import json as _json_stdlib
 
 from sqlalchemy import String, and_, cast, delete as sa_delete, inspect, or_, select, func, update as sa_update
 
@@ -716,7 +718,12 @@ DEFAULT_ADMIN_SHIFT_SUPPLIES = [
 
 
 
-app = FastAPI(title=settings.app_name)
+class AsciiJSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        return _json_stdlib.dumps(content, ensure_ascii=True, allow_nan=False, indent=None, separators=(",", ":")).encode("utf-8")
+
+
+app = FastAPI(title=settings.app_name, default_response_class=AsciiJSONResponse)
 
 app.add_middleware(
 
