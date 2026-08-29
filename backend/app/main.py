@@ -2748,104 +2748,115 @@ def _apply_default_shift_pay(db: Session) -> None:
 
 
 
+def _cyr_count(value: str) -> int:
+
+    return sum(1 for ch in value if "\u0400" <= ch <= "\u04FF")
+
+
+
+_MOJIBAKE_ENCODINGS = ("cp1251", "cp1252", "latin-1")
+
+
+
+def _strict_utf8_variants(value: str) -> list[str]:
+
+    """Детерминированные кандидаты ремонта: строка является UTF-8 байтами,
+
+    ошибочно декодированными как cp1251/cp1252/latin-1.
+
+    Никаких эвристик и маркеров-слов — только строгие encode/decode.
+
+    """
+
+    candidates = [value]
+
+    # Апостроф при конвертациях искажается: байт 0x92 (’) часто превращался в '/`
+
+    if "'" in value or "`" in value:
+
+        candidates.append(value.replace("'", "\u2019").replace("`", "\u2019"))
+
+    seen: set[str] = set()
+
+    results: list[str] = []
+
+    for text in candidates:
+
+        for encoding in _MOJIBAKE_ENCODINGS:
+
+            try:
+
+                raw = text.encode(encoding)
+
+            except UnicodeEncodeError:
+
+                continue
+
+            try:
+
+                fixed = raw.decode("utf-8")
+
+            except UnicodeDecodeError:
+
+                continue
+
+            if fixed == value or fixed in seen:
+
+                continue
+
+            seen.add(fixed)
+
+            results.append(fixed)
+
+    return results
+
+
+
+def _repair_text_strict_step(value: str) -> str | None:
+
+    """Один шаг строгого ремонта: кандидат обязан содержать кириллицу или ₽."""
+
+    for fixed in _strict_utf8_variants(value):
+
+        if _cyr_count(fixed) == 0 and "₽" not in fixed:
+
+            continue
+
+        return fixed
+
+    return None
+
+
+
 def _repair_text_value(value: str) -> str:
+
+    """Строгий ремонт mojibake (UTF-8 байты, декодированные как cp1251/cp1252/latin-1).
+
+    Корректный текст не изменяется: кириллица/латиница/emoji либо не кодируются
+
+    в эти кодировки, либо дают невалидный UTF-8. Повтор до фикс-пойнта
+
+    (максимум 3 итерации) чинит двойной mojibake.
+
+    """
+
     if not value:
+
         return value
-    # Все возможные маркеры mojibake: latin1 (Ð,Ñ,Ã,Â), cp1251/windows-1251 (вЂ,Р’С‹...), cp1252 (â€), koi8-r/iso8859-5/cp866
-    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "Р’", "С‹", "СЂ", "Сѓ", "С‡", "Рє", "Р°", "СЃ", "С‚", "Рј", "Рё", "РЅ", "Р»", "Рѕ", "в‚", "Ѕ", "—", "–", "Р'", "С'", "Р»", "С»"]
-    has_marker = any(m in value for m in markers)
-    # Полный перебор всех кодировок, которые могут дать mojibake для кириллицы
-    all_encodings = ["windows-1251", "cp1251", "koi8-r", "iso8859-5", "cp866", "mac_cyrillic", "latin1", "iso8859-1", "cp1252", "windows-1252"]
-    # Нормализуем частые замены: ' (U+0027) <-> ’ (U+2019) для windows-1251 mojibake
-    norm_value = value.replace("'", "’").replace("`", "’")
-    # Гибридный ремонт с маркерами
-    if has_marker or any(c in value for c in ["Р", "С", "в"]):
-        for enc in all_encodings:
-            try:
-                byte_arr = bytearray()
-                for ch in norm_value:
-                    try:
-                        byte_arr.extend(ch.encode(enc))
-                    except UnicodeEncodeError:
-                        byte_arr.extend(ch.encode("utf-8"))
-                fixed = byte_arr.decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed == value or fixed == norm_value:
-                continue
-            if any(m in fixed for m in markers):
-                continue
-            # Эвристика: стало больше кириллицы
-            cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
-            cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
-            if cyr_fixed >= cyr_orig and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Владелец", "Запись", "Клиент", "АТМОСФЕРА"]):
-                return fixed
-            if fixed != value and cyr_fixed > 5:
-                return fixed
-        for enc in all_encodings:
-            try:
-                fixed = norm_value.encode(enc).decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed == value or fixed == norm_value:
-                continue
-            if any(m in fixed for m in markers):
-                continue
-            cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
-            if cyr_fixed > 5 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Владелец"]):
-                return fixed
-            return fixed
-        for enc in all_encodings:
-            try:
-                fixed = norm_value.encode(enc).decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed != value and fixed != norm_value:
-                return fixed
-        # Если с нормализованным не вышло, пробуем оригинал
-        if norm_value != value:
-            for enc in all_encodings:
-                try:
-                    fixed = value.encode(enc).decode("utf-8")
-                except UnicodeError:
-                    continue
-                if fixed != value and any(w in fixed for w in ["Выручка", "Владелец"]):
-                    return fixed
-        return value
-    # Нет явных маркеров, но может быть windows-1251 mojibake вида "Р'С‹СЂСѓС‡РєР°" (Выручка)
-    # Пробуем все кодировки и смотрим, стал ли результат более "русским"
-    for enc in all_encodings:
-        try:
-            fixed = norm_value.encode(enc).decode("utf-8")
-        except UnicodeError:
-            continue
-        if fixed == value or fixed == norm_value:
-            continue
-        cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
-        cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
-        if cyr_fixed > cyr_orig + 2 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Владелец", "Запись", "Клиент", "АТМОСФЕРА"]):
-            return fixed
-        if "₽" in fixed and "в‚" in value:
-            return fixed
-        if "Выручка" in fixed and ("Р'С‹" in value or "Р’С‹" in norm_value):
-            return fixed
-        if "Владелец" in fixed and ("Р’Р»" in norm_value or "Р'Р»" in value):
-            return fixed
-    # Гибридный фолбэк без маркеров
-    for enc in all_encodings:
-        try:
-            byte_arr = bytearray()
-            for ch in norm_value:
-                try:
-                    byte_arr.extend(ch.encode(enc))
-                except UnicodeEncodeError:
-                    byte_arr.extend(ch.encode("utf-8"))
-            fixed = byte_arr.decode("utf-8")
-        except UnicodeError:
-            continue
-        if fixed != value and any(w in fixed for w in ["Выручка", "сегодня", "₽"]):
-            return fixed
-    return value
+
+    current = value
+
+    for _ in range(3):
+
+        step = _repair_text_strict_step(current)
+
+        if step is None:
+
+            break
+
+        current = step
+
+    return current
 
 
 
@@ -2933,109 +2944,25 @@ def _sanitize_notification_message(message: str) -> str:
 
 
 
+_TEXT_REPAIR_TARGETS: tuple[tuple[type, tuple[str, ...]], ...] = (
+    (StaffUser, ("name", "city", "experience", "specialty", "about")),
+    (Client, ("name", "car", "plate", "notes")),
+    (Service, ("name", "category", "description")),
+    (Box, ("name", "description")),
+    (ScheduleEntry, ("day_label", "open_time", "close_time")),
+    (Booking, ("client_name", "service", "box", "notes", "car", "plate")),
+    (BookingWorker, ("worker_name",)),
+    (StockItem, ("name", "unit", "category")),
+    (Expense, ("title", "category", "note")),
+    (Penalty, ("title", "reason")),
+    (Income, ("source", "note")),
+)
+
+
 def _repair_text_data(db: Session) -> None:
-
     changed = False
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        StaffUser,
-
-        ("name", "city", "experience", "specialty", "about"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        Client,
-
-        ("name", "car", "plate", "notes"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        Service,
-
-        ("name", "category", "description"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        Box,
-
-        ("name", "description"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        ScheduleEntry,
-
-        ("day_label", "open_time", "close_time"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        Booking,
-
-        ("client_name", "service", "box", "notes", "car", "plate"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        BookingWorker,
-
-        ("worker_name",),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        StockItem,
-
-        ("name", "unit", "category"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        Expense,
-
-        ("title", "category", "note"),
-
-    )
-
-    changed |= _repair_model_text_fields(
-
-        db,
-
-        Penalty,
-
-        ("title", "reason"),
-
-    )
+    for model, fields in _TEXT_REPAIR_TARGETS:
+        changed |= _repair_model_text_fields(db, model, fields)
 
 
 
@@ -10559,6 +10486,123 @@ def debug_db(db: Session = Depends(get_db)) -> dict:
         import traceback
 
         return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:3000]}
+
+
+def _mojibake_scan_rows(db: Session) -> list[dict]:
+    """Найти строки-кандидаты mojibake: строгий ремонт меняет значение."""
+    rows: list[dict] = []
+    for model, fields in _TEXT_REPAIR_TARGETS:
+        table = getattr(model, "__tablename__", getattr(model, "__name__", "?"))
+        for item in db.scalars(select(model)).all():
+            for field in fields:
+                value = getattr(item, field, None)
+                if not isinstance(value, str) or not value:
+                    continue
+                fixed = _repair_text_value(value)
+                if fixed == value:
+                    continue
+                rows.append(
+                    {
+                        "table": table,
+                        "id": getattr(item, "id", None),
+                        "field": field,
+                        "value": value[:200],
+                        "value_hex": value.encode("utf-8").hex()[:400],
+                        "fixed": fixed[:200],
+                    }
+                )
+    for setting in db.scalars(select(AppSetting)).all():
+        fixed_value = _repair_nested_text(setting.value)
+        if fixed_value != setting.value:
+            rows.append(
+                {
+                    "table": "app_settings",
+                    "id": getattr(setting, "key", None),
+                    "field": "value",
+                    "value": repr(setting.value)[:200],
+                    "fixed": repr(fixed_value)[:200],
+                }
+            )
+    for notification in db.scalars(select(Notification)).all():
+        fixed_message = _sanitize_notification_message(notification.message)
+        if fixed_message != notification.message:
+            rows.append(
+                {
+                    "table": "notifications",
+                    "id": getattr(notification, "id", None),
+                    "field": "message",
+                    "value": notification.message[:200],
+                    "fixed": fixed_message[:200],
+                }
+            )
+    return rows
+
+
+def _debug_owner_session(
+    authorization: str | None = Header(default=None),
+    init_data: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Авторизация владельца для debug-эндпоинтов: заголовок или initData в query."""
+    token = authorization or init_data
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization"
+        )
+    session_data = _resolve_user_from_init_data(token, db)
+    if session_data is None or session_data.get("role") != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return session_data
+
+
+@app.get("/api/debug/mojibake-scan")
+def debug_mojibake_scan(
+    session_data: dict = Depends(_debug_owner_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Диагностика: какие строки в БД выглядят как mojibake и чем их починит строгий ремонт."""
+    rows = _mojibake_scan_rows(db)
+    return {"ok": True, "count": len(rows), "rows": rows[:200]}
+
+
+@app.post("/api/debug/mojibake-repair")
+def debug_mojibake_repair(
+    payload: dict | None = None,
+    session_data: dict = Depends(_debug_owner_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Строгий ремонт mojibake в БД. По умолчанию dry-run; {"apply": true} — применить."""
+    apply_fix = bool((payload or {}).get("apply"))
+    rows = _mojibake_scan_rows(db)
+    if not apply_fix:
+        return {"ok": True, "dry_run": True, "would_change": len(rows)}
+    changed = 0
+    for model, fields in _TEXT_REPAIR_TARGETS:
+        for item in db.scalars(select(model)).all():
+            for field in fields:
+                value = getattr(item, field, None)
+                if not isinstance(value, str) or not value:
+                    continue
+                fixed = _repair_text_value(value)
+                if fixed != value:
+                    setattr(item, field, fixed)
+                    changed += 1
+    for setting in db.scalars(select(AppSetting)).all():
+        fixed_value = _repair_nested_text(setting.value)
+        if fixed_value != setting.value:
+            setting.value = fixed_value
+            changed += 1
+    for notification in db.scalars(select(Notification)).all():
+        fixed_message = _sanitize_notification_message(notification.message)
+        if not fixed_message:
+            db.delete(notification)
+            changed += 1
+            continue
+        if fixed_message != notification.message:
+            notification.message = fixed_message
+            changed += 1
+    db.commit()
+    return {"ok": True, "dry_run": False, "changed": changed}
 
 
 
