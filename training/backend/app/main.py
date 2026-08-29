@@ -2605,13 +2605,19 @@ def _apply_default_shift_pay(db: Session) -> None:
 def _repair_text_value(value: str) -> str:
     if not value:
         return value
-    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "Р’", "С‹", "СЂ", "Сѓ", "С‡", "Рє", "Р°", "СЃ", "С‚", "Рј", "Рё", "РЅ", "Р»", "Рѕ", "в‚", "Ѕ", "—", "–"]
+    # Все возможные маркеры mojibake: latin1 (Ð,Ñ,Ã,Â), cp1251/windows-1251 (вЂ,Р’С‹...), cp1252 (â€), koi8-r/iso8859-5/cp866
+    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "Р’", "С‹", "СЂ", "Сѓ", "С‡", "Рє", "Р°", "СЃ", "С‚", "Рј", "Рё", "РЅ", "Р»", "Рѕ", "в‚", "Ѕ", "—", "–", "Р'", "С'", "Р»", "С»"]
     has_marker = any(m in value for m in markers)
-    if has_marker:
-        for enc in ("cp1251", "latin1"):
+    # Полный перебор всех кодировок, которые могут дать mojibake для кириллицы
+    all_encodings = ["windows-1251", "cp1251", "koi8-r", "iso8859-5", "cp866", "mac_cyrillic", "latin1", "iso8859-1", "cp1252", "windows-1252"]
+    # Нормализуем частые замены: ' (U+0027) <-> ’ (U+2019) для windows-1251 mojibake
+    norm_value = value.replace("'", "’").replace("`", "’")
+    # Гибридный ремонт с маркерами
+    if has_marker or any(c in value for c in ["Р", "С", "в"]):
+        for enc in all_encodings:
             try:
                 byte_arr = bytearray()
-                for ch in value:
+                for ch in norm_value:
                     try:
                         byte_arr.extend(ch.encode(enc))
                     except UnicodeEncodeError:
@@ -2619,48 +2625,71 @@ def _repair_text_value(value: str) -> str:
                 fixed = byte_arr.decode("utf-8")
             except UnicodeError:
                 continue
-            if fixed == value:
+            if fixed == value or fixed == norm_value:
                 continue
             if any(m in fixed for m in markers):
                 continue
-            return fixed
-        for enc in ("cp1251", "latin1"):
-            try:
-                fixed = value.encode(enc).decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed == value:
-                continue
-            if any(m in fixed for m in markers):
-                continue
-            return fixed
-        for enc in ("cp1251", "latin1"):
-            try:
-                fixed = value.encode(enc).decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed != value:
+            # Эвристика: стало больше кириллицы
+            cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
+            cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
+            if cyr_fixed >= cyr_orig and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Владелец", "Запись", "Клиент", "АТМОСФЕРА"]):
                 return fixed
+            if fixed != value and cyr_fixed > 5:
+                return fixed
+        for enc in all_encodings:
+            try:
+                fixed = norm_value.encode(enc).decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed == value or fixed == norm_value:
+                continue
+            if any(m in fixed for m in markers):
+                continue
+            cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
+            if cyr_fixed > 5 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Владелец"]):
+                return fixed
+            return fixed
+        for enc in all_encodings:
+            try:
+                fixed = norm_value.encode(enc).decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed != value and fixed != norm_value:
+                return fixed
+        # Если с нормализованным не вышло, пробуем оригинал
+        if norm_value != value:
+            for enc in all_encodings:
+                try:
+                    fixed = value.encode(enc).decode("utf-8")
+                except UnicodeError:
+                    continue
+                if fixed != value and any(w in fixed for w in ["Выручка", "Владелец"]):
+                    return fixed
         return value
-    for enc in ("cp1251", "latin1"):
+    # Нет явных маркеров, но может быть windows-1251 mojibake вида "Р'С‹СЂСѓС‡РєР°" (Выручка)
+    # Пробуем все кодировки и смотрим, стал ли результат более "русским"
+    for enc in all_encodings:
         try:
-            fixed = value.encode(enc).decode("utf-8")
+            fixed = norm_value.encode(enc).decode("utf-8")
         except UnicodeError:
             continue
-        if fixed == value:
+        if fixed == value or fixed == norm_value:
             continue
         cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
         cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
-        if cyr_fixed > cyr_orig + 2 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Запись", "Клиент"]):
+        if cyr_fixed > cyr_orig + 2 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Владелец", "Запись", "Клиент", "АТМОСФЕРА"]):
             return fixed
         if "₽" in fixed and "в‚" in value:
             return fixed
-        if "Выручка" in fixed and "Р'С‹" in value:
+        if "Выручка" in fixed and ("Р'С‹" in value or "Р’С‹" in norm_value):
             return fixed
-    for enc in ("cp1251", "latin1"):
+        if "Владелец" in fixed and ("Р’Р»" in norm_value or "Р'Р»" in value):
+            return fixed
+    # Гибридный фолбэк без маркеров
+    for enc in all_encodings:
         try:
             byte_arr = bytearray()
-            for ch in value:
+            for ch in norm_value:
                 try:
                     byte_arr.extend(ch.encode(enc))
                 except UnicodeEncodeError:
@@ -2671,9 +2700,6 @@ def _repair_text_value(value: str) -> str:
         if fixed != value and any(w in fixed for w in ["Выручка", "сегодня", "₽"]):
             return fixed
     return value
-
-
-
 
 
 def _repair_nested_text(value):
@@ -3006,7 +3032,25 @@ def _normalize_client_vehicles(
 
     if not normalized and (fallback_car.strip() or fallback_plate.strip()):
 
-        normalized.append(ClientVehiclePayload(car=fallback_car, plate=fallback_plate))
+        try:
+
+            normalized.append(ClientVehiclePayload(car=fallback_car, plate=fallback_plate))
+
+        except ValueError:
+
+            # Legacy-??????? ????? ?? ????????? ???????????? ("***", "###").
+
+            # ???????????? ????????? ClientProfilePayload ??? ????? ????????????
+
+            # ??????, ??????? ????? ??????????? ? bootstrap ?? ?????? ??????
+
+            # (test_generic_telegram_auth_tolerates_legacy_client_profile_data).
+
+            normalized.append(
+
+                ClientVehiclePayload.model_construct(car="", plate="", plateType="russian", isMain=True)
+
+            )
 
     deduped: list[ClientVehiclePayload] = []
 
@@ -3342,6 +3386,9 @@ def _parse_booking_datetime(date_value: str, time_value: str) -> datetime | None
 
 def _py_weekday_to_schedule_index(py_weekday: int) -> int:
 
+    # Конвенция day_index (сид и фронт getScheduleDayIndex=(getDay()+1)%7): Сб=0, Вс=1, Пн=2..Пт=6.
+    # Python weekday(): Пн=0..Вс=6 → сдвиг +2. fffb46 ошибочно вернул identity,
+    # из-за чего вторник проверялся по неактивному «Вс», а часы — по чужим дням.
     return (py_weekday + 2) % 7
 
 
@@ -4006,7 +4053,7 @@ def _payroll_entry_payload(entry: PayrollEntry, actor_name: str) -> PayrollEntry
 
         kind=entry.kind,  # type: ignore[arg-type]
 
-        amount=entry.amount,
+        amount=money_int(entry.amount),
 
         note=entry.note or "",
 
@@ -4084,7 +4131,11 @@ def _worker_payroll_summaries_from_data(
 ) -> dict[str, WorkerPayrollSummaryPayload]:
     if not workers:
         return {}
-    workers = [worker for worker in workers if worker.role != "owner"]
+    # Владельцы-мастера (extra_roles) остаются в расчётке — регрессия e4674679:
+    # фильтр исключал и их, из-за чего правки ЗП из архива не меняли страницу «Зарплаты».
+    workers = [
+        worker for worker in workers if worker.role != "owner" or _is_owner_master(worker)
+    ]
     if not workers:
         return {}
     worker_ids = [worker.id for worker in workers]
@@ -4175,6 +4226,10 @@ def _worker_payroll_summaries_from_data(
             _payroll_entry_payload(entry, actors.get(entry.actor_id, "Сотрудник"))
         )
     result: dict[str, WorkerPayrollSummaryPayload] = {}
+    from datetime import date as _date
+    # Инспекции смен не зависят от мастера — вычисляем один раз для всех,
+    # а не повторно на каждого мастера (иначе лишние чтения настроек в БД).
+    inspections = _admin_shift_inspections_state(db)
     for worker in workers:
         booking_items = booking_items_by_worker.get(worker.id, [])
         payroll_entries = entry_payloads_by_worker.get(worker.id, [])
@@ -4195,8 +4250,6 @@ def _worker_payroll_summaries_from_data(
         )
         accrued_from_bookings = sum(item.earned for item in booking_items)
         completed_revenue = sum(item.price for item in booking_items)
-        from datetime import date as _date
-        inspections = _admin_shift_inspections_state(db)
         shift_count, _shift_dates = _compute_shift_attendance(
             inspections,
             worker.id,
@@ -4486,7 +4539,7 @@ def _expense_payload(expense: Expense) -> ExpensePayload:
 
         title=expense.title,
 
-        amount=expense.amount,
+        amount=money_int(expense.amount),
 
         category=expense.category,
 
@@ -4728,6 +4781,10 @@ def _settings_payload(db: Session) -> SettingsBundlePayload:
 
         "bookingReminders": True,
 
+        "bookingReminderHours": 24,
+
+        "bookingReminderDays": 1,
+
     }
 
     owner_integrations_default = {
@@ -4941,6 +4998,10 @@ def _empty_settings_payload() -> SettingsBundlePayload:
             weeklyReport=False,
 
             bookingReminders=False,
+
+            bookingReminderHours=24,
+
+            bookingReminderDays=1,
 
         ),
 
@@ -5485,7 +5546,7 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
         return None
 
-    staff = db.scalar(
+    staff_matches = db.scalars(
 
         select(StaffUser).where(
 
@@ -5495,7 +5556,21 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
         )
 
-    )
+    ).all()
+
+    if len(staff_matches) > 1:
+
+        # Дубль привязки: молча выбрать первого — отдать сессию не тому сотруднику.
+
+        raise HTTPException(
+
+            status_code=status.HTTP_409_CONFLICT,
+
+            detail="Telegram привязан к нескольким сотрудникам — обратитесь к владельцу",
+
+        )
+
+    staff = staff_matches[0] if staff_matches else None
 
     if staff is not None:
 
@@ -5588,6 +5663,10 @@ def _extract_telegram_id_from_init_data(authorization: str) -> str:
         )
     except ValueError:
         if settings.allow_insecure_client_auth:
+            logger.warning(
+                "SECURITY: подпись initData не прошла проверку — принят "
+                "непроверенный fallback (ALLOW_INSECURE_CLIENT_AUTH=true)"
+            )
             try:
                 validated = validate_telegram_init_data(
                     authorization,
@@ -5671,9 +5750,33 @@ def register_or_login_client(
     if payload.phone:
         phone_owner = _client_by_phone(db, payload.phone)
         if phone_owner is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Клиент с таким номером телефона уже существует",
+            # Повторное использование записи. Конфликт только если телефон
+            # принадлежит клиенту с ДРУГИМ уже привязанным Telegram
+            # (test_client_registration_rejects_same_phone_for_different_telegram_ids).
+            existing_tid = (phone_owner.telegram_id or "").strip()
+            if telegram_id and existing_tid and telegram_id != existing_tid:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Этот телефон уже привязан к другому клиенту",
+                )
+            if telegram_id and not existing_tid:
+                # Привязка вручную созданной записи ТОЛЬКО после того, как
+                # этот Telegram подтвердил номер через бота (шаринг своего
+                # контакта). Иначе знание телефона жертвы позволило бы
+                # перехватить её профиль.
+                _require_client_phone_verification(db, telegram_id, payload.phone)
+                phone_owner.telegram_id = telegram_id
+                phone_owner.updated_at = _now()
+                db.commit()
+                db.refresh(phone_owner)
+            return _build_bootstrap(
+                db,
+                {
+                    "role": "client",
+                    "actorId": phone_owner.id,
+                    "displayName": phone_owner.name,
+                    "sessionId": "",
+                },
             )
 
     client = Client(
@@ -5698,6 +5801,56 @@ def register_or_login_client(
             "sessionId": "",
         },
     )
+
+
+@app.post("/api/auth/staff/login")
+def staff_login(
+    payload: StaffLoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Парольный логин персонала — только для dev/test-окружения.
+
+    В production/staging ALLOW_INSECURE_CLIENT_AUTH принудительно выключен
+    конфигурацией (см. config.py), поэтому роут отвечает 404: персонал входит
+    исключительно через Telegram initData. Токен ответа — initData-совместимая
+    строка, которую _require_session резолвит в сессию сотрудника.
+    """
+    if not settings.allow_insecure_client_auth:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    client_ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(client_ip)
+    staff = db.scalar(select(StaffUser).where(StaffUser.login == payload.login.strip()))
+    if (
+        staff is None
+        or not staff.active
+        or not verify_password(payload.password, staff.password_hash)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный логин или пароль.",
+        )
+    if not (staff.telegram_chat_id or "").strip():
+        # Детерминированный dev-идентификатор: hash() рандомизирован между
+        # процессами и мутировал бы привязку при каждом рестарте. Значение
+        # обязано оставаться числовым — оно вкладывается в initData-совместимый
+        # токен вида user={"id":<chat_id>} и матчится по telegram_chat_id.
+        staff.telegram_chat_id = f"91{zlib.crc32(staff.login.encode('utf-8')) % 10 ** 8}"
+        db.commit()
+    session_data = {
+        "role": staff.role,
+        "actorId": staff.id,
+        "login": staff.login,
+        "displayName": staff.name,
+        "sessionId": "",
+    }
+    token = f"user=%7B%22id%22%3A{staff.telegram_chat_id}%7D"
+    return {
+        "token": token,
+        "role": staff.role,
+        "actorId": staff.id,
+        "session": session_data,
+    }
 
 
 @app.post("/api/auth/telegram", response_model=BootstrapPayload)
@@ -5728,6 +5881,9 @@ def link_staff_account(
     request: Request,
     db: Session = Depends(get_db),
 ) -> BootstrapPayload:
+    client_ip = request.client.host if request.client else "unknown"
+    # Брутфорс-защита: как в /api/auth/staff/login.
+    _check_rate_limit(client_ip)
     authorization = (request.headers.get("authorization") or "").strip()
     telegram_id = _extract_telegram_id_from_init_data(authorization)
     staff = db.scalar(
@@ -5740,6 +5896,19 @@ def link_staff_account(
     if staff.role not in {"admin", "worker", "owner", "accountant"} or not staff.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к аккаунту отключён"
+        )
+    current_chat_id = (staff.telegram_chat_id or "").strip()
+    if current_chat_id and current_chat_id != telegram_id:
+        # Не перезаписываем существующую привязку: иначе знание пароля
+        # позволило бы перехватить аккаунт у легитимного Telegram.
+        logger.warning(
+            "SECURITY: отказ в перепривязке staff=%s: уже привязан к другому Telegram (ip=%s)",
+            staff.login,
+            client_ip,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Этот аккаунт уже привязан к другому Telegram. Обратитесь к администратору.",
         )
     staff.telegram_chat_id = telegram_id
     staff.updated_at = _now()
@@ -6114,6 +6283,25 @@ def _booking_reminder_target_date(days_ahead: int = 1) -> str:
     return (datetime.now() + timedelta(days=days_ahead)).strftime("%d.%m.%Y")
 
 
+def _get_booking_reminder_hours(owner_settings: dict[str, Any]) -> int:
+    """Вытащить из настроек владельца за сколько часов слать напоминание (1..168)."""
+    raw = owner_settings.get("bookingReminderHours")
+    if raw is not None:
+        try:
+            hours = int(raw)
+            return max(1, min(168, hours))
+        except Exception:
+            pass
+    # fallback старый ключ в днях
+    raw_days = owner_settings.get("bookingReminderDays")
+    if raw_days is not None:
+        try:
+            return max(1, min(168, int(raw_days) * 24))
+        except Exception:
+            pass
+    return 24
+
+
 
 
 
@@ -6387,11 +6575,13 @@ def _cleanup_return_reminder_deliveries(deliveries: dict[str, Any]) -> dict[str,
 
 def _booking_client_reminder_message(booking: Booking) -> str:
 
+    add_block = _additional_services_block(booking)
+
     return (
 
         "Напоминание о записи\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {booking.date} {booking.time}\n"
 
@@ -6407,13 +6597,15 @@ def _booking_client_reminder_message(booking: Booking) -> str:
 
 def _booking_worker_reminder_message(booking: Booking, worker_name: str) -> str:
 
+    add_block = _additional_services_block(booking)
+
     return (
 
         f"Напоминание мастеру {worker_name}\n"
 
         f"Клиент: {booking.client_name}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {booking.date} {booking.time}\n"
 
@@ -6437,8 +6629,6 @@ def _dispatch_booking_reminders(
 
 ) -> OwnerReminderDispatchPayload:
 
-    reminder_date = (target_date or "").strip() or _booking_reminder_target_date()
-
     owner_settings = _setting(
 
         db,
@@ -6461,9 +6651,40 @@ def _dispatch_booking_reminders(
 
             "bookingReminders": True,
 
+            "bookingReminderHours": 24,
+
+            "bookingReminderDays": 1,
+
         },
 
     )
+
+    # интервал напоминания: от 1 часа до 7 дней (1..168 часов)
+    reminder_hours = _get_booking_reminder_hours(owner_settings)
+
+    # ручной вызов с явной датой — сохраняет старое поведение (по дате)
+    explicit_date = (target_date or "").strip()
+    if explicit_date:
+        reminder_date = explicit_date
+        use_date_filter = True
+        target_dt = None
+        window = None
+    else:
+        # автоматический режим (cron / без даты) — учитываем настройки интервала
+        if reminder_hours >= 24 and reminder_hours % 24 == 0:
+            days = reminder_hours // 24
+            reminder_date = _booking_reminder_target_date(days_ahead=days)
+            use_date_filter = True
+            target_dt = None
+            window = None
+        else:
+            # часовой режим: напоминание за N часов до точного времени записи
+            now = datetime.now()
+            target_dt = now + timedelta(hours=reminder_hours)
+            reminder_date = target_dt.strftime("%d.%m.%Y")
+            use_date_filter = False
+            # окно ±40 минут, чтобы часовой cron (раз в час) гарантированно поймал запись
+            window = timedelta(minutes=40)
 
     if not owner_settings.get("bookingReminders", True) and not force:
 
@@ -6507,37 +6728,51 @@ def _dispatch_booking_reminders(
 
 
 
-    bookings = (
-
-        db.scalars(
-
-            select(Booking)
-
-            .options(joinedload(Booking.worker_links))
-
-            .where(
-
-                Booking.date == reminder_date,
-
-                Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
-
+    # выборка записей: по дате (дни) или по точному времени (часы)
+    if use_date_filter:
+        bookings = (
+            db.scalars(
+                select(Booking)
+                .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
+                .where(
+                    Booking.date == reminder_date,
+                    Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
+                )
+                .order_by(Booking.time.asc(), Booking.created_at.asc())
             )
-
-            .order_by(Booking.time.asc(), Booking.created_at.asc())
-
+            .unique()
+            .all()
         )
-
-        .unique()
-
-        .all()
-
-    )
-
-
+    else:
+        # часовой режим: ищем записи где точное время записи ≈ now + reminder_hours (± window)
+        assert target_dt is not None and window is not None
+        all_candidates = (
+            db.scalars(
+                select(Booking)
+                .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
+                .where(Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)))
+                .order_by(Booking.time.asc(), Booking.created_at.asc())
+            )
+            .unique()
+            .all()
+        )
+        bookings = []
+        for cand in all_candidates:
+            dt = _parse_booking_datetime(cand.date, cand.time)
+            if dt is None:
+                continue
+            # _parse_booking_datetime возвращает naive local; сравниваем с naive target_dt
+            delta = abs((dt - target_dt).total_seconds())
+            if delta <= window.total_seconds():
+                bookings.append(cand)
 
     worker_ids = {
 
         link.worker_id for booking in bookings for link in booking.worker_links
+
+    } | {
+
+        link.worker_id for booking in bookings for asvc in (booking.additional_services or []) for link in (asvc.worker_links or [])
 
     }
 
@@ -6567,7 +6802,10 @@ def _dispatch_booking_reminders(
 
         client = db.get(Client, booking.client_id)
 
-        client_key = f"client:{booking.id}:{reminder_date}"
+        if use_date_filter:
+            client_key = f"client:{booking.id}:{reminder_date}"
+        else:
+            client_key = f"client:{booking.id}:{booking.date}:{booking.time}:{reminder_hours}h"
 
         client_message = _booking_client_reminder_message(booking)
 
@@ -6613,7 +6851,10 @@ def _dispatch_booking_reminders(
 
                 continue
 
-            worker_key = f"worker:{link.worker_id}:{booking.id}:{reminder_date}"
+            if use_date_filter:
+                worker_key = f"worker:{link.worker_id}:{booking.id}:{reminder_date}"
+            else:
+                worker_key = f"worker:{link.worker_id}:{booking.id}:{booking.date}:{booking.time}:{reminder_hours}h"
 
             if not force and worker_key in deliveries:
 
@@ -7612,7 +7853,10 @@ def _perform_owner_database_reset(db: Session) -> None:
 
     seed_database(
         db,
-        include_demo_staff=settings.allow_demo_seed_data,
+        # Сброс = чистый лист: демо-персонал не пересоздаём (контракт теста
+        # test_owner_database_reset_clears_operational_data_and_preserves_owners),
+        # остаются только владельцы. Сервисы/боксы/расписание сидируются.
+        include_demo_staff=False,
         is_production=settings.is_production,
     )
 
@@ -7626,6 +7870,152 @@ def _perform_owner_database_reset(db: Session) -> None:
 
 
 
+
+
+@app.post("/api/owner/database-reset/start", response_model=OwnerDatabaseResetStartPayload)
+def start_owner_database_reset(
+    payload: OwnerDatabaseResetStartRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetStartPayload:
+    """Шаг 1 сброса базы: подтверждение паролем, код уходит владельцу в Telegram."""
+    _ensure_staff_role(session_data, {"owner"})
+    staff = db.get(StaffUser, session_data["actorId"])
+    if staff is None or not verify_password(payload.password, staff.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль"
+        )
+    recipient = _primary_owner(db)
+    if recipient is None or not _safe_text(recipient.telegram_chat_id).strip():
+        recipient = _owner_two_factor_recipient(db)
+    chat_id = _safe_text(recipient.telegram_chat_id).strip() if recipient is not None else ""
+    if not chat_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Telegram владельца не привязан — подтвердить сброс невозможно",
+        )
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    expires_at = _now() + timedelta(minutes=OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES)
+    request_id = f"odr-{uuid4()}"
+    preview = _owner_database_reset_preview(db)
+    _save_owner_database_reset_state(
+        db,
+        {
+            "requestId": request_id,
+            "codeHash": hash_one_time_code(code, settings.app_secret),
+            "codeExpiresAt": expires_at.isoformat(),
+            "confirmationPhrase": _normalize_database_reset_phrase(
+                OWNER_DATABASE_RESET_CONFIRMATION_PHRASE
+            ),
+            "approved": False,
+            "requestedAt": _now().isoformat(),
+        },
+    )
+    db.commit()
+    send_telegram_message(
+        chat_id,
+        f"Код подтверждения: {code}\n"
+        f"Действует {OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES} мин. "
+        f"Без него сброс базы невозможен.",
+    )
+    return OwnerDatabaseResetStartPayload(
+        requestId=request_id,
+        creatorCodeExpiresAt=expires_at,
+        confirmationPhrase=OWNER_DATABASE_RESET_CONFIRMATION_PHRASE,
+        preview=preview,
+        warnings=_owner_database_reset_warnings(preview),
+        message="Код подтверждения отправлен в Telegram владельца",
+    )
+
+
+@app.post("/api/owner/database-reset/approve", response_model=OwnerDatabaseResetApprovePayload)
+def approve_owner_database_reset(
+    payload: OwnerDatabaseResetApproveRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetApprovePayload:
+    """Шаг 2: проверка кода из Telegram и фразы-подтверждения."""
+    _ensure_staff_role(session_data, {"owner"})
+    state = _owner_database_reset_state(db)
+    if (
+        state is None
+        or state.get("requestId") != payload.requestId
+        or not state.get("codeHash")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Заявка на сброс не найдена — начните заново",
+        )
+    expires_raw = state.get("codeExpiresAt")
+    try:
+        expires_at = datetime.fromisoformat(str(expires_raw))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка повреждена")
+    if expires_at.tzinfo is not None:
+        expires_at = expires_at.astimezone(timezone.utc)
+    if _now() > expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Код истёк — начните заново")
+    expected_hash = str(state.get("codeHash"))
+    provided_hash = hash_one_time_code(payload.creatorCode.strip(), settings.app_secret)
+    if not hmac_mod.compare_digest(expected_hash, provided_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный код")
+    if (
+        _normalize_database_reset_phrase(payload.confirmationPhrase)
+        != state.get("confirmationPhrase")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Фраза подтверждения не совпадает",
+        )
+    finalize_after = _now() + timedelta(seconds=OWNER_DATABASE_RESET_DELAY_SECONDS)
+    state["approved"] = True
+    state["finalizeAfter"] = finalize_after.isoformat()
+    _save_owner_database_reset_state(db, state)
+    db.commit()
+    preview = _owner_database_reset_preview(db)
+    return OwnerDatabaseResetApprovePayload(
+        requestId=payload.requestId,
+        finalizeAfter=finalize_after,
+        preview=preview,
+        warnings=_owner_database_reset_warnings(preview),
+        message="Сброс подтверждён — выполнение разблокировано",
+    )
+
+
+@app.post("/api/owner/database-reset/execute", response_model=OwnerDatabaseResetExecutePayload)
+def execute_owner_database_reset(
+    payload: OwnerDatabaseResetExecuteRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerDatabaseResetExecutePayload:
+    """Шаг 3: запуск очистки (не раньше finalizeAfter из approve)."""
+    _ensure_staff_role(session_data, {"owner"})
+    state = _owner_database_reset_state(db)
+    if (
+        state is None
+        or state.get("requestId") != payload.requestId
+        or not state.get("approved", False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Сброс не подтверждён — выполните шаг подтверждения",
+        )
+    finalize_raw = state.get("finalizeAfter")
+    try:
+        finalize_after = datetime.fromisoformat(str(finalize_raw))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Заявка повреждена")
+    if finalize_after.tzinfo is not None:
+        finalize_after = finalize_after.astimezone(timezone.utc)
+    if _now() < finalize_after:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Подтверждено — кнопка выполнения станет доступна через {OWNER_DATABASE_RESET_DELAY_SECONDS} c",
+        )
+    preview = _owner_database_reset_preview(db)
+    _perform_owner_database_reset(db)
+    db.commit()
+    return OwnerDatabaseResetExecutePayload(message="База очищена", preview=preview)
 
 
 def _parse_date(s: str) -> date | None:
@@ -7770,6 +8160,12 @@ def _owner_export_file(
 
     ).all()
 
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
+
 
 
     # Filter by segment
@@ -7870,7 +8266,61 @@ def _owner_export_file(
 
         shift_pay_by_worker=shift_pay_map,
 
+        piggy_transactions=list(piggy_transactions),
+
         db=db,
+
+    )
+
+
+
+def _piggy_bank_export_file(
+
+    db: Session,
+
+    actor_id: str,
+
+    date_from: str | None = None,
+
+    date_to: str | None = None,
+
+) -> GeneratedExport:
+
+    owner = db.get(StaffUser, actor_id)
+
+    if owner is None or owner.role not in {"owner", "accountant"}:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+
+        )
+
+    company_settings = _setting(
+
+        db,
+
+        "owner_company",
+
+        {"name": "ATMOSFERA"},
+
+    )
+
+    piggy_transactions = db.scalars(
+
+        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+
+    ).all()
+
+    return build_piggy_bank_export(
+
+        company_name=str(company_settings.get("name") or "ATMOSFERA"),
+
+        piggy_transactions=list(piggy_transactions),
+
+        date_from=date_from,
+
+        date_to=date_to,
 
     )
 
@@ -7978,7 +8428,7 @@ def _send_export_to_telegram(
 
     failed = sum(1 for r in results if not r.success)
 
-    if delivered == 0 and not all_owners:
+    if delivered == 0 and not telegram_recipients:
 
         raise HTTPException(
 
@@ -8145,8 +8595,6 @@ def _owner_summary_report(
         period=period,
 
         segment=segment,
-
-        db=db,
 
     )
 
@@ -8342,7 +8790,7 @@ def _send_owner_summary_report(
 
     failed = sum(1 for r in results if not r.success)
 
-    if delivered == 0 and not all_owners:
+    if delivered == 0 and not telegram_recipients:
 
         db.commit()
 
@@ -8414,6 +8862,15 @@ def download_owner_export(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
+    if kind == "piggy-bank":
+        _ensure_staff_role(session_data, {"owner", "accountant"})
+        export_file = _piggy_bank_export_file(
+            db,
+            session_data["actorId"],
+            date_from=date_from,
+            date_to=date_to,
+        )
+        return _download_response(export_file)
     _ensure_staff_role(session_data, {"owner"})
     export_file = _owner_export_file(
         db,
@@ -8435,6 +8892,15 @@ def send_owner_export_to_telegram(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> OwnerExportDeliveryPayload:
+    if kind == "piggy-bank":
+        _ensure_staff_role(session_data, {"owner", "accountant"})
+        export_file = _piggy_bank_export_file(
+            db,
+            session_data["actorId"],
+            date_from=date_from,
+            date_to=date_to,
+        )
+        return _send_export_to_telegram(db, session_data["actorId"], export_file)
     _ensure_staff_role(session_data, {"owner"})
     export_file = _owner_export_file(
         db,
@@ -8523,6 +8989,38 @@ def _admin_booking_notification_text(
 
 
 
+def _additional_services_block(booking: Booking) -> str:
+    """Форматирует блок доп. услуг для вставки в Telegram/внутренние сообщения."""
+    services = getattr(booking, "additional_services", None) or []
+    if not services:
+        return ""
+    lines: list[str] = []
+    for asvc in services:
+        try:
+            name = (getattr(asvc, "name", "") or "").strip() or "Доп. услуга"
+            price_val = int(getattr(asvc, "price", 0) or 0)
+            price_str = f"{price_val:,}".replace(",", " ") + " ₽"
+            if getattr(asvc, "price_mode", "add") == "subtract":
+                price_str = f"−{price_str} (вычет)"
+            dur = getattr(asvc, "duration", None)
+            dur_str = f", {int(dur)} мин" if dur else ""
+            out_str = " · аутсорс" if getattr(asvc, "is_outsource", False) else ""
+            lines.append(f"• {name} — {price_str}{dur_str}{out_str}")
+        except Exception:
+            lines.append(f"• {(getattr(asvc, 'name', '') or 'Доп. услуга').strip()}")
+    return "\nДоп. услуги:\n" + "\n".join(lines)
+
+
+
+def _booking_all_worker_ids(booking: Booking) -> set[str]:
+    """Все мастера записи: основная услуга + доп. услуги."""
+    ids: set[str] = {link.worker_id for link in (booking.worker_links or [])}
+    for asvc in (getattr(booking, "additional_services", None) or []):
+        for link in (getattr(asvc, "worker_links", None) or []):
+            if getattr(link, "worker_id", None):
+                ids.add(link.worker_id)
+    return ids
+
 def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
 
     admins = db.scalars(
@@ -8530,6 +9028,8 @@ def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
         select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))
 
     ).all()
+
+    add_block = _additional_services_block(booking)
 
     text = (
 
@@ -8539,7 +9039,7 @@ def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
 
         f"Авто: {_booking_car_label(booking.car, booking.plate)}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
 
@@ -8559,6 +9059,8 @@ def _notify_owners_about_booking(db: Session, booking: Booking) -> None:
 
     owners = _all_owner_telegram_recipients(db)
 
+    add_block = _additional_services_block(booking)
+
     text = (
 
         "Новая запись\n"
@@ -8567,7 +9069,7 @@ def _notify_owners_about_booking(db: Session, booking: Booking) -> None:
 
         f"Авто: {_booking_car_label(booking.car, booking.plate)}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
 
@@ -9021,13 +9523,15 @@ def _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -
 
     worker_line = f"\nМастер: {worker_name}" if worker_name else ""
 
+    add_block = _additional_services_block(booking)
+
     return (
 
         "Чек по записи\n"
 
         f"Клиент: {booking.client_name}\n"
 
-        f"Услуга: {booking.service}\n"
+        f"Услуга: {booking.service}{add_block}\n"
 
         f"Дата: {booking.date} {booking.time}\n"
 
@@ -9133,6 +9637,8 @@ def _notify_owner_about_worker_booking_event(
         else ""
     )
 
+    add_block = _additional_services_block(booking)
+
     _notify_owners(
 
         db,
@@ -9145,7 +9651,7 @@ def _notify_owner_about_worker_booking_event(
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}\n"
+            f"Услуга: {booking.service}{add_block}\n"
 
             f"Дата: {_booking_datetime_label(booking.date, booking.time)}\n"
 
@@ -9196,13 +9702,15 @@ def _notify_workers_about_assignment(
 
                 car_part += f" ({booking.plate})"
 
+        add_block = _additional_services_block(booking)
+
         text = (
 
             "Вам назначена запись\n"
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}\n"
+            f"Услуга: {booking.service}{add_block}\n"
 
             f"Дата: {booking.date} {booking.time}\n"
 
@@ -9219,6 +9727,108 @@ def _notify_workers_about_assignment(
         if booking.notes:
 
             text += f"\nПримечание администратора: {booking.notes}"
+
+        db.add(
+
+            Notification(
+
+                id=f"n-{uuid4()}",
+
+                recipient_role="worker",
+
+                recipient_id=worker.id,
+
+                message=text,
+
+                read=False,
+
+                created_at=_now(),
+
+            )
+
+        )
+
+        _send_telegram_safe(worker.telegram_chat_id, text)
+
+
+
+
+
+def _notify_workers_about_additional_service(
+
+    db: Session, booking: Booking, asvc: BookingAdditionalService
+
+) -> None:
+
+    if getattr(asvc, "is_outsource", False):
+
+        return
+
+    worker_ids = {link.worker_id for link in asvc.worker_links}
+
+    if not worker_ids:
+
+        return
+
+    workers = db.scalars(select(StaffUser).where(StaffUser.id.in_(worker_ids))).all()
+
+    for worker in workers:
+
+        link = next(
+
+            (item for item in asvc.worker_links if item.worker_id == worker.id), None
+
+        )
+
+        pay_label = "не указана"
+
+        if link is not None:
+
+            if (link.pay_type or "percent") == "fixed":
+
+                pay_label = (
+
+                    f"фикс {link.fixed_amount} ₽"
+
+                    if link.fixed_amount is not None
+
+                    else "фикс"
+
+                )
+
+            else:
+
+                pay_label = f"{link.percent:g}%"
+
+        car_part = ""
+
+        if booking.car:
+
+            car_part = f"\nАвто: {booking.car}"
+
+            if booking.plate:
+
+                car_part += f" ({booking.plate})"
+
+        text = (
+
+            "Вам назначена доп. услуга\n"
+
+            f"Клиент: {booking.client_name}\n"
+
+            f"Доп. услуга: {asvc.name}\n"
+
+            f"Дата: {booking.date} {booking.time}\n"
+
+            f"Бокс: {booking.box}\n"
+
+            f"Оплата: {pay_label}"
+
+        )
+
+        if car_part:
+
+            text += car_part
 
         db.add(
 
@@ -9272,13 +9882,15 @@ def _notify_workers_about_note(
 
                 car_part += f" ({booking.plate})"
 
+        add_block = _additional_services_block(booking)
+
         text = (
 
             "Администратор обновил примечание к вашей записи\n"
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}\n"
+            f"Услуга: {booking.service}{add_block}\n"
 
             f"Дата: {booking.date} {booking.time}"
 
@@ -9358,13 +9970,15 @@ def _notify_workers_about_reschedule(
 
                 car_part += f" ({booking.plate})"
 
+        add_block = _additional_services_block(booking)
+
         text = (
 
             "Администратор перенёс вашу запись\n"
 
             f"Клиент: {booking.client_name}\n"
 
-            f"Услуга: {booking.service}"
+            f"Услуга: {booking.service}{add_block}"
 
         )
 
@@ -9510,6 +10124,30 @@ def update_client_me(
     if payload.name is not None:
         client.name = payload.name
     if payload.phone is not None:
+        new_phone = payload.phone.strip()
+
+        def _safe_digits(value: str) -> str:
+            try:
+                return normalize_phone_digits(value)
+            except ValueError:
+                return ""
+
+        current_digits = _safe_digits(client.phone or "")
+        new_digits = _safe_digits(new_phone)
+        if new_phone and new_digits and new_digits != current_digits:
+            # Нельзя забрать телефон другого клиента (409,
+            # test_client_profile_cannot_take_phone_of_another_client)
+            for other in db.scalars(
+                select(Client).where(
+                    Client.id != client.id,
+                    Client.deleted_at.is_(None),
+                )
+            ):
+                if other.phone and _safe_digits(other.phone) == new_digits:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Этот телефон уже привязан к другому клиенту",
+                    )
         client.phone = payload.phone
 
     if payload.vehicles is not None:
@@ -9549,6 +10187,31 @@ def update_client_me(
         phoneVerified=phone_verified,
     )
 
+
+
+@app.delete("/api/clients/{client_id}", response_model=GenericMessage)
+def delete_client(
+    client_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    """Удаляет клиента вместе с его бронями (FK CASCADE) и уведомлениями.
+
+    Доступ — admin/owner. Сессии клиента безтокеновые (initData), поэтому
+    отдельный отзыв не нужен: резолвер больше не найдёт этого клиента.
+    """
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
+        )
+    # Core-уровень: БД сама каскадит bookings -> booking_workers/additional_services
+    # (ORM-удаление вместо этого пыталось занулить NOT NULL booking.client_id).
+    db.execute(sa_delete(Notification).where(Notification.recipient_id == client_id))
+    db.execute(sa_delete(Client).where(Client.id == client_id))
+    db.commit()
+    return GenericMessage(message="Клиент удалён")
 
 
 @app.patch("/api/clients/{client_id}/card", response_model=ClientSummaryPayload)
@@ -9707,12 +10370,46 @@ def create_client(
 
     return _client_summary_payload(client, db)
 
-
 @app.get("/api/health", response_model=GenericMessage)
+
 
 def health() -> GenericMessage:
 
     return GenericMessage(message="ok")
+
+
+@app.get("/api/debug/encoding")
+def debug_encoding() -> dict:
+    """Временная диагностика кодировки — без БД, просто тест."""
+    return {"ok": True, "test": "Привет мир", "test_hex": "Привет мир".encode("utf-8").hex(), "static": "АТМОСФЕРА"}
+
+
+@app.get("/api/debug/db")
+def debug_db(db: Session = Depends(get_db)) -> dict:
+    """Диагностика БД — первые 3 staff/service с hex."""
+    try:
+        from sqlalchemy import select
+
+        staff = []
+        for s in db.scalars(select(StaffUser).limit(3)).all():
+            staff.append(
+                {
+                    "id": s.id,
+                    "login": s.login,
+                    "name": s.name,
+                    "name_hex": (s.name or "").encode("utf-8").hex(),
+                    "city": s.city,
+                    "city_hex": (s.city or "").encode("utf-8").hex() if s.city else "",
+                }
+            )
+        services = []
+        for svc in db.scalars(select(Service).limit(3)).all():
+            services.append({"id": svc.id, "name": svc.name, "hex": (svc.name or "").encode("utf-8").hex()})
+        return {"ok": True, "staff": staff, "services": services}
+    except Exception as e:
+        import traceback
+
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:3000]}
 
 
 
@@ -10259,6 +10956,7 @@ def update_stock_category(
         new_parent_id = _normalize_parent_id(data["parentId"])
         _validate_stock_category_parent(db, category_id, new_parent_id)
         cat.parent_id = new_parent_id
+    # поддержка snake_case если вдруг прилетит
     if "parent_id" in data and "parentId" not in data:
         new_parent_id = _normalize_parent_id(data["parent_id"])
         _validate_stock_category_parent(db, category_id, new_parent_id)
@@ -10278,10 +10976,14 @@ def delete_stock_category(
     cat = db.get(StockCategory, category_id)
     if cat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    # Собрать всё поддерево (категория + все потомки любой глубины) — безлимитное удаление
     all_ids = {category_id} | _stock_category_descendant_ids(db, category_id)
+    # Сбросить category_id у всех товаров, которые ссылаются на удаляемые категории
     if all_ids:
         for item in db.scalars(select(StockItem).where(StockItem.category_id.in_(list(all_ids)))).all():
             item.category_id = None
+        # Удалить категории поддерева (сначала листья, затем корни — bulk delete)
+        # Используем ORM удаление по одному для корректного каскада, но достаточно bulk
         for cid in all_ids:
             obj = db.get(StockCategory, cid)
             if obj is not None and obj.id != category_id:
@@ -10296,12 +10998,6 @@ def delete_stock_category(
 
 
 # ── Shift Checklists ──
-
-
-@app.get("/api/shift-checklists", response_model=list[ShiftChecklistPayload])
-
-
-
 
 
 @app.get("/api/bookings/availability", response_model=BookingAvailabilityPayload)
@@ -10479,6 +11175,18 @@ def create_booking(
         if client is None and phone_client is not None:
 
             client = phone_client
+
+        if (
+            client is not None
+            and phone_client is not None
+            and phone_client.id != client.id
+        ):
+            # clientId и телефон принадлежат разным клиентам — молча
+            # перезаписывать нельзя (409, conflicting_client_and_phone).
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Указанный телефон принадлежит другому клиенту",
+            )
 
         if client is None:
 
@@ -11022,6 +11730,18 @@ def _booking_money_split(
     пропорционально их процентам из профиля (новичок с меньшим % получает меньше).
     """
     svc = db.get(Service, booking.service_id) if booking.service_id else None
+
+    # Кэш услуг доп. услуг в рамках одного вызова: избегаем N+1 при пакетной
+    # обработке завершённых записей на странице зарплат.
+    _asvc_svc_cache: dict[str, Service | None] = {}
+
+    def _asvc_service(asvc):
+        if asvc.service_id is None:
+            return None
+        if asvc.service_id not in _asvc_svc_cache:
+            _asvc_svc_cache[asvc.service_id] = db.get(Service, asvc.service_id)
+        return _asvc_svc_cache[asvc.service_id]
+
     rg = _service_resource_group(svc)
 
     additional_total = sum(
@@ -11089,7 +11809,7 @@ def _booking_money_split(
                 if _is_fixed_master_service_db(db, booking.service_id, booking.service):
                     amount = FIXED_MASTER_EARNED
                 else:
-                    amount = round(base * percent / 100)
+                    amount = money_int(base * percent / 100)
                 master_by_worker[link.worker_id] = master_by_worker.get(link.worker_id, 0) + amount
                 explicit_total += amount
 
@@ -11097,7 +11817,7 @@ def _booking_money_split(
             if master_pay_type == "fixed":
                 total_master_pay = master_pay_value
             elif master_pay_type == "percent":
-                total_master_pay = round(base * master_pay_value / 100)
+                total_master_pay = money_int(base * master_pay_value / 100)
             else:
                 total_master_pay = 0
             if total_master_pay > 0:
@@ -11115,7 +11835,7 @@ def _booking_money_split(
                         if index == len(weighted_workers) - 1:
                             amount = total_master_pay - allocated
                         else:
-                            amount = round(total_master_pay * weight / weight_sum)
+                            amount = money_int(total_master_pay * weight / weight_sum)
                             allocated += amount
                         master_by_worker[worker_id] = master_by_worker.get(worker_id, 0) + amount
                         explicit_total += amount
@@ -11129,7 +11849,7 @@ def _booking_money_split(
                 if alink.pay_type == "fixed":
                     amount = int(alink.fixed_amount or 0)
                 else:
-                    amount = round(asvc.price * (alink.percent or 0) / 100)
+                    amount = money_int(asvc.price * (alink.percent or 0) / 100)
                 master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
                 master_total += amount
 
@@ -11144,7 +11864,7 @@ def _booking_money_split(
         asvc_pays = _asvc_paid_amount(asvc)
         asvc_deposit = max(0, int(asvc.price) - asvc_pays)
         if asvc_deposit > 0:
-            asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
+            asvc_svc = _asvc_service(asvc)
             asvc_rg = _service_resource_group(asvc_svc)
             asvc_piggy_deposits.append(
                 {
@@ -11165,9 +11885,9 @@ def _booking_money_split(
         asvc_remainder = max(0, int(asvc.price) - asvc_pays)
         if asvc_remainder <= 0:
             continue
-        asvc_piggy_24 = round(asvc_remainder * 24 / 100)
+        asvc_piggy_24 = money_int(asvc_remainder * 24 / 100)
         if asvc_piggy_24 > 0:
-            asvc_svc = db.get(Service, asvc.service_id) if asvc.service_id else None
+            asvc_svc = _asvc_service(asvc)
             asvc_rg = _service_resource_group(asvc_svc)
             asvc_piggy_deposits.append(
                 {
@@ -11188,13 +11908,13 @@ def _booking_money_split(
         if piggy_pay_type == "fixed":
             return piggy_pay_value
         if piggy_pay_type == "percent":
-            return round(base * piggy_pay_value / 100)
+            return money_int(base * piggy_pay_value / 100)
         if piggy_pay_type == "rest":
             return base
         if piggy_pay_type == "none":
             return 0
         if rg in ("detailing", "wash"):
-            return round(base * 24 / 100)
+            return money_int(base * 24 / 100)
         return 0
 
     def _allocate_owners(claimed: int, limit: int) -> tuple[int, dict[str, int]]:
@@ -11247,11 +11967,11 @@ def _booking_money_split(
                     # Доп. доля владельцев от остатка не-вычитаемых доп услуг
                     pool += asvc_owner_extra_total
                 if owner_pay_type == "percent":
-                    claimed = round(pool * owner_pay_value / 100)
+                    claimed = money_int(pool * owner_pay_value / 100)
                 elif is_last:
                     claimed = pool
                 else:
-                    claimed = round(pool * 50 / 100)
+                    claimed = money_int(pool * 50 / 100)
                 owners_total, owner_by_owner = _allocate_owners(claimed, pool)
                 pool = max(0, pool - owners_total)
         # Вклады вычитаемых доп услуг — из их carve-out, пул не затрагивают
@@ -11263,14 +11983,17 @@ def _booking_money_split(
         split_base_report = split_base
         master_by_worker, master_total, main_master_total = _compute_master(split_base)
         if piggy_pay_type == "rest":
-            # Весь остаток после мастеров → в копилку (владельцам ничего)
+            # Остаток после мастеров не может быть отрицательным (владелец забирает всё)
             main_piggy = max(0, split_base - main_master_total)
         else:
-            main_piggy = _compute_piggy(split_base)
+            # Кламп: мастер + копилка не могут вместе превысить базу сплита,
+            # иначе при override/fixed > базы копилка получала бы 24% сверху,
+            # и распределённая сумма превышала бы чек (AUDIT-06).
+            main_piggy = max(0, min(_compute_piggy(split_base), split_base - main_master_total))
         # Вклад доп услуг в копилку — из carve-out цены доп услуги, долю владельцев не уменьшает
         piggy_deposit = main_piggy + asvc_piggy_total
         remaining = split_base - main_master_total - main_piggy
-        claimed = remaining if owner_pay_type != "percent" else round(remaining * owner_pay_value / 100)
+        claimed = remaining if owner_pay_type != "percent" else money_int(remaining * owner_pay_value / 100)
         # Доп. доля владельцев от остатка не-вычитаемых доп услуг (после 24% в копилку)
         if asvc_owner_extra_total > 0:
             remaining += asvc_owner_extra_total
@@ -11392,7 +12115,11 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
     # 2. Deposit into piggy bank (based on service settings, or default 24% for detailing/wash)
-    split = _booking_money_split(db, booking)
+    # Сплит с учётом жалоб — ровно как в деталях сплита и расчётке ЗП:
+    # фактические проводки не должны расходиться с отображаемым расчётом.
+    split = _booking_money_split(
+        db, booking, _complaints_by_worker(_load_penalties(db))
+    )
 
     piggy_type = split["piggy_pay_type"]
     piggy_val = split["piggy_deposit"]
@@ -11541,7 +12268,11 @@ def _process_owner_profit_share(db: Session, booking: Booking) -> None:
         print(f"[PROFIT_DEBUG] credit booking {booking.id} — owner share deferred to month settle")
         return
 
-    split = _booking_money_split(db, booking)
+    # Сплит с учётом жалоб — доли владельцев должны сходиться с расчёткой
+    # мастеров и деталями сплита (master + piggy + owners = база).
+    split = _booking_money_split(
+        db, booking, _complaints_by_worker(_load_penalties(db))
+    )
 
     print(f"[PROFIT_DEBUG] booking.id={booking.id} rg={split['resource_group']} net={split['net']} materials_cost={split['materials_cost']} total_master={split['master_total']} piggy_deposit={split['piggy_deposit']} owners_total={split['owners_total']} owner_split={split['has_custom'] or split['resource_group'] in ('detailing', 'wash')}")
 
@@ -11763,7 +12494,10 @@ def update_booking(
 
         updates["service"] = service.name
 
+        # ???????????? ???? ?????? ???????????????? ??? ????? serviceId:
+        # ???????????? ? ???? ??????? ?? ???????, ???? ?? ?????? ????.
         updates.setdefault("duration", service.duration)
+        updates.setdefault("price", int(service.price or 0))
 
     else:
 
@@ -11853,27 +12587,31 @@ def update_booking(
 
     slot_fields_updated = _booking_slot_fields_changed(booking, updates)
 
-    should_validate_slot = _booking_requires_scheduled_slot(next_status) or slot_fields_updated
+    # Активные статусы (BOOKING_ACTIVE_STATUSES) всегда требуют заполненный слот.
+    # Изменение слота валидируем только пока он остаётся заполненным: перевод записи
+    # в неактивный статус (admin_review/cancelled/no_show/completed) вправе ОЧИСТИТЬ
+    # дату/время (фронтенд так делает для детейлинг-заявок «на уточнении») — раньше
+    # такой запрос падал с 400 «Укажите дату и время записи», хотя дата/время были
+    # видны в форме и намеренно сбрасывались.
+    next_requires_slot = _booking_requires_scheduled_slot(next_status)
 
     has_candidate_slot = bool(next_date and next_time)
 
-    if should_validate_slot:
+    if next_requires_slot and not has_candidate_slot:
 
-        if not has_candidate_slot:
+        raise HTTPException(
 
-            raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
 
-                status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите дату и время записи",
 
-                detail="Укажите дату и время записи",
+        )
 
-            )
+    if slot_fields_updated and has_candidate_slot:
 
-        if slot_fields_updated:
+        _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
 
-            _ensure_booking_datetime_not_in_past(next_date, next_time, session_data["role"])
-
-            _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
+        _ensure_booking_within_schedule(db, next_date, next_time, next_duration)
 
     if _booking_requires_scheduled_slot(next_status):
 
@@ -12007,7 +12745,7 @@ def update_booking(
 
 
 
-    previous_worker_ids = {link.worker_id for link in booking.worker_links}
+    previous_worker_ids = _booking_all_worker_ids(booking)
 
     if payload.workers is not None:
 
@@ -12068,6 +12806,11 @@ def update_booking(
         if booking.service != previous_service:
 
             client_notification_parts.append(f"Услуга: {booking.service}")
+
+        add_block_client = _additional_services_block(booking)
+        if add_block_client:
+            dop_line = add_block_client.replace("\n", ", ").strip()
+            client_notification_parts.append(dop_line)
 
         if booking.box != previous_box:
 
@@ -12169,7 +12912,7 @@ def update_booking(
 
     db.refresh(booking)
 
-    current_worker_ids = {link.worker_id for link in booking.worker_links}
+    current_worker_ids = _booking_all_worker_ids(booking)
 
     if payload.workers is not None and session_data["role"] in {"admin", "owner"}:
 
@@ -12541,8 +13284,12 @@ def add_booking_additional_service(
 
             )
     db.add(asvc)
+    if not payload.isOutsource:
+
+        _notify_workers_about_additional_service(db, booking, asvc)
 
     if (payload.priceMode or "add") != "subtract":
+
         booking.price = (booking.price or 0) + payload.price
 
     booking.duration = (booking.duration or 0) + payload.duration
@@ -13842,6 +14589,14 @@ def update_expense(
 
         expense.resource_group = payload.resourceGroup
 
+    # Обратная синхронизация: прямое редактирование расхода бюджета обновляет
+    # связанную зарплатную операцию (иначе бюджет и ведомость расходятся).
+    linked_entry = db.scalar(
+        select(PayrollEntry).where(PayrollEntry.expense_id == expense.id).limit(1)
+    )
+    if linked_entry is not None and payload.amount is not None:
+        linked_entry.amount = abs(expense.amount)
+
     sync_expense_piggy_transaction(db, expense)
 
     db.commit()
@@ -13878,7 +14633,7 @@ def list_incomes(
 
             id=income.id,
 
-            amount=income.amount,
+            amount=money_int(income.amount),
 
             source=income.source,
 
@@ -13946,7 +14701,7 @@ def create_income(
 
         id=income.id,
 
-        amount=income.amount,
+        amount=money_int(income.amount),
 
         source=income.source,
 
@@ -14008,6 +14763,19 @@ def update_income(
 
         income.resource_group = payload.resourceGroup
 
+    # Обратная синхронизация: прямое редактирование дохода бюджета обновляет
+    # связанную зарплатную операцию (иначе бюджет и ведомость расходятся).
+    # deduction хранит положительную сумму; отрицательная корректировка —
+    # отрицательную (доход зеркалится с abs()).
+    linked_entry = db.scalar(
+        select(PayrollEntry).where(PayrollEntry.income_id == income.id).limit(1)
+    )
+    if linked_entry is not None and payload.amount is not None:
+        if linked_entry.kind == "adjustment":
+            linked_entry.amount = -abs(income.amount)
+        else:
+            linked_entry.amount = abs(income.amount)
+
     db.commit()
 
     db.refresh(income)
@@ -14016,7 +14784,7 @@ def update_income(
 
         id=income.id,
 
-        amount=income.amount,
+        amount=money_int(income.amount),
 
         source=income.source,
 
@@ -14126,6 +14894,9 @@ def get_piggy_bank(
 
     balance = sum(t.amount for t in all_tx)
 
+    # keep full list for debt aggregation before filtering
+    full_all_tx_for_debt = list(all_tx)
+
     # Filter transactions by date for display only
 
     if booking_id:
@@ -14133,8 +14904,6 @@ def get_piggy_bank(
         all_tx = [t for t in all_tx if t.booking_id == booking_id]
 
     filtered_tx = [t for t in all_tx if _in_range(t.date)]
-
-
 
     transaction_payloads = []
 
@@ -14193,6 +14962,10 @@ def get_piggy_bank(
                 bookingPrice=b.price if b else None,
 
                 bookingStatus=b.status if b else None,
+
+                spentById=getattr(t, "spent_by_id", None),
+
+                spentByName=getattr(t, "spent_by_name", None),
 
             )
 
@@ -14333,7 +15106,7 @@ def get_piggy_bank(
 
     deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing")
 
-    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "detailing")
+    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing")
 
     repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing")
 
@@ -14341,13 +15114,13 @@ def get_piggy_bank(
 
     # Wash net piggy (from actual transactions, same methodology)
     wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash")
-    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "wash")
+    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash")
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
 
     # General piggy bank (deposits targeted to "general")
     general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general")
-    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type == "material_withdrawal" and t.amount < 0 and t.resource_group == "general")
+    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general")
     general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general")
     general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals
 
@@ -14435,7 +15208,31 @@ def get_piggy_bank(
 
             owner_total_paid += s.amount
 
-
+    # --- Debts: сумма списаний по каждому кто покупал (spent_by) ---
+    # Каждый чек из копилки фиксирует кто покупал, долг вешается именно на него
+    # и отражается в зарплате (PayrollEntry deduction). Выбор в форме теперь влияет.
+    debt_map: dict[str, dict] = {}
+    for tx in full_all_tx_for_debt:
+        if tx.transaction_type not in ("material_withdrawal", "other_withdrawal"):
+            continue
+        if tx.amount >= 0:
+            continue
+        name = (getattr(tx, "spent_by_name", None) or "").strip()
+        sid = getattr(tx, "spent_by_id", None)
+        if not name and not sid:
+            continue
+        key = sid or f"name:{name}"
+        if key not in debt_map:
+            debt_map[key] = {"spentById": sid, "spentByName": name or (sid or "Неизвестно"), "totalSpent": 0.0, "count": 0}
+        if name:
+            debt_map[key]["spentByName"] = name
+        debt_map[key]["totalSpent"] += abs(float(tx.amount))
+        debt_map[key]["count"] += 1
+    spender_debts = [
+        PiggyBankSpenderDebt(spentById=v["spentById"], spentByName=v["spentByName"], totalSpent=v["totalSpent"], count=v["count"])
+        for v in debt_map.values()
+    ]
+    spender_debts.sort(key=lambda x: x.totalSpent, reverse=True)
 
     return PiggyBankResponse(
 
@@ -14541,6 +15338,8 @@ def get_piggy_bank(
 
         ownerProfitBalance=owner_total_accrued - owner_total_paid,
 
+        spenderDebts=spender_debts,
+
     )
 
 
@@ -14563,25 +15362,89 @@ def piggy_bank_withdraw(
 
 
 
-    booking = db.get(Booking, payload.bookingId)
+    booking: Booking | None = None
 
-    if booking is None:
+    if payload.bookingId:
 
-        raise HTTPException(
+        booking = db.get(Booking, payload.bookingId)
 
-            status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена"
+        if booking is None:
 
-        )
+            raise HTTPException(
 
+                status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена"
 
-
-    # Determine resource group from booking's service
-
-    service = db.get(Service, booking.service_id) if booking.service_id else None
-
-    rg = _service_resource_group(service)
+            )
 
 
+
+    # Копилка-источник: из записи (старое поведение) или выбранная вручную
+
+    if booking is not None:
+
+        service = db.get(Service, booking.service_id) if booking.service_id else None
+
+        rg = _service_resource_group(service)
+
+    else:
+
+        rg = (payload.resourceGroup or "").strip()
+
+        if rg not in {"wash", "detailing", "general"}:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_400_BAD_REQUEST,
+
+                detail="Укажите копилку списания (мойка или детейлинг) либо запись",
+
+            )
+
+
+
+    is_other = payload.withdrawKind == "other"
+
+    transaction_type = "other_withdrawal" if is_other else "material_withdrawal"
+
+    expense_category = "Прочие расходы" if is_other else "Материалы"
+
+    purpose = payload.purpose.strip()
+
+    if not purpose:
+
+        if is_other:
+
+            purpose = f"Прочие расходы: {payload.materialName}"
+
+        elif booking is not None:
+
+            purpose = f"Закупка {payload.materialName} для {booking.service}"
+
+        else:
+
+            purpose = f"Закупка: {payload.materialName}"
+
+    # --- Кто потратил (долг покупателя) ---
+    spent_by_id: str | None = None
+    spent_by_name: str | None = None
+    if payload.spentById:
+        staff = db.get(StaffUser, payload.spentById)
+        if staff is not None:
+            spent_by_id = staff.id
+            spent_by_name = staff.name
+        elif payload.spentByName:
+            spent_by_name = payload.spentByName.strip() or None
+        else:
+            # если id не найден — считаем что имя передано в spentByName или игнор
+            spent_by_name = payload.spentByName.strip() if payload.spentByName else None
+    elif payload.spentByName:
+        spent_by_name = payload.spentByName.strip() or None
+    else:
+        # fallback: текущий пользователь (тот кто нажал "снять")
+        actor = db.get(StaffUser, session_data.get("actorId"))
+        if actor is not None:
+            spent_by_id = actor.id
+            spent_by_name = actor.name
 
     transaction = PiggyBankTransaction(
 
@@ -14591,9 +15454,9 @@ def piggy_bank_withdraw(
 
         amount=-payload.materialCost,
 
-        transaction_type="material_withdrawal",
+        transaction_type=transaction_type,
 
-        purpose=payload.purpose.strip() or f"Закупка {payload.materialName} для {booking.service}",
+        purpose=purpose,
 
         material_name=payload.materialName,
 
@@ -14603,6 +15466,10 @@ def piggy_bank_withdraw(
 
         resource_group=rg,
 
+        spent_by_id=spent_by_id,
+
+        spent_by_name=spent_by_name,
+
         created_at=_now(),
 
     )
@@ -14611,19 +15478,35 @@ def piggy_bank_withdraw(
 
 
 
+    expense_note = purpose
+
+    if booking is not None:
+
+        expense_note = (
+
+            f"Закупка для заказа {booking.service} ({booking.client_name}). "
+
+            f"{payload.purpose}".strip()
+
+        )
+
+
+
+    expense_prefix = "Прочие расходы" if is_other else "Материалы"
+
     expense = Expense(
 
         id=f"e-{uuid4()}",
 
-        title=f"Материалы: {payload.materialName}",
+        title=f"{expense_prefix}: {payload.materialName}",
 
         amount=payload.materialCost,
 
-        category="Материалы",
+        category=expense_category,
 
         date=payload.date,
 
-        note=f"Закупка для заказа {booking.service} ({booking.client_name}). {payload.purpose}".strip(),
+        note=expense_note,
 
         resource_group=rg,
 
@@ -14633,7 +15516,32 @@ def piggy_bank_withdraw(
 
     db.add(expense)
 
+    # Связываем зеркальную транзакцию копилки с расходом бюджета:
+    # иначе при редактировании этого расхода (PATCH /api/expenses/{id})
+    # sync_expense_piggy_transaction не найдёт связанную транзакцию и
+    # создаст второе зеркало — списание из копилки задвоится.
+    transaction.expense_id = expense.id
 
+    # --- Долг в зарплате: потраченная сумма отражается как удержание у того кто покупал ---
+    # Если выбран конкретный сотрудник/владелец (spent_by_id) — создаём PayrollEntry deduction,
+    # который виден в зарплатной ведомости и уменьшает баланс к выплате.
+    if spent_by_id:
+        _staff_for_salary = db.get(StaffUser, spent_by_id)
+        if _staff_for_salary is not None:
+            try:
+                payroll_debt = PayrollEntry(
+                    id=f"pay-{uuid4()}",
+                    worker_id=_staff_for_salary.id,
+                    actor_id=session_data.get("actorId", ""),
+                    actor_role=session_data.get("role", "owner"),
+                    kind="deduction",
+                    amount=payload.materialCost,
+                    note=f"Списание из копилки ({rg}): {payload.materialName}",
+                    created_at=_now(),
+                )
+                db.add(payroll_debt)
+            except Exception:
+                pass
 
     db.commit()
 
@@ -14641,7 +15549,15 @@ def piggy_bank_withdraw(
 
 
 
-    booking_info = f"{booking.service} — {booking.client_name} ({booking.date})"
+    booking_info = (
+
+        f"{booking.service} — {booking.client_name} ({booking.date})"
+
+        if booking is not None
+
+        else None
+
+    )
 
     return PiggyBankTransactionPayload(
 
@@ -14667,21 +15583,25 @@ def piggy_bank_withdraw(
 
         bookingInfo=booking_info,
 
-        bookingClientName=booking.client_name,
+        bookingClientName=booking.client_name if booking else None,
 
-        bookingService=booking.service,
+        bookingService=booking.service if booking else None,
 
-        bookingDate=booking.date,
+        bookingDate=booking.date if booking else None,
 
-        bookingTime=booking.time,
+        bookingTime=booking.time if booking else None,
 
-        bookingCar=booking.car,
+        bookingCar=booking.car if booking else None,
 
-        bookingPlate=booking.plate,
+        bookingPlate=booking.plate if booking else None,
 
-        bookingPrice=booking.price,
+        bookingPrice=booking.price if booking else None,
 
-        bookingStatus=booking.status,
+        bookingStatus=booking.status if booking else None,
+
+        spentById=getattr(transaction, "spent_by_id", None),
+
+        spentByName=getattr(transaction, "spent_by_name", None),
 
     )
 
@@ -15586,35 +16506,48 @@ def get_wallet(
 
     week_end_iso = friday.isoformat()
 
-    # Filter incomes for current week — proper date comparison
-    all_incomes_wallet = db.scalars(select(Income)).all()
-    incomes = [
-        i for i in all_incomes_wallet
-        if i.date and _stored_date_in_range(i.date, saturday, friday)
-    ]
-    incomes.sort(key=lambda i: (i.date, i.created_at), reverse=True)
+    # DD.MM.YYYY -> YYYYMMDD ????? ? SQL (AUDIT-07): ?? ????? ??? ???????
+    # ? ?????? ???? ??????? ?? ??????. ???????? ? SQLite ? PostgreSQL.
+    def _stored_date_iso_expr(column):
+        # "||" ? ????????????; "+" ?? ????????? ???????? ? SQLite ??? ?? ????? ?????
+        return (
+            func.substr(column, 7, 4)
+            .op("||")(func.substr(column, 4, 2))
+            .op("||")(func.substr(column, 1, 2))
+        )
 
-    # Filter expenses for current week
-    all_expenses_wallet = db.scalars(select(Expense)).all()
-    expenses = [
-        e for e in all_expenses_wallet
-        if e.date and _stored_date_in_range(e.date, saturday, friday)
-    ]
-    expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
+    week_iso_min = min(week_start_iso, week_end_iso).replace("-", "")
+    week_iso_max = max(week_start_iso, week_end_iso).replace("-", "")
 
-    # Completed bookings for current week
-    all_bookings_wallet = db.scalars(
+    incomes = db.scalars(
+        select(Income)
+        .where(
+            Income.date.is_not(None),
+            _stored_date_iso_expr(Income.date) >= week_iso_min,
+            _stored_date_iso_expr(Income.date) <= week_iso_max,
+        )
+        .order_by(Income.date.desc(), Income.created_at.desc())
+    ).all()
+
+    expenses = db.scalars(
+        select(Expense)
+        .where(
+            Expense.date.is_not(None),
+            _stored_date_iso_expr(Expense.date) >= week_iso_min,
+            _stored_date_iso_expr(Expense.date) <= week_iso_max,
+        )
+        .order_by(Expense.date.desc(), Expense.created_at.desc())
+    ).all()
+
+    completed_bookings = db.scalars(
         select(Booking).where(
             Booking.status == "completed",
             Booking.deleted_at.is_(None),
+            Booking.date.is_not(None),
+            _stored_date_iso_expr(Booking.date) >= week_iso_min,
+            _stored_date_iso_expr(Booking.date) <= week_iso_max,
         )
     ).all()
-    completed_bookings = [
-        b for b in all_bookings_wallet
-        if b.date and _stored_date_in_range(b.date, saturday, friday)
-    ]
-
-
 
     revenue = sum(b.price for b in completed_bookings)
 
@@ -15670,7 +16603,7 @@ def get_wallet(
 
                 id=i.id,
 
-                amount=i.amount,
+                amount=money_int(i.amount),
 
                 source=i.source,
 
@@ -15698,7 +16631,7 @@ def get_wallet(
 
                 title=e.title,
 
-                amount=e.amount,
+                amount=money_int(e.amount),
 
                 category=e.category,
 
@@ -17241,6 +18174,22 @@ text-align:center;color:#E2E8F0">
     )
 
 
+def _state_is_pending_invite(db: Session, state: str) -> bool:
+    """Проверить, что OAuth-state принадлежит приглашению (не потребляя его).
+
+    Приглашение расходуется позже, после успешного exchange_code, — здесь
+    только валидация, что state из ссылки-приглашения, а не подделка.
+    """
+    if not state:
+        return False
+    invites = _setting(db, GOOGLE_CALENDAR_INVITES_KEY, {})
+    items = invites.get("invites") if isinstance(invites, dict) else None
+    return bool(
+        isinstance(items, list)
+        and any(isinstance(i, dict) and i.get("state") == state for i in items)
+    )
+
+
 @app.get("/api/owner/integrations/google/callback")
 def google_calendar_callback(
     code: str = "",
@@ -17261,7 +18210,8 @@ def google_calendar_callback(
         error_text = f"google_error:{error}"
     elif not code:
         error_text = "missing_code"
-    elif (saved or {}).get("state") != state:
+    elif not _state_is_pending_invite(db, state) and (saved or {}).get("state") != state:
+        # state может быть либо от владельца (/auth-url), либо от приглашения.
         error_text = "state_mismatch"
     elif not is_configured(settings, db):
         error_text = "not_configured"
@@ -17284,7 +18234,36 @@ def google_calendar_callback(
             )
         return {"ok": False, "error": error_text}
 
-    save_tokens(db, tokens)  # type: ignore[arg-type]
+    account_email = extract_account_email(tokens)
+    # id_token в хранилище не нужен — email уже извлечён.
+    storable_tokens = {
+        key: value for key, value in dict(tokens or {}).items() if key != "id_token"
+    }
+    invite_label = consume_invite(db, state) if state else None
+    if invite_label:
+        # Подключение приглашённого человека (ссылка-приглашение владельца).
+        connection = {
+            "id": f"gc-{uuid4()}",
+            "name": str(invite_label.get("label") or "Участник"),
+            "email": account_email,
+            "tokens": storable_tokens,
+            "sync_token": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    else:
+        # Обычный поток владельца: обновляем его подключение (или создаём).
+        connection = get_connection(db, OWNER_CONNECTION_ID) or {
+            "id": OWNER_CONNECTION_ID,
+            "name": "Владелец",
+            "email": "",
+            "tokens": {},
+            "sync_token": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        connection["tokens"] = storable_tokens
+        if account_email:
+            connection["email"] = account_email
+    upsert_connection(db, connection)
 
     # Сразу после подключения выполняем первый pull: события из Google
     # появляются в CRM (source="google"), ошибки не блокируют OAuth.
@@ -17297,7 +18276,7 @@ def google_calendar_callback(
         _setting(db, "owner_integrations", {}),
         {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
     )
-    integrations["googleCalendar"] = True
+    integrations["googleCalendar"] = bool(list_connections(db))
     _upsert_setting(db, "owner_integrations", integrations)
     db.commit()
     if want_html:
@@ -17314,9 +18293,10 @@ def disconnect_google_calendar(
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Отключить Google Calendar: удалить токены и выключить флаг."""
+    """Отключить Google Calendar полностью: удалить все подключения и флаг."""
     _ensure_staff_role(session_data, {"owner"})
     clear_tokens(db)
+    clear_invites(db)
     integrations = _merge_setting_dict(
         _setting(db, "owner_integrations", {}),
         {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
@@ -17340,6 +18320,7 @@ def get_google_calendar_status(
             None — не настроено (фронт показывает мастер подключения).
     redirectUri — куда Google должен вернуть после OAuth (нужно вписать
     в Google Cloud Console как Authorized redirect URI).
+    connections — список подключённых календарей людей (без токенов).
     """
     _ensure_staff_role(session_data, {"owner"})
     creds = load_credentials(db)
@@ -17352,12 +18333,76 @@ def get_google_calendar_status(
         or (settings.google_calendar_redirect_uri or "").strip()
         or _google_callback_uri(request)
     )
+    connections = list_connections(db)
     return {
         "configured": env_configured or db_configured,
         "source": "db" if db_configured else ("env" if env_configured else None),
         "redirectUri": redirect_uri,
         "hasDbCredentials": db_configured,
+        "connections": connections,
+        "connectionsCount": len(connections),
     }
+
+
+@app.post("/api/owner/integrations/google/invites")
+def create_google_calendar_invite(
+    payload: GoogleInvitePayload,
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Создать ссылку-приглашение для подключения календаря другого человека.
+
+    Владелец указывает имя человека, получает OAuth-ссылку и пересылает её
+    (Telegram и т.п.). Человек открывает ссылку, входит в СВОЙ Google-аккаунт
+    и подтверждает доступ — после этого его календарь появляется в списке
+    подключённых и получает все записи.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    if not is_configured(settings, db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google Calendar не настроен на сервере (нет GOOGLE_CALENDAR_CLIENT_ID/SECRET)",
+        )
+    label = payload.label.strip()[:120]
+    if not label:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите имя человека",
+        )
+    state = secrets.token_urlsafe(32)
+    create_invite(db, label, state)
+    auth_url = build_auth_url(
+        settings, state, db, fallback_redirect_uri=_google_callback_uri(request)
+    )
+    db.commit()
+    return {"inviteUrl": auth_url, "label": label, "state": state}
+
+
+@app.delete("/api/owner/integrations/google/connections/{connection_id}")
+def delete_google_calendar_connection(
+    connection_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Отключить один календарь (человека), не трогая остальные подключения."""
+    _ensure_staff_role(session_data, {"owner"})
+    removed = delete_connection(db, connection_id)
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Подключение не найдено",
+        )
+    remaining = list_connections(db)
+    if not remaining:
+        integrations = _merge_setting_dict(
+            _setting(db, "owner_integrations", {}),
+            {"telegram": True, "yookassa": False, "amoCrm": False, "googleCalendar": False},
+        )
+        integrations["googleCalendar"] = False
+        _upsert_setting(db, "owner_integrations", integrations)
+    db.commit()
+    return {"ok": True, "connectionsCount": len(remaining)}
 
 
 @app.put("/api/owner/integrations/google/credentials")
@@ -17452,6 +18497,161 @@ def run_google_calendar_sync_cron(
     result = pull_calendar_changes(db, settings)
     db.commit()
     return result
+
+
+@app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
+def run_reminders_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> OwnerReminderDispatchPayload:
+    """Cron-роут Vercel: напоминания о ближайших записях и повторных визитах.
+
+    Требует CRON_SECRET (см. vercel.json -> crons). Без настроенного секрета
+    возвращает 503/401, чтобы не обрабатывать посторонние cron-запросы.
+    """
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid cron secret",
+        )
+    dispatch = _dispatch_booking_reminders(db)
+    return_visits = _dispatch_return_visit_reminders(db)
+    db.commit()
+    return OwnerReminderDispatchPayload(
+        message=dispatch.message,
+        targetDate=dispatch.targetDate,
+        clientReminders=dispatch.clientReminders + return_visits,
+        workerReminders=dispatch.workerReminders,
+        telegramDelivered=dispatch.telegramDelivered + return_visits,
+    )
+
+
+@app.post("/api/owner/inactive-clients/remind-admin", response_model=GenericMessage)
+def remind_admin_about_inactive_clients(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    """Сообщает администратору о клиентах без завершённых визитов дольше двух
+    недель: уведомление в CRM + Telegram админу
+    (test_owner_can_notify_admin_about_inactive_clients)."""
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    latest_by_client: dict[str, Booking] = {}
+    for booking in db.scalars(
+        select(Booking)
+        .where(Booking.status == "completed", Booking.client_id.is_not(None))
+        .order_by(Booking.created_at.desc())
+    ):
+        if booking.client_id and booking.client_id not in latest_by_client:
+            latest_by_client[booking.client_id] = booking
+    stale_names: list[str] = []
+    for client_id, booking in latest_by_client.items():
+        client = db.get(Client, client_id)
+        if client is None or client.deleted_at is not None:
+            continue
+        last_visit = _parse_booking_datetime(booking.date, booking.time)
+        if last_visit is None:
+            continue
+        if last_visit > datetime.now() - timedelta(days=14):
+            continue
+        stale_names.append(client.name or client_id)
+    if not stale_names:
+        return GenericMessage(message="Неактивных клиентов нет")
+    listing = "; ".join(stale_names[:10])
+    admin_message = (
+        f"Неактивные клиенты (не были более двух недель): {listing}. "
+        "Стоит напомнить о себе."
+    )
+    admins = db.scalars(
+        select(StaffUser).where(
+            StaffUser.role == "admin",
+            StaffUser.active.is_(True),
+        )
+    ).all()
+    for admin in admins:
+        db.add(
+            Notification(
+                id=f"n-{uuid4()}",
+                recipient_role="admin",
+                recipient_id=admin.id,
+                message=admin_message,
+                read=False,
+                created_at=_now(),
+            )
+        )
+        if admin.telegram_chat_id:
+            send_telegram_message(admin.telegram_chat_id, admin_message)
+    db.commit()
+    return GenericMessage(message="Админу отправлено напоминание")
+
+
+@app.post("/api/owner/reminders/dispatch", response_model=OwnerReminderDispatchPayload)
+def dispatch_owner_booking_reminders(
+    payload: OwnerReminderDispatchRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerReminderDispatchPayload:
+    _ensure_staff_role(session_data, {"owner", "admin"})
+    dispatch = _dispatch_booking_reminders(db, target_date=payload.targetDate)
+    return_visits = _dispatch_return_visit_reminders(db)
+    db.commit()
+    return OwnerReminderDispatchPayload(
+        message=dispatch.message,
+        targetDate=dispatch.targetDate,
+        clientReminders=dispatch.clientReminders + return_visits,
+        workerReminders=dispatch.workerReminders,
+        telegramDelivered=dispatch.telegramDelivered + return_visits,
+    )
+
+
+@app.get("/api/cron/reports")
+def run_reports_cron(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Cron-роут Vercel: ежедневные сводные отчёты владельцам с Telegram.
+
+    Требует CRON_SECRET. Для каждого владельца с привязанным Telegram
+    отправляет daily-отчёт по сегментам wash и detailing; сбой одного
+    получателя не прерывает рассылку остальным.
+    """
+    if not settings.cron_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CRON_SECRET is not configured",
+        )
+    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid cron secret",
+        )
+    recipients = _all_owner_telegram_recipients(db)
+    sent = 0
+    failed = 0
+    seen_owner_ids: set[str] = set()
+    for recipient in recipients:
+        if recipient.id in seen_owner_ids:
+            continue
+        seen_owner_ids.add(recipient.id)
+        for segment in ("wash", "detailing"):
+            try:
+                report = _owner_summary_report(db, recipient.id, "daily", segment)
+                export_file = _owner_summary_export_file(db, recipient.id, "daily", segment)
+                _send_owner_summary_report(db, recipient.id, report, export_file)
+                sent += 1
+            except Exception:
+                logger.exception(
+                    "Daily report delivery failed for owner %s segment %s",
+                    recipient.id,
+                    segment,
+                )
+                failed += 1
+    db.commit()
+    return {"owners": len(seen_owner_ids), "reportsSent": sent, "reportsFailed": failed}
 
 
 @app.put("/api/settings/owner/security", response_model=OwnerSecurityPayload)
@@ -17961,6 +19161,8 @@ def create_payroll_entry(
 
         entry_date=entry_date,
 
+        request_key=payload.clientRequestId,
+
         created_at=_now(),
 
     )
@@ -17979,6 +19181,21 @@ def create_payroll_entry(
             category="Зарплата",
             date=op_date,
             note=payload.note.strip() or ("Премия" if payload.kind == "bonus" else "Аванс"),
+            resource_group="wash",
+            created_at=_now(),
+        )
+        db.add(expense)
+        created_expense_id = expense.id
+    elif payload.kind == "payout":
+        # Выплата должна так же списываться из бюджета, как и через
+        # pay-salary (иначе ведомость и бюджет расходятся).
+        expense = Expense(
+            id=f"exp-{uuid4()}",
+            title=f"Выплата: {worker.name}",
+            amount=amount,
+            category="Зарплата",
+            date=op_date,
+            note=payload.note.strip() or "Выплата",
             resource_group="wash",
             created_at=_now(),
         )
@@ -18030,6 +19247,39 @@ def create_payroll_entry(
     if created_income_id is not None:
         entry.income_id = created_income_id
 
+    worker.updated_at = _now()
+
+    try:
+
+        db.commit()
+
+    except IntegrityError:
+
+        # Гонка/повторная отправка: операция с тем же clientRequestId уже
+        # проведена — возвращаем результат первой, дубликат не создаём.
+        db.rollback()
+        if payload.clientRequestId:
+            winner = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId,
+                    PayrollEntry.worker_id == worker.id,
+                )
+            )
+            if winner is not None:
+                db.refresh(worker)
+                payroll_summaries = _worker_payroll_summaries(
+                    db, [worker], complaints_by_worker
+                )
+                return _worker_payload_with_payroll(worker, payroll_summaries)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Операция с тем же ключом уже существует",
+        )
+
+    db.refresh(worker)
+
+    # Уведомление — только после успешного коммита, иначе воркер получит
+    # сообщение об операции, которая не сохранилась (например, при гонке).
     _notify_worker_about_payroll_entry(
 
         db,
@@ -18047,12 +19297,6 @@ def create_payroll_entry(
         note=payload.note.strip(),
 
     )
-
-    worker.updated_at = _now()
-
-    db.commit()
-
-    db.refresh(worker)
 
     payroll_summaries = _worker_payroll_summaries(db, [worker], complaints_by_worker)
 
@@ -18096,9 +19340,12 @@ def update_payroll_entry(
 
 
 
-    if payload.amount < 0:
+    # Отрицательные суммы допустимы только для корректировок (adjustment):
+    # положительная корректировка даёт Expense, отрицательная — Income
+    # (та же логика, что и при создании операции).
+    if payload.amount < 0 and entry.kind != "adjustment":
 
-        raise HTTPException(status_code=400, detail="Сумма не может быть отрицательной")
+        raise HTTPException(status_code=400, detail="Сумма не может быть отрицательной для этого типа операции")
 
 
 
@@ -18106,21 +19353,81 @@ def update_payroll_entry(
 
     entry.note = payload.note.strip()
 
-    entry.actor_id = session_data["actorId"]
+    # Не перезаписываем автора операции при редактировании — сохраняем
+    # исходный аудиторский след (кто провёл операцию изначально).
 
-    entry.actor_role = session_data["role"]
 
-    # Keep linked budget records in sync
-    if entry.expense_id:
-        linked_expense = db.get(Expense, entry.expense_id)
+
+    # Синхронизация бюджета: тип бюджетной записи определяется видом операции
+    # и знаком суммы. При смене знака корректировки запись переводится между
+    # Expense и Income, не создавая задвоения.
+    new_amount = abs(payload.amount)
+    want_income = entry.kind == "deduction" or (
+        entry.kind == "adjustment" and payload.amount < 0
+    )
+
+    linked_expense = db.get(Expense, entry.expense_id) if entry.expense_id else None
+    linked_income = db.get(Income, entry.income_id) if entry.income_id else None
+    op_date = entry.entry_date or _now().strftime("%d.%m.%Y")
+
+    if want_income:
         if linked_expense is not None:
-            linked_expense.amount = payload.amount
-            linked_expense.note = payload.note.strip() or linked_expense.note
-    if entry.income_id:
-        linked_income = db.get(Income, entry.income_id)
+            db.delete(linked_expense)
+            entry.expense_id = None
         if linked_income is not None:
-            linked_income.amount = abs(payload.amount)
+            linked_income.amount = new_amount
             linked_income.note = payload.note.strip() or linked_income.note
+        else:
+            if entry.kind == "deduction":
+                source = f"Штраф: {worker.name}"
+                note = payload.note.strip() or "Штраф"
+            else:
+                source = f"Корректировка: {worker.name}"
+                note = payload.note.strip() or "Корректировка"
+            income = Income(
+                id=str(uuid4()),
+                amount=new_amount,
+                source=source,
+                note=note,
+                created_by_id=session_data["actorId"],
+                date=op_date,
+                resource_group="wash",
+                created_at=_now(),
+            )
+            db.add(income)
+            entry.income_id = income.id
+    else:
+        if linked_income is not None:
+            db.delete(linked_income)
+            entry.income_id = None
+        if linked_expense is not None:
+            linked_expense.amount = new_amount
+            linked_expense.note = payload.note.strip() or linked_expense.note
+        else:
+            if entry.kind == "adjustment":
+                title = f"Корректировка: {worker.name}"
+                note = payload.note.strip() or "Корректировка"
+            elif entry.kind == "bonus":
+                title = f"Премия: {worker.name}"
+                note = payload.note.strip() or "Премия"
+            elif entry.kind == "advance":
+                title = f"Аванс: {worker.name}"
+                note = payload.note.strip() or "Аванс"
+            else:  # payout
+                title = f"Выплата: {worker.name}"
+                note = payload.note.strip() or "Выплата"
+            expense = Expense(
+                id=f"exp-{uuid4()}",
+                title=title,
+                amount=new_amount,
+                category="Зарплата",
+                date=op_date,
+                note=note,
+                resource_group="wash",
+                created_at=_now(),
+            )
+            db.add(expense)
+            entry.expense_id = expense.id
 
     db.commit()
 
@@ -18155,6 +19462,95 @@ def update_payroll_entry(
 
 
     return _payroll_entry_payload(entry, actor_name)
+
+
+@app.delete("/api/payroll/entries/{entry_id}", response_model=GenericMessage)
+
+def delete_payroll_entry(
+
+    entry_id: str,
+
+    session_data: dict = Depends(_require_session),
+
+    db: Session = Depends(get_db),
+
+) -> GenericMessage:
+
+    _ensure_staff_role(session_data, {"owner"})
+
+
+
+    entry = db.get(PayrollEntry, entry_id)
+
+    if entry is None:
+
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+
+
+
+    worker = db.get(StaffUser, entry.worker_id)
+
+    if worker is None:
+
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+
+
+
+    # Удаляем связанные бюджетные записи (расход для выплаты/премии/аванса,
+    # доход для штрафа/отрицательной корректировки), чтобы бюджет остался согласованным
+    if entry.expense_id:
+
+        linked_expense = db.get(Expense, entry.expense_id)
+
+        if linked_expense is not None:
+
+            db.delete(linked_expense)
+
+    if entry.income_id:
+
+        linked_income = db.get(Income, entry.income_id)
+
+        if linked_income is not None:
+
+            db.delete(linked_income)
+
+
+
+    kind_label = _payroll_entry_label(entry.kind)
+
+    kind_value = entry.kind
+
+    amount_value = int(entry.amount)
+
+    worker.updated_at = _now()
+
+    db.delete(entry)
+
+    db.commit()
+
+    # Уведомление — только после успешного удаления: иначе воркер получит
+    # «Операция удалена» об операции, которая на самом деле не удалилась.
+    _notify_worker_about_payroll_entry(
+
+        db,
+
+        worker,
+
+        actor_role=session_data["role"],
+
+        actor_id=session_data["actorId"],
+
+        kind=kind_value,
+
+        amount=amount_value,
+
+        note="Операция удалена",
+
+    )
+
+
+
+    return GenericMessage(message=f"{kind_label.capitalize()} удалена")
 
 
 
@@ -18283,7 +19679,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
             if alink.pay_type == "fixed":
                 earned = int(alink.fixed_amount or 0)
             else:
-                earned = round(asvc.price * (alink.percent or 0) / 100)
+                earned = money_int(asvc.price * (alink.percent or 0) / 100)
             asvc_workers.append(
                 BookingAsvcWorkerItem(
                     linkId=alink.id,
@@ -18389,6 +19785,7 @@ def get_owner_bookings_history(
     date_to: str | None = None,
     status: str | None = None,
     q: str | None = None,
+    limit: int = Query(default=500, ge=1, le=5000),
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[BookingHistoryItem]:
@@ -18426,11 +19823,18 @@ def get_owner_bookings_history(
             )
         )
 
-    bookings = db.scalars(query).unique().all()
     if parsed_from or parsed_to:
-        lower = parsed_from or date.min
-        upper = parsed_to or date.max
-        bookings = [b for b in bookings if _stored_date_in_range(b.date, lower, upper)]
+        # DD.MM.YYYY -> YYYYMMDD ????? ? SQL (AUDIT-07)
+        def _iso_expr(col):
+            return (
+                func.substr(col, 7, 4)
+                .op("||")(func.substr(col, 4, 2))
+                .op("||")(func.substr(col, 1, 2))
+            )
+        lower = (parsed_from or date.min).strftime("%Y%m%d")
+        upper = (parsed_to or date.max).strftime("%Y%m%d")
+        query = query.where(_iso_expr(Booking.date) >= lower, _iso_expr(Booking.date) <= upper)
+    bookings = db.scalars(query.limit(limit)).unique().all()
 
     return [
         BookingHistoryItem(
@@ -18670,12 +20074,21 @@ def get_owner_archive(
         .where(Booking.deleted_at.is_(None), Booking.status == "completed")
         .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
     )
-    bookings = db.scalars(booking_query).unique().all()
     if parsed_from or parsed_to:
-        bookings = [
-            b for b in bookings
-            if _stored_date_in_range(b.date, parsed_from or date.min, parsed_to or date.max)
-        ]
+        # DD.MM.YYYY -> YYYYMMDD ? SQL (AUDIT-07): ?????? ?? ???????? ?????.
+        def _archive_iso_expr(col):
+            return (
+                func.substr(col, 7, 4)
+                .op("||")(func.substr(col, 4, 2))
+                .op("||")(func.substr(col, 1, 2))
+            )
+        lower_iso = (parsed_from or date.min).strftime("%Y%m%d")
+        upper_iso = (parsed_to or date.max).strftime("%Y%m%d")
+        booking_query = booking_query.where(
+            _archive_iso_expr(Booking.date) >= lower_iso,
+            _archive_iso_expr(Booking.date) <= upper_iso,
+        )
+    bookings = db.scalars(booking_query).unique().all()
 
     penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(penalties)
@@ -18763,7 +20176,7 @@ def get_owner_archive(
     archive_incomes = [
         IncomePayload(
             id=i.id,
-            amount=i.amount,
+            amount=money_int(i.amount),
             source=i.source,
             note=i.note,
             createdById=i.created_by_id,
@@ -18777,7 +20190,7 @@ def get_owner_archive(
         ExpensePayload(
             id=e.id,
             title=e.title,
-            amount=e.amount,
+            amount=money_int(e.amount),
             category=e.category,
             date=e.date,
             note=e.note,
@@ -18821,8 +20234,12 @@ def get_owner_archive(
         )
 
     # ── Расчётка мастеров за период ──
+    # Владельцы с доп. ролью мастера тоже попадают в расчётку архива
+    # (как на странице «Зарплаты» и в списках мастеров).
     workers_list = db.scalars(
-        select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name.asc())
+        select(StaffUser)
+        .where(or_(StaffUser.role == "worker", _owner_master_condition()))
+        .order_by(StaffUser.name.asc())
     ).all()
     worker_ids = [w.id for w in workers_list]
     worker_bookings = [
@@ -18936,6 +20353,508 @@ def get_owner_archive(
     )
 
 
+@app.get("/api/owner/money-flow", response_model=MoneyFlowResponse)
+def get_owner_money_flow(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> MoneyFlowResponse:
+    """Единый журнал движения денег за период: приходы → распределения → выплаты.
+
+    Правила исключения двойного учёта:
+    - Income/Expense, зеркалящие зарплатные проводки (expense_id/income_id у
+      PayrollEntry), не попадают в итоги приходов/расходов;
+    - вклады копилки из брони видны внутри распределения записи;
+    - снятия из копилки идут как «move» — сам расход уже учтён в Expense;
+    - оплаты с депозита (payment_type=credit) не считаются приходом кассы:
+      деньги пришли ранее как пополнение депозита.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    try:
+        parsed_from = parse_date_param(date_from) if date_from else None
+        parsed_to = parse_date_param(date_to) if date_to else None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    def _in_range(d: str | None) -> bool:
+        if not d:
+            return not (parsed_from or parsed_to)
+        if not (parsed_from or parsed_to):
+            return True
+        return _stored_date_in_range(d, parsed_from or date.min, parsed_to or date.max)
+
+    payment_labels = {
+        "cash": "Наличные",
+        "transfer": "Перевод",
+        "invoice": "По счёту",
+        "credit": "С депозита",
+    }
+
+    def _sort_dt(value: datetime | None) -> datetime:
+        if value is None:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
+    def _entry_date_str(p: PayrollEntry) -> str:
+        if p.entry_date:
+            return p.entry_date
+        return p.created_at.strftime("%d.%m.%Y") if p.created_at else ""
+
+    def _date_sort_key(entry: MoneyFlowEntry) -> tuple[str, str]:
+        """DD.MM.YYYY или YYYY-MM-DD -> сортируемый YYYY-MM-DD (без datetime)."""
+        raw = (entry.date or "").strip()
+        parts = raw.split(".")
+        if len(parts) == 3 and len(parts[0]) == 2 and len(parts[2]) == 4:
+            iso = f"{parts[2]}-{parts[1]}-{parts[0]}"
+        elif len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+            iso = raw
+        else:
+            iso = raw
+        return (iso, entry.time or "")
+
+    entries: list[MoneyFlowEntry] = []
+    summary = MoneyFlowSummary()
+
+    penalties = _load_penalties(db)
+    complaints_by_worker = _complaints_by_worker(penalties)
+    staff_by_id = {s.id: s for s in db.scalars(select(StaffUser)).all()}
+
+    # Зеркала зарплатных проводок: исключаем из доходов/расходов, чтобы не задваивать
+    payroll_expense_ids = {
+        e.expense_id
+        for e in db.scalars(
+            select(PayrollEntry).where(PayrollEntry.expense_id.is_not(None))
+        ).all()
+        if e.expense_id
+    }
+    payroll_income_ids = {
+        e.income_id
+        for e in db.scalars(
+            select(PayrollEntry).where(PayrollEntry.income_id.is_not(None))
+        ).all()
+        if e.income_id
+    }
+
+    # ── 1. Завершённые записи: приход выручки + распределение ──
+    booking_query = (
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services),
+        )
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed")
+        .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+    )
+    bookings = db.scalars(booking_query).unique().all()
+    bookings = [b for b in bookings if _in_range(b.date)]
+
+    period_booking_ids: set[str] = set()
+    for b in bookings:
+        period_booking_ids.add(b.id)
+        detail = _booking_money_split_detail(db, b)
+        outsource_total = sum(
+            int(a.outsource_amount or 0)
+            for a in (b.additional_services or [])
+            if a.is_outsource
+        )
+        distribution = MoneyFlowDistribution(
+            materialsCost=int(detail.materialsCost or 0),
+            masterTotal=int(detail.masterTotal or 0),
+            piggyDeposit=int(detail.piggyDeposit or 0),
+            ownersTotal=int(detail.ownersTotal or 0),
+            outsourceTotal=outsource_total,
+            workers=[
+                MoneyFlowDistributionWorkerItem(
+                    workerId=w.workerId,
+                    workerName=w.workerName,
+                    earned=int(w.earned or 0),
+                )
+                for w in detail.workers
+            ]
+            + [
+                MoneyFlowDistributionWorkerItem(
+                    workerId=w.workerId,
+                    workerName=w.workerName,
+                    earned=int(w.earned or 0),
+                )
+                for w in detail.asvcWorkers
+                if w.workerId not in {x.workerId for x in detail.workers}
+            ],
+            owners=[
+                MoneyFlowDistributionOwnerItem(
+                    ownerId=o.ownerId,
+                    ownerName=o.ownerName,
+                    amount=int(o.amount or 0),
+                    status=o.status,
+                )
+                for o in detail.ownerShares
+            ]
+            or [
+                MoneyFlowDistributionOwnerItem(
+                    ownerId=oid,
+                    ownerName=(staff_by_id.get(oid).name if staff_by_id.get(oid) else "Владелец"),
+                    amount=int(amount),
+                    status="pending",
+                )
+                for oid, amount in (detail.ownerByOwnerAuto or {}).items()
+            ],
+        )
+
+        settled_cash = bool(b.payment_settled) and b.payment_type != "credit"
+        if settled_cash:
+            kind, etype = "in", "booking_payment"
+        elif b.payment_type == "credit":
+            kind, etype = "allocation", "booking_deposit_payment"
+        else:
+            kind, etype = "allocation", "booking_unpaid"
+
+        method_key = b.payment_type or ""
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-b:{b.id}",
+                kind=kind,
+                type=etype,
+                date=b.date,
+                time=b.time or "",
+                title=f"{b.service} — {b.client_name}",
+                amount=int(b.price or 0),
+                counterparty=b.client_name or "",
+                method=method_key,
+                methodLabel=payment_labels.get(method_key, ""),
+                note=(
+                    ""
+                    if settled_cash
+                    else (
+                        "Оплачено с депозита клиента"
+                        if b.payment_type == "credit"
+                        else "Не оплачено (долг)"
+                    )
+                ),
+                bookingId=b.id,
+                distribution=distribution,
+                createdAt=b.created_at,
+            )
+        )
+        summary.bookingCount += 1
+        if settled_cash:
+            summary.bookingRevenue += int(b.price or 0)
+        summary.allocatedWorkers += int(detail.masterTotal or 0)
+        summary.allocatedPiggy += int(detail.piggyDeposit or 0)
+        summary.allocatedOwners += int(detail.ownersTotal or 0)
+        summary.allocatedMaterials += int(detail.materialsCost or 0)
+        summary.allocatedOutsource += outsource_total
+
+    # ── 2. Прочие доходы ──
+    incomes = [i for i in db.scalars(select(Income)).all() if i.date and _in_range(i.date)]
+    for i in sorted(incomes, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        if i.id in payroll_income_ids:
+            continue  # зеркало вычета из зарплаты — не реальный приход
+        amount = int(i.amount or 0)
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-i:{i.id}",
+                kind="in",
+                type="income",
+                date=i.date,
+                title=i.source or "Прочий доход",
+                amount=amount,
+                counterparty=i.source or "",
+                note=i.note or "",
+                createdAt=i.created_at,
+            )
+        )
+        summary.otherIncome += amount
+
+    # ── 3. Расходы ──
+    expenses = [e for e in db.scalars(select(Expense)).all() if e.date and _in_range(e.date)]
+    for e in sorted(expenses, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        if e.id in payroll_expense_ids:
+            continue  # зеркало премии/аванса/корректировки — учтено в выплатах
+        amount = int(e.amount or 0)
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-e:{e.id}",
+                kind="out",
+                type="expense",
+                date=e.date,
+                title=e.title or "Расход",
+                amount=amount,
+                counterparty=e.category or "",
+                note=e.note or "",
+                createdAt=e.created_at,
+            )
+        )
+        summary.expensesTotal += amount
+
+    # ── 4. Зарплатные проводки: выплаты/авансы (касса) и начисления (справочно) ──
+    workers_list = db.scalars(
+        select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name.asc())
+    ).all()
+    worker_ids = [w.id for w in workers_list]
+    entries_query = select(PayrollEntry)
+    shift_from: date | None = None
+    shift_to: date | None = None
+    if date_from and date_to:
+        dt_from, dt_to = _local_day_bounds(_parse_booking_date_param(date_from))[0], _local_day_bounds(_parse_booking_date_param(date_to))[1]
+        entries_query = entries_query.where(
+            PayrollEntry.created_at >= dt_from,
+            PayrollEntry.created_at <= dt_to,
+        )
+        shift_from = parsed_from
+        shift_to = parsed_to
+    payroll_entries = db.scalars(
+        entries_query.order_by(PayrollEntry.created_at.desc())
+    ).all()
+
+    for p in payroll_entries:
+        person = staff_by_id.get(p.worker_id)
+        person_name = person.name if person else "Сотрудник"
+        amount = int(abs(p.amount or 0))
+        base = {"personId": p.worker_id, "createdAt": p.created_at}
+        if p.kind == "payout":
+            is_owner = bool(person and person.role == "owner")
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-p:{p.id}",
+                    kind="out",
+                    type="payout_owner" if is_owner else "payout_worker",
+                    date=_entry_date_str(p),
+                    title="Выплата владельцу" if is_owner else f"Выплата зарплаты: {person_name}",
+                    amount=amount,
+                    counterparty=person_name,
+                    note=p.note or "",
+                    **base,
+                )
+            )
+            if is_owner:
+                summary.ownerPayouts += amount
+            else:
+                # мастера и прочие сотрудники (админ/бухгалтер)
+                summary.workerPayouts += amount
+        elif p.kind == "advance":
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-p:{p.id}",
+                    kind="out",
+                    type="advance",
+                    date=_entry_date_str(p),
+                    title=f"Аванс: {person_name}",
+                    amount=amount,
+                    counterparty=person_name,
+                    note=p.note or "",
+                    **base,
+                )
+            )
+            summary.advances += amount
+        elif p.kind in ("bonus", "deduction", "adjustment"):
+            titles = {
+                "bonus": f"Премия: {person_name}",
+                "deduction": f"Вычет из зарплаты: {person_name}",
+                "adjustment": f"Корректировка зарплаты: {person_name}",
+            }
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-p:{p.id}",
+                    kind="allocation",
+                    type=f"salary_{p.kind}",
+                    date=_entry_date_str(p),
+                    title=titles[p.kind],
+                    amount=amount,
+                    counterparty=person_name,
+                    note=p.note or ("со знаком минус в расчётке" if p.kind == "deduction" else ""),
+                    **base,
+                )
+            )
+
+    # ── 5. Депозиты клиентов: пополнения = предоплата ──
+    deposit_txs = [
+        t for t in db.scalars(select(DepositTransaction)).all() if t.date and _in_range(t.date)
+    ]
+    client_names = {
+        c.id: c.name for c in db.scalars(select(Client)).all()
+    }
+    for t in sorted(deposit_txs, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        amount = int(abs(t.amount or 0))
+        cname = client_names.get(t.client_id, t.client_id)
+        ttype = t.transaction_type or ""
+        if ttype == "topup":
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-d:{t.id}",
+                    kind="in",
+                    type="deposit_topup",
+                    date=t.date,
+                    title=f"Пополнение депозита: {cname}",
+                    amount=amount,
+                    counterparty=cname,
+                    note=(t.description or "") + " · предоплата",
+                    createdAt=t.created_at,
+                )
+            )
+            summary.depositTopups += amount
+        elif ttype == "adjust" and amount > 0:
+            sign_positive = (t.amount or 0) > 0
+            entries.append(
+                MoneyFlowEntry(
+                    id=f"mf-d:{t.id}",
+                    kind="in" if sign_positive else "move",
+                    type="deposit_adjust",
+                    date=t.date,
+                    title=f"Корректировка депозита: {cname}",
+                    amount=amount,
+                    counterparty=cname,
+                    note=t.description or "",
+                    createdAt=t.created_at,
+                )
+            )
+            if sign_positive:
+                summary.depositTopups += amount
+        # wash_deduction / month_return — внутренние движения баланса клиента,
+        # деньги уже учтены при пополнении; в журнал не добавляем.
+
+    # ── 6. Копилка: внутренние перемещения (расход уже учтён в Expense) ──
+    piggy_move_types = {
+        "material_withdrawal": "piggy_withdrawal",
+        "other_withdrawal": "piggy_withdrawal",
+        "adjust": "piggy_adjust",
+        "material_repayment": "piggy_repayment",
+        "deposit_return": "piggy_deposit_return",
+    }
+    piggy_txs = [
+        t for t in db.scalars(select(PiggyBankTransaction)).all() if t.date and _in_range(t.date)
+    ]
+    for t in sorted(piggy_txs, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
+        mapped = piggy_move_types.get(t.transaction_type or "")
+        if mapped is None:
+            continue  # deposit_24percent — внутри распределения записей; expense — зеркало Expense
+        titles = {
+            "piggy_withdrawal": "Снятие из копилки",
+            "piggy_adjust": "Корректировка копилки",
+            "piggy_repayment": "Возврат материалов в копилку",
+            "piggy_deposit_return": "Возврат депозитных моек в копилку",
+        }
+        entries.append(
+            MoneyFlowEntry(
+                id=f"mf-pb:{t.id}",
+                kind="move",
+                type=mapped,
+                date=t.date,
+                title=titles[mapped],
+                amount=int(abs(t.amount or 0)),
+                counterparty=t.resource_group or "",
+                note=t.purpose or "",
+                createdAt=t.created_at,
+            )
+        )
+
+    # Итоги
+    summary.totalIn = summary.bookingRevenue + summary.otherIncome + summary.depositTopups
+    summary.totalOut = (
+        summary.workerPayouts + summary.ownerPayouts + summary.advances + summary.expensesTotal
+    )
+    summary.cashBalance = summary.totalIn - summary.totalOut
+    summary.entryCount = len(entries)
+
+    # ── 7. Люди: кому сколько начислено и выплачено ──
+    people: list[MoneyFlowPersonItem] = []
+
+    worker_bookings = [
+        b for b in bookings
+        if any(link.worker_id in worker_ids for link in b.worker_links)
+        or any(
+            alink.worker_id in worker_ids
+            for asvc in (b.additional_services or [])
+            for alink in asvc.worker_links
+        )
+    ]
+    all_worker_entries = [
+        p for p in db.scalars(select(PayrollEntry)).all() if p.worker_id in worker_ids
+    ] if not (date_from and date_to) else payroll_entries
+    payroll_summaries = _worker_payroll_summaries_from_data(
+        db,
+        workers_list,
+        worker_bookings,
+        all_worker_entries,
+        complaints_by_worker,
+        shift_from=shift_from,
+        shift_to=shift_to,
+        period="custom" if shift_from and shift_to else "all",
+    )
+    for worker in workers_list:
+        s = payroll_summaries.get(worker.id)
+        if s is None:
+            continue
+        if (
+            s.completedBookings <= 0
+            and s.balance == 0
+            and s.baseSalary <= 0
+            and s.shiftPayTotal <= 0
+            and s.bonusTotal <= 0
+            and s.adjustmentTotal == 0
+            and s.payoutTotal <= 0
+            and s.advanceTotal <= 0
+        ):
+            continue
+        people.append(
+            MoneyFlowPersonItem(
+                personId=worker.id,
+                personName=worker.name,
+                role="worker",
+                accrued=int(s.totalAccrued or 0),
+                paid=int((s.payoutTotal or 0) + (s.advanceTotal or 0)),
+                balance=int(s.balance or 0),
+            )
+        )
+
+    owner_totals: dict[str, dict] = {}
+    if period_booking_ids:
+        shares = db.scalars(
+            select(OwnerProfitShare).where(
+                OwnerProfitShare.booking_id.in_(period_booking_ids)
+            )
+        ).all()
+        for share in shares:
+            row = owner_totals.setdefault(share.owner_id, {"accrued": 0, "paid": 0})
+            amt = int(share.amount or 0)
+            if share.status == "paid":
+                row["paid"] += amt
+            else:
+                row["accrued"] += amt
+    for owner_id, data in owner_totals.items():
+        person = staff_by_id.get(owner_id)
+        people.append(
+            MoneyFlowPersonItem(
+                personId=owner_id,
+                personName=person.name if person else "Владелец",
+                role="owner",
+                accrued=data["accrued"],
+                paid=data["paid"],
+                balance=data["accrued"] - data["paid"],
+            )
+        )
+
+    people.sort(key=lambda p: (0 if p.role == "worker" else 1, -(abs(p.accrued) + abs(p.paid))))
+
+    entries.sort(key=_date_sort_key, reverse=True)
+
+    date_from_dmy = _parse_booking_date_param(date_from) if date_from else ""
+    date_to_dmy = _parse_booking_date_param(date_to) if date_to else ""
+    return MoneyFlowResponse(
+        dateFrom=date_from_dmy,
+        dateTo=date_to_dmy,
+        summary=summary,
+        people=people,
+        entries=entries,
+    )
+
 
 @app.get("/api/owner/bookings/{booking_id}/money-split", response_model=BookingMoneySplitDetail)
 def get_owner_booking_money_split(
@@ -18964,6 +20883,20 @@ def update_owner_booking_money_split(
         raise HTTPException(status_code=404, detail="Запись не найдена")
     if booking.status not in ("completed", "confirmed"):
         raise HTTPException(status_code=400, detail="Нельзя менять распределение для незавершённой записи")
+    # Пре-валидация ДО любых мутаций: нельзя менять уже выплаченные доли владельцев.
+    # Иначе исключение посреди изменений оставляло бы сессию в грязном состоянии,
+    # и целостность держалась только на неявном rollback при закрытии сессии (AUDIT-14).
+    if payload.owners:
+        pre_shares = {
+            share.owner_id: share
+            for share in db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
+            ).all()
+        }
+        for owner_update in payload.owners:
+            pre_share = pre_shares.get(owner_update.ownerId)
+            if pre_share is not None and pre_share.status == "paid":
+                raise HTTPException(status_code=400, detail="Нельзя изменить выплаченную долю владельца")
 
     for worker_update in payload.workers:
         link = db.get(BookingWorker, worker_update.linkId)
@@ -18993,7 +20926,11 @@ def update_owner_booking_money_split(
             PiggyBankTransaction.transaction_type == "deposit_24percent",
         )
     ).all()
-    split = _booking_money_split(db, booking)
+    # Сплит с учётом жалоб: авто-пересчёт депозита при сохранении должен
+    # совпадать с расчётом на странице ЗП и деталями сплита.
+    split = _booking_money_split(
+        db, booking, _complaints_by_worker(_load_penalties(db))
+    )
     # Депозиты доп услуг (остаток от вычитаемых доп услуг) — авто-вклад в свою
     # копилку, при ручной правке копилки их не трогаем
     asvc_purpose_prefix = ASVC_PIGGY_PURPOSE_PREFIX
@@ -19225,11 +21162,13 @@ def _worker_period_balance(
     *,
     date_from: str,
     date_to: str,
+    period: str,
     segment: str,
     complaints_by_worker: dict[str, list[Penalty]],
 ) -> int:
     """Баланс мастера за период — ровно как на странице ЗП: заработанное по записям
-    периода (сплит) + оклад + смены + премии/корректировки − авансы − удержания − выплаты."""
+    периода (сплит) + оклад (пропорция периоду) + смены + премии/корректировки −
+    авансы − удержания − выплаты."""
     date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]  # DD.MM.YYYY → YYYYMMDD
     date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
 
@@ -19266,16 +21205,17 @@ def _worker_period_balance(
 
     total_earned = 0
     for b in completed_bookings:
-        worker_link = next(
-            (link for link in b.worker_links if link.worker_id == worker.id), None
-        )
-        if worker_link is None:
-            continue
         rg = _resource_group_for_service(db, b.service_id)
         if segment != "all" and rg != segment:
             continue
         split = _booking_money_split(db, b, complaints_by_worker)
-        if worker_link.override_earned is not None:
+        worker_link = next(
+            (link for link in b.worker_links if link.worker_id == worker.id), None
+        )
+        # Ровно как в salary-detail: override заменяет всю сумму мастера
+        # (основная услуга + доп. услуги), иначе берём долю из сплита — она
+        # включает и мастеров, которые работают только на доп. услугах.
+        if worker_link is not None and worker_link.override_earned is not None:
             total_earned += int(worker_link.override_earned)
         else:
             total_earned += split["master_by_worker"].get(worker.id, 0)
@@ -19300,9 +21240,15 @@ def _worker_period_balance(
     payout_total = sum(e.amount for e in entries if e.kind == "payout")
     adjustment_total = sum(e.amount for e in entries if e.kind == "adjustment")
 
+    # Оклад пропорционален периоду — как на странице ЗП
+    # (salary_base_for_period), а не полный месячный.
+    period_base_salary = money_int(
+        salary_base_for_period(worker.salary_base, d_from, d_to, period=period)
+    )
+
     return int(
         total_earned
-        + worker.salary_base
+        + period_base_salary
         + shift_pay_total
         + bonus_total
         + max(adjustment_total, 0)
@@ -19639,7 +21585,7 @@ def owner_worker_salary_detail(
 
             id=e.id,
 
-            amount=e.amount,
+            amount=money_int(e.amount),
 
             note=e.note,
 
@@ -20049,7 +21995,7 @@ def worker_my_salary_detail(
 
             id=e.id,
 
-            amount=e.amount,
+            amount=money_int(e.amount),
 
             note=e.note,
 
@@ -20200,6 +22146,51 @@ def owner_worker_pay_salary(
 
         raise HTTPException(status_code=404, detail="Мастер не найден")
 
+    # Идемпотентность: повторный запрос с тем же clientRequestId (двойной клик,
+    # повторная отправка формы, ретрай сети) возвращает результат первой
+    # выплаты и не создаёт дубликат.
+    def _replay_response(existing: PayrollEntry) -> PaySalaryResponse:
+        replay_from, replay_to = _salary_date_range(
+            payload.period,
+            custom_from=(
+                _parse_booking_date_param(payload.dateFrom)
+                if payload.period == "custom" and payload.dateFrom
+                else None
+            ),
+            custom_to=(
+                _parse_booking_date_param(payload.dateTo)
+                if payload.period == "custom" and payload.dateTo
+                else None
+            ),
+        )
+        all_penalties = _load_penalties(db)
+        replay_balance = _worker_period_balance(
+            db,
+            worker,
+            date_from=replay_from,
+            date_to=replay_to,
+            period=payload.period,
+            segment=payload.segment,
+            complaints_by_worker=_complaints_by_worker(all_penalties),
+        )
+        return PaySalaryResponse(
+            message="Выплата уже проведена ранее",
+            payoutId=existing.id,
+            newBalance=replay_balance,
+            expenseId=existing.expense_id or "",
+        )
+
+    if payload.clientRequestId:
+        existing_entry = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.request_key == payload.clientRequestId,
+                PayrollEntry.worker_id == worker.id,
+                PayrollEntry.kind == "payout",
+            )
+        )
+        if existing_entry is not None:
+            return _replay_response(existing_entry)
+
 
 
     # Determine resource_group from segment
@@ -20256,6 +22247,8 @@ def owner_worker_pay_salary(
 
         entry_date=payout_date,
 
+        request_key=payload.clientRequestId,
+
         created_at=_now(),
 
     )
@@ -20292,31 +22285,46 @@ def owner_worker_pay_salary(
 
     entry.expense_id = expense.id
 
-    _notify_worker_about_payroll_entry(
-
-        db,
-
-        worker,
-
-        actor_role=session_data["role"],
-
-        actor_id=session_data["actorId"],
-
-        kind="payout",
-
-        amount=amount,
-
-        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
-
-    )
-
-
-
     worker.updated_at = _now()
 
-    db.commit()
+    try:
+
+        db.commit()
+
+    except IntegrityError:
+
+        # Гонка: два параллельных запроса с одним clientRequestId.
+        # Уникальный индекс не дал создать дубликат — возвращаем результат
+        # первой (уже закоммиченной) выплаты.
+        db.rollback()
+        if payload.clientRequestId:
+            winner = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId,
+                    PayrollEntry.worker_id == worker.id,
+                    PayrollEntry.kind == "payout",
+                )
+            )
+            if winner is not None:
+                return _replay_response(winner)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Повторная выплата с тем же ключом уже существует",
+        )
 
     db.refresh(worker)
+
+    # Уведомление — только после успешного коммита: при гонке проигравший
+    # запрос уходит в replay и воркеру не приходит лишнее сообщение.
+    _notify_worker_about_payroll_entry(
+        db,
+        worker,
+        actor_role=session_data["role"],
+        actor_id=session_data["actorId"],
+        kind="payout",
+        amount=amount,
+        note=payload.note.strip() or f"Выплата зарплаты ({payload.period})",
+    )
 
 
 
@@ -20331,6 +22339,7 @@ def owner_worker_pay_salary(
         worker,
         date_from=date_from,
         date_to=date_to,
+        period=payload.period,
         segment=payload.segment,
         complaints_by_worker=complaints_by_worker,
     )
@@ -20743,6 +22752,8 @@ def owner_pay_salary(
 
         note=payload.note.strip() or f"Выплата ЗП владельцу {owner.name}",
 
+        request_key=payload.clientRequestId,
+
         created_at=_now(),
 
     )
@@ -20783,7 +22794,42 @@ def owner_pay_salary(
 
     owner.updated_at = _now()
 
-    db.commit()
+    try:
+
+        db.commit()
+
+    except IntegrityError:
+
+        # Гонка/повторная отправка: выплата с тем же clientRequestId уже
+        # проведена — возвращаем результат первой, дубликат не создаём.
+        db.rollback()
+        if payload.clientRequestId:
+            winner = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId,
+                    PayrollEntry.worker_id == owner.id,
+                    PayrollEntry.kind == "payout",
+                )
+            )
+            if winner is not None:
+                new_balance = sum(
+                    s.amount for s in db.scalars(
+                        select(OwnerProfitShare).where(
+                            OwnerProfitShare.owner_id == payload.ownerId,
+                            OwnerProfitShare.status == "pending",
+                        )
+                    ).all()
+                )
+                return PayOwnerSalaryResponse(
+                    message="Выплата уже проведена ранее",
+                    payoutId=winner.id,
+                    expenseId=winner.expense_id or "",
+                    newBalance=new_balance,
+                )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Выплата с тем же ключом уже существует",
+        )
 
 
 

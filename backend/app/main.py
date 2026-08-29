@@ -2743,19 +2743,19 @@ def _apply_default_shift_pay(db: Session) -> None:
 def _repair_text_value(value: str) -> str:
     if not value:
         return value
-    # Ремонтируем только явный mojibake, не трогаем корректную кириллицу
-    # Маркеры: "Ð","Ñ" = utf-8 -> latin1, "вЂ","в€","â€","Ã","Â" = utf-8 -> cp1251 / windows-1252
-    # + "Р","С" с ’/‹/Ђ/ѓ/‡/є/° — utf-8 -> windows-1251 (копия "Выручка" -> "Р'С‹СЂСѓС‡РєР°")
-    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "Р’", "С‹", "СЂ", "Сѓ", "С‡", "Рє", "Р°", "СЃ", "С‚", "Рј", "Рё", "РЅ", "Р»", "Рѕ", "в‚", "Ѕ", "—", "–"]
+    # Все возможные маркеры mojibake: latin1 (Ð,Ñ,Ã,Â), cp1251/windows-1251 (вЂ,Р’С‹...), cp1252 (â€), koi8-r/iso8859-5/cp866
+    markers = ["Ð", "Ñ", "вЂ", "в€", "â€", "Ã", "Â", "Р’", "С‹", "СЂ", "Сѓ", "С‡", "Рє", "Р°", "СЃ", "С‚", "Рј", "Рё", "РЅ", "Р»", "Рѕ", "в‚", "Ѕ", "—", "–", "Р'", "С'", "Р»", "С»"]
     has_marker = any(m in value for m in markers)
-    # Гибридный ремонт: поддержка смешанного mojibake + корректных символов (напр. "ÐŸÑ€Ð¸Ð²ÐµÑ‚ •")
-    # Для каждого символа пробуем закодировать через enc (если он mojibake-байт), иначе как utf-8.
-    # Это чинит случаи когда часть строки — mojibake latin1/cp1251, а часть — корректный "•"/"—"/кириллица.
-    if has_marker:
-        for enc in ("cp1251", "latin1"):
+    # Полный перебор всех кодировок, которые могут дать mojibake для кириллицы
+    all_encodings = ["windows-1251", "cp1251", "koi8-r", "iso8859-5", "cp866", "mac_cyrillic", "latin1", "iso8859-1", "cp1252", "windows-1252"]
+    # Нормализуем частые замены: ' (U+0027) <-> ’ (U+2019) для windows-1251 mojibake
+    norm_value = value.replace("'", "’").replace("`", "’")
+    # Гибридный ремонт с маркерами
+    if has_marker or any(c in value for c in ["Р", "С", "в"]):
+        for enc in all_encodings:
             try:
                 byte_arr = bytearray()
-                for ch in value:
+                for ch in norm_value:
                     try:
                         byte_arr.extend(ch.encode(enc))
                     except UnicodeEncodeError:
@@ -2763,59 +2763,71 @@ def _repair_text_value(value: str) -> str:
                 fixed = byte_arr.decode("utf-8")
             except UnicodeError:
                 continue
-            if fixed == value:
+            if fixed == value or fixed == norm_value:
                 continue
             if any(m in fixed for m in markers):
                 continue
-            return fixed
-        # Пробуем оба источника mojibake: cp1251 и latin1 (windows-1252) — классический путь
-        for enc in ("cp1251", "latin1"):
-            try:
-                fixed = value.encode(enc).decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed == value:
-                continue
-            # Успешный ремонт должен убрать маркеры и/или дать кириллицу/символы
-            if any(m in fixed for m in markers):
-                # частично починился, но остались маркеры — пробуем другую кодировку
-                # если другая кодировка не сработает, вернём лучший вариант ниже
-                continue
-            return fixed
-        # Фолбэк: если обе кодировки дали маркеры, пробуем вернуть любой отличающийся результат
-        for enc in ("cp1251", "latin1"):
-            try:
-                fixed = value.encode(enc).decode("utf-8")
-            except UnicodeError:
-                continue
-            if fixed != value:
+            # Эвристика: стало больше кириллицы
+            cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
+            cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
+            if cyr_fixed >= cyr_orig and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Владелец", "Запись", "Клиент", "АТМОСФЕРА"]):
                 return fixed
+            if fixed != value and cyr_fixed > 5:
+                return fixed
+        for enc in all_encodings:
+            try:
+                fixed = norm_value.encode(enc).decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed == value or fixed == norm_value:
+                continue
+            if any(m in fixed for m in markers):
+                continue
+            cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
+            if cyr_fixed > 5 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Владелец"]):
+                return fixed
+            return fixed
+        for enc in all_encodings:
+            try:
+                fixed = norm_value.encode(enc).decode("utf-8")
+            except UnicodeError:
+                continue
+            if fixed != value and fixed != norm_value:
+                return fixed
+        # Если с нормализованным не вышло, пробуем оригинал
+        if norm_value != value:
+            for enc in all_encodings:
+                try:
+                    fixed = value.encode(enc).decode("utf-8")
+                except UnicodeError:
+                    continue
+                if fixed != value and any(w in fixed for w in ["Выручка", "Владелец"]):
+                    return fixed
         return value
     # Нет явных маркеров, но может быть windows-1251 mojibake вида "Р'С‹СЂСѓС‡РєР°" (Выручка)
-    # Пробуем cp1251/latin1 и смотрим, стал ли результат более "русским"
-    for enc in ("cp1251", "latin1"):
+    # Пробуем все кодировки и смотрим, стал ли результат более "русским"
+    for enc in all_encodings:
         try:
-            fixed = value.encode(enc).decode("utf-8")
+            fixed = norm_value.encode(enc).decode("utf-8")
         except UnicodeError:
             continue
-        if fixed == value:
+        if fixed == value or fixed == norm_value:
             continue
-        # Эвристика: если после ремонта появилось много кириллицы и исчезли Р/С с ’/‹
         cyr_fixed = sum(1 for c in fixed if "\u0400" <= c <= "\u04FF")
         cyr_orig = sum(1 for c in value if "\u0400" <= c <= "\u04FF")
-        # Если в оригинале много Р/С с ’/‹, а в fixed — нормальная кириллица (Выручка, сегодня, ₽)
-        if cyr_fixed > cyr_orig + 2 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Запись", "Клиент"]):
+        if cyr_fixed > cyr_orig + 2 and any(w in fixed for w in ["Выручка", "сегодня", "₽", "Привет", "Владелец", "Запись", "Клиент", "АТМОСФЕРА"]):
             return fixed
-        # Также если fixed содержит ₽ или Выручка, а orig — в‚Ѕ / Р'С‹
         if "₽" in fixed and "в‚" in value:
             return fixed
-        if "Выручка" in fixed and "Р'С‹" in value:
+        if "Выручка" in fixed and ("Р'С‹" in value or "Р’С‹" in norm_value):
+            return fixed
+        if "Владелец" in fixed and ("Р’Р»" in norm_value or "Р'Р»" in value):
             return fixed
     # Гибридный фолбэк без маркеров
-    for enc in ("cp1251", "latin1"):
+    for enc in all_encodings:
         try:
             byte_arr = bytearray()
-            for ch in value:
+            for ch in norm_value:
                 try:
                     byte_arr.extend(ch.encode(enc))
                 except UnicodeEncodeError:
