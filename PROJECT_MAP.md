@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-29 09:19 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-29 09:39 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **498**
-- Строк кода: **200 333**
+- Строк кода: **200 339**
 - По расширениям: `.js`: 3, `.mjs`: 4, `.py`: 151, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
@@ -4558,18 +4558,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `vercel.json` (2026-08-29 12:37)
+- `frontend/index.html` (2026-08-29 12:35)
+- `frontend/vite.config.ts` (2026-08-29 12:35)
 - `frontend/src/app/api.ts` (2026-08-29 12:18)
 - `training/backend/app/main.py` (2026-08-29 12:16)
 - `backend/app/main.py` (2026-08-29 12:15)
 - `frontend/src/styles/fonts.css` (2026-08-29 12:06)
 - `frontend/src/styles/theme.css` (2026-08-29 11:38)
 - `frontend/src/app/App.tsx` (2026-08-29 11:37)
-- `frontend/index.html` (2026-08-29 11:36)
-- `vercel.json` (2026-08-29 11:26)
 - `.editorconfig` (2026-08-29 10:59)
 - `training/frontend/index.html` (2026-08-29 10:50)
 - `Showcase/index.html` (2026-08-29 10:49)
 - `carwash/index.html` (2026-08-29 10:49)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-29 10:28)
 - `frontend/src/app/context/AppContext.tsx` (2026-08-29 10:27)
-- `backend/app/seed.py` (2026-08-29 10:21)
