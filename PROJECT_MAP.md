@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-31 10:12 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-31 10:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -4592,7 +4592,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-31 13:12)
+- `frontend/src/app/components/owner/screens/OwnerClientsScreen.tsx` (2026-08-31 13:25)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-31 13:24)
 - `scripts/.project-map-watch.lock` (2026-08-31 13:05)
 - `backend/app/main.py` (2026-08-29 15:44)
 - `scripts/repair_source_mojibake.py` (2026-08-29 15:42)
@@ -4606,4 +4607,3 @@ concept1.0/
 - `frontend/src/styles/fonts.css` (2026-08-29 12:59)
 - `frontend/vite.config.ts` (2026-08-29 12:35)
 - `frontend/src/styles/theme.css` (2026-08-29 11:38)
-- `frontend/src/app/App.tsx` (2026-08-29 11:37)

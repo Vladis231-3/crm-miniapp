@@ -4194,12 +4194,12 @@ paymentSettled: false,
                             onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
                             className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="flex items-start gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                                 <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
                                 <SourceBadge source={booking.source} />
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
                                 {ownerStatusLabel(booking.status)}
                               </span>
                             </div>
@@ -4276,7 +4276,7 @@ paymentSettled: false,
                                   }`}
                                 >
                                   <span className={`w-0.5 self-stretch rounded-full shrink-0 ${ownerStatusColor(booking.status)}`} />
-                                  <div className="flex-1 min-w-0">
+                                  <div className="flex-1 min-w-0 overflow-hidden">
                                     <div className="text-xs font-medium truncate">
                                       <span className="tabular-nums">{booking.time}</span>
                                       {' '}
@@ -4315,15 +4315,15 @@ paymentSettled: false,
                             onClick={() => ownerOpenBookingDetail(booking, setSelectedBooking, setShowBookingDetail)}
                             className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="font-medium text-sm truncate">{booking.clientName || 'Без имени'}</div>
+                            <div className="flex items-start gap-2">
+                              <div className="font-medium text-sm flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                <span className="truncate">{booking.clientName || 'Без имени'}</span>
                                 <SourceBadge source={booking.source} />
                                 {booking.isRepeatVisit && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                                 )}
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>
                                 {ownerStatusLabel(booking.status)}
                               </span>
                             </div>
@@ -4395,15 +4395,15 @@ paymentSettled: false,
                       <div className="flex items-start gap-3">
                         <div className={`w-1 self-stretch rounded-full ${booking.status === 'new' ? 'bg-indigo-500' : booking.status === 'confirmed' ? 'bg-cyan-500' : booking.status === 'scheduled' ? 'bg-blue-500' : booking.status === 'in_progress' ? 'bg-yellow-500' : booking.status === 'completed' ? 'bg-green-500' : booking.status === 'no_show' ? 'bg-orange-500' : 'bg-red-500'}`} />
                         <div className="flex-1">
-                          <div className="flex justify-between items-start mb-1">
-                            <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">
+                          <div className="flex items-start gap-2 mb-1">
+                            <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0 overflow-hidden">
                               <span className="truncate">{booking.time} · {booking.clientName}</span>
                               <SourceBadge source={booking.source} />
                               {booking.isRepeatVisit && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                               )}
                             </div>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
                           <div className={`text-sm ${sub}`}>{booking.service}</div>
                           {(booking.car || booking.plate) && (
@@ -10159,15 +10159,15 @@ paymentSettled: false,
                       <div className="flex items-start gap-3">
                         <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />
                         <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start mb-1">
-                            <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="flex items-start gap-2 mb-1">
+                            <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                               <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
                               <SourceBadge source={booking.source} />
                               {booking.isRepeatVisit && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                               )}
                             </div>
-                            <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                           </div>
                           <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
                           {(booking.car || booking.plate) && (
@@ -10240,15 +10240,15 @@ paymentSettled: false,
                         <div className="flex items-start gap-3">
                           <div className={`w-1 self-stretch rounded-full ${ownerStatusColor(booking.status)}`} />
                           <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start mb-1">
-                              <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="flex items-start gap-2 mb-1">
+                              <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                                 <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
                                 <SourceBadge source={booking.source} />
                                 {booking.isRepeatVisit && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
                                 )}
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${ownerStatusBadge(booking.status)}`}>{ownerStatusLabel(booking.status)}</span>
                             </div>
                             <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
                             {(booking.car || booking.plate) && (

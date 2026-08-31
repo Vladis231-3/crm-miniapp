@@ -762,9 +762,9 @@ export function OwnerClientsScreen({
               <div className="space-y-3">
                 {selectedSettingsClientFilteredBookings.map((booking) => (
                   <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-2xl p-3`}>
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-start gap-3 mb-2">
+                      <div className="min-w-0 overflow-hidden flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                           <div className="font-medium text-sm truncate">{booking.service}{booking.services && booking.services.length > 0 ? <span className="ml-1 text-xs" style={{ color: primary }}>+{booking.services.length}</span> : ''}</div>
                           <SourceBadge source={booking.source} />
                           {booking.isRepeatVisit && (
