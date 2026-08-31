@@ -354,7 +354,7 @@ export function AdminStatsPage() {
               })}
             </div>
           </div>
-          <div className={`mt-2 text-[11px] ${sub}`}>Считаются все записи за выбранный период. Выручка — только по завершённым.</div>
+          <div className={`mt-2 text-[11px] ${sub}`}>Считаются все записи за выбранный период. Выручка  -  только по завершённым.</div>
         </div>
       )}
 

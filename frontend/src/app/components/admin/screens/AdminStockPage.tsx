@@ -142,7 +142,7 @@ export function AdminStockPage() {
     addStockItem({ name: stockForm.name, qty, unit: stockForm.unit, unitPrice, category: selectedCat?.name || stockForm.category, categoryId: stockForm.categoryId || undefined });
     setShowAddStock(false);
     setStockForm(EMPTY_STOCK_FORM);
-    toast({ type: 'success', title: `Товар «${stockForm.name}» добавлен на склад` });
+    toast({ type: 'success', title: `Товар "${stockForm.name}" добавлен на склад` });
   };
 
   const handleWriteOff = () => {
@@ -152,7 +152,7 @@ export function AdminStockPage() {
     writeOffStock(showWriteOff, Number(writeOffQty.replace(',', '.')));
     setShowWriteOff(null);
     setWriteOffQty('1');
-    toast({ type: 'success', title: `Списано: ${item.name} — ${writeOffQty} ${item.unit}` });
+    toast({ type: 'success', title: `Списано: ${item.name}  -  ${writeOffQty} ${item.unit}` });
   };
 
   const glass = 'border border-border bg-[var(--card)]';
@@ -322,7 +322,7 @@ export function AdminStockPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newSubCategoryName.trim()) {
                     void addStockCategory({ name: newSubCategoryName.trim(), parentId: node.category.id })
-                      .then(() => toast({ type: 'success', title: `Подкатегория «${newSubCategoryName.trim()}» добавлена` }))
+                      .then(() => toast({ type: 'success', title: `Подкатегория "${newSubCategoryName.trim()}" добавлена` }))
                       .catch(() => toast({ type: 'error', title: 'Не удалось добавить подкатегорию' }));
                     setAddingSubFor(null);
                     setNewSubCategoryName('');
@@ -335,7 +335,7 @@ export function AdminStockPage() {
                 onClick={() => {
                   if (!newSubCategoryName.trim()) return;
                   void addStockCategory({ name: newSubCategoryName.trim(), parentId: node.category.id })
-                    .then(() => toast({ type: 'success', title: `Подкатегория «${newSubCategoryName.trim()}» добавлена` }))
+                    .then(() => toast({ type: 'success', title: `Подкатегория "${newSubCategoryName.trim()}" добавлена` }))
                     .catch(() => toast({ type: 'error', title: 'Не удалось добавить подкатегорию' }));
                   setAddingSubFor(null);
                   setNewSubCategoryName('');
@@ -485,7 +485,7 @@ export function AdminStockPage() {
         )}
       </div>
 
-      {/* Добавление товара — DS Sheet */}
+      {/* Добавление товара  -  DS Sheet */}
       <Sheet open={showAddStock} onClose={() => setShowAddStock(false)} title="Добавить товар">
         <div className="space-y-3">
           <FormRow label="Название">
@@ -530,10 +530,10 @@ export function AdminStockPage() {
                 setStockForm((p) => ({ ...p, categoryId: e.target.value, category: cat?.name || p.category }));
               }}
             >
-              <option value="">— Без категории —</option>
+              <option value=""> -  Без категории  - </option>
               {flattenedForSelect.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {'\u00A0\u00A0'.repeat(c.depth) + (c.depth > 0 ? '— ' : '') + c.name}
+                  {'\u00A0\u00A0'.repeat(c.depth) + (c.depth > 0 ? ' -  ' : '') + c.name}
                 </option>
               ))}
             </select>
@@ -549,7 +549,7 @@ export function AdminStockPage() {
         </div>
       </Sheet>
 
-      {/* Категории — DS Sheet c инлайн-редактированием (вместо prompt/confirm) — безлимитная вложенность */}
+      {/* Категории  -  DS Sheet c инлайн-редактированием (вместо prompt/confirm)  -  безлимитная вложенность */}
       <Sheet open={showCategoryManager} onClose={() => { setShowCategoryManager(false); setRenaming(null); setAddingRootCategory(false); setAddingSubFor(null); }} title="Категории склада">
         <div className="space-y-3 pb-2">
           {categoryTree.length === 0 && (
@@ -568,7 +568,7 @@ export function AdminStockPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newRootCategoryName.trim()) {
                     void addStockCategory({ name: newRootCategoryName.trim() })
-                      .then(() => toast({ type: 'success', title: `Категория «${newRootCategoryName.trim()}» добавлена` }))
+                      .then(() => toast({ type: 'success', title: `Категория "${newRootCategoryName.trim()}" добавлена` }))
                       .catch(() => toast({ type: 'error', title: 'Не удалось добавить категорию' }));
                     setAddingRootCategory(false);
                     setNewRootCategoryName('');
@@ -581,7 +581,7 @@ export function AdminStockPage() {
                 onClick={() => {
                   if (!newRootCategoryName.trim()) return;
                   void addStockCategory({ name: newRootCategoryName.trim() })
-                    .then(() => toast({ type: 'success', title: `Категория «${newRootCategoryName.trim()}» добавлена` }))
+                    .then(() => toast({ type: 'success', title: `Категория "${newRootCategoryName.trim()}" добавлена` }))
                     .catch(() => toast({ type: 'error', title: 'Не удалось добавить категорию' }));
                   setAddingRootCategory(false);
                   setNewRootCategoryName('');
@@ -605,7 +605,7 @@ export function AdminStockPage() {
         </div>
       </Sheet>
 
-      {/* Списание — DS Dialog */}
+      {/* Списание  -  DS Dialog */}
       <Dialog
         open={Boolean(showWriteOff)}
         onClose={() => setShowWriteOff(null)}
@@ -627,7 +627,7 @@ export function AdminStockPage() {
         </FormRow>
       </Dialog>
 
-      {/* Удаление товара/категории — DS Dialog */}
+      {/* Удаление товара/категории  -  DS Dialog */}
       <Dialog
         open={Boolean(pendingItemDelete)}
         onClose={() => setPendingItemDelete(null)}
@@ -644,7 +644,7 @@ export function AdminStockPage() {
                 if (!pendingItemDelete) return;
                 try {
                   await deleteStockItem(pendingItemDelete.id);
-                  toast({ type: 'success', title: `«${pendingItemDelete.name}» удалён со склада` });
+                  toast({ type: 'success', title: `"${pendingItemDelete.name}" удалён со склада` });
                 } catch {
                   toast({ type: 'error', title: 'Не удалось удалить' });
                 }

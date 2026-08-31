@@ -97,7 +97,7 @@ export function WorkerScheduleScreen({
                         <div className="flex items-center justify-between">
                           <div className="min-w-0">
                             <div className="text-sm font-medium tabular-nums">
-                              {task.time} — {task.service}
+                              {task.time}  -  {task.service}
                             </div>
                             <div className="text-xs text-[var(--fg-secondary,#5A6072)]">
                               {task.box} · {task.clientName}

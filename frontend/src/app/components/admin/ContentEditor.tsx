@@ -242,19 +242,19 @@ export function ContentEditor({ initialContent, onSave, glass, inputCls, sub, pr
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className={`text-xs ${sub} block mb-1`}>Кнопка 1 — текст</label>
+              <label className={`text-xs ${sub} block mb-1`}>Кнопка 1  -  текст</label>
               <input className={inputCls} value={content.hero.button1Text} onChange={(e) => updateHero({ button1Text: e.target.value })} placeholder="Наши услуги" />
             </div>
             <div>
-              <label className={`text-xs ${sub} block mb-1`}>Кнопка 1 — ID секции</label>
+              <label className={`text-xs ${sub} block mb-1`}>Кнопка 1  -  ID секции</label>
               <input className={inputCls} value={content.hero.button1Action} onChange={(e) => updateHero({ button1Action: e.target.value })} placeholder="services" />
             </div>
             <div>
-              <label className={`text-xs ${sub} block mb-1`}>Кнопка 2 — текст</label>
+              <label className={`text-xs ${sub} block mb-1`}>Кнопка 2  -  текст</label>
               <input className={inputCls} value={content.hero.button2Text} onChange={(e) => updateHero({ button2Text: e.target.value })} placeholder="Записаться" />
             </div>
             <div>
-              <label className={`text-xs ${sub} block mb-1`}>Кнопка 2 — ID секции</label>
+              <label className={`text-xs ${sub} block mb-1`}>Кнопка 2  -  ID секции</label>
               <input className={inputCls} value={content.hero.button2Action} onChange={(e) => updateHero({ button2Action: e.target.value })} placeholder="contact" />
             </div>
           </div>

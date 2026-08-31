@@ -621,14 +621,14 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
               {overview.needsTopUp && (
                 <div className="rounded-xl p-3 mb-2 text-xs flex items-start gap-2" style={{ background: '#F59E0B18', color: '#F59E0B' }}>
                   <AlertTriangle size={14} strokeWidth={1.75} className="shrink-0 mt-0.5" />
-                  Баланс ниже порога — рекомендуется пополнить депозит
+                  Баланс ниже порога  -  рекомендуется пополнить депозит
                 </div>
               )}
 
               {overview.monthPending && (
                 <div className="rounded-xl p-3 mb-2 text-xs flex items-start gap-2" style={{ background: `${primary}14`, color: primary }}>
                   <CalendarDays size={14} strokeWidth={1.75} className="shrink-0 mt-0.5" />
-                  Месяц {overview.monthLabel} ещё не закрыт — после окончания расчётов нажмите «Закрыть месяц»
+                  Месяц {overview.monthLabel} ещё не закрыт  -  после окончания расчётов нажмите «Закрыть месяц»
                 </div>
               )}
 
@@ -889,7 +889,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                 <input
                   className={inputCls}
                   type="number"
-                  placeholder={activatePlan === 'per_wash' ? 'Например: 600' : 'Пусто — по факту цены мойки'}
+                  placeholder={activatePlan === 'per_wash' ? 'Например: 600' : 'Пусто  -  по факту цены мойки'}
                   value={activateWashPrice}
                   onChange={(event) => setActivateWashPrice(event.target.value)}
                 />
@@ -914,13 +914,13 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                 <input
                   className={inputCls}
                   type="number"
-                  placeholder="0 — выключено"
+                  placeholder="0  -  выключено"
                   value={activateMinBalance}
                   onChange={(event) => setActivateMinBalance(event.target.value)}
                 />
               </div>
               <div className="min-w-0">
-                {fieldLabel('День расчёта месяца (1–31)')}
+                {fieldLabel('День расчёта месяца (1 - 31)')}
                 <input
                   className={inputCls}
                   type="number"
@@ -964,7 +964,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
               onChange={(event) => setAmountDraft(event.target.value)}
             />
             <div className="mt-3">
-              {fieldLabel('Дата (ДД.ММ.ГГГГ, пусто — сегодня)')}
+              {fieldLabel('Дата (ДД.ММ.ГГГГ, пусто  -  сегодня)')}
               <input
                 className={inputCls}
                 placeholder="сегодня"
@@ -1031,7 +1031,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   Абонемент: использовано {overview.monthWashCount} из {overview.planWashLimit} моек
                   {overview.washesLeft > 0
                     ? ` · осталось ${overview.washesLeft}`
-                    : ' · лимит исчерпан — мойка будет оплачена сверх абонемента'}
+                    : ' · лимит исчерпан  -  мойка будет оплачена сверх абонемента'}
                 </span>
               </div>
             )}
@@ -1107,7 +1107,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             </div>
             <div className="grid grid-cols-2 gap-2 mb-1">
               <div className="min-w-0">
-                {fieldLabel('Дата (пусто — сегодня)')}
+                {fieldLabel('Дата (пусто  -  сегодня)')}
                 <input
                   className={inputCls}
                   type="date"

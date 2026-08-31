@@ -45,14 +45,14 @@ export function ConfirmSuccessScreen({
       </motion.div>
       <h2 className="mb-2 text-center text-xl font-semibold">Заявка отправлена!</h2>
       <p className="mb-6 text-center text-sm text-[var(--fg-secondary,#5A6072)]">
-        Администратор подтвердит время — уведомление придёт в Telegram и здесь
+        Администратор подтвердит время  -  уведомление придёт в Telegram и здесь
       </p>
       <Card className="mb-6 w-full p-4">
         <SummaryRows
           rows={[
             { label: 'Услуга', value: serviceName },
             { label: 'Дата', value: date },
-            { label: 'Время', value: time || '—' },
+            { label: 'Время', value: time || ' - ' },
             { label: 'Стоимость', value: <Money amount={price} /> },
             { label: 'Длительность', value: `${durationMinutes} мин` },
           ]}

@@ -463,7 +463,7 @@ export function ClientApp() {
         </AnimatePresence>
       </div>
 
-      {/* Slot confirmation — DS Sheet (состояние в ClientApp: TG MainButton/BackButton) */}
+      {/* Slot confirmation  -  DS Sheet (состояние в ClientApp: TG MainButton/BackButton) */}
       <Sheet
         open={showSlotModal && Boolean(selectedService && selectedSlot)}
         onClose={() => setShowSlotModal(false)}
@@ -490,7 +490,7 @@ export function ClientApp() {
         </button>
       </Sheet>
 
-      {/* Cancel confirm — DS Dialog (состояние в ClientApp: TG MainButton/BackButton) */}
+      {/* Cancel confirm  -  DS Dialog (состояние в ClientApp: TG MainButton/BackButton) */}
       <Dialog
         open={Boolean(showCancelConfirm)}
         onClose={() => setShowCancelConfirm(null)}

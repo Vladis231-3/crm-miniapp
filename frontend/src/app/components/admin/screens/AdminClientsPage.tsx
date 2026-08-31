@@ -38,7 +38,7 @@ const EMPTY_CREATE_FORM: CreateClientForm = {
 
 function paymentLabel(paymentType?: string, settled?: boolean) {
   const base = paymentType === 'cash' ? 'Наличные' : paymentType === 'transfer' ? 'Перевод' : paymentType === 'invoice' ? 'По счёту' : '';
-  return settled === false && base ? `${base} · не оплачено` : base || '—';
+  return settled === false && base ? `${base} · не оплачено` : base || ' - ';
 }
 
 /**
@@ -510,7 +510,7 @@ export function AdminClientsPage({ onAddPastBooking }: { onAddPastBooking: (clie
         );
       })()}
 
-      {/* Удаление — DS Dialog вместо window.confirm */}
+      {/* Удаление  -  DS Dialog вместо window.confirm */}
       <Dialog
         open={Boolean(pendingDelete)}
         onClose={() => setPendingDelete(null)}
@@ -537,7 +537,7 @@ export function AdminClientsPage({ onAddPastBooking }: { onAddPastBooking: (clie
         История записей останется.
       </Dialog>
 
-      {/* Создание — DS Sheet */}
+      {/* Создание  -  DS Sheet */}
       <Sheet open={showCreate} onClose={() => setShowCreate(false)} title="Новый клиент">
         <div className="space-y-3">
           <FormRow label="Имя" required error={createErrors.name}>

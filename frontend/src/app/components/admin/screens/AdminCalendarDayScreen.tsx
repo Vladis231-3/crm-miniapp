@@ -135,7 +135,7 @@ export function AdminCalendarDayScreen({
 
       <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">Сегодня — {todayLabel}</h2>
+          <h2 className="font-semibold">Сегодня  -  {todayLabel}</h2>
           <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
         </div>
         <div className="space-y-3">

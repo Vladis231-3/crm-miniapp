@@ -51,7 +51,7 @@ export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact({ 
                 {[
                   { icon: Phone, label: 'Telegram', value: '@system_polish', sub: 'Онлайн 24/7' },
                   { icon: MapPin, label: 'Адрес', value: 'г. Казань, ул. Гладилова 27а', sub: 'По записи' },
-                  { icon: Clock, label: 'Часы работы', value: 'Пн–Сб: 9:00 – 19:00', sub: 'Вс: выходной' },
+                  { icon: Clock, label: 'Часы работы', value: 'Пн - Сб: 9:00  -  19:00', sub: 'Вс: выходной' },
                 ].map(({ icon: Icon, label, value, sub }) => (
                   <div key={label} className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">

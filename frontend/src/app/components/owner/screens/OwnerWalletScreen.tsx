@@ -93,7 +93,7 @@ export function OwnerWalletScreen({
           {/* Week period */}
           <div className="flex items-center justify-between gap-2 mb-4">
             <div className={`text-xs ${sub}`}>
-              {walletData.weekStart.split('-').reverse().join('.')} – {walletData.weekEnd.split('-').reverse().join('.')}
+              {walletData.weekStart.split('-').reverse().join('.')}  -  {walletData.weekEnd.split('-').reverse().join('.')}
             </div>
             {dateFrom && (
               <button onClick={onClearDates}
@@ -116,7 +116,7 @@ export function OwnerWalletScreen({
             </div>
             <div className={`${glass} rounded-2xl p-4`}>
               <div className={`text-xs ${sub} mb-1`}>Расходы</div>
-              <div className="font-bold text-lg tabular-nums" style={{ color: 'var(--status-danger)' }}>−{walletData.totalExpense.toLocaleString('ru')} ₽</div>
+              <div className="font-bold text-lg tabular-nums" style={{ color: 'var(--status-danger)' }}>-{walletData.totalExpense.toLocaleString('ru')} ₽</div>
             </div>
             <div className={`${glass} rounded-2xl p-4`}>
               <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
@@ -183,7 +183,7 @@ export function OwnerWalletScreen({
                        <div className={`text-xs ${sub}`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
                      </div>
                     <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                      <div className="font-semibold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                      <div className="font-semibold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>-{e.amount.toLocaleString('ru')} ₽</div>
                       {(session?.role === 'owner' || session?.role === 'accountant') && (
                         <button onClick={() => onEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
                           <Edit3 size={13} strokeWidth={1.75} aria-hidden className={sub} />
@@ -205,7 +205,7 @@ export function OwnerWalletScreen({
                   <div key={a.id} className={`${glass} rounded-xl p-3`}>
                     <div className="flex justify-between items-start mb-2">
                       <div className="text-sm font-medium">
-                        {a.weekStart.split('-').reverse().join('.')} – {a.weekEnd.split('-').reverse().join('.')}
+                        {a.weekStart.split('-').reverse().join('.')}  -  {a.weekEnd.split('-').reverse().join('.')}
                       </div>
                       <div className="font-semibold text-sm tabular-nums" style={{ color: a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                         {a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? '+' : ''}{(a.totalRevenue + a.totalIncome - a.totalExpense).toLocaleString('ru')} ₽
@@ -221,7 +221,7 @@ export function OwnerWalletScreen({
                         <div className={`text-[10px] ${sub}`}>Доходы</div>
                       </div>
                       <div>
-                        <div className="text-[11px] tabular-nums" style={{ color: 'var(--status-danger)' }}>−{a.totalExpense.toLocaleString('ru')} ₽</div>
+                        <div className="text-[11px] tabular-nums" style={{ color: 'var(--status-danger)' }}>-{a.totalExpense.toLocaleString('ru')} ₽</div>
                         <div className={`text-[10px] ${sub}`}>Расходы</div>
                       </div>
                     </div>

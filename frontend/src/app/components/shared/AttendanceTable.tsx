@@ -72,7 +72,7 @@ export function AttendanceTable({ mode, workerId, primary }: AttendanceTableProp
 
   return (
     <div className="w-full">
-      {/* Period filter buttons — Requirements 4.3, 4.4, 4.5 */}
+      {/* Period filter buttons  -  Requirements 4.3, 4.4, 4.5 */}
       <div className="flex gap-2 mb-4">
         {PERIODS.map((p) => (
           <button
@@ -119,7 +119,7 @@ export function AttendanceTable({ mode, workerId, primary }: AttendanceTableProp
         </div>
       )}
 
-      {/* Table — Requirements 4.1, 4.2, 4.7, 4.8 */}
+      {/* Table  -  Requirements 4.1, 4.2, 4.7, 4.8 */}
       {!loading && !error && (
         <div className="overflow-x-auto rounded-2xl">
           <table className="w-full text-sm border-collapse">
@@ -184,7 +184,7 @@ export function AttendanceTable({ mode, workerId, primary }: AttendanceTableProp
                           {item.shiftDates.join(', ')}
                         </span>
                       ) : (
-                        <span className="opacity-30">—</span>
+                        <span className="opacity-30"> - </span>
                       )}
                     </td>
                   </tr>

@@ -1136,7 +1136,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     setPage('settings');
     setSettingsSection('pricing');
     setPricingSearchQuery(name);
-    setBottomToast(`Создайте услугу «${name}» и сохраните изменения`);
+    setBottomToast(`Создайте услугу "${name}" и сохраните изменения`);
     setTimeout(() => setBottomToast(null), 3500);
   };
 
@@ -1499,7 +1499,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     writeOffStock(showWriteOff, Number(writeOffQty.replace(',', '.')));
     setShowWriteOff(null);
     setWriteOffQty('1');
-    setBottomToast(`Списано: ${item.name} — ${writeOffQty} ${item.unit}`);
+    setBottomToast(`Списано: ${item.name}  -  ${writeOffQty} ${item.unit}`);
     setTimeout(() => setBottomToast(null), 3000);
   };
 
@@ -1566,7 +1566,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   void switchRole(nextRole as Role);
                 }
               }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
-                {session?.role === 'admin' ? 'Админ → Владелец' : session?.role === 'owner' ? 'Владелец → Админ' : 'Сменить роль'}
+                {session?.role === 'admin' ? 'Админ  →  Владелец' : session?.role === 'owner' ? 'Владелец  →  Админ' : 'Сменить роль'}
               </button>
             </div>
           )}
@@ -1611,7 +1611,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           {page === 'stock' && <AdminStockPage />}
 
           {/* SETTINGS */}
-          {/* PAYROLL PAGE — реальная страница вместо settings-хака (§6.2) */}
+          {/* PAYROLL PAGE  -  реальная страница вместо settings-хака (§6.2) */}
           {page === 'payroll' && <AdminPayrollPage />}
 
           {page === 'settings' && !settingsSection && (
@@ -1661,7 +1661,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
 
           {page === 'settings' && settingsSection === 'shift' && <ShiftSection onBack={() => setSettingsSection(null)} />}
 
-          {/* SETTINGS: ATTENDANCE/BOXES/SCHEDULE/NOTIFICATIONS/PROFILE — DS-секции */}
+          {/* SETTINGS: ATTENDANCE/BOXES/SCHEDULE/NOTIFICATIONS/PROFILE  -  DS-секции */}
           {page === 'settings' && settingsSection === 'attendance' && (
             <AttendanceSectionShell onBack={() => setSettingsSection(null)} table={<AttendanceTable mode='admin' primary={primary} />} />
           )}
@@ -2041,7 +2041,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         )}
       </AnimatePresence>
 
-      {/* BOOKING SLIDE-OVER — DS Sheet (auto: снизу <768px / справа ≥768px) */}
+      {/* BOOKING SLIDE-OVER  -  DS Sheet (auto: снизу <768px / справа ≥768px) */}
       <Sheet
         open={showSlideOver && Boolean(selectedBooking)}
         onClose={() => setShowSlideOver(false)}
@@ -2080,12 +2080,12 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                         <div key={as.id} className="rounded-xl px-3 py-2" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{as.name}</span>
-                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
+                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '- ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.isOutsource ? (
                             <div className="flex justify-between items-center mt-1">
                               <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
-                              <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                              <span className="text-xs font-medium text-red-500">- {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
                             </div>
                           ) : (
                             as.workers.map(w => {
@@ -2142,7 +2142,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                       <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                         <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
                         {(selectedBooking.additionalServices || []).map(as => (
-                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}{as.isOutsource ? ' (аутсорс)' : ''}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
+                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '- ' : '+ '}{as.name}{as.isOutsource ? ' (аутсорс)' : ''}</span><span>{as.priceMode === 'subtract' ? '- ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                         {(selectedBooking.services || []).map((s, i) => (
                           <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
@@ -2167,7 +2167,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                       <div className={`text-xs ${sub} pt-1 border-t`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>Итого: {selectedBooking.materials.reduce((s: number, m: any) => s + Number(m.qty) * Number(m.unitPrice), 0).toLocaleString('ru')} ₽</div>
                     </div>
                   ) : (
-                    <p className={`text-sm ${sub}`}>Материалы не указаны — добавь в «Редактировать»</p>
+                    <p className={`text-sm ${sub}`}>Материалы не указаны  -  добавь в «Редактировать»</p>
                   )}
                 </div>
                 <div className={`${glass} rounded-2xl p-4`}>
@@ -2289,7 +2289,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={addServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
-                    − Минус
+                    - Минус
                   </button>
                 </div>
                 {addServiceDraft.priceMode === 'subtract' && (
@@ -2396,13 +2396,13 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     {addServiceDraft.priceMode === 'subtract' && (
                       <div className="flex justify-between items-center">
                         <span className={`text-sm ${sub}`}>База зп мастеров основной услуги</span>
-                        <span className="text-sm font-semibold text-red-500">− {addServiceDraft.price.toLocaleString('ru')} ₽</span>
+                        <span className="text-sm font-semibold text-red-500">- {addServiceDraft.price.toLocaleString('ru')} ₽</span>
                       </div>
                     )}
                     {addServiceDraft.isOutsource ? (
                       <div className="flex justify-between items-center">
                         <span className={`text-sm ${sub}`}>Аутсорсеру</span>
-                        <span className="text-sm font-medium text-red-500">− {addServiceDraft.outsourceAmount.toLocaleString('ru')} ₽</span>
+                        <span className="text-sm font-medium text-red-500">- {addServiceDraft.outsourceAmount.toLocaleString('ru')} ₽</span>
                       </div>
                     ) : addServiceWorkers.length > 0 && addServiceWorkers.map(item => {
                       const w = masterWorkers.find(wk => wk.id === item.id);
@@ -2475,7 +2475,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={editAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
-                    − Минус
+                    - Минус
                   </button>
                 </div>
                 {editAsvcDraft.priceMode === 'subtract' && (
@@ -2579,7 +2579,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         )}
       </AnimatePresence>
 
-      {/* ASSIGN WORKERS — DS Dialog */}
+      {/* ASSIGN WORKERS  -  DS Dialog */}
       <AssignWorkersDialog
         open={showAssignModal}
         onClose={() => setShowAssignModal(false)}
@@ -2913,7 +2913,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     <div className={`text-xs ${sub} mb-2`}>Не указаны</div>
                   )}
                   {selectedBooking.materialsWrittenOff && (
-                    <div className={`text-xs mb-2 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено — изменения сохранятся, но повторного списания со склада не будет.</div>
+                    <div className={`text-xs mb-2 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено  -  изменения сохранятся, но повторного списания со склада не будет.</div>
                   )}
                 </div>
                 <AnimatePresence>
@@ -3108,7 +3108,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         )}
       </AnimatePresence>
 
-      {/* NEW BOOKING MODAL — DS Sheet (bodyMaxHeight для TG-клавиатуры) */}
+      {/* NEW BOOKING MODAL  -  DS Sheet (bodyMaxHeight для TG-клавиатуры) */}
       <Sheet
         open={showNewBooking}
         onClose={closeNewBookingModal}

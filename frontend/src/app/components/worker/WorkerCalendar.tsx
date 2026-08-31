@@ -409,7 +409,7 @@ export function WorkerCalendar({
                 <h2 className="font-semibold capitalize">{dayTitle}</h2>
                 <div className={`text-sm ${sub} mt-1`}>
                   {dayBookings.length} {dayBookings.length === 1 ? 'запись' : dayBookings.length < 5 ? 'записи' : 'записей'}
-                  {` · ${Math.floor(dayHours.open / 60)}:00–${Math.floor(dayHours.close / 60)}:00`}
+                  {` · ${Math.floor(dayHours.open / 60)}:00 - ${Math.floor(dayHours.close / 60)}:00`}
                 </div>
               </div>
               <CalendarDays size={22} strokeWidth={1.75} style={{ color: primary }} />

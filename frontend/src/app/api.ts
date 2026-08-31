@@ -177,7 +177,7 @@ async function getErrorDetail(response: Response) {
       detail = repairMojibake(payload.detail);
     } else if (Array.isArray(payload?.detail)) {
       const messages = payload.detail.map((err: { loc?: string[]; msg?: string }) => {
-        const field = err.loc ? err.loc.filter((p) => p !== 'body').join(' → ') : '';
+        const field = err.loc ? err.loc.filter((p) => p !== 'body').join('  ->  ') : '';
         const msg = repairMojibake(err.msg || 'неверное значение');
         return field ? `${field}: ${msg}` : msg;
       });
@@ -272,7 +272,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (response.status === 401) {
       throw new Error(
         'Сессия устарела: закройте миниапп и откройте его заново, затем повторите действие. ' +
-          'Если вы долго не пользовались — это нормально.'
+          'Если вы долго не пользовались  -  это нормально.'
       );
     }
     throw new Error(await getErrorDetail(response));

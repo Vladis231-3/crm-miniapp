@@ -182,8 +182,8 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
                   <div className="flex justify-between"><span className={sub}>Оклад</span><span><Money amount={salaryDetail.salaryBase || 0} /></span></div>
                   <div className="flex justify-between"><span className={sub}>За смены</span><span><Money amount={shiftPay} /> <span className={`text-xs ${sub}`}>({salaryDetail.shiftCount} × {(salaryDetail.salaryPerShift || 0).toLocaleString('ru')} ₽)</span></span></div>
                   {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: SUCCESS }}>+<Money amount={bonuses} /></span></div>}
-                  {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: WARNING }}>−<Money amount={advances} /></span></div>}
-                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>−<Money amount={deductions} /></span></div>}
+                  {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: WARNING }}>-<Money amount={advances} /></span></div>}
+                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>-<Money amount={deductions} /></span></div>}
                   {adjustments !== 0 && <div className="flex justify-between"><span className={sub}>Корректировки</span><span style={{ color: adjustments > 0 ? SUCCESS : DANGER }}>{adjustments > 0 ? '+' : ''}<Money amount={Math.abs(adjustments)} /></span></div>}
                   <div className="mt-1.5 flex justify-between border-t border-border pt-1.5 font-semibold">
                     <span>Итого начислено</span><span className="text-[var(--primary-600)]"><Money amount={totalAccrued} /></span>
@@ -291,7 +291,7 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
             </div>
             {complaintState.reductionActive ? (
               <div className="mb-3 rounded-xl border border-[color-mix(in_srgb,var(--status-danger)_20%,transparent)] bg-[var(--status-danger-soft)] px-3 py-2 text-xs text-[var(--status-danger)]">
-                Снижение активно: −10 п.п. до {complaintState.reductionUntil ? new Date(complaintState.reductionUntil).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'конца недели'}.
+                Снижение активно: -10 п.п. до {complaintState.reductionUntil ? new Date(complaintState.reductionUntil).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'конца недели'}.
               </div>
             ) : (
               <div className={`mb-3 text-xs ${sub}`}>

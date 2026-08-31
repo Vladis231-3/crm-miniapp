@@ -45,7 +45,7 @@ export function BookingsScreen({ onNavigateToCatalog, onRequestCancel }: Booking
           <EmptyState
             icon={CalendarDays}
             title="У вас пока нет записей"
-            subtitle="Выберите услугу и удобное время — это займёт минуту"
+            subtitle="Выберите услугу и удобное время  -  это займёт минуту"
           />
           <div className="-mt-2 flex justify-center pb-6">
             <Button size="md" onClick={onNavigateToCatalog} className="rounded-full px-6">

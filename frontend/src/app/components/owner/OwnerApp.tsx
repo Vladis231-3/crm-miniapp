@@ -41,7 +41,7 @@ import { useVisualViewport } from '../../utils/useVisualViewport';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
-// Helper for unlimited category nesting вЂ” returns categoryId + all descendant ids
+// Helper for unlimited category nesting  -  returns categoryId + all descendant ids
 function stockCategoryIdsWithDescendants(rootId: string, categories: { id: string; parentId?: string }[]): string[] {
   const map = new Map<string, string[]>();
   categories.forEach((c) => { if (!c.parentId) return; if (!map.has(c.parentId)) map.set(c.parentId, []); map.get(c.parentId)!.push(c.id); });
@@ -835,7 +835,10 @@ export function OwnerApp() {
   const [exportModalDateFrom, setExportModalDateFrom] = useState('');
   const [exportModalDateTo, setExportModalDateTo] = useState('');
 
-  const [piggyWithdrawKind, setPiggyWithdrawKind] = useState<'materials' | 'other'>('materials');
+  // Единая форма «Снять на расходы»: piggy — из копилки (без ЗП),
+  // own — свои деньги (расход в бюджет + компенсация в ЗП).
+  const [piggyWithdrawSource, setPiggyWithdrawSource] = useState<'piggy' | 'own'>('piggy');
+  const [piggyWithdrawCategory, setPiggyWithdrawCategory] = useState('');
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState<{ target: 'detailing' | 'wash'; name: string; amount: string; purpose: string; date: string; spentById: string; spentByName: string }>({ target: 'detailing', name: '', amount: '', purpose: '', date: todayLabel, spentById: '', spentByName: '' });
 
   // Wallet state
@@ -1152,11 +1155,11 @@ export function OwnerApp() {
   const [ownerEditAsvcSaving, setOwnerEditAsvcSaving] = useState(false);
   const [ownerEditAsvcError, setOwnerEditAsvcError] = useState<string | null>(null);
 
-  // Edit expense state (tasks 5.1вЂ“5.3)
+  // Edit expense state (tasks 5.1 - 5.3)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editExpenseForm, setEditExpenseForm] = useState({ title: '', amount: '', category: '', date: '', note: '', resourceGroup: '' as '' | 'wash' | 'detailing' });
 
-  // Edit income state (tasks 6.1вЂ“6.3)
+  // Edit income state (tasks 6.1 - 6.3)
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [editIncomeForm, setEditIncomeForm] = useState({ amount: '', source: '', note: '', date: '', resourceGroup: '' as '' | 'wash' | 'detailing' });
   const [editFinanceLoading, setEditFinanceLoading] = useState(false);
@@ -1317,13 +1320,18 @@ export function OwnerApp() {
     try {
       const body: Record<string, unknown> = {
         resourceGroup: f.target,
-        withdrawKind: piggyWithdrawKind,
+        source: piggyWithdrawSource,
         materialName: f.name,
         materialCost: amount,
         purpose: f.purpose,
         date: f.date,
       };
-      // Кто покупал — долг в зарплате именно у него
+      // Категория расхода бюджета (необязательно)
+      if (piggyWithdrawCategory.trim()) {
+        body.expenseCategory = piggyWithdrawCategory.trim();
+      }
+      // Кто взял: для «своих денег» — кому начислится компенсация в ЗП,
+      // для копилки — просто запись в истории
       if (f.spentById && f.spentById !== '__custom') {
         body.spentById = f.spentById;
       } else if (f.spentByName.trim()) {
@@ -1335,11 +1343,15 @@ export function OwnerApp() {
       });
       setShowPiggyWithdraw(false);
       setPiggyWithdrawForm({ target: f.target, name: '', amount: '', purpose: '', date: todayLabel, spentById: '', spentByName: '' });
+      setPiggyWithdrawCategory('');
       const buyerLabel = f.spentById && f.spentById !== '__custom'
         ? (workers.find(w => w.id === f.spentById)?.name || f.spentByName || '')
         : (f.spentByName.trim() || '');
-      const debtHint = buyerLabel ? ` · долг у ${buyerLabel} в зарплате` : ' · долг в зарплате';
-      setBottomToast(`Снято ${amount.toLocaleString('ru')} ₽ из копилки «${f.target === 'wash' ? 'Мойка' : 'Детейлинг'}»${debtHint}`);
+      const segmentLabel = f.target === 'wash' ? 'Мойка' : 'Детейлинг';
+      const toastMsg = piggyWithdrawSource === 'own'
+        ? `Расход ${amount.toLocaleString('ru')} ₽ (${segmentLabel}) проведён${buyerLabel ? ` · компенсация в ЗП: ${buyerLabel}` : ''}`
+        : `Снято ${amount.toLocaleString('ru')} ₽ из копилки «${segmentLabel}»`;
+      setBottomToast(toastMsg);
       setTimeout(() => setBottomToast(null), 3000);
       await loadPiggyBank();
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
@@ -1349,8 +1361,9 @@ export function OwnerApp() {
     }
   }
 
-  const openPiggyWithdraw = (kind: 'materials' | 'other') => {
-    setPiggyWithdrawKind(kind);
+  const openPiggyWithdraw = () => {
+    setPiggyWithdrawSource('piggy');
+    setPiggyWithdrawCategory('');
     setShowPiggyWithdraw(true);
   };
 
@@ -1514,7 +1527,7 @@ export function OwnerApp() {
   const unreadCount = ownerNotifications.filter(n => !n.read).length;
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const todayBookings = bookings.filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
-  // Активные мастера для блока «Мастера сегодня» (Настройки → Смена)
+  // Активные мастера для блока «Мастера сегодня» (Настройки -> Смена)
   const activeMasters = workers
     .filter((worker) => worker.role === 'worker' && worker.active)
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
@@ -1719,7 +1732,7 @@ export function OwnerApp() {
       setEditingServiceId(newId);
       setShowServiceSettings(true);
     }, 80);
-    setBottomToast(`Создайте услугу «${name}» и сохраните изменения`);
+    setBottomToast(`Создайте услугу "${name}" и сохраните изменения`);
     setTimeout(() => setBottomToast(null), 3500);
   };
 
@@ -2511,7 +2524,7 @@ export function OwnerApp() {
     }, 1800);
   };
 
-  // Task 5.1 вЂ” open edit expense form
+  // Task 5.1  -  open edit expense form
   const openEditExpense = (expense: Expense) => {
     setEditingExpense(expense);
     setEditExpenseForm({
@@ -2525,7 +2538,7 @@ export function OwnerApp() {
     setEditFinanceError(null);
   };
 
-  // Task 5.1 вЂ” save edited expense
+  // Task 5.1  -  save edited expense
   const handleSaveExpense = async () => {
     if (!editingExpense) return;
     const title = editExpenseForm.title.trim();
@@ -2575,7 +2588,7 @@ export function OwnerApp() {
     }
   };
 
-  // Task 6.1 вЂ” open edit income form
+  // Task 6.1  -  open edit income form
   const openEditIncome = (income: Income) => {
     setEditingIncome(income);
     setEditIncomeForm({
@@ -2588,7 +2601,7 @@ export function OwnerApp() {
     setEditFinanceError(null);
   };
 
-  // Task 6.1 вЂ” save edited income
+  // Task 6.1  -  save edited income
   const handleSaveIncome = async () => {
     if (!editingIncome) return;
     const source = editIncomeForm.source.trim();
@@ -3354,8 +3367,8 @@ export function OwnerApp() {
         notifyWorkers: !bookingForm.isOutsource && notifyBookingWorkers && selectedWorkers.length > 0 && bookingForm.status !== 'completed',
       });
       if (bookingForm.status !== 'completed') {
-        await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc?.name || bookingForm.service} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
-        await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientName} — ${bookingForm.date} в ${bookingForm.time}`, read: false });
+        await addNotification({ recipientRole: 'client', recipientId: booking.clientId, message: `Создана запись на ${svc?.name || bookingForm.service}  -  ${bookingForm.date} в ${bookingForm.time}`, read: false });
+        await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientName}  -  ${bookingForm.date} в ${bookingForm.time}`, read: false });
       }
       setShowCreateBooking(false);
       resetBookingForm();
@@ -3622,7 +3635,7 @@ paymentSettled: false,
       } else if (ownerBookingEditMode === 'status') {
         const statusNeedsSlot = ['new', 'confirmed', 'scheduled', 'in_progress'].includes(ownerBookingEditStatus);
         if (statusNeedsSlot && (!selectedBooking.date || !selectedBooking.time)) {
-          setOwnerBookingEditError('Для этого статуса нужны дата и время — укажите их в режиме «Полное»');
+          setOwnerBookingEditError('Для этого статуса нужны дата и время  -  укажите их в режиме «Полное»');
           openOwnerFullEditMode(ownerBookingEditStatus);
           return;
         }
@@ -4051,7 +4064,7 @@ paymentSettled: false,
                   void switchRole(nextRole as Role);
                 }
               }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
-                {session?.role === 'owner' ? 'Владелец → Админ' : session?.role === 'admin' ? 'Админ → Владелец' : 'Сменить роль'}
+                {session?.role === 'owner' ? 'Владелец  →  Админ' : session?.role === 'admin' ? 'Админ  →  Владелец' : 'Сменить роль'}
               </button>
             </div>
           )}
@@ -4185,7 +4198,7 @@ paymentSettled: false,
                   </div>
                   {ownerCalendarUndatedBookings.length > 0 && (
                     <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без даты — требует уточнения</div>
+                      <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без даты  -  требует уточнения</div>
                       <div className="space-y-2">
                         {ownerCalendarUndatedBookings.map((booking) => (
                           <button
@@ -4246,7 +4259,7 @@ paymentSettled: false,
                         <h2 className="font-semibold capitalize">{ownerCalendarSelectedDayTitle}</h2>
                         <div className={`text-sm ${sub} mt-1`}>
                           {calendarBookings.length} {calendarBookings.length === 1 ? 'запись' : calendarBookings.length < 5 ? 'записи' : 'записей'}
-                          {` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00вЂ“${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
+                          {` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00 - ${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
                         </div>
                       </div>
                       <CalendarDays size={22} strokeWidth={1.75} style={{ color: primary }} />
@@ -4379,7 +4392,7 @@ paymentSettled: false,
               {/* Today bookings */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">Сегодня — {todayLabel}</h3>
+                  <h3 className="font-semibold text-sm">Сегодня  -  {todayLabel}</h3>
                   <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
                 </div>
                 <div className="space-y-3">
@@ -4590,7 +4603,7 @@ paymentSettled: false,
           {page === 'payroll' && (
             <motion.div key="payroll" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-1">Зарплаты мастеров</h2>
-              <div className={`text-xs ${sub} mb-3`}>Мастера (без владельцев — владельцы ниже в едином окне)</div>
+              <div className={`text-xs ${sub} mb-3`}>Мастера (без владельцев  -  владельцы ниже в едином окне)</div>
 
               {/* Search */}
               <div className="mb-3">
@@ -4773,7 +4786,7 @@ paymentSettled: false,
 
                   {!isAccountant && (complaintState.reductionActive ? (
                     <div className="rounded-xl px-3 py-2 mb-3 text-xs border border-red-500/20 bg-red-500/10 text-red-500">
-                      Снижение активно: −10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
+                      Снижение активно: -10 п.п. до {complaintState.reductionUntil ? formatComplaintDate(complaintState.reductionUntil) : 'конца недели'}.
                     </div>
                   ) : (
                     <div className={`text-xs ${sub} mb-3`}>
@@ -4828,10 +4841,10 @@ paymentSettled: false,
                 </div>
               ))}
 
-              {/* ── ВЛАДЕЛЬЦЫ — ЕДИНОЕ ОКНО ЗП (работа + пассив) ── */}
+              {/* ── ВЛАДЕЛЬЦЫ  -  ЕДИНОЕ ОКНО ЗП (работа + пассив) ── */}
               {!isAccountant && (
                 <div className="mt-6">
-                  <h2 className="font-semibold mb-1">Владельцы — единое окно ЗП</h2>
+                  <h2 className="font-semibold mb-1">Владельцы  -  единое окно ЗП</h2>
                   <div className={`text-xs ${sub} mb-3`}>Для каждого владельца: ЗП за работу как мастера/администратора + пассивный доход с заказов других мастеров</div>
                   <div className="flex gap-1 mb-3 flex-wrap">
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
@@ -4867,13 +4880,13 @@ paymentSettled: false,
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold">{ownerDisplayName}</div>
-                          <div className={`text-xs ${sub}`}>Владелец — единое окно ЗП</div>
+                          <div className={`text-xs ${sub}`}>Владелец  -  единое окно ЗП</div>
                         </div>
                       </div>
                       {(() => {
                         const linked = payrollRows.find(r => r.worker.id === owner.ownerId);
                         if (!linked) {
-                          return <div className={`text-xs ${sub} mb-3 px-1`}>Не выполняет заказы как мастер — только пассивный доход ниже</div>;
+                          return <div className={`text-xs ${sub} mb-3 px-1`}>Не выполняет заказы как мастер  -  только пассивный доход ниже</div>;
                         }
                         const ps = linked.payrollSummary;
                         return (
@@ -4909,7 +4922,7 @@ paymentSettled: false,
                                 <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} заказов · {linked.complaintState.activeCount} жалоб</div>
                               </div>
                             </div>
-                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера — детали, премии, штрафы</button>
+                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера  -  детали, премии, штрафы</button>
                           </div>
                         );
                       })()}
@@ -4937,7 +4950,7 @@ paymentSettled: false,
                           </div>
                         );
                       })()}
-                      <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>Пассивный доход — доля с заказов других мастеров</div>
+                      <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>Пассивный доход  -  доля с заказов других мастеров</div>
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         <div className={`${glass} rounded-xl p-3 text-center`}>
                           <div className="text-sm font-semibold" style={{ color: accent }}>{owner.totalAccrued.toLocaleString('ru')} ₽</div>
@@ -5014,7 +5027,7 @@ paymentSettled: false,
                 <ArrowLeft size={16} strokeWidth={1.75} />Назад к зарплатам
               </button>
 
-              {/* Filter bar вЂ” always visible when worker is selected */}
+              {/* Filter bar  -  always visible when worker is selected */}
               {selectedSalaryWorkerId && (
                 <div className={`${glass} rounded-2xl p-4 mb-3`}>
                   {salaryDetail && (
@@ -5164,7 +5177,7 @@ paymentSettled: false,
                                     if (e.key === 'Escape') handleCancelOverrideEarned();
                                   }} />
                                 <button onClick={() => handleSaveOverrideEarned(b.linkId!)}
-                                  className="text-xs px-1.5 py-0.5 rounded" style={{ background: accent, color: '#fff' }}>вњ“</button>
+                                  className="text-xs px-1.5 py-0.5 rounded" style={{ background: accent, color: '#fff' }}>✓</button>
                                 <button onClick={handleCancelOverrideEarned}
                                   className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#666', color: '#fff' }}>вњ•</button>
                               </div>
@@ -5594,7 +5607,7 @@ paymentSettled: false,
                       </div>
                       <div className="flex justify-between py-2 text-sm">
                         <span className={sub}>Снято на материалы</span>
-                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
+                        <span style={{ color: '#FF6B6B' }}>-{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>Возврат материалов</span>
@@ -5794,7 +5807,7 @@ paymentSettled: false,
                     <div className="text-sm font-medium">{e.title}</div>
                     <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
                   </div>
-                  <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                  <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>-{e.amount.toLocaleString('ru')} ₽</div>
                 </div>
               ))}
               </motion.div>
@@ -5855,7 +5868,7 @@ paymentSettled: false,
                   piggy_repayment: { color: '#94A3B8', label: 'Возврат в копилку' },
                   piggy_deposit_return: { color: '#94A3B8', label: 'Возврат моек в копилку' },
                 };
-                const fmt = (n: number) => `${n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('ru-RU')} ₽`;
+                const fmt = (n: number) => `${n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('ru-RU')} ₽`;
                 const flowIcon = (entry: MoneyFlowEntry) => {
                   if (entry.type.startsWith('piggy_')) return PiggyBank;
                   if (entry.type === 'payout_owner') return Crown;
@@ -5891,7 +5904,7 @@ paymentSettled: false,
                         </button>
                         <button onClick={() => setMoneyFlowFilter('out')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.out}14` }}>
                           <div className={`text-[11px] ${sub} mb-1`}>Вышло</div>
-                          <div className="font-semibold text-base" style={{ color: kindColor.out }}>−{s.totalOut.toLocaleString('ru-RU')} ₽</div>
+                          <div className="font-semibold text-base" style={{ color: kindColor.out }}>-{s.totalOut.toLocaleString('ru-RU')} ₽</div>
                         </button>
                       </div>
                       <div className="mt-3 space-y-1.5">
@@ -5993,7 +6006,7 @@ paymentSettled: false,
                           <span className="text-[11px] tabular-nums">
                             {group.cashIn > 0 && <span style={{ color: kindColor.in }}>+{group.cashIn.toLocaleString('ru-RU')}</span>}
                             {group.cashIn > 0 && group.cashOut > 0 && <span className={sub}> · </span>}
-                            {group.cashOut > 0 && <span style={{ color: kindColor.out }}>в€’{group.cashOut.toLocaleString('ru-RU')}</span>}
+                            {group.cashOut > 0 && <span style={{ color: kindColor.out }}>-{group.cashOut.toLocaleString('ru-RU')}</span>}
                           </span>
                         </div>
                         {group.items.map(entry => {
@@ -6016,7 +6029,7 @@ paymentSettled: false,
                                 </div>
                                 <div className="text-right shrink-0">
                                   <div className="text-sm font-semibold tabular-nums" style={{ color: meta.color }}>
-                                    {entry.kind === 'in' ? '+' : entry.kind === 'out' ? '−' : ''}{entry.amount.toLocaleString('ru-RU')} ₽
+                                    {entry.kind === 'in' ? '+' : entry.kind === 'out' ? '-' : ''}{entry.amount.toLocaleString('ru-RU')} ₽
                                   </div>
                                   {entry.time && <div className={`text-[11px] ${sub}`}>{entry.time}</div>}
                                 </div>
@@ -6109,7 +6122,7 @@ paymentSettled: false,
             <motion.div key="settings-shift" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Открытие смены</h2>
-              <p className={`text-xs ${sub} mb-4`}>Отметь мастеров, которые вышли на смену. Смена сразу открыта и попадает в посещаемость — подтверждение не требуется.</p>
+              <p className={`text-xs ${sub} mb-4`}>Отметь мастеров, которые вышли на смену. Смена сразу открыта и попадает в посещаемость  -  подтверждение не требуется.</p>
 
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className="font-medium mb-3">Мастера на смене</div>
@@ -6169,7 +6182,7 @@ paymentSettled: false,
                   </span>
                 </div>
                 <div className={`text-xs ${sub} mb-3`}>
-                  Услуги на {todayLabel} · выход — по открытым сменам и отметкам в осмотрах
+                  Услуги на {todayLabel} · выход  -  по открытым сменам и отметкам в осмотрах
                 </div>
                 {activeMasters.length === 0 ? (
                   <div className={`text-sm ${sub}`}>Нет активных мастеров.</div>
@@ -6349,13 +6362,13 @@ paymentSettled: false,
                               <div className="flex justify-between"><span>поправки</span><span className="font-medium">{w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.advanceTotal > 0 && (
-                              <div className="flex justify-between"><span>авансы</span><span className="font-medium">−{w.advanceTotal.toLocaleString('ru')} ₽</span></div>
+                              <div className="flex justify-between"><span>авансы</span><span className="font-medium">-{w.advanceTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.deductionTotal > 0 && (
-                              <div className="flex justify-between"><span>вычеты</span><span className="font-medium">−{w.deductionTotal.toLocaleString('ru')} ₽</span></div>
+                              <div className="flex justify-between"><span>вычеты</span><span className="font-medium">-{w.deductionTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.payoutTotal > 0 && (
-                              <div className="flex justify-between"><span>выплачено</span><span className="font-medium">−{w.payoutTotal.toLocaleString('ru')} ₽</span></div>
+                              <div className="flex justify-between"><span>выплачено</span><span className="font-medium">-{w.payoutTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                           </div>
                         </div>
@@ -6480,7 +6493,7 @@ paymentSettled: false,
                       {splitDetail.additionalServices.map(a => (
                         <div key={`${a.name}-${a.price}`} className="flex justify-between text-xs">
                           <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
-                          <span className="font-medium">{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
+                          <span className="font-medium">{a.priceMode === 'subtract' ? '-' : ''}{a.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
                     </div>
@@ -6501,13 +6514,13 @@ paymentSettled: false,
                       {splitDetail.additionalServices.map(a => (
                         <div key={`calc-${a.name}-${a.price}`} className="flex justify-between text-xs">
                           <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
-                          <span>{a.priceMode === 'subtract' ? '−' : ''}{a.price.toLocaleString('ru')} ₽</span>
+                          <span>{a.priceMode === 'subtract' ? '-' : ''}{a.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
-                      <div className="flex justify-between text-xs"><span className={sub}>− Материалы</span><span>−{splitDetail.materialsCost.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between text-xs"><span className={sub}>- Материалы</span><span>-{splitDetail.materialsCost.toLocaleString('ru')} ₽</span></div>
                       <div className="flex justify-between text-xs"><span className={sub}>Выручка (нетто)</span><span className="font-semibold">{splitDetail.net.toLocaleString('ru')} ₽</span></div>
                       {splitDetail.subtractTotal > 0 && (
-                        <div className="flex justify-between text-xs"><span className={sub}>− Доп. услуги (вычет)</span><span>−{splitDetail.subtractTotal.toLocaleString('ru')} ₽</span></div>
+                        <div className="flex justify-between text-xs"><span className={sub}>- Доп. услуги (вычет)</span><span>-{splitDetail.subtractTotal.toLocaleString('ru')} ₽</span></div>
                       )}
                       <div className="flex justify-between text-xs border-t border-white/10 pt-1"><span className={sub}>База расчёта</span><span className="font-semibold">{splitDetail.splitBase.toLocaleString('ru')} ₽</span></div>
 
@@ -6531,8 +6544,8 @@ paymentSettled: false,
                       {splitDetail.asvcWorkers.map(w => (
                         <button key={`ledger-aw-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)}
                           className="flex justify-between text-xs w-full text-left hover:opacity-80">
-                          <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName} — ${w.additionalServiceName}`}>
-                            · {w.workerName} — «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
+                          <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName}  -  ${w.additionalServiceName}`}>
+                            · {w.workerName}  -  «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
                           </span>
                           <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
                         </button>
@@ -6558,7 +6571,7 @@ paymentSettled: false,
                             {splitDetail.asvcPiggyDeposits.map(d => (
                               <div key={`ledger-ap-${d.name}-${d.amount}`} className="flex justify-between text-xs">
                                 <span className={`${sub} truncate`} title={`Остаток от «${d.name}» → в ${piggyBankLabel(d.resourceGroup)}`}>
-                                  · «{d.name}» → в {piggyBankLabel(d.resourceGroup)}
+                                   · «{d.name}»{' -> '}в {piggyBankLabel(d.resourceGroup)}
                                 </span>
                                 <span className="font-medium">{d.amount.toLocaleString('ru')} ₽</span>
                               </div>
@@ -6867,7 +6880,7 @@ paymentSettled: false,
                             className={`w-full ${glass} rounded-xl px-3 py-2.5 text-left flex items-center justify-between`}>
                             <span className="text-sm font-medium">Неделя {idx + 1}</span>
                             <span className={`text-xs ${sub}`}>
-                              {w.start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })} вЂ“ {w.end.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              {w.start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}  -  {w.end.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </span>
                           </button>
                         ))}
@@ -6902,7 +6915,7 @@ paymentSettled: false,
                         <div className="font-bold text-base mt-0.5" style={{ color: card.color }}>
                           {card.value.toLocaleString('ru')} ₽
                         </div>
-                        <div className={`text-[10px] mt-0.5`} style={{ color: card.color }}>в†’ {card.hint}</div>
+                        <div className={`text-[10px] mt-0.5`} style={{ color: card.color }}> → {card.hint}</div>
                       </button>
                     ))}
                   </div>
@@ -6965,13 +6978,13 @@ paymentSettled: false,
                             {b.additionalServices.map(a => (
                               <div key={`${b.id}-${a.name}`} className="flex justify-between text-[11px] mt-1">
                                 <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ` (аутсорс: ${(a.outsourceAmount || 0).toLocaleString('ru')} ₽)` : ''}</span>
-                                <span className="font-medium">{a.priceMode === 'subtract' ? '−' : '+'}{a.price.toLocaleString('ru')} ₽</span>
+                                <span className="font-medium">{a.priceMode === 'subtract' ? '-' : '+'}{a.price.toLocaleString('ru')} ₽</span>
                               </div>
                             ))}
                             {b.materialsCost > 0 && (
                               <div className="flex justify-between text-[11px] mt-1">
                                 <span className={sub}>Материалы</span>
-                                <span className="font-medium" style={{ color: '#EF4444' }}>−{b.materialsCost.toLocaleString('ru')} ₽</span>
+                                <span className="font-medium" style={{ color: '#EF4444' }}>-{b.materialsCost.toLocaleString('ru')} ₽</span>
                               </div>
                             )}
                           </div>
@@ -7020,7 +7033,7 @@ paymentSettled: false,
                                 <div className="text-sm font-medium truncate">{e.title}</div>
                                 <div className={`text-xs ${sub} mt-0.5`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#EF4444' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#EF4444' }}>-{e.amount.toLocaleString('ru')} ₽</div>
                             </div>
                           </button>
                         ))}
@@ -7053,7 +7066,7 @@ paymentSettled: false,
                                     <span className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-green-500' : 'bg-red-500'}`} />
                                     <span className="text-sm font-medium">{txLabel}</span>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
-                                      {tx.resourceGroup === 'detailing' ? 'вњЁ' : 'рџљ—'}
+                                      {tx.resourceGroup === 'detailing' ? 'вњЁ' : 'рџљ - '}
                                     </span>
                                   </div>
                                   <div className={`text-[11px] ${sub} mt-0.5`}>
@@ -7061,7 +7074,7 @@ paymentSettled: false,
                                   </div>
                                 </div>
                                 <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
-                                  {isDeposit ? '+' : '−'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
+                                  {isDeposit ? '+' : '-'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
                                 </div>
                               </div>
                             </button>
@@ -7088,7 +7101,7 @@ paymentSettled: false,
                                     <div>бонусы: +{w.bonusTotal.toLocaleString('ru')} ₽ · поправки: {w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</div>
                                   )}
                                   {(w.advanceTotal > 0 || w.deductionTotal > 0 || w.payoutTotal > 0) && (
-                                    <div>авансы: −{w.advanceTotal.toLocaleString('ru')} ₽ · вычеты: −{w.deductionTotal.toLocaleString('ru')} ₽ · выплаты: −{w.payoutTotal.toLocaleString('ru')} ₽</div>
+                                    <div>авансы: -{w.advanceTotal.toLocaleString('ru')} ₽ · вычеты: -{w.deductionTotal.toLocaleString('ru')} ₽ · выплаты: -{w.payoutTotal.toLocaleString('ru')} ₽</div>
                                   )}
                                 </div>
                               </div>
@@ -7113,7 +7126,7 @@ paymentSettled: false,
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{o.ownerName}</div>
-                                <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} записей · начислено: +{o.totalAccrued.toLocaleString('ru')} ₽ · выплачено: −{o.totalPaid.toLocaleString('ru')} ₽</div>
+                                <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} записей · начислено: +{o.totalAccrued.toLocaleString('ru')} ₽ · выплачено: -{o.totalPaid.toLocaleString('ru')} ₽</div>
                               </div>
                               <div className="font-bold text-sm shrink-0" style={{ color: '#312E81' }}>
                                 {(o.totalAccrued - o.totalPaid).toLocaleString('ru')} ₽
@@ -7589,7 +7602,7 @@ paymentSettled: false,
                     <option value="168">За 168 часов (7 дней)</option>
                   </select>
                   <div className="mt-3">
-                    <label className={`text-xs ${sub} block mb-1`}>Своё значение (1–168 часов)</label>
+                    <label className={`text-xs ${sub} block mb-1`}>Своё значение (1 - 168 часов)</label>
                     <input
                       type="number"
                       min={1}
@@ -7681,7 +7694,7 @@ paymentSettled: false,
                     </a>
                     <div className={`text-[11px] ${sub}`}>
                       Если Google откроет меню с проектами: создайте проект (это бесплатно),
-                      затем нажмите <span className="font-medium">Включить Google Calendar API</span> —
+                      затем нажмите <span className="font-medium">Включить Google Calendar API</span>  - 
                       <a
                         href="https://console.cloud.google.com/apis/library/calendar.googleapis.com"
                         target="_blank"
@@ -7756,11 +7769,11 @@ paymentSettled: false,
                       </button>
                     </div>
                     <div className={`text-[11px] ${sub} leading-relaxed`}>
-                      Если Google покажет предупреждение «непроверенное приложение» — это нормально
-                      для личного подключения: нажмите <span className="font-medium">Advanced</span> →
+                      Если Google покажет предупреждение «непроверенное приложение»  -  это нормально
+                      для личного подключения: нажмите <span className="font-medium">Advanced</span>{' -> '}
                       <span className="font-medium"> Continue (unsafe)</span>. Если вместо входа появится
                       <span className="font-medium"> 403 access_denied</span> или «только тестовые
-                      пользователи» — откройте настройки доступа и добавьте свой email в Test users
+                      пользователи»  -  откройте настройки доступа и добавьте свой email в Test users
                       (или нажмите <span className="font-medium">Publish app</span>):
                       <button
                         onClick={() => openExternal('https://console.cloud.google.com/apis/credentials/consent')}
@@ -7774,7 +7787,7 @@ paymentSettled: false,
                 {!integrations.googleCalendar && (
                   <div className={`text-xs ${sub}`}>
                     Подключите Google Календарь, чтобы записи из бота автоматически появлялись в календаре,
-                    а события из Google — в расписании (отмечены как «Google»).
+                    а события из Google  -  в расписании (отмечены как «Google»).
                   </div>
                 )}
                 {integrations.googleCalendar && (
@@ -7864,7 +7877,7 @@ paymentSettled: false,
                             </button>
                             <div className={`text-[11px] ${sub} leading-relaxed`}>
                               Отправьте ссылку человеку (Telegram и т.п.). Он откроет её,
-                              войдёт в свой Google-аккаунт и подтвердит доступ — после этого
+                              войдёт в свой Google-аккаунт и подтвердит доступ  -  после этого
                               все записи будут появляться и в его календаре.
                             </div>
                           </>
@@ -7872,7 +7885,7 @@ paymentSettled: false,
                           <>
                             <div className={`text-[11px] ${sub} leading-relaxed`}>
                               Ссылка для <span className="font-medium">{googleInviteName.trim() || 'человека'}</span>.
-                              Перешлите её — после авторизации календарь появится в списке выше:
+                              Перешлите её  -  после авторизации календарь появится в списке выше:
                             </div>
                             <div className="flex items-center gap-1.5">
                               <code className="flex-1 text-[10px] px-2 py-1.5 rounded-lg break-all" style={{ background: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)' }}>
@@ -8216,7 +8229,7 @@ paymentSettled: false,
                       </div>
                       <div className="flex justify-between py-1.5 text-sm">
                         <span className={sub}>ЗП мастера</span>
-                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
+                        <span style={{ color: '#FF6B6B' }}>-{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>В копилку (90%)</span>
@@ -8232,7 +8245,7 @@ paymentSettled: false,
                       </div>
                       <div className="flex justify-between py-1.5 text-sm">
                         <span className={sub}>ЗП мастера</span>
-                        <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
+                        <span style={{ color: '#FF6B6B' }}>-{piggyBank.wash.classicMaster.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>В копилку</span>
@@ -8250,11 +8263,11 @@ paymentSettled: false,
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>ЗП мастеров всего</span>
-                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>-{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                       <span className={sub}>Выход мастеров (смены)</span>
-                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>-{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>Доп. доходы</span>
@@ -8262,12 +8275,12 @@ paymentSettled: false,
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>Расходы на мойку</span>
-                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>-{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
                       <span>🏦 Остаток в копилке</span>
                       <span style={{ color: (piggyBank.remainingInPiggyBank ?? 0) >= 0 ? accent : '#FF6B6B' }}>
-                        {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
+                        {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '-'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </>
@@ -8289,7 +8302,7 @@ paymentSettled: false,
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>ЗП мастеров</span>
-                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>-{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                       <span className={sub}>Начислено 24%</span>
@@ -8297,7 +8310,7 @@ paymentSettled: false,
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>Снято на материалы</span>
-                      <span style={{ color: '#FF6B6B' }}>−{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>-{piggyBank.detailing.materialWithdrawals.toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                       <span className={sub}>Возврат материалов</span>
@@ -8305,7 +8318,7 @@ paymentSettled: false,
                     </div>
                     <div className="flex justify-between py-2 text-sm">
                       <span className={sub}>Расходы на детейлинг</span>
-                      <span style={{ color: '#FF6B6B' }}>−{(piggyBank.detailingExpenses ?? 0).toLocaleString('ru')} ₽</span>
+                      <span style={{ color: '#FF6B6B' }}>-{(piggyBank.detailingExpenses ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
                     <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                       <span className={sub}>Доп. доходы</span>
@@ -8314,7 +8327,7 @@ paymentSettled: false,
                     <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
                       <span>🏦 Нетто в копилке</span>
                       <span style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? accent : '#FF6B6B' }}>
-                        {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
+                        {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '-'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
                       </span>
                     </div>
                   </>
@@ -8335,7 +8348,7 @@ paymentSettled: false,
                           <div className={`text-xs ${sub}`}>{e.category} · {resourceGroupLabel(e.resourceGroup)} · {e.date}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>-{e.amount.toLocaleString('ru')} ₽</div>
                           <button onClick={() => openEditExpense(e)} className={`p-1.5 rounded-lg ${glass}`} title="Редактировать">
                             <Edit3 size={13} strokeWidth={1.75} className={sub} />
                           </button>
@@ -8536,7 +8549,7 @@ paymentSettled: false,
                       const val = parseFlexibleDate(e.target.value);
                       setExportModalDateFrom(val ? formatDate(val) : '');
                     }} className={`flex-1 ${inputCls}`} />
-                    <span className={`text-xs ${sub}`}>вЂ”</span>
+                    <span className={`text-xs ${sub}`}> - </span>
                     <input type="date" value={toISODate(exportModalDateTo)} onChange={e => {
                       const val = parseFlexibleDate(e.target.value);
                       setExportModalDateTo(val ? formatDate(val) : '');
@@ -8641,19 +8654,44 @@ paymentSettled: false,
           </motion.div>
         )}
 
-        {/* в”Ђв”Ђ PIGGY BANK WITHDRAW MODAL в”Ђв”Ђ */}
+        {/* в”Ђв”Ђ PIGGY BANK WITHDRAW MODAL (единая форма «Снять на расходы») в”Ђв”Ђ */}
         {showPiggyWithdraw && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto`}>
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold">{piggyWithdrawKind === 'materials' ? 'Снять на материалы' : 'Снять на прочие расходы'}</h3>
+                <h3 className="font-semibold">Снять на расходы</h3>
                 <button onClick={() => setShowPiggyWithdraw(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="space-y-3 mb-4">
+                {/* Откуда взял: из копилки (списание баланса) или свои деньги (компенсация в ЗП) */}
                 <div>
-                  <label className={`text-xs ${sub} block mb-1.5`}>Из какой копилки</label>
+                  <label className={`text-xs ${sub} block mb-1.5`}>Откуда взял</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: 'piggy', label: '🏦 Из копилки' },
+                      { value: 'own', label: '💰 Свои деньги' },
+                    ] as const).map(opt => {
+                      const active = piggyWithdrawSource === opt.value;
+                      return (
+                        <button key={opt.value} type="button" onClick={() => setPiggyWithdrawSource(opt.value)}
+                          className={`rounded-xl py-2.5 text-sm font-medium transition-colors ${active ? '' : `${glass} ${sub}`}`}
+                          style={active ? { background: `${primary}25`, color: primary } : {}}>
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={`text-[11px] ${sub} mt-1`}>
+                    {piggyWithdrawSource === 'piggy'
+                      ? 'Списание из баланса копилки · к зарплате не относится'
+                      : 'Копилка не трогается · расход оплачен личными деньгами и компенсируется в ЗП'}
+                  </div>
+                </div>
+                {/* Для чего: мойка или детейлинг */}
+                <div>
+                  <label className={`text-xs ${sub} block mb-1.5`}>Для чего</label>
                   <div className="grid grid-cols-2 gap-2">
                     {([
                       { value: 'detailing', label: '✨ Детейлинг' },
@@ -8670,10 +8708,11 @@ paymentSettled: false,
                     })}
                   </div>
                 </div>
+                {/* Кто взял (необязательно) */}
                 <div>
-                  <label className={`text-xs ${sub} block mb-1`}>Кто покупал</label>
+                  <label className={`text-xs ${sub} block mb-1`}>Кто взял</label>
                   <select className={selectCls} value={piggyWithdrawForm.spentById} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentById: e.target.value, spentByName: e.target.value !== '__custom' ? '' : p.spentByName }))}>
-                    <option value="">— Я (автоматически) —</option>
+                    <option value=""> -  Не указывать  - </option>
                     {workers.map(w => (
                       <option key={w.id} value={w.id}>{w.name} · {w.role === 'worker' ? 'Мастер' : w.role === 'admin' ? 'Админ' : w.role === 'accountant' ? 'Бухгалтер' : w.role}</option>
                     ))}
@@ -8682,14 +8721,30 @@ paymentSettled: false,
                     )}
                     <option value="__custom">Другой (вписать имя)</option>
                   </select>
-                  <div className={`text-[11px] ${sub} mt-1`}>Сумма удержится из зарплаты покупателя · в истории будет видно кто покупал</div>
+                  <div className={`text-[11px] ${sub} mt-1`}>
+                    {piggyWithdrawSource === 'own'
+                      ? 'Выбранному человеку начислится компенсация в зарплате'
+                      : 'Необязательно · будет видно в истории снятий'}
+                  </div>
                 </div>
                 {piggyWithdrawForm.spentById === '__custom' && (
-                  <div><label className={`text-xs ${sub} block mb-1`}>Имя покупателя</label><input className={inputCls} placeholder="Например: Иван" value={piggyWithdrawForm.spentByName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentByName: e.target.value }))} /></div>
+                  <div><label className={`text-xs ${sub} block mb-1`}>Имя</label><input className={inputCls} placeholder="Например: Иван" value={piggyWithdrawForm.spentByName} onChange={e => setPiggyWithdrawForm(p => ({ ...p, spentByName: e.target.value }))} /></div>
                 )}
-                <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder={piggyWithdrawKind === 'materials' ? 'Например: Пленка PPF' : 'Например: Ремонт оборудования'} value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
+                {/* На что */}
+                <div><label className={`text-xs ${sub} block mb-1`}>На что</label><input className={inputCls} placeholder="Например: Пленка PPF / Ремонт оборудования" value={piggyWithdrawForm.name} onChange={e => setPiggyWithdrawForm(p => ({ ...p, name: e.target.value }))} /></div>
+                {/* Сумма */}
                 <div><label className={`text-xs ${sub} block mb-1`}>Сумма (₽)</label><input className={inputCls} type="text" inputMode="decimal" placeholder="0" value={piggyWithdrawForm.amount} onChange={e => setPiggyWithdrawForm(p => ({ ...p, amount: e.target.value }))} /></div>
-                <div><label className={`text-xs ${sub} block mb-1`}>Комментарий</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                {/* Категория (необязательно, для отчёта расходов) */}
+                <div>
+                  <label className={`text-xs ${sub} block mb-1`}>Категория</label>
+                  <select className={selectCls} value={piggyWithdrawCategory} onChange={e => setPiggyWithdrawCategory(e.target.value)}>
+                    <option value="">Автоматически (Материалы / Прочее)</option>
+                    {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                {/* Примечание */}
+                <div><label className={`text-xs ${sub} block mb-1`}>Примечание</label><input className={inputCls} placeholder="Необязательно..." value={piggyWithdrawForm.purpose} onChange={e => setPiggyWithdrawForm(p => ({ ...p, purpose: e.target.value }))} /></div>
+                {/* Дата */}
                 <div>
                   <label className={`text-xs ${sub} block mb-1`}>Дата</label>
                   <input className={inputCls} type="date" value={toISODate(piggyWithdrawForm.date)} onChange={e => {
@@ -8702,8 +8757,8 @@ paymentSettled: false,
                 </div>
               </div>
               <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null || (piggyWithdrawForm.spentById === '__custom' && !piggyWithdrawForm.spentByName.trim())}
-                className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawKind === 'materials' ? accent : '#F59E0B' }}>
-                Снять {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
+                className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawSource === 'own' ? accent : 'var(--status-success)' }}>
+                {piggyWithdrawSource === 'own' ? 'Провести расход' : 'Снять'} {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
               </button>
             </motion.div>
           </motion.div>
@@ -8774,7 +8829,7 @@ paymentSettled: false,
                     </button>
                     <div className={`${glass} rounded-2xl p-4`}>
                       <div className="text-sm font-medium mb-3">
-                        {selectedArchive.weekStart.split('-').reverse().join('.')} вЂ“ {selectedArchive.weekEnd.split('-').reverse().join('.')}
+                        {selectedArchive.weekStart.split('-').reverse().join('.')}  -  {selectedArchive.weekEnd.split('-').reverse().join('.')}
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>Выручка</span>
@@ -8786,7 +8841,7 @@ paymentSettled: false,
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>Расходы</span>
-                        <span className="font-semibold" style={{ color: '#FF6B6B' }}>−{selectedArchive.totalExpense.toLocaleString('ru')} ₽</span>
+                        <span className="font-semibold" style={{ color: '#FF6B6B' }}>-{selectedArchive.totalExpense.toLocaleString('ru')} ₽</span>
                       </div>
                       <div className="flex justify-between py-2.5 border-b text-sm" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <span className={sub}>Чистая прибыль</span>
@@ -8827,7 +8882,7 @@ paymentSettled: false,
                             className={`${glass} rounded-xl p-3 w-full text-left transition active:scale-[0.98] hover:brightness-110`}>
                             <div className="flex justify-between items-start mb-2">
                               <div className="text-sm font-medium">
-                                {a.weekStart.split('-').reverse().join('.')} вЂ“ {a.weekEnd.split('-').reverse().join('.')}
+                                {a.weekStart.split('-').reverse().join('.')}  -  {a.weekEnd.split('-').reverse().join('.')}
                               </div>
                               <ChevronRight size={14} strokeWidth={1.75} className={sub} />
                             </div>
@@ -8841,7 +8896,7 @@ paymentSettled: false,
                                 <div className={`text-[9px] ${sub}`}>Доходы</div>
                               </div>
                               <div>
-                                <div className="text-[11px]" style={{ color: '#FF6B6B' }}>в€’{a.totalExpense.toLocaleString('ru')}</div>
+                                <div className="text-[11px]" style={{ color: '#FF6B6B' }}>-{a.totalExpense.toLocaleString('ru')}</div>
                                 <div className={`text-[9px] ${sub}`}>Расходы</div>
                               </div>
                               <div>
@@ -8949,7 +9004,7 @@ paymentSettled: false,
                             <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
+                            <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>-{e.amount.toLocaleString('ru')} ₽</div>
                             {(session?.role === 'owner' || session?.role === 'accountant') && (
                               <button
                                 onClick={() => openEditExpense(e)}
@@ -9591,12 +9646,12 @@ paymentSettled: false,
                         <div key={as.id} className="py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex justify-between items-center text-sm">
                             <span className="font-medium">{as.name}</span>
-                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span>
+                            <span className={`font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '- ' : ''}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {as.isOutsource ? (
                             <div className="flex justify-between items-center mt-1">
                               <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
-                              <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                              <span className="text-xs font-medium text-red-500">- {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
                             </div>
                           ) : (
                             as.workers.map(w => {
@@ -9641,7 +9696,7 @@ paymentSettled: false,
                       <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
                         <div className="flex justify-between"><span>Базовая услуга «{selectedBooking.service}»</span><span>{baseServicePrice.toLocaleString('ru')} ₽</span></div>
                         {(selectedBooking.additionalServices || []).map(as => (
-                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.name}{as.isOutsource ? ' (аутсорс)' : ''}</span><span>{as.priceMode === 'subtract' ? '− ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
+                          <div key={as.id} className="flex justify-between"><span className={as.priceMode === 'subtract' ? 'text-red-500' : ''}>{as.priceMode === 'subtract' ? '- ' : '+ '}{as.name}{as.isOutsource ? ' (аутсорс)' : ''}</span><span>{as.priceMode === 'subtract' ? '- ' : ''}{as.price.toLocaleString('ru')} ₽</span></div>
                         ))}
                         {(selectedBooking.services || []).filter(s => !selectedBooking.additionalServices?.find(as => as.serviceId === s.serviceId && as.name === s.name)).map((s, i) => (
                           <div key={`legacy-${i}`} className="flex justify-between"><span>+ {s.name}</span><span>{s.price.toLocaleString('ru')} ₽</span></div>
@@ -9659,7 +9714,7 @@ paymentSettled: false,
                   <div className="flex items-center justify-between mb-2">
                     <div className={`text-xs font-medium ${sub} uppercase tracking-wider`}>МАТЕРИАЛЫ {selectedBooking.materialsWrittenOff ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600">списано</span> : (selectedBooking.materials?.length ? <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600">не списано</span> : null)}</div>
                     {selectedBooking.materialsWrittenOff && (
-                      <span className={`text-[10px] ${sub}`}>редактирование возможно — списание уже выполнено</span>
+                      <span className={`text-[10px] ${sub}`}>редактирование возможно  -  списание уже выполнено</span>
                     )}
                   </div>
                   {selectedBooking.materials && selectedBooking.materials.length > 0 ? (
@@ -9895,7 +9950,7 @@ paymentSettled: false,
                       <div className={`text-xs ${sub} mb-3`}>Пока не выбрано. Нажми «Добавить» и выбери со склада.</div>
                     )}
                     {selectedBooking.materialsWrittenOff && (
-                      <div className={`text-xs mb-3 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено. Новые материалы будут учтены, но повторного автоматического списания со склада не будет — при необходимости спиши вручную через склад.</div>
+                      <div className={`text-xs mb-3 px-2 py-1 rounded-lg ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Списание уже выполнено. Новые материалы будут учтены, но повторного автоматического списания со склада не будет  -  при необходимости спиши вручную через склад.</div>
                     )}
                     <div className="flex gap-2">
                       <button onClick={() => setOwnerBookingEditMode(null)} className={`flex-1 py-2.5 rounded-xl text-sm ${glass}`}>Отмена</button>
@@ -10282,7 +10337,7 @@ paymentSettled: false,
                           <div className="text-sm font-medium truncate">{expense.title}</div>
                           <div className={`text-xs ${sub}`}>{expense.category} · {expense.date}</div>
                         </div>
-                        <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>−{expense.amount.toLocaleString('ru')} ₽</div>
+                        <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>-{expense.amount.toLocaleString('ru')} ₽</div>
                       </div>
                     ))}
                   </div>
@@ -10413,7 +10468,7 @@ paymentSettled: false,
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={ownerAddServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
-                    − Минус
+                    - Минус
                   </button>
                 </div>
                 {ownerAddServiceDraft.priceMode === 'subtract' && (
@@ -10518,13 +10573,13 @@ paymentSettled: false,
                     {ownerAddServiceDraft.priceMode === 'subtract' && (
                       <div className="flex justify-between items-center">
                         <span className={`text-sm ${sub}`}>База зп мастеров основной услуги</span>
-                        <span className="text-sm font-semibold text-red-500">− {ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
+                        <span className="text-sm font-semibold text-red-500">- {ownerAddServiceDraft.price.toLocaleString('ru')} ₽</span>
                       </div>
                     )}
                     {ownerAddServiceDraft.isOutsource ? (
                       <div className="flex justify-between items-center">
                         <span className={`text-sm ${sub}`}>Аутсорсеру</span>
-                        <span className="text-sm font-medium text-red-500">− {ownerAddServiceDraft.outsourceAmount.toLocaleString('ru')} ₽</span>
+                        <span className="text-sm font-medium text-red-500">- {ownerAddServiceDraft.outsourceAmount.toLocaleString('ru')} ₽</span>
                       </div>
                     ) : ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
                       const w = workers.find(wk => wk.id === item.id);
@@ -10604,7 +10659,7 @@ paymentSettled: false,
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
                     style={ownerEditAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
-                    − Минус
+                    - Минус
                   </button>
                 </div>
                 {ownerEditAsvcDraft.priceMode === 'subtract' && (
@@ -11741,7 +11796,7 @@ paymentSettled: false,
                           </div>
                         ) : (
                           <div className="text-[11px] font-medium px-2 py-1 rounded-lg mb-1 bg-amber-500/10 text-amber-600">
-                            Классический режим: % от полной базы (материалы → мастера → копилка → владельцы). Переставьте шаги — включится конвейер.
+                            Классический режим: % от полной базы (материалы{' -> '}мастера{' -> '}копилка{' -> '}владельцы). Переставьте шаги  -  включится конвейер.
                           </div>
                         );
                       })()}
@@ -11783,7 +11838,7 @@ paymentSettled: false,
                         {preview.materials > 0 && (
                           <div className="flex justify-between">
                             <span className={sub}>Материалы</span>
-                            <span className="text-slate-400">− {preview.materials.toLocaleString('ru')} ₽</span>
+                            <span className="text-slate-400">- {preview.materials.toLocaleString('ru')} ₽</span>
                           </div>
                         )}
                         <div className="flex justify-between">
@@ -11836,7 +11891,7 @@ paymentSettled: false,
                       </div>
                     </div>
                     <p className={`text-xs ${sub} mt-2`}>
-                      Порядок: сначала материалы, потом мастера, копилка, остаток — владельцам. Если мастеров несколько, сумма мастера делится пропорционально их % из профиля.
+                      Порядок: сначала материалы, потом мастера, копилка, остаток  -  владельцам. Если мастеров несколько, сумма мастера делится пропорционально их % из профиля.
                     </p>
                   </div>
                   </>
@@ -11887,7 +11942,7 @@ paymentSettled: false,
                   {(b.clientName || b.clientPhone) && (
                     <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
                       <div className={`text-xs ${sub} mb-1`}>Клиент</div>
-                      <div className="font-semibold">{b.clientName || 'вЂ”'}</div>
+                      <div className="font-semibold">{b.clientName || ' - '}</div>
                       {b.clientPhone && (
                         <a href={`tel:${b.clientPhone}`} className={`text-sm flex items-center gap-1 mt-0.5`} style={{ color: primary }}>
                           <Phone size={11} strokeWidth={1.75} />{b.clientPhone}
@@ -11900,7 +11955,7 @@ paymentSettled: false,
                   {(b.car || b.plate) && (
                     <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
                       <div className={`text-xs ${sub} mb-1`}>Автомобиль</div>
-                      <div className="font-semibold">{b.car || 'вЂ”'}</div>
+                      <div className="font-semibold">{b.car || ' - '}</div>
                       {b.plate && <div className={`text-sm ${sub}`}>Гос. номер: {b.plate}</div>}
                     </div>
                   )}
@@ -11944,7 +11999,7 @@ paymentSettled: false,
                       {b.additionalServices!.map((asvc, i) => (
                         <div key={i} className="flex justify-between text-sm py-0.5">
                           <span className="truncate pr-2">{asvc.name}</span>
-                          <span className="shrink-0">{asvc.priceMode === 'subtract' ? '−' : '+'}{asvc.price.toLocaleString('ru')} ₽</span>
+                          <span className="shrink-0">{asvc.priceMode === 'subtract' ? '-' : '+'}{asvc.price.toLocaleString('ru')} ₽</span>
                         </div>
                       ))}
                     </div>

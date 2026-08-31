@@ -360,12 +360,12 @@ export function WorkerApp() {
                                 {selectedTask.status === 'completed' ? 'участвовали' : 'участвуете'}
                               </span>
                             )}</span>
-                            <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '− ' : '+ '}{as.price.toLocaleString('ru')} ₽</span>
+                            <span className={`text-sm font-semibold ${as.priceMode === 'subtract' ? 'text-red-500' : ''}`}>{as.priceMode === 'subtract' ? '- ' : '+ '}{as.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {isOutsource ? (
                             <div className="flex justify-between items-center mt-0.5">
                               <span className={`text-xs ${sub}`}>Аутсорс · аутсорсеру</span>
-                              <span className="text-xs font-medium text-red-500">− {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                              <span className="text-xs font-medium text-red-500">- {(as.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
                             </div>
                           ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
                             <div key={w.workerId} className="flex justify-between items-center mt-0.5">
@@ -394,7 +394,7 @@ export function WorkerApp() {
                 {selectedTask.isOutsource && (
                   <div className="flex justify-between items-center mt-1 text-sm">
                     <span className={sub}>Аутсорс · аутсорсеру</span>
-                    <span className="text-red-500">− {(selectedTask.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
+                    <span className="text-red-500">- {(selectedTask.outsourceAmount || 0).toLocaleString('ru')} ₽</span>
                   </div>
                 )}
               </div>
@@ -561,7 +561,7 @@ export function WorkerApp() {
         })}
       </div>
 
-      {/* ── START CONFIRMATION — DS Dialog ── */}
+      {/* ── START CONFIRMATION  -  DS Dialog ── */}
       <Dialog
         open={Boolean(showStartConfirm)}
         onClose={() => setShowStartConfirm(null)}
@@ -585,7 +585,7 @@ export function WorkerApp() {
         )}
       </Dialog>
 
-      {/* ── FINISH — DS Sheet ── */}
+      {/* ── FINISH  -  DS Sheet ── */}
       <Sheet
         open={showFinishModal}
         onClose={() => { if (!finishSuccess) { setShowFinishModal(false); setFinishError(null); } }}

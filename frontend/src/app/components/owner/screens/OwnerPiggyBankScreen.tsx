@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, Download, Edit3, Minus, Plus, RefreshCw, X } from 'lucide-react';
+import { ChevronRight, Download, Edit3, Minus, RefreshCw, X } from 'lucide-react';
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast } from '../../atmosfera';
 
@@ -50,7 +50,8 @@ interface ArchiveHighlightShape {
 /**
  * OwnerPiggyBankScreen — вырезка из OwnerApp (§6.4, Фаза 5 / вырезка №4).
  * Копилка: баланс по табам Всё/Мойка/Детейлинг, мини-сводки (90%+60% / 24%),
- * снятие на материалы/прочее, корректировка, история операций с running-balance.
+ * снятие на материалы/прочее, корректировка, история операций с running-balance,
+ * кто брал из копилки. Единая кнопка «Снять на расходы» (копилка или свои деньги).
  * Данные, формы withdraw/adjust и экспорт остаются в родителе (кросснав
  * gotoPiggyBank из архива/money-flow, piggyBankBalance читают отчёты и
  * finance-panel) и приходят props.
@@ -94,7 +95,7 @@ export function OwnerPiggyBankScreen({
   onExport: () => void;
   exportingKind: string | null;
   onOpenAdjust: (resourceGroup: 'wash' | 'detailing') => void;
-  onOpenWithdraw: (kind: 'materials' | 'other') => void;
+  onOpenWithdraw: () => void;
   onOpenArchives: () => void;
   archiveHighlight: ArchiveHighlightShape | null;
   highlightId: (h: ArchiveHighlightShape) => string | undefined;

@@ -18,7 +18,7 @@ export function Money({ amount, sign = false, className }: MoneyProps) {
   const value = typeof amount === 'string' ? Number(amount) : amount;
   const safe = Number.isFinite(value) ? value : 0;
   const formatted = formatter.format(Math.abs(safe));
-  const prefix = safe < 0 ? '−' : sign && safe > 0 ? '+' : '';
+  const prefix = safe < 0 ? '-' : sign && safe > 0 ? '+' : '';
   return (
     <span className={cn('tabular-nums whitespace-nowrap', className)}>
       {prefix}

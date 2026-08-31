@@ -124,7 +124,7 @@ export function ProfileScreen({ upcomingCount, completedCount, totalSpent }: Pro
           </div>
         </div>
 
-        {/* Все автомобили — сводка */}
+        {/* Все автомобили  -  сводка */}
         <Card variant="glass" className="p-3 mb-4 rounded-2xl">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>

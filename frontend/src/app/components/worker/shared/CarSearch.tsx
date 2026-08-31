@@ -8,7 +8,7 @@ import { SourceBadge } from '../../shared/SourceBadge';
 import { StatusBadge } from '../../atmosfera';
 import { cn } from '../../ui/utils';
 
-export interface CarSearchProps {  /** Текущий мастер — для плашки «Заведена на вас». */
+export interface CarSearchProps {  /** Текущий мастер  -  для плашки «Заведена на вас». */
   workerId: string;
 }
 
