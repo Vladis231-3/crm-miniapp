@@ -47,15 +47,24 @@ def test_production_rejects_demo_seed(monkeypatch) -> None:
         get_settings()
 
 
-def test_production_caps_init_data_ttl(monkeypatch) -> None:
+def test_production_init_data_ttl_defaults_to_24h(monkeypatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("APP_SECRET", "a" * 32)
     monkeypatch.setenv("ALLOW_DEMO_SEED_DATA", "false")
     monkeypatch.setenv("CORS_ORIGINS", "https://example.com")
-    monkeypatch.setenv("TELEGRAM_INIT_DATA_MAX_AGE_SECONDS", "901")
+    monkeypatch.delenv("TELEGRAM_INIT_DATA_MAX_AGE_SECONDS", raising=False)
 
-    with pytest.raises(RuntimeError, match="cannot exceed 900"):
-        get_settings()
+    assert get_settings().telegram_init_data_max_age_seconds == 24 * 60 * 60
+
+
+def test_production_accepts_large_init_data_ttl(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("APP_SECRET", "a" * 32)
+    monkeypatch.setenv("ALLOW_DEMO_SEED_DATA", "false")
+    monkeypatch.setenv("CORS_ORIGINS", "https://example.com")
+    monkeypatch.setenv("TELEGRAM_INIT_DATA_MAX_AGE_SECONDS", "86400")
+
+    assert get_settings().telegram_init_data_max_age_seconds == 86400
 
 
 def test_cors_rejects_wildcard_with_credentials(monkeypatch) -> None:

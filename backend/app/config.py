@@ -199,15 +199,13 @@ def get_settings() -> Settings:
     init_data_max_age = _parse_positive_int(
         "TELEGRAM_INIT_DATA_MAX_AGE_SECONDS",
         os.getenv("TELEGRAM_INIT_DATA_MAX_AGE_SECONDS"),
-        900 if strong_environment else 24 * 60 * 60,
+        24 * 60 * 60,
     )
     future_skew = _parse_positive_int(
         "TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS",
         os.getenv("TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS"),
         30,
     )
-    if strong_environment and init_data_max_age > 900:
-        raise RuntimeError("TELEGRAM_INIT_DATA_MAX_AGE_SECONDS cannot exceed 900 in production/staging")
     if strong_environment and future_skew > 60:
         raise RuntimeError("TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS cannot exceed 60 in production/staging")
 
