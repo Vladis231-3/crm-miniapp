@@ -828,10 +828,10 @@ export function OwnerApp() {
 
   // Export wizard state
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportModalKind, setExportModalKind] = useState<'report' | 'pdf'>('report');
+  const [exportModalKind, setExportModalKind] = useState<'report' | 'pdf' | 'piggy-bank'>('report');
   const [exportModalStep, setExportModalStep] = useState<'segment' | 'period' | 'date'>('segment');
-  const [exportModalSegment, setExportModalSegment] = useState<'all' | 'wash' | 'detailing'>('all');
-  const [exportModalPeriod, setExportModalPeriod] = useState<'daily' | 'weekly' | 'custom'>('daily');
+  const [exportModalSegment, setExportModalSegment] = useState<'all' | 'wash' | 'detailing' | 'general'>('all');
+  const [exportModalPeriod, setExportModalPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('daily');
   const [exportModalDateFrom, setExportModalDateFrom] = useState('');
   const [exportModalDateTo, setExportModalDateTo] = useState('');
 
@@ -1368,10 +1368,14 @@ export function OwnerApp() {
   };
 
   const handlePiggyBankExport = () => {
-    const params: OwnerExportParams = {};
-    if (piggyDateFrom) params.date_from = piggyDateFrom;
-    if (piggyDateTo) params.date_to = piggyDateTo;
-    void handleExport('piggy-bank', params);
+    // Экспорт копилки: выбор копилки и периода в модалке (как у отчётов).
+    openExportModal('piggy-bank');
+    // Если на экране копилки стоит фильтр по датам — подставляем его в «Свой график».
+    if (piggyDateFrom || piggyDateTo) {
+      setExportModalPeriod('custom');
+      setExportModalDateFrom(piggyDateFrom);
+      setExportModalDateTo(piggyDateTo);
+    }
   };
 
   const openPiggyAdjust = (resourceGroup: 'wash' | 'detailing') => {
@@ -2687,7 +2691,7 @@ export function OwnerApp() {
     }
   };
 
-  const openExportModal = (kind: 'report' | 'pdf') => {
+  const openExportModal = (kind: 'report' | 'pdf' | 'piggy-bank') => {
     setExportModalKind(kind);
     setExportModalStep('segment');
     setExportModalSegment('all');
@@ -2700,14 +2704,41 @@ export function OwnerApp() {
   const handleExportWithParams = async () => {
     setShowExportModal(false);
     const kind = exportModalKind;
-    const params: OwnerExportParams = {
-      segment: exportModalSegment,
-    };
+    const params: OwnerExportParams = {};
+    const now = new Date();
+    if (kind === 'piggy-bank') {
+      // Копилка: выбор конкретной копилки + день / неделя (сб–пт) / месяц / свой график
+      if (exportModalSegment !== 'all') {
+        params.resource_group = exportModalSegment as 'wash' | 'detailing' | 'general';
+      }
+      if (exportModalPeriod === 'custom') {
+        params.date_from = exportModalDateFrom;
+        params.date_to = exportModalDateTo;
+      } else if (exportModalPeriod === 'daily') {
+        params.date_from = formatDate(now);
+        params.date_to = formatDate(now);
+      } else if (exportModalPeriod === 'weekly') {
+        const daysSinceSaturday = (now.getDay() + 1) % 7;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - daysSinceSaturday);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        params.date_from = formatDate(weekStart);
+        params.date_to = formatDate(weekEnd);
+      } else {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        params.date_from = formatDate(monthStart);
+        params.date_to = formatDate(monthEnd);
+      }
+      await handleExport(kind, params);
+      return;
+    }
+    params.segment = exportModalSegment as 'all' | 'wash' | 'detailing';
     if (exportModalPeriod === 'custom') {
       params.date_from = exportModalDateFrom;
       params.date_to = exportModalDateTo;
     } else {
-      const now = new Date();
       if (exportModalPeriod === 'daily') {
         params.date_from = formatDate(now);
         params.date_to = formatDate(now);
@@ -8500,19 +8531,29 @@ paymentSettled: false,
               <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">
-                  {exportModalStep === 'segment' ? 'За что отчёт?' : exportModalStep === 'period' ? 'За какой период?' : 'Выберите даты'}
+                  {exportModalStep === 'segment'
+                    ? (exportModalKind === 'piggy-bank' ? 'Какую копилку?' : 'За что отчёт?')
+                    : exportModalStep === 'period' ? 'За какой период?' : 'Выберите даты'}
                 </h3>
                 <button onClick={() => setShowExportModal(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
 
               {exportModalStep === 'segment' && (
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: 'all', label: 'Всё вместе' },
-                    { value: 'wash', label: 'Мойка' },
-                    { value: 'detailing', label: 'Детейлинг' },
-                  ].map(opt => (
-                    <button key={opt.value} onClick={() => { setExportModalSegment(opt.value as 'all' | 'wash' | 'detailing'); setExportModalStep('period'); }}
+                <div className={`grid gap-2 ${exportModalKind === 'piggy-bank' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {(exportModalKind === 'piggy-bank'
+                    ? [
+                        { value: 'all', label: 'Все копилки' },
+                        { value: 'wash', label: 'Мойка' },
+                        { value: 'detailing', label: 'Детейлинг' },
+                        { value: 'general', label: 'Общая' },
+                      ]
+                    : [
+                        { value: 'all', label: 'Всё вместе' },
+                        { value: 'wash', label: 'Мойка' },
+                        { value: 'detailing', label: 'Детейлинг' },
+                      ]
+                  ).map(opt => (
+                    <button key={opt.value} onClick={() => { setExportModalSegment(opt.value as 'all' | 'wash' | 'detailing' | 'general'); setExportModalStep('period'); }}
                       className={`rounded-xl py-3 px-2 text-sm font-medium disabled:opacity-60 ${exportModalSegment !== opt.value ? `${glass} ${sub}` : ''}`}
                       style={exportModalSegment === opt.value ? { background: `${primary}25`, color: primary } : {}}>
                       {opt.label}
@@ -8523,19 +8564,30 @@ paymentSettled: false,
 
               {exportModalStep === 'period' && (
                 <>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { value: 'daily', label: 'День' },
-                      { value: 'weekly', label: 'Неделя' },
-                      { value: 'custom', label: 'Своё время' },
-                    ].map(opt => (
-                      <button key={opt.value} onClick={() => { setExportModalPeriod(opt.value as 'daily' | 'weekly' | 'custom'); if (opt.value !== 'custom') { void handleExportWithParams(); } else { setExportModalStep('date'); } }}
+                  <div className={`grid gap-2 ${exportModalKind === 'piggy-bank' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {(exportModalKind === 'piggy-bank'
+                      ? [
+                          { value: 'daily', label: 'День' },
+                          { value: 'weekly', label: 'Неделя' },
+                          { value: 'monthly', label: 'Месяц' },
+                          { value: 'custom', label: 'Свой график' },
+                        ]
+                      : [
+                          { value: 'daily', label: 'День' },
+                          { value: 'weekly', label: 'Неделя' },
+                          { value: 'custom', label: 'Своё время' },
+                        ]
+                    ).map(opt => (
+                      <button key={opt.value} onClick={() => { setExportModalPeriod(opt.value as 'daily' | 'weekly' | 'monthly' | 'custom'); if (opt.value !== 'custom') { void handleExportWithParams(); } else { setExportModalStep('date'); } }}
                         className={`rounded-xl py-3 px-2 text-sm font-medium ${exportModalPeriod !== opt.value ? `${glass} ${sub}` : ''}`}
                         style={exportModalPeriod === opt.value ? { background: `${primary}25`, color: primary } : {}}>
                         {opt.label}
                       </button>
                     ))}
                   </div>
+                  {exportModalKind === 'piggy-bank' && exportModalPeriod === 'weekly' && (
+                    <p className={`mt-2 text-[11px] ${sub}`}>Неделя — с субботы по пятницу, как в кошельке</p>
+                  )}
                   <button onClick={() => setExportModalStep('segment')} className={`mt-4 text-xs ${sub} flex items-center gap-1`}>
                     <ArrowLeft size={12} strokeWidth={1.75} /> Назад
                   </button>

@@ -1625,6 +1625,11 @@ class PiggyBankTransactionPayload(BaseModel):
     bookingStatus: str | None = None
     spentById: str | None = None
     spentByName: str | None = None
+    # Откуда деньги: piggy — движение копилки, own — расход из личных средств
+    # (в копилке не отражается, компенсация начислена через ЗП).
+    source: str = "piggy"
+    # id начисления компенсации в зарплате (только для source="own").
+    payrollEntryId: str | None = None
 
 
 class PiggyBankWithdrawRequest(BaseModel):
@@ -1636,9 +1641,18 @@ class PiggyBankWithdrawRequest(BaseModel):
     materialCost: float = Field(ge=1, le=10_000_000)
     purpose: str = ""
     date: str
+    # Откуда деньги: piggy — из копилки (списание баланса, с ЗП не связано),
+    # own — личные средства (копилка не трогается; расход в бюджет +
+    # компенсация в ЗП тому, кто потратил).
+    source: str = Field(default="piggy", pattern=r"^(piggy|own)$")
     # materials — «Снять на материалы», other — «Снять на прочие расходы»
+    # (legacy двухкнопочной формы; единая форма может не передавать).
     withdrawKind: str = Field(default="materials", pattern=r"^(materials|other)$")
-    # Кто потратил — отражается как долг (см. TASK: копилка списание + долг покупателя)
+    # Категория расхода бюджета (например «Материалы», «Химия»). Если не задана —
+    # берётся по withdrawKind (Материалы / Прочие расходы).
+    expenseCategory: str | None = Field(default=None, max_length=120)
+    # Кто потратил: для source=own — получатель компенсации в ЗП,
+    # для source=piggy — просто «кто взял» для истории (на зарплату не влияет).
     spentById: str | None = None
     spentByName: str | None = Field(default=None, max_length=120)
 

@@ -375,6 +375,8 @@ export interface OwnerExportParams {
   segment?: 'all' | 'wash' | 'detailing';
   date_from?: string;
   date_to?: string;
+  // Экспорт копилки: какую копилку выгружать (all — все)
+  resource_group?: 'all' | 'wash' | 'detailing' | 'general';
 }
 
 export interface OwnerExportDelivery {
@@ -1605,6 +1607,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (params.segment) qs.set('segment', params.segment);
       if (params.date_from) qs.set('date_from', params.date_from);
       if (params.date_to) qs.set('date_to', params.date_to);
+      if (params.resource_group) qs.set('resource_group', params.resource_group);
       const qstr = qs.toString();
       if (qstr) path += '?' + qstr;
     }
@@ -1618,6 +1621,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (params.segment) qs.set('segment', params.segment);
       if (params.date_from) qs.set('date_from', params.date_from);
       if (params.date_to) qs.set('date_to', params.date_to);
+      if (params.resource_group) qs.set('resource_group', params.resource_group);
       const qstr = qs.toString();
       if (qstr) path += '?' + qstr;
     }

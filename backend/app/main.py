@@ -8409,6 +8409,8 @@ def _piggy_bank_export_file(
 
     date_to: str | None = None,
 
+    resource_group: str | None = None,
+
 ) -> GeneratedExport:
 
     owner = db.get(StaffUser, actor_id)
@@ -8418,6 +8420,18 @@ def _piggy_bank_export_file(
         raise HTTPException(
 
             status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+
+        )
+
+    bucket = (resource_group or "").strip()
+
+    if bucket and bucket not in {"all", "wash", "detailing", "general"}:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+
+            detail="Копилка: all, wash, detailing или general",
 
         )
 
@@ -8446,6 +8460,8 @@ def _piggy_bank_export_file(
         date_from=date_from,
 
         date_to=date_to,
+
+        resource_group=bucket or None,
 
     )
 
@@ -8984,6 +9000,7 @@ def download_owner_export(
     segment: str = "all",
     date_from: str | None = None,
     date_to: str | None = None,
+    resource_group: str | None = None,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -8994,6 +9011,7 @@ def download_owner_export(
             session_data["actorId"],
             date_from=date_from,
             date_to=date_to,
+            resource_group=resource_group,
         )
         return _download_response(export_file)
     _ensure_staff_role(session_data, {"owner"})
@@ -9014,6 +9032,7 @@ def send_owner_export_to_telegram(
     segment: str = "all",
     date_from: str | None = None,
     date_to: str | None = None,
+    resource_group: str | None = None,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> OwnerExportDeliveryPayload:
@@ -9024,6 +9043,7 @@ def send_owner_export_to_telegram(
             session_data["actorId"],
             date_from=date_from,
             date_to=date_to,
+            resource_group=resource_group,
         )
         return _send_export_to_telegram(db, session_data["actorId"], export_file)
     _ensure_staff_role(session_data, {"owner"})
@@ -15644,17 +15664,27 @@ def piggy_bank_withdraw(
 
 
 
+    is_own_money = payload.source == "own"
+
     is_other = payload.withdrawKind == "other"
 
     transaction_type = "other_withdrawal" if is_other else "material_withdrawal"
 
-    expense_category = "Прочие расходы" if is_other else "Материалы"
+    expense_category = (
+        payload.expenseCategory.strip()
+        if payload.expenseCategory and payload.expenseCategory.strip()
+        else ("Прочие расходы" if is_other else "Материалы")
+    )
 
     purpose = payload.purpose.strip()
 
     if not purpose:
 
-        if is_other:
+        if is_own_money:
+
+            purpose = f"Расход (свои деньги): {payload.materialName}"
+
+        elif is_other:
 
             purpose = f"Прочие расходы: {payload.materialName}"
 
@@ -15666,7 +15696,9 @@ def piggy_bank_withdraw(
 
             purpose = f"Закупка: {payload.materialName}"
 
-    # --- Кто потратил (долг покупателя) ---
+    # --- Кто потратил ---
+    # piggy: «кто взял» — только для истории, на зарплату не влияет.
+    # own: тот кто взял получает компенсацию в ЗП (начисление).
     spent_by_id: str | None = None
     spent_by_name: str | None = None
     if payload.spentById:
@@ -15692,9 +15724,10 @@ def piggy_bank_withdraw(
 
         id=f"pb-{uuid4()}",
 
-        booking_id=payload.bookingId,
+        # source=own — движение денег копилки не касается: зеркала не будет
+        booking_id=None if is_own_money else payload.bookingId,
 
-        amount=-payload.materialCost,
+        amount=0 if is_own_money else -payload.materialCost,
 
         transaction_type=transaction_type,
 
@@ -15716,7 +15749,9 @@ def piggy_bank_withdraw(
 
     )
 
-    db.add(transaction)
+    if not is_own_money:
+
+        db.add(transaction)
 
 
 
@@ -15758,36 +15793,48 @@ def piggy_bank_withdraw(
 
     db.add(expense)
 
-    # Связываем зеркальную транзакцию копилки с расходом бюджета:
-    # иначе при редактировании этого расхода (PATCH /api/expenses/{id})
-    # sync_expense_piggy_transaction не найдёт связанную транзакцию и
-    # создаст второе зеркало — списание из копилки задвоится.
-    transaction.expense_id = expense.id
+    if not is_own_money:
+        # Связываем зеркальную транзакцию копилки с расходом бюджета:
+        # иначе при редактировании этого расхода (PATCH /api/expenses/{id})
+        # sync_expense_piggy_transaction не найдёт связанную транзакцию и
+        # создаст второе зеркало — списание из копилки задвоится.
+        transaction.expense_id = expense.id
 
-    # --- Долг в зарплате: потраченная сумма отражается как удержание у того кто покупал ---
-    # Если выбран конкретный сотрудник/владелец (spent_by_id) — создаём PayrollEntry deduction,
-    # который виден в зарплатной ведомости и уменьшает баланс к выплате.
-    if spent_by_id:
+    # --- Зарплата ---
+    # piggy: деньги копилки — с зарплатой не связываем (требование: «снять из
+    # копилки» это просто расход, без удержаний у того кто взял).
+    # own: расход оплачен личными деньгами — начисляем компенсацию (bonus)
+    # на эту сумму тому кто взял; видна в ведомости и растит «к выплате».
+    # expense_id связывает компенсацию с расходом: sync_expense_piggy_transaction
+    # пропускает такие расходы (зеркало копилки не создаётся), а правка
+    # расхода (PATCH /api/expenses/{id}) обновляет сумму компенсации.
+    payroll_comp_id: str | None = None
+
+    if is_own_money and spent_by_id:
         _staff_for_salary = db.get(StaffUser, spent_by_id)
         if _staff_for_salary is not None:
             try:
-                payroll_debt = PayrollEntry(
+                payroll_comp = PayrollEntry(
                     id=f"pay-{uuid4()}",
                     worker_id=_staff_for_salary.id,
-                    actor_id=session_data.get("actorId", ""),
+                    actor_id=session_data.get("actorId", "") or _staff_for_salary.id,
                     actor_role=session_data.get("role", "owner"),
-                    kind="deduction",
+                    kind="bonus",
                     amount=payload.materialCost,
-                    note=f"Списание из копилки ({rg}): {payload.materialName}",
+                    note=f"Компенсация расхода из своих денег ({rg}): {payload.materialName}",
+                    entry_date=payload.date,
                     created_at=_now(),
                 )
-                db.add(payroll_debt)
+                payroll_comp.expense_id = expense.id
+                db.add(payroll_comp)
+                payroll_comp_id = payroll_comp.id
             except Exception:
                 pass
 
     db.commit()
 
-    db.refresh(transaction)
+    if not is_own_money:
+        db.refresh(transaction)
 
 
 
@@ -15809,7 +15856,8 @@ def piggy_bank_withdraw(
 
         amount=transaction.amount,
 
-        transactionType=transaction.transaction_type,
+        # own — записи в копилке нет; это синтетический ответ о расходе
+        transactionType="own_expense" if is_own_money else transaction.transaction_type,
 
         purpose=transaction.purpose,
 
@@ -15844,6 +15892,10 @@ def piggy_bank_withdraw(
         spentById=getattr(transaction, "spent_by_id", None),
 
         spentByName=getattr(transaction, "spent_by_name", None),
+
+        source="own" if is_own_money else "piggy",
+
+        payrollEntryId=payroll_comp_id,
 
     )
 

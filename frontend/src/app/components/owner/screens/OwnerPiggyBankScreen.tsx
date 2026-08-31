@@ -264,13 +264,10 @@ export function OwnerPiggyBankScreen({
             </div>
           </div>
 
-          {/* Withdraw buttons */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button onClick={() => onOpenWithdraw('materials')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
-              <Plus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на материалы
-            </button>
-            <button onClick={() => onOpenWithdraw('other')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-warning)' }}>
-              <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на прочие расходы
+          {/* Withdraw button */}
+          <div className="grid grid-cols-1 gap-2 mb-4">
+            <button onClick={() => onOpenWithdraw()} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
+              <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на расходы
             </button>
           </div>
         </>
@@ -376,22 +373,19 @@ export function OwnerPiggyBankScreen({
               {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <button onClick={() => onOpenWithdraw('materials')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
-              <Plus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на материалы
-            </button>
-            <button onClick={() => onOpenWithdraw('other')} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-warning)' }}>
-              <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на прочие расходы
+          <div className="grid grid-cols-1 gap-2 mt-4">
+            <button onClick={() => onOpenWithdraw()} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
+              <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на расходы
             </button>
           </div>
         </div>
       )}
 
-      {/* Debts per purchaser - also in salary - clickable */}
+      {/* Who took from piggy - per person, clickable */}
       {piggyBank?.spenderDebts && piggyBank.spenderDebts.length > 0 && (
         <div className={`${glass} rounded-2xl p-4 mb-4`}>
           <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3 flex items-center justify-between`}>
-            <span>💳 Долги в зарплате — кто покупал</span>
+            <span>👥 Кто брал из копилки</span>
             <span className={`text-[10px] ${sub}`}>нажми для деталей</span>
           </div>
           <div className="space-y-2">
@@ -403,18 +397,17 @@ export function OwnerPiggyBankScreen({
                   <span className="text-sm font-medium flex items-center gap-1.5">{d.spentByName}
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--status-danger)', color: 'white', opacity: 0.9 }}>{d.count}</span>
                   </span>
-                  <span className={`text-[11px] ${sub}`}>{d.count} покупок · удержится из зарплаты</span>
-                  <span className={`text-[10px] ${sub} mt-0.5`}>откуда: списания из копилки → долг в ведомости</span>
+                  <span className={`text-[11px] ${sub}`}>{d.count} снятий на расходы из копилки</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>-{d.totalSpent.toLocaleString('ru')} ₽</span>
+                  <span className="font-bold text-sm tabular-nums" style={{ color: 'var(--status-danger)' }}>−{d.totalSpent.toLocaleString('ru')} ₽</span>
                   <ChevronRight size={14} strokeWidth={1.75} className={sub} />
                 </div>
               </button>
             ))}
           </div>
           <div className={`text-[11px] ${sub} mt-3 p-2 rounded-lg`} style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-            <span className="font-medium">Откуда долг:</span> каждое «Снять на материалы/прочие» из копилки создаёт расход + удержание в зарплате покупателя. Нажми на строку — увидишь все чеки этого человека.
+            <span className="font-medium">Как это работает:</span> снятия из копилки фиксируют, кто брал деньги и на что — с зарплатой они не связаны. Если покупка сделана за свой счёт, оформи её через «Свои деньги» — сумма компенсируется в ЗП. Нажми на строку — увидишь все снятия этого человека.
           </div>
         </div>
       )}
@@ -436,17 +429,17 @@ export function OwnerPiggyBankScreen({
                   <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
                   <div className="mt-2">
                     <h3 className="font-semibold text-base flex items-center gap-2">👤 {selectedDebt.spentByName}
-                      <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--status-danger)' }}>{selectedDebt.count} чеков</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--status-danger)' }}>{selectedDebt.count} снятий</span>
                     </h3>
-                    <div className={`text-xs ${sub} mt-1`}>Долг в зарплате: <span className="font-bold" style={{ color: 'var(--status-danger)' }}>{total.toLocaleString('ru')} ₽</span> · удержится из будущих выплат</div>
+                    <div className={`text-xs ${sub} mt-1`}>Всего снято из копилки: <span className="font-bold" style={{ color: 'var(--status-danger)' }}>{total.toLocaleString('ru')} ₽</span></div>
                   </div>
                   <button onClick={() => setSelectedDebt(null)} className={`p-2 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className={`${glass} rounded-xl p-3`}>
-                    <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Откуда долг</div>
+                    <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Откуда эти данные</div>
                     <div className="text-sm leading-relaxed">
-                      Каждая покупка из копилки — это <span className="font-medium" style={{ color: 'var(--status-danger)' }}>списание</span> (транзакция `material_withdrawal` / `other_withdrawal`) + зеркальный <span className="font-medium">расход</span> в бюджете + <span className="font-medium" style={{ color: 'var(--status-warning)' }}>удержание</span> в зарплате покупателя. Деньги уже ушли из копилки, а долг висит пока не погашен премией/выплатой.
+                      Каждое снятие из копилки — это <span className="font-medium" style={{ color: 'var(--status-danger)' }}>списание</span> из баланса (транзакция `material_withdrawal` / `other_withdrawal`) + зеркальный <span className="font-medium">расход</span> в бюджете. С зарплатой такие снятия <span className="font-medium">не связаны</span>. Покупка за личные деньги — это отдельный расход бюджета, который компенсируется начислением в ЗП (видно в ведомости у того, кто взял).
                     </div>
                   </div>
                   {debtTxs.length === 0 ? (
@@ -462,8 +455,8 @@ export function OwnerPiggyBankScreen({
                               <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>{tx.resourceGroup === 'detailing' ? '✨ детейлинг' : tx.resourceGroup === 'wash' ? '🚗 мойка' : 'общая'}</span>
                               <span className={`text-[11px] ${sub}`}>{tx.date}</span>
                             </div>
-                            <div className="font-medium text-sm mt-1">{tx.materialName || 'Без названия'}</div>
-                            {tx.purpose && <div className={`text-xs ${sub} mt-0.5`}>{tx.purpose}</div>}
+                            <div className="font-medium text-sm mt-1">{tx.materialName || tx.purpose || 'Без названия'}</div>
+                            {tx.purpose && tx.materialName && <div className={`text-xs ${sub} mt-0.5`}>{tx.purpose}</div>}
                             {tx.bookingInfo && <div className={`text-[11px] ${sub} mt-1`}>Заказ: {tx.bookingInfo}</div>}
                           </div>
                           <div className="font-bold text-sm tabular-nums shrink-0" style={{ color: 'var(--status-danger)' }}>-{Math.abs(tx.amount).toLocaleString('ru')} ₽</div>
@@ -570,8 +563,7 @@ export function OwnerPiggyBankScreen({
                       {tx.spentByName && (
                         <div className="flex items-center gap-1 text-[11px] mt-1">
                           <span className={sub}>👤</span>
-                          <span>Купил: {tx.spentByName}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'rgba(255,193,7,0.15)', color: isDark ? '#F59E0B' : '#B45309' }}>долг {Math.abs(tx.amount).toLocaleString('ru')} ₽</span>
+                          <span>Взял: {tx.spentByName}</span>
                         </div>
                       )}
                       {tx.bookingId && !booking && (

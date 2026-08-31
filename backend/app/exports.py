@@ -8,7 +8,7 @@ import os
 
 from dataclasses import dataclass, field
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from functools import lru_cache
 
@@ -112,6 +112,21 @@ PIGGY_GROUP_LABELS = {
     "general": "Общая",
 
 }
+
+MONTH_NAMES_RU = (
+    "Январь",
+    "Февраль",
+    "Март",
+    "Апрель",
+    "Май",
+    "Июнь",
+    "Июль",
+    "Август",
+    "Сентябрь",
+    "Октябрь",
+    "Ноябрь",
+    "Декабрь",
+)
 
 
 
@@ -1755,11 +1770,29 @@ def build_piggy_bank_export(
     piggy_transactions: list[PiggyBankTransaction],
     date_from: str | None = None,
     date_to: str | None = None,
+    resource_group: str | None = None,
     generated_at: datetime | None = None,
 ) -> GeneratedExport:
-    """Отдельный Excel-отчёт по копилке: сводка + журнал операций с балансом."""
+    """Отдельный Excel-отчёт по копилке.
+
+    Листы: «Сводка» (балансы + динамика за период), «По месяцам» и «По неделям»
+    (сравнительные таблицы с началом/концом периода, дельтами и балансом на конец),
+    «Операции» (журнал операций с нарастающим балансом).
+    resource_group — отчёт по одной копилке (wash/detailing/general), иначе по всем.
+    Финансовая неделя — суббота–пятница, как в кошельке и архиве недель.
+    """
 
     generated = generated_at or datetime.now().astimezone()
+
+    bucket_filter = (resource_group or "").strip()
+    if bucket_filter and bucket_filter != "all":
+        piggy_transactions = [
+            t for t in piggy_transactions if t.resource_group == bucket_filter
+        ]
+    bucket_label = PIGGY_GROUP_LABELS.get(bucket_filter, "")
+    report_title = (
+        f"Отчёт по копилке · {bucket_label}" if bucket_label else "Отчёт по копилке"
+    )
 
     def _to_dt(value: str | None) -> datetime | None:
         if not value:
@@ -1809,6 +1842,9 @@ def build_piggy_bank_export(
     other_withdrawals = -_period_sum(
         lambda t: t.transaction_type == "other_withdrawal" and t.amount < 0
     )
+    expense_outflows = -_period_sum(
+        lambda t: t.transaction_type == "expense" and t.amount < 0
+    )
     repayments = _period_sum(
         lambda t: t.transaction_type == "material_repayment" and t.amount > 0
     )
@@ -1816,10 +1852,26 @@ def build_piggy_bank_export(
         lambda t: t.transaction_type == "deposit_return" and t.amount > 0
     )
     adjustments = _period_sum(lambda t: t.transaction_type == "adjust")
-    period_delta = deposits + repayments + deposit_returns + adjustments - material_withdrawals - other_withdrawals
+    period_delta = (
+        deposits
+        + repayments
+        + deposit_returns
+        + adjustments
+        - material_withdrawals
+        - other_withdrawals
+        - expense_outflows
+    )
+    wash_delta = _period_sum(lambda t: t.resource_group == "wash")
+    detailing_delta = _period_sum(lambda t: t.resource_group == "detailing")
+    general_delta = _period_sum(
+        lambda t: t.resource_group not in ("wash", "detailing")
+    )
 
     def money(value: float) -> str:
         return f"{value:,.0f} ₽".replace(",", " ")
+
+    def signed(value: float) -> str:
+        return f"{value:+,.0f} ₽".replace(",", " ")
 
     period_label = (
         f"{date_from} — {date_to}"
@@ -1827,20 +1879,228 @@ def build_piggy_bank_export(
         else "весь период"
     )
 
+    # ── Разбиение по календарным периодам (для сравнительных таблиц) ──
+    dated_txs: list[tuple[date, PiggyBankTransaction]] = []
+    for tx in ordered:
+        parsed = _to_dt(tx.date)
+        if parsed is not None:
+            dated_txs.append((parsed.date(), tx))
+
+    period_dated = [(d, t) for d, t in dated_txs if _in_range(t)]
+
+    range_start: date | None = from_dt.date() if from_dt else None
+    range_end: date | None = to_dt.date() if to_dt else None
+    if period_dated:
+        if range_start is None:
+            range_start = min(d for d, _ in period_dated)
+        if range_end is None:
+            range_end = max(d for d, _ in period_dated)
+
+    def _month_buckets(start: date, end: date) -> list[tuple[str, date, date]]:
+        buckets: list[tuple[str, date, date]] = []
+        year, month = start.year, start.month
+        while (year, month) <= (end.year, end.month):
+            first = date(year, month, 1)
+            next_first = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+            buckets.append(
+                (f"{MONTH_NAMES_RU[month - 1]} {year}", first, next_first - timedelta(days=1))
+            )
+            year, month = next_first.year, next_first.month
+        return buckets
+
+    def _week_buckets(start: date, end: date) -> list[tuple[str, date, date]]:
+        buckets: list[tuple[str, date, date]] = []
+        week_start = start - timedelta(days=(start.weekday() - 5) % 7)  # суббота
+        index = 1
+        while week_start <= end:
+            week_end = week_start + timedelta(days=6)
+            buckets.append((f"Неделя {index}", week_start, week_end))
+            week_start = week_end + timedelta(days=1)
+            index += 1
+        return buckets
+
+    def _balance_at(end_day: date) -> float:
+        # Нарастающий итог по всей истории (не только период отчёта)
+        return sum(float(t.amount) for d, t in dated_txs if d <= end_day)
+
+    def _bucket_metrics(txs: list[PiggyBankTransaction]) -> dict[str, float]:
+        metrics: dict[str, float] = {
+            "count": 0,
+            "deposits": 0.0,
+            "repayments": 0.0,
+            "deposit_returns": 0.0,
+            "adjustments": 0.0,
+            "income": 0.0,
+            "materials_out": 0.0,
+            "other_out": 0.0,
+            "expense_out": 0.0,
+            "outcome": 0.0,
+            "net": 0.0,
+            "wash": 0.0,
+            "detailing": 0.0,
+            "rest": 0.0,
+        }
+        for t in txs:
+            amount = float(t.amount)
+            metrics["count"] += 1
+            if amount >= 0:
+                metrics["income"] += amount
+            else:
+                metrics["outcome"] += -amount
+            tx_type = t.transaction_type
+            if tx_type == "deposit_24percent" and amount > 0:
+                metrics["deposits"] += amount
+            elif tx_type == "material_repayment" and amount > 0:
+                metrics["repayments"] += amount
+            elif tx_type == "deposit_return" and amount > 0:
+                metrics["deposit_returns"] += amount
+            elif tx_type == "adjust":
+                metrics["adjustments"] += amount
+            elif tx_type == "material_withdrawal" and amount < 0:
+                metrics["materials_out"] += -amount
+            elif tx_type == "other_withdrawal" and amount < 0:
+                metrics["other_out"] += -amount
+            elif tx_type == "expense" and amount < 0:
+                metrics["expense_out"] += -amount
+            metrics["net"] += amount
+            if t.resource_group == "wash":
+                metrics["wash"] += amount
+            elif t.resource_group == "detailing":
+                metrics["detailing"] += amount
+            else:
+                metrics["rest"] += amount
+        return metrics
+
+    def _comparison_rows(
+        buckets: list[tuple[str, date, date]],
+    ) -> list[list[Any]]:
+        rows: list[list[Any]] = []
+        previous_net: float | None = None
+        for label, b_start, b_end in buckets:
+            bucket_txs = [t for d, t in period_dated if b_start <= d <= b_end]
+            m = _bucket_metrics(bucket_txs)
+            delta: Any = "" if previous_net is None else round(m["net"] - previous_net, 2)
+            if previous_net in (None, 0):
+                delta_pct = "—"
+            else:
+                delta_pct = (
+                    f"{(m['net'] - previous_net) / abs(previous_net) * 100:+.1f}%"
+                ).replace(".", ",")
+            rows.append([
+                label,
+                b_start.strftime("%d.%m.%Y"),
+                b_end.strftime("%d.%m.%Y"),
+                m["count"],
+                round(m["deposits"], 2),
+                round(m["repayments"], 2),
+                round(m["deposit_returns"], 2),
+                round(m["adjustments"], 2),
+                round(m["income"], 2),
+                round(m["materials_out"], 2),
+                round(m["other_out"], 2),
+                round(m["expense_out"], 2),
+                round(m["outcome"], 2),
+                round(m["net"], 2),
+                delta,
+                delta_pct,
+                round(_balance_at(b_end), 2),
+                round(m["wash"], 2),
+                round(m["detailing"], 2),
+                round(m["rest"], 2),
+            ])
+            previous_net = m["net"]
+        if buckets:
+            grand = _bucket_metrics([t for _, t in period_dated])
+            rows.append([
+                "ИТОГО",
+                buckets[0][1].strftime("%d.%m.%Y"),
+                buckets[-1][2].strftime("%d.%m.%Y"),
+                grand["count"],
+                round(grand["deposits"], 2),
+                round(grand["repayments"], 2),
+                round(grand["deposit_returns"], 2),
+                round(grand["adjustments"], 2),
+                round(grand["income"], 2),
+                round(grand["materials_out"], 2),
+                round(grand["other_out"], 2),
+                round(grand["expense_out"], 2),
+                round(grand["outcome"], 2),
+                round(grand["net"], 2),
+                "",
+                "—",
+                round(_balance_at(buckets[-1][2]), 2),
+                round(grand["wash"], 2),
+                round(grand["detailing"], 2),
+                round(grand["rest"], 2),
+            ])
+        return rows
+
+    month_buckets = (
+        _month_buckets(range_start, range_end)
+        if range_start and range_end and range_start <= range_end
+        else []
+    )
+    week_buckets = (
+        _week_buckets(range_start, range_end)
+        if range_start and range_end and range_start <= range_end
+        else []
+    )
+    month_rows = _comparison_rows(month_buckets)
+    week_rows = _comparison_rows(week_buckets)
+
+    # Строка «ИТОГО» в сравнительных таблицах — последняя, её не учитываем
+    month_net_rows = month_rows[:-1] if month_rows else []
+    best_month = (
+        max(month_net_rows, key=lambda row: row[13]) if month_net_rows else None
+    )
+    worst_month = (
+        min(month_net_rows, key=lambda row: row[13]) if month_net_rows else None
+    )
+
     summary_rows: list[list[Any]] = [
-        ["Баланс · Мойка", money(wash_balance)],
-        ["Баланс · Детейлинг", money(detailing_balance)],
-        ["Баланс · Общая", money(general_balance)],
-        ["Общий баланс копилки", money(total_balance)],
+        *(
+            [[f"Баланс · {bucket_label}", money(total_balance)]]
+            if bucket_label
+            else [
+                ["Баланс · Мойка", money(wash_balance)],
+                ["Баланс · Детейлинг", money(detailing_balance)],
+                ["Баланс · Общая", money(general_balance)],
+                ["Общий баланс копилки", money(total_balance)],
+            ]
+        ),
         [],
         ["— За период —", ""],
+        ["Период отчёта", period_label],
+        ["Операций за период", str(len(period_txs))],
         ["Вклады 24% от заказов", f"+{money(deposits)}"],
         ["Снято на материалы", f"-{money(material_withdrawals)}"],
         ["Снято на прочие расходы", f"-{money(other_withdrawals)}"],
+        ["Снято на расходы бюджета", f"-{money(expense_outflows)}"],
         ["Возврат материалов", f"+{money(repayments)}"],
         ["Возврат депозита", f"+{money(deposit_returns)}"],
-        ["Корректировки", f"{adjustments:+,.0f} ₽".replace(",", " ")],
-        ["Сальдо периода", f"{period_delta:+,.0f} ₽".replace(",", " ")],
+        ["Корректировки", signed(adjustments)],
+        ["Сальдо периода", signed(period_delta)],
+        [],
+        ["— Динамика за период —", ""],
+        ["Изменение · Мойка", signed(wash_delta)],
+        ["Изменение · Детейлинг", signed(detailing_delta)],
+        ["Изменение · Общая и прочие", signed(general_delta)],
+        [
+            "Среднемесячное сальдо",
+            money(period_delta / len(month_buckets)) if month_buckets else "—",
+        ],
+        [
+            "Средняя неделя (сб–пт), сальдо",
+            money(period_delta / len(week_buckets)) if week_buckets else "—",
+        ],
+        [
+            "Лучший месяц по сальдо",
+            f"{best_month[0]} · {money(best_month[13])}" if best_month else "—",
+        ],
+        [
+            "Худший месяц по сальдо",
+            f"{worst_month[0]} · {money(worst_month[13])}" if worst_month else "—",
+        ],
     ]
 
     workbook = Workbook()
@@ -1849,9 +2109,10 @@ def build_piggy_bank_export(
     summary.title = "Сводка"
     summary.merge_cells("A1:D1")
     summary["A1"] = company_name
-    summary["A2"] = "Отчёт по копилке"
+    summary["A2"] = report_title
     summary["A3"] = f"Период: {period_label}"
     summary["A4"] = f"Сформирован: {generated.strftime('%d.%m.%Y %H:%M')}"
+    summary["A5"] = "Неделя в отчёте: суббота — пятница (как в кошельке)"
     summary["A6"] = "Показатель"
     summary["B6"] = "Значение"
     row_index = 7
@@ -1862,9 +2123,60 @@ def build_piggy_bank_export(
         summary.cell(row=row_index, column=1, value=row[0])
         summary.cell(row=row_index, column=2, value=row[1])
         row_index += 1
-    _style_heading(summary, "A1", "A2", "A3", "A4")
+    _style_heading(summary, "A1", "A2", "A3", "A4", "A5")
     _style_table(summary, 6, 7, row_index - 1, 2)
     _autosize(summary)
+
+    def _comparison_headers(
+        period_label_ru: str,
+        start_label: str,
+        end_label: str,
+        delta_label: str,
+    ) -> list[str]:
+        return [
+            period_label_ru,
+            start_label,
+            end_label,
+            "Операций",
+            "Вклады 24%",
+            "Возврат материалов",
+            "Возврат депозита",
+            "Корректировки",
+            "Поступило всего",
+            "Снятие на материалы",
+            "Снятие на прочие",
+            "Расходы (бюджет)",
+            "Списано всего",
+            "Сальдо периода",
+            delta_label,
+            "Δ, %",
+            "Баланс на конец периода",
+            "Сальдо · Мойка",
+            "Сальдо · Детейлинг",
+            "Сальдо · Общая и прочие",
+        ]
+
+    comparison_currency_cols = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20}
+
+    def _append_comparison_sheet(title: str, headers: list[str], rows: list[list[Any]]) -> None:
+        _append_sheet(workbook, title, headers, rows, currency_cols=comparison_currency_cols)
+        if rows:
+            sheet = workbook[title]
+            for cell in sheet[sheet.max_row]:
+                cell.font = Font(bold=True)
+
+    _append_comparison_sheet(
+        "По месяцам",
+        _comparison_headers("Месяц", "Начало месяца", "Конец месяца", "Δ к прошлому месяцу"),
+        month_rows,
+    )
+    _append_comparison_sheet(
+        "По неделям",
+        _comparison_headers(
+            "Неделя", "Начало недели (сб)", "Конец недели (пт)", "Δ к прошлой неделе"
+        ),
+        week_rows,
+    )
 
     operation_rows: list[list[Any]] = []
     running = 0.0
@@ -1893,11 +2205,12 @@ def build_piggy_bank_export(
     buffer = io.BytesIO()
     workbook.save(buffer)
     slug = generated.strftime("%Y-%m-%d-%H%M")
+    file_prefix = f"piggy-bank-{bucket_filter}" if bucket_label else "piggy-bank-report"
     return GeneratedExport(
-        file_name=f"piggy-bank-report-{slug}.xlsx",
+        file_name=f"{file_prefix}-{slug}.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         content=buffer.getvalue(),
-        telegram_caption=f"Отчёт по копилке {company_name} ({period_label})",
+        telegram_caption=f"{report_title} {company_name} ({period_label})",
     )
 
 
