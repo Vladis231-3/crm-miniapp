@@ -4203,10 +4203,10 @@ paymentSettled: false,
                                 {ownerStatusLabel(booking.status)}
                               </span>
                             </div>
-                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} В· {booking.box}</div>
+                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} · {booking.box}</div>
                             {(booking.car || booking.plate) && (
                               <div className={`text-xs ${sub} mt-0.5 truncate`}>
-                                {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
+                                {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                               </div>
                             )}
                             <div className={`text-xs ${sub} mt-1`}>{booking.price.toLocaleString('ru')} ₽</div>
@@ -4246,7 +4246,7 @@ paymentSettled: false,
                         <h2 className="font-semibold capitalize">{ownerCalendarSelectedDayTitle}</h2>
                         <div className={`text-sm ${sub} mt-1`}>
                           {calendarBookings.length} {calendarBookings.length === 1 ? 'запись' : calendarBookings.length < 5 ? 'записи' : 'записей'}
-                          {` В· ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00вЂ“${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
+                          {` · ${Math.floor(ownerCalendarSelectedDayHours.open / 60)}:00вЂ“${Math.floor(ownerCalendarSelectedDayHours.close / 60)}:00`}
                         </div>
                       </div>
                       <CalendarDays size={22} strokeWidth={1.75} style={{ color: primary }} />
@@ -4288,11 +4288,11 @@ paymentSettled: false,
                                     </div>
                                     <div className={`text-[11px] truncate ${sub}`}>
                                       {booking.service}
-                                      {booking.box ? ` В· ${booking.box}` : ''}
+                                      {booking.box ? ` · ${booking.box}` : ''}
                                     </div>
                                     {(booking.car || booking.plate) && (
                                       <div className={`text-[11px] truncate ${sub}`}>
-                                        {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
+                                        {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                                       </div>
                                     )}
                                   </div>
@@ -4327,10 +4327,10 @@ paymentSettled: false,
                                 {ownerStatusLabel(booking.status)}
                               </span>
                             </div>
-                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} В· {booking.box}</div>
+                            <div className={`text-xs ${sub} mt-1 truncate`}>{booking.service} · {booking.box}</div>
                             {(booking.car || booking.plate) && (
                               <div className={`text-xs ${sub} mt-0.5 truncate`}>
-                                {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
+                                {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                               </div>
                             )}
                           </button>
@@ -4397,7 +4397,7 @@ paymentSettled: false,
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
                             <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">
-                              <span className="truncate">{booking.time} В· {booking.clientName}</span>
+                              <span className="truncate">{booking.time} · {booking.clientName}</span>
                               <SourceBadge source={booking.source} />
                               {booking.isRepeatVisit && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
@@ -4408,7 +4408,7 @@ paymentSettled: false,
                           <div className={`text-sm ${sub}`}>{booking.service}</div>
                           {(booking.car || booking.plate) && (
                             <div className={`text-xs ${sub} mt-0.5`}>
-                              {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
+                              {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                             </div>
                           )}
                           <div className="flex justify-between mt-2">
@@ -4966,7 +4966,7 @@ paymentSettled: false,
                                 <div className="text-xs font-medium truncate">{share.service || 'Заказ'}</div>
                                 <div className={`text-[10px] ${sub}`}>
                                   {share.date}{share.time ? ` ${share.time}` : ''}
-                                  {share.clientName ? ` В· ${share.clientName}` : ''}
+                                  {share.clientName ? ` · ${share.clientName}` : ''}
                                 </div>
                                 {share.price > 0 && (
                                   <div className={`text-[10px] ${sub}`}>Стоимость заказа: {share.price.toLocaleString('ru')} ₽</div>
@@ -5141,7 +5141,7 @@ paymentSettled: false,
                         <div key={b.id} onClick={() => setSalaryBookingDetail(b)} className="flex items-center justify-between py-2 border-b cursor-pointer active:opacity-70" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <div className="flex-1 min-w-0 mr-2">
                             <div className="text-xs font-medium truncate">
-                              {b.date} {b.time} В·{' '}
+                              {b.date} {b.time} ·{' '}
                               <span className="underline decoration-dotted underline-offset-2 truncate max-w-full" style={{ color: primary }} title="Подробнее об услуге">
                                 {b.service}
                               </span>
@@ -5149,7 +5149,7 @@ paymentSettled: false,
                             <div className={`text-[10px] ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${b.earned.toLocaleString('ru')} ₽` : `${b.percent}%`}</div>
                             {(b.car || b.plate) && (
                               <div className={`text-[10px] ${sub} mt-0.5`}>
-                                {[b.car, b.plate].filter(Boolean).join(' В· ')}
+                                {[b.car, b.plate].filter(Boolean).join(' · ')}
                               </div>
                             )}
                           </div>
@@ -5558,7 +5558,7 @@ paymentSettled: false,
                             <span className="flex items-center gap-1.5 min-w-0">
                               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: palette[idx % palette.length] }} />
                               <span className="truncate font-medium">{row.label}</span>
-                              <span className={sub}>В· {pct}%</span>
+                              <span className={sub}>· {pct}%</span>
                             </span>
                             <span className="shrink-0 tabular-nums font-semibold">{row.count} · {row.revenue.toLocaleString('ru')} ₽</span>
                           </div>
@@ -5614,7 +5614,7 @@ paymentSettled: false,
                       <div key={inc.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <div>
                           <div className="text-sm font-medium">{inc.source}</div>
-                          <div className={`text-xs ${sub}`}>{inc.date}{inc.note ? ` В· ${inc.note}` : ''}</div>
+                          <div className={`text-xs ${sub}`}>{inc.date}{inc.note ? ` · ${inc.note}` : ''}</div>
                         </div>
                         <div className="font-semibold text-sm" style={{ color: primary }}>+{inc.amount.toLocaleString('ru')} ₽</div>
                       </div>
@@ -5792,7 +5792,7 @@ paymentSettled: false,
                 <div key={e.id} className={`${glass} rounded-xl p-3 mb-2 flex justify-between`}>
                   <div>
                     <div className="text-sm font-medium">{e.title}</div>
-                    <div className={`text-xs ${sub}`}>{e.category} В· {e.date}</div>
+                    <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
                   </div>
                   <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
                 </div>
@@ -5905,7 +5905,7 @@ paymentSettled: false,
                           { label: 'Расходы', v: s.expensesTotal },
                         ].filter(r => r.v !== 0 || r.label.startsWith('Выручка')).map(r => (
                           <div key={r.label} className="flex justify-between text-xs">
-                            <span className={sub}>{r.label}{r.hint ? ` В· ${r.hint}` : ''}</span>
+                            <span className={sub}>{r.label}{r.hint ? ` · ${r.hint}` : ''}</span>
                             <span className="font-medium tabular-nums">{fmt(r.v)}</span>
                           </div>
                         ))}
@@ -5992,7 +5992,7 @@ paymentSettled: false,
                           <span className={`text-xs font-semibold ${sub}`}>{group.date}</span>
                           <span className="text-[11px] tabular-nums">
                             {group.cashIn > 0 && <span style={{ color: kindColor.in }}>+{group.cashIn.toLocaleString('ru-RU')}</span>}
-                            {group.cashIn > 0 && group.cashOut > 0 && <span className={sub}> В· </span>}
+                            {group.cashIn > 0 && group.cashOut > 0 && <span className={sub}> · </span>}
                             {group.cashOut > 0 && <span style={{ color: kindColor.out }}>в€’{group.cashOut.toLocaleString('ru-RU')}</span>}
                           </span>
                         </div>
@@ -6010,7 +6010,7 @@ paymentSettled: false,
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-medium truncate">{entry.title}</div>
                                   <div className={`text-[11px] ${sub} truncate`}>
-                                    {meta.label}{entry.methodLabel ? ` В· ${entry.methodLabel}` : ''}{entry.counterparty ? ` В· ${entry.counterparty}` : ''}
+                                    {meta.label}{entry.methodLabel ? ` · ${entry.methodLabel}` : ''}{entry.counterparty ? ` · ${entry.counterparty}` : ''}
                                   </div>
                                   {d && <div className={`text-[11px] mt-0.5 ${expanded ? '' : sub}`} style={{ color: expanded ? primary : undefined }}>{expanded ? '▲ Скрыть цепочку' : '▼ Показать цепочку распределения'}</div>}
                                 </div>
@@ -6204,7 +6204,7 @@ paymentSettled: false,
                                   <div key={booking.id} className="flex items-start justify-between gap-2 text-xs">
                                     <div className="min-w-0">
                                       <span className="font-medium">{booking.time}</span>
-                                      <span className={sub}> В· {booking.clientName}</span>
+                                      <span className={sub}> · {booking.clientName}</span>
                                       <div className={`${sub} truncate`}>{booking.service}</div>
                                     </div>
                                     <span className="font-semibold whitespace-nowrap">{booking.price.toLocaleString('ru')} ₽</span>
@@ -6418,11 +6418,11 @@ paymentSettled: false,
                                 <div className="text-sm font-bold shrink-0">{item.price.toLocaleString('ru')} ₽</div>
                               </div>
                               <div className={`text-xs ${sub} mt-0.5 truncate`}>
-                                {item.clientName}{item.car ? ` В· ${item.car}` : ''}{item.plate ? `, ${item.plate}` : ''}
+                                {item.clientName}{item.car ? ` · ${item.car}` : ''}{item.plate ? `, ${item.plate}` : ''}
                               </div>
                               <div className="flex items-center justify-between gap-2 mt-1.5">
                                 <div className={`text-[11px] ${sub}`}>
-                                  {item.box}{item.workers.length > 0 ? ` В· ${item.workers.map(w => w.workerName).join(', ')}` : ''}
+                                  {item.box}{item.workers.length > 0 ? ` · ${item.workers.map(w => w.workerName).join(', ')}` : ''}
                                 </div>
                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ownerStatusBadge(item.status)}`}>
                                   {ownerStatusLabel(item.status)}
@@ -6458,7 +6458,7 @@ paymentSettled: false,
                     </div>
                     <div className="text-sm font-medium">{splitDetail.service}</div>
                     <div className={`text-xs ${sub} mt-1 space-y-0.5`}>
-                      <div>{splitDetail.date} В· {splitDetail.time} В· {splitDetail.box}</div>
+                      <div>{splitDetail.date} · {splitDetail.time} · {splitDetail.box}</div>
                       {splitDetail.clientPhone && <div>{splitDetail.clientPhone}</div>}
                       <div>Мастера: {splitDetail.workers.length > 0
                         ? splitDetail.workers.map(w => w.workerName).join(', ')
@@ -6726,7 +6726,7 @@ paymentSettled: false,
                                 <div className="min-w-0">
                                   <div className="truncate">{tx.purpose}</div>
                                   <div className={`${sub} text-[10px]`}>
-                                    {label}{tx.date ? ` В· ${tx.date}` : ''}{tx.resourceGroup ? ` В· ${piggyBankLabel(tx.resourceGroup)}` : ''}
+                                    {label}{tx.date ? ` · ${tx.date}` : ''}{tx.resourceGroup ? ` · ${piggyBankLabel(tx.resourceGroup)}` : ''}
                                   </div>
                                 </div>
                                 <div className={`font-semibold shrink-0 ${positive ? 'text-green-600' : 'text-red-500'}`}>
@@ -6940,9 +6940,9 @@ paymentSettled: false,
                                     className="text-sm font-semibold truncate hover:opacity-70" style={{ color: primary }}>
                                     {b.clientName}
                                   </button>
-                                  <span className="text-sm font-medium truncate">В· {b.service}</span>
+                                  <span className="text-sm font-medium truncate">· {b.service}</span>
                                 </div>
-                                <div className={`text-xs ${sub} mt-0.5`}>{b.date} В· {b.time} В· {b.box}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>{b.date} · {b.time} · {b.box}</div>
                               </div>
                               <div className="font-bold text-sm shrink-0">{b.price.toLocaleString('ru')} ₽</div>
                             </div>
@@ -6994,7 +6994,7 @@ paymentSettled: false,
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{i.source}</div>
-                                <div className={`text-xs ${sub} mt-0.5`}>{i.date}{i.note ? ` В· ${i.note}` : ''}</div>
+                                <div className={`text-xs ${sub} mt-0.5`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
                               </div>
                               <div className="font-bold text-sm shrink-0" style={{ color: '#22C55E' }}>+{i.amount.toLocaleString('ru')} ₽</div>
                             </div>
@@ -7057,7 +7057,7 @@ paymentSettled: false,
                                     </span>
                                   </div>
                                   <div className={`text-[11px] ${sub} mt-0.5`}>
-                                    {tx.date}{tx.bookingInfo ? ` В· ${tx.bookingInfo}` : ''}{tx.purpose ? ` В· ${tx.purpose}` : ''}
+                                    {tx.date}{tx.bookingInfo ? ` · ${tx.bookingInfo}` : ''}{tx.purpose ? ` · ${tx.purpose}` : ''}
                                   </div>
                                 </div>
                                 <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
@@ -8154,7 +8154,7 @@ paymentSettled: false,
                         {item.device}{item.current ? ' · Текущая' : ''}
                       </div>
                       <div className={`text-xs ${sub}`}>
-                        {item.ipAddress} В· {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {item.ipAddress} · {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <button onClick={() => void revokeSession(item.id)} className="text-xs text-red-500 shrink-0">
@@ -8332,7 +8332,7 @@ paymentSettled: false,
                       <div key={e.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <button className="flex-1 text-left min-w-0 mr-2" onClick={() => openEditExpense(e)}>
                           <div className="text-sm font-medium">{e.title}</div>
-                          <div className={`text-xs ${sub}`}>{e.category} В· {resourceGroupLabel(e.resourceGroup)} В· {e.date}</div>
+                          <div className={`text-xs ${sub}`}>{e.category} · {resourceGroupLabel(e.resourceGroup)} · {e.date}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
@@ -8355,7 +8355,7 @@ paymentSettled: false,
                       <div key={i.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                         <button className="flex-1 text-left min-w-0 mr-2" onClick={() => openEditIncome(i)}>
                           <div className="text-sm font-medium">{i.source}</div>
-                          <div className={`text-xs ${sub}`}>{resourceGroupLabel(i.resourceGroup)} В· {i.date}{i.note ? ` В· ${i.note}` : ''}</div>
+                          <div className={`text-xs ${sub}`}>{resourceGroupLabel(i.resourceGroup)} · {i.date}{i.note ? ` · ${i.note}` : ''}</div>
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
@@ -8382,7 +8382,7 @@ paymentSettled: false,
             onClick={e => e.stopPropagation()}>
             <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }} />
             <h3 className="font-bold text-lg mb-1">{selectedShareDetail.service || 'Услуга'}</h3>
-            <div className={`text-xs ${sub} mb-4`}>{selectedShareDetail.date}{selectedShareDetail.time ? ` В· ${selectedShareDetail.time}` : ''}</div>
+            <div className={`text-xs ${sub} mb-4`}>{selectedShareDetail.date}{selectedShareDetail.time ? ` · ${selectedShareDetail.time}` : ''}</div>
             <div className="space-y-3">
               <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                 <span className={`text-sm ${sub}`}>Стоимость</span>
@@ -8946,7 +8946,7 @@ paymentSettled: false,
                         <div key={e.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
                           <div>
                             <div className="text-sm font-medium">{e.title}</div>
-                            <div className={`text-xs ${sub}`}>{e.category} В· {e.date}</div>
+                            <div className={`text-xs ${sub}`}>{e.category} · {e.date}</div>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>−{e.amount.toLocaleString('ru')} ₽</div>
@@ -8975,7 +8975,7 @@ paymentSettled: false,
                         <div key={i.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
                           <div>
                             <div className="text-sm font-medium">{i.source}</div>
-                            <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` В· ${i.note}` : ''}</div>
+                            <div className={`text-xs ${sub}`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="font-semibold text-sm" style={{ color: primary }}>+{i.amount.toLocaleString('ru')} ₽</div>
@@ -10161,7 +10161,7 @@ paymentSettled: false,
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-1">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <div className="font-semibold text-sm truncate">{booking.date} В· {booking.time} В· {booking.clientName}</div>
+                              <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
                               <SourceBadge source={booking.source} />
                               {booking.isRepeatVisit && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
@@ -10172,7 +10172,7 @@ paymentSettled: false,
                           <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
                           {(booking.car || booking.plate) && (
                             <div className={`text-xs ${sub} mt-0.5 truncate`}>
-                              {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
+                              {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                             </div>
                           )}
                           <div className="flex justify-between mt-2">
@@ -10242,7 +10242,7 @@ paymentSettled: false,
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start mb-1">
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="font-semibold text-sm truncate">{booking.date} В· {booking.time} В· {booking.clientName}</div>
+                                <div className="font-semibold text-sm truncate">{booking.date} · {booking.time} · {booking.clientName}</div>
                                 <SourceBadge source={booking.source} />
                                 {booking.isRepeatVisit && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
@@ -10253,7 +10253,7 @@ paymentSettled: false,
                             <div className={`text-sm ${sub} truncate`}>{booking.service}</div>
                             {(booking.car || booking.plate) && (
                               <div className={`text-xs ${sub} mt-0.5 truncate`}>
-                                {[booking.car, booking.plate].filter(Boolean).join(' В· ')}
+                                {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                               </div>
                             )}
                             <div className="flex justify-between mt-2">
@@ -10280,7 +10280,7 @@ paymentSettled: false,
                       <div key={expense.id} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{expense.title}</div>
-                          <div className={`text-xs ${sub}`}>{expense.category} В· {expense.date}</div>
+                          <div className={`text-xs ${sub}`}>{expense.category} · {expense.date}</div>
                         </div>
                         <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>−{expense.amount.toLocaleString('ru')} ₽</div>
                       </div>
@@ -11908,7 +11908,7 @@ paymentSettled: false,
                   {/* Date & time */}
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
                     <div className={`text-xs ${sub} mb-1`}>Дата и время</div>
-                    <div className="font-semibold">{b.date} В· {b.time}</div>
+                    <div className="font-semibold">{b.date} · {b.time}</div>
                     {b.box && <div className={`text-sm ${sub}`}>Бокс: {b.box}</div>}
                   </div>
 
