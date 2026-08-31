@@ -19368,7 +19368,11 @@ def create_payroll_entry(
 
 
 
-    # Дата периода, к которому относится операция (конец выбранного периода).
+    # Дата, которой падает операция. Периоды day/week/month вычисляются от
+    # сегодняшней даты, и проведение всегда происходит внутри периода —
+    # поэтому запись падает реальным днём проведения, а не концом периода.
+    # Для custom период может быть в прошлом: привязываем к концу выбранного
+    # диапазона, иначе операция выпадет из баланса выбранного периода.
     # Операция без периода (или период "all") учитывается по дате создания.
     entry_date = None
     if payload.period in ("day", "week", "month", "custom"):
@@ -19382,8 +19386,11 @@ def create_payroll_entry(
             ct = _parse_booking_date_param(payload.dateTo)
         else:
             cf = ct = None
-        _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
-        entry_date = _dt
+        if payload.period == "custom":
+            _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
+            entry_date = _dt
+        else:
+            entry_date = date.today().strftime("%d.%m.%Y")
 
     entry = PayrollEntry(
 
@@ -22451,8 +22458,12 @@ def owner_worker_pay_salary(
 
 
 
-    # Дата периода, к которому относится выплата (конец выбранного периода).
-    # Выплата без периода (или период "all") учитывается по дате создания.
+    # Дата, которой падает выплата. Периоды day/week/month вычисляются от
+    # сегодняшней даты, и проведение всегда происходит внутри периода —
+    # поэтому запись падает реальным днём проведения, а не концом периода.
+    # Для custom период может быть в прошлом: привязываем к концу выбранного
+    # диапазона, иначе выплата выпадет из баланса выбранного периода.
+    # Без периода (или период "all") учитывается по дате создания.
     payout_date = None
     cf = ct = None
     if payload.period in ("day", "week", "month", "custom"):
@@ -22466,8 +22477,11 @@ def owner_worker_pay_salary(
             ct = _parse_booking_date_param(payload.dateTo)
         else:
             cf = ct = None
-        _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
-        payout_date = _dt
+        if payload.period == "custom":
+            _df, _dt = _salary_date_range(payload.period, custom_from=cf, custom_to=ct)
+            payout_date = _dt
+        else:
+            payout_date = date.today().strftime("%d.%m.%Y")
 
     # 1. Create PayrollEntry
 

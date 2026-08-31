@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-08-31 12:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-08-31 12:43 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **503**
-- Строк кода: **203 738**
+- Строк кода: **204 132**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 155, `.ts`: 36, `.tsx`: 304
 
 ## Архитектура
@@ -741,59 +741,67 @@ concept1.0/
 - `install_error_notifyingdef install_error_notifying() -> None: """Идемпотентно подключает logging-handler к корневому логгеру. Проверка по имени класса (а не по флагу модуля): тесты выгружают и заново имп` (стр. 350)
 - `unhandled_exception_handlerasync def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse: """FastAPI/Starlette handler для несловленных исключений (HTTP 500).""" notify_exception(ex` (стр. 365)
 
-### backend/app/exports.py (3492 строк)
+### backend/app/exports.py (3786 строк)
 
-Классы и функции (49):
+Классы и функции (57):
 
-- `class ExportMetric: label: str value: str @dataclass(frozen=True)` (стр. 122)
-- `class OwnerExportData: owner_name: str company_name: str generated_at: datetime period_from: str period_to: str …` (стр. 134)
-- `class GeneratedExport: file_name: str media_type: str content: bytes telegram_caption: str ReportPeriod = Literal["daily` (стр. 176)
-- `class OwnerSummaryReport: title: str message: str @dataclass(frozen=True)` (стр. 200)
-- `class OwnerSummaryContext: company_name: str generated_at: datetime period: ReportPeriod segment: ReportSegment period_l` (стр. 212)
-- `class OwnerSummaryExportData: owner_name: str company_name: str title: str generated_at: datetime period_label: str …` (стр. 236)
-- `build_owner_summary_reportdef build_owner_summary_report( *, company_name: str, bookings: list[Booking], services: list[Service], expenses: list[Expense] | None = None, incomes: list[Income] | None = None, ` (стр. 276)
-- `OwnerSummaryExportData._parse_ddmmyyyydef _parse_ddmmyyyy(value: str) -> datetime | None: try: return datetime.strptime(value.strip(), "%d.%m.%Y") except ValueError: return None` (стр. 348)
-- `OwnerSummaryExportData._in_perioddef _in_period(date_str: str) -> bool: dt = _parse_ddmmyyyy(date_str) if dt is None: return False # Сравниваем без timezone (period_start/end могут быть aware) ps = period_start.re` (стр. 360)
-- `build_owner_summary_exportdef build_owner_summary_export( *, owner: StaffUser, company_name: str, bookings: list[Booking], services: list[Service], penalties: list[Penalty] | None = None, piggy_transactions` (стр. 549)
-- `_build_owner_summary_contextdef _build_owner_summary_context( *, company_name: str, bookings: list[Booking], services: list[Service], period: ReportPeriod, segment: ReportSegment, now: datetime | None = None,` (стр. 641)
-- `_summary_headerdef _summary_header(context: OwnerSummaryContext) -> str: return f"{context.company_name}\n{context.title}\nПериод: {context.period_label}"` (стр. 725)
-- `_build_owner_summary_export_datadef _build_owner_summary_export_data( *, owner_name: str, context: OwnerSummaryContext, penalties: list[Penalty] | None = None, db: Session | None = None,` (стр. 733)
-- `_summary_period_boundsdef _summary_period_bounds(period: ReportPeriod, current: datetime) -> tuple[datetime, datetime, str]: end_at = current.replace(hour=0, minute=0, second=0, microsecond=0) + timedel` (стр. 1600)
-- `_summary_period_labeldef _summary_period_label(period_start: datetime, period_end: datetime) -> str: last_day = period_end - timedelta(days=1) if period_start.date() == last_day.date():` (стр. 1618)
-- `_booking_matches_segmentdef _booking_matches_segment(booking: Booking, service: Service | None, segment: ReportSegment) -> bool: if service is not None and service.category: category = service.category.st` (стр. 1632)
-- `build_owner_exportdef build_owner_export( *, kind: ExportKind, owner: StaffUser, company_name: str, bookings: list[Booking], expenses: list[Expense], penalties: list[Penalty], workers: list[StaffUse` (стр. 1658)
-- `build_piggy_bank_exportdef build_piggy_bank_export( *, company_name: str, piggy_transactions: list[PiggyBankTransaction], date_from: str | None = None, date_to: str | None = None, generated_at: datetime ` (стр. 1752)
-- `OwnerSummaryExportData._to_dtdef _to_dt(value: str | None) -> datetime | None: if not value: return None parsed = _parse_date_for_sort(value) return None if parsed == datetime.max else parsed` (стр. 1764)
-- `OwnerSummaryExportData._in_rangedef _in_range(tx: PiggyBankTransaction) -> bool: d = _to_dt(tx.date) if d is None: return False if from_dt and d < from_dt: return False if to_dt and d > to_dt.replace(hour=23, min` (стр. 1773)
-- `OwnerSummaryExportData._sort_keydef _sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]: min_aware = datetime.min.replace(tzinfo=generated.tzinfo) tx_created = ( _as_local_datetime(tx.created_at, gen` (стр. 1783)
-- `OwnerSummaryExportData._period_sumdef _period_sum(predicate: Any) -> float: return sum(float(t.amount) for t in period_txs if predicate(t))` (стр. 1802)
-- `OwnerSummaryExportData.moneydef money(value: float) -> str: return f"{value:,.0f} ₽".replace(",", " ")` (стр. 1821)
-- `_build_export_datadef _build_export_data( *, owner: StaffUser, company_name: str, bookings: list[Booking], expenses: list[Expense], penalties: list[Penalty], workers: list[StaffUser], stock_items: l` (стр. 1907)
-- `OwnerSummaryExportData._is_fixed_bookingdef _is_fixed_booking(booking: Booking) -> bool: # привязка строго по названию — "подготовка к полировке" всегда фиксированная if is_fixed_master_service(booking.service):` (стр. 1993)
-- `OwnerSummaryExportData._piggy_sort_keydef _piggy_sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]: min_aware = datetime.min.replace(tzinfo=generated_at.tzinfo) tx_created = _as_local_datetime(tx.created_` (стр. 2471)
-- `_render_excel_reportdef _render_excel_report(data: OwnerExportData) -> bytes: workbook = Workbook() summary = workbook.active summary.title = "Сводка" summary.merge_cells("A1:D1") summary["A1"] = data` (стр. 2590)
-- `_render_owner_summary_excel_reportdef _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes: workbook = Workbook() summary = workbook.active summary.title = "Сводка" summary.merge_cells("A1:D1")` (стр. 2666)
-- `_append_sheetdef _append_sheet(workbook: Workbook, title: str, headers: list[str], rows: list[list[Any]], *, currency_cols: set[int] | None = None) -> None: sheet = workbook.create_sheet(title)` (стр. 2856)
-- `_render_pdf_reportdef _render_pdf_report(data: OwnerExportData) -> bytes: buffer = io.BytesIO() font_name = _pdf_font_name() styles = getSampleStyleSheet() title_style = ParagraphStyle("OwnerTitle",` (стр. 2886)
-- `_pdf_sectiondef _pdf_section(story: list[Any], section_style: ParagraphStyle, font_name: str, title: str, headers: list[str], rows: list[list[Any]]) -> None: story.append(Paragraph(title, sect` (стр. 2976)
-- `_pdf_tabledef _pdf_table(rows: list[list[Any]], font_name: str, header_color: str = "#0E1624") -> LongTable: normalized = [[Paragraph(_escape(str(cell)), _pdf_cell_style(font_name)) for cell` (стр. 2992)
-- `_format_rowsdef _format_rows(rows: list[list[Any]], *, currency_cols: set[int]) -> list[list[Any]]: formatted: list[list[Any]] = [] for row in rows: next_row = [] for index, value in enumerate` (стр. 3032)
-- `_style_headingdef _style_heading(sheet, *cells: str) -> None: if cells: sheet[cells[0]].font = Font(size=16, bold=True, color="0B1226") for cell_name in cells[1:]: sheet[cell_name].font = Font(s` (стр. 3062)
-- `_style_tabledef _style_table(sheet, header_row: int, start_row: int, end_row: int, end_col: int) -> None: header_fill = PatternFill(fill_type="solid", fgColor="0A84FF") header_font = Font(bold` (стр. 3076)
-- `_apply_currencydef _apply_currency(cell) -> None: cell.number_format = '#,##0 "руб."' cell.alignment = Alignment(horizontal="right", vertical="center")` (стр. 3118)
-- `_autosizedef _autosize(sheet) -> None: for column in sheet.columns: letter = get_column_letter(column[0].column) max_length = 0 for cell in column: max_length = max(max_length, len("" if ce` (стр. 3128)
-- `_pdf_font_namedef _pdf_font_name() -> str: candidates = [ str(Path(__file__).resolve().parent / "assets" / "fonts" / "NotoSans-Regular.ttf"), os.getenv("OWNER_EXPORT_FONT_PATH", ""), "C:/Windows` (стр. 3148)
-- `_pdf_cell_styledef _pdf_cell_style(font_name: str) -> ParagraphStyle: return ParagraphStyle("OwnerExportCell", fontName=font_name, fontSize=7.5, leading=9, textColor=colors.HexColor("#111827"))` (стр. 3198)
-- `_booking_datetimedef _booking_datetime(booking: Booking) -> datetime | None: raw = f"{booking.date} {booking.time}".strip() for fmt in ("%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M"):` (стр. 3206)
-- `_booking_sort_keydef _booking_sort_key(booking: Booking) -> tuple[datetime, datetime]: local_now = datetime.now().astimezone() booking_dt = _booking_datetime(booking) primary = _as_local_datetime(b` (стр. 3226)
-- `_as_local_datetimedef _as_local_datetime(value: datetime, reference: datetime) -> datetime: target_tz = reference.tzinfo if value.tzinfo is None: return value.replace(tzinfo=target_tz) return value.` (стр. 3242)
-- `_parse_date_for_sortdef _parse_date_for_sort(value: str) -> datetime: for fmt in ("%d.%m.%Y", "%Y-%m-%d"):` (стр. 3256)
-- `_format_datetimedef _format_datetime(value: datetime | None) -> str: if value is None: return "" return value.astimezone().strftime("%d.%m.%Y %H:%M") if value.tzinfo is not None else value.strftim` (стр. 3274)
-- `_format_moneydef _format_money(value: int) -> str: return f"{value:,.0f}".replace(",", " ") + " руб."` (стр. 3286)
-- `_escapedef _escape(value: str) -> str: return escape(value).replace("\n", "<br/>")` (стр. 3294)
-- `build_deposit_exportdef build_deposit_export( db: Any, client: Client, overview: Any,` (стр. 3307)
-- `OwnerSummaryExportData.moneydef money(value: float) -> str: return f"{float(value):,.0f} ₽".replace(",", " ")` (стр. 3322)
-- `build_deposit_export_alldef build_deposit_export_all( db: Any, *, date_from: str | None = None, date_to: str | None = None,` (стр. 3406)
+- `class ExportMetric: label: str value: str @dataclass(frozen=True)` (стр. 137)
+- `class OwnerExportData: owner_name: str company_name: str generated_at: datetime period_from: str period_to: str …` (стр. 149)
+- `class GeneratedExport: file_name: str media_type: str content: bytes telegram_caption: str ReportPeriod = Literal["daily` (стр. 191)
+- `class OwnerSummaryReport: title: str message: str @dataclass(frozen=True)` (стр. 215)
+- `class OwnerSummaryContext: company_name: str generated_at: datetime period: ReportPeriod segment: ReportSegment period_l` (стр. 227)
+- `class OwnerSummaryExportData: owner_name: str company_name: str title: str generated_at: datetime period_label: str …` (стр. 251)
+- `build_owner_summary_reportdef build_owner_summary_report( *, company_name: str, bookings: list[Booking], services: list[Service], expenses: list[Expense] | None = None, incomes: list[Income] | None = None, ` (стр. 291)
+- `OwnerSummaryExportData._parse_ddmmyyyydef _parse_ddmmyyyy(value: str) -> datetime | None: try: return datetime.strptime(value.strip(), "%d.%m.%Y") except ValueError: return None` (стр. 363)
+- `OwnerSummaryExportData._in_perioddef _in_period(date_str: str) -> bool: dt = _parse_ddmmyyyy(date_str) if dt is None: return False # Сравниваем без timezone (period_start/end могут быть aware) ps = period_start.re` (стр. 375)
+- `build_owner_summary_exportdef build_owner_summary_export( *, owner: StaffUser, company_name: str, bookings: list[Booking], services: list[Service], penalties: list[Penalty] | None = None, piggy_transactions` (стр. 564)
+- `_build_owner_summary_contextdef _build_owner_summary_context( *, company_name: str, bookings: list[Booking], services: list[Service], period: ReportPeriod, segment: ReportSegment, now: datetime | None = None,` (стр. 656)
+- `_summary_headerdef _summary_header(context: OwnerSummaryContext) -> str: return f"{context.company_name}\n{context.title}\nПериод: {context.period_label}"` (стр. 740)
+- `_build_owner_summary_export_datadef _build_owner_summary_export_data( *, owner_name: str, context: OwnerSummaryContext, penalties: list[Penalty] | None = None, db: Session | None = None,` (стр. 748)
+- `_summary_period_boundsdef _summary_period_bounds(period: ReportPeriod, current: datetime) -> tuple[datetime, datetime, str]: end_at = current.replace(hour=0, minute=0, second=0, microsecond=0) + timedel` (стр. 1615)
+- `_summary_period_labeldef _summary_period_label(period_start: datetime, period_end: datetime) -> str: last_day = period_end - timedelta(days=1) if period_start.date() == last_day.date():` (стр. 1633)
+- `_booking_matches_segmentdef _booking_matches_segment(booking: Booking, service: Service | None, segment: ReportSegment) -> bool: if service is not None and service.category: category = service.category.st` (стр. 1647)
+- `build_owner_exportdef build_owner_export( *, kind: ExportKind, owner: StaffUser, company_name: str, bookings: list[Booking], expenses: list[Expense], penalties: list[Penalty], workers: list[StaffUse` (стр. 1673)
+- `build_piggy_bank_exportdef build_piggy_bank_export( *, company_name: str, piggy_transactions: list[PiggyBankTransaction], date_from: str | None = None, date_to: str | None = None, generated_at: datetime ` (стр. 1767)
+- `OwnerSummaryExportData._to_dtdef _to_dt(value: str | None) -> datetime | None: if not value: return None parsed = _parse_date_for_sort(value) return None if parsed == datetime.max else parsed` (стр. 1785)
+- `OwnerSummaryExportData._in_rangedef _in_range(tx: PiggyBankTransaction) -> bool: d = _to_dt(tx.date) if d is None: return False if from_dt and d < from_dt: return False if to_dt and d > to_dt.replace(hour=23, min` (стр. 1794)
+- `OwnerSummaryExportData._sort_keydef _sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]: min_aware = datetime.min.replace(tzinfo=generated.tzinfo) tx_created = ( _as_local_datetime(tx.created_at, gen` (стр. 1804)
+- `OwnerSummaryExportData._period_sumdef _period_sum(predicate: Any) -> float: return sum(float(t.amount) for t in period_txs if predicate(t))` (стр. 1823)
+- `OwnerSummaryExportData.moneydef money(value: float) -> str: return f"{value:,.0f} ₽".replace(",", " ")` (стр. 1858)
+- `OwnerSummaryExportData.signeddef signed(value: float) -> str: return f"{value:+,.0f} ₽".replace(",", " ")` (стр. 1861)
+- `OwnerSummaryExportData._month_bucketsdef _month_buckets(start: date, end: date) -> list[tuple[str, date, date]]: buckets: list[tuple[str, date, date]] = [] year, month = start.year, start.month while (year, month) <= ` (стр. 1887)
+- `OwnerSummaryExportData._week_bucketsdef _week_buckets(start: date, end: date) -> list[tuple[str, date, date]]: buckets: list[tuple[str, date, date]] = [] week_start = start - timedelta(days=(start.weekday() - 5) % 7)` (стр. 1899)
+- `OwnerSummaryExportData._balance_atdef _balance_at(end_day: date) -> float: # Нарастающий итог по всей истории (не только период отчёта) return sum(float(t.amount) for d, t in dated_txs if d <= end_day)` (стр. 1910)
+- `OwnerSummaryExportData._bucket_metricsdef _bucket_metrics(txs: list[PiggyBankTransaction]) -> dict[str, float]: metrics: dict[str, float] = { "count": 0, "deposits": 0.0, "repayments": 0.0, "deposit_returns": 0.0, "adj` (стр. 1914)
+- `OwnerSummaryExportData._comparison_rowsdef _comparison_rows( buckets: list[tuple[str, date, date]],` (стр. 1962)
+- `OwnerSummaryExportData._comparison_headersdef _comparison_headers( period_label_ru: str, start_label: str, end_label: str, delta_label: str,` (стр. 2112)
+- `OwnerSummaryExportData._append_comparison_sheetdef _append_comparison_sheet(title: str, headers: list[str], rows: list[list[Any]]) -> None: _append_sheet(workbook, title, headers, rows, currency_cols=comparison_currency_cols) i` (стр. 2143)
+- `_build_export_datadef _build_export_data( *, owner: StaffUser, company_name: str, bookings: list[Booking], expenses: list[Expense], penalties: list[Penalty], workers: list[StaffUser], stock_items: l` (стр. 2201)
+- `OwnerSummaryExportData._is_fixed_bookingdef _is_fixed_booking(booking: Booking) -> bool: # привязка строго по названию — "подготовка к полировке" всегда фиксированная if is_fixed_master_service(booking.service):` (стр. 2287)
+- `OwnerSummaryExportData._piggy_sort_keydef _piggy_sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]: min_aware = datetime.min.replace(tzinfo=generated_at.tzinfo) tx_created = _as_local_datetime(tx.created_` (стр. 2765)
+- `_render_excel_reportdef _render_excel_report(data: OwnerExportData) -> bytes: workbook = Workbook() summary = workbook.active summary.title = "Сводка" summary.merge_cells("A1:D1") summary["A1"] = data` (стр. 2884)
+- `_render_owner_summary_excel_reportdef _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes: workbook = Workbook() summary = workbook.active summary.title = "Сводка" summary.merge_cells("A1:D1")` (стр. 2960)
+- `_append_sheetdef _append_sheet(workbook: Workbook, title: str, headers: list[str], rows: list[list[Any]], *, currency_cols: set[int] | None = None) -> None: sheet = workbook.create_sheet(title)` (стр. 3150)
+- `_render_pdf_reportdef _render_pdf_report(data: OwnerExportData) -> bytes: buffer = io.BytesIO() font_name = _pdf_font_name() styles = getSampleStyleSheet() title_style = ParagraphStyle("OwnerTitle",` (стр. 3180)
+- `_pdf_sectiondef _pdf_section(story: list[Any], section_style: ParagraphStyle, font_name: str, title: str, headers: list[str], rows: list[list[Any]]) -> None: story.append(Paragraph(title, sect` (стр. 3270)
+- `_pdf_tabledef _pdf_table(rows: list[list[Any]], font_name: str, header_color: str = "#0E1624") -> LongTable: normalized = [[Paragraph(_escape(str(cell)), _pdf_cell_style(font_name)) for cell` (стр. 3286)
+- `_format_rowsdef _format_rows(rows: list[list[Any]], *, currency_cols: set[int]) -> list[list[Any]]: formatted: list[list[Any]] = [] for row in rows: next_row = [] for index, value in enumerate` (стр. 3326)
+- `_style_headingdef _style_heading(sheet, *cells: str) -> None: if cells: sheet[cells[0]].font = Font(size=16, bold=True, color="0B1226") for cell_name in cells[1:]: sheet[cell_name].font = Font(s` (стр. 3356)
+- `_style_tabledef _style_table(sheet, header_row: int, start_row: int, end_row: int, end_col: int) -> None: header_fill = PatternFill(fill_type="solid", fgColor="0A84FF") header_font = Font(bold` (стр. 3370)
+- `_apply_currencydef _apply_currency(cell) -> None: cell.number_format = '#,##0 "руб."' cell.alignment = Alignment(horizontal="right", vertical="center")` (стр. 3412)
+- `_autosizedef _autosize(sheet) -> None: for column in sheet.columns: letter = get_column_letter(column[0].column) max_length = 0 for cell in column: max_length = max(max_length, len("" if ce` (стр. 3422)
+- `_pdf_font_namedef _pdf_font_name() -> str: candidates = [ str(Path(__file__).resolve().parent / "assets" / "fonts" / "NotoSans-Regular.ttf"), os.getenv("OWNER_EXPORT_FONT_PATH", ""), "C:/Windows` (стр. 3442)
+- `_pdf_cell_styledef _pdf_cell_style(font_name: str) -> ParagraphStyle: return ParagraphStyle("OwnerExportCell", fontName=font_name, fontSize=7.5, leading=9, textColor=colors.HexColor("#111827"))` (стр. 3492)
+- `_booking_datetimedef _booking_datetime(booking: Booking) -> datetime | None: raw = f"{booking.date} {booking.time}".strip() for fmt in ("%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M"):` (стр. 3500)
+- `_booking_sort_keydef _booking_sort_key(booking: Booking) -> tuple[datetime, datetime]: local_now = datetime.now().astimezone() booking_dt = _booking_datetime(booking) primary = _as_local_datetime(b` (стр. 3520)
+- `_as_local_datetimedef _as_local_datetime(value: datetime, reference: datetime) -> datetime: target_tz = reference.tzinfo if value.tzinfo is None: return value.replace(tzinfo=target_tz) return value.` (стр. 3536)
+- `_parse_date_for_sortdef _parse_date_for_sort(value: str) -> datetime: for fmt in ("%d.%m.%Y", "%Y-%m-%d"):` (стр. 3550)
+- `_format_datetimedef _format_datetime(value: datetime | None) -> str: if value is None: return "" return value.astimezone().strftime("%d.%m.%Y %H:%M") if value.tzinfo is not None else value.strftim` (стр. 3568)
+- `_format_moneydef _format_money(value: int) -> str: return f"{value:,.0f}".replace(",", " ") + " руб."` (стр. 3580)
+- `_escapedef _escape(value: str) -> str: return escape(value).replace("\n", "<br/>")` (стр. 3588)
+- `build_deposit_exportdef build_deposit_export( db: Any, client: Client, overview: Any,` (стр. 3601)
+- `OwnerSummaryExportData.moneydef money(value: float) -> str: return f"{float(value):,.0f} ₽".replace(",", " ")` (стр. 3616)
+- `build_deposit_export_alldef build_deposit_export_all( db: Any, *, date_from: str | None = None, date_to: str | None = None,` (стр. 3700)
 
 ### backend/app/finance.py (56 строк)
 
@@ -2454,9 +2462,9 @@ concept1.0/
 
 Классы и функции (10):
 
-- `_local_noon_utcdef _local_noon_utc(year: int, month: int, day: int) -> datetime: """РџРѕР»РґРµРЅСЊ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РґРЅСЏ РїРѕ Р»РѕРєР°Р»СЊРЅРѕРјСѓ РІСЂРµРјРµРЅРё, РІ UTC. РџРѕР»РґРµРЅСЊ РіР` (стр. 28)
+- `_local_noon_utcdef _local_noon_utc(year: int, month: int, day: int) -> datetime: """Полдень указанного дня по локальному времени, в UTC. Полдень гарантирует, что локальная дата проведения не смес` (стр. 28)
 - `_entrydef _entry( entry_id: str, kind: str, created_at: datetime, entry_date: str | None, *, expense_id: str | None = None, income_id: str | None = None,` (стр. 38)
-- `_populatedef _populate(engine) -> None: """Р¤РёРєСЃС‚СѓСЂС‹: 2026-08-31 = РїРѕРЅРµРґРµР»СЊРЅРёРє, 04.09.2026 = РїСЏС‚РЅРёС†Р°, 14.08.2026 = РїСЏС‚РЅРёС†Р°, 31.08.2026 = РєРѕРЅРµС† РјРµСЃСЏС` (стр. 62)
+- `_populatedef _populate(engine) -> None: """Фикстуры: 2026-08-31 = понедельник, 04.09.2026 = пятница, 14.08.2026 = пятница, 31.08.2026 = конец месяца.""" with Session(engine) as db: # 1) Вып` (стр. 62)
 - `migration_enginedef migration_engine(): engine = create_engine("sqlite:///:memory:") Base.metadata.create_all(engine) try: yield engine finally: engine.dispose()` (стр. 92)
 - `_get_entrydef _get_entry(engine, entry_id: str) -> PayrollEntry: with Session(engine) as db: return db.scalar(select(PayrollEntry).where(PayrollEntry.id == entry_id))` (стр. 101)
 - `_get_expensedef _get_expense(engine, expense_id: str) -> Expense: with Session(engine) as db: return db.get(Expense, expense_id)` (стр. 106)
@@ -2488,35 +2496,36 @@ concept1.0/
 - `PiggyBankAdjustTests.test_worker_forbiddendef test_worker_forbidden(self) -> None: response = self.client.post( "/api/owner/piggy-bank/adjust", headers=self._auth_headers(self.worker_token), json={"resourceGroup": "wash", ` (стр. 210)
 - `PiggyBankAdjustTests.test_adjust_appears_in_transactions_historydef test_adjust_appears_in_transactions_history(self) -> None: self._adjust("detailing", 1500, purpose="Ручная правка") data = self._piggy_bank() adjust_txs = [ t for t in data["tr` (стр. 218)
 
-### backend/tests/test_piggy_bank_withdraw_flex.py (517 строк)
+### backend/tests/test_piggy_bank_withdraw_flex.py (619 строк)
 
-Классы и функции (25):
+Классы и функции (26):
 
-- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 32)
-- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": int` (стр. 43)
-- `class PiggyBankWithdrawFlexTests(unittest.TestCase):` (стр. 48)
-- `PiggyBankWithdrawFlexTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 52)
-- `PiggyBankWithdrawFlexTests.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 79)
-- `PiggyBankWithdrawFlexTests._set_staff_telegram_idsdef _set_staff_telegram_ids(self) -> None: from app.database import SessionLocal from app.models import StaffUser from sqlalchemy import select with SessionLocal() as db: owner = d` (стр. 96)
-- `PiggyBankWithdrawFlexTests._auth_headersdef _auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 111)
-- `PiggyBankWithdrawFlexTests._withdrawdef _withdraw(self, **payload) -> tuple[int, dict]: response = self.client.post( "/api/owner/piggy-bank/withdraw", headers=self._auth_headers(self.owner_token), json=payload, ) ret` (стр. 114)
-- `PiggyBankWithdrawFlexTests._piggy_bankdef _piggy_bank(self) -> dict: response = self.client.get( "/api/owner/piggy-bank", headers=self._auth_headers(self.owner_token), ) self.assertEqual(response.status_code, 200, resp` (стр. 124)
-- `PiggyBankWithdrawFlexTests._create_booking_with_servicedef _create_booking_with_service(self, resource_group: str = "wash") -> str: """Insert Client + Service + Booking directly; return booking id.""" from app.database import SessionLo` (стр. 132)
-- `PiggyBankWithdrawFlexTests.test_withdraw_without_booking_from_detailingdef test_withdraw_without_booking_from_detailing(self) -> None: before = self._piggy_bank() status_code, tx = self._withdraw( resourceGroup="detailing", materialName="Пленка PPF", ` (стр. 179)
-- `PiggyBankWithdrawFlexTests.test_withdraw_other_kind_creates_other_expensedef test_withdraw_other_kind_creates_other_expense(self) -> None: before = self._piggy_bank() status_code, tx = self._withdraw( resourceGroup="wash", materialName="Ремонт пылесоса"` (стр. 199)
-- `PiggyBankWithdrawFlexTests.test_piggy_source_creates_no_payroll_entriesdef test_piggy_source_creates_no_payroll_entries(self) -> None: """Снятие из копилки не должно трогать зарплату (без удержаний).""" from app.database import SessionLocal from app.m` (стр. 233)
-- `PiggyBankWithdrawFlexTests.test_own_money_expense_compensates_in_salarydef test_own_money_expense_compensates_in_salary(self) -> None: """Свои деньги: расход бюджета + компенсация (bonus) в ЗП, копилка не трогается. Без «кто взял» компенсация уходит т` (стр. 257)
-- `PiggyBankWithdrawFlexTests.test_own_money_without_person_returns_consistent_responsedef test_own_money_without_person_returns_consistent_response(self) -> None: """Свои деньги: ответ консистентен (компенсация уходит actor-fallback'у).""" status_code, tx = self._wi` (стр. 320)
-- `PiggyBankWithdrawFlexTests.test_custom_expense_category_honoreddef test_custom_expense_category_honored(self) -> None: from app.database import SessionLocal from app.models import Expense from sqlalchemy import select status_code, _ = self._wi` (стр. 332)
-- `PiggyBankWithdrawFlexTests.test_own_money_expense_edit_updates_compensationdef test_own_money_expense_edit_updates_compensation(self) -> None: """Правка расхода обновляет и компенсацию (PATCH /api/expenses/{id}).""" from app.database import SessionLocal f` (стр. 355)
-- `PiggyBankWithdrawFlexTests.test_withdraw_other_default_purposedef test_withdraw_other_default_purpose(self) -> None: status_code, tx = self._withdraw( resourceGroup="detailing", materialName="Химия для химчистки", materialCost=1200, date="12.` (стр. 390)
-- `PiggyBankWithdrawFlexTests.test_without_target_rejecteddef test_without_target_rejected(self) -> None: status_code, body = self._withdraw( materialName="Что-то", materialCost=500, date="13.08.2026", ) self.assertEqual(status_code, 400)` (стр. 401)
-- `PiggyBankWithdrawFlexTests.test_invalid_resource_group_rejecteddef test_invalid_resource_group_rejected(self) -> None: status_code, _ = self._withdraw( resourceGroup="carwash", materialName="Что-то", materialCost=500, date="13.08.2026", ) self` (стр. 410)
-- `PiggyBankWithdrawFlexTests.test_worker_forbiddendef test_worker_forbidden(self) -> None: response = self.client.post( "/api/owner/piggy-bank/withdraw", headers=self._auth_headers(self.worker_token), json={ "resourceGroup": "wash` (стр. 419)
-- `PiggyBankWithdrawFlexTests.test_legacy_withdraw_with_booking_resolves_bucketdef test_legacy_withdraw_with_booking_resolves_bucket(self) -> None: booking_id = self._create_booking_with_service(resource_group="wash") status_code, tx = self._withdraw( booking` (стр. 436)
-- `PiggyBankWithdrawFlexTests.test_piggy_export_endpoint_returns_xlsxdef test_piggy_export_endpoint_returns_xlsx(self) -> None: self._withdraw( resourceGroup="detailing", materialName="Полироль", materialCost=900, purpose="Экспорт-тест", date="15.08` (стр. 454)
-- `PiggyBankWithdrawFlexTests.test_owner_report_contains_piggy_sheetdef test_owner_report_contains_piggy_sheet(self) -> None: self._withdraw( resourceGroup="detailing", materialName="Аппликатор", materialCost=400, purpose="Лист копилки", date="16.0` (стр. 484)
-- `PiggyBankWithdrawFlexTests.test_piggy_export_forbidden_for_workerdef test_piggy_export_forbidden_for_worker(self) -> None: response = self.client.get( "/api/owner/exports/piggy-bank", headers=self._auth_headers(self.worker_token), ) self.assertE` (стр. 508)
+- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 33)
+- `build_init_datadef build_init_data(telegram_id: str) -> str: """Build Telegram init data that passes insecure validation (no HMAC).""" return urllib.parse.urlencode({"user": json.dumps({"id": int` (стр. 44)
+- `class PiggyBankWithdrawFlexTests(unittest.TestCase):` (стр. 49)
+- `PiggyBankWithdrawFlexTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 53)
+- `PiggyBankWithdrawFlexTests.tearDowndef tearDown(self) -> None: if hasattr(self, "client_manager"):` (стр. 80)
+- `PiggyBankWithdrawFlexTests._set_staff_telegram_idsdef _set_staff_telegram_ids(self) -> None: from app.database import SessionLocal from app.models import StaffUser from sqlalchemy import select with SessionLocal() as db: owner = d` (стр. 97)
+- `PiggyBankWithdrawFlexTests._auth_headersdef _auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 112)
+- `PiggyBankWithdrawFlexTests._withdrawdef _withdraw(self, **payload) -> tuple[int, dict]: response = self.client.post( "/api/owner/piggy-bank/withdraw", headers=self._auth_headers(self.owner_token), json=payload, ) ret` (стр. 115)
+- `PiggyBankWithdrawFlexTests._piggy_bankdef _piggy_bank(self) -> dict: response = self.client.get( "/api/owner/piggy-bank", headers=self._auth_headers(self.owner_token), ) self.assertEqual(response.status_code, 200, resp` (стр. 125)
+- `PiggyBankWithdrawFlexTests._create_booking_with_servicedef _create_booking_with_service(self, resource_group: str = "wash") -> str: """Insert Client + Service + Booking directly; return booking id.""" from app.database import SessionLo` (стр. 133)
+- `PiggyBankWithdrawFlexTests.test_withdraw_without_booking_from_detailingdef test_withdraw_without_booking_from_detailing(self) -> None: before = self._piggy_bank() status_code, tx = self._withdraw( resourceGroup="detailing", materialName="Пленка PPF", ` (стр. 180)
+- `PiggyBankWithdrawFlexTests.test_withdraw_other_kind_creates_other_expensedef test_withdraw_other_kind_creates_other_expense(self) -> None: before = self._piggy_bank() status_code, tx = self._withdraw( resourceGroup="wash", materialName="Ремонт пылесоса"` (стр. 200)
+- `PiggyBankWithdrawFlexTests.test_piggy_source_creates_no_payroll_entriesdef test_piggy_source_creates_no_payroll_entries(self) -> None: """Снятие из копилки не должно трогать зарплату (без удержаний).""" from app.database import SessionLocal from app.m` (стр. 234)
+- `PiggyBankWithdrawFlexTests.test_own_money_expense_compensates_in_salarydef test_own_money_expense_compensates_in_salary(self) -> None: """Свои деньги: расход бюджета + компенсация (bonus) в ЗП, копилка не трогается. Без «кто взял» компенсация уходит т` (стр. 258)
+- `PiggyBankWithdrawFlexTests.test_own_money_without_person_returns_consistent_responsedef test_own_money_without_person_returns_consistent_response(self) -> None: """Свои деньги: ответ консистентен (компенсация уходит actor-fallback'у).""" status_code, tx = self._wi` (стр. 321)
+- `PiggyBankWithdrawFlexTests.test_custom_expense_category_honoreddef test_custom_expense_category_honored(self) -> None: from app.database import SessionLocal from app.models import Expense from sqlalchemy import select status_code, _ = self._wi` (стр. 333)
+- `PiggyBankWithdrawFlexTests.test_own_money_expense_edit_updates_compensationdef test_own_money_expense_edit_updates_compensation(self) -> None: """Правка расхода обновляет и компенсацию (PATCH /api/expenses/{id}).""" from app.database import SessionLocal f` (стр. 356)
+- `PiggyBankWithdrawFlexTests.test_withdraw_other_default_purposedef test_withdraw_other_default_purpose(self) -> None: status_code, tx = self._withdraw( resourceGroup="detailing", materialName="Химия для химчистки", materialCost=1200, date="12.` (стр. 391)
+- `PiggyBankWithdrawFlexTests.test_without_target_rejecteddef test_without_target_rejected(self) -> None: status_code, body = self._withdraw( materialName="Что-то", materialCost=500, date="13.08.2026", ) self.assertEqual(status_code, 400)` (стр. 402)
+- `PiggyBankWithdrawFlexTests.test_invalid_resource_group_rejecteddef test_invalid_resource_group_rejected(self) -> None: status_code, _ = self._withdraw( resourceGroup="carwash", materialName="Что-то", materialCost=500, date="13.08.2026", ) self` (стр. 411)
+- `PiggyBankWithdrawFlexTests.test_worker_forbiddendef test_worker_forbidden(self) -> None: response = self.client.post( "/api/owner/piggy-bank/withdraw", headers=self._auth_headers(self.worker_token), json={ "resourceGroup": "wash` (стр. 420)
+- `PiggyBankWithdrawFlexTests.test_legacy_withdraw_with_booking_resolves_bucketdef test_legacy_withdraw_with_booking_resolves_bucket(self) -> None: booking_id = self._create_booking_with_service(resource_group="wash") status_code, tx = self._withdraw( booking` (стр. 437)
+- `PiggyBankWithdrawFlexTests.test_piggy_export_endpoint_returns_xlsxdef test_piggy_export_endpoint_returns_xlsx(self) -> None: self._withdraw( resourceGroup="detailing", materialName="Полироль", materialCost=900, purpose="Экспорт-тест", date="15.08` (стр. 455)
+- `PiggyBankWithdrawFlexTests.test_piggy_export_comparison_sheetsdef test_piggy_export_comparison_sheets(self) -> None: # 15.08.2026 и 05.09.2026 — субботы: начало финансовой недели (сб–пт) self._withdraw( resourceGroup="wash", materialName="Хим` (стр. 485)
+- `PiggyBankWithdrawFlexTests.test_owner_report_contains_piggy_sheetdef test_owner_report_contains_piggy_sheet(self) -> None: self._withdraw( resourceGroup="detailing", materialName="Аппликатор", materialCost=400, purpose="Лист копилки", date="16.0` (стр. 586)
+- `PiggyBankWithdrawFlexTests.test_piggy_export_forbidden_for_workerdef test_piggy_export_forbidden_for_worker(self) -> None: response = self.client.get( "/api/owner/exports/piggy-bank", headers=self._auth_headers(self.worker_token), ) self.assertE` (стр. 610)
 
 ### backend/tests/test_security_hardening.py (66 строк)
 
@@ -3801,7 +3810,7 @@ concept1.0/
 - `current` (стр. 716) — локальный
 - `ownerPaymentLabel` (стр. 826) — локальный
 
-### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (615 строк)
+### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (613 строк)
 
 - `OwnerPiggyBankScreen` (стр. 59)
 - `ownerStatusBadge` (стр. 111) — локальный
@@ -3809,16 +3818,16 @@ concept1.0/
 - `tabLabel` (стр. 166) — локальный
 - `rem` (стр. 208) — локальный
 - `otherWd` (стр. 351) — локальный
-- `debtTxs` (стр. 419) — локальный
-- `total` (стр. 423) — локальный
-- `isOther` (стр. 449) — локальный
-- `filteredTxs` (стр. 491) — локальный
-- `isDeposit` (стр. 501) — локальный
-- `txLabel` (стр. 502) — локальный
-- `booking` (стр. 508) — локальный
-- `handleClick` (стр. 509) — локальный
-- `Wrapper` (стр. 516) — локальный
-- `txRunningBalance` (стр. 517) — локальный
+- `debtTxs` (стр. 418) — локальный
+- `total` (стр. 422) — локальный
+- `isOther` (стр. 448) — локальный
+- `filteredTxs` (стр. 490) — локальный
+- `isDeposit` (стр. 500) — локальный
+- `txLabel` (стр. 501) — локальный
+- `booking` (стр. 507) — локальный
+- `handleClick` (стр. 508) — локальный
+- `Wrapper` (стр. 515) — локальный
+- `txRunningBalance` (стр. 516) — локальный
 
 ### frontend/src/app/components/owner/screens/OwnerStockPage.tsx (361 строк)
 
@@ -4647,8 +4656,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-08-31 15:23)
-- `backend/tests/test_payroll_date_migration.py` (2026-08-31 15:19)
+- `backend/tests/test_piggy_bank_withdraw_flex.py` (2026-08-31 15:43)
+- `backend/app/exports.py` (2026-08-31 15:38)
+- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-08-31 15:29)
+- `backend/tests/test_payroll_date_migration.py` (2026-08-31 15:28)
 - `backend/migrations/payroll_entry_dates.py` (2026-08-31 15:18)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-08-31 15:17)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-08-31 15:15)
@@ -4660,5 +4671,3 @@ concept1.0/
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-08-31 15:10)
 - `frontend/src/app/components/shared/AttendanceTable.tsx` (2026-08-31 15:10)
 - `frontend/src/app/components/owner/screens/OwnerWalletScreen.tsx` (2026-08-31 15:10)
-- `frontend/src/app/components/owner/screens/OwnerStockPage.tsx` (2026-08-31 15:10)
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-08-31 15:10)

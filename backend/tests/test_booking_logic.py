@@ -2888,6 +2888,62 @@ class BookingLogicTests(unittest.TestCase):
         payout = next(e for e in detail.json()["entries"] if e["kind"] == "payout")
         self.assertEqual(payout["entryDate"], "14.08.2026")
 
+    def test_payroll_operations_for_current_periods_fall_on_conduction_day(self) -> None:
+        """Выплата/премия за периоды day/week/month падают реальным днём
+        проведения, а не концом периода, и остаются в балансе периода."""
+        owner_headers = self._tg_headers("owner", "889013")
+
+        pay_response = self.client.post(
+            "/api/owner/workers/w1/pay-salary",
+            headers=owner_headers,
+            json={
+                "period": "month",
+                "segment": "all",
+                "amount": 100,
+                "note": "Выплата днём проведения",
+            },
+        )
+        self.assertEqual(pay_response.status_code, 200, pay_response.text)
+
+        bonus_response = self.client.post(
+            "/api/payroll/entries",
+            headers=owner_headers,
+            json={
+                "workerId": "w1",
+                "kind": "bonus",
+                "amount": 200,
+                "note": "Премия днём проведения",
+                "period": "week",
+            },
+        )
+        self.assertEqual(bonus_response.status_code, 200, bonus_response.text)
+
+        # Дата проведения вычисляется ПОСЛЕ запросов — сервер ставил entry_date
+        #=date.today() в момент обработки; так гонка на полуночи исключена.
+        today_str = datetime.now().strftime("%d.%m.%Y")
+
+        month_detail = self.client.get(
+            "/api/owner/workers/w1/salary-detail?period=month",
+            headers=owner_headers,
+        )
+        self.assertEqual(month_detail.status_code, 200, month_detail.text)
+        entries = month_detail.json()["entries"]
+        notes = [e["note"] for e in entries]
+        self.assertIn(
+            "Выплата днём проведения",
+            notes,
+            f"выплата не видна за месяц; записи: {notes}",
+        )
+        self.assertIn(
+            "Премия днём проведения",
+            notes,
+            f"премия не видна за месяц; записи: {notes}",
+        )
+        payout = next(e for e in entries if e["note"] == "Выплата днём проведения")
+        bonus = next(e for e in entries if e["note"] == "Премия днём проведения")
+        self.assertEqual(payout["entryDate"], today_str)
+        self.assertEqual(bonus["entryDate"], today_str)
+
     def test_owner_salary_detail_lists_db_owners_without_config(self) -> None:
         """Доходы владельцев видны без PERMANENT_TELEGRAM_OWNERS — владельцы берутся из БД."""
         owner_headers = self._tg_headers("owner", "889013")
