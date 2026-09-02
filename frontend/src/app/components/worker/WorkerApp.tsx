@@ -1,21 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Bell, Sun, Moon, Calendar, CalendarDays, DollarSign, User, Play,
-  Info, ArrowLeft, Phone, X, Check, Clock, ChevronRight, ChevronLeft, AlertCircle,
-  Edit3, Save, Camera, Star, Shield, BellOff, History, LogOut,
-  Mail, MapPin, Award, Eye, EyeOff, TrendingUp, Search,
+  Bell, Sun, Moon, CalendarDays, Play,
+  ArrowLeft, Phone, X, Check,
   CalendarClock, Wallet, UserRound
 } from 'lucide-react';
-import { EmptyState } from '../shared/EmptyState';
-import { SkeletonRows } from '../shared/Skeleton';
-import { getWorkerNotificationSettings, useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
+import { useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
 import { SourceBadge } from '../shared/SourceBadge';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
-import { AttendanceTable } from '../shared/AttendanceTable';
-import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
-import { apiRequest } from '../../api';
-import { CarSearch } from './shared/CarSearch';
 import { WorkerTodayScreen } from './screens/WorkerTodayScreen';
 import { WorkerScheduleScreen } from './screens/WorkerScheduleScreen';
 import { WorkerEarningsScreen } from './screens/WorkerEarningsScreen';
@@ -107,24 +99,11 @@ export function WorkerApp() {
     bookings,
     updateBooking,
     notifications,
-    penalties,
     markAllNotificationsRead,
     markNotificationRead,
     addNotification,
     session,
-    staffProfile,
-    settings,
-    activeSessions,
-    saveWorkerProfile,
-    saveWorkerNotificationSettings,
-    createTelegramLinkCode,
-    stockItems,
     services,
-    listShiftChecklists,
-    submitShiftChecklist,
-    changePassword,
-    refreshActiveSessions,
-    revokeSession,
     todayLabel,
     upcomingDates,
     workers,
@@ -134,6 +113,11 @@ export function WorkerApp() {
   const [tab, setTab] = useState<WorkerTab>('today');
   const [profileSection, setProfileSection] = useState<ProfileSection>(null);
   const [selectedTask, setSelectedTask] = useState<Booking | null>(null);
+  // Детальный sheet завершённого заказа живёт здесь (в родителе): его открытие
+  // передаётся в WorkerEarningsScreen (onSelectBooking) и WorkerProfileScreen
+  // (onOpenTaskDetails). Декларация была случайно удалена при выносе экранов
+  // (см. ab2554f) — без неё WorkerApp падает на первом рендере (ReferenceError).
+  const [selectedCompletedOrder, setSelectedCompletedOrder] = useState<any>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState<Booking | null>(null);
   const [showFinishModal, setShowFinishModal] = useState(false);
@@ -166,29 +150,6 @@ export function WorkerApp() {
   );
   const todayTasks = (allTasks || []).filter(b => b.date === todayLabel).sort((a, b) => a.time.localeCompare(b.time));
 
-  const myEarnings = (bookings || [])
-    .filter(b => b.status === 'completed' && isMyTask(b))
-    .map(b => {
-      const w = b.workers.find(wk => wk.workerId === workerId);
-      const earned = w?.payType === 'fixed'
-        ? (w.fixedAmount || 0)
-        : isFixedMasterService(services, b.serviceId, b.service)
-          ? FIXED_MASTER_EARNED
-          : Math.round(b.price * (w?.percent || 0) / 100);
-      return { ...b, earned, payType: w?.payType, fixedAmount: w?.fixedAmount };
-    });
-  const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
-  const payrollSummary = staffProfile?.payrollSummary;
-  const earnedForDisplay = payrollSummary?.accruedFromBookings ?? totalEarned;
-  const myPenalties = (penalties || []).filter((penalty) => penalty.workerId === workerId && isComplaintActive(penalty));
-  const complaintState = getComplaintPenaltyState(staffProfile?.defaultPercent || 0, myPenalties);
-  const payoutAfterPenalties = payrollSummary?.balance ?? Math.max(0, totalEarned + (staffProfile?.salaryBase || 0));
-
-  const allMyTasks = (bookings || []).filter(isMyTask);
-  const completedCount = payrollSummary?.completedBookings ?? allMyTasks.filter(b => b.status === 'completed').length;
-  const avgCheck = completedCount > 0 ? Math.round((payrollSummary?.accruedFromBookings ?? totalEarned) / completedCount) : 0;
-  const chemistryItems = (stockItems || []).filter((item) => item.category === 'Химия');
-
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (timerRunning) interval = setInterval(() => setTimer(t => t + 1), 1000);
@@ -204,8 +165,6 @@ export function WorkerApp() {
   const primary = isDark ? '#6E76F2' : '#4F46E5';
   const accent = isDark ? '#34D399' : '#10B981';
   const surface = isDark ? '#1C1C1F' : '#ffffff';
-  const inputCls = `${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
-  const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   const handleStartTask = (task: Booking) => {
     (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
@@ -549,7 +508,7 @@ export function WorkerApp() {
         ].map(t => {
           const isActive = tab === t.id;
           return (
-          <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); setSelectedCalDate(null); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`}>
+          <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`}>
             {isActive && (
               <motion.span layoutId="worker-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
             )}
