@@ -946,6 +946,11 @@ class SessionPayload(BaseModel):
     sessionId: str = ""
     login: str | None = None
     displayName: str
+    # Предпросмотр роли создателем: интерфейс и данные отдаются от имени
+    # другой роли, но сессия помечена, чтобы UI показал баннер-предупреждение.
+    isPreview: bool = False
+    realRole: Role | None = None
+    realDisplayName: str | None = None
 
 
 class BootstrapPayload(BaseModel):
@@ -964,6 +969,7 @@ class BootstrapPayload(BaseModel):
     boxes: list[BoxPayload]
     schedule: list[SchedulePayload]
     settings: SettingsBundlePayload
+    rolePreview: RolePreviewState | None = None
 
 
 class ClientRegisterRequest(BaseModel):
@@ -1022,6 +1028,46 @@ class StaffLinkRequest(BaseModel):
 
 class SwitchRoleRequest(BaseModel):
     targetRole: StaffRole
+
+
+class RolePreviewActor(BaseModel):
+    """Конкретный аккаунт, от имени которого можно открыть роль."""
+
+    id: str
+    name: str
+    login: str | None = None
+    hint: str | None = None
+
+
+class RolePreviewOption(BaseModel):
+    role: Role
+    label: str
+    description: str = ""
+    actors: list[RolePreviewActor] = Field(default_factory=list)
+
+
+class RolePreviewState(BaseModel):
+    """Состояние предпросмотра ролей для создателя.
+
+    available=False для всех, кроме создателя: фронтенд просто не рисует
+    переключатель, а бэкенд отклоняет любые попытки активации.
+    """
+
+    available: bool = False
+    roles: list[RolePreviewOption] = Field(default_factory=list)
+    activeRole: Role | None = None
+    activeActorId: str | None = None
+    activeActorName: str | None = None
+    realRole: Role | None = None
+    realActorId: str | None = None
+    realActorName: str | None = None
+
+
+class RolePreviewRequest(BaseModel):
+    """role=None (или отсутствие actorId при недоступном аккаунте) сбрасывает предпросмотр."""
+
+    role: Role | None = None
+    actorId: str | None = None
 
 
 def _normalize_booking_date(value: str) -> str:

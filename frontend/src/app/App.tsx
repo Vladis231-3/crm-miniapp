@@ -34,6 +34,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { useTelegramMainButton } from './hooks/useTelegramMainButton';
 import { useTelegramBackButton } from './hooks/useTelegramBackButton';
 import { useTelegramSetup } from './hooks/useTelegramSetup';
+import { RolePreviewSwitcher } from './components/shared/RolePreviewSwitcher';
 const ClientApp = lazy(() => import('./components/client/ClientApp').then(m => ({ default: m.ClientApp })));
 const AdminApp = lazy(() => import('./components/admin/AdminApp').then(m => ({ default: m.AdminApp })));
 const WorkerApp = lazy(() => import('./components/worker/WorkerApp').then(m => ({ default: m.WorkerApp })));
@@ -665,6 +666,10 @@ function AppContent() {
 
   return (
     <div className={`${isDark ? 'dark' : ''} relative`}>
+      {/* Переключатель предпросмотра ролей (только создатель). Монтируется
+          ВНЕ ErrorBoundary приложений ролей: если просматриваемый интерфейс
+          упадёт (например, панель мастера), переключатель останется доступным. */}
+      <RolePreviewSwitcher />
       <Suspense
         fallback={
           <div

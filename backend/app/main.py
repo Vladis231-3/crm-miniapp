@@ -345,6 +345,14 @@ from .schemas import (
 
     SwitchRoleRequest,
 
+    RolePreviewActor,
+
+    RolePreviewOption,
+
+    RolePreviewRequest,
+
+    RolePreviewState,
+
     StockItemPayload,
 
     StockItemUpdateRequest,
@@ -627,6 +635,29 @@ SECONDARY_OWNER_ID = "owner-1"
 # Format: (database id, login, Telegram id, display name).
 
 PERMANENT_TELEGRAM_OWNERS = settings.permanent_telegram_owners
+
+# Telegram id создателя. Только этим аккаунтам доступен предпросмотр ролей
+# (переключение «посмотреть интерфейс как …»). Пусто -> функция отключена.
+CREATOR_TELEGRAM_IDS = frozenset(settings.creator_telegram_ids)
+
+ROLE_PREVIEW_SETTING_PREFIX = "role_preview_"
+
+# Человекочитаемые подписи ролей для переключателя предпросмотра.
+ROLE_PREVIEW_LABELS: dict[str, str] = {
+    "client": "Клиент",
+    "admin": "Администратор",
+    "worker": "Мастер",
+    "owner": "Владелец",
+    "accountant": "Бухгалтер",
+}
+
+ROLE_PREVIEW_DESCRIPTIONS: dict[str, str] = {
+    "client": "Каталог услуг, запись, свои визиты и профиль",
+    "admin": "Календарь записей, клиенты, смены и зарплаты",
+    "worker": "Личный кабинет мастера: смены, наряды, зарплата",
+    "owner": "Финансы, склад, сотрудники и отчёты",
+    "accountant": "Финансы и ведомости без управления персоналом",
+}
 
 OWNER_DATABASE_RESET_SETTING_KEY = "owner_database_reset"
 
@@ -5252,6 +5283,12 @@ def _session_payload(session_data: dict) -> SessionPayload:
 
         displayName=session_data["displayName"],
 
+        isPreview=bool(session_data.get("isPreview")),
+
+        realRole=session_data.get("realRole"),
+
+        realDisplayName=session_data.get("realDisplayName"),
+
     )
 
 
@@ -5302,7 +5339,11 @@ def _mark_overdue_bookings_for_admin_review(db: Session) -> None:
 
 
 
-def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
+def _build_bootstrap(
+    db: Session,
+    session_data: dict,
+    role_preview: RolePreviewState | None = None,
+) -> BootstrapPayload:
 
     role = session_data["role"]
 
@@ -5618,6 +5659,8 @@ def _build_bootstrap(db: Session, session_data: dict) -> BootstrapPayload:
 
         settings=_scoped_settings_payload(db, role, actor_id),
 
+        rolePreview=role_preview,
+
     )
 
 
@@ -5745,6 +5788,192 @@ def _resolve_user_from_init_data(authorization: str, db: Session) -> dict | None
 
 
 
+# ---------------------------------------------------------------------------
+# Предпросмотр ролей («посмотреть интерфейс как …»).
+#
+# Доступно исключительно создателю (Telegram id из CREATOR_TELEGRAM_IDS).
+# Состояние живёт в app_settings ключом role_preview_<telegram_id>, поэтому
+# переживает перезагрузку страницы и рестарт бэкенда; снимается либо явно из
+# UI, либо при выходе из аккаунта.
+# ---------------------------------------------------------------------------
+
+
+def _role_preview_setting_key(telegram_id: str) -> str:
+    return f"{ROLE_PREVIEW_SETTING_PREFIX}{telegram_id}"
+
+
+def _read_role_preview(db: Session, telegram_id: str) -> dict:
+    if not telegram_id or telegram_id not in CREATOR_TELEGRAM_IDS:
+        return {}
+    row = db.get(AppSetting, _role_preview_setting_key(telegram_id))
+    value = row.value if row else None
+    if not isinstance(value, dict):
+        return {}
+    role = value.get("role")
+    if role not in ROLE_PREVIEW_LABELS:
+        return {}
+    actor_id = _safe_text(value.get("actorId")).strip()
+    if not actor_id:
+        return {}
+    return {"role": role, "actorId": actor_id}
+
+
+def _write_role_preview(db: Session, telegram_id: str, state: dict | None) -> None:
+    if not telegram_id or telegram_id not in CREATOR_TELEGRAM_IDS:
+        return
+    key = _role_preview_setting_key(telegram_id)
+    row = db.get(AppSetting, key)
+    if state is None:
+        if row is not None:
+            db.delete(row)
+            db.commit()
+        return
+    if row is None:
+        db.add(AppSetting(key=key, value=state))
+    else:
+        row.value = state
+    db.commit()
+
+
+def _telegram_id_from_init_data(authorization: str) -> str:
+    """Возвращает проверенный Telegram id или '' — без выброса исключений.
+
+    Используется там, где отсутствие валидного initData уже обработано
+    основным путём аутентификации и нужно лишь уточнить «кто именно».
+    """
+    if not authorization:
+        return ""
+    try:
+        return _extract_telegram_id_from_init_data(authorization)
+    except HTTPException:
+        return ""
+    except Exception:  # предпросмотр не должен ломать основной вход
+        logger.debug("Не удалось извлечь telegram_id из initData", exc_info=True)
+        return ""
+
+
+def _preview_actor_query(db: Session, role: str) -> list[RolePreviewActor]:
+    """Список аккаунтов, от имени которых можно посмотреть роль."""
+    if role == "client":
+        rows = db.scalars(
+            select(Client)
+            .where(Client.deleted_at.is_(None))
+            .order_by(Client.name.asc())
+            .limit(50)
+        ).all()
+        return [
+            RolePreviewActor(
+                id=row.id,
+                name=row.name or "Клиент",
+                login=None,
+                hint=row.phone or None,
+            )
+            for row in rows
+        ]
+
+    staff_rows = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.role == role, StaffUser.active.is_(True))
+        .order_by(StaffUser.name.asc())
+    ).all()
+    return [
+        RolePreviewActor(
+            id=row.id,
+            name=row.name or row.login or "Сотрудник",
+            login=row.login,
+            hint=ROLE_PREVIEW_LABELS.get(role, role),
+        )
+        for row in staff_rows
+    ]
+
+
+def _preview_session_data(db: Session, role: str, actor_id: str) -> dict | None:
+    """Собирает session_data для предпросмотра указанного аккаунта."""
+    if role == "client":
+        client = db.get(Client, actor_id)
+        if client is None or client.deleted_at is not None:
+            return None
+        return {
+            "role": "client",
+            "actorId": client.id,
+            "login": None,
+            "displayName": client.name or "Клиент",
+            "sessionId": "",
+        }
+    staff = db.get(StaffUser, actor_id)
+    if staff is None or staff.role != role:
+        return None
+    return {
+        "role": staff.role,
+        "actorId": staff.id,
+        "login": staff.login,
+        "displayName": staff.name or staff.login or "Сотрудник",
+        "sessionId": "",
+    }
+
+
+def _apply_role_preview(db: Session, authorization: str, session_data: dict) -> dict:
+    """Подменяет роль/аккаунт, если создатель включил предпросмотр."""
+    if not CREATOR_TELEGRAM_IDS:
+        return session_data
+    telegram_id = _telegram_id_from_init_data(authorization)
+    preview = _read_role_preview(db, telegram_id)
+    if not preview:
+        return session_data
+    preview_data = _preview_session_data(db, preview["role"], preview["actorId"])
+    if preview_data is None:
+        # Аккаунт удалён/деактивирован — предпросмотр снимаем, чтобы создатель
+        # не оказался заперт в битом состоянии.
+        _write_role_preview(db, telegram_id, None)
+        return session_data
+    if preview_data["role"] == session_data.get("role") and preview_data["actorId"] == session_data.get(
+        "actorId"
+    ):
+        return session_data
+    preview_data["isPreview"] = True
+    preview_data["realRole"] = session_data.get("role")
+    preview_data["realDisplayName"] = session_data.get("displayName")
+    return preview_data
+
+
+def _role_preview_state(db: Session, authorization: str, session_data: dict) -> RolePreviewState:
+    """Полное состояние переключателя для текущего пользователя."""
+    telegram_id = _telegram_id_from_init_data(authorization)
+    if not telegram_id or telegram_id not in CREATOR_TELEGRAM_IDS:
+        return RolePreviewState(available=False)
+
+    options: list[RolePreviewOption] = []
+    for role, label in ROLE_PREVIEW_LABELS.items():
+        actors = _preview_actor_query(db, role)
+        if not actors:
+            continue
+        options.append(
+            RolePreviewOption(
+                role=role,  # type: ignore[arg-type]
+                label=label,
+                description=ROLE_PREVIEW_DESCRIPTIONS.get(role, ""),
+                actors=actors,
+            )
+        )
+
+    preview = _read_role_preview(db, telegram_id)
+    active_name: str | None = None
+    if preview:
+        target = _preview_session_data(db, preview["role"], preview["actorId"])
+        active_name = target["displayName"] if target else None
+
+    return RolePreviewState(
+        available=True,
+        roles=options,
+        activeRole=preview.get("role") if preview else None,  # type: ignore[arg-type]
+        activeActorId=preview.get("actorId") if preview else None,
+        activeActorName=active_name,
+        realRole=session_data.get("realRole") or session_data.get("role"),  # type: ignore[arg-type]
+        realActorId=session_data.get("actorId"),
+        realActorName=session_data.get("realDisplayName") or session_data.get("displayName"),
+    )
+
+
 def _require_session(
 
     authorization: str | None = Header(default=None),
@@ -5773,7 +6002,7 @@ def _require_session(
 
         )
 
-    return session_data
+    return _apply_role_preview(db, authorization, session_data)
 
 
 def _extract_telegram_id_from_init_data(authorization: str) -> str:
@@ -23569,10 +23798,83 @@ def fire_worker(
 
 @app.get("/api/auth/session", response_model=BootstrapPayload)
 def get_session_bootstrap(
+    request: Request,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> BootstrapPayload:
-    return _build_bootstrap(db, session_data)
+    authorization = (request.headers.get("authorization") or "").strip()
+    return _build_bootstrap(
+        db,
+        session_data,
+        role_preview=_role_preview_state(db, authorization, session_data),
+    )
+
+
+@app.get("/api/auth/role-preview", response_model=RolePreviewState)
+def get_role_preview(
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> RolePreviewState:
+    """Состояние переключателя ролей.
+
+    Для всех, кроме создателя, отвечает `available=false` — фронтенд по этому
+    флагу не отрисовывает переключатель вовсе.
+    """
+    authorization = (request.headers.get("authorization") or "").strip()
+    return _role_preview_state(db, authorization, session_data)
+
+
+@app.post("/api/auth/role-preview", response_model=BootstrapPayload)
+def set_role_preview(
+    payload: RolePreviewRequest,
+    request: Request,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> BootstrapPayload:
+    """Включает/выключает предпросмотр роли. Только для создателя."""
+    authorization = (request.headers.get("authorization") or "").strip()
+    telegram_id = _telegram_id_from_init_data(authorization)
+    if not telegram_id or telegram_id not in CREATOR_TELEGRAM_IDS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Предпросмотр ролей доступен только создателю",
+        )
+
+    if payload.role is None:
+        _write_role_preview(db, telegram_id, None)
+    else:
+        actor_id = (payload.actorId or "").strip()
+        if not actor_id:
+            actors = _preview_actor_query(db, payload.role)
+            if not actors:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Для этой роли нет ни одного аккаунта",
+                )
+            actor_id = actors[0].id
+        if _preview_session_data(db, payload.role, actor_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Аккаунт не найден или не относится к выбранной роли",
+            )
+        _write_role_preview(db, telegram_id, {"role": payload.role, "actorId": actor_id})
+        logger.warning(
+            "ROLE PREVIEW: создатель (tg=%s) открыл интерфейс как %s/%s",
+            telegram_id,
+            payload.role,
+            actor_id,
+        )
+
+    # Пересобираем bootstrap в целевой роли: session_data, пришедший из
+    # _require_session, ещё отражает предыдущее состояние предпросмотра.
+    real_session = _resolve_user_from_init_data(authorization, db) or session_data
+    effective = _apply_role_preview(db, authorization, real_session)
+    return _build_bootstrap(
+        db,
+        effective,
+        role_preview=_role_preview_state(db, authorization, real_session),
+    )
 
 
 @app.get("/api/auth/consent/check", response_model=ConsentCheckResponse)
@@ -23621,9 +23923,14 @@ def get_active_sessions(
 
 @app.post("/api/auth/logout", response_model=GenericMessage)
 def logout(
+    request: Request,
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> GenericMessage:
+    # Выход всегда сбрасывает предпросмотр роли, иначе создатель рискует
+    # надолго остаться в «чужом» интерфейсе.
+    authorization = (request.headers.get("authorization") or "").strip()
+    _write_role_preview(db, _telegram_id_from_init_data(authorization), None)
     return GenericMessage(message="Выход выполнен")
 
 

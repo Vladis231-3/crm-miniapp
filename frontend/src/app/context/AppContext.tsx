@@ -12,6 +12,36 @@ export interface SessionInfo {
   sessionId: string;
   login?: string | null;
   displayName: string;
+  /** true, когда интерфейс открыт «как другая роль» (предпросмотр создателя). */
+  isPreview?: boolean;
+  realRole?: Role | null;
+  realDisplayName?: string | null;
+}
+
+/** Конкретный аккаунт, от имени которого можно посмотреть роль. */
+export interface RolePreviewActor {
+  id: string;
+  name: string;
+  login?: string | null;
+  hint?: string | null;
+}
+
+export interface RolePreviewOption {
+  role: Role;
+  label: string;
+  description: string;
+  actors: RolePreviewActor[];
+}
+
+export interface RolePreviewState {
+  available: boolean;
+  roles: RolePreviewOption[];
+  activeRole: Role | null;
+  activeActorId: string | null;
+  activeActorName: string | null;
+  realRole: Role | null;
+  realActorId: string | null;
+  realActorName: string | null;
 }
 
 export interface ClientProfile {
@@ -779,6 +809,7 @@ interface BootstrapPayload {
   boxes: Box[];
   schedule: ScheduleDay[];
   settings: SettingsBundle;
+  rolePreview?: RolePreviewState | null;
 }
 
 interface AppContextType {
@@ -807,6 +838,8 @@ interface AppContextType {
   boxes: Box[];
   schedule: ScheduleDay[];
   settings: SettingsBundle;
+  /** Доступно только создателю: null/undefined и available=false — переключатель не рисуем. */
+  rolePreview: RolePreviewState | null;
   upcomingDates: string[];
   todayLabel: string;
   tomorrowLabel: string;
@@ -815,6 +848,10 @@ interface AppContextType {
   loginClient: (profile: { name: string; car?: string; plate?: string; registered?: boolean }) => Promise<Role>;
   linkStaff: (login: string, password: string) => Promise<Role>;
   switchRole: (targetRole: Role) => Promise<void>;
+  /** Открыть интерфейс от имени другой роли (только создатель). */
+  startRolePreview: (role: Role, actorId?: string) => Promise<void>;
+  /** Вернуться в собственную роль создателя. */
+  stopRolePreview: () => Promise<void>;
   updateClientProfile: (profile: Partial<ClientProfile>) => Promise<void>;
   addClient: (client: ClientCreateInput) => Promise<RegisteredClient>;
   updateClientCard: (clientId: string, updates: Partial<Pick<RegisteredClient, 'name' | 'phone' | 'car' | 'plate' | 'plateType' | 'notes' | 'debtBalance' | 'adminRating' | 'adminNote' | 'referralSource'> & { vehicles?: Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }> }>) => Promise<void>;
@@ -1005,6 +1042,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [rolePreview, setRolePreview] = useState<RolePreviewState | null>(null);
   // --- Тема: persist ручного выбора (REDESIGN_PLAN.md §6.1) ---
   // null = авто (следовать за Telegram); 'dark' | 'light' = ручной выбор.
   const THEME_OVERRIDE_KEY = 'atmosfera-theme-override';
@@ -1077,11 +1115,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ownerSecurity: { ...EMPTY_SETTINGS.ownerSecurity, ...normalized.settings.ownerSecurity },
       workerNotificationSettings: normalized.settings.workerNotificationSettings || {},
     });
+    setRolePreview(normalized.rolePreview ?? null);
   }
 
   async function refreshBootstrap() {
     const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/session');
     applyBootstrap(bootstrap);
+  }
+
+  async function startRolePreview(targetRole: Role, actorId?: string) {
+    try {
+      setAuthLoading(true);
+      setError(null);
+      const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/role-preview', {
+        method: 'POST',
+        body: { role: targetRole, actorId: actorId ?? null },
+      });
+      applyBootstrap(bootstrap);
+    } catch (nextError) {
+      handleError(nextError);
+      throw nextError;
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function stopRolePreview() {
+    try {
+      setAuthLoading(true);
+      setError(null);
+      const bootstrap = await apiRequest<BootstrapPayload>('/api/auth/role-preview', {
+        method: 'POST',
+        body: { role: null, actorId: null },
+      });
+      applyBootstrap(bootstrap);
+    } catch (nextError) {
+      handleError(nextError);
+      throw nextError;
+    } finally {
+      setAuthLoading(false);
+    }
   }
 
   function handleError(nextError: unknown) {
@@ -1144,6 +1217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     setSession(null);
     setActiveSessions([]);
+    setRolePreview(null);
     setClientProfile(EMPTY_CLIENT_PROFILE);
     setStaffProfile(null);
     setClients([]);
@@ -1960,6 +2034,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       schedule,
       settings,
       content,
+      rolePreview,
       upcomingDates,
       todayLabel,
       tomorrowLabel,
@@ -1968,6 +2043,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       loginClient,
       linkStaff,
       switchRole,
+      startRolePreview,
+      stopRolePreview,
       updateClientProfile,
       addClient,
       updateClientCard,

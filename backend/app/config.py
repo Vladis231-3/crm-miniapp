@@ -56,6 +56,7 @@ class Settings:
     database_url: str
     database_sslmode: str | None
     permanent_telegram_owners: tuple[tuple[str, str, str, str], ...]
+    creator_telegram_ids: tuple[str, ...]
     google_calendar_client_id: str | None
     google_calendar_client_secret: str | None
     google_calendar_redirect_uri: str | None
@@ -169,6 +170,33 @@ def _parse_permanent_telegram_owners(raw: str | None) -> tuple[tuple[str, str, s
     return tuple(parsed)
 
 
+# Telegram id создателя проекта. Единственный аккаунт, которому доступен
+# предпросмотр интерфейса от имени других ролей (см. /api/auth/role-preview).
+DEFAULT_CREATOR_TELEGRAM_IDS = ("974738256",)
+
+
+def _parse_creator_telegram_ids(raw: str | None) -> tuple[str, ...]:
+    """Разрешённые Telegram id создателя. Пустая строка -> значения по умолчанию.
+
+    Список намеренно вынесен в конфигурацию: идентификаторы не должны жить
+    в исходниках, но дефолт сохраняет работоспособность «из коробки».
+    """
+    if raw is None or not raw.strip():
+        return DEFAULT_CREATOR_TELEGRAM_IDS
+    parsed: list[str] = []
+    for chunk in raw.replace(";", ",").split(","):
+        value = chunk.strip()
+        if not value:
+            continue
+        if not value.isdigit() or int(value) <= 0:
+            raise RuntimeError("CREATOR_TELEGRAM_IDS must contain positive numeric Telegram ids")
+        if value not in parsed:
+            parsed.append(value)
+    if not parsed:
+        return DEFAULT_CREATOR_TELEGRAM_IDS
+    return tuple(parsed)
+
+
 def get_settings() -> Settings:
     PERSISTENT_DATA_DIR.mkdir(parents=True, exist_ok=True)
     environment, is_production = _normalize_environment()
@@ -257,6 +285,7 @@ def get_settings() -> Settings:
         permanent_telegram_owners=_parse_permanent_telegram_owners(
             os.getenv("PERMANENT_TELEGRAM_OWNERS")
         ),
+        creator_telegram_ids=_parse_creator_telegram_ids(os.getenv("CREATOR_TELEGRAM_IDS")),
         google_calendar_client_id=(os.getenv("GOOGLE_CALENDAR_CLIENT_ID") or "").strip() or None,
         google_calendar_client_secret=(
             os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET") or ""
