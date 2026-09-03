@@ -8733,6 +8733,44 @@ class _PartialBroadcastError(Exception):
 
 
 
+async def _partial_broadcast_error_handler(
+
+    request: Request, exc: _PartialBroadcastError
+
+) -> AsciiJSONResponse:
+
+    """HTTP 207: файл доставлен не всем получателям (отчёт по доставке в теле)."""
+
+    logger.warning(
+
+        "Partial Telegram broadcast on %s %s: delivered=%d failed=%d",
+
+        request.method,
+
+        request.url.path,
+
+        exc.payload.delivered,
+
+        exc.payload.failed,
+
+    )
+
+    return AsciiJSONResponse(
+
+        status_code=status.HTTP_207_MULTI_STATUS,
+
+        content=exc.payload.model_dump(),
+
+    )
+
+
+
+
+app.add_exception_handler(_PartialBroadcastError, _partial_broadcast_error_handler)
+
+
+
+
 
 def _send_export_to_telegram(
 
@@ -8794,6 +8832,10 @@ def _send_export_to_telegram(
 
         )
 
+    # Уведомления должны сохраниться при любом исходе доставки
+    # (зеркалит _send_owner_summary_report; get_db не делает автокоммит).
+    db.commit()
+
     delivered = sum(1 for r in results if r.success)
 
     failed = sum(1 for r in results if not r.success)
@@ -8842,7 +8884,8 @@ def _send_export_to_telegram(
 
         )
 
-    # Partial failure — caller should handle HTTP 207
+    # Partial failure — HTTP 207 отдаёт app-level handler
+    # _partial_broadcast_error_handler (см. _PartialBroadcastError выше).
 
     raise _PartialBroadcastError(
 

@@ -105,6 +105,47 @@ class BroadcastEdgeCaseTests(unittest.TestCase):
                 owner.telegram_chat_id = ""
             db.commit()
 
+    def set_owner_telegram_chat_ids(self, *, all_good: bool) -> int:
+        """Привязывает уникальные telegram_chat_id всем владельцам.
+
+        Число владельцев не фиксировано: в dev-сиде это creator_owner + owner,
+        но утечка PERMANENT_TELEGRAM_OWNERS из других тест-файлов добавляет ещё.
+        Владелец с login='owner' (под ним ходит тест) всегда получает
+        доставляемый id; при all_good=False остальные получают 'падающий'
+        префикс 66.. (доставка для них упадёт в тестовом send-моке).
+        Возвращает число владельцев.
+        """
+        from app.database import SessionLocal
+        from app.models import StaffUser
+
+        with SessionLocal() as db:
+            owners = db.scalars(
+                select(StaffUser).where(StaffUser.role == "owner")
+            ).all()
+            self.assertGreaterEqual(
+                len(owners), 2, f"expected at least 2 owners, found {len(owners)}"
+            )
+            for index, owner in enumerate(owners):
+                if all_good or owner.login == "owner":
+                    owner.telegram_chat_id = f"55{index:02d}"
+                else:
+                    owner.telegram_chat_id = f"66{index:02d}"
+            db.commit()
+            return len(owners)
+
+    def count_owner_notifications(self) -> int:
+        from app.database import SessionLocal
+        from app.models import Notification
+
+        with SessionLocal() as db:
+            return len(
+                db.scalars(
+                    select(Notification).where(
+                        Notification.recipient_role == "owner"
+                    )
+                ).all()
+            )
+
     @staticmethod
     def auth_headers(token: str) -> dict[str, str]:
         return {"Authorization": token}
@@ -176,6 +217,98 @@ class BroadcastEdgeCaseTests(unittest.TestCase):
         # Telegram helpers must NOT have been called
         mock_doc.assert_not_called()
         mock_msg.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # Partial broadcast: delivered > 0 and failed > 0 → HTTP 207 (не 500)
+    # Регрессия: _PartialBroadcastError раньше не перехватывался ни одним
+    # эндпоинтом и улетал в ASGI как необработанное исключение (HTTP 500).
+    # ------------------------------------------------------------------
+
+    def _login_owner(self) -> str:
+        self.disable_owner_two_factor()
+        return self.login_staff("owner", "owner")
+
+    def test_export_broadcast_returns_207_on_partial_failure(self) -> None:
+        """POST /api/owner/exports/report/telegram: часть доставок падает → 207."""
+        # chat_id выставляем ДО логина: staff-login токен встраивает chat_id.
+        owner_count = self.set_owner_telegram_chat_ids(all_good=False)
+        owner_token = self._login_owner()
+        notifications_before = self.count_owner_notifications()
+
+        def _flaky_send(chat_id, *, file_name, content, caption=None, mime_type=None):
+            if str(chat_id).startswith("66"):
+                raise RuntimeError("blocked by user")
+
+        with patch("app.main.send_telegram_document", side_effect=_flaky_send) as mock_doc:
+            response = self.client.post(
+                "/api/owner/exports/report/telegram",
+                headers=self.auth_headers(owner_token),
+            )
+
+        self.assertEqual(
+            response.status_code,
+            207,
+            f"Expected 207 on partial broadcast, got {response.status_code}: {response.text}",
+        )
+        payload = response.json()
+        self.assertEqual(payload["delivered"], 1)
+        self.assertEqual(payload["failed"], owner_count - 1)
+        self.assertEqual(len(payload["results"]), owner_count)
+        self.assertEqual(mock_doc.call_count, owner_count)
+        # Notification для владельцев должны быть сохранены (db.commit в фоне)
+        self.assertEqual(
+            self.count_owner_notifications(),
+            notifications_before + owner_count,
+            "in-app notifications must be persisted even on partial delivery failure",
+        )
+
+    def test_piggy_bank_export_broadcast_returns_207_on_partial_failure(self) -> None:
+        """POST /api/owner/exports/piggy-bank/telegram (эндпоинт из баг-репорта):
+        частичная неудача доставки → 207, а не необработанное исключение."""
+        owner_count = self.set_owner_telegram_chat_ids(all_good=False)
+        owner_token = self._login_owner()
+
+        def _flaky_send(chat_id, *, file_name, content, caption=None, mime_type=None):
+            if str(chat_id).startswith("66"):
+                raise RuntimeError("blocked by user")
+
+        with patch("app.main.send_telegram_document", side_effect=_flaky_send):
+            response = self.client.post(
+                "/api/owner/exports/piggy-bank/telegram",
+                headers=self.auth_headers(owner_token),
+            )
+
+        self.assertEqual(
+            response.status_code,
+            207,
+            f"Expected 207 on partial broadcast, got {response.status_code}: {response.text}",
+        )
+        payload = response.json()
+        self.assertEqual(payload["delivered"], 1)
+        self.assertEqual(payload["failed"], owner_count - 1)
+
+    def test_export_broadcast_returns_200_when_all_delivered(self) -> None:
+        """POST /api/owner/exports/report/telegram: все доставки успешны → 200
+        c legacy-телом OwnerExportDeliveryPayload (контракт не изменился)."""
+        owner_count = self.set_owner_telegram_chat_ids(all_good=True)
+        owner_token = self._login_owner()
+
+        with patch("app.main.send_telegram_document") as mock_doc:
+            response = self.client.post(
+                "/api/owner/exports/report/telegram",
+                headers=self.auth_headers(owner_token),
+            )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Expected 200 on full broadcast, got {response.status_code}: {response.text}",
+        )
+        payload = response.json()
+        self.assertTrue(payload["telegramSent"])
+        self.assertIn("fileName", payload)
+        self.assertIn("message", payload)
+        self.assertEqual(mock_doc.call_count, owner_count)
 
 
 if __name__ == "__main__":

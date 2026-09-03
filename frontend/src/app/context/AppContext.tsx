@@ -414,6 +414,22 @@ export interface OwnerExportDelivery {
   fileName: string;
   telegramSent: boolean;
   telegramChatId?: string | null;
+  /** Заполнен при HTTP 207 — доставлено не всем получателям. */
+  partial?: TelegramBroadcastPayload;
+}
+
+/** Зеркало backend schemas.py: TelegramDeliveryResult. */
+export interface TelegramDeliveryResult {
+  owner_id: string;
+  success: boolean;
+  error?: string | null;
+}
+
+/** Зеркало backend schemas.py: TelegramBroadcastPayload (тело ответа HTTP 207). */
+export interface TelegramBroadcastPayload {
+  results: TelegramDeliveryResult[];
+  delivered: number;
+  failed: number;
 }
 
 export interface DepositTransactionPayload {
@@ -912,6 +928,7 @@ interface AppContextType {
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
   saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
   saveContent: (content: ContentData) => Promise<void>;
+  content: ContentData;
   createPayrollEntry: (entry: PayrollEntryCreateInput) => Promise<void>;
   listShiftChecklists: () => Promise<ShiftChecklist[]>;
   submitShiftChecklist: (payload: { phase: 'start' | 'end'; note?: string; items: Array<{ stockItemId: string; actualQty: number }> }) => Promise<ShiftChecklist>;
@@ -1373,6 +1390,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }
 
+  /** Приводит тело ответа POST .../telegram к OwnerExportDelivery.
+   *
+   * 200 — OwnerExportDeliveryPayload как есть.
+   * 207 — TelegramBroadcastPayload (доставлено не всем): собираем понятное
+   * сообщение, полный отчёт кладём в `partial`.
+   */
+  function resolveOwnerExportDelivery(raw: OwnerExportDelivery & Partial<TelegramBroadcastPayload>, fileNameFallback: string): OwnerExportDelivery {
+    if (typeof raw?.delivered !== 'number' || !Array.isArray(raw?.results)) return raw;
+    const failedCount = typeof raw.failed === 'number' ? raw.failed : raw.results.filter((r) => !r.success).length;
+    const partial: TelegramBroadcastPayload = {
+      results: raw.results,
+      delivered: raw.delivered,
+      failed: failedCount,
+    };
+    return {
+      message: `Файл отправлен ${partial.delivered} из ${partial.delivered + failedCount} получателей Telegram. ${failedCount} — не получили файл.`,
+      fileName: fileNameFallback,
+      telegramSent: partial.delivered > 0,
+      telegramChatId: null,
+      partial,
+    };
+  }
+
   async function downloadDepositExport(clientId: string) {
     return apiDownload(`/api/owner/deposits/${clientId}/export.xlsx`, 'deposit.xlsx');
   }
@@ -1382,11 +1422,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function sendDepositExport(clientId: string) {
-    return apiRequest<OwnerExportDelivery>(`/api/owner/deposits/${clientId}/export.xlsx/telegram`, { method: 'POST' });
+    return resolveOwnerExportDelivery(await apiRequest<OwnerExportDelivery & Partial<TelegramBroadcastPayload>>(`/api/owner/deposits/${clientId}/export.xlsx/telegram`, { method: 'POST' }), 'deposit.xlsx');
   }
 
   async function sendDepositExportAll() {
-    return apiRequest<OwnerExportDelivery>('/api/owner/deposits/export-all.xlsx/telegram', { method: 'POST' });
+    return resolveOwnerExportDelivery(await apiRequest<OwnerExportDelivery & Partial<TelegramBroadcastPayload>>('/api/owner/deposits/export-all.xlsx/telegram', { method: 'POST' }), 'deposits-all.xlsx');
   }
 
   async function addBooking(booking: BookingCreateInput) {
@@ -1689,6 +1729,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function sendOwnerExportToTelegram(kind: OwnerExportKind, params?: OwnerExportParams) {
+    const fallback = kind === 'pdf' ? 'owner-report.pdf' : kind === 'piggy-bank' ? 'piggy-bank-report.xlsx' : 'owner-report.xlsx';
     let path = `/api/owner/exports/${kind}/telegram`;
     if (params) {
       const qs = new URLSearchParams();
@@ -1699,12 +1740,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const qstr = qs.toString();
       if (qstr) path += '?' + qstr;
     }
-    return apiRequest<OwnerExportDelivery>(path, { method: 'POST' });
+    return resolveOwnerExportDelivery(await apiRequest<OwnerExportDelivery & Partial<TelegramBroadcastPayload>>(path, { method: 'POST' }), fallback);
   }
 
   async function sendOwnerSummaryReport(period: OwnerReportPeriod, segment: OwnerReportSegment) {
-    const response = await apiRequest<{ message: string }>(`/api/owner/reports/${period}/${segment}/telegram`, { method: 'POST' });
-    return response.message;
+    const response = await apiRequest<{ message?: string } & Partial<TelegramBroadcastPayload>>(`/api/owner/reports/${period}/${segment}/telegram`, { method: 'POST' });
+    if (response.message) return response.message;
+    // HTTP 207: отчёт доставлен не всем (тело — TelegramBroadcastPayload).
+    if (typeof response.delivered === 'number' && Array.isArray(response.results)) {
+      const failedCount = typeof response.failed === 'number' ? response.failed : response.results.filter((r) => !r.success).length;
+      return `Отчёт отправлен ${response.delivered} из ${response.delivered + failedCount} получателям Telegram. ${failedCount} — не получили файл.`;
+    }
+    return 'Не удалось получить статус отправки отчёта.';
   }
 
   async function dispatchOwnerReminders(options: { targetDate?: string; force?: boolean } = {}) {
