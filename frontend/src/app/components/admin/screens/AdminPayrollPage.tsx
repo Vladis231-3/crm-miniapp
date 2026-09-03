@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Save } from 'lucide-react';
-import { useApp, type Worker } from '../../../context/AppContext';
+import { useApp, type EmployeeSetting, type Worker } from '../../../context/AppContext';
 import { apiRequest } from '../../../api';
 
 type PayrollEntryKind = 'advance' | 'deduction' | 'bonus' | 'payout' | 'adjustment';
@@ -13,16 +13,6 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   payout: 'Выплата',
   adjustment: 'Корректировка',
 };
-
-interface EmployeeSetting {
-  id: string;
-  role: string;
-  name: string;
-  percent: number | '';
-  salaryBase: number;
-  active: boolean;
-  telegramChatId?: string | null;
-}
 
 /**
  * AdminPayrollPage — «Зарплаты» как полноценная страница (§6.2).
@@ -49,12 +39,13 @@ export function AdminPayrollPage() {
         .filter((worker) => worker.role === 'worker' || worker.role === 'owner')
         .map((worker) => ({
           id: worker.id,
-          role: 'worker',
+          role: 'worker' as const,
           name: worker.name,
           percent: worker.defaultPercent,
           salaryBase: worker.salaryBase,
+          salaryPerShift: worker.salaryPerShift ?? 0,
           active: worker.active,
-          telegramChatId: worker.telegramChatId,
+          telegramChatId: worker.telegramChatId || '',
         })),
     );
     setPayrollDrafts((current) =>
@@ -90,10 +81,18 @@ export function AdminPayrollPage() {
   }, [payrollPeriod]);
 
   const handleSaveSettings = async () => {
-    await saveAdminWorkerPayroll(payrollSettings);
-    loadPayrollData();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      setPayrollError(null);
+      // '' → 0: backend ждёт float (ge=0 le=100), пустая строка даёт 422
+      await saveAdminWorkerPayroll(
+        payrollSettings.map((worker) => ({ ...worker, percent: worker.percent === '' ? 0 : worker.percent })),
+      );
+      loadPayrollData();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      setPayrollError(error instanceof Error ? error.message : 'Не удалось сохранить зарплаты');
+    }
   };
 
   const handleCreatePayrollEntry = async (entryWorkerId: string, workerName: string) => {
@@ -178,6 +177,12 @@ export function AdminPayrollPage() {
               <input type="date" value={payrollDateTo} onChange={(e) => setPayrollDateTo(e.target.value)} className={`${inputCls} px-3 py-2`} />
             </div>
           </div>
+        </div>
+      )}
+
+      {payrollError && (
+        <div className="mb-3 rounded-xl border border-[color-mix(in_srgb,var(--status-danger)_20%,transparent)] bg-[var(--status-danger-soft)] px-3 py-2 text-xs text-[var(--status-danger)]">
+          {payrollError}
         </div>
       )}
 

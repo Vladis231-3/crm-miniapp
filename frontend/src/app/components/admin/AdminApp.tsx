@@ -6,7 +6,7 @@ import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
   Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
-  Shield, Sliders, BellOff, Save, Toggle, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
+  Shield, Sliders, BellOff, Save, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
@@ -26,16 +26,10 @@ import { AdminStatsPage } from './screens/AdminStatsPage';
 import { AdminClientsPage } from './screens/AdminClientsPage';
 import { AdminStockPage } from './screens/AdminStockPage';
 import { AdminCalendarDayScreen } from './screens/AdminCalendarDayScreen';
+import { AdminEmployeesPage } from './screens/AdminEmployeesPage';
 import { Sheet, StatusBadge } from '../atmosfera';
 import { AssignWorkersDialog } from './shared/AssignWorkersDialog';
-import {
-  AttendanceSectionShell,
-  BoxesSection,
-  ScheduleSection,
-  NotificationsSection,
-  ProfileSection,
-} from './settings-sections/AdminSettingsSections';
-import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
+import { useApp, Booking, BookingStatus, type AdditionalService, type AdminShiftInspection, type EmployeeSetting, type PayrollEntryKind, type RegisteredClient, type Role, type StockWriteOff, type Worker } from '../../context/AppContext';
 import { apiRequest } from '../../api';
 import { ContentEditor } from './ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
@@ -163,7 +157,7 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   adjustment: 'Корректировка',
 };
 
-type AdminPage = 'calendar' | 'stats' | 'clients' | 'stock' | 'payroll' |'settings';
+type AdminPage = 'calendar' | 'stats' | 'clients' | 'stock' | 'payroll' | 'employees' | 'settings';
 
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance' | 'content';
 type EditModalMode = 'edit' | 'reschedule';
@@ -353,9 +347,6 @@ export function AdminApp() {
     saveSchedule,
     saveAdminProfile,
     saveAdminNotificationSettings,
-    saveAdminWorkerPayroll,
-    saveContent,
-    content,
     createPayrollEntry,
     listAdminShiftInspections,
     submitAdminShiftInspection,
@@ -364,7 +355,6 @@ export function AdminApp() {
     deleteBooking,
     changePassword,
     refreshActiveSessions,
-    revokeSession,
     staffProfile,
     switchRole,
     todayLabel,
@@ -1594,7 +1584,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               onQuickCreate={() => setShowNewBooking(true)}
               onGoClients={() => setPage('clients')}
               onGoStock={() => setPage('stock')}
-              onOpenNotifications={() => setShowNotifications(true)}
+              onOpenNotifications={() => setShowNotifPanel(true)}
               onOpenBooking={(booking) => { setSelectedBooking(booking); setShowSlideOver(true); }}
             />
           )}
@@ -1610,6 +1600,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           {/* STOCK */}
           {page === 'stock' && <AdminStockPage />}
 
+          {/* EMPLOYEES — управление мастерами для админа */}
+          {page === 'employees' && <AdminEmployeesPage onOpenPayroll={() => setPage('payroll')} />}
+
           {/* SETTINGS */}
           {/* PAYROLL PAGE  -  реальная страница вместо settings-хака (§6.2) */}
           {page === 'payroll' && <AdminPayrollPage />}
@@ -1618,6 +1611,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
+                { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${masterWorkers.filter(m => m.active).length} мастеров`, color: accent },
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${settingsBoxes.filter(box => box.active).length} активных бокса`, color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
                 { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#10B981' },
@@ -1629,7 +1623,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'О студии, услуги, портфолио', color: '#06B6D4' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
-                  onClick={() => setSettingsSection(item.id as SettingsSection)}
+                  onClick={() => item.id === 'employees' ? setPage('employees') : setSettingsSection(item.id as SettingsSection)}
                   className={`${glass} rounded-2xl p-4 w-full text-left mb-3 flex items-center gap-3`}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}18` }}>
                     <item.icon size={18} strokeWidth={1.75} style={{ color: item.color }} />
@@ -1718,7 +1712,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               error={securityError}
               saved={securitySaved}
               activeSessions={activeSessions}
-              onRevokeSession={(id) => void revokeSession(id)}
+              onRevokeSession={(id) => setBottomToast(`Сессия ${id.slice(0, 8)}… будет закрыта автоматически по TTL`)}
               onBack={() => setSettingsSection(null)}
               onSave={handleSaveSettings}
             />
@@ -1929,16 +1923,13 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           { id: 'clients', icon: UsersRound, label: 'Клиенты' },
           { id: 'stock', icon: Package, label: 'Склад' },
           { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
+          { id: 'employees', icon: Users, label: 'Сотрудники' },
           { id: 'settings', icon: Settings2, label: 'Настройки' },
         ].map(tab => {
           const isActive = page === tab.id;
           return (
           <button key={tab.id} onClick={() => {
             (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-            if (tab.action) {
-              tab.action();
-              return;
-            }
             setPage(tab.id as AdminPage);
             setSettingsSection(null);
           }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label={tab.label}>
@@ -1994,6 +1985,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   { icon: BarChart3, label: 'Статистика', action: () => { setPage('stats'); setShowMenu(false); } },
                   { icon: Box, label: 'Склад', action: () => { setPage('stock'); setShowMenu(false); } },
                   { icon: DollarSign, label: 'Зарплаты мастерам', action: () => { setPage('payroll'); setSettingsSection(null); setShowMenu(false); } },
+                  { icon: Users, label: 'Сотрудники', action: () => { setPage('employees'); setSettingsSection(null); setShowMenu(false); } },
                   { icon: Bell, label: 'Уведомления', action: () => { setShowNotifPanel(true); setShowMenu(false); } },
                   { icon: Box, label: 'Боксы', action: () => { setPage('settings'); setSettingsSection('boxes'); setShowMenu(false); } },
                   { icon: Clock, label: 'Расписание', action: () => { setPage('settings'); setSettingsSection('schedule'); setShowMenu(false); } },
