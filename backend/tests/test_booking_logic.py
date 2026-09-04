@@ -607,7 +607,10 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(payload["settings"]["ownerNotificationSettings"]["bookingReminders"], False)
         self.assertEqual(payload["settings"]["workerNotificationSettings"], {})
 
-    def test_client_booking_can_share_busy_box(self) -> None:
+    def test_client_booking_moved_off_busy_box(self) -> None:
+        # R-001: занятый бокс больше не «расшаривается» — клиент
+        # автоматически уезжает на свободный (раньше обе записи падали
+        # в один бокс с 200).
         admin_token = self.login_staff("admin", "admin")
         booking_date = self.next_active_date()
         admin_response = self.client.post(
@@ -657,7 +660,60 @@ class BookingLogicTests(unittest.TestCase):
         )
         self.assertEqual(client_response.status_code, 200, client_response.text)
         payload = client_response.json()
-        self.assertEqual(payload["box"], "Бокс 1")
+        self.assertEqual(payload["box"], "Бокс 2")
+
+    def test_client_booking_rejected_when_no_box_free(self) -> None:
+        admin_token = self.login_staff("admin", "admin")
+        booking_date = self.next_active_date()
+        for index, (phone, box) in enumerate(
+            [("+7 (999) 111-22-33", "Бокс 1"), ("+7 (999) 222-33-44", "Бокс 2")]
+        ):
+            response = self.client.post(
+                "/api/bookings",
+                headers=self.auth_headers(admin_token),
+                json={
+                    "clientId": "",
+                    "clientName": f"Occupant {index}",
+                    "clientPhone": phone,
+                    "service": "Мойка базовая",
+                    "serviceId": "s1",
+                    "date": booking_date,
+                    "time": "10:00",
+                    "duration": 30,
+                    "price": 1200,
+                    "status": "scheduled",
+                    "workers": [],
+                    "box": box,
+                    "paymentType": "cash",
+                    "car": "Lada Vesta",
+                    "plate": "A123BC",
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+
+        client_token, _actor_id = self.login_client(name="Bob", phone="+7 (999) 333-44-55", car="Kia Rio", plate="B234BC77")
+        full_response = self.client.post(
+            "/api/bookings",
+            headers=self.auth_headers(client_token),
+            json={
+                "clientId": "",
+                "clientName": "Ignored Name",
+                "clientPhone": "+7 (999) 333-44-55",
+                "service": "Мойка базовая",
+                "serviceId": "s1",
+                "date": booking_date,
+                "time": "10:00",
+                "duration": 30,
+                "price": 1200,
+                "status": "scheduled",
+                "workers": [],
+                "box": "Бокс 1",
+                "paymentType": "cash",
+                "car": "Kia Rio",
+                "plate": "B234BC77",
+            },
+        )
+        self.assertEqual(full_response.status_code, 409, full_response.text)
 
     def test_detailing_booking_uses_detailing_room_and_keeps_slots_separate(self) -> None:
         admin_token = self.login_staff("admin", "admin")
@@ -865,7 +921,8 @@ class BookingLogicTests(unittest.TestCase):
             },
         )
         self.assertEqual(second_response.status_code, 200, second_response.text)
-        self.assertEqual(second_response.json()["box"], "Бокс 1")
+        # R-001: первый занял Бокс 1 — автоподбор обязан отдать свободный Бокс 2.
+        self.assertEqual(second_response.json()["box"], "Бокс 2")
 
     def test_admin_can_start_booking_that_ends_exactly_at_closing_time(self) -> None:
         from app.database import SessionLocal

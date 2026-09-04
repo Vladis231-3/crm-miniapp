@@ -3783,6 +3783,53 @@ def _ensure_booking_within_schedule(
 
 
 
+def _candidate_day_strings(date_value: str) -> list[str]:
+    """Дата слота + соседи (ловим пересечения через полночь)."""
+    try:
+        base = _dmy_to_date(date_value)
+    except (TypeError, ValueError):
+        return [date_value]
+    return [_dmy(base + timedelta(days=shift)) for shift in (-1, 0, 1)]
+
+
+def _overlapping_bookings(
+    db: Session,
+    *,
+    booking_id: str | None,
+    date_value: str,
+    time_value: str,
+    duration: int,
+) -> list:
+    """Активные записи, чьи интервалы пересекают [date/time, +duration).
+
+    R-001: раньше пересечения не проверялись вовсе (заглушки) — двойные
+    записи в один бокс/к мастеру принимались с 200.
+    """
+    candidate_range = _booking_time_range(date_value, time_value, duration)
+    if candidate_range is None:
+        return []
+    start_at, end_at = candidate_range
+    query = (
+        select(Booking)
+        .options(joinedload(Booking.worker_links))
+        .where(
+            Booking.deleted_at.is_(None),
+            Booking.status.in_(BOOKING_ACTIVE_STATUSES),
+            Booking.date.in_(_candidate_day_strings(date_value)),
+        )
+    )
+    if booking_id:
+        query = query.where(Booking.id != booking_id)
+    result = []
+    for other in db.scalars(query).unique().all():
+        other_range = _booking_time_range(other.date, other.time, other.duration or 0)
+        if other_range is None:
+            continue
+        if _time_ranges_overlap(start_at, end_at, other_range[0], other_range[1]):
+            result.append(other)
+    return result
+
+
 def _box_is_available(
 
     db: Session,
@@ -3801,7 +3848,21 @@ def _box_is_available(
 
 ) -> bool:
 
-    return True
+    if not box or box == DETAILING_REQUEST_BOX:
+        # Бокс «по согласованию» физического места не резервирует.
+        return True
+    if _booking_time_range(date_value, time_value, duration) is None:
+        return False
+    return not any(
+        other.box == box
+        for other in _overlapping_bookings(
+            db,
+            booking_id=booking_id,
+            date_value=date_value,
+            time_value=time_value,
+            duration=duration,
+        )
+    )
 
 
 
@@ -4060,6 +4121,35 @@ def _ensure_booking_has_no_conflicts(
             detail="Укажите корректные дату, время и длительность",
 
         )
+
+    clashes = _overlapping_bookings(
+        db,
+        booking_id=booking_id,
+        date_value=date_value,
+        time_value=time_value,
+        duration=duration,
+    )
+    if box and box != DETAILING_REQUEST_BOX:
+        busy_box = next((other for other in clashes if other.box == box), None)
+        if busy_box is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Бокс «{box}» занят в это время",
+            )
+    if worker_ids:
+        busy_names = sorted(
+            {
+                link.worker_name or link.worker_id
+                for other in clashes
+                for link in (other.worker_links or [])
+                if link.worker_id in worker_ids
+            }
+        )
+        if busy_names:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Мастер занят в это время: {', '.join(busy_names)}",
+            )
 
 
 
