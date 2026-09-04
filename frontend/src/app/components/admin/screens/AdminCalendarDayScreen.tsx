@@ -333,7 +333,7 @@ function DayBookingCard({
           </div>
           {booking.workers.length > 0 && (
             <div className={`mt-1 truncate text-xs ${sub}`}>
-              Мастера: {booking.workers.map((w) => formatWorkerPay(w, fixed)).join(', ')}
+              Мастера: {booking.workers.map((w) => formatWorkerPay(booking, w, fixed)).join(', ')}
             </div>
           )}
         </div>
@@ -376,8 +376,19 @@ function OtherBookingRow({ booking, onOpen }: { booking: Booking; onOpen: () => 
 }
 
 // ── Локальные хелперы (формулы из родителя) ──
-function formatWorkerPay(w: any, fixed: boolean): string {
+function mainServiceBasePrice(booking: Booking): number {
+  const additionalAddTotal = (booking.additionalServices || []).reduce(
+    (sum, as) => sum + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0),
+    0,
+  );
+  const legacyTotal = (booking.services || []).reduce((sum, svc) => sum + (Number(svc.price) || 0), 0);
+  return Math.max(0, (Number(booking.price) || 0) - additionalAddTotal - legacyTotal);
+}
+
+function formatWorkerPay(booking: Booking, w: any, fixed: boolean): string {
   if (fixed) return `${w.workerName} · фикс ${formatFixedMasterAmount()}`;
   if (w.payType === 'fixed') return `${w.workerName} · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽`;
-  return `${w.workerName} ${w.percent}%`;
+  const percent = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
+  const earned = Math.round(mainServiceBasePrice(booking) * percent / 100);
+  return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${earned.toLocaleString('ru')} ₽`;
 }

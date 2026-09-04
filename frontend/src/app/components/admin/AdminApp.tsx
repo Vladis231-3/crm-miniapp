@@ -2168,21 +2168,41 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     <button onClick={() => { setAssignedWorkers(selectedBooking.workers.map(w => ({ id: w.workerId, percent: w.percent, payType: w.payType || 'percent', fixedAmount: w.fixedAmount }))); setShowAssignModal(true); }}
                       className="text-xs px-2 py-1 rounded-lg" style={{ color: primary, background: `${primary}15` }}>Назначить</button>
                   </div>
-                  {selectedBooking.workers.length > 0 ? selectedBooking.workers.map(w => (
-                    <div key={w.workerId} className="flex justify-between items-center py-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
-                        <span className="text-sm">{w.workerName}</span>
+                  {selectedBooking.workers.length > 0 ? selectedBooking.workers.map(w => {
+                    const _isFixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
+                    if (_isFixed) return (
+                      <div key={w.workerId} className="flex justify-between items-center py-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
+                          <span className="text-sm">{w.workerName}</span>
+                        </div>
+                        <span className={`text-sm ${sub}`}>{`фикс ${formatFixedMasterAmount()}`}</span>
                       </div>
-                      <span className={`text-sm ${sub}`}>
-                        {isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service)
-                          ? `фикс ${formatFixedMasterAmount()}`
-                          : w.payType === 'fixed'
-                            ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽`
-                            : `${w.percent}%`}
-                      </span>
-                    </div>
-                  )) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
+                    );
+                    if (w.payType === 'fixed') return (
+                      <div key={w.workerId} className="flex justify-between items-center py-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
+                          <span className="text-sm">{w.workerName}</span>
+                        </div>
+                        <span className={`text-sm ${sub}`}>{`${(w.fixedAmount || 0).toLocaleString('ru')} ₽`}</span>
+                      </div>
+                    );
+                    const _addTotal = (selectedBooking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
+                    const _legacyTotal = (selectedBooking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
+                    const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal);
+                    const _pct = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
+                    const _earned = Math.round(_base * _pct / 100);
+                    return (
+                      <div key={w.workerId} className="flex justify-between items-center py-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white" style={{ background: primary }}>{w.workerName.charAt(0)}</div>
+                          <span className="text-sm">{w.workerName}</span>
+                        </div>
+                        <span className={`text-sm ${sub}`}>{`${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`}</span>
+                      </div>
+                    );
+                  }) : <p className={`text-sm ${sub}`}>Мастера не назначены</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={() => openEditModal(selectedBooking, 'edit')} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm ${glass}`}><Edit3 size={15} strokeWidth={1.75} />Редактировать</button>

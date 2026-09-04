@@ -4454,7 +4454,14 @@ paymentSettled: false,
                           {booking.workers.length > 0 && (
                             <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
                               const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
-                              return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
+                              if (_fixed) return `${w.workerName} · фикс ${formatFixedMasterAmount()}`;
+                              if (w.payType === 'fixed') return `${w.workerName} · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽`;
+                              const _addTotal = (booking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
+                              const _legacyTotal = (booking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
+                              const _base = Math.max(0, (Number(booking.price) || 0) - _addTotal - _legacyTotal);
+                              const _pct = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
+                              const _earned = Math.round(_base * _pct / 100);
+                              return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
                             }).join(', ')}</div>
                           )}
                         </div>
@@ -9660,7 +9667,14 @@ paymentSettled: false,
                     <div className={sub}>Длительность: {selectedBooking.duration} мин</div>
                     <div className={sub}>Мастера: {selectedBooking.workers.length ? selectedBooking.workers.map(w => {
                       const _fixed = isFixedMasterService(services, selectedBooking?.serviceId, selectedBooking?.service);
-                      return `${w.workerName}${_fixed ? ` · фикс ${formatFixedMasterAmount()}` : w.payType === 'fixed' ? ` · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : ` ${w.percent}%`}`;
+                      if (_fixed) return `${w.workerName} · фикс ${formatFixedMasterAmount()}`;
+                      if (w.payType === 'fixed') return `${w.workerName} · ${(w.fixedAmount || 0).toLocaleString('ru')} ₽`;
+                      const _addTotal = (selectedBooking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
+                      const _legacyTotal = (selectedBooking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
+                      const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal);
+                      const _pct = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
+                      const _earned = Math.round(_base * _pct / 100);
+                      return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
                     }).join(', ') : 'Не назначены'}</div>
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
