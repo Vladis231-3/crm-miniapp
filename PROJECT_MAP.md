@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-04 04:59 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-04 05:02 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **521**
-- Строк кода: **208 209**
+- Строк кода: **208 262**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 170, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -1578,7 +1578,7 @@ concept1.0/
 - `process_telegram_updatedef process_telegram_update(update: dict[str, Any]) -> None: runtime = _build_runtime() _process_telegram_update(runtime, update)` (стр. 668)
 - `run_pollingdef run_polling() -> None: logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s") try: # Ошибки цикла бота (logging.error/exception ниже) дублируют` (стр. 673)
 
-### backend/migrations/_common.py (73 строк)
+### backend/migrations/_common.py (76 строк)
 
 Классы и функции (5):
 
@@ -1586,7 +1586,7 @@ concept1.0/
 - `columns_ofdef columns_of(table_name: str) -> set[str]: return {col["name"] for col in inspect(engine).get_columns(table_name)}` (стр. 24)
 - `table_existsdef table_exists(table_name: str) -> bool: return inspect(engine).has_table(table_name)` (стр. 28)
 - `ensure_columndef ensure_column( table_name: str, column_name: str, column_type_sqlite: str, column_type_postgres: str | None = None, *, not_null_default_sql: str | None = None,` (стр. 32)
-- `drop_column_if_existsdef drop_column_if_exists(table_name: str, column_name: str) -> None: if not table_exists(table_name):` (стр. 63)
+- `drop_column_if_existsdef drop_column_if_exists(table_name: str, column_name: str) -> None: if not table_exists(table_name):` (стр. 66)
 
 ### backend/migrations/add_materials_written_off.py (35 строк)
 
@@ -1595,7 +1595,12 @@ concept1.0/
 - `upgradedef upgrade(): ensure_column( "bookings", "materials_written_off", "BOOLEAN", not_null_default_sql="FALSE", ) print("Migration complete: materials_written_off ensured on bookings")` (стр. 17)
 - `downgradedef downgrade(): from backend.migrations._common import drop_column_if_exists drop_column_if_exists("bookings", "materials_written_off") print("Downgrade complete")` (стр. 27)
 
-### backend/migrations/add_pay_type_to_workers.py (39 строк)
+### backend/migrations/add_pay_type_to_workers.py (55 строк)
+
+Классы и функции (2):
+
+- `upgradedef upgrade(): ensure_column( "booking_workers", "pay_type", "VARCHAR(16)", not_null_default_sql="'percent'", ) ensure_column( "booking_workers", "fixed_amount", "INTEGER", ) ensur` (стр. 19)
+- `downgradedef downgrade(): from backend.migrations._common import drop_column_if_exists for table in ("booking_workers", "additional_service_workers"):` (стр. 45)
 
 ### backend/migrations/add_performance_indexes.py (97 строк)
 
@@ -1611,14 +1616,15 @@ concept1.0/
 - `upgradedef upgrade(): ensure_column( "clients", "plate_type", "VARCHAR(16)", not_null_default_sql="'russian'", ) ensure_column("bookings", "plate_type", "VARCHAR(16)") print("Migration co` (стр. 17)
 - `downgradedef downgrade(): from backend.migrations._common import drop_column_if_exists drop_column_if_exists("clients", "plate_type") drop_column_if_exists("bookings", "plate_type") print("` (стр. 28)
 
-### backend/migrations/add_referral_source.py (40 строк)
+### backend/migrations/add_referral_source.py (51 строк)
 
-Классы и функции (2):
+Классы и функции (3):
 
-- `add_referral_source_columndef add_referral_source_column(db_path: Path) -> None: try: conn = sqlite3.connect(str(db_path)) cursor = conn.cursor() cursor.execute("PRAGMA table_info(clients)") columns = {row[` (стр. 13)
-- `maindef main() -> None: print("Adding referral_source column to client databases...") for db_file in sorted(DB_FILES):` (стр. 32)
+- `_db_filesdef _db_files() -> list[Path]: # G-005: точечный запуск без задевания тестовых БД. single = os.getenv("MIGRATION_DB") if single: return [Path(single)] return [ f for f in DATA_DIR.` (стр. 10)
+- `add_referral_source_columndef add_referral_source_column(db_path: Path) -> None: try: conn = sqlite3.connect(str(db_path)) cursor = conn.cursor() cursor.execute("PRAGMA table_info(clients)") columns = {row[` (стр. 24)
+- `maindef main() -> None: print("Adding referral_source column to client databases...") for db_file in sorted(DB_FILES):` (стр. 43)
 
-### backend/migrations/add_service_times.py (28 строк)
+### backend/migrations/add_service_times.py (32 строк)
 
 Классы и функции (2):
 
@@ -1632,19 +1638,19 @@ concept1.0/
 - `upgradedef upgrade(): if not table_exists("stock_write_offs"):` (стр. 17)
 - `downgradedef downgrade(): from backend.migrations._common import _quote_ident from backend.app.database import engine with engine.begin() as connection: connection.exec_driver_sql(f"DROP TA` (стр. 33)
 
-### backend/migrations/add_write_off_booking_fields.py (30 строк)
+### backend/migrations/add_write_off_booking_fields.py (34 строк)
 
 Классы и функции (2):
 
 - `upgradedef upgrade(): ensure_column("stock_write_offs", "booking_client_name", "VARCHAR(120)") ensure_column("stock_write_offs", "booking_date", "VARCHAR(16)") ensure_column("stock_write_` (стр. 17)
 - `downgradedef downgrade(): from backend.migrations._common import drop_column_if_exists drop_column_if_exists("stock_write_offs", "booking_client_name") drop_column_if_exists("stock_write_of` (стр. 24)
 
-### backend/migrations/change_int_to_float.py (50 строк)
+### backend/migrations/change_int_to_float.py (43 строк)
 
 Классы и функции (2):
 
-- `upgradedef upgrade(): with engine.connect() as conn: conn.execute(text("ALTER TABLE stock_items ALTER COLUMN qty TYPE DOUBLE PRECISION")) conn.execute(text("ALTER TABLE stock_items ALTER ` (стр. 17)
-- `downgradedef downgrade(): with engine.connect() as conn: conn.execute(text("ALTER TABLE stock_items ALTER COLUMN qty TYPE INTEGER")) conn.execute(text("ALTER TABLE stock_items ALTER COLUMN ` (стр. 33)
+- `upgradedef upgrade(): raise RuntimeError( "change_int_to_float superseded: денежные колонки ведёт " "finance_consistency.py (NUMERIC(18,2)), не DOUBLE PRECISION" )` (стр. 19)
+- `downgradedef downgrade(): with engine.connect() as conn: conn.execute(text("ALTER TABLE stock_items ALTER COLUMN qty TYPE INTEGER")) conn.execute(text("ALTER TABLE stock_items ALTER COLUMN ` (стр. 26)
 
 ### backend/migrations/finance_consistency.py (117 строк)
 
@@ -1655,12 +1661,13 @@ concept1.0/
 - `preflightdef preflight(engine: Engine | None = None) -> list[str]: target = engine or _default_engine() inspector = inspect(target) report: list[str] = [] for table, names in MONEY_COLUMNS.` (стр. 43)
 - `upgradedef upgrade(*, dry_run: bool = True, engine: Engine | None = None) -> list[str]: target = engine or _default_engine() report = preflight(target) if dry_run: return report if target` (стр. 58)
 
-### backend/migrations/migrate_additional_services.py (79 строк)
+### backend/migrations/migrate_additional_services.py (90 строк)
 
-Классы и функции (2):
+Классы и функции (3):
 
-- `migrate_additional_servicesdef migrate_additional_services(db_path: Path) -> None: try: conn = sqlite3.connect(str(db_path)) cursor = conn.cursor() # Проверить, существует ли новая таблица cursor.execute("SE` (стр. 15)
-- `maindef main() -> None: print("Migrating additional services from Booking.services JSON to booking_additional_services table...") for db_file in sorted(DB_FILES):` (стр. 71)
+- `_db_filesdef _db_files() -> list[Path]: # G-005: точечный запуск без задевания тестовых БД. single = os.getenv("MIGRATION_DB") if single: return [Path(single)] return [ f for f in DATA_DIR.` (стр. 12)
+- `migrate_additional_servicesdef migrate_additional_services(db_path: Path) -> None: try: conn = sqlite3.connect(str(db_path)) cursor = conn.cursor() # Проверить, существует ли новая таблица cursor.execute("SE` (стр. 26)
+- `maindef main() -> None: print("Migrating additional services from Booking.services JSON to booking_additional_services table...") for db_file in sorted(DB_FILES):` (стр. 82)
 
 ### backend/migrations/payroll_entry_dates.py (222 строк)
 
@@ -1679,12 +1686,13 @@ concept1.0/
 - `plandef plan(engine: Engine) -> tuple[ list[str], list[tuple[str, str]], list[tuple[str, str, str]],` (стр. 106)
 - `upgradedef upgrade(*, dry_run: bool = True, engine: Engine | None = None) -> list[str]: target = engine or _default_engine() models = _models() report, moves, mirror_moves = plan(target) ` (стр. 182)
 
-### backend/migrations/sync_client_schema.py (49 строк)
+### backend/migrations/sync_client_schema.py (60 строк)
 
-Классы и функции (2):
+Классы и функции (3):
 
-- `sync_client_schemadef sync_client_schema(db_path: Path) -> None: try: conn = sqlite3.connect(str(db_path)) cursor = conn.cursor() cursor.execute("PRAGMA table_info(clients)") columns = {row[1] for r` (стр. 21)
-- `maindef main() -> None: print("Syncing client table schema...") for db_file in sorted(DB_FILES):` (стр. 41)
+- `_db_filesdef _db_files() -> list[Path]: # G-005: точечный запуск без задевания тестовых БД. single = os.getenv("MIGRATION_DB") if single: return [Path(single)] return [ f for f in DATA_DIR.` (стр. 10)
+- `sync_client_schemadef sync_client_schema(db_path: Path) -> None: try: conn = sqlite3.connect(str(db_path)) cursor = conn.cursor() cursor.execute("PRAGMA table_info(clients)") columns = {row[1] for r` (стр. 32)
+- `maindef main() -> None: print("Syncing client table schema...") for db_file in sorted(DB_FILES):` (стр. 52)
 
 ### backend/run.py (10 строк)
 
@@ -4901,18 +4909,18 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `audit/FINDINGS.md` (2026-09-04 08:02)
+- `backend/migrations/add_referral_source.py` (2026-09-04 08:01)
+- `backend/migrations/sync_client_schema.py` (2026-09-04 08:01)
+- `backend/migrations/migrate_additional_services.py` (2026-09-04 08:01)
+- `backend/migrations/_common.py` (2026-09-04 08:01)
+- `backend/migrations/change_int_to_float.py` (2026-09-04 08:01)
+- `backend/migrations/add_pay_type_to_workers.py` (2026-09-04 08:01)
+- `backend/migrations/add_service_times.py` (2026-09-04 08:01)
+- `backend/migrations/add_write_off_booking_fields.py` (2026-09-04 08:01)
 - `scripts/.project-map-watch.lock` (2026-09-04 07:54)
-- `audit/FINDINGS.md` (2026-09-03 22:31)
 - `backend/tests/test_performance_wave3.py` (2026-09-03 22:28)
 - `frontend/vite.config.ts` (2026-09-03 22:27)
 - `backend/app/main.py` (2026-09-03 22:24)
 - `audit/scripts/migration_idempotency.py` (2026-09-03 22:23)
 - `backend/migrations/add_performance_indexes.py` (2026-09-03 22:22)
-- `backend/app/models.py` (2026-09-03 22:17)
-- `audit/reports/route_matrix.md` (2026-09-03 22:08)
-- `.pre-commit-config.yaml` (2026-09-03 22:08)
-- `.github/workflows/ci.yml` (2026-09-03 22:07)
-- `audit/reports/api_drift.md` (2026-09-03 22:06)
-- `audit/scripts/check_api_drift.py` (2026-09-03 22:06)
-- `backend/tests/test_wallet_query_budget.py` (2026-09-03 22:05)
-- `frontend/src/app/utils/validation.test.ts` (2026-09-03 22:04)

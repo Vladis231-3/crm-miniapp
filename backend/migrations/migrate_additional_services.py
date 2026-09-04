@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 from uuid import uuid4
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-DB_FILES = [
-    f for f in DATA_DIR.iterdir()
-    if f.suffix == ".sqlite3" and f.is_file()
-]
+
+
+def _db_files() -> list[Path]:
+    # G-005: точечный запуск без задевания тестовых БД.
+    single = os.getenv("MIGRATION_DB")
+    if single:
+        return [Path(single)]
+    return [
+        f for f in DATA_DIR.iterdir()
+        if f.suffix == ".sqlite3" and f.is_file()
+    ]
+
+
+DB_FILES = _db_files()
 
 
 def migrate_additional_services(db_path: Path) -> None:

@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-DB_FILES = [
-    f for f in DATA_DIR.iterdir()
-    if f.suffix == ".sqlite3" and f.is_file()
-]
+
+
+def _db_files() -> list[Path]:
+    # G-005: точечный запуск без задевания тестовых БД.
+    single = os.getenv("MIGRATION_DB")
+    if single:
+        return [Path(single)]
+    return [
+        f for f in DATA_DIR.iterdir()
+        if f.suffix == ".sqlite3" and f.is_file()
+    ]
+
+
+DB_FILES = _db_files()
 
 
 def add_referral_source_column(db_path: Path) -> None:

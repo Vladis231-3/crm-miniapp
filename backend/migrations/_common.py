@@ -49,12 +49,15 @@ def ensure_column(
     if column_name in existing:
         print(f"ok: {table_name}.{column_name} already exists")
         return False
-    col_type = column_type_postgres or column_type_sqlite
+    if engine.dialect.name == "postgresql" and column_type_postgres:
+        col_type = column_type_postgres
+    else:
+        col_type = column_type_sqlite
     suffix = f" NOT NULL DEFAULT {not_null_default_sql}" if not_null_default_sql else ""
     with engine.begin() as connection:
         connection.exec_driver_sql(
             f"ALTER TABLE {_quote_ident(table_name)} "
-            f"ADD COLUMN {_quote_ident(column_name)} {column_type_sqlite}{suffix}"
+            f"ADD COLUMN {_quote_ident(column_name)} {col_type}{suffix}"
         )
     print(f"added: {table_name}.{column_name} {col_type}")
     return True

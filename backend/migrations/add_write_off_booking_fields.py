@@ -28,3 +28,7 @@ def downgrade():
     drop_column_if_exists("stock_write_offs", "booking_date")
     drop_column_if_exists("stock_write_offs", "booking_worker_names")
     print("Downgrade complete")
+
+
+if __name__ == "__main__":
+    upgrade()

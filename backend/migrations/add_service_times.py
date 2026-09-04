@@ -26,3 +26,7 @@ def downgrade():
     drop_column_if_exists("bookings", "started_at")
     drop_column_if_exists("bookings", "completed_at")
     print("Downgrade complete")
+
+
+if __name__ == "__main__":
+    upgrade()

@@ -1,39 +1,55 @@
-import sqlite3
+"""
+Add pay_type / fixed_amount columns to booking_workers and
+additional_service_workers (G-001: переписано на _common.ensure_column).
 
-conn = sqlite3.connect(r"backend/data/crm.sqlite3")
-cursor = conn.cursor()
+Идемпотентно, SQLite и PostgreSQL, без побочек на импорте,
+без хардкода пути (движок — из конфигурации приложения).
 
-# Add columns to booking_workers
-try:
-    cursor.execute('ALTER TABLE booking_workers ADD COLUMN pay_type VARCHAR(16) NOT NULL DEFAULT "percent"')
-    print("Added pay_type to booking_workers")
-except Exception as e:
-    print(f"pay_type: {e}")
+Usage: python -m backend.migrations.add_pay_type_to_workers
+"""
 
-try:
-    cursor.execute("ALTER TABLE booking_workers ADD COLUMN fixed_amount INTEGER DEFAULT NULL")
-    print("Added fixed_amount to booking_workers")
-except Exception as e:
-    print(f"fixed_amount: {e}")
+import sys
+from pathlib import Path
 
-# Check additional_service_workers table
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='additional_service_workers'")
-tbl = cursor.fetchone()
-print(f"additional_service_workers table exists: {tbl is not None}")
-if tbl:
-    cursor.execute("PRAGMA table_info(additional_service_workers)")
-    print(f"columns: {cursor.fetchall()}")
-    try:
-        cursor.execute('ALTER TABLE additional_service_workers ADD COLUMN pay_type VARCHAR(16) NOT NULL DEFAULT "percent"')
-        print("Added pay_type to additional_service_workers")
-    except Exception as e:
-        print(f"pay_type: {e}")
-    try:
-        cursor.execute("ALTER TABLE additional_service_workers ADD COLUMN fixed_amount INTEGER DEFAULT NULL")
-        print("Added fixed_amount to additional_service_workers")
-    except Exception as e:
-        print(f"fixed_amount: {e}")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-conn.commit()
-conn.close()
-print("Done")
+from backend.migrations._common import ensure_column
+
+
+def upgrade():
+    ensure_column(
+        "booking_workers",
+        "pay_type",
+        "VARCHAR(16)",
+        not_null_default_sql="'percent'",
+    )
+    ensure_column(
+        "booking_workers",
+        "fixed_amount",
+        "INTEGER",
+    )
+    ensure_column(
+        "additional_service_workers",
+        "pay_type",
+        "VARCHAR(16)",
+        not_null_default_sql="'percent'",
+    )
+    ensure_column(
+        "additional_service_workers",
+        "fixed_amount",
+        "INTEGER",
+    )
+    print("Migration complete: pay_type/fixed_amount ensured")
+
+
+def downgrade():
+    from backend.migrations._common import drop_column_if_exists
+
+    for table in ("booking_workers", "additional_service_workers"):
+        drop_column_if_exists(table, "pay_type")
+        drop_column_if_exists(table, "fixed_amount")
+    print("Downgrade complete")
+
+
+if __name__ == "__main__":
+    upgrade()
