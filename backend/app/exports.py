@@ -2783,10 +2783,10 @@ def _build_export_data(
     for tx in piggy_tx_sorted:
         booking_label = ""
         if tx.booking_id:
-            booking = next((b for b in bookings if b.id == tx.booking_id), None)
-            if booking is not None:
+            found_booking = next((b for b in bookings if b.id == tx.booking_id), None)
+            if found_booking is not None:
                 booking_label = (
-                    f"{booking.service} — {booking.client_name} ({booking.date})"
+                    f"{found_booking.service} — {found_booking.client_name} ({found_booking.date})"
                 )
             else:
                 booking_label = f"Запись {tx.booking_id}"
@@ -3585,9 +3585,9 @@ def _format_datetime(value: datetime | None) -> str:
 
 
 
-def _format_money(value: int | Decimal) -> str:
-    # f-string с .0f одинаково работает для int и Decimal (F-018: суммы из
-    # Numeric-колонок приходят Decimal — форматирование не меняем).
+def _format_money(value: int | float | Decimal) -> str:
+    # f-string с .0f одинаково работает для int/float/Decimal (F-018: суммы
+    # из Numeric-колонок приходят Decimal — форматирование не меняем).
     return f"{value:,.0f}".replace(",", " ") + " руб."
 
 

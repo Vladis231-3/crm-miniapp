@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-04 07:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-04 07:39 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -830,7 +830,7 @@ concept1.0/
 - `_as_local_datetimedef _as_local_datetime(value: datetime, reference: datetime) -> datetime: target_tz = reference.tzinfo if value.tzinfo is None: return value.replace(tzinfo=target_tz) return value.` (стр. 3544)
 - `_parse_date_for_sortdef _parse_date_for_sort(value: str) -> datetime: for fmt in ("%d.%m.%Y", "%Y-%m-%d"):` (стр. 3558)
 - `_format_datetimedef _format_datetime(value: datetime | None) -> str: if value is None: return "" return value.astimezone().strftime("%d.%m.%Y %H:%M") if value.tzinfo is not None else value.strftim` (стр. 3576)
-- `_format_moneydef _format_money(value: int | Decimal) -> str: # f-string с .0f одинаково работает для int и Decimal (F-018: суммы из # Numeric-колонок приходят Decimal — форматирование не меняем` (стр. 3588)
+- `_format_moneydef _format_money(value: int | float | Decimal) -> str: # f-string с .0f одинаково работает для int/float/Decimal (F-018: суммы # из Numeric-колонок приходят Decimal — форматирован` (стр. 3588)
 - `_escapedef _escape(value: str) -> str: return escape(value).replace("\n", "<br/>")` (стр. 3597)
 - `build_deposit_exportdef build_deposit_export( db: Any, client: Client, overview: Any,` (стр. 3610)
 - `OwnerSummaryExportData.moneydef money(value: float) -> str: return f"{float(value):,.0f} ₽".replace(",", " ")` (стр. 3625)
@@ -4990,7 +4990,9 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `audit/FINDINGS.md` (2026-09-04 10:25)
+- `audit/FINDINGS.md` (2026-09-04 10:39)
+- `backend/app/exports.py` (2026-09-04 10:37)
+- `audit/.main-debt-parked.patch` (2026-09-04 10:34)
 - `backend/tests/test_money_e2e_chain.py` (2026-09-04 10:24)
 - `frontend/src/app/components/worker/screens/WorkerProfileScreen.tsx` (2026-09-04 10:21)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-04 10:18)
@@ -5001,7 +5003,5 @@ concept1.0/
 - `Dockerfile` (2026-09-04 10:06)
 - `backend/tests/test_fractional_money.py` (2026-09-04 09:47)
 - `backend/app/schemas.py` (2026-09-04 09:47)
-- `audit/.main-debt-parked.patch` (2026-09-04 09:33)
-- `backend/app/exports.py` (2026-09-04 09:22)
 - `backend/bot.py` (2026-09-04 09:20)
 - `backend/app/google_calendar.py` (2026-09-04 09:20)
