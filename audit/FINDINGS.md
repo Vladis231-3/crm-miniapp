@@ -95,6 +95,7 @@ pip-audit: starlette 8 vulns держатся (F-003) + **новый** setuptool
 | W4-002 | дробный Decimal в int-поле ответа → потенциальный 500 | Доказан частично: премия 100.50 читалась как 101 (money_int при чтении). Фикс: валидатор целых рублей на PayrollEntryCreateRequest (422 на копейки — политика whole-ruble учёта); тесты test_fractional_money.py 3/3 + регрессия payroll/finance/money 106 | fixed (test) |
 | V-001b | telegram-linking 58% | generate/confirm покрыты (ротация кодов, неверный код → None, linked-флаг) в test_v1_gaps.py | done |
 | V-001c | owner salary-detail (86 строк дыры) | 403 для worker / 200 + структура для owner, test_v1_gaps.py 8/8 | done |
+| V-001d | shift-attendance happy-paths | Своя/чужая/несуществующая посещаемость: 200/403/404 обеими ролями, test_attendance_endpoints.py 8/8 | done |
 | PARKED | main.py debt-hunks не закоммичены | Параллельный stdlib-shadow/format WIP в том же файле; страховка: `audit/.main-debt-parked.patch` (удалить после settle). Коммит 7569311 — всё остальное | pending |
 | T-001 | vitest с нуля (`npm run test`, `validation.test.ts` 15/15) | Первые тесты фронта в истории репо (pure-utils). Следом: date.ts, api-контракты, затем jsdom-компоненты | done |
 | W-001 | бюджет SQL (`test_wallet_query_budget.py`) | get_wallet: 19 запросов на сиде при бюджете 120 (N+1-радар; масштабируется строками — бюджет щедрый намеренно) | done |

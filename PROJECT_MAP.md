@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-04 07:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-04 07:15 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **524**
-- Строк кода: **208 715**
+- Строк кода: **208 758**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 173, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -1767,9 +1767,9 @@ concept1.0/
 - `ArchiveSplitPayrollSyncTests.test_owner_master_override_reflected_on_payroll_pagedef test_owner_master_override_reflected_on_payroll_page(self) -> None: """Правка суммы в архиве для владельца-мастера (extra_roles=['worker']) должна отражаться на странице «Зарпл` (стр. 236)
 - `ArchiveSplitPayrollSyncTests.test_archive_payroll_tab_includes_owner_masterdef test_archive_payroll_tab_includes_owner_master(self) -> None: """Вкладка «Зарплаты» внутри архива: мастер-владелец виден, правка суммы в архиве меняет его начисления.""" from a` (стр. 333)
 
-### backend/tests/test_attendance_endpoints.py (248 строк)
+### backend/tests/test_attendance_endpoints.py (291 строк)
 
-Классы и функции (12):
+Классы и функции (16):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 22)
 - `class AttendanceEndpointTests(unittest.TestCase):` (стр. 30)
@@ -1783,6 +1783,10 @@ concept1.0/
 - `AttendanceEndpointTests.test_worker_requesting_another_workers_attendance_via_owner_endpoint_returns_403def test_worker_requesting_another_workers_attendance_via_owner_endpoint_returns_403( self,` (стр. 132)
 - `AttendanceEndpointTests.test_owner_can_open_shift_for_masters_immediately_approveddef test_owner_can_open_shift_for_masters_immediately_approved(self) -> None: """Owner opens a shift for masters: immediately approved, visible in the shift list and counted in mas` (стр. 153)
 - `AttendanceEndpointTests.test_new_worker_gets_default_shift_pay_1000def test_new_worker_gets_default_shift_pay_1000(self) -> None: """Новый сотрудник получает оклад за выход 1000 ₽ по умолчанию.""" unique_login = f"newmaster-{uuid4().hex[:8]}" resp` (стр. 225)
+- `AttendanceEndpointTests.test_worker_reads_own_shift_attendancedef test_worker_reads_own_shift_attendance(self) -> None: """GET /api/worker/shift-attendance своим мастером → 200 со своей структурой.""" ivan_id = self._get_worker_id("ivan") res` (стр. 246)
+- `AttendanceEndpointTests.test_non_worker_rejected_from_own_shift_attendancedef test_non_worker_rejected_from_own_shift_attendance(self) -> None: """GET /api/worker/shift-attendance владельцем → 403.""" response = self.client.get( "/api/worker/shift-attend` (стр. 260)
+- `AttendanceEndpointTests.test_owner_reads_worker_shift_attendancedef test_owner_reads_worker_shift_attendance(self) -> None: """GET /api/owner/workers/{id}/shift-attendance владельцем → 200.""" ivan_id = self._get_worker_id("ivan") response = se` (стр. 269)
+- `AttendanceEndpointTests.test_owner_shift_attendance_unknown_worker_returns_404def test_owner_shift_attendance_unknown_worker_returns_404(self) -> None: """GET /api/owner/workers/{id}/shift-attendance по несуществующему → 404.""" response = self.client.get( "` (стр. 280)
 
 ### backend/tests/test_booking_logic.py (4691 строк)
 
@@ -4970,7 +4974,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `audit/FINDINGS.md` (2026-09-04 10:09)
+- `audit/FINDINGS.md` (2026-09-04 10:15)
+- `backend/tests/test_attendance_endpoints.py` (2026-09-04 10:14)
 - `backend/tests/test_v1_gaps.py` (2026-09-04 10:07)
 - `amvera.yml` (2026-09-04 10:06)
 - `render.yaml` (2026-09-04 10:06)
@@ -4984,4 +4989,3 @@ concept1.0/
 - `backend/app/config.py` (2026-09-04 09:19)
 - `backend/app/security.py` (2026-09-04 09:19)
 - `backend/app/main.py` (2026-09-04 09:19)
-- `backend/app/error_notifier.py` (2026-09-04 09:14)

@@ -243,6 +243,49 @@ class AttendanceEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["salaryPerShift"], 1000)
 
+    def test_worker_reads_own_shift_attendance(self) -> None:
+        """GET /api/worker/shift-attendance своим мастером → 200 со своей структурой."""
+        ivan_id = self._get_worker_id("ivan")
+        response = self.client.get(
+            "/api/worker/shift-attendance",
+            params={"period": "month"},
+            headers=self._auth_headers(self.worker_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body["workerId"], ivan_id)
+        self.assertIn("shiftCount", body)
+        self.assertIn("shiftDates", body)
+
+    def test_non_worker_rejected_from_own_shift_attendance(self) -> None:
+        """GET /api/worker/shift-attendance владельцем → 403."""
+        response = self.client.get(
+            "/api/worker/shift-attendance",
+            params={"period": "month"},
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(response.status_code, 403, response.text)
+
+    def test_owner_reads_worker_shift_attendance(self) -> None:
+        """GET /api/owner/workers/{id}/shift-attendance владельцем → 200."""
+        ivan_id = self._get_worker_id("ivan")
+        response = self.client.get(
+            f"/api/owner/workers/{ivan_id}/shift-attendance",
+            params={"period": "month"},
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["workerId"], ivan_id)
+
+    def test_owner_shift_attendance_unknown_worker_returns_404(self) -> None:
+        """GET /api/owner/workers/{id}/shift-attendance по несуществующему → 404."""
+        response = self.client.get(
+            "/api/owner/workers/no-such-worker/shift-attendance",
+            params={"period": "month"},
+            headers=self._auth_headers(self.owner_token),
+        )
+        self.assertEqual(response.status_code, 404, response.text)
+
 
 if __name__ == "__main__":
     unittest.main()
