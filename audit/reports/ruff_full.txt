@@ -1,0 +1,102 @@
+﻿app\complaints.py:44:35: B009 [*] Do not call `getattr` with a constant attribute value. It is not any safer than normal property access.
+app\complaints.py:49:24: B009 [*] Do not call `getattr` with a constant attribute value. It is not any safer than normal property access.
+app\complaints.py:82:18: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\config.py:145:30: RUF100 [*] Unused `noqa` directive (non-enabled: `TRY004`)
+app\config.py:154:34: RUF100 [*] Unused `noqa` directive (non-enabled: `TRY004`)
+app\date_utils.py:30:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\error_notifier.py:76:12: PLW0603 Using the global statement to update `_state` is discouraged
+app\error_notifier.py:195:31: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+app\error_notifier.py:218:35: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+app\exports.py:352:20: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\exports.py:761:5: F841 Local variable `active` is assigned to but never used
+app\exports.py:1768:34: DTZ901 Use of `datetime.datetime.max` without timezone information
+app\exports.py:1779:9: SIM103 Return the negated condition directly
+app\exports.py:2538:54: RUF046 Value being cast to `int` is already an integer
+app\exports.py:2982:30: SIM212 Use `rows if rows else [["╨Э╨╡╤В ╨┤╨░╨╜╨╜╤Л╤Е", *([""] * (len(headers) - 1))]]` instead of `[["╨Э╨╡╤В ╨┤╨░╨╜╨╜╤Л╤Е", *([""] * (len(headers) - 1))]] if not rows else rows`
+app\exports.py:3214:20: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\exports.py:3262:20: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\exports.py:3268:12: DTZ901 Use of `datetime.datetime.max` without timezone information
+app\exports.py:3346:30: RUF021 [*] Parenthesize `a and b` expressions when chaining `and` and `or` together, to make the precedence clear
+app\google_calendar.py:71:12: PLW0603 Using the global statement to update `_AppSetting` is discouraged
+app\google_calendar.py:342:24: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+app\google_calendar.py:452:5: SIM103 Return the condition directly
+app\google_calendar.py:580:24: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+app\google_calendar.py:641:5: SIM108 Use ternary operator `tokens = dict(conn.get("tokens") or {}) if conn is not None else load_tokens(db)` instead of `if`-`else`-block
+app\google_calendar.py:760:13: SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+app\google_calendar.py:1026:9: PLW2901 `for` loop variable `line` overwritten by assignment target
+app\main.py:831:12: PLW0603 Using the global statement to update `_last_rate_limit_cleanup` is discouraged
+app\main.py:998:12: PLW0603 Using the global statement to update `bot_thread` is discouraged
+app\main.py:1088:12: PLW0603 Using the global statement to update `google_sync_thread` is discouraged
+app\main.py:1096:24: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+app\main.py:1122:11: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:2021:44: PLW2901 Outer `with` statement variable `connection` overwritten by inner `with` statement target
+app\main.py:3034:12: PLW0603 Using the global statement to update `_text_repair_attempted` is discouraged
+app\main.py:3500:20: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:3553:12: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:3601:5: SIM103 Return the condition directly
+app\main.py:3665:21: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:3967:21: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:4382:25: DTZ011 `datetime.date.today()` used
+app\main.py:4386:35: DTZ011 `datetime.date.today()` used
+app\main.py:4387:31: DTZ011 `datetime.date.today()` used
+app\main.py:5263:17: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:5804:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:5808:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:6408:13: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:6625:13: DTZ011 `datetime.date.today()` used
+app\main.py:6807:19: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:7106:25: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:8078:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:8132:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:8338:13: SIM103 Return the condition `not (parsed_to and parsed > parsed_to)` directly
+app\main.py:8362:86: DTZ011 `datetime.date.today()` used
+app\main.py:10976:14: F541 [*] f-string without any placeholders
+app\main.py:11293:8: RUF059 Unpacked variable `ok` is never used
+app\main.py:11311:28: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+app\main.py:11935:27: RUF046 Value being cast to `int` is already an integer
+app\main.py:11943:35: RUF046 Value being cast to `int` is already an integer
+app\main.py:13159:5: SIM102 Use a single `if` statement instead of nested `if` statements
+app\main.py:13997:13: B010 [*] Do not call `setattr` with a constant attribute value. It is not any safer than normal property access.
+app\main.py:15121:9: SIM103 Return the condition `not (parsed_to and parsed > parsed_to)` directly
+app\main.py:15317:27: DTZ011 `datetime.date.today()` used
+app\main.py:15319:22: RUF059 Unpacked variable `shift_dates` is never used
+app\main.py:15882:28: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16037:12: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16163:11: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16392:28: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16419:28: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16509:36: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16510:36: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16639:22: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16650:18: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:16687:13: DTZ011 `datetime.date.today()` used
+app\main.py:16994:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:17362:45: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:18801:25: DTZ005 `datetime.datetime.now()` called without a `tz` argument
+app\main.py:19127:22: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:19128:20: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:19415:29: DTZ011 `datetime.date.today()` used
+app\main.py:19516:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:19846:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:19916:39: DTZ901 Use of `datetime.datetime.min` without timezone information
+app\main.py:20165:22: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:20166:20: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:21180:5: F841 Local variable `asvc_txs` is assigned to but never used
+app\main.py:21265:18: DTZ011 `datetime.date.today()` used
+app\main.py:21473:14: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:21474:12: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:21868:55: DTZ011 `datetime.date.today()` used
+app\main.py:21874:18: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:21876:16: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:22276:55: DTZ011 `datetime.date.today()` used
+app\main.py:22282:18: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:22284:16: DTZ007 Naive datetime constructed using `datetime.datetime.strptime()` without %z
+app\main.py:22440:5: SIM108 Use ternary operator `resource_group = "detailing" if payload.segment == "detailing" else "wash"` instead of `if`-`else`-block
+app\main.py:22504:30: DTZ011 `datetime.date.today()` used
+app\main.py:22552:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\main.py:23009:17: DTZ011 `datetime.date.today()` used
+app\main.py:23071:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+app\security.py:102:55: RUF100 [*] Unused `noqa` directive (non-enabled: `TRY004`)
+app\telegram_linking.py:89:5: F841 Local variable `previous_chat_id` is assigned to but never used
+Found 100 errors.
+[*] 14 fixable with the `--fix` option (17 hidden fixes can be enabled with the `--unsafe-fixes` option).

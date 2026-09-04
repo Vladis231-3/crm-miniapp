@@ -1,0 +1,255 @@
+﻿
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\App.tsx
+  31:28  warning  'Check' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  50:7   warning  'NOOP' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\api.ts
+   98:11  error  Empty block statement                                        no-empty
+  151:18  error  Unexpected control character(s) in regular expression: \x00  no-control-regex
+  186:11  error  Empty block statement                                        no-empty
+  227:11  error  Empty block statement                                        no-empty
+  230:11  error  Empty block statement                                        no-empty
+  239:11  error  Empty block statement                                        no-empty
+  246:11  error  Empty block statement                                        no-empty
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\admin\AdminApp.tsx
+     8:58   warning  'CreditCard' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+     9:11   warning  'Sliders' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+     9:20   warning  'BellOff' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+     9:35   warning  'Toggle' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+     9:51   warning  'Eye' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+     9:56   warning  'EyeOff' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+     9:94   warning  'History' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+    21:3    warning  'ContentSectionShell' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    38:177  warning  'ContentData' is defined but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+    40:10   warning  'ContentEditor' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+    42:10   warning  'ServiceSearchInput' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    46:3    warning  'isClientCardIncomplete' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+    93:7    warning  'STATUS_COLORS' is assigned a value but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   103:7    warning  'STATUS_BADGE' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   120:10   warning  'adminServiceResourceGroupForCategory' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   234:10   warning  'paymentLabel' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   328:5    warning  'addBookingService' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   341:5    warning  'deleteStockItem' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   344:5    warning  'addStockCategory' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   345:5    warning  'updateStockCategory' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   346:5    warning  'deleteStockCategory' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   356:5    warning  'saveAdminWorkerPayroll' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   357:5    warning  'saveContent' is assigned a value but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   358:5    warning  'content' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+   388:10   warning  'showAddStock' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   389:10   warning  'showCategoryManager' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   389:31   warning  'setShowCategoryManager' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   392:10   warning  'writeOffHistory' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   393:31   warning  'setShowWriteOffHistory' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   456:10   warning  'savingClientId' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   458:28   warning  'setClientSearchMode' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   459:29   warning  'setClientSearchQuery' is assigned a value but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   460:38   warning  'setClientHistoryServiceFilter' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   462:10   warning  'shiftInspections' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   468:10   warning  'shiftSubmitting' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   469:10   warning  'shiftError' is assigned a value but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   475:9    warning  'selectableBookingDates' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   486:9    warning  'filteredClients' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   509:9    warning  'selectedClientFilteredBookings' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   515:9    warning  'selectedClientVehicles' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   527:9    warning  'selectedClientSpent' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   530:9    warning  'selectedClientCompletedCount' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   531:9    warning  'selectedClientUpcoming' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   532:9    warning  'selectedClientLastVisit' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   690:9    warning  'byService' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+   696:9    warning  'byStatus' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   707:9    warning  'byPayment' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+   714:9    warning  'workerStats' is assigned a value but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   725:9    warning  'avgCheck' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   726:9    warning  'conversionRate' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   728:9    warning  'revenueData' is assigned a value but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   735:9    warning  'hourData' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   753:9    warning  'handleDeleteClient' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   803:9    warning  'handleSaveClientCard' is assigned a value but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   818:9    warning  'handleShiftPhotoChange' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   835:9    warning  'handleSubmitShiftInspection' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  1482:9    warning  'handleAddStock' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  1495:9    warning  'handleWriteOff' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  1549:9    warning  'tooltipStyle' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+  2101:182  error    Empty block statement                                                                                      no-empty
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\admin\ContentEditor.tsx
+  91:88  warning  'isDark' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\admin\screens\AdminClientsPage.tsx
+  153:9  warning  'draftFor' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\admin\screens\AdminStatsPage.tsx
+  125:22  warning  'settled' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\admin\screens\AdminStockPage.tsx
+  5:56  warning  'StatTile' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  5:66  warning  'Textarea' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\client\ClientApp.tsx
+    5:20  warning  'X' is defined but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+    9:10  warning  'normalizePlateInput' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   24:7   warning  'CANCELLABLE_STATUSES' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   45:10  warning  'isManualSchedulingBooking' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   58:5   warning  'services' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   61:5   warning  'updateClientProfile' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   62:5   warning  'logout' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   73:10  warning  'confirmedBookingId' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  168:9   warning  'pastBookings' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  171:9   warning  'favoriteService' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\client\screens\SlotsScreen.tsx
+  2:10  warning  'useApp' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\landing\LandingPage.tsx
+   3:28  warning  'ContentService' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  16:9   warning  'contactRef' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\owner\OwnerApp.tsx
+      5:9    warning  'Sun' is defined but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+      5:14   warning  'Moon' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+      5:26   warning  'Minus' is defined but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
+      7:16   warning  'Home' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+      8:43   warning  'Calendar' is defined but never used. Allowed unused vars must match /^_/u                                         @typescript-eslint/no-unused-vars
+     10:40   warning  'Banknote' is defined but never used. Allowed unused vars must match /^_/u                                         @typescript-eslint/no-unused-vars
+     14:24   warning  'LineChart' is defined but never used. Allowed unused vars must match /^_/u                                        @typescript-eslint/no-unused-vars
+     14:35   warning  'Line' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+     16:10   warning  'apiBlobUrl' is defined but never used. Allowed unused vars must match /^_/u                                       @typescript-eslint/no-unused-vars
+     17:300  warning  'ContentData' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+     17:318  warning  'StockWriteOff' is defined but never used. Allowed unused vars must match /^_/u                                    @typescript-eslint/no-unused-vars
+     30:3    warning  'isClientCardIncomplete' is defined but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+     41:10   warning  'FIXED_MASTER_EARNED' is defined but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+    328:10   warning  'ownerDefaultBoxForService' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    622:10   warning  'ownerPaymentLabel' is defined but never used. Allowed unused vars must match /^_/u                                @typescript-eslint/no-unused-vars
+    677:5    warning  'toggleTheme' is assigned a value but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    687:20   warning  'addStockItem' is assigned a value but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+    688:5    warning  'writeOffStock' is assigned a value but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+    689:5    warning  'getWriteOffHistory' is assigned a value but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    690:5    warning  'deleteStockItem' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    692:5    warning  'addStockCategory' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    693:5    warning  'updateStockCategory' is assigned a value but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+    694:5    warning  'deleteStockCategory' is assigned a value but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+    701:5    warning  'addBookingService' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    826:26   warning  'setReportDateFrom' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    827:24   warning  'setReportDateTo' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    847:9    warning  'parentCategories' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    908:10   warning  'outsourcePayroll' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    908:28   warning  'setOutsourcePayroll' is assigned a value but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   1062:10   warning  'newVehicleCar' is assigned a value but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+   1063:10   warning  'newVehiclePlate' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+   1105:10   warning  'ownerNewBookingError' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   1257:13   warning  'res' is assigned a value but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+   1591:9    warning  'washRevenue' is assigned a value but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   1594:9    warning  'detailingRevenue' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   1597:9    warning  'washExpenses' is assigned a value but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+   1600:9    warning  'detailingExpenses' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+   1603:9    warning  'washIncomes' is assigned a value but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   1606:9    warning  'detailingIncomes' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   2085:5    error    Definition for rule 'react-hooks/exhaustive-deps' was not found                                                    react-hooks/exhaustive-deps
+   2150:5    error    Definition for rule 'react-hooks/exhaustive-deps' was not found                                                    react-hooks/exhaustive-deps
+   2200:5    error    Definition for rule 'react-hooks/exhaustive-deps' was not found                                                    react-hooks/exhaustive-deps
+   2233:5    error    Definition for rule 'react-hooks/exhaustive-deps' was not found                                                    react-hooks/exhaustive-deps
+   3031:15   error    Empty block statement                                                                                              no-empty
+   3372:9    warning  'ownerNewBookingSelectableDates' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3878:9    warning  'boxLoadData' is assigned a value but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   3888:9    warning  'workerEfficiencyData' is assigned a value but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   3928:9    warning  'filteredSettingsClients' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   3949:9    warning  'selectedSettingsClientCardDraft' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   3960:9    warning  'selectedSettingsClientFilteredBookings' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   3966:9    warning  'selectedSettingsClientVehicles' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3971:9    warning  'selectedSettingsClientSpent' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   3974:9    warning  'selectedSettingsClientCompletedCount' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   3975:9    warning  'selectedSettingsClientUpcoming' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3976:9    warning  'selectedSettingsClientLastVisit' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   8212:95   error    Irregular whitespace not allowed                                                                                   no-irregular-whitespace
+   8212:99   error    Irregular whitespace not allowed                                                                                   no-irregular-whitespace
+   9612:182  error    Empty block statement                                                                                              no-empty
+  11621:37   warning  'rowCost' is assigned a value but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\owner\screens\OwnerStockPage.tsx
+  127:5  error  Definition for rule 'react-hooks/exhaustive-deps' was not found  react-hooks/exhaustive-deps
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\owner\screens\OwnerWalletScreen.tsx
+  50:3  warning  'accent' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\shared\AttendanceTable.tsx
+  34:41  warning  'workerId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\shared\ServiceSearchSelect.tsx
+  28:3  warning  'text' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\ui\utils.ts
+  39:13  error  Redundant Boolean call  no-extra-boolean-cast
+  47:13  error  Redundant Boolean call  no-extra-boolean-cast
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\worker\WorkerApp.tsx
+    4:20  warning  'Calendar' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+    4:44  warning  'DollarSign' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+    4:56  warning  'User' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    5:3   warning  'Info' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    5:37  warning  'Clock' is defined but never used. Allowed unused vars must match /^_/u                                    @typescript-eslint/no-unused-vars
+    5:44  warning  'ChevronRight' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    5:58  warning  'ChevronLeft' is defined but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+    5:71  warning  'AlertCircle' is defined but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+    6:3   warning  'Edit3' is defined but never used. Allowed unused vars must match /^_/u                                    @typescript-eslint/no-unused-vars
+    6:10  warning  'Save' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    6:16  warning  'Camera' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+    6:24  warning  'Star' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    6:30  warning  'Shield' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+    6:38  warning  'BellOff' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+    6:47  warning  'History' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+    6:56  warning  'LogOut' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+    7:3   warning  'Mail' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    7:9   warning  'MapPin' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+    7:17  warning  'Award' is defined but never used. Allowed unused vars must match /^_/u                                    @typescript-eslint/no-unused-vars
+    7:24  warning  'Eye' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+    7:29  warning  'EyeOff' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+    7:37  warning  'TrendingUp' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+    7:49  warning  'Search' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+   10:10  warning  'EmptyState' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+   11:10  warning  'SkeletonRows' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   12:10  warning  'getWorkerNotificationSettings' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   15:10  warning  'AttendanceTable' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+   16:10  warning  'COMPLAINT_THRESHOLD' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   17:10  warning  'apiRequest' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+   18:10  warning  'CarSearch' is defined but never used. Allowed unused vars must match /^_/u                                @typescript-eslint/no-unused-vars
+  116:5   warning  'settings' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  117:5   warning  'activeSessions' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  118:5   warning  'saveWorkerProfile' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  119:5   warning  'saveWorkerNotificationSettings' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  120:5   warning  'createTelegramLinkCode' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  123:5   warning  'listShiftChecklists' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  124:5   warning  'submitShiftChecklist' is assigned a value but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  125:5   warning  'changePassword' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  126:5   warning  'refreshActiveSessions' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  127:5   warning  'revokeSession' is assigned a value but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  182:9   warning  'earnedForDisplay' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  184:9   warning  'complaintState' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  185:9   warning  'payoutAfterPenalties' is assigned a value but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  189:9   warning  'avgCheck' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  190:9   warning  'chemistryItems' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  207:9   warning  'inputCls' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  208:9   warning  'formatComplaintDate' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\worker\screens\WorkerProfileScreen.tsx
+    9:3  warning  'COMPLAINT_THRESHOLD' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  207:9  warning  'fmtDateTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\components\worker\screens\WorkerScheduleScreen.tsx
+  56:5  error  Definition for rule 'react-hooks/exhaustive-deps' was not found  react-hooks/exhaustive-deps
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\context\AppContext.tsx
+     2:35  warning  'getTelegramInitData' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  1141:13  error    Empty block statement                                                                  no-empty
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\hooks\useTelegramMainButton.ts
+  16:33  error  Empty block statement  no-empty
+  23:33  error  Empty block statement  no-empty
+
+C:\Users\Admin\Desktop\concept1.0\frontend\src\app\utils\validation.ts
+  8:7  warning  'REPEATED_LETTERS_PATTERN' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+тЬЦ 207 problems (23 errors, 184 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

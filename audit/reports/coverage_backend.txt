@@ -1,0 +1,20 @@
+Name                      Stmts   Miss  Cover
+---------------------------------------------
+app\__init__.py               0      0   100%
+app\complaints.py            56      4    93%
+app\config.py               174     31    82%
+app\database.py              44      3    93%
+app\date_utils.py            27      5    81%
+app\error_notifier.py       202     24    88%
+app\exports.py             1031    200    81%
+app\finance.py               29      1    97%
+app\finance_sync.py          24      0   100%
+app\google_calendar.py      918    180    80%
+app\main.py                6349   1546    76%
+app\models.py               377      0   100%
+app\schemas.py             1857     88    95%
+app\security.py              79     15    81%
+app\seed.py                  32      0   100%
+app\telegram_linking.py      65     27    58%
+---------------------------------------------
+TOTAL                     11264   2124    81%

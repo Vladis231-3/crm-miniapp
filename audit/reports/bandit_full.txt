@@ -1,0 +1,229 @@
+﻿Run started:2026-08-31 10:45:07.205418+00:00
+
+Test results:
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: .\bot.py:104:17
+103	        try:
+104	            with request.urlopen(req, timeout=60) as response:
+105	                result = json.loads(response.read().decode("utf-8"))
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: .\bot.py:151:13
+150	    try:
+151	        with request.urlopen(req, timeout=60) as response:
+152	            result = json.loads(response.read().decode("utf-8"))
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: .\bot.py:305:13
+304	        req = request.Request(WELCOME_PHOTO_URL)
+305	        with request.urlopen(req, timeout=10) as response:
+306	            photo_bytes = response.read()
+
+--------------------------------------------------
+>> Issue: [B108:hardcoded_tmp_directory] Probable insecure usage of temp file/directory.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-377 (https://cwe.mitre.org/data/definitions/377.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b108_hardcoded_tmp_directory.html
+   Location: app\config.py:14:23
+13	if os.getenv("VERCEL"):
+14	    default_data_dir = "/tmp"
+15	else:
+
+--------------------------------------------------
+>> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html
+   Location: app\config.py:254:39
+253	        ),
+254	        api_host=os.getenv("API_HOST", "0.0.0.0"),
+255	        api_port=int(os.getenv("API_PORT", "8000")),
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: app\error_notifier.py:183:13
+182	    )
+183	    digest = hashlib.md5(digest_input).hexdigest()[:8]
+184	    return f"exc:{type(exc).__name__}:{site}:{digest}"
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: app\error_notifier.py:300:17
+299	        fingerprint_source = f"{source}|{message[:200]}"
+300	        digest = hashlib.md5(
+301	            fingerprint_source.encode("utf-8", errors="ignore")
+302	        ).hexdigest()[:8]
+303	        text = _build_message(
+
+--------------------------------------------------
+>> Issue: [B406:blacklist] Using escape to parse untrusted XML data is known to be vulnerable to XML attacks. Replace escape with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called.
+   Severity: Low   Confidence: High
+   CWE: CWE-20 (https://cwe.mitre.org/data/definitions/20.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b406-import-xml-sax
+   Location: app\exports.py:21:0
+20	
+21	from xml.sax.saxutils import escape
+22	
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'google_calendar_sync_token'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: app\google_calendar.py:45:33
+44	GOOGLE_CALENDAR_TOKENS_KEY = "google_calendar_tokens"
+45	GOOGLE_CALENDAR_SYNC_TOKEN_KEY = "google_calendar_sync_token"
+46	GOOGLE_CALENDAR_LAST_SYNC_KEY = "google_calendar_last_sync"
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'None'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: app\google_calendar.py:136:8
+135	        "tokens": dict(tokens or {}),
+136	        "sync_token": None,
+137	        "created_at": datetime.now(timezone.utc).isoformat(),
+138	    }
+139	
+140	
+141	def _read_legacy_tokens(db: Any) -> dict[str, Any]:
+142	    """╨в╨╛╨║╨╡╨╜╤Л ╨╕╨╖ ╤Б╤В╨░╤А╨╛╨│╨╛ ╨║╨╗╤О╤З╨░ google_calendar_tokens (╨┤╨╛ ╨╝╤Г╨╗╤М╤В╨╕╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╤П)."""
+143	    AppSetting = _appsetting_model()
+144	    row = db.get(AppSetting, GOOGLE_CALENDAR_TOKENS_KEY)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: app\google_calendar.py:762:12
+761	                _disable_integration_on_revoked(db)
+762	            except Exception:
+763	                pass
+764	            logger.warning(
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: app\main.py:6418:8
+6417	            return max(1, min(168, hours))
+6418	        except Exception:
+6419	            pass
+6420	    # fallback ╤Б╤В╨░╤А╤Л╨╣ ╨║╨╗╤О╤З ╨▓ ╨┤╨╜╤П╤Е
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: app\main.py:6425:8
+6424	            return max(1, min(168, int(raw_days) * 24))
+6425	        except Exception:
+6426	            pass
+6427	    return 24
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: app\main.py:6873:8
+6872	        # ╤З╨░╤Б╨╛╨▓╨╛╨╣ ╤А╨╡╨╢╨╕╨╝: ╨╕╤Й╨╡╨╝ ╨╖╨░╨┐╨╕╤Б╨╕ ╨│╨┤╨╡ ╤В╨╛╤З╨╜╨╛╨╡ ╨▓╤А╨╡╨╝╤П ╨╖╨░╨┐╨╕╤Б╨╕ тЙИ now + reminder_hours (┬▒ window)
+6873	        assert target_dt is not None and window is not None
+6874	        all_candidates = (
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: app\main.py:15785:12
+15784	                db.add(payroll_debt)
+15785	            except Exception:
+15786	                pass
+15787	
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'None'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: app\main.py:18492:12
+18491	            "tokens": storable_tokens,
+18492	            "sync_token": None,
+18493	            "created_at": datetime.now(timezone.utc).isoformat(),
+18494	        }
+18495	    else:
+18496	        # ╨Ю╨▒╤Л╤З╨╜╤Л╨╣ ╨┐╨╛╤В╨╛╨║ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░: ╨╛╨▒╨╜╨╛╨▓╨╗╤П╨╡╨╝ ╨╡╨│╨╛ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ (╨╕╨╗╨╕ ╤Б╨╛╨╖╨┤╨░╤С╨╝).
+18497	        connection = get_connection(db, OWNER_CONNECTION_ID) or {
+18498	            "id": OWNER_CONNECTION_ID,
+18499	            "name": "╨Т╨╗╨░╨┤╨╡╨╗╨╡╤Ж",
+18500	            "email": "",
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'None'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: app\main.py:18502:12
+18501	            "tokens": {},
+18502	            "sync_token": None,
+18503	            "created_at": datetime.now(timezone.utc).isoformat(),
+18504	        }
+18505	        connection["tokens"] = storable_tokens
+18506	        if account_email:
+18507	            connection["email"] = account_email
+18508	    upsert_connection(db, connection)
+18509	
+18510	    # ╨б╤А╨░╨╖╤Г ╨┐╨╛╤Б╨╗╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╤П ╨▓╤Л╨┐╨╛╨╗╨╜╤П╨╡╨╝ ╨┐╨╡╤А╨▓╤Л╨╣ pull: ╤Б╨╛╨▒╤Л╤В╨╕╤П ╨╕╨╖ Google
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: app\schemas.py:173:8
+172	            return int(Decimal(value).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+173	        except Exception:
+174	            pass
+175	    return int(value) if not isinstance(value, int) else value
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 21037
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 11
+		Medium: 5
+		High: 2
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 6
+		High: 12
+Files skipped (0):

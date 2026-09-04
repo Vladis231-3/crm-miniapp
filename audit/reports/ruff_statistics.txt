@@ -1,0 +1,26 @@
+﻿525	RUF001 	[ ] ambiguous-unicode-character-string
+256	B008   	[ ] function-call-in-default-argument
+153	RUF003 	[ ] ambiguous-unicode-character-comment
+115	RUF002 	[ ] ambiguous-unicode-character-docstring
+ 18	DTZ005 	[ ] call-datetime-now-without-tzinfo
+ 16	DTZ007 	[ ] call-datetime-strptime-without-zone
+ 13	DTZ011 	[ ] call-date-today
+ 10	B904   	[ ] raise-without-from-inside-except
+  9	RUF100 	[*] unused-noqa
+  6	PLW0603	[ ] global-statement
+  5	SIM103 	[ ] needless-bool
+  3	DTZ901 	[ ] datetime-min-max
+  3	F841   	[ ] unused-variable
+  3	RUF046 	[ ] unnecessary-cast-to-int
+  2	B009   	[*] get-attr-with-constant
+  2	PLW2901	[ ] redefined-loop-name
+  2	RUF059 	[ ] unused-unpacked-variable
+  2	SIM108 	[ ] if-else-block-instead-of-if-exp
+  1	B010   	[*] set-attr-with-constant
+  1	F541   	[*] f-string-missing-placeholders
+  1	RUF021 	[*] parenthesize-chained-operators
+  1	SIM102 	[ ] collapsible-if
+  1	SIM105 	[ ] suppressible-exception
+  1	SIM212 	[ ] if-expr-with-twisted-arms
+Found 1149 errors.
+[*] 14 fixable with the `--fix` option (17 hidden fixes can be enabled with the `--unsafe-fixes` option).

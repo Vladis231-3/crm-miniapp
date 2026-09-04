@@ -1,0 +1,400 @@
+﻿src/app/App.tsx(31,28): error TS6133: 'Check' is declared but its value is never read.
+src/app/App.tsx(50,7): error TS6133: 'NOOP' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(8,58): error TS6133: 'CreditCard' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(9,11): error TS6133: 'Sliders' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(9,20): error TS6133: 'BellOff' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(9,35): error TS2305: Module '"lucide-react"' has no exported member 'Toggle'.
+src/app/components/admin/AdminApp.tsx(9,35): error TS6133: 'Toggle' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(9,51): error TS6133: 'Eye' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(9,56): error TS6133: 'EyeOff' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(9,94): error TS6133: 'History' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(14,3): error TS2300: Duplicate identifier 'AttendanceSectionShell'.
+src/app/components/admin/AdminApp.tsx(15,3): error TS2300: Duplicate identifier 'BoxesSection'.
+src/app/components/admin/AdminApp.tsx(16,3): error TS2300: Duplicate identifier 'ScheduleSection'.
+src/app/components/admin/AdminApp.tsx(17,3): error TS2300: Duplicate identifier 'NotificationsSection'.
+src/app/components/admin/AdminApp.tsx(18,3): error TS2300: Duplicate identifier 'ProfileSection'.
+src/app/components/admin/AdminApp.tsx(21,3): error TS6133: 'ContentSectionShell' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(32,3): error TS2300: Duplicate identifier 'AttendanceSectionShell'.
+src/app/components/admin/AdminApp.tsx(33,3): error TS2300: Duplicate identifier 'BoxesSection'.
+src/app/components/admin/AdminApp.tsx(34,3): error TS2300: Duplicate identifier 'ScheduleSection'.
+src/app/components/admin/AdminApp.tsx(35,3): error TS2300: Duplicate identifier 'NotificationsSection'.
+src/app/components/admin/AdminApp.tsx(36,3): error TS2300: Duplicate identifier 'ProfileSection'.
+src/app/components/admin/AdminApp.tsx(38,177): error TS6133: 'ContentData' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(40,1): error TS6133: 'ContentEditor' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(42,1): error TS6133: 'ServiceSearchInput' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(46,3): error TS6133: 'isClientCardIncomplete' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(93,7): error TS6133: 'STATUS_COLORS' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(103,7): error TS6133: 'STATUS_BADGE' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(120,10): error TS6133: 'adminServiceResourceGroupForCategory' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(234,10): error TS6133: 'paymentLabel' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(328,5): error TS6133: 'addBookingService' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(341,5): error TS6133: 'deleteStockItem' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(344,5): error TS6133: 'addStockCategory' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(345,5): error TS6133: 'updateStockCategory' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(346,5): error TS6133: 'deleteStockCategory' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(356,5): error TS6133: 'saveAdminWorkerPayroll' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(357,5): error TS6133: 'saveContent' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(358,5): error TS2339: Property 'content' does not exist on type 'AppContextType'.
+src/app/components/admin/AdminApp.tsx(358,5): error TS6133: 'content' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(367,5): error TS2339: Property 'revokeSession' does not exist on type 'AppContextType'.
+src/app/components/admin/AdminApp.tsx(388,10): error TS6133: 'showAddStock' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(389,10): error TS6133: 'showCategoryManager' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(389,31): error TS6133: 'setShowCategoryManager' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(392,10): error TS6133: 'writeOffHistory' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(393,31): error TS6133: 'setShowWriteOffHistory' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(456,10): error TS6133: 'savingClientId' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(458,28): error TS6133: 'setClientSearchMode' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(459,29): error TS6133: 'setClientSearchQuery' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(460,38): error TS6133: 'setClientHistoryServiceFilter' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(462,10): error TS6133: 'shiftInspections' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(468,10): error TS6133: 'shiftSubmitting' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(469,10): error TS6133: 'shiftError' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(475,9): error TS6133: 'selectableBookingDates' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(486,9): error TS6133: 'filteredClients' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(509,9): error TS6133: 'selectedClientFilteredBookings' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(515,9): error TS6133: 'selectedClientVehicles' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(527,9): error TS6133: 'selectedClientSpent' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(530,9): error TS6133: 'selectedClientCompletedCount' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(531,9): error TS6133: 'selectedClientUpcoming' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(532,9): error TS6133: 'selectedClientLastVisit' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(605,7): error TS2345: Argument of type '{ id: string; role: "worker"; name: string; percent: number | ""; salaryBase: number; active: boolean; telegramChatId: string; }[]' is not assignable to parameter of type 'SetStateAction<EmployeeSetting[]>'.
+  Type '{ id: string; role: "worker"; name: string; percent: number | ""; salaryBase: number; active: boolean; telegramChatId: string; }[]' is not assignable to type 'EmployeeSetting[]'.
+    Property 'salaryPerShift' is missing in type '{ id: string; role: "worker"; name: string; percent: number | ""; salaryBase: number; active: boolean; telegramChatId: string; }' but required in type 'EmployeeSetting'.
+src/app/components/admin/AdminApp.tsx(690,9): error TS6133: 'byService' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(696,9): error TS6133: 'byStatus' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(707,9): error TS6133: 'byPayment' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(714,9): error TS6133: 'workerStats' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(725,9): error TS6133: 'avgCheck' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(726,9): error TS6133: 'conversionRate' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(728,9): error TS6133: 'revenueData' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(735,9): error TS6133: 'hourData' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(753,9): error TS6133: 'handleDeleteClient' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(803,9): error TS6133: 'handleSaveClientCard' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(818,9): error TS6133: 'handleShiftPhotoChange' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(835,9): error TS6133: 'handleSubmitShiftInspection' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(1010,23): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; box: string; price: number; duration: number; car: string; plate: string; ... 7 more ...; isRepeatVisit: false; }' is not assignable to parameter of type 'SetStateAction<{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; box: string; price: number; duration: number; car: string; plate: string; ... 8 more ...; isRepeatVisit: boolean; }>'.
+  Property 'plateType' is missing in type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; box: string; price: number; duration: number; car: string; plate: string; ... 7 more ...; isRepeatVisit: false; }' but required in type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; box: string; price: number; duration: number; car: string; plate: string; ... 8 more ...; isRepeatVisit: boolean; }'.
+src/app/components/admin/AdminApp.tsx(1338,24): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: BookingStatus; ... 13 more ...; materials: { ...; }[]; }' is not assignable to parameter of type 'BookingCreateInput'.
+  Type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: BookingStatus; ... 13 more ...; materials: { ...; }[]; }' is missing the following properties from type 'Omit<Booking, "id" | "createdAt">': services, additionalServices, materialsWrittenOff
+src/app/components/admin/AdminApp.tsx(1482,9): error TS6133: 'handleAddStock' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(1495,9): error TS6133: 'handleWriteOff' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(1549,9): error TS6133: 'tooltipStyle' is declared but its value is never read.
+src/app/components/admin/AdminApp.tsx(1597,42): error TS2304: Cannot find name 'setShowNotifications'.
+src/app/components/admin/AdminApp.tsx(1691,22): error TS2352: Conversion of type 'AdminNotificationSettings' to type 'Record<string, boolean>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'AdminNotificationSettings'.
+src/app/components/admin/AdminApp.tsx(1888,77): error TS2339: Property 'earned' does not exist on type 'WorkerPayrollBooking'.
+src/app/components/admin/AdminApp.tsx(1938,21): error TS2339: Property 'action' does not exist on type '{ id: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; label: string; }'.
+src/app/components/admin/AdminApp.tsx(1939,19): error TS2339: Property 'action' does not exist on type '{ id: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; label: string; }'.
+src/app/components/admin/AdminApp.tsx(2237,19): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/admin/AdminApp.tsx(2245,40): error TS2345: Argument of type '(current: { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }) => { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; }' is not assignable to parameter of type 'SetStateAction<{ serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }>'.
+  Type '(current: { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }) => { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; }' is not assignable to type '(prevState: { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }) => { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }'.
+    Type '{ serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; }' is missing the following properties from type '{ serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }': isOutsource, outsourceAmount
+src/app/components/admin/AdminApp.tsx(2587,9): error TS2322: Type '{ id: string; percent: number | ""; payType?: "percent" | "fixed"; fixedAmount?: number; }[]' is not assignable to type 'AssignedWorkerDraft[]'.
+  Type '{ id: string; percent: number | ""; payType?: "percent" | "fixed"; fixedAmount?: number; }' is not assignable to type 'AssignedWorkerDraft'.
+    Property 'payType' is optional in type '{ id: string; percent: number | ""; payType?: "percent" | "fixed"; fixedAmount?: number; }' but required in type 'AssignedWorkerDraft'.
+src/app/components/admin/AdminApp.tsx(2700,21): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; placeholder: string; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/admin/AdminApp.tsx(3191,71): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PlateType'.
+src/app/components/admin/AdminApp.tsx(3213,21): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/admin/screens/AdminClientsPage.tsx(50,11): error TS2339: Property 'registeredClients' does not exist on type 'AppContextType'.
+src/app/components/admin/screens/AdminClientsPage.tsx(153,9): error TS6133: 'draftFor' is declared but its value is never read.
+src/app/components/admin/screens/AdminClientsPage.tsx(305,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(306,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(307,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(383,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(384,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(385,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(386,18): error TS2304: Cannot find name 'StatTile'.
+src/app/components/admin/screens/AdminClientsPage.tsx(487,21): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: false; placeholder: string; onChange: Dispatch<SetStateAction<string>>; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/admin/screens/AdminPayrollPage.tsx(93,34): error TS2345: Argument of type 'EmployeeSetting[]' is not assignable to parameter of type 'import("C:/Users/Admin/Desktop/concept1.0/frontend/src/app/context/AppContext").EmployeeSetting[]'.
+  Property 'salaryPerShift' is missing in type 'EmployeeSetting' but required in type 'import("C:/Users/Admin/Desktop/concept1.0/frontend/src/app/context/AppContext").EmployeeSetting'.
+src/app/components/admin/screens/AdminStatsPage.tsx(130,10): error TS2769: No overload matches this call.
+  Overload 2 of 2, '(...items: ({ name: "╨Э╨░╨╗╨╕╤З╨╜╤Л╨╡" | "╨Я╨╡╤А╨╡╨▓╨╛╨┤" | "╨Я╨╛ ╤Б╤З╤С╤В╤Г"; value: number; color: "var(--primary-600)" | "var(--status-success)" | "var(--primary-800)"; } | ConcatArray<{ name: "╨Э╨░╨╗╨╕╤З╨╜╤Л╨╡" | "╨Я╨╡╤А╨╡╨▓╨╛╨┤" | "╨Я╨╛ ╤Б╤З╤С╤В╤Г"; value: number; color: "var(--primary-600)" | ... 1 more ... | "var(--primary-800)"; }>)[]): { ...; }[]', gave the following error.
+    Type '"╨Э╨╡ ╨╛╨┐╨╗╨░╤З╨╡╨╜╨╛"' is not assignable to type '"╨Э╨░╨╗╨╕╤З╨╜╤Л╨╡" | "╨Я╨╡╤А╨╡╨▓╨╛╨┤" | "╨Я╨╛ ╤Б╤З╤С╤В╤Г"'.
+  Overload 2 of 2, '(...items: ({ name: "╨Э╨░╨╗╨╕╤З╨╜╤Л╨╡" | "╨Я╨╡╤А╨╡╨▓╨╛╨┤" | "╨Я╨╛ ╤Б╤З╤С╤В╤Г"; value: number; color: "var(--primary-600)" | "var(--status-success)" | "var(--primary-800)"; } | ConcatArray<{ name: "╨Э╨░╨╗╨╕╤З╨╜╤Л╨╡" | "╨Я╨╡╤А╨╡╨▓╨╛╨┤" | "╨Я╨╛ ╤Б╤З╤С╤В╤Г"; value: number; color: "var(--primary-600)" | ... 1 more ... | "var(--primary-800)"; }>)[]): { ...; }[]', gave the following error.
+    Type '"var(--status-danger)"' is not assignable to type '"var(--primary-600)" | "var(--status-success)" | "var(--primary-800)"'.
+src/app/components/admin/screens/AdminStockPage.tsx(5,56): error TS6133: 'StatTile' is declared but its value is never read.
+src/app/components/admin/screens/AdminStockPage.tsx(5,66): error TS6133: 'Textarea' is declared but its value is never read.
+src/app/components/admin/settings-sections/AdminSettingsSections.tsx(614,23): error TS2339: Property 'masterWorkers' does not exist on type 'AppContextType'.
+src/app/components/client/ClientApp.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(5,20): error TS6133: 'X' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(9,1): error TS6133: 'normalizePlateInput' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(24,7): error TS6133: 'CANCELLABLE_STATUSES' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(45,10): error TS6133: 'isManualSchedulingBooking' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(58,5): error TS6133: 'services' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(61,5): error TS6133: 'updateClientProfile' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(62,5): error TS6133: 'logout' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(73,10): error TS6133: 'confirmedBookingId' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(168,9): error TS6133: 'pastBookings' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(171,9): error TS6133: 'favoriteService' is declared but its value is never read.
+src/app/components/client/ClientApp.tsx(236,38): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: "admin_review"; workers: undefined[]; ... 6 more ...; notes: string; }' is not assignable to parameter of type 'BookingCreateInput'.
+  Type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: "admin_review"; workers: undefined[]; ... 6 more ...; notes: string; }' is missing the following properties from type 'Omit<Booking, "id" | "createdAt">': isOutsource, outsourceAmount, services, additionalServices, and 2 more.
+src/app/components/client/ClientApp.tsx(424,27): error TS2304: Cannot find name 'slotAvailabilityEmptyLabel'.
+src/app/components/client/screens/ProfileScreen.tsx(105,10): error TS2304: Cannot find name 'StatTile'.
+src/app/components/client/screens/ProfileScreen.tsx(106,10): error TS2304: Cannot find name 'StatTile'.
+src/app/components/client/screens/ProfileScreen.tsx(107,10): error TS2304: Cannot find name 'StatTile'.
+src/app/components/client/screens/SlotsScreen.tsx(2,10): error TS6133: 'useApp' is declared but its value is never read.
+src/app/components/landing/LandingPage.tsx(3,28): error TS6196: 'ContentService' is declared but never used.
+src/app/components/landing/LandingPage.tsx(16,9): error TS6133: 'contactRef' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(5,9): error TS6133: 'Sun' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(5,14): error TS6133: 'Moon' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(5,26): error TS6133: 'Minus' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(7,16): error TS6133: 'Home' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(8,43): error TS6133: 'Calendar' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(10,40): error TS6133: 'Banknote' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(14,24): error TS6133: 'LineChart' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(14,35): error TS6133: 'Line' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(16,10): error TS6133: 'apiBlobUrl' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(17,300): error TS6133: 'ContentData' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(17,318): error TS6133: 'StockWriteOff' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(30,3): error TS6133: 'isClientCardIncomplete' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(41,10): error TS6133: 'FIXED_MASTER_EARNED' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(85,12): error TS2304: Cannot find name 'PayrollEntry'.
+src/app/components/owner/OwnerApp.tsx(328,10): error TS6133: 'ownerDefaultBoxForService' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(622,10): error TS6133: 'ownerPaymentLabel' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(677,5): error TS6133: 'toggleTheme' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(687,20): error TS6133: 'addStockItem' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(688,5): error TS6133: 'writeOffStock' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(689,5): error TS6133: 'getWriteOffHistory' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(690,5): error TS6133: 'deleteStockItem' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(692,5): error TS6133: 'addStockCategory' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(693,5): error TS6133: 'updateStockCategory' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(694,5): error TS6133: 'deleteStockCategory' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(701,5): error TS6133: 'addBookingService' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(725,5): error TS2339: Property 'content' does not exist on type 'AppContextType'.
+src/app/components/owner/OwnerApp.tsx(738,5): error TS2339: Property 'revokeSession' does not exist on type 'AppContextType'.
+src/app/components/owner/OwnerApp.tsx(826,26): error TS6133: 'setReportDateFrom' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(827,24): error TS6133: 'setReportDateTo' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(847,9): error TS6133: 'parentCategories' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(908,10): error TS6133: 'outsourcePayroll' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(908,28): error TS6133: 'setOutsourcePayroll' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1062,10): error TS6133: 'newVehicleCar' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1063,10): error TS6133: 'newVehiclePlate' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1105,10): error TS6133: 'ownerNewBookingError' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1257,13): error TS6133: 'res' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1591,9): error TS6133: 'washRevenue' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1594,9): error TS6133: 'detailingRevenue' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1597,9): error TS6133: 'washExpenses' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1600,9): error TS6133: 'detailingExpenses' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1603,9): error TS6133: 'washIncomes' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1606,9): error TS6133: 'detailingIncomes' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(1617,53): error TS2345: Argument of type 'number | ""' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/app/components/owner/OwnerApp.tsx(1853,30): error TS2345: Argument of type '{ configured: boolean; source: "env" | "db"; redirectUri: string; }' is not assignable to parameter of type 'SetStateAction<{ configured: boolean; source: "env" | "db"; redirectUri: string; hasDbCredentials: boolean; }>'.
+  Property 'hasDbCredentials' is missing in type '{ configured: boolean; source: "env" | "db"; redirectUri: string; }' but required in type '{ configured: boolean; source: "env" | "db"; redirectUri: string; hasDbCredentials: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(1902,33): error TS2339: Property 'openLink' does not exist on type '{ initData?: string; initDataUnsafe?: { user?: { id?: number; first_name?: string; last_name?: string; username?: string; }; }; colorScheme?: "light" | "dark"; themeParams?: Record<string, string>; ... 23 more ...; BackButton?: { ...; }; }'.
+src/app/components/owner/OwnerApp.tsx(1903,14): error TS2339: Property 'openLink' does not exist on type '{ initData?: string; initDataUnsafe?: { user?: { id?: number; first_name?: string; last_name?: string; username?: string; }; }; colorScheme?: "light" | "dark"; themeParams?: Record<string, string>; ... 23 more ...; BackButton?: { ...; }; }'.
+src/app/components/owner/OwnerApp.tsx(1960,28): error TS2345: Argument of type '{ configured: boolean; source: "env" | "db"; redirectUri: string; }' is not assignable to parameter of type 'SetStateAction<{ configured: boolean; source: "env" | "db"; redirectUri: string; hasDbCredentials: boolean; }>'.
+  Property 'hasDbCredentials' is missing in type '{ configured: boolean; source: "env" | "db"; redirectUri: string; }' but required in type '{ configured: boolean; source: "env" | "db"; redirectUri: string; hasDbCredentials: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(2278,13): error TS2345: Argument of type '"wallet"' is not assignable to parameter of type 'SetStateAction<OwnerPage>'.
+src/app/components/owner/OwnerApp.tsx(2306,13): error TS2345: Argument of type '"wallet"' is not assignable to parameter of type 'SetStateAction<OwnerPage>'.
+src/app/components/owner/OwnerApp.tsx(2523,7): error TS2322: Type 'string' is not assignable to type '"" | "wash" | "detailing"'.
+src/app/components/owner/OwnerApp.tsx(2551,9): error TS2353: Object literal may only specify known properties, and 'resourceGroup' does not exist in type '{ title?: string; amount?: number; category?: string; date?: string; note?: string; }'.
+src/app/components/owner/OwnerApp.tsx(2586,7): error TS2322: Type 'string' is not assignable to type '"" | "wash" | "detailing"'.
+src/app/components/owner/OwnerApp.tsx(2613,9): error TS2353: Object literal may only specify known properties, and 'resourceGroup' does not exist in type '{ amount?: number; source?: string; note?: string; date?: string; }'.
+src/app/components/owner/OwnerApp.tsx(2897,82): error TS2367: This comparison appears to be unintentional because the types 'string' and 'number' have no overlap.
+src/app/components/owner/OwnerApp.tsx(3187,20): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; service: string; date: string; time: string; box: string; status: "admin_review"; paymentType: "cash" | "transfer" | "invoice"; paymentSettled: false; price: number; duration: number; }' is not assignable to parameter of type 'SetStateAction<{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }>'.
+  Type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; service: string; date: string; time: string; box: string; status: "admin_review"; paymentType: "cash" | "transfer" | "invoice"; paymentSettled: false; price: number; duration: number; }' is missing the following properties from type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }': plateType, referralSource, isRepeatVisit
+src/app/components/owner/OwnerApp.tsx(3218,20): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; car: any; plate: any; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; paymentType: "cash" | "transfer" | "invoice"; paymentSettled: false; price: number; duration: number; }' is not assignable to parameter of type 'SetStateAction<{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }>'.
+  Type '{ clientId: string; clientName: string; clientPhone: string; car: any; plate: any; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; paymentType: "cash" | ... 1 more ... | "invoice"; paymentSettled: false; price: number; duration: number; }' is missing the following properties from type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }': referralSource, isRepeatVisit
+src/app/components/owner/OwnerApp.tsx(3222,24): error TS2339: Property 'car' does not exist on type '{}'.
+src/app/components/owner/OwnerApp.tsx(3223,26): error TS2339: Property 'plate' does not exist on type '{}'.
+src/app/components/owner/OwnerApp.tsx(3224,32): error TS2339: Property 'plateType' does not exist on type '{}'.
+src/app/components/owner/OwnerApp.tsx(3330,31): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type '{ workerId: string; workerName: string; percent: number; payType?: string; fixedAmount?: number; }' is not assignable to type '{ workerId: string; workerName: string; percent: number; payType: "percent" | "fixed"; fixedAmount: number; }'.
+    Types of property 'payType' are incompatible.
+      Type 'string' is not assignable to type '"percent" | "fixed"'.
+src/app/components/owner/OwnerApp.tsx(3333,40): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: BookingStatus; ... 11 more ...; notifyWorkers: boolean; }' is not assignable to parameter of type 'BookingCreateInput'.
+  Type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: BookingStatus; ... 11 more ...; notifyWorkers: boolean; }' is missing the following properties from type 'Omit<Booking, "id" | "createdAt">': services, additionalServices, materials, materialsWrittenOff
+src/app/components/owner/OwnerApp.tsx(3347,34): error TS2339: Property 'isOutsource' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(3348,38): error TS2339: Property 'outsourceAmount' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(3354,37): error TS2339: Property 'isOutsource' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(3372,9): error TS6133: 'ownerNewBookingSelectableDates' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3474,24): error TS2345: Argument of type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: BookingStatus; ... 13 more ...; materials: { ...; }[]; }' is not assignable to parameter of type 'BookingCreateInput'.
+  Type '{ clientId: string; clientName: string; clientPhone: string; service: string; serviceId: string; date: string; time: string; duration: number; price: number; status: BookingStatus; ... 13 more ...; materials: { ...; }[]; }' is missing the following properties from type 'Omit<Booking, "id" | "createdAt">': services, additionalServices, materialsWrittenOff
+src/app/components/owner/OwnerApp.tsx(3878,9): error TS6133: 'boxLoadData' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3888,9): error TS6133: 'workerEfficiencyData' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3928,9): error TS6133: 'filteredSettingsClients' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3949,9): error TS6133: 'selectedSettingsClientCardDraft' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3960,9): error TS6133: 'selectedSettingsClientFilteredBookings' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3966,9): error TS6133: 'selectedSettingsClientVehicles' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3971,9): error TS6133: 'selectedSettingsClientSpent' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3974,9): error TS6133: 'selectedSettingsClientCompletedCount' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3975,9): error TS6133: 'selectedSettingsClientUpcoming' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(3976,9): error TS6133: 'selectedSettingsClientLastVisit' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(4705,60): error TS2339: Property 'shiftPayTotal' does not exist on type 'WorkerPayrollSummary'.
+src/app/components/owner/OwnerApp.tsx(4706,60): error TS2339: Property 'shiftPayTotal' does not exist on type 'WorkerPayrollSummary'.
+src/app/components/owner/OwnerApp.tsx(4706,115): error TS2339: Property 'shiftCount' does not exist on type 'WorkerPayrollSummary'.
+src/app/components/owner/OwnerApp.tsx(4904,81): error TS2339: Property 'shiftPayTotal' does not exist on type 'WorkerPayrollSummary'.
+src/app/components/owner/OwnerApp.tsx(4904,111): error TS2339: Property 'shiftPayTotal' does not exist on type 'WorkerPayrollSummary'.
+src/app/components/owner/OwnerApp.tsx(4904,155): error TS2339: Property 'shiftCount' does not exist on type 'WorkerPayrollSummary'.
+src/app/components/owner/OwnerApp.tsx(5356,13): error TS2367: This comparison appears to be unintentional because the types 'OwnerPage' and '"wallet"' have no overlap.
+src/app/components/owner/OwnerApp.tsx(5750,70): error TS2345: Argument of type '(current: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => { ...; }' is not assignable to parameter of type 'SetStateAction<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>>'.
+  Type '(current: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => { ...; }' is not assignable to type '(prevState: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => Record<...>'.
+    Type '{ [x: string]: { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; } | { ...; } | { ...; }; }' is not assignable to type 'Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>'.
+      'string' index signatures are incompatible.
+        Type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; } | { notes: string; ... 8 more ...; referralSource: string; } | { ...; }' is not assignable to type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }'.
+          Property 'plateType' is missing in type '{ notes: string; name: string; phone: string; car: string; plate: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }' but required in type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }'.
+src/app/components/owner/OwnerApp.tsx(5761,72): error TS2345: Argument of type '(current: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => { ...; }' is not assignable to parameter of type 'SetStateAction<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>>'.
+  Type '(current: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => { ...; }' is not assignable to type '(prevState: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => Record<...>'.
+    Type '{ [x: string]: { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; } | { ...; } | { ...; }; }' is not assignable to type 'Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>'.
+      'string' index signatures are incompatible.
+        Type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; } | { debtBalance: string; ... 8 more ...; referralSource: string; } | { ...; }' is not assignable to type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }'.
+          Property 'plateType' is missing in type '{ debtBalance: string; name: string; phone: string; car: string; plate: string; notes: string; adminRating: number; adminNote: string; referralSource: string; }' but required in type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }'.
+src/app/components/owner/OwnerApp.tsx(5770,72): error TS2345: Argument of type '(current: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => { ...; }' is not assignable to parameter of type 'SetStateAction<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>>'.
+  Type '(current: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => { ...; }' is not assignable to type '(prevState: Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>) => Record<...>'.
+    Type '{ [x: string]: { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; } | { ...; } | { ...; }; }' is not assignable to type 'Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }>'.
+      'string' index signatures are incompatible.
+        Type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; } | { adminNote: string; ... 8 more ...; referralSource: string; } | { ...; }' is not assignable to type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }'.
+          Property 'plateType' is missing in type '{ adminNote: string; name: string; phone: string; car: string; plate: string; notes: string; debtBalance: string; adminRating: number; referralSource: string; }' but required in type '{ name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string; }'.
+src/app/components/owner/OwnerApp.tsx(6034,51): error TS2339: Property 'key' does not exist on type '{ label: string; v: number; c: string; key: string; } | { label: string; v: number; c: string; }'.
+  Property 'key' does not exist on type '{ label: string; v: number; c: string; }'.
+src/app/components/owner/OwnerApp.tsx(6967,114): error TS2339: Property 'isOutsource' does not exist on type 'ArchiveAdditionalServiceItem'.
+src/app/components/owner/OwnerApp.tsx(6967,145): error TS2339: Property 'outsourceAmount' does not exist on type 'ArchiveAdditionalServiceItem'.
+src/app/components/owner/OwnerApp.tsx(7312,19): error TS2322: Type '(initialName?: string) => string' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.
+  Types of parameters 'initialName' and 'event' are incompatible.
+    Type 'MouseEvent<HTMLButtonElement, MouseEvent>' is not assignable to type 'string'.
+src/app/components/owner/OwnerApp.tsx(7548,80): error TS2322: Type 'number | boolean' is not assignable to type 'boolean'.
+  Type 'number' is not assignable to type 'boolean'.
+src/app/components/owner/OwnerApp.tsx(7557,80): error TS2322: Type 'number | boolean' is not assignable to type 'boolean'.
+  Type 'number' is not assignable to type 'boolean'.
+src/app/components/owner/OwnerApp.tsx(7828,43): error TS2339: Property 'lastSyncAt' does not exist on type '{ at?: string; created?: number; updated?: number; cancelled?: number; skipped?: boolean; error?: string; }'.
+src/app/components/owner/OwnerApp.tsx(7829,84): error TS2339: Property 'lastSyncAt' does not exist on type '{ at?: string; created?: number; updated?: number; cancelled?: number; skipped?: boolean; error?: string; }'.
+src/app/components/owner/OwnerApp.tsx(7832,43): error TS2339: Property 'errorDetails' does not exist on type '{ at?: string; created?: number; updated?: number; cancelled?: number; skipped?: boolean; error?: string; }'.
+src/app/components/owner/OwnerApp.tsx(7833,111): error TS2339: Property 'errorDetails' does not exist on type '{ at?: string; created?: number; updated?: number; cancelled?: number; skipped?: boolean; error?: string; }'.
+src/app/components/owner/OwnerApp.tsx(8822,33): error TS2339: Property 'archives' does not exist on type 'PiggyBankData'.
+src/app/components/owner/OwnerApp.tsx(8822,55): error TS2339: Property 'archives' does not exist on type 'PiggyBankData'.
+src/app/components/owner/OwnerApp.tsx(8823,37): error TS2339: Property 'archives' does not exist on type 'PiggyBankData'.
+src/app/components/owner/OwnerApp.tsx(9051,174): error TS2353: Object literal may only specify known properties, and 'resourceGroup' does not exist in type '{ amount: number; source: string; note?: string; date: string; serviceCategory?: string; }'.
+src/app/components/owner/OwnerApp.tsx(9246,71): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PlateType'.
+src/app/components/owner/OwnerApp.tsx(9283,21): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; placeholder: string; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/owner/OwnerApp.tsx(9360,42): error TS2339: Property 'isOutsource' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(9368,30): error TS2339: Property 'isOutsource' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(9371,99): error TS2339: Property 'outsourceAmount' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(9375,31): error TS2339: Property 'isOutsource' does not exist on type '{ clientId: string; clientName: string; clientPhone: string; car: string; plate: string; plateType: PlateType; service: string; date: string; time: string; box: string; status: BookingStatus; ... 5 more ...; isRepeatVisit: boolean; }'.
+src/app/components/owner/OwnerApp.tsx(9988,27): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/owner/OwnerApp.tsx(10360,19): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; placeholder: string; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/owner/OwnerApp.tsx(10369,45): error TS2345: Argument of type '(p: { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }) => { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; }' is not assignable to parameter of type 'SetStateAction<{ serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }>'.
+  Type '(p: { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }) => { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; }' is not assignable to type '(prevState: { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }) => { serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }'.
+    Type '{ serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; }' is missing the following properties from type '{ serviceId: string; price: number; duration: number; priceMode: "add" | "subtract"; isOutsource: boolean; outsourceAmount: number; }': isOutsource, outsourceAmount
+src/app/components/owner/OwnerApp.tsx(10810,71): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PlateType'.
+src/app/components/owner/OwnerApp.tsx(10832,21): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; onCreateNew: (queryName: string) => void; onChange: (serviceId: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/owner/OwnerApp.tsx(11621,37): error TS6133: 'rowCost' is declared but its value is never read.
+src/app/components/owner/OwnerApp.tsx(11964,102): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/app/components/owner/screens/OwnerClientsScreen.tsx(386,80): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PlateType'.
+src/app/components/owner/screens/OwnerClientsScreen.tsx(745,19): error TS2322: Type '{ value: string; services: Service[]; selectCls: string; inputCls: string; glass: string; text: string; sub: string; primary: string; isDark: boolean; placeholder: string; onChange: (value: string) => void; }' is not assignable to type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+  Property 'glass' does not exist on type 'IntrinsicAttributes & ServiceSearchSelectProps'.
+src/app/components/shared/Atmosfera.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/app/components/shared/AttendanceTable.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/app/components/shared/EmptyState.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/app/components/shared/ServiceSearchInput.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/app/components/shared/Skeleton.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/app/components/shared/SourceBadge.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/app/components/worker/screens/WorkerProfileScreen.tsx(9,3): error TS6133: 'COMPLAINT_THRESHOLD' is declared but its value is never read.
+src/app/components/worker/screens/WorkerProfileScreen.tsx(60,5): error TS2339: Property 'revokeSession' does not exist on type 'AppContextType'.
+src/app/components/worker/screens/WorkerProfileScreen.tsx(207,9): error TS6133: 'fmtDateTime' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(4,20): error TS6133: 'Calendar' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(4,44): error TS6133: 'DollarSign' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(4,56): error TS6133: 'User' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(5,3): error TS6133: 'Info' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(5,37): error TS6133: 'Clock' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(5,44): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(5,58): error TS6133: 'ChevronLeft' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(5,71): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,3): error TS6133: 'Edit3' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,10): error TS6133: 'Save' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,16): error TS6133: 'Camera' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,24): error TS6133: 'Star' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,30): error TS6133: 'Shield' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,38): error TS6133: 'BellOff' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,47): error TS6133: 'History' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(6,56): error TS6133: 'LogOut' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,3): error TS6133: 'Mail' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,9): error TS6133: 'MapPin' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,17): error TS6133: 'Award' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,24): error TS6133: 'Eye' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,29): error TS6133: 'EyeOff' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,37): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(7,49): error TS6133: 'Search' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(10,1): error TS6133: 'EmptyState' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(11,1): error TS6133: 'SkeletonRows' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(12,10): error TS6133: 'getWorkerNotificationSettings' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(15,1): error TS6133: 'AttendanceTable' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(16,10): error TS6133: 'COMPLAINT_THRESHOLD' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(17,1): error TS6133: 'apiRequest' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(18,1): error TS6133: 'CarSearch' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(116,5): error TS6133: 'settings' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(117,5): error TS6133: 'activeSessions' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(118,5): error TS6133: 'saveWorkerProfile' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(119,5): error TS6133: 'saveWorkerNotificationSettings' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(120,5): error TS6133: 'createTelegramLinkCode' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(123,5): error TS6133: 'listShiftChecklists' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(124,5): error TS6133: 'submitShiftChecklist' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(125,5): error TS6133: 'changePassword' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(126,5): error TS6133: 'refreshActiveSessions' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(127,5): error TS2339: Property 'revokeSession' does not exist on type 'AppContextType'.
+src/app/components/worker/WorkerApp.tsx(127,5): error TS6133: 'revokeSession' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(182,9): error TS6133: 'earnedForDisplay' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(184,9): error TS6133: 'complaintState' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(185,9): error TS6133: 'payoutAfterPenalties' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(189,9): error TS6133: 'avgCheck' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(190,9): error TS6133: 'chemistryItems' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(207,9): error TS6133: 'inputCls' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(208,9): error TS6133: 'formatComplaintDate' is declared but its value is never read.
+src/app/components/worker/WorkerApp.tsx(528,72): error TS2304: Cannot find name 'setSelectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(535,34): error TS2304: Cannot find name 'setSelectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(552,196): error TS2304: Cannot find name 'setSelectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(552,229): error TS2304: Cannot find name 'setSelectedCalDate'.
+src/app/components/worker/WorkerApp.tsx(704,10): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(706,155): error TS2304: Cannot find name 'setSelectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(712,40): error TS2304: Cannot find name 'setSelectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(718,51): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(722,18): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(725,53): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(726,22): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(726,101): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(733,51): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(733,83): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(734,20): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(734,85): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(741,87): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(742,74): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(743,24): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(746,20): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(748,32): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(748,93): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(754,18): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(758,91): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(759,55): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(759,89): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(761,27): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(762,65): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(763,29): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(763,106): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(769,18): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerApp.tsx(772,47): error TS2304: Cannot find name 'selectedCompletedOrder'.
+src/app/components/worker/WorkerCalendar.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/app/context/AppContext.tsx(2,35): error TS6133: 'getTelegramInitData' is declared but its value is never read.
+src/app/context/AppContext.tsx(1363,40): error TS2345: Argument of type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' is not assignable to parameter of type 'BootstrapPayload'.
+  Property 'stockCategories' is missing in type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' but required in type 'BootstrapPayload'.
+src/app/context/AppContext.tsx(1395,40): error TS2345: Argument of type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' is not assignable to parameter of type 'BootstrapPayload'.
+  Property 'stockCategories' is missing in type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' but required in type 'BootstrapPayload'.
+src/app/context/AppContext.tsx(1416,40): error TS2345: Argument of type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' is not assignable to parameter of type 'BootstrapPayload'.
+  Property 'stockCategories' is missing in type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' but required in type 'BootstrapPayload'.
+src/app/context/AppContext.tsx(1437,40): error TS2345: Argument of type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' is not assignable to parameter of type 'BootstrapPayload'.
+  Property 'stockCategories' is missing in type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' but required in type 'BootstrapPayload'.
+src/app/context/AppContext.tsx(1458,40): error TS2345: Argument of type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' is not assignable to parameter of type 'BootstrapPayload'.
+  Property 'stockCategories' is missing in type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: (Omit<Booking, "createdAt"> & { createdAt: string; })[]; ... 8 more ...; settings: SettingsBundle; }' but required in type 'BootstrapPayload'.
+src/app/context/AppContext.tsx(1479,40): error TS2345: Argument of type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: undefined[]; notifications: (Omit<Notification, "createdAt"> & { ...; })[]; ... 7 more ...; settings: SettingsBundle; }' is not assignable to parameter of type 'BootstrapPayload'.
+  Property 'stockCategories' is missing in type '{ session: SessionInfo; clientProfile: ClientProfile; staffProfile: Worker; clients: undefined[]; bookings: undefined[]; notifications: (Omit<Notification, "createdAt"> & { ...; })[]; ... 7 more ...; settings: SettingsBundle; }' but required in type 'BootstrapPayload'.
+src/app/context/AppContext.tsx(1958,7): error TS2353: Object literal may only specify known properties, and 'content' does not exist in type 'AppContextType'.
+src/app/utils/validation.ts(8,7): error TS6133: 'REPEATED_LETTERS_PATTERN' is declared but its value is never read.
+src/main.tsx(2,17): error TS5097: An import path can only end with a '.tsx' extension when 'allowImportingTsExtensions' is enabled.
