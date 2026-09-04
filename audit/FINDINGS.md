@@ -97,7 +97,7 @@ pip-audit: starlette 8 vulns держатся (F-003) + **новый** setuptool
 | V-001b | telegram-linking 58% | generate/confirm покрыты (ротация кодов, неверный код → None, linked-флаг) в test_v1_gaps.py | done |
 | V-001c | owner salary-detail (86 строк дыры) | 403 для worker / 200 + структура для owner, test_v1_gaps.py 8/8 | done |
 | V-001d | shift-attendance happy-paths | Своя/чужая/несуществующая посещаемость: 200/403/404 обеими ролями, test_attendance_endpoints.py 8/8 | done |
-| PARKED | main.py debt-hunks не закоммичены | Параллельный stdlib-shadow/format WIP в том же файле; страховка: `audit/.main-debt-parked.patch` (удалить после settle). Коммит 7569311 — всё остальное | pending |
+| PARKED | main.py debt-hunks не закоммичены | Селективный stage невозможен: hunks запутаны построчно с чужим рефактором (доказано: мой noqa-ханк зависит от их `_math_isinf`-переименования; классификатор дал 0 безопасно-отделимых из 39). Страховка: `audit/.main-debt-parked.patch` = полный снапшот (удалить после settle). Разрешение — только после коммита чужого WIP | pending |
 | T-001 | vitest с нуля (`npm run test`, `validation.test.ts` 15/15) | Первые тесты фронта в истории репо (pure-utils). Следом: date.ts, api-контракты, затем jsdom-компоненты | done |
 | W-001 | бюджет SQL (`test_wallet_query_budget.py`) | get_wallet: 19 запросов на сиде при бюджете 120 (N+1-радар; масштабируется строками — бюджет щедрый намеренно) | done |
 | C-001 | CI расширен (`.github/workflows/ci.yml`, `.pre-commit-config.yaml`) | Backend: +pip-audit по пинам + coverage fail-under=70. Frontend: +vitest. Новый job contract: route_matrix + drift-гейт (exit 1 при дрейфе). tsc/eslint в гейт не заведены сознательно (216/155 — сначала погасить долг) | done |
