@@ -11347,7 +11347,9 @@ def submit_contact(
 
     for owner in owners:
 
-        send_telegram_message(owner.telegram_chat_id, text)
+        # C-001: публичная форма не должна ронять 500 из-за недоступности
+        # Telegram — заявка принята, недоставка лишь логируется.
+        _send_telegram_safe(owner.telegram_chat_id, text)
 
     return GenericMessage(message="Заявка отправлена")
 
