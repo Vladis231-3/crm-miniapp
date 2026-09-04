@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-04 06:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-04 06:33 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -188,6 +188,7 @@ concept1.0/
 │   │   ├── check_api_drift.py
 │   │   ├── migration_idempotency.py
 │   │   └── route_matrix.py
+│   ├── .main-debt-parked.patch
 │   └── FINDINGS.md
 ├── backend/
 │   ├── app/
@@ -4950,7 +4951,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `audit/FINDINGS.md` (2026-09-04 09:25)
+- `audit/FINDINGS.md` (2026-09-04 09:33)
+- `audit/.main-debt-parked.patch` (2026-09-04 09:33)
 - `backend/app/exports.py` (2026-09-04 09:22)
 - `backend/bot.py` (2026-09-04 09:20)
 - `backend/app/google_calendar.py` (2026-09-04 09:20)
@@ -4964,4 +4966,3 @@ concept1.0/
 - `backend/app/complaints.py` (2026-09-04 09:04)
 - `backend/pyproject.toml` (2026-09-04 09:01)
 - `backend/tests/test_booking_logic.py` (2026-09-04 08:38)
-- `backend/tests/test_double_booking.py` (2026-09-04 08:20)
