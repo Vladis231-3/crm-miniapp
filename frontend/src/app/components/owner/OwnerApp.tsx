@@ -733,8 +733,6 @@ export function OwnerApp() {
     resetWorkerPassword,
     staffProfile,
     switchRole,
-    activeSessions,
-    refreshActiveSessions,
     downloadOwnerExport,
       sendOwnerExportToTelegram,
       sendOwnerSummaryReport,
@@ -1454,11 +1452,6 @@ export function OwnerApp() {
       clearOwnerResetFlow();
     }
   }, [settingsSection]);
-  useEffect(() => {
-    if (page === 'settings' && settingsSection === 'security') {
-      void refreshActiveSessions();
-    }
-  }, [page, settingsSection]);
   useEffect(() => {
     if (!resetFinalizeAfter) {
       setResetCountdown(0);
@@ -8186,27 +8179,8 @@ paymentSettled: false,
                 {resetError && <div className="mt-4 text-xs text-red-500">{resetError}</div>}
                 {resetInfo && <div className="mt-4 text-xs text-green-600">{resetInfo}</div>}
               </div>
-              <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-2`}>АКТИВНЫЕ СЕССИИ</div>
-                {activeSessions.length === 0 ? (
-                  <div className={`text-xs ${sub}`}>Нет активных сессий</div>
-                ) : activeSessions.map(item => (
-                  <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0 gap-3" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {item.device}{item.current ? ' · Текущая' : ''}
-                      </div>
-                      <div className={`text-xs ${sub}`}>
-                        {item.ipAddress} · {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                    <button onClick={() => { setBottomToast(`Сессия ${item.id.slice(0, 8)}… будет закрыта автоматически по TTL`); setTimeout(() => setBottomToast(null), 3000); }} className="text-xs text-red-500 shrink-0">
-                      Завершить
-                    </button>
-                    {/* revokeSession нет в API (GET /api/auth/sessions — заглушка): как в AdminApp, честный TTL-тост */}
-                  </div>
-                ))}
-              </div>
+              {/* SESS-001: карточка сессий удалена — GET /api/auth/sessions заглушка,
+                  revoke-API нет; настоящий sessions-контракт — отдельной задачей */}
               <button
                 onClick={handleSaveSettings}
                 disabled={Boolean(password.current || password.new_ || password.confirm) && (!password.current || !password.new_ || !password.confirm || password.new_.length < 8 || password.new_ !== password.confirm)}

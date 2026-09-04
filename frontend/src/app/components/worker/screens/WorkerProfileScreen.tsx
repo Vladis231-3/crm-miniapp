@@ -12,7 +12,6 @@ import {
 } from '../../../utils/complaints';
 import { isFixedMasterService, FIXED_MASTER_EARNED } from '../../ui/utils';
 import { AttendanceTable } from '../../shared/AttendanceTable';
-import { toast } from '../../atmosfera';
 
 export type WorkerProfileSection =
   | null
@@ -49,7 +48,6 @@ export function WorkerProfileScreen({
     services,
     bookings,
     session,
-    activeSessions,
     isDark,
     saveWorkerProfile,
     saveWorkerNotificationSettings,
@@ -57,7 +55,6 @@ export function WorkerProfileScreen({
     listShiftChecklists,
     submitShiftChecklist,
     changePassword,
-    refreshActiveSessions,
   } = useApp();
 
   // ── Profile state (перенесено из WorkerApp) ──
@@ -99,10 +96,6 @@ export function WorkerProfileScreen({
   useEffect(() => {
     setNotifPrefs(getWorkerNotificationSettings(settings, workerId));
   }, [settings, workerId]);
-
-  useEffect(() => {
-    if (section === 'security') void refreshActiveSessions();
-  }, [section]);
 
   useEffect(() => {
     if (section === 'shift') void listShiftChecklists().then(setShiftChecklists);
@@ -601,33 +594,7 @@ export function WorkerProfileScreen({
           {passError && <div className="text-xs text-[var(--status-danger)]">{passError}</div>}
           {passSaved && <div className="text-xs text-[var(--status-success)]">Пароль обновлён</div>}
         </div>
-        <div className={`${glass} mb-3 rounded-2xl p-4`}>
-          <div className={`mb-2 text-xs ${sub}`}>АКТИВНЫЕ СЕССИИ</div>
-          {activeSessions.length === 0 ? (
-            <div className={`text-xs ${sub}`}>Нет активных сессий</div>
-          ) : (
-            activeSessions.map((item: any) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between gap-3 border-b py-2 last:border-0"
-                style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
-                    {item.device}{item.current ? ' · Текущая' : ''}
-                  </div>
-                  <div className={`text-xs ${sub}`}>
-                    {item.ipAddress} · {new Date(item.lastSeenAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-                <button onClick={() => toast({ type: 'info', title: `Сессия ${String(item.id).slice(0, 8)}… будет закрыта автоматически по TTL` })} className="shrink-0 text-xs text-[var(--status-danger)]">
-                  Завершить
-                </button>
-                {/* revokeSession нет в API (GET /api/auth/sessions — заглушка): как в AdminApp, честный TTL-тост */}
-              </div>
-            ))
-          )}
-        </div>
+        {/* SESS-001: карточка сессий удалена — API заглушка, revoke нет */}
         <button
           onClick={handleSavePass}
           disabled={!password.current || !password.new_ || password.new_ !== password.confirm}
