@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **525**
-- Строк кода: **209 391**
+- Строк кода: **209 386**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 174, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -2398,7 +2398,7 @@ concept1.0/
 - `GoogleCalendarPullTests.test_pull_parses_foreign_platedef test_pull_parses_foreign_plate(self) -> None: """Иностранный госномер (M123AB) распознаётся и нормализуется.""" from app.google_calendar import pull_calendar_changes from app.m` (стр. 1229)
 - `GoogleCalendarPullTests.test_pull_parses_new_chinese_branddef test_pull_parses_new_chinese_brand(self) -> None: """Новые марки из расширенного словаря (хавал, танк) распознаются.""" from app.google_calendar import pull_calendar_changes fr` (стр. 1263)
 
-### backend/tests/test_html_and_headers.py (96 строк)
+### backend/tests/test_html_and_headers.py (91 строк)
 
 Классы и функции (15):
 
@@ -2416,7 +2416,7 @@ concept1.0/
 - `test_upload_cache_policy_is_not_overwrittendef test_upload_cache_policy_is_not_overwritten() -> None: async def immutable():` (стр. 61)
 - `_Db.immutableasync def immutable(): return JSONResponse({"ok": True}, headers={"Cache-Control": "public, max-age=31536000, immutable"})` (стр. 62)
 - `test_ascii_json_response_keeps_cyrillic_ascii_onlydef test_ascii_json_response_keeps_cyrillic_ascii_only() -> None: # Регресс против кракозябр: все JSON API (включая 422) обязаны быть чистым ASCII (\uXXXX). response = main.AsciiJS` (стр. 69)
-- `test_validation_error_handler_returns_ascii_jsondef test_validation_error_handler_returns_ascii_json() -> None: from pydantic import ValidationError from app.schemas import BookingCreate try: BookingCreate.model_validate({"unkno` (стр. 79)
+- `test_validation_error_handler_returns_ascii_jsondef test_validation_error_handler_returns_ascii_json() -> None: from fastapi.exceptions import RequestValidationError errors = [ { "loc": ("body", "name"), "msg": "String should ha` (стр. 79)
 
 ### backend/tests/test_idor_spot.py (186 строк)
 

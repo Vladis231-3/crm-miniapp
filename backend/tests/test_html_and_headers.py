@@ -64,3 +64,28 @@ def test_upload_cache_policy_is_not_overwritten() -> None:
 
     response = asyncio.run(main.add_security_headers(request("/api/uploads/file.png"), lambda req: immutable()))
     assert response.headers["Cache-Control"] == "public, max-age=31536000, immutable"
+
+
+def test_ascii_json_response_keeps_cyrillic_ascii_only() -> None:
+    # Регресс против кракозябр: все JSON API (включая 422) обязаны быть чистым ASCII (\uXXXX).
+    response = main.AsciiJSONResponse(status_code=422, content={"detail": "Ошибка: неверное значение ₽"})
+    raw = response.render({"detail": "Ошибка: неверное значение ₽"})
+    assert all(b < 0x80 for b in raw), "JSON body must be pure ASCII"
+    import json as _json
+
+    assert _json.loads(raw.decode("ascii"))["detail"] == "Ошибка: неверное значение ₽"
+
+
+def test_validation_error_handler_returns_ascii_json() -> None:
+    from fastapi.exceptions import RequestValidationError
+
+    errors = [
+        {
+            "loc": ("body", "name"),
+            "msg": "String should have at least 2 characters",
+            "type": "string_too_short",
+            "input": "Я",
+        }
+    ]
+    response = asyncio.run(main._validation_error_handler(request("/api/test"), RequestValidationError(errors)))
+    assert isinstance(response, main.AsciiJSONResponse)

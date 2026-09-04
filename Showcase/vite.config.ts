@@ -104,4 +104,11 @@ export default defineConfig({
       clientFiles: ['./src/main.tsx'],
     },
   },
+
+  // Форсируем ASCII-экранирование кириллицы в бандле (\u0412\u043b...) чтобы
+  // Telegram WebView на Android, игнорирующий charset, не декодировал UTF-8 как windows-1251
+  // (как в основном фронте frontend/vite.config.ts).
+  esbuild: {
+    charset: 'ascii',
+  },
 })

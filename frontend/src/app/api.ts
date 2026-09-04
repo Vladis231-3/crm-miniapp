@@ -323,7 +323,8 @@ export async function apiUploadFile(file: File): Promise<{ url: string }> {
   if (!response.ok) {
     throw new Error(await getErrorDetail(response));
   }
-  return response.json();
+  const uploaded = repairNested((await response.json()) as { url: string });
+  return uploaded;
 }
 
 export async function apiBlobUrl(path: string): Promise<string> {
