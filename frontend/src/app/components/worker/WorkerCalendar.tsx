@@ -241,9 +241,17 @@ export function WorkerCalendar({
 
   const isMine = (booking: WorkerCalendarBooking) => booking.workers.some((item) => item.workerId === workerId);
 
+  const carTitle = (booking: WorkerCalendarBooking) => {
+    const car = (booking.car || '').trim();
+    const plate = (booking.plate || '').trim();
+    if (car && plate) return `${car} (${plate})`;
+    if (car) return car;
+    if (plate) return plate;
+    return 'Авто не указано';
+  };
+
   const statusLine = (booking: WorkerCalendarBooking) => {
-    const workerNames = booking.workers.map((item) => item.workerName).filter(Boolean);
-    return [booking.service, booking.box, workerNames.length > 0 ? `Мастера: ${workerNames.join(', ')}` : ''].filter(Boolean).join(' · ');
+    return booking.service || '';
   };
 
   return (
@@ -448,7 +456,7 @@ export function WorkerCalendar({
                               <div className="text-xs font-medium truncate">
                                 <span className="tabular-nums">{booking.time}</span>
                                 {' '}
-                                {booking.clientName || 'Без имени'}
+                                {carTitle(booking)}
                                 {booking.isRepeatVisit && (
                                   <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600">Повторный</span>
                                 )}
@@ -481,7 +489,7 @@ export function WorkerCalendar({
                       <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-medium text-sm truncate">
-                            {booking.clientName || 'Без имени'}
+                            {carTitle(booking)}
                             {isMine(booking) && (
                               <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
                                 Моя
@@ -527,7 +535,7 @@ export function WorkerCalendar({
                                     {cell.bookings.map((booking) => (
                                       <div key={`${cell.id}-${booking.id}`} className={`${glass} rounded-xl p-3 w-full text-left`}>
                                         <div className="font-medium text-sm truncate flex items-center gap-1.5 min-w-0">
-                                          {booking.clientName}
+                                          {carTitle(booking)}
                                           <SourceBadge source={booking.source} />
                                           {booking.isRepeatVisit && (
                                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
@@ -538,7 +546,7 @@ export function WorkerCalendar({
                                             </span>
                                           )}
                                         </div>
-                                        <div className={`text-xs ${sub} truncate mt-1`}>{booking.box} · {booking.service}</div>
+                                        <div className={`text-xs ${sub} truncate mt-1`}>{statusLine(booking)}</div>
                                         <div className="mt-2 flex items-center justify-between gap-2">
                                           <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${workerCalendarStatusBadge(booking.status)}`}>
                                             {workerCalendarStatusLabel(booking.status)}
@@ -580,7 +588,7 @@ export function WorkerCalendar({
                                   <div className="min-w-0">
                                     <div className="text-sm font-medium truncate flex items-center gap-1.5 min-w-0">
                                       <Clock size={12} strokeWidth={1.75} className="inline mr-1 -mt-0.5 shrink-0" style={{ color: primary }} />
-                                      <span className="tabular-nums">{booking.time}</span> · {booking.clientName}
+                                      <span className="tabular-nums">{booking.time}</span> · {carTitle(booking)}
                                       <SourceBadge source={booking.source} />
                                       {booking.isRepeatVisit && (
                                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
@@ -591,7 +599,7 @@ export function WorkerCalendar({
                                         </span>
                                       )}
                                     </div>
-                                    <div className={`text-xs ${sub} truncate`}>{booking.box} · {booking.service}</div>
+                                    <div className={`text-xs ${sub} truncate`}>{statusLine(booking)}</div>
                                   </div>
                                   <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${workerCalendarStatusBadge(booking.status)}`}>
                                     {workerCalendarStatusLabel(booking.status)}

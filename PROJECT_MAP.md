@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-04 07:52 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-04 08:02 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **525**
-- Строк кода: **208 863**
+- Строк кода: **208 871**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 174, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -4419,7 +4419,7 @@ concept1.0/
 - `completed` (стр. 431) — локальный
 - `isActive` (стр. 509) — локальный
 
-### frontend/src/app/components/worker/WorkerCalendar.tsx (615 строк)
+### frontend/src/app/components/worker/WorkerCalendar.tsx (623 строк)
 
 - `WORKER_CALENDAR_WEEKDAYS` (стр. 26) — локальный
 - `WORKER_CALENDAR_MONTHS` (стр. 27) — локальный
@@ -4472,15 +4472,17 @@ concept1.0/
 - `timeSlots` (стр. 232) — локальный
 - `workerGrid` (стр. 233) — локальный
 - `isMine` (стр. 242) — локальный
-- `statusLine` (стр. 244) — локальный
-- `workerNames` (стр. 245) — локальный
-- `today` (стр. 289) — локальный
-- `dayItems` (стр. 309) — локальный
-- `loadTone` (стр. 310) — локальный
-- `loadWidth` (стр. 311) — локальный
-- `isToday` (стр. 314) — локальный
-- `today` (стр. 389) — локальный
-- `workerItems` (стр. 567) — локальный
+- `carTitle` (стр. 244) — локальный
+- `car` (стр. 245) — локальный
+- `plate` (стр. 246) — локальный
+- `statusLine` (стр. 253) — локальный
+- `today` (стр. 297) — локальный
+- `dayItems` (стр. 317) — локальный
+- `loadTone` (стр. 318) — локальный
+- `loadWidth` (стр. 319) — локальный
+- `isToday` (стр. 322) — локальный
+- `today` (стр. 397) — локальный
+- `workerItems` (стр. 575) — локальный
 
 ### frontend/src/app/constants/referralSources.ts (8 строк)
 
@@ -4990,6 +4992,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-09-04 11:02)
 - `audit/FINDINGS.md` (2026-09-04 10:52)
 - `backend/app/exports.py` (2026-09-04 10:37)
 - `audit/.main-debt-parked.patch` (2026-09-04 10:34)
@@ -5004,4 +5007,3 @@ concept1.0/
 - `backend/tests/test_fractional_money.py` (2026-09-04 09:47)
 - `backend/app/schemas.py` (2026-09-04 09:47)
 - `backend/bot.py` (2026-09-04 09:20)
-- `backend/app/google_calendar.py` (2026-09-04 09:20)
