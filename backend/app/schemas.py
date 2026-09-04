@@ -912,6 +912,15 @@ class PayrollEntryCreateRequest(BaseModel):
     # ключом не создаёт дубликат операции, а возвращает результат первой.
     clientRequestId: str | None = Field(default=None, max_length=64)
 
+    @field_validator("amount")
+    @classmethod
+    def validate_whole_rubles(cls, value: float) -> float:
+        # W4-002: учёт в целых рублях (money_int/ROUND_HALF_UP везде ниже по
+        # пайплайну) — дробь молча округлилась бы при чтении (100.50 → 101).
+        if not float(value).is_integer():
+            raise ValueError("Сумма должна быть в целых рублях (без копеек)")
+        return value
+
     @field_validator("note")
     @classmethod
     def validate_note(cls, value: str) -> str:

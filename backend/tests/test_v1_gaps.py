@@ -200,6 +200,33 @@ class CoverageGapsTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200, response.text)
 
+    def test_telegram_link_code_generate_and_confirm(self) -> None:
+        from app.database import SessionLocal
+
+        generated = self.client.post(
+            "/api/telegram/link-code",
+            headers={"Authorization": self.worker_token},
+        )
+        self.assertEqual(generated.status_code, 200, generated.text)
+        body = generated.json()
+        self.assertTrue(body["linked"])
+        self.assertRegex(body["code"], r"^\d{6}$")
+
+        from app.telegram_linking import confirm_link_code
+
+        with SessionLocal() as db:
+            self.assertIsNone(confirm_link_code(db, "000000", 555666))
+            staff = confirm_link_code(db, body["code"], 555666)
+            db.commit()
+        self.assertIsNotNone(staff)
+
+        again = self.client.post(
+            "/api/telegram/link-code",
+            headers={"Authorization": self.admin_token},
+        )
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertTrue(again.json()["linked"])
+
 
 if __name__ == "__main__":
     unittest.main()
