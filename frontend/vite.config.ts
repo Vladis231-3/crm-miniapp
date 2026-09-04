@@ -106,4 +106,19 @@ export default defineConfig({
   esbuild: {
     charset: 'ascii',
   },
+
+  // Волна 3: только реально асинхронные вендоры в отдельные чанки.
+  // recharts тянет лишь OwnerApp (lazy) — 553 КБ не грузятся ролям client/worker
+  // и кэш чартов переживает правки OwnerApp. motion/mui/radix/react живут
+  // и в entry-графе — их чанки давали стабы + дублирование, убраны замером.
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-charts': ['recharts'],
+        },
+      },
+    },
+  },
 })
