@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, Numeric, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -19,6 +19,7 @@ def utc_now() -> datetime:
 
 class Client(Base):
     __tablename__ = "clients"
+    __table_args__ = (Index("ix_clients_phone", "phone"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     telegram_id: Mapped[str | None] = mapped_column(
@@ -63,6 +64,7 @@ DEFAULT_SHIFT_PAY = 1000
 
 class StaffUser(Base):
     __tablename__ = "staff_users"
+    __table_args__ = (Index("ix_staff_users_telegram_chat_id", "telegram_chat_id"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     login: Mapped[str] = mapped_column(String(64), unique=True)
@@ -160,6 +162,12 @@ class ScheduleEntry(Base):
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (
+        Index("ix_bookings_status_deleted", "status", "deleted_at"),
+        Index("ix_bookings_date", "date"),
+        Index("ix_bookings_client_id", "client_id"),
+        Index("ix_bookings_box_date_time", "box", "date", "time"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     client_id: Mapped[str] = mapped_column(String(64), ForeignKey("clients.id", ondelete="CASCADE"))
@@ -227,6 +235,10 @@ class Booking(Base):
 
 class BookingWorker(Base):
     __tablename__ = "booking_workers"
+    __table_args__ = (
+        Index("ix_booking_workers_booking_id", "booking_id"),
+        Index("ix_booking_workers_worker_id", "worker_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     booking_id: Mapped[str] = mapped_column(String(64), ForeignKey("bookings.id", ondelete="CASCADE"))
@@ -243,6 +255,7 @@ class BookingWorker(Base):
 
 class BookingAdditionalService(Base):
     __tablename__ = "booking_additional_services"
+    __table_args__ = (Index("ix_bas_booking_id", "booking_id"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     booking_id: Mapped[str] = mapped_column(String(64), ForeignKey("bookings.id", ondelete="CASCADE"))
@@ -267,6 +280,7 @@ class BookingAdditionalService(Base):
 
 class BookingMaterial(Base):
     __tablename__ = "booking_materials"
+    __table_args__ = (Index("ix_booking_materials_booking_id", "booking_id"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     booking_id: Mapped[str] = mapped_column(
@@ -289,6 +303,7 @@ class BookingMaterial(Base):
 
 class AdditionalServiceWorker(Base):
     __tablename__ = "additional_service_workers"
+    __table_args__ = (Index("ix_asvc_workers_service_id", "additional_service_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     additional_service_id: Mapped[str] = mapped_column(
@@ -306,6 +321,9 @@ class AdditionalServiceWorker(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_recipient", "recipient_role", "recipient_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     recipient_role: Mapped[str] = mapped_column(String(32))
@@ -361,6 +379,10 @@ class StockItem(Base):
 
 class Expense(Base):
     __tablename__ = "expenses"
+    __table_args__ = (
+        Index("ix_expenses_date", "date"),
+        Index("ix_expenses_booking_id", "booking_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
@@ -428,6 +450,7 @@ class Penalty(Base):
 
 class PayrollEntry(Base):
     __tablename__ = "payroll_entries"
+    __table_args__ = (Index("ix_payroll_entries_worker_id", "worker_id"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     worker_id: Mapped[str] = mapped_column(String(64), ForeignKey("staff_users.id"))
@@ -498,6 +521,7 @@ class DataConsent(Base):
 
 class Income(Base):
     __tablename__ = "incomes"
+    __table_args__ = (Index("ix_incomes_date", "date"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
@@ -535,6 +559,10 @@ class WeeklyArchive(Base):
 
 class PiggyBankTransaction(Base):
     __tablename__ = "piggy_bank_transactions"
+    __table_args__ = (
+        Index("ix_piggy_booking_id", "booking_id"),
+        Index("ix_piggy_date", "date"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     booking_id: Mapped[str | None] = mapped_column(
@@ -599,6 +627,7 @@ class DepositMonth(Base):
 
 class OwnerProfitShare(Base):
     __tablename__ = "owner_profit_shares"
+    __table_args__ = (Index("ix_owner_shares_booking_id", "booking_id"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     booking_id: Mapped[str] = mapped_column(

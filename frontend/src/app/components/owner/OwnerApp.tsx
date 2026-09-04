@@ -52,7 +52,7 @@ function stockCategoryIdsWithDescendants(rootId: string, categories: { id: strin
   return result;
 }
 
-type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients';
+type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients' | 'wallet';
 type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'money-flow' | 'deposit' | 'shift';
 type OwnerExportKind = 'report' | 'pdf' | 'piggy-bank';
 type KpiServiceItem = { name: string; revenue: number; count: number };
@@ -735,7 +735,6 @@ export function OwnerApp() {
     switchRole,
     activeSessions,
     refreshActiveSessions,
-    revokeSession,
     downloadOwnerExport,
       sendOwnerExportToTelegram,
       sendOwnerSummaryReport,
@@ -1053,7 +1052,7 @@ export function OwnerApp() {
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [showServiceSettings, setShowServiceSettings] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
-  const [serviceEditDraft, setServiceEditDraft] = useState<{ id: string; name: string; category: string; price: number; duration: number; desc: string; sourceBookingId: number } | null>(null);
+  const [serviceEditDraft, setServiceEditDraft] = useState<{ id: string; name: string; category: string; price: number; duration: number; desc: string; sourceBookingId: string } | null>(null);
   const [serviceEditSearchQuery, setServiceEditSearchQuery] = useState('');
   const [showServiceMaterialPicker, setShowServiceMaterialPicker] = useState(false);
   const [serviceMaterialPickerCategory, setServiceMaterialPickerCategory] = useState<string | null>(null);
@@ -2916,7 +2915,7 @@ export function OwnerApp() {
     setEditingOverrideValue('');
   };
 
-  const handleOpenServiceQuickEdit = (svc: Service, sourceBookingId: number) => {
+  const handleOpenServiceQuickEdit = (svc: Service, sourceBookingId: string) => {
     setServiceEditDraft({ id: svc.id, name: svc.name, category: svc.category, price: svc.price, duration: svc.duration, desc: svc.desc || '', sourceBookingId });
   };
 
@@ -8201,9 +8200,10 @@ paymentSettled: false,
                         {item.ipAddress} · {item.lastSeenAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
-                    <button onClick={() => void revokeSession(item.id)} className="text-xs text-red-500 shrink-0">
+                    <button onClick={() => { setBottomToast(`Сессия ${item.id.slice(0, 8)}… будет закрыта автоматически по TTL`); setTimeout(() => setBottomToast(null), 3000); }} className="text-xs text-red-500 shrink-0">
                       Завершить
                     </button>
+                    {/* revokeSession нет в API (GET /api/auth/sessions — заглушка): как в AdminApp, честный TTL-тост */}
                   </div>
                 ))}
               </div>

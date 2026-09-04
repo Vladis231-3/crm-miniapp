@@ -8,7 +8,7 @@ import {
   validatePlateValue,
   validateVehicleName,
 } from '../../../utils/validation';
-import { Button, Card, FormRow, Input, Money, SectionHeader, toast } from '../../atmosfera';
+import { Button, Card, FormRow, Input, Money, SectionHeader, StatTile, toast } from '../../atmosfera';
 
 export interface ProfileScreenProps {
   upcomingCount: number;

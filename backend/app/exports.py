@@ -2288,7 +2288,7 @@ def _build_export_data(
 
 
 
-    booking_dates = [_booking_datetime(item) for item in bookings if _booking_datetime(item) is not None]
+    booking_dates = [dt for item in bookings if (dt := _booking_datetime(item)) is not None]
 
     period_from = min(booking_dates).strftime("%d.%m.%Y %H:%M") if booking_dates else "Нет данных"
 
@@ -2645,15 +2645,15 @@ def _build_export_data(
 
 
 
-    expense_rollup: dict[str, list[int]] = {}
+    expense_rollup: dict[str, list[Any]] = {}
 
     for expense in expenses:
 
-        row = expense_rollup.setdefault(expense.category, [0, 0])
+        cat_row = expense_rollup.setdefault(expense.category, [0, 0])
 
-        row[0] += 1
+        cat_row[0] += 1
 
-        row[1] += expense.amount
+        cat_row[1] += expense.amount
 
     expense_category_rows = [
 

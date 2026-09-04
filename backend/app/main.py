@@ -6449,7 +6449,62 @@ def _validated_booking_workers(
 
         )
 
+    _ensure_worker_percent_cap(validated)
+
     return validated
+
+
+
+def _ensure_worker_percent_cap(workers: list) -> None:
+
+    """Суммарный процент бригады не может превышать 100 (M-001).
+
+    Фронт такие бригады блокирует, API — нет: сплит переплачивал мастеров
+    сверх базы. Зеркалит условие фронта: кап действует, когда есть хоть один
+    не-фиксированный мастер; сумма считается по всем (как totalNewBookingPercent).
+    """
+
+    if any((w.payType or "percent") != "fixed" for w in workers):
+
+        if sum(float(w.percent or 0) for w in workers) > 100:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_400_BAD_REQUEST,
+
+                detail="Суммарный процент мастеров не может превышать 100",
+
+            )
+
+
+def _ensure_subtract_fits_net(db: Session, booking: Booking, new_subtract_total: int) -> None:
+
+    """Вычет не может превышать базу (M-002).
+
+    Subtract-carve-out паркуется в копилку как «остаток вычета». Если вычет
+    больше net, при complete в копилку падает фантомный депозит сверх чека —
+    баланс копилки завышается реальными деньгами, которых не поступало.
+    """
+
+    add_total = sum(
+
+        asvc.price for asvc in (booking.additional_services or [])
+
+        if asvc.price_mode != "subtract"
+
+    )
+
+    net = max(0, (booking.price or 0) - add_total - _booking_materials_cost(db, booking))
+
+    if new_subtract_total > net:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_400_BAD_REQUEST,
+
+            detail=f"Вычет {new_subtract_total} ₽ превышает базу {net} ₽",
+
+        )
 
 
 
@@ -7713,7 +7768,7 @@ def _admin_shift_caption(entry: dict[str, Any]) -> str:
 
         for item in entry.get("supplies", [])
 
-        if isinstance(item, dict) and item.get("checked")
+        if isinstance(item, dict) and item.get("checked") and item.get("name")
 
     ]
 
@@ -7723,7 +7778,7 @@ def _admin_shift_caption(entry: dict[str, Any]) -> str:
 
         for item in entry.get("masters", [])
 
-        if isinstance(item, dict) and item.get("checked")
+        if isinstance(item, dict) and item.get("checked") and item.get("workerName")
 
     ]
 
@@ -10795,6 +10850,23 @@ def health() -> GenericMessage:
     return GenericMessage(message="ok")
 
 
+def _debug_owner_session(
+    authorization: str | None = Header(default=None),
+    init_data: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Авторизация владельца для debug-эндпоинтов: заголовок или initData в query."""
+    token = authorization or init_data
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization"
+        )
+    session_data = _resolve_user_from_init_data(token, db)
+    if session_data is None or session_data.get("role") != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return session_data
+
+
 @app.get("/api/debug/encoding")
 def debug_encoding() -> dict:
     """Временная диагностика кодировки — без БД, просто тест."""
@@ -10802,8 +10874,11 @@ def debug_encoding() -> dict:
 
 
 @app.get("/api/debug/db")
-def debug_db(db: Session = Depends(get_db)) -> dict:
-    """Диагностика БД — первые 3 staff/service с hex."""
+def debug_db(
+    session_data: dict = Depends(_debug_owner_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Диагностика БД — первые 3 staff/service с hex. S-001: только владелец."""
     try:
         from sqlalchemy import select
 
@@ -10877,23 +10952,6 @@ def _mojibake_scan_rows(db: Session) -> list[dict]:
                 }
             )
     return rows
-
-
-def _debug_owner_session(
-    authorization: str | None = Header(default=None),
-    init_data: str | None = None,
-    db: Session = Depends(get_db),
-) -> dict:
-    """Авторизация владельца для debug-эндпоинтов: заголовок или initData в query."""
-    token = authorization or init_data
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization"
-        )
-    session_data = _resolve_user_from_init_data(token, db)
-    if session_data is None or session_data.get("role") != "owner":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    return session_data
 
 
 @app.get("/api/debug/mojibake-scan")
@@ -13243,6 +13301,21 @@ def update_booking(
 
 
 
+    # F-004: is_outsource/outsource_amount живут на BookingAdditionalService, колонок
+    # на Booking нет — setattr создал бы Attributes, потерянные при commit.
+    # Отклоняем явно вместо тихой потери данных.
+    if "isOutsource" in updates:
+
+        raise HTTPException(
+
+            status_code=status.HTTP_400_BAD_REQUEST,
+
+            detail="Флаг аутсорса задаётся на уровне доп. услуг: POST/PATCH /api/bookings/{booking_id}/additional-services",
+
+        )
+
+    updates.pop("outsourceAmount", None)
+
     for field, value in updates.items():
 
         target_field = {
@@ -13259,10 +13332,6 @@ def update_booking(
 
             "plateType": "plate_type",
 
-            "isOutsource": "is_outsource",
-
-            "outsourceAmount": "outsource_amount",
-
             "referralSource": "referral_source",
 
             "isRepeatVisit": "is_repeat_visit",
@@ -13270,13 +13339,6 @@ def update_booking(
         }.get(field, field)
 
         setattr(booking, target_field, value)
-
-    if payload.isOutsource is False:
-
-        booking.is_outsource = False
-
-        booking.outsource_amount = None
-
 
 
     previous_worker_ids = _booking_all_worker_ids(booking)
@@ -13747,6 +13809,8 @@ def add_booking_additional_service(
             detail="Нужно выбрать хотя бы одного мастера или отметить услугу как аутсорс"
         )
 
+    _ensure_worker_percent_cap(payload.workers)
+
     booking = db.scalar(
 
         select(Booking)
@@ -13770,6 +13834,19 @@ def add_booking_additional_service(
             status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found"
 
         )
+
+    if (payload.priceMode or "add") == "subtract":
+
+        existing_subtract = sum(
+
+            asvc.price for asvc in (booking.additional_services or [])
+
+            if asvc.price_mode == "subtract"
+
+        )
+
+        _ensure_subtract_fits_net(db, booking, existing_subtract + (payload.price or 0))
+
     asvc = BookingAdditionalService(
 
         id=str(uuid4()),
@@ -13959,6 +14036,7 @@ def update_booking_additional_service(
         asvc.outsource_amount = payload.outsourceAmount
 
     if payload.workers is not None:
+        _ensure_worker_percent_cap(payload.workers)
         asvc.worker_links.clear()
         if not asvc.is_outsource:
             for w in payload.workers:
@@ -13978,6 +14056,14 @@ def update_booking_additional_service(
         booking.duration = max(0, (booking.duration or 0) - asvc.duration + payload.duration)
         asvc.duration = payload.duration
     if payload.price is not None or payload.priceMode is not None:
+        new_mode = payload.priceMode or asvc.price_mode
+        new_price = payload.price if payload.price is not None else asvc.price
+        new_subtract = sum(
+            (new_price if a.id == asvc.id else a.price)
+            for a in (booking.additional_services or [])
+            if (new_mode if a.id == asvc.id else a.price_mode) == "subtract"
+        )
+        _ensure_subtract_fits_net(db, booking, new_subtract)
         old_effect = 0 if asvc.price_mode == "subtract" else asvc.price
         new_mode = payload.priceMode or asvc.price_mode
         new_price = payload.price if payload.price is not None else asvc.price
@@ -20359,6 +20445,7 @@ def get_owner_bookings_history(
     status: str | None = None,
     q: str | None = None,
     limit: int = Query(default=500, ge=1, le=5000),
+    offset: int = Query(default=0, ge=0),
     session_data: dict = Depends(_require_session),
     db: Session = Depends(get_db),
 ) -> list[BookingHistoryItem]:
@@ -20407,7 +20494,7 @@ def get_owner_bookings_history(
         lower = (parsed_from or date.min).strftime("%Y%m%d")
         upper = (parsed_to or date.max).strftime("%Y%m%d")
         query = query.where(_iso_expr(Booking.date) >= lower, _iso_expr(Booking.date) <= upper)
-    bookings = db.scalars(query.limit(limit)).unique().all()
+    bookings = db.scalars(query.limit(limit).offset(offset)).unique().all()
 
     return [
         BookingHistoryItem(
@@ -21073,7 +21160,11 @@ def get_owner_money_flow(
             or [
                 MoneyFlowDistributionOwnerItem(
                     ownerId=oid,
-                    ownerName=(staff_by_id.get(oid).name if staff_by_id.get(oid) else "Владелец"),
+                    ownerName=(
+                        staff.name
+                        if (staff := staff_by_id.get(oid))
+                        else "Владелец"
+                    ),
                     amount=int(amount),
                     status="pending",
                 )
@@ -21647,7 +21738,7 @@ FIXED_MASTER_EARNED = 1200
 
 def is_fixed_master_service(name: str | None) -> bool:
 
-    return bool(name) and name.strip().lower() == FIXED_MASTER_SERVICE_NAME
+    return name is not None and name.strip().lower() == FIXED_MASTER_SERVICE_NAME
 
 
 def _is_fixed_master_service_db(db: Session, service_id: str | None, service_name: str | None) -> bool:

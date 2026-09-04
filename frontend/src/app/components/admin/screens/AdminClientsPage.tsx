@@ -18,7 +18,7 @@ function normalizePhoneSearchValue(value: string) {
 import { parseFlexibleDate } from '../../../utils/date';
 import { REFERRAL_SOURCES } from '../../../constants/referralSources';
 import { ServiceSearchSelect } from '../../shared/ServiceSearchSelect';
-import { Button, Card, Dialog, FormRow, Input, Money, Sheet, StatusBadge, Textarea } from '../../atmosfera';
+import { Button, Card, Dialog, FormRow, Input, Money, Sheet, StatTile, StatusBadge, Textarea } from '../../atmosfera';
 
 type ClientSearchMode = 'phone' | 'plate';
 
