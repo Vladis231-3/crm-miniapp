@@ -1,0 +1,12 @@
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# B008: FastAPI Depends() в сигнатурах — канон фреймворка, не баг.
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+# Нет стабов у openpyxl/reportlab и дуальный импорт bot.py
+# (backend.app.* vs app.*) — шум окружения, не баги кода.
+ignore_missing_imports = true

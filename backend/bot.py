@@ -6,10 +6,12 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from urllib import error, request
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 try:
     from app.config import get_settings
@@ -58,7 +60,7 @@ def telegram_webhook_secret() -> str:
     settings = get_settings()
     if not settings.telegram_bot_token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
-    raw_secret = f"{settings.app_secret}:{settings.telegram_bot_token}".encode("utf-8")
+    raw_secret = f"{settings.app_secret}:{settings.telegram_bot_token}".encode()
     return hashlib.sha256(raw_secret).hexdigest()
 
 
@@ -125,21 +127,21 @@ def _telegram_multipart_call(
     body = bytearray()
 
     for name, value in fields.items():
-        body.extend(f"--{boundary}\r\n".encode("utf-8"))
-        body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
         body.extend(str(value).encode("utf-8"))
         body.extend(b"\r\n")
 
     for field_name, (file_name, mime_type, content) in files.items():
-        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(f"--{boundary}\r\n".encode())
         body.extend(
-            f'Content-Disposition: form-data; name="{field_name}"; filename="{file_name}"\r\n'.encode("utf-8")
+            f'Content-Disposition: form-data; name="{field_name}"; filename="{file_name}"\r\n'.encode()
         )
-        body.extend(f"Content-Type: {mime_type}\r\n\r\n".encode("utf-8"))
+        body.extend(f"Content-Type: {mime_type}\r\n\r\n".encode())
         body.extend(content)
         body.extend(b"\r\n")
 
-    body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+    body.extend(f"--{boundary}--\r\n".encode())
 
     req = request.Request(
         url=f"{runtime.api_base}/{method}",
@@ -313,7 +315,7 @@ def _send_start_message(runtime: BotRuntime, chat_id: int) -> None:
             reply_markup=markup,
         )
     except Exception:
-        logging.warning("Failed to load welcome photo, falling back to text", exc_info=True)
+        logger.warning("Failed to load welcome photo, falling back to text", exc_info=True)
         _send_text_message(
             runtime,
             chat_id,
@@ -446,7 +448,7 @@ def _upsert_setting(db, key: str, value: Any) -> None:
 
 
 def _serialize_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _owner_by_chat_id(db, chat_id: int) -> StaffUser | None:
@@ -485,7 +487,7 @@ def _apply_shift_review_from_bot(chat_id: int, inspection_id: str, action: str, 
                     recipient_id=admin.id,
                     message=message,
                     read=False,
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 )
             )
             if admin.telegram_chat_id:
@@ -676,10 +678,10 @@ def run_polling() -> None:
         # Ошибки цикла бота (logging.error/exception ниже) дублируются в ТГ владельцам.
         install_error_notifying()
     except Exception:
-        logging.exception("Failed to install Telegram error notifier")
+        logger.exception("Failed to install Telegram error notifier")
     runtime = _build_runtime()
     username = disable_telegram_webhook(drop_pending_updates=False)
-    logging.info("Bot started as @%s with mini app %s", username, runtime.webapp_url)
+    logger.info("Bot started as @%s with mini app %s", username, runtime.webapp_url)
 
     offset = 0
     while True:
@@ -697,13 +699,13 @@ def run_polling() -> None:
                 offset = max(offset, int(update["update_id"]) + 1)
                 _process_telegram_update(runtime, update)
         except error.HTTPError as exc:
-            logging.error("Telegram HTTP error: %s", exc.read().decode("utf-8", errors="ignore"))
+            logger.error("Telegram HTTP error: %s", exc.read().decode("utf-8", errors="ignore"))
             time.sleep(5)
         except error.URLError as exc:
-            logging.error("Telegram network error: %s", exc)
+            logger.error("Telegram network error: %s", exc)
             time.sleep(5)
         except Exception:
-            logging.exception("Bot loop crashed")
+            logger.exception("Bot loop crashed")
             time.sleep(5)
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 import time as time_module
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -11,13 +11,13 @@ from .models import StaffUser, TelegramLinkCode
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 # Rate limiting for link code confirmation attempts
@@ -85,8 +85,7 @@ def confirm_link_code(db: Session, code: str, chat_id: int) -> StaffUser | None:
     staff = db.get(StaffUser, item.staff_id)
     if staff is None:
         return None
-    # Notify previous owner if re-linking
-    previous_chat_id = staff.telegram_chat_id.strip() if staff.telegram_chat_id else ""
+    # NOTE: прежний владелец не уведомляется (нет отправителя без цикла импорта).
     staff.telegram_chat_id = ensure_staff_chat_id_available(db, chat_id, exclude_staff_id=staff.id)
     staff.updated_at = _now()
     item.used_at = _now()

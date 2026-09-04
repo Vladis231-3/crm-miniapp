@@ -192,7 +192,7 @@ def _dispatch_locked(state: _NotifierState, text: str, fingerprint: str) -> bool
     """Отправка текста владельцам. Вызывать под state.lock."""
     try:
         chat_ids = _fetch_owner_chat_ids()
-    except Exception as exc:  # noqa: BLE001 — БД может быть недоступна
+    except Exception as exc:  # noqa: BLE001 — нотификатор не должен ронять вызывателя
         now = time.monotonic()
         if now - state.no_recipient_warned_at > _cooldown_seconds():
             state.no_recipient_warned_at = now
@@ -215,7 +215,7 @@ def _dispatch_locked(state: _NotifierState, text: str, fingerprint: str) -> bool
         try:
             _send_via_bot(chat_id, text)
             delivered = True
-        except Exception as exc:  # noqa: BLE001 — никогда не поднимаемся выше
+        except Exception as exc:  # noqa: BLE001 — fan-out: один получатель не валит остальных
             logger.warning(
                 "Не удалось отправить ошибку в Telegram (chat_id=%s): %s",
                 chat_id,

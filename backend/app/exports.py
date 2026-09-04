@@ -1,59 +1,52 @@
 from __future__ import annotations
 
-
-
 import io
-
 import os
-
 from dataclasses import dataclass, field
-
 from datetime import date, datetime, timedelta
-
+from decimal import Decimal
 from functools import lru_cache
-
 from pathlib import Path
-
 from typing import TYPE_CHECKING, Any, Literal
-
-from .finance import money_int
-
 from xml.sax.saxutils import escape
 
-
-
 from openpyxl import Workbook
-
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-
 from openpyxl.utils import get_column_letter
-
 from reportlab.lib import colors
+
+from .finance import money_int
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 from reportlab.lib.pagesizes import A4, landscape
-
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-
 from reportlab.lib.units import mm
-
 from reportlab.pdfbase import pdfmetrics
-
 from reportlab.pdfbase.ttfonts import TTFont
-
-from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
-
-
+from reportlab.platypus import (
+    LongTable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    TableStyle,
+)
 
 from .complaints import adjusted_booking_percent, complaint_status_for_percent
-
-from .models import Booking, Client, DepositTransaction, Expense, Income, Penalty, PayrollEntry, PiggyBankTransaction, Service, StaffUser, StockItem
-
-
-
-
+from .models import (
+    Booking,
+    Client,
+    DepositTransaction,
+    Expense,
+    Income,
+    PayrollEntry,
+    Penalty,
+    PiggyBankTransaction,
+    Service,
+    StaffUser,
+    StockItem,
+)
 
 ExportKind = Literal["report", "pdf"]
 
@@ -772,8 +765,6 @@ def _build_owner_summary_export_data(
     admin_review = [booking for booking in bookings if booking.status == "admin_review"]
 
     cancelled = [booking for booking in bookings if booking.status == "cancelled"]
-
-    active = [booking for booking in bookings if booking.status in {"scheduled", "in_progress"}]
 
     open_value = sum(booking.price for booking in bookings if booking.status in {"scheduled", "in_progress", "admin_review"})
 
@@ -1809,9 +1800,7 @@ def build_piggy_bank_export(
             return False
         if from_dt and d < from_dt:
             return False
-        if to_dt and d > to_dt.replace(hour=23, minute=59, second=59):
-            return False
-        return True
+        return not (to_dt and d > to_dt.replace(hour=23, minute=59, second=59))
 
     def _sort_key(tx: PiggyBankTransaction) -> tuple[datetime, datetime]:
         min_aware = datetime.min.replace(tzinfo=generated.tzinfo)
@@ -2848,7 +2837,7 @@ def _build_export_data(
 
         ExportMetric("Склад на сумму", _format_money(stock_value)),
 
-        ExportMetric("Баланс копилки", _format_money(int(round(piggy_balance_total)))),
+        ExportMetric("Баланс копилки", _format_money(round(piggy_balance_total))),
 
         ExportMetric("Уникальных клиентов", str(len(client_rows))),
 
@@ -3596,8 +3585,9 @@ def _format_datetime(value: datetime | None) -> str:
 
 
 
-def _format_money(value: int) -> str:
-
+def _format_money(value: int | Decimal) -> str:
+    # f-string с .0f одинаково работает для int и Decimal (F-018: суммы из
+    # Numeric-колонок приходят Decimal — форматирование не меняем).
     return f"{value:,.0f}".replace(",", " ") + " руб."
 
 

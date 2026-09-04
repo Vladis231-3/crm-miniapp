@@ -31,7 +31,7 @@ import base64
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -134,7 +134,7 @@ def _default_connection(tokens: dict[str, Any] | None = None) -> dict[str, Any]:
         "email": "",
         "tokens": dict(tokens or {}),
         "sync_token": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -274,7 +274,7 @@ def create_invite(db: Any, label: str, state: str) -> dict[str, Any]:
     invite = {
         "state": state,
         "label": label,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_INVITES_KEY)
@@ -339,7 +339,7 @@ def extract_account_email(tokens: dict[str, Any] | None) -> str:
         payload_b64 += "=" * (-len(payload_b64) % 4)
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
         return str(payload.get("email") or "")
-    except Exception:  # noqa: BLE001 — битый/отсутствующий id_token не критичен
+    except Exception:  # noqa: BLE001 — best-effort парсинг JWT, fallback ""
         return ""
 
 
@@ -449,9 +449,7 @@ def _is_token_revoked_error(exc: _GoogleApiError) -> bool:
         if substr in haystack:
             return True
     # Явный 400+invalid_grant с любого места ответа
-    if getattr(exc, "status", None) == 400 and "invalid_grant" in haystack:
-        return True
-    return False
+    return getattr(exc, "status", None) == 400 and "invalid_grant" in haystack
 
 
 def _disable_integration_on_revoked(db: Any, connection_id: str | None = None) -> None:
@@ -577,7 +575,7 @@ def _google_error_from_response(resp: Any) -> tuple[str | None, str | None]:
     """
     try:
         body = resp.json()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — любое тело ошибки сводим к (None, None)
         return None, None
     err = body.get("error") or {}
     if isinstance(err, dict):
@@ -702,7 +700,7 @@ def _booking_event_body(booking: Any, settings: Settings) -> dict[str, Any]:
     start_dt: datetime | None = None
     for fmt in ("%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M"):
         try:
-            start_dt = datetime.strptime(raw, fmt)  # noqa: DTZ007 — далее явно привязываем tzinfo
+            start_dt = datetime.strptime(raw, fmt)
             break
         except (ValueError, TypeError):
             continue
@@ -760,7 +758,8 @@ def sync_booking_to_calendar(
             try:
                 _disable_integration_on_revoked(db)
             except Exception:
-                pass
+                logger.debug("revoke-disable failed silently", exc_info=True)
+                logger.debug("revoke-disable failed silently", exc_info=True)
             logger.warning(
                 "Google Calendar sync skipped - token revoked/expired (booking=%s). Please reconnect. Details: %s",
                 getattr(booking, "id", None),
@@ -856,7 +855,7 @@ def _sync_booking_to_calendar_impl(
         booking.google_event_ids = dict(event_ids)
         booking.google_event_id = primary
         if deleted_any:
-            booking.google_updated_at = datetime.now(timezone.utc)
+            booking.google_updated_at = datetime.now(UTC)
         _persist_dirty_connections(db, connections)
         return primary, True
 
@@ -926,7 +925,7 @@ def _sync_booking_to_calendar_impl(
             )
 
     if ok_any:
-        booking.google_updated_at = datetime.now(timezone.utc)
+        booking.google_updated_at = datetime.now(UTC)
     primary = event_ids.get(str(connections[0].get("id"))) or None
     booking.google_event_ids = dict(event_ids)
     booking.google_event_id = primary
@@ -975,7 +974,7 @@ def last_sync_at(db: Any) -> str | None:
 def _save_last_sync(db: Any) -> None:
     AppSetting = _appsetting_model()
     row = db.get(AppSetting, GOOGLE_CALENDAR_LAST_SYNC_KEY)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     if row is None:
         row = AppSetting(key=GOOGLE_CALENDAR_LAST_SYNC_KEY, value={"at": now})
         db.add(row)
@@ -987,7 +986,7 @@ def _save_last_sync(db: Any) -> None:
 def _parse_google_datetime(raw: str) -> datetime | None:
     """RFC3339 (dateTime или date) -> aware datetime, или None."""
     try:
-        return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return datetime.fromisoformat(str(raw))
     except ValueError:
         return None
 
@@ -1449,7 +1448,7 @@ def _event_updated_utc(event: dict[str, Any]) -> datetime | None:
     if not raw:
         return None
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return datetime.fromisoformat(raw)
     except ValueError:
         return None
 
@@ -1469,7 +1468,7 @@ def _event_is_stale(event: dict[str, Any], booking: Any) -> bool:
         return False  # запись никогда не пушилась в Google — Google источник
     if booking_updated.tzinfo is None:
         # SQLite возвращает naive datetime — считаем его UTC.
-        booking_updated = booking_updated.replace(tzinfo=timezone.utc)
+        booking_updated = booking_updated.replace(tzinfo=UTC)
     return ev_updated <= booking_updated
 
 
@@ -1582,7 +1581,7 @@ def _update_booking_from_event(
         if "plate" in updated_fields and not client.plate:
             client.plate = new_plate
 
-    booking.google_updated_at = datetime.now(timezone.utc)
+    booking.google_updated_at = datetime.now(UTC)
 
 
 def _find_duplicate_booking(
@@ -1726,7 +1725,7 @@ def _create_booking_from_event(
         plate=plate,
         source="google",
         google_event_id=event.get("id"),
-        google_updated_at=datetime.now(timezone.utc),
+        google_updated_at=datetime.now(UTC),
     )
     db.add(booking)
     return True
@@ -1830,7 +1829,7 @@ def _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dic
     if sync_token:
         params["syncToken"] = sync_token
     else:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         params["timeMin"] = (now - timedelta(days=30)).isoformat()
         params["timeMax"] = (now + timedelta(days=60)).isoformat()
 
@@ -1857,7 +1856,7 @@ def _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dic
                 # syncToken устарел (календарь пересоздан) — полный рескан.
                 _set_connection_sync_token(conn, None)
                 params.pop("syncToken", None)
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 params["timeMin"] = (now - timedelta(days=30)).isoformat()
                 params["timeMax"] = (now + timedelta(days=60)).isoformat()
                 continue

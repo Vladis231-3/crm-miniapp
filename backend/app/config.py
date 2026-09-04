@@ -143,7 +143,7 @@ def _parse_permanent_telegram_owners(raw: str | None) -> tuple[tuple[str, str, s
     except json.JSONDecodeError as exc:
         raise RuntimeError("PERMANENT_TELEGRAM_OWNERS must be valid JSON") from exc
     if not isinstance(items, list):
-        raise RuntimeError(  # noqa: TRY004 - configuration errors share one public type
+        raise RuntimeError(  # noqa: TRY004 — все ошибки конфига RuntimeError по контракту (см. test_config.py)
             "PERMANENT_TELEGRAM_OWNERS must be a JSON array"
         )
     parsed: list[tuple[str, str, str, str]] = []
@@ -152,7 +152,7 @@ def _parse_permanent_telegram_owners(raw: str | None) -> tuple[tuple[str, str, s
     seen_telegram_ids: set[str] = set()
     for item in items:
         if not isinstance(item, dict):
-            raise RuntimeError(  # noqa: TRY004 - configuration errors share one public type
+            raise RuntimeError(  # noqa: TRY004 — см. выше: контракт конфига
                 "Each permanent Telegram owner must be an object"
             )
         staff_id = str(item.get("id", "")).strip()

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
 import re
-
+from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-
 
 Role = Literal["client", "admin", "worker", "owner", "accountant"]
 PlateType = Literal["russian", "motorcycle", "foreign"]
@@ -170,7 +168,7 @@ def _coerce_money_int(value: Any) -> int:
     if isinstance(value, str):
         try:
             return int(Decimal(value).quantize(Decimal(1), rounding=ROUND_HALF_UP))
-        except Exception:
+        except (InvalidOperation, ValueError):
             pass
     return int(value) if not isinstance(value, int) else value
 
@@ -182,7 +180,7 @@ class ClientVehiclePayload(BaseModel):
     isMain: bool = False
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "ClientVehiclePayload":
+    def validate_vehicle(self) -> ClientVehiclePayload:
         if self.car.strip():
             self.car = normalize_vehicle_name(self.car)
         if self.plate.strip():
@@ -223,7 +221,7 @@ class ClientProfileInput(BaseModel):
         return normalize_phone(value)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "ClientProfileInput":
+    def validate_vehicle(self) -> ClientProfileInput:
         if self.plate.strip():
             self.plate = normalize_plate(self.plate, self.plateType)
         return self
@@ -276,7 +274,7 @@ class ClientCreateRequest(BaseModel):
         return normalize_phone(value)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "ClientCreateRequest":
+    def validate_vehicle(self) -> ClientCreateRequest:
         if self.car.strip():
             self.car = normalize_vehicle_name(self.car)
         if self.plate.strip():
@@ -744,7 +742,7 @@ class DetailingRequestCreateRequest(BaseModel):
         return normalize_vehicle_name(value)
 
     @model_validator(mode="after")
-    def validate_plate_field(self) -> "DetailingRequestCreateRequest":
+    def validate_plate_field(self) -> DetailingRequestCreateRequest:
         if self.plate is not None:
             if not self.plate.strip():
                 self.plate = None
@@ -831,7 +829,7 @@ class OwnerNotificationSettings(BaseModel):
     bookingReminderDays: int | None = Field(default=None, ge=1, le=7)
 
     @model_validator(mode="after")
-    def _coerce_hours(self) -> "OwnerNotificationSettings":
+    def _coerce_hours(self) -> OwnerNotificationSettings:
         if "bookingReminderHours" not in self.model_fields_set and "bookingReminderDays" in self.model_fields_set and self.bookingReminderDays is not None:
             self.bookingReminderHours = max(1, min(168, int(self.bookingReminderDays) * 24))
         if self.bookingReminderHours >= 24:
@@ -1006,7 +1004,7 @@ class ClientRegisterRequest(BaseModel):
         return normalize_phone(value)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "ClientRegisterRequest":
+    def validate_vehicle(self) -> ClientRegisterRequest:
         if self.plate.strip():
             self.plate = normalize_plate(self.plate, self.plateType)
         return self
@@ -1154,7 +1152,7 @@ class BookingCreateRequest(BaseModel):
         return normalize_phone(value)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "BookingCreateRequest":
+    def validate_vehicle(self) -> BookingCreateRequest:
         if self.car is not None and self.car.strip():
             self.car = normalize_vehicle_name(self.car)
         if self.plate is not None and self.plate.strip():
@@ -1222,7 +1220,7 @@ class BookingUpdateRequest(BaseModel):
         return normalize_phone(value)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "BookingUpdateRequest":
+    def validate_vehicle(self) -> BookingUpdateRequest:
         if self.car is not None and not self.car.strip():
             self.car = ""
         if self.car is not None and self.car.strip():
@@ -1266,7 +1264,7 @@ class ClientCardUpdateRequest(BaseModel):
         return normalize_phone(value)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "ClientCardUpdateRequest":
+    def validate_vehicle(self) -> ClientCardUpdateRequest:
         if self.car is not None and not self.car.strip():
             self.car = ""
         if self.car is not None and self.car.strip():
@@ -1608,7 +1606,7 @@ class ExpenseUpdateRequest(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def require_at_least_one_field(self) -> "ExpenseUpdateRequest":
+    def require_at_least_one_field(self) -> ExpenseUpdateRequest:
         if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):
             raise ValueError("Необходимо передать хотя бы одно поле для обновления")
         return self
@@ -1641,7 +1639,7 @@ class IncomeUpdateRequest(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def require_at_least_one_field(self) -> "IncomeUpdateRequest":
+    def require_at_least_one_field(self) -> IncomeUpdateRequest:
         # Use model_fields_set to detect explicitly provided fields (including null).
         # This allows {"note": null} to pass as a valid "clear note" request.
         if not self.model_fields_set:
@@ -2304,7 +2302,7 @@ class DepositWashRequest(BaseModel):
     workerPercent: int = Field(default=0, ge=0, le=100)
 
     @model_validator(mode="after")
-    def validate_vehicle(self) -> "DepositWashRequest":
+    def validate_vehicle(self) -> DepositWashRequest:
         if not self.car.strip() and not self.plate.strip():
             raise ValueError("Укажите марку авто или гос.номер")
         if self.car.strip():

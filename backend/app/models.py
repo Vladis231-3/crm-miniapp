@@ -1,10 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, LargeBinary, Numeric, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -14,7 +26,7 @@ OWNER_PROFIT_PAID = "paid"
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Client(Base):
@@ -55,7 +67,7 @@ class Client(Base):
         DateTime(timezone=True), nullable=True, default=None
     )
 
-    bookings: Mapped[list["Booking"]] = relationship(back_populates="client")
+    bookings: Mapped[list[Booking]] = relationship(back_populates="client")
 
 
 # Оклад мастера за один выход на смену по умолчанию (₽)
@@ -100,16 +112,16 @@ class StaffUser(Base):
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
-    assignments: Mapped[list["BookingWorker"]] = relationship(back_populates="worker")
-    penalties: Mapped[list["Penalty"]] = relationship(
+    assignments: Mapped[list[BookingWorker]] = relationship(back_populates="worker")
+    penalties: Mapped[list[Penalty]] = relationship(
         back_populates="worker",
         foreign_keys="Penalty.worker_id",
     )
-    payroll_entries: Mapped[list["PayrollEntry"]] = relationship(
+    payroll_entries: Mapped[list[PayrollEntry]] = relationship(
         back_populates="worker",
         foreign_keys="PayrollEntry.worker_id",
     )
-    incomes: Mapped[list["Income"]] = relationship(back_populates="created_by")
+    incomes: Mapped[list[Income]] = relationship(back_populates="created_by")
 
 
 class Service(Base):
@@ -219,15 +231,15 @@ class Booking(Base):
     is_repeat_visit: Mapped[bool] = mapped_column(Boolean, default=False)
 
     client: Mapped[Client] = relationship(back_populates="bookings")
-    worker_links: Mapped[list["BookingWorker"]] = relationship(
+    worker_links: Mapped[list[BookingWorker]] = relationship(
         back_populates="booking",
         cascade="all, delete-orphan",
     )
-    additional_services: Mapped[list["BookingAdditionalService"]] = relationship(
+    additional_services: Mapped[list[BookingAdditionalService]] = relationship(
         back_populates="booking",
         cascade="all, delete-orphan",
     )
-    materials: Mapped[list["BookingMaterial"]] = relationship(
+    materials: Mapped[list[BookingMaterial]] = relationship(
         back_populates="booking",
         cascade="all, delete-orphan",
     )
@@ -272,7 +284,7 @@ class BookingAdditionalService(Base):
     )
 
     booking: Mapped[Booking] = relationship(back_populates="additional_services")
-    worker_links: Mapped[list["AdditionalServiceWorker"]] = relationship(
+    worker_links: Mapped[list[AdditionalServiceWorker]] = relationship(
         back_populates="additional_service",
         cascade="all, delete-orphan",
     )
@@ -347,11 +359,11 @@ class StockCategory(Base):
         DateTime(timezone=True), default=utc_now
     )
 
-    children: Mapped[list["StockCategory"]] = relationship(
+    children: Mapped[list[StockCategory]] = relationship(
         back_populates="parent",
         cascade="all, delete-orphan",
     )
-    parent: Mapped["StockCategory | None"] = relationship(
+    parent: Mapped[StockCategory | None] = relationship(
         back_populates="children",
         remote_side="StockCategory.id",
     )
@@ -536,7 +548,7 @@ class Income(Base):
         DateTime(timezone=True), default=utc_now
     )
 
-    created_by: Mapped["StaffUser"] = relationship(back_populates="incomes")
+    created_by: Mapped[StaffUser] = relationship(back_populates="incomes")
 
 
 class WeeklyArchive(Base):
