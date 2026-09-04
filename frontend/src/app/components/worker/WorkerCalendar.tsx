@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import type { Booking, ScheduleDay, Worker } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
-import { SourceBadge } from '../shared/SourceBadge';
+
+export interface WorkerCalendarAdditionalService {
+  id: string;
+  name: string;
+  workers: { workerId: string; workerName?: string }[];
+}
 
 export interface WorkerCalendarBooking {
   id: string;
@@ -16,6 +21,7 @@ export interface WorkerCalendarBooking {
   status: Booking['status'];
   box: string;
   workers: { workerId: string; workerName: string }[];
+  additionalServices?: WorkerCalendarAdditionalService[];
   car?: string | null;
   plate?: string | null;
   source?: string | null;
@@ -183,7 +189,6 @@ interface WorkerCalendarProps {
 export function WorkerCalendar({
   bookings,
   loading,
-  workers,
   schedule,
   workerId,
   todayLabel,
@@ -201,7 +206,21 @@ export function WorkerCalendar({
   });
   const [selectedDate, setSelectedDate] = useState(todayLabel);
 
-  const relevantBookings = bookings.filter((booking) => Boolean(booking.date?.trim()) && booking.status !== 'cancelled');
+  const isMineBooking = (booking: WorkerCalendarBooking, id: string) =>
+    booking.workers.some((item) => item.workerId === id) ||
+    (booking.additionalServices || []).some((as) => (as.workers || []).some((w) => w.workerId === id));
+
+  const myExtras = (booking: WorkerCalendarBooking, id: string) =>
+    (booking.additionalServices || []).filter((as) => (as.workers || []).some((w) => w.workerId === id));
+
+  const isMainParticipant = (booking: WorkerCalendarBooking, id: string) =>
+    booking.workers.some((item) => item.workerId === id);
+
+  // Календарь мастера: только записи, где он участвует —
+  // основная услуга ИЛИ доп. услуга. Чужие записи скрыты.
+  const relevantBookings = bookings.filter(
+    (booking) => Boolean(booking.date?.trim()) && booking.status !== 'cancelled' && isMineBooking(booking, workerId),
+  );
   const bookingsByDate = relevantBookings.reduce<Record<string, WorkerCalendarBooking[]>>((acc, booking) => {
     const dateLabel = booking.date.trim();
     acc[dateLabel] = [...(acc[dateLabel] || []), booking];
@@ -228,19 +247,6 @@ export function WorkerCalendar({
     month: 'long',
   }) || selectedDate;
 
-  const activeMasters = workers.filter((worker) => worker.active && worker.role === 'worker');
-  const timeSlots = Array.from(new Set(dayBookings.map((booking) => booking.time))).sort((left, right) => left.localeCompare(right));
-  const workerGrid = timeSlots.map((time) => ({
-    time,
-    cells: activeMasters.map((worker) => ({
-      id: worker.id,
-      name: worker.name,
-      bookings: dayBookings.filter((booking) => booking.time === time && booking.workers.some((item) => item.workerId === worker.id)),
-    })),
-  }));
-
-  const isMine = (booking: WorkerCalendarBooking) => booking.workers.some((item) => item.workerId === workerId);
-
   const carTitle = (booking: WorkerCalendarBooking) => {
     const car = (booking.car || '').trim();
     const plate = (booking.plate || '').trim();
@@ -250,7 +256,16 @@ export function WorkerCalendar({
     return 'Авто не указано';
   };
 
+  // Строка услуги: основная (если участвует в ней) + свои доп. услуги.
+  // Если участвует только в допах — показываем их, а не чужую основную.
   const statusLine = (booking: WorkerCalendarBooking) => {
+    const extras = myExtras(booking, workerId);
+    if (isMainParticipant(booking, workerId)) {
+      return booking.service || extras.map((as) => `+ ${as.name}`).join(', ');
+    }
+    if (extras.length > 0) {
+      return extras.map((as) => `+ ${as.name}`).join(', ');
+    }
     return booking.service || '';
   };
 
@@ -416,7 +431,7 @@ export function WorkerCalendar({
               <div>
                 <h2 className="font-semibold capitalize">{dayTitle}</h2>
                 <div className={`text-sm ${sub} mt-1`}>
-                  {dayBookings.length} {dayBookings.length === 1 ? 'запись' : dayBookings.length < 5 ? 'записи' : 'записей'}
+                  Мои записи: {dayBookings.length}
                   {` · ${Math.floor(dayHours.open / 60)}:00 - ${Math.floor(dayHours.close / 60)}:00`}
                 </div>
               </div>
@@ -432,7 +447,7 @@ export function WorkerCalendar({
           ) : dayBookings.length === 0 ? (
             <div className={`${glass} rounded-2xl p-8 text-center`}>
               <CalendarDays size={36} strokeWidth={1.75} className={`mx-auto mb-3 ${sub}`} />
-              <p className={sub}>На этот день записей нет</p>
+              <p className={sub}>На этот день ваших записей нет</p>
             </div>
           ) : (
             <>
@@ -444,7 +459,10 @@ export function WorkerCalendar({
                         {slot.hourLabel}
                       </div>
                       <div className="flex-1 min-w-0 space-y-1">
-                        {slot.bookings.map((booking) => (
+                        {slot.bookings.map((booking) => {
+                          const extras = myExtras(booking, workerId);
+                          const isMain = isMainParticipant(booking, workerId);
+                          return (
                           <div
                             key={booking.id}
                             className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 min-w-0 ${
@@ -460,21 +478,29 @@ export function WorkerCalendar({
                                 {booking.isRepeatVisit && (
                                   <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600">Повторный</span>
                                 )}
-                                {isMine(booking) && (
-                                  <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
-                                    Моя
-                                  </span>
-                                )}
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${accent}20`, color: accent }}>
+                                  {isMain && extras.length > 0 ? 'Осн. + доп' : isMain ? 'Основная' : 'Доп'}
+                                </span>
                               </div>
                               <div className={`text-[11px] truncate ${sub}`}>
                                 {statusLine(booking)}
                               </div>
+                              {isMain && extras.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {extras.map((as) => (
+                                    <span key={as.id} className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600">
+                                      + {as.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${workerCalendarStatusBadge(booking.status)}`}>
                               {workerCalendarStatusLabel(booking.status)}
                             </span>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -485,130 +511,33 @@ export function WorkerCalendar({
                 <div className={`${glass} rounded-2xl p-4 mt-4`}>
                   <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>Без точного времени</div>
                   <div className="space-y-2">
-                    {untimedBookings.map((booking) => (
+                    {untimedBookings.map((booking) => {
+                      const extras = myExtras(booking, workerId);
+                      const isMain = isMainParticipant(booking, workerId);
+                      return (
                       <div key={booking.id} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3 w-full text-left`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-medium text-sm truncate">
                             {carTitle(booking)}
-                            {isMine(booking) && (
-                              <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
-                                Моя
-                              </span>
-                            )}
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${accent}20`, color: accent }}>
+                              {isMain && extras.length > 0 ? 'Осн. + доп' : isMain ? 'Основная' : 'Доп'}
+                            </span>
                           </div>
                           <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${workerCalendarStatusBadge(booking.status)}`}>
                             {workerCalendarStatusLabel(booking.status)}
                           </span>
                         </div>
                         <div className={`text-xs ${sub} mt-1 truncate`}>{statusLine(booking)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {activeMasters.length > 0 && workerGrid.length > 0 && (
-                <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                  <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>Сетка по времени и мастерам</div>
-                  <div className="overflow-x-auto rounded-xl">
-                    <table className="min-w-full text-sm">
-                      <thead>
-                        <tr className={sub}>
-                          <th className="text-left py-2 pr-3 font-medium sticky left-0 z-10" style={{ background: isDark ? '#131316' : '#F7F7F8' }}>Время</th>
-                          {activeMasters.map((worker) => (
-                            <th key={worker.id} className="text-left py-2 px-2 font-medium min-w-[150px]">{worker.name}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {workerGrid.map((row) => (
-                          <tr key={`worker-grid-${row.time}`} className="align-top">
-                            <td className="py-2 pr-3 text-xs font-semibold sticky left-0 z-10" style={{ background: isDark ? '#131316' : '#F7F7F8' }}>{row.time}</td>
-                            {row.cells.map((cell) => (
-                              <td key={`${row.time}-${cell.id}`} className="px-2 py-2">
-                                {cell.bookings.length === 0 ? (
-                                  <div className={`rounded-xl border border-dashed px-3 py-3 text-xs text-center ${sub}`} style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
-                                    Свободно
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {cell.bookings.map((booking) => (
-                                      <div key={`${cell.id}-${booking.id}`} className={`${glass} rounded-xl p-3 w-full text-left`}>
-                                        <div className="font-medium text-sm truncate flex items-center gap-1.5 min-w-0">
-                                          {carTitle(booking)}
-                                          <SourceBadge source={booking.source} />
-                                          {booking.isRepeatVisit && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
-                                          )}
-                                          {isMine(booking) && (
-                                            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
-                                              Моя
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className={`text-xs ${sub} truncate mt-1`}>{statusLine(booking)}</div>
-                                        <div className="mt-2 flex items-center justify-between gap-2">
-                                          <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${workerCalendarStatusBadge(booking.status)}`}>
-                                            {workerCalendarStatusLabel(booking.status)}
-                                          </span>
-                                          <span className={`text-[11px] ${sub}`}>{booking.time}</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </td>
+                        {isMain && extras.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {extras.map((as) => (
+                              <span key={as.id} className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] text-violet-600">
+                                + {as.name}
+                              </span>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {activeMasters.length > 0 && (
-                <div className={`${glass} rounded-2xl p-4 mt-4`}>
-                  <div className={`text-[11px] ${sub} uppercase tracking-wider mb-2`}>По мастерам</div>
-                  <div className="space-y-2">
-                    {activeMasters.map((worker) => {
-                      const workerItems = dayBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
-                      return (
-                        <div key={worker.id} className={`${glass} rounded-xl p-3`}>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-sm">{worker.name}</span>
-                            <span className={`text-xs ${sub}`}>{workerItems.length} {workerItems.length === 1 ? 'задача' : workerItems.length < 5 ? 'задачи' : 'задач'}</span>
                           </div>
-                          {workerItems.length === 0 ? (
-                            <div className={`text-xs ${sub}`}>Свободно</div>
-                          ) : (
-                            <div className="space-y-2">
-                              {workerItems.map((booking) => (
-                                <div key={`${worker.id}-${booking.id}`} className="flex items-center justify-between gap-2 w-full text-left">
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-medium truncate flex items-center gap-1.5 min-w-0">
-                                      <Clock size={12} strokeWidth={1.75} className="inline mr-1 -mt-0.5 shrink-0" style={{ color: primary }} />
-                                      <span className="tabular-nums">{booking.time}</span> · {carTitle(booking)}
-                                      <SourceBadge source={booking.source} />
-                                      {booking.isRepeatVisit && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 shrink-0">Повторный</span>
-                                      )}
-                                      {isMine(booking) && (
-                                        <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full`} style={{ background: `${accent}20`, color: accent }}>
-                                          Моя
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className={`text-xs ${sub} truncate`}>{statusLine(booking)}</div>
-                                  </div>
-                                  <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${workerCalendarStatusBadge(booking.status)}`}>
-                                    {workerCalendarStatusLabel(booking.status)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        )}
+                      </div>
                       );
                     })}
                   </div>

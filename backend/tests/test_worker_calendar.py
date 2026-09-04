@@ -2,7 +2,9 @@
 Unit tests for the read-only worker calendar endpoint.
 
 Covers:
-- GET /api/worker/calendar by a worker → 200 with bookings of ALL workers
+- GET /api/worker/calendar by a worker → 200 with ONLY his bookings
+  (main service OR additional service participation)
+- Bookings of other workers are hidden
 - Owner calling the endpoint → 403
 - Cancelled bookings are excluded
 - Payload does not expose clientPhone/price of bookings
@@ -165,8 +167,9 @@ class WorkerCalendarTests(unittest.TestCase):
     # Tests
     # ------------------------------------------------------------------
 
-    def test_worker_sees_bookings_of_other_workers(self) -> None:
-        booking_id = self._create_booking(worker_id="w2")
+    def test_worker_sees_own_bookings(self) -> None:
+        # ivan (w1) видит свои записи (основная услуга)
+        booking_id = self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/calendar",
@@ -178,8 +181,55 @@ class WorkerCalendarTests(unittest.TestCase):
         ids = {item["id"] for item in payload}
         self.assertIn(booking_id, ids)
 
+    def test_worker_does_not_see_bookings_of_other_workers(self) -> None:
+        # чужие записи (только w2, без участия w1) скрыты
+        booking_id = self._create_booking(worker_id="w2")
+
+        response = self.client.get(
+            "/api/worker/calendar",
+            headers=self._auth_headers(self.worker_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        ids = {item["id"] for item in response.json()}
+        self.assertNotIn(booking_id, ids)
+
+    def test_worker_sees_booking_with_only_additional_service(self) -> None:
+        # запись, где мастер участвует ТОЛЬКО в доп. услуге, видна в календаре
+        booking_id = self._create_booking(worker_id="w2")
+        add_response = self.client.post(
+            f"/api/bookings/{booking_id}/additional-services",
+            headers=self._auth_headers(self.owner_token),
+            json={
+                "name": "Полировка",
+                "price": 2000,
+                "duration": 30,
+                "priceMode": "add",
+                "isOutsource": False,
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 50}],
+            },
+        )
+        self.assertEqual(add_response.status_code, 200, add_response.text)
+
+        response = self.client.get(
+            "/api/worker/calendar",
+            headers=self._auth_headers(self.worker_token),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        ids = {item["id"] for item in payload}
+        self.assertIn(booking_id, ids)
+        item = next(i for i in payload if i["id"] == booking_id)
+        self.assertIn("additionalServices", item)
+        my_asvc = [
+            a
+            for a in item["additionalServices"]
+            if any(w["workerId"] == "w1" for w in a.get("workers", []))
+        ]
+        self.assertEqual(len(my_asvc), 1)
+        self.assertEqual(my_asvc[0]["name"], "Полировка")
+
     def test_worker_calendar_omits_sensitive_fields(self) -> None:
-        self._create_booking(worker_id="w2")
+        self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/calendar",
@@ -192,14 +242,14 @@ class WorkerCalendarTests(unittest.TestCase):
             self.assertNotIn("paymentType", item)
 
     def test_worker_calendar_excludes_cancelled_bookings(self) -> None:
-        active_id = self._create_booking(worker_id="w2")
+        active_id = self._create_booking(worker_id="w1")
         cancel_response = self.client.patch(
             f"/api/bookings/{active_id}",
             headers=self._auth_headers(self.owner_token),
             json={"status": "cancelled"},
         )
         self.assertEqual(cancel_response.status_code, 200, cancel_response.text)
-        fresh_id = self._create_booking(worker_id="w2", time="11:00")
+        fresh_id = self._create_booking(worker_id="w1", time="11:00")
 
         response = self.client.get(
             "/api/worker/calendar",

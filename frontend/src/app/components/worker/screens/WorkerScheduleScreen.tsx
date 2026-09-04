@@ -56,7 +56,9 @@ export function WorkerScheduleScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
-  const isMyTask = (task: Booking) => task.workers.some((w) => w.workerId === workerId);
+  const isMyTask = (task: Booking) =>
+    task.workers.some((w) => w.workerId === workerId) ||
+    (task.additionalServices || []).some((as) => as.workers.some((w) => w.workerId === workerId));
 
   return (
     <motion.div key="schedule" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">

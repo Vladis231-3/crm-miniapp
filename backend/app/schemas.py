@@ -531,6 +531,7 @@ class WorkerCalendarBookingPayload(BaseModel):
     source: str | None = None
     referralSource: str = ""
     isRepeatVisit: bool = False
+    additionalServices: list[AdditionalServicePayload] = Field(default_factory=list)
 
 
 class BookingAvailabilitySlotPayload(BaseModel):

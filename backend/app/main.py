@@ -17729,13 +17729,27 @@ def get_worker_calendar_bookings(
 
         select(Booking)
 
-        .options(selectinload(Booking.worker_links))
+        .options(
+            selectinload(Booking.worker_links),
+            selectinload(Booking.additional_services).selectinload(
+                BookingAdditionalService.worker_links
+            ),
+        )
 
         .where(
 
             Booking.deleted_at.is_(None),
 
             Booking.status != "cancelled",
+
+            or_(
+                Booking.worker_links.any(BookingWorker.worker_id == worker_id),
+                Booking.additional_services.any(
+                    BookingAdditionalService.worker_links.any(
+                        AdditionalServiceWorker.worker_id == worker_id
+                    )
+                ),
+            ),
 
         )
 
@@ -17790,6 +17804,32 @@ def get_worker_calendar_bookings(
             referralSource=getattr(booking, "referral_source", None) or "",
 
             isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
+
+            additionalServices=[
+                AdditionalServicePayload(
+                    id=asvc.id,
+                    serviceId=asvc.service_id,
+                    name=_safe_text(asvc.name),
+                    price=int(asvc.price or 0),
+                    duration=int(asvc.duration or 0),
+                    status=asvc.status or "pending",
+                    priceMode=asvc.price_mode or "add",
+                    isOutsource=bool(asvc.is_outsource),
+                    outsourceAmount=asvc.outsource_amount,
+                    createdAt=asvc.created_at,
+                    workers=[
+                        AdditionalServiceWorkerPayload(
+                            workerId=w.worker_id,
+                            workerName=_safe_text(w.worker_name),
+                            percent=int(w.percent or 0),
+                            payType=w.pay_type or "percent",
+                            fixedAmount=w.fixed_amount,
+                        )
+                        for w in asvc.worker_links
+                    ],
+                )
+                for asvc in (booking.additional_services or [])
+            ],
 
         )
 
