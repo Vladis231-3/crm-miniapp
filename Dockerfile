@@ -9,8 +9,15 @@ RUN npm run build
 
 FROM python:3.12-slim
 
+# W4-001: бизнес-логика на наивном местном времени (слоты, границы дней ЗП).
+# Без TZ контейнер живёт в UTC и границы «дней» едут на 3 часа у полуночи.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    TZ=Europe/Moscow \
     APP_ENV=production \
     ALLOW_DEMO_SEED_DATA=false \
     API_HOST=0.0.0.0 \

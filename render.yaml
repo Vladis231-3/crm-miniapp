@@ -7,6 +7,8 @@ services:
     healthCheckPath: /api/health
     dockerfilePath: ./Dockerfile
     envVars:
+      - key: TZ
+        value: Europe/Moscow
       - key: APP_ENV
         value: production
       - key: ALLOW_DEMO_SEED_DATA

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-04 07:02 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-04 07:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **524**
-- Строк кода: **208 700**
+- Строк кода: **208 715**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 173, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -2780,9 +2780,9 @@ concept1.0/
 - `test_db_failure_removes_final_and_temp_filesdef test_db_failure_removes_final_and_temp_files(monkeypatch, tmp_path) -> None: with pytest.raises(RuntimeError, match="db failure"):` (стр. 78)
 - `test_upload_headers_are_safedef test_upload_headers_are_safe() -> None: headers = main._upload_headers("safe.png") assert headers["X-Content-Type-Options"] == "nosniff" assert headers["Content-Disposition"] =` (стр. 84)
 
-### backend/tests/test_v1_gaps.py (232 строк)
+### backend/tests/test_v1_gaps.py (247 строк)
 
-Классы и функции (15):
+Классы и функции (16):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 16)
 - `build_init_datadef build_init_data(telegram_id: str) -> str: return urllib.parse.urlencode({"user": json.dumps({"id": int(telegram_id)})})` (стр. 28)
@@ -2799,6 +2799,7 @@ concept1.0/
 - `CoverageGapsTests.test_penalty_revoke_lifecycledef test_penalty_revoke_lifecycle(self) -> None: created = self.client.post( "/api/penalties", headers={"Authorization": self.owner_token}, json={"workerId": "w1", "title": "Опозда` (стр. 165)
 - `CoverageGapsTests.test_piggy_bank_readable_by_ownerdef test_piggy_bank_readable_by_owner(self) -> None: response = self.client.get( "/api/owner/piggy-bank", headers={"Authorization": self.owner_token}, ) self.assertEqual(response.s` (стр. 196)
 - `CoverageGapsTests.test_telegram_link_code_generate_and_confirmdef test_telegram_link_code_generate_and_confirm(self) -> None: from app.database import SessionLocal generated = self.client.post( "/api/telegram/link-code", headers={"Authorizati` (стр. 203)
+- `CoverageGapsTests.test_owner_salary_detail_readable_by_owner_onlydef test_owner_salary_detail_readable_by_owner_only(self) -> None: forbidden = self.client.get( "/api/owner/owners/salary-detail?period=all", headers={"Authorization": self.worker_` (стр. 230)
 
 ### backend/tests/test_wallet_query_budget.py (126 строк)
 
@@ -4969,8 +4970,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `audit/FINDINGS.md` (2026-09-04 10:02)
-- `backend/tests/test_v1_gaps.py` (2026-09-04 10:01)
+- `audit/FINDINGS.md` (2026-09-04 10:09)
+- `backend/tests/test_v1_gaps.py` (2026-09-04 10:07)
+- `amvera.yml` (2026-09-04 10:06)
+- `render.yaml` (2026-09-04 10:06)
+- `Dockerfile` (2026-09-04 10:06)
 - `backend/tests/test_fractional_money.py` (2026-09-04 09:47)
 - `backend/app/schemas.py` (2026-09-04 09:47)
 - `audit/.main-debt-parked.patch` (2026-09-04 09:33)
@@ -4981,6 +4985,3 @@ concept1.0/
 - `backend/app/security.py` (2026-09-04 09:19)
 - `backend/app/main.py` (2026-09-04 09:19)
 - `backend/app/error_notifier.py` (2026-09-04 09:14)
-- `backend/app/telegram_linking.py` (2026-09-04 09:06)
-- `backend/app/models.py` (2026-09-04 09:04)
-- `backend/app/complaints.py` (2026-09-04 09:04)

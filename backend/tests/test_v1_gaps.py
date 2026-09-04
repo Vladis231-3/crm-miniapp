@@ -227,6 +227,21 @@ class CoverageGapsTests(unittest.TestCase):
         self.assertEqual(again.status_code, 200, again.text)
         self.assertTrue(again.json()["linked"])
 
+    def test_owner_salary_detail_readable_by_owner_only(self) -> None:
+        forbidden = self.client.get(
+            "/api/owner/owners/salary-detail?period=all",
+            headers={"Authorization": self.worker_token},
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+        response = self.client.get(
+            "/api/owner/owners/salary-detail?period=all",
+            headers={"Authorization": self.owner_token},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertIn("owners", body)
+        self.assertGreaterEqual(len(body["owners"]), 1, body)
+
 
 if __name__ == "__main__":
     unittest.main()
