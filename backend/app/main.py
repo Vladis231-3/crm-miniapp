@@ -839,7 +839,9 @@ async def _validation_error_handler(
         value = error.get("input")
         if isinstance(value, float) and (value != value or _math_isinf(value)):
             error["input"] = repr(value)
-    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
+    # AsciiJSONResponse (ensure_ascii): единственный JSON-ответ вне default_response_class —
+    # 422 с кириллицей обязан оставаться чистым ASCII, как остальные ответы API.
+    return AsciiJSONResponse(status_code=422, content={"detail": jsonable_encoder(errors)})
 
 
 
@@ -12608,12 +12610,26 @@ def _booking_money_split(
         owners_total = max(0, min(claimed, limit))
         if owners_total > 0:
             owner_ids = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
-            owners = db.scalars(
-                select(StaffUser).where(
-                    StaffUser.id.in_(owner_ids),
-                    StaffUser.active.is_(True),
-                )
-            ).all()
+            owners = (
+                db.scalars(
+                    select(StaffUser).where(
+                        StaffUser.id.in_(owner_ids),
+                        StaffUser.active.is_(True),
+                    )
+                ).all()
+                if owner_ids
+                else []
+            )
+            if not owners:
+                # Фолбэк без PERMANENT_TELEGRAM_OWNERS: все активные владельцы из БД.
+                # Иначе доли не создаются, выплаты невозможны и в движении денег
+                # не видно, что владельцам деньги ушли.
+                owners = db.scalars(
+                    select(StaffUser).where(
+                        StaffUser.role == "owner",
+                        StaffUser.active.is_(True),
+                    )
+                ).all()
             owners_sorted = sorted(owners, key=lambda owner: owner.id)
             if len(owners_sorted) == 1:
                 # Один активный владелец получает всю долю
@@ -21198,7 +21214,16 @@ def get_owner_money_flow(
     def _entry_date_str(p: PayrollEntry) -> str:
         if p.entry_date:
             return p.entry_date
-        return p.created_at.strftime("%d.%m.%Y") if p.created_at else ""
+        if not p.created_at:
+            return ""
+        # created_at хранится в UTC — показываем локальный день выплаты,
+        # иначе ночные выплаты уезжают на соседнюю дату и теряются в журнале.
+        created = p.created_at
+        try:
+            local_created = created.astimezone()
+        except Exception:
+            local_created = created
+        return local_created.strftime("%d.%m.%Y")
 
     def _date_sort_key(entry: MoneyFlowEntry) -> tuple[str, str]:
         """DD.MM.YYYY или YYYY-MM-DD -> сортируемый YYYY-MM-DD (без datetime)."""
@@ -21395,20 +21420,24 @@ def get_owner_money_flow(
         select(StaffUser).where(StaffUser.role == "worker").order_by(StaffUser.name.asc())
     ).all()
     worker_ids = [w.id for w in workers_list]
-    entries_query = select(PayrollEntry)
     shift_from: date | None = None
     shift_to: date | None = None
     if date_from and date_to:
-        dt_from, dt_to = _local_day_bounds(_parse_booking_date_param(date_from))[0], _local_day_bounds(_parse_booking_date_param(date_to))[1]
-        entries_query = entries_query.where(
-            PayrollEntry.created_at >= dt_from,
-            PayrollEntry.created_at <= dt_to,
-        )
         shift_from = parsed_from
         shift_to = parsed_to
-    payroll_entries = db.scalars(
-        entries_query.order_by(PayrollEntry.created_at.desc())
+    # Фильтруем проводки по локальному дню выплаты (entry_date, иначе created_at
+    # в локальной зоне), а не только по created_at в UTC: иначе выплаты владельцам
+    # и мастерам за прошлый период не видны в журнале этого периода, а ночные
+    # выплаты уезжают в соседний день и «теряются» в движении денег.
+    all_payroll_entries = db.scalars(
+        select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
     ).all()
+    if date_from and date_to:
+        payroll_entries = [
+            p for p in all_payroll_entries if _in_range(_entry_date_str(p))
+        ]
+    else:
+        payroll_entries = all_payroll_entries
 
     for p in payroll_entries:
         person = staff_by_id.get(p.worker_id)
@@ -21423,7 +21452,7 @@ def get_owner_money_flow(
                     kind="out",
                     type="payout_owner" if is_owner else "payout_worker",
                     date=_entry_date_str(p),
-                    title="Выплата владельцу" if is_owner else f"Выплата зарплаты: {person_name}",
+                    title=f"Выплата владельцу: {person_name}" if is_owner else f"Выплата зарплаты: {person_name}",
                     amount=amount,
                     counterparty=person_name,
                     note=p.note or "",
@@ -21618,22 +21647,44 @@ def get_owner_money_flow(
             )
         ).all()
         for share in shares:
-            row = owner_totals.setdefault(share.owner_id, {"accrued": 0, "paid": 0})
+            row = owner_totals.setdefault(
+                share.owner_id, {"accrued": 0, "paid_shares": 0, "payouts": 0}
+            )
             amt = int(share.amount or 0)
+            # Начислено за период — все доли по записям периода (pending + paid),
+            # иначе после выплаты начисление «исчезает» и баланс уходит в минус.
+            row["accrued"] += amt
             if share.status == "paid":
-                row["paid"] += amt
-            else:
-                row["accrued"] += amt
+                row["paid_shares"] += amt
+    # Фактические выплаты владельцам за период (деньги ушли из кассы).
+    # payroll_entries уже отфильтрованы по локальному дню выплаты выше,
+    # поэтому владельцы видны в «Кому сколько выплатили» даже когда
+    # выплата относится к старым записям вне периода.
+    for p in payroll_entries:
+        if p.kind != "payout":
+            continue
+        person = staff_by_id.get(p.worker_id)
+        if not (person and person.role == "owner"):
+            continue
+        row = owner_totals.setdefault(
+            p.worker_id, {"accrued": 0, "paid_shares": 0, "payouts": 0}
+        )
+        row["payouts"] += int(abs(p.amount or 0))
     for owner_id, data in owner_totals.items():
         person = staff_by_id.get(owner_id)
+        paid = int(data.get("payouts") or 0)
+        # Фолбэк для старых данных без PayrollEntry: выплаченные доли тоже
+        # считаются выплатой, чтобы не задваивать при наличии проводки — max.
+        paid = max(paid, int(data.get("paid_shares") or 0))
+        accrued = int(data.get("accrued") or 0)
         people.append(
             MoneyFlowPersonItem(
                 personId=owner_id,
                 personName=person.name if person else "Владелец",
                 role="owner",
-                accrued=data["accrued"],
-                paid=data["paid"],
-                balance=data["accrued"] - data["paid"],
+                accrued=accrued,
+                paid=paid,
+                balance=accrued - paid,
             )
         )
 
@@ -23538,6 +23589,9 @@ def owner_pay_salary(
 
 
     # Create PayrollEntry
+    # entry_date = локальный день выплаты: выплата видна в движении денег
+    # за день проведения (как у мастеров), а не по UTC-дате created_at.
+    today_str = date.today().strftime("%d.%m.%Y")
 
     entry = PayrollEntry(
 
@@ -23555,6 +23609,8 @@ def owner_pay_salary(
 
         note=payload.note.strip() or f"Выплата ЗП владельцу {owner.name}",
 
+        entry_date=today_str,
+
         request_key=payload.clientRequestId,
 
         created_at=_now(),
@@ -23566,8 +23622,6 @@ def owner_pay_salary(
 
 
     # Create Expense
-
-    today_str = date.today().strftime("%d.%m.%Y")
 
     expense = Expense(
 
