@@ -611,7 +611,9 @@ async function compressShiftPhoto(file: File) {
 }
 
 export function ShiftSection({ onBack }: { onBack: () => void }) {
-  const { stockItems, masterWorkers, listAdminShiftInspections, submitAdminShiftInspection, isDark } = useApp();
+  const { stockItems, workers, listAdminShiftInspections, submitAdminShiftInspection, isDark } = useApp();
+  // Тот же отбор мастеров, что и в AdminApp: в контексте есть только workers.
+  const masterWorkers = workers.filter((worker) => worker.role === 'worker' || worker.role === 'owner');
 
   const [shiftPhotos, setShiftPhotos] = useState<Record<string, { dataUrl: string; fileName: string }>>({});
   const [shiftDraft, setShiftDraft] = useState<{ note: string; masterIds: string[] }>({ note: '', masterIds: [] });

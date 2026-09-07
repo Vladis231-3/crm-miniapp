@@ -835,6 +835,9 @@ export function OwnerApp() {
   const [exportModalDateFrom, setExportModalDateFrom] = useState('');
   const [exportModalDateTo, setExportModalDateTo] = useState('');
 
+  // Ключ идемпотентности (объявлен до первого использования — иначе TDZ
+  // "Cannot access ... before initialization" на первом рендере OwnerApp).
+  const newPayRequestId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   // Единая форма «Снять на расходы»: piggy — из копилки (без ЗП),
   // own — свои деньги (расход в бюджет + компенсация в ЗП).
   const [piggyWithdrawSource, setPiggyWithdrawSource] = useState<'piggy' | 'own'>('piggy');
@@ -893,7 +896,7 @@ export function OwnerApp() {
   // Ключ идемпотентности: генерируется один раз на форму выплаты, меняется
   // после успешной выплаты. Повторный клик/ретрай отправит тот же ключ —
   // бэкенд вернёт результат первой выплаты вместо создания дубликата.
-  const newPayRequestId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  // (сам хелпер newPayRequestId объявлен выше, перед piggy-формой).
   const [salaryPayRequestId, setSalaryPayRequestId] = useState(newPayRequestId);
   // Идемпотентность остальных зарплатных операций (премии/штрафы/списания,
   // погашение долга копилки): ключ живёт до успешного проведения операции.
