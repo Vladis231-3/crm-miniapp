@@ -299,6 +299,8 @@ class WorkerPayload(BaseModel):
     about: str = ""
     telegramChatId: str = ""
     payrollSummary: WorkerPayrollSummaryPayload | None = None
+    # Доп. роли (например, владелец с ["worker"] работает как мастер).
+    extraRoles: list[str] = Field(default_factory=list)
 
 
 class PayrollEntryPayload(BaseModel):
@@ -1846,7 +1848,13 @@ class OwnerProfitShareSummary(BaseModel):
     totalAccrued: int = 0
     totalPaid: int = 0
     balanceToPay: int = 0
+    # True, если владелец выполняет заказы как мастер (extra_roles содержит worker).
+    worksAsMaster: bool = False
     shares: list[OwnerProfitShareItem] = Field(default_factory=list)
+
+
+class OwnerMasterRoleRequest(BaseModel):
+    worksAsMaster: bool
 
 
 class OwnerSalaryDetailResponse(BaseModel):

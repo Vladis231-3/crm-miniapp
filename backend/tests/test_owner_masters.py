@@ -233,6 +233,90 @@ class OwnerMasterTests(unittest.TestCase):
         self.assertIn("owner-tg-1", saved)
         self.assertEqual(saved["owner-tg-1"]["defaultPercent"], 40)
 
+    def test_owner_master_pay_salary(self) -> None:
+        """Выплата ЗП как мастеру владельцу-мастеру проходит, обычному владельцу — 404."""
+        owner_token = build_init_data(self.OWNER_TG_2)
+        pay_ok = self.client.post(
+            "/api/owner/workers/owner-tg-1/pay-salary",
+            headers=self.auth_headers(owner_token),
+            json={"period": "month", "segment": "all", "amount": 500, "note": "Выплата владельцу-мастеру"},
+        )
+        self.assertEqual(pay_ok.status_code, 200, pay_ok.text)
+        self.assertTrue(pay_ok.json().get("payoutId"))
+
+        pay_plain_owner = self.client.post(
+            "/api/owner/workers/owner-tg-2/pay-salary",
+            headers=self.auth_headers(owner_token),
+            json={"period": "month", "segment": "all", "amount": 500, "note": "Выплата"},
+        )
+        self.assertEqual(pay_plain_owner.status_code, 404, pay_plain_owner.text)
+
+    def test_owner_master_role_toggle(self) -> None:
+        """Тумблер «Работает как мастер»: вкл/выкл меняет выплаты и списки."""
+        owner_token = build_init_data(self.OWNER_TG_1)
+
+        # Включаем флаг обычному владельцу
+        on = self.client.patch(
+            "/api/owner/owners/owner-tg-2/master-role",
+            headers=self.auth_headers(owner_token),
+            json={"worksAsMaster": True},
+        )
+        self.assertEqual(on.status_code, 200, on.text)
+        self.assertIn("worker", on.json().get("extraRoles", []))
+
+        # Теперь ему можно провести ЗП как мастеру
+        pay = self.client.post(
+            "/api/owner/workers/owner-tg-2/pay-salary",
+            headers=self.auth_headers(owner_token),
+            json={"period": "month", "segment": "all", "amount": 300, "note": "Выплата после вкл"},
+        )
+        self.assertEqual(pay.status_code, 200, pay.text)
+
+        # Флаг виден в окне ЗП владельцев
+        detail = self.client.get(
+            "/api/owner/owners/salary-detail?period=month",
+            headers=self.auth_headers(owner_token),
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        by_id = {o["ownerId"]: o for o in detail.json()["owners"]}
+        self.assertTrue(by_id["owner-tg-2"]["worksAsMaster"])
+        self.assertTrue(by_id["owner-tg-1"]["worksAsMaster"])
+
+        # Выключаем обратно — выплата снова 404
+        off = self.client.patch(
+            "/api/owner/owners/owner-tg-2/master-role",
+            headers=self.auth_headers(owner_token),
+            json={"worksAsMaster": False},
+        )
+        self.assertEqual(off.status_code, 200, off.text)
+        self.assertEqual(off.json().get("extraRoles", []), [])
+
+        pay_after_off = self.client.post(
+            "/api/owner/workers/owner-tg-2/pay-salary",
+            headers=self.auth_headers(owner_token),
+            json={"period": "month", "segment": "all", "amount": 300, "note": "Выплата"},
+        )
+        self.assertEqual(pay_after_off.status_code, 404, pay_after_off.text)
+
+    def test_owner_master_role_auth(self) -> None:
+        """Тумблер доступен только владельцам; мастеру по id владельца — 404."""
+        # Админ не может переключать
+        forbidden = self.client.patch(
+            "/api/owner/owners/owner-tg-2/master-role",
+            headers=self.auth_headers(self.admin_token),
+            json={"worksAsMaster": True},
+        )
+        self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+        # Не-владельцу флаг не выдать
+        owner_token = build_init_data(self.OWNER_TG_1)
+        not_owner = self.client.patch(
+            "/api/owner/owners/w1/master-role",
+            headers=self.auth_headers(owner_token),
+            json={"worksAsMaster": True},
+        )
+        self.assertEqual(not_owner.status_code, 404, not_owner.text)
+
     def _next_active_date(self) -> str:
         candidate = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         for offset in range(1, 8):

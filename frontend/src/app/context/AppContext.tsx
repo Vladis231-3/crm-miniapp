@@ -927,6 +927,7 @@ interface AppContextType {
   saveOwnerSecurity: (settings: OwnerSecurity) => Promise<void>;
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
   saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
+  setOwnerMasterRole: (ownerId: string, worksAsMaster: boolean) => Promise<Worker>;
   saveContent: (content: ContentData) => Promise<void>;
   content: ContentData;
   createPayrollEntry: (entry: PayrollEntryCreateInput) => Promise<void>;
@@ -1838,6 +1839,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }
 
+  async function setOwnerMasterRole(ownerId: string, worksAsMaster: boolean) {
+    const saved = await apiRequest<Worker>(`/api/owner/owners/${ownerId}/master-role`, { method: 'PATCH', body: { worksAsMaster } });
+    const normalized = normalizeWorker(saved);
+    setWorkers((current) => {
+      const exists = current.some((worker) => worker.id === normalized.id);
+      if (exists) return current.map((worker) => (worker.id === normalized.id ? normalized : worker));
+      return [...current, normalized];
+    });
+    return normalized;
+  }
+
   async function saveContent(nextContent: ContentData) {
     const saved = await apiRequest<ContentData>('/api/content', { method: 'PUT', body: nextContent });
     setContent(saved);
@@ -2140,6 +2152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveOwnerSecurity,
       saveWorkerSettings,
       saveAdminWorkerPayroll,
+      setOwnerMasterRole,
       saveContent,
       createPayrollEntry,
       listShiftChecklists,

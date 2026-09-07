@@ -424,6 +424,8 @@ from .schemas import (
 
     PaySalaryResponse,
 
+    OwnerMasterRoleRequest,
+
     SalaryBookingItem,
 
     SalaryDetailResponse,
@@ -4284,6 +4286,8 @@ def _worker_payload(worker: StaffUser) -> WorkerPayload:
         about=worker.about,
 
         telegramChatId=worker.telegram_chat_id or "",
+
+        extraRoles=list(worker.extra_roles or []),
 
     )
 
@@ -22989,7 +22993,7 @@ def owner_worker_pay_salary(
 
     worker = db.get(StaffUser, worker_id)
 
-    if worker is None or worker.role != "worker":
+    if worker is None or (worker.role != "worker" and not _is_owner_master(worker)):
 
         raise HTTPException(status_code=404, detail="Мастер не найден")
 
@@ -23446,6 +23450,8 @@ def owner_salary_detail(
 
                 balanceToPay=d["total_accrued"] - d["total_paid"],
 
+                worksAsMaster=_is_owner_master(owner),
+
                 shares=d["shares"],
 
             )
@@ -23470,6 +23476,33 @@ def owner_salary_detail(
 
 
 
+
+
+@app.patch("/api/owner/owners/{owner_id}/master-role", response_model=WorkerPayload)
+def set_owner_master_role(
+    owner_id: str,
+    payload: OwnerMasterRoleRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> WorkerPayload:
+    """Тумблер «Работает как мастер» для владельца.
+
+    Вкл → extra_roles=["worker"]: владелец попадает в списки мастеров,
+    ведомость и выплату ЗП как мастеру. Выкл → extra_roles=[].
+    Только для роли owner; пассивный доход владельца не затрагивается.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+
+    owner = db.get(StaffUser, owner_id)
+
+    if owner is None or owner.role != "owner":
+        raise HTTPException(status_code=404, detail="Владелец не найден")
+
+    owner.extra_roles = ["worker"] if payload.worksAsMaster else []
+    owner.updated_at = _now()
+    db.commit()
+    db.refresh(owner)
+    return _worker_payload(owner)
 
 
 @app.post("/api/owner/owners/pay-salary", response_model=PayOwnerSalaryResponse)

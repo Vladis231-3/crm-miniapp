@@ -225,6 +225,7 @@ interface OwnerProfitShareItem {
 interface OwnerProfitSummary {
   ownerId: string; ownerName: string;
   totalAccrued: number; totalPaid: number; balanceToPay: number;
+  worksAsMaster?: boolean;
   shares: OwnerProfitShareItem[];
 }
 interface OwnerSalaryData {
@@ -733,6 +734,8 @@ export function OwnerApp() {
     resetWorkerPassword,
     staffProfile,
     switchRole,
+    setOwnerMasterRole,
+    refreshBootstrap,
     downloadOwnerExport,
       sendOwnerExportToTelegram,
       sendOwnerSummaryReport,
@@ -912,6 +915,7 @@ export function OwnerApp() {
   const [ownerSalaryDateFrom, setOwnerSalaryDateFrom] = useState('');
   const [ownerSalaryDateTo, setOwnerSalaryDateTo] = useState('');
   const [ownerSalaryLoading, setOwnerSalaryLoading] = useState(false);
+  const [masterRoleLoading, setMasterRoleLoading] = useState<string | null>(null);
   const [ownerPayTarget, setOwnerPayTarget] = useState<string | null>(null);
   const [ownerPayAmount, setOwnerPayAmount] = useState('');
   const [ownerPayNote, setOwnerPayNote] = useState('');
@@ -1275,6 +1279,27 @@ export function OwnerApp() {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка выплаты');
       setTimeout(() => setBottomToast(null), 4000);
     } finally { setOwnerSalaryLoading(false); }
+  };
+
+  const handleToggleOwnerMasterRole = async (ownerId: string, ownerName: string, next: boolean) => {
+    try {
+      setMasterRoleLoading(ownerId);
+      await setOwnerMasterRole(ownerId, next);
+      await refreshBootstrap();
+      const params = new URLSearchParams({ period: ownerSalaryPeriod });
+      if (ownerSalaryPeriod === 'custom') {
+        params.set('date_from', ownerSalaryDateFrom);
+        params.set('date_to', ownerSalaryDateTo);
+      }
+      const updated = await apiRequest<OwnerSalaryData>(`/api/owner/owners/salary-detail?${params.toString()}`);
+      setOwnerSalaryData(updated);
+      loadPayrollData();
+      setBottomToast(next ? `${ownerName}: теперь работает как мастер` : `${ownerName}: роль мастера снята`);
+      setTimeout(() => setBottomToast(null), 3000);
+    } catch (e) {
+      setBottomToast(e instanceof Error ? e.message : 'Не удалось переключить роль мастера');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally { setMasterRoleLoading(null); }
   };
 
   const loadPiggyBank = useCallback(async (dateFrom?: string, dateTo?: string) => {
@@ -4913,6 +4938,29 @@ paymentSettled: false,
                           <div className={`text-xs ${sub}`}>Владелец  -  единое окно ЗП</div>
                         </div>
                       </div>
+                      {(() => {
+                        const worksAsMaster = owner.worksAsMaster ?? payrollRows.some(r => r.worker.id === owner.ownerId);
+                        const toggling = masterRoleLoading === owner.ownerId;
+                        return (
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <div className="text-sm font-medium">Работает как мастер</div>
+                              <div className={`text-[11px] ${sub}`}>Попадает в ведомость мастеров, можно назначить на заказы и провести ЗП</div>
+                            </div>
+                            <button
+                              role="switch"
+                              aria-checked={worksAsMaster}
+                              aria-label={`Работает как мастер: ${ownerDisplayName}`}
+                              disabled={toggling}
+                              onClick={() => { void handleToggleOwnerMasterRole(owner.ownerId, ownerDisplayName, !worksAsMaster); }}
+                              className="relative h-6 w-11 shrink-0 rounded-full outline-none transition-all focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-60"
+                              style={{ background: worksAsMaster ? 'var(--primary-600)' : 'var(--switch-background, #D4D4D8)' }}
+                            >
+                              <span className={`absolute top-1 size-4 rounded-full bg-white transition-all ${worksAsMaster ? 'left-6' : 'left-1'}`} />
+                            </button>
+                          </div>
+                        );
+                      })()}
                       {(() => {
                         const linked = payrollRows.find(r => r.worker.id === owner.ownerId);
                         if (!linked) {
