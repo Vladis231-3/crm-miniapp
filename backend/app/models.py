@@ -595,6 +595,11 @@ class PiggyBankTransaction(Base):
         String(64), ForeignKey("staff_users.id", ondelete="SET NULL"), nullable=True
     )
     spent_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Ключ идемпотентности (clientRequestId): защищает от двойного списания
+    # при дабл-клике / ретрае сети. Nullable + unique index, как у PayrollEntry.
+    request_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

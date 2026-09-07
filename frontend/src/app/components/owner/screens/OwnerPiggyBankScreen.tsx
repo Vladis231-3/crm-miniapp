@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, Download, Edit3, Minus, RefreshCw, X } from 'lucide-react';
+import { ChevronRight, Download, Edit3, Minus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast } from '../../atmosfera';
 
@@ -76,6 +76,8 @@ export function OwnerPiggyBankScreen({
   archiveHighlight,
   highlightId,
   onSelectBooking,
+  onDeleteTx,
+  deletingTxId,
   primary,
   glass,
   sub,
@@ -100,6 +102,8 @@ export function OwnerPiggyBankScreen({
   archiveHighlight: ArchiveHighlightShape | null;
   highlightId: (h: ArchiveHighlightShape) => string | undefined;
   onSelectBooking: (booking: Booking) => void;
+  onDeleteTx: (txId: string, label: string) => void;
+  deletingTxId: string | null;
   primary: string;
   glass: string;
   sub: string;
@@ -515,6 +519,8 @@ export function OwnerPiggyBankScreen({
               const Wrapper = tx.bookingId ? 'button' : 'div';
               const txRunningBalance = runningBalance;
               runningBalance -= tx.amount;
+              const canDelete = ['adjust', 'material_withdrawal', 'other_withdrawal', 'material_repayment', 'expense'].includes(tx.transactionType);
+              const deleteLabel = `${txLabel} ${tx.amount.toLocaleString('ru')} ₽ · ${tx.date}${tx.purpose ? ` · ${tx.purpose}` : ''}${tx.materialName ? ` · ${tx.materialName}` : ''}`;
               return (
                 <Wrapper key={tx.id} onClick={handleClick}
                   id={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? highlightId(archiveHighlight) : undefined}
@@ -532,6 +538,20 @@ export function OwnerPiggyBankScreen({
                           <span className={`text-[10px] px-1.5 py-0.5 rounded ${ownerStatusBadge(booking.status)}`}>
                             {booking.status === 'completed' ? 'Выполнен' : booking.status === 'cancelled' ? 'Отменён' : booking.status === 'no_show' ? 'Не пришёл' : booking.status === 'new' ? 'Новый' : booking.status === 'confirmed' ? 'Подтверждён' : booking.status === 'in_progress' ? 'В работе' : booking.status}
                           </span>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            title="Удалить операцию (вернёт сумму в баланс)"
+                            disabled={deletingTxId === tx.id}
+                            onClick={(e) => { e.stopPropagation(); onDeleteTx(tx.id, deleteLabel); }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className={`p-1 rounded-lg transition active:scale-95 disabled:opacity-50 ${sub} hover:brightness-125`}
+                            style={{ color: 'var(--status-danger)' }}
+                          >
+                            <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                          </button>
                         )}
                       </div>
                       <div className={`text-[11px] ${sub} mt-0.5`}>{tx.date}</div>

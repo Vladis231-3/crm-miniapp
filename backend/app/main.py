@@ -1694,10 +1694,21 @@ def _apply_runtime_migrations() -> None:
             connection.exec_driver_sql(
                 "ALTER TABLE piggy_bank_transactions ADD COLUMN spent_by_name VARCHAR(120)"
             )
+        piggy_columns.add("spent_by_name")
+    if "request_key" not in piggy_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE piggy_bank_transactions ADD COLUMN request_key VARCHAR(64)"
+            )
+        piggy_columns.add("request_key")
     with engine.begin() as connection:
         connection.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_expense_id "
             "ON piggy_bank_transactions (expense_id)"
+        )
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_request_key "
+            "ON piggy_bank_transactions (request_key)"
         )
         # Link only exact one-to-one legacy candidates; ambiguous pairs stay untouched.
         connection.execute(text("""
@@ -16093,6 +16104,80 @@ def piggy_bank_withdraw(
     _ensure_staff_role(session_data, {"owner", "accountant"})
 
 
+    # Идемпотентность: повторный POST с тем же clientRequestId (дабл-клик,
+    # ретрай при плохом интернете) возвращает первую транзакцию без дубля.
+    if payload.clientRequestId:
+        _existing = db.scalar(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.request_key == payload.clientRequestId
+            )
+        )
+        if _existing is not None:
+            _b = db.get(Booking, _existing.booking_id) if _existing.booking_id else None
+            _binfo = (
+                f"{_b.service} — {_b.client_name} ({_b.date})" if _b is not None else None
+            )
+            return PiggyBankTransactionPayload(
+                id=_existing.id,
+                bookingId=_existing.booking_id,
+                amount=_existing.amount,
+                transactionType=_existing.transaction_type,
+                purpose=_existing.purpose,
+                materialName=_existing.material_name,
+                materialCost=_existing.material_cost,
+                date=_existing.date,
+                resourceGroup=_existing.resource_group,
+                createdAt=_existing.created_at,
+                bookingInfo=_binfo,
+                bookingClientName=_b.client_name if _b else None,
+                bookingService=_b.service if _b else None,
+                bookingDate=_b.date if _b else None,
+                bookingTime=_b.time if _b else None,
+                bookingCar=_b.car if _b else None,
+                bookingPlate=_b.plate if _b else None,
+                bookingPrice=_b.price if _b else None,
+                bookingStatus=_b.status if _b else None,
+                spentById=getattr(_existing, "spent_by_id", None),
+                spentByName=getattr(_existing, "spent_by_name", None),
+                source="piggy",
+            )
+        # own-путь первой попытки не создаёт piggy-строку: ищем компенсацию в ЗП.
+        _existing_pay = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.request_key == payload.clientRequestId
+            )
+        )
+        if _existing_pay is not None:
+            _exp = (
+                db.get(Expense, _existing_pay.expense_id)
+                if _existing_pay.expense_id
+                else None
+            )
+            return PiggyBankTransactionPayload(
+                id=_existing_pay.id,
+                bookingId=None,
+                amount=0,
+                transactionType="own_expense",
+                purpose=_existing_pay.note or "Расход (свои деньги)",
+                materialName=None,
+                materialCost=_existing_pay.amount,
+                date=_existing_pay.entry_date or "",
+                resourceGroup="",
+                createdAt=_existing_pay.created_at,
+                bookingInfo=None,
+                bookingClientName=None,
+                bookingService=None,
+                bookingDate=None,
+                bookingTime=None,
+                bookingCar=None,
+                bookingPlate=None,
+                bookingPrice=None,
+                bookingStatus=None,
+                spentById=_existing_pay.worker_id,
+                spentByName=None,
+                source="own",
+                payrollEntryId=_existing_pay.id,
+            )
 
     booking: Booking | None = None
 
@@ -16215,6 +16300,8 @@ def piggy_bank_withdraw(
 
         spent_by_name=spent_by_name,
 
+        request_key=payload.clientRequestId if not is_own_money else None,
+
         created_at=_now(),
 
     )
@@ -16293,6 +16380,7 @@ def piggy_bank_withdraw(
                     amount=payload.materialCost,
                     note=f"Компенсация расхода из своих денег ({rg}): {payload.materialName}",
                     entry_date=payload.date,
+                    request_key=payload.clientRequestId,
                     created_at=_now(),
                 )
                 payroll_comp.expense_id = expense.id
@@ -16301,7 +16389,80 @@ def piggy_bank_withdraw(
             except Exception:
                 pass
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Гонка: два параллельных POST с одним clientRequestId.
+        # Уникальный индекс не дал создать дубликат — возвращаем победителя.
+        db.rollback()
+        if payload.clientRequestId:
+            _winner = db.scalar(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.request_key == payload.clientRequestId
+                )
+            )
+            if _winner is not None:
+                _wb = db.get(Booking, _winner.booking_id) if _winner.booking_id else None
+                return PiggyBankTransactionPayload(
+                    id=_winner.id,
+                    bookingId=_winner.booking_id,
+                    amount=_winner.amount,
+                    transactionType=_winner.transaction_type,
+                    purpose=_winner.purpose,
+                    materialName=_winner.material_name,
+                    materialCost=_winner.material_cost,
+                    date=_winner.date,
+                    resourceGroup=_winner.resource_group,
+                    createdAt=_winner.created_at,
+                    bookingInfo=(
+                        f"{_wb.service} — {_wb.client_name} ({_wb.date})"
+                        if _wb is not None
+                        else None
+                    ),
+                    bookingClientName=_wb.client_name if _wb else None,
+                    bookingService=_wb.service if _wb else None,
+                    bookingDate=_wb.date if _wb else None,
+                    bookingTime=_wb.time if _wb else None,
+                    bookingCar=_wb.car if _wb else None,
+                    bookingPlate=_wb.plate if _wb else None,
+                    bookingPrice=_wb.price if _wb else None,
+                    bookingStatus=_wb.status if _wb else None,
+                    spentById=getattr(_winner, "spent_by_id", None),
+                    spentByName=getattr(_winner, "spent_by_name", None),
+                    source="piggy",
+                )
+            _winner_pay = db.scalar(
+                select(PayrollEntry).where(
+                    PayrollEntry.request_key == payload.clientRequestId
+                )
+            )
+            if _winner_pay is not None:
+                return PiggyBankTransactionPayload(
+                    id=_winner_pay.id,
+                    bookingId=None,
+                    amount=0,
+                    transactionType="own_expense",
+                    purpose=_winner_pay.note or "Расход (свои деньги)",
+                    materialName=None,
+                    materialCost=_winner_pay.amount,
+                    date=_winner_pay.entry_date or "",
+                    resourceGroup="",
+                    createdAt=_winner_pay.created_at,
+                    bookingInfo=None,
+                    bookingClientName=None,
+                    bookingService=None,
+                    bookingDate=None,
+                    bookingTime=None,
+                    bookingCar=None,
+                    bookingPlate=None,
+                    bookingPrice=None,
+                    bookingStatus=None,
+                    spentById=_winner_pay.worker_id,
+                    spentByName=None,
+                    source="own",
+                    payrollEntryId=_winner_pay.id,
+                )
+        raise
 
     if not is_own_money:
         db.refresh(transaction)
@@ -16401,6 +16562,36 @@ def piggy_bank_adjust(
 
 
 
+    # Идемпотентность против дабл-клика (см. piggy_bank_withdraw).
+    if payload.clientRequestId:
+        _existing_adj = db.scalar(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.request_key == payload.clientRequestId
+            )
+        )
+        if _existing_adj is not None:
+            return PiggyBankTransactionPayload(
+                id=_existing_adj.id,
+                bookingId=_existing_adj.booking_id,
+                amount=_existing_adj.amount,
+                transactionType=_existing_adj.transaction_type,
+                purpose=_existing_adj.purpose,
+                materialName=_existing_adj.material_name,
+                materialCost=_existing_adj.material_cost,
+                date=_existing_adj.date,
+                resourceGroup=_existing_adj.resource_group,
+                createdAt=_existing_adj.created_at,
+                bookingInfo=None,
+                bookingClientName=None,
+                bookingService=None,
+                bookingDate=None,
+                bookingTime=None,
+                bookingCar=None,
+                bookingPlate=None,
+                bookingPrice=None,
+                bookingStatus=None,
+            )
+
     date = payload.date or datetime.now().strftime("%d.%m.%Y")
 
 
@@ -16425,6 +16616,8 @@ def piggy_bank_adjust(
 
         resource_group=payload.resourceGroup,
 
+        request_key=payload.clientRequestId,
+
         created_at=_now(),
 
     )
@@ -16433,7 +16626,40 @@ def piggy_bank_adjust(
 
     db.add(transaction)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Гонка двух параллельных корректировок с одним ключом.
+        db.rollback()
+        if payload.clientRequestId:
+            _winner_adj = db.scalar(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.request_key == payload.clientRequestId
+                )
+            )
+            if _winner_adj is not None:
+                return PiggyBankTransactionPayload(
+                    id=_winner_adj.id,
+                    bookingId=_winner_adj.booking_id,
+                    amount=_winner_adj.amount,
+                    transactionType=_winner_adj.transaction_type,
+                    purpose=_winner_adj.purpose,
+                    materialName=_winner_adj.material_name,
+                    materialCost=_winner_adj.material_cost,
+                    date=_winner_adj.date,
+                    resourceGroup=_winner_adj.resource_group,
+                    createdAt=_winner_adj.created_at,
+                    bookingInfo=None,
+                    bookingClientName=None,
+                    bookingService=None,
+                    bookingDate=None,
+                    bookingTime=None,
+                    bookingCar=None,
+                    bookingPlate=None,
+                    bookingPrice=None,
+                    bookingStatus=None,
+                )
+        raise
 
     db.refresh(transaction)
 
@@ -16490,6 +16716,45 @@ def piggy_bank_adjust(
 # Deposit Endpoints (абонентенты/цех малярка)
 
 # ---------------------------------------------------------------------------
+
+@app.delete("/api/owner/piggy-bank/transactions/{tx_id}")
+def delete_piggy_bank_transaction(
+    tx_id: str,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    _ensure_staff_role(session_data, {"owner", "accountant"})
+    tx = db.get(PiggyBankTransaction, tx_id)
+    if tx is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Операция не найдена")
+    if tx.transaction_type not in {
+        "adjust",
+        "material_withdrawal",
+        "other_withdrawal",
+        "material_repayment",
+        "expense",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Системную операцию удалить нельзя (начисление от заказа)",
+        )
+    linked_expense_id = getattr(tx, "expense_id", None)
+    # Сначала удаляем саму транзакцию, чтобы разорвать FK piggy->expense:
+    # иначе удаление Expense каскадно снесёт строку piggy на уровне БД,
+    # и повторный DELETE той же строки даст warning «0 rows matched».
+    db.delete(tx)
+    if linked_expense_id:
+        _linked_payrolls = db.scalars(
+            select(PayrollEntry).where(PayrollEntry.expense_id == linked_expense_id)
+        ).all()
+        for _pe in _linked_payrolls:
+            db.delete(_pe)
+        _linked_expense = db.get(Expense, linked_expense_id)
+        if _linked_expense is not None:
+            db.delete(_linked_expense)
+    db.commit()
+    return {"ok": True, "deletedId": tx_id}
+
 
 def _deposit_balance(db: Session, client_id: str) -> Decimal:
     return sum(

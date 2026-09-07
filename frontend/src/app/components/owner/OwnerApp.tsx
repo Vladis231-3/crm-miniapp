@@ -840,6 +840,14 @@ export function OwnerApp() {
   const [piggyWithdrawSource, setPiggyWithdrawSource] = useState<'piggy' | 'own'>('piggy');
   const [piggyWithdrawCategory, setPiggyWithdrawCategory] = useState('');
   const [piggyWithdrawForm, setPiggyWithdrawForm] = useState<{ target: 'detailing' | 'wash'; name: string; amount: string; purpose: string; date: string; spentById: string; spentByName: string }>({ target: 'detailing', name: '', amount: '', purpose: '', date: todayLabel, spentById: '', spentByName: '' });
+  // Защита от дабл-клика при плохом интернете: кнопка дизейблится на время
+  // запроса + идемпотентный ключ (бэкенд вернёт первую операцию при повторе).
+  const [piggyWithdrawSubmitting, setPiggyWithdrawSubmitting] = useState(false);
+  const piggyWithdrawRequestIdRef = useRef(newPayRequestId());
+  const [piggyAdjustSubmitting, setPiggyAdjustSubmitting] = useState(false);
+  const piggyAdjustRequestIdRef = useRef(newPayRequestId());
+  const [pendingPiggyDelete, setPendingPiggyDelete] = useState<{ id: string; label: string } | null>(null);
+  const [piggyDeleting, setPiggyDeleting] = useState(false);
 
   // Wallet state
   const [walletData, setWalletData] = useState<WalletData | null>(null);
@@ -1337,8 +1345,10 @@ export function OwnerApp() {
   async function handlePiggyWithdraw() {
     const f = piggyWithdrawForm;
     if (!f.name || !f.amount) return;
+    if (piggyWithdrawSubmitting) return;
     const amount = parseDecimalInput(f.amount);
     if (!Number.isFinite(amount) || amount <= 0) return;
+    setPiggyWithdrawSubmitting(true);
     try {
       const body: Record<string, unknown> = {
         resourceGroup: f.target,
@@ -1347,6 +1357,7 @@ export function OwnerApp() {
         materialCost: amount,
         purpose: f.purpose,
         date: f.date,
+        clientRequestId: piggyWithdrawRequestIdRef.current,
       };
       // Категория расхода бюджета (необязательно)
       if (piggyWithdrawCategory.trim()) {
@@ -1366,6 +1377,7 @@ export function OwnerApp() {
       setShowPiggyWithdraw(false);
       setPiggyWithdrawForm({ target: f.target, name: '', amount: '', purpose: '', date: todayLabel, spentById: '', spentByName: '' });
       setPiggyWithdrawCategory('');
+      piggyWithdrawRequestIdRef.current = newPayRequestId();
       const buyerLabel = f.spentById && f.spentById !== '__custom'
         ? (workers.find(w => w.id === f.spentById)?.name || f.spentByName || '')
         : (f.spentByName.trim() || '');
@@ -1380,12 +1392,15 @@ export function OwnerApp() {
     } catch (e: unknown) {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка');
       setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setPiggyWithdrawSubmitting(false);
     }
   }
 
   const openPiggyWithdraw = () => {
     setPiggyWithdrawSource('piggy');
     setPiggyWithdrawCategory('');
+    piggyWithdrawRequestIdRef.current = newPayRequestId();
     setShowPiggyWithdraw(true);
   };
 
@@ -1409,12 +1424,14 @@ export function OwnerApp() {
     setPiggyAdjustResourceGroup(resourceGroup);
     setPiggyAdjustCurrentBalance(currentPrecise);
     setPiggyAdjustForm({ newBalance: String(currentPrecise), purpose: '', date: todayLabel });
+    piggyAdjustRequestIdRef.current = newPayRequestId();
     setShowPiggyAdjust(true);
   };
 
   async function handlePiggyAdjust() {
     const newBalance = parseDecimalInput(piggyAdjustForm.newBalance);
     if (!Number.isFinite(newBalance)) return;
+    if (piggyAdjustSubmitting) return;
     const delta = Math.round((newBalance - piggyAdjustCurrentBalance) * 100) / 100;
     if (delta === 0) {
       setShowPiggyAdjust(false);
@@ -1422,6 +1439,7 @@ export function OwnerApp() {
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
+    setPiggyAdjustSubmitting(true);
     try {
       await apiRequest('/api/owner/piggy-bank/adjust', {
         method: 'POST',
@@ -1430,10 +1448,12 @@ export function OwnerApp() {
           amount: delta,
           purpose: piggyAdjustForm.purpose,
           date: piggyAdjustForm.date,
+          clientRequestId: piggyAdjustRequestIdRef.current,
         },
       });
       setShowPiggyAdjust(false);
       setPiggyAdjustForm({ newBalance: '', purpose: '', date: todayLabel });
+      piggyAdjustRequestIdRef.current = newPayRequestId();
       await loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined);
       await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
       setBottomToast('Сумма копилки обновлена');
@@ -1441,6 +1461,28 @@ export function OwnerApp() {
     } catch (e: unknown) {
       setBottomToast(e instanceof Error ? e.message : 'Ошибка');
       setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setPiggyAdjustSubmitting(false);
+    }
+  }
+
+  async function handlePiggyDeleteTx() {
+    if (!pendingPiggyDelete || piggyDeleting) return;
+    setPiggyDeleting(true);
+    try {
+      await apiRequest(`/api/owner/piggy-bank/transactions/${pendingPiggyDelete.id}`, {
+        method: 'DELETE',
+      });
+      setPendingPiggyDelete(null);
+      setBottomToast('Операция удалена из копилки');
+      setTimeout(() => setBottomToast(null), 3000);
+      await loadPiggyBank(piggyDateFrom || undefined, piggyDateTo || undefined);
+      await loadWallet(walletDateFrom || undefined, walletDateTo || undefined);
+    } catch (e: unknown) {
+      setBottomToast(e instanceof Error ? e.message : 'Не удалось удалить');
+      setTimeout(() => setBottomToast(null), 4000);
+    } finally {
+      setPiggyDeleting(false);
     }
   }
 
@@ -5489,6 +5531,8 @@ paymentSettled: false,
               archiveHighlight={archiveHighlight}
               highlightId={archiveHighlightId}
               onSelectBooking={(booking) => { setSelectedBooking(booking); setShowBookingDetail(true); }}
+              onDeleteTx={(txId, label) => setPendingPiggyDelete({ id: txId, label })}
+              deletingTxId={piggyDeleting ? pendingPiggyDelete?.id ?? null : null}
               primary={primary}
               glass={glass}
               sub={sub}
@@ -8837,9 +8881,9 @@ paymentSettled: false,
                   )}
                 </div>
               </div>
-              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null || (piggyWithdrawForm.spentById === '__custom' && !piggyWithdrawForm.spentByName.trim())}
+              <button onClick={handlePiggyWithdraw} disabled={!piggyWithdrawForm.name || !isValidAmountInput(piggyWithdrawForm.amount) || !piggyWithdrawForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyWithdrawForm.date) || parseFlexibleDate(piggyWithdrawForm.date) === null || (piggyWithdrawForm.spentById === '__custom' && !piggyWithdrawForm.spentByName.trim()) || piggyWithdrawSubmitting}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: piggyWithdrawSource === 'own' ? accent : 'var(--status-success)' }}>
-                {piggyWithdrawSource === 'own' ? 'Провести расход' : 'Снять'} {isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}
+                {piggyWithdrawSubmitting ? 'Проводим…' : `${piggyWithdrawSource === 'own' ? 'Провести расход' : 'Снять'} ${isValidAmountInput(piggyWithdrawForm.amount) ? `${parseDecimalInput(piggyWithdrawForm.amount).toLocaleString('ru')} ₽` : ''}`}
               </button>
             </motion.div>
           </motion.div>
@@ -8880,10 +8924,25 @@ paymentSettled: false,
                   )}
                 </div>
               </div>
-              <button onClick={() => { void handlePiggyAdjust(); }} disabled={!piggyAdjustForm.newBalance || Number.isNaN(parseDecimalInput(piggyAdjustForm.newBalance)) || !piggyAdjustForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null}
+              <button onClick={() => { void handlePiggyAdjust(); }} disabled={!piggyAdjustForm.newBalance || Number.isNaN(parseDecimalInput(piggyAdjustForm.newBalance)) || !piggyAdjustForm.date || !/^\d{2}\.\d{2}\.\d{4}$/.test(piggyAdjustForm.date) || parseFlexibleDate(piggyAdjustForm.date) === null || piggyAdjustSubmitting}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-                Сохранить
+                {piggyAdjustSubmitting ? 'Сохраняем…' : 'Сохранить'}
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+        {pendingPiggyDelete && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl p-5 w-full max-w-sm`}>
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Удалить операцию?</h3>
+              <div className={`text-sm ${sub} mb-1`}>{pendingPiggyDelete.label}</div>
+              <div className={`text-xs ${sub} mb-4`}>Сумма вернётся в баланс копилки, связанный расход бюджета тоже удалится. Действие необратимо.</div>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setPendingPiggyDelete(null)} disabled={piggyDeleting} className={`py-3 rounded-2xl font-medium ${glass} disabled:opacity-50`}>Отмена</button>
+                <button onClick={() => { void handlePiggyDeleteTx(); }} disabled={piggyDeleting} className="py-3 rounded-2xl font-semibold text-white disabled:opacity-50" style={{ background: 'var(--status-danger)' }}>{piggyDeleting ? 'Удаляем…' : 'Удалить'}</button>
+              </div>
             </motion.div>
           </motion.div>
         )}

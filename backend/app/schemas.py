@@ -1711,6 +1711,9 @@ class PiggyBankWithdrawRequest(BaseModel):
     # для source=piggy — просто «кто взял» для истории (на зарплату не влияет).
     spentById: str | None = None
     spentByName: str | None = Field(default=None, max_length=120)
+    # Идемпотентность: один ключ на форму. Повторный POST с тем же ключом
+    # (дабл-клик, ретрай при плохом интернете) возвращает первую транзакцию.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("date")
     @classmethod
@@ -1733,6 +1736,8 @@ class PiggyBankAdjustRequest(BaseModel):
     amount: float = Field(ge=-10_000_000, le=10_000_000)
     purpose: str = ""
     date: str = ""
+    # Идемпотентность против дабл-клика (см. PiggyBankWithdrawRequest).
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("date")
     @classmethod
