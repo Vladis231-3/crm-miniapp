@@ -8,6 +8,8 @@ interface ServiceSearchSelectProps {
   services: Service[];
   selectCls?: string;
   inputCls?: string;
+  /** Дополнительные классы стеклянной карточки (передаётся вызывателями Owner/Admin/Client). */
+  glass?: string;
   text?: string;
   sub?: string;
   primary?: string;
@@ -25,6 +27,7 @@ export function ServiceSearchSelect({
   services,
   selectCls = '',
   inputCls = '',
+  glass = '',
   text = '',
   sub = '',
   primary = '',
@@ -72,7 +75,7 @@ export function ServiceSearchSelect({
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={`relative ${glass}`}>
       {selectedService && !isOpen ? (
         <div
           className={`${selectCls} cursor-pointer flex items-center justify-between`}

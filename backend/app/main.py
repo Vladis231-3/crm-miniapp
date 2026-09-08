@@ -21224,6 +21224,8 @@ def get_owner_archive(
                         name=a.name,
                         price=a.price,
                         priceMode=a.priceMode,
+                        isOutsource=bool(getattr(a, "isOutsource", False)),
+                        outsourceAmount=getattr(a, "outsourceAmount", None),
                     )
                     for a in detail.additionalServices
                 ],

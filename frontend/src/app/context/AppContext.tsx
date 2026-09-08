@@ -149,6 +149,10 @@ export interface WorkerPayrollSummary {
   completedRevenue: number;
   accruedFromBookings: number;
   baseSalary: number;
+  /** Начислено за смены (shiftCount * salary_per_shift). Приходит с бэка (WorkerPayrollSummaryPayload). */
+  shiftPayTotal: number;
+  /** Количество смен в периоде. Приходит с бэка (WorkerPayrollSummaryPayload). */
+  shiftCount: number;
   bonusTotal: number;
   adjustmentTotal: number;
   advanceTotal: number;
@@ -245,9 +249,12 @@ export interface BookingSlotAvailability {
   occupiedBoxes: number;
 }
 
-export type BookingCreateInput = Omit<Booking, 'id' | 'createdAt'> & {
+export type BookingCreateInput = Omit<Booking, 'id' | 'createdAt' | 'services' | 'additionalServices' | 'materials' | 'materialsWrittenOff'> & {
   notifyWorkers?: boolean;
   services?: BookingServiceItem[];
+  additionalServices?: AdditionalService[];
+  materials?: BookingMaterial[];
+  materialsWrittenOff?: boolean;
   referralSource?: string;
 };
 
@@ -902,9 +909,9 @@ interface AppContextType {
   updateStockCategory: (id: string, updates: Partial<StockCategory>) => Promise<void>;
   deleteStockCategory: (id: string) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
-  addIncome: (income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string }) => Promise<void>;
-  updateExpense: (id: string, patch: { title?: string; amount?: number; category?: string; date?: string; note?: string | null }) => Promise<void>;
-  updateIncome: (id: string, patch: { amount?: number; source?: string; note?: string | null; date?: string }) => Promise<void>;
+  addIncome: (income: { amount: number; source: string; note?: string; date: string; serviceCategory?: string; resourceGroup?: string }) => Promise<void>;
+  updateExpense: (id: string, patch: { title?: string; amount?: number; category?: string; date?: string; note?: string | null; resourceGroup?: string }) => Promise<void>;
+  updateIncome: (id: string, patch: { amount?: number; source?: string; note?: string | null; date?: string; resourceGroup?: string }) => Promise<void>;
   addPenalty: (penalty: Omit<Penalty, 'id' | 'createdAt' | 'activeUntil' | 'revokedAt' | 'workerName' | 'ownerId'>) => Promise<void>;
   revokePenalty: (penaltyId: string) => Promise<void>;
   revokeAllPenalties: (workerId: string) => Promise<void>;
@@ -1485,6 +1492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${id}`, { method: 'PATCH', body: updates })],
       notifications: [],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],
@@ -1517,6 +1525,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/services`, { method: 'POST', body: service })],
       notifications: [],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],
@@ -1538,6 +1547,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services`, { method: 'POST', body: service })],
       notifications: [],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],
@@ -1559,6 +1569,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services/${additionalServiceId}`, { method: 'PATCH', body: updates })],
       notifications: [],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],
@@ -1580,6 +1591,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [await apiRequest<BootstrapPayload['bookings'][number]>(`/api/bookings/${bookingId}/additional-services/${additionalServiceId}`, { method: 'DELETE' })],
       notifications: [],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],
@@ -1601,6 +1613,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings: [],
       notifications: [await apiRequest<BootstrapPayload['notifications'][number]>('/api/notifications', { method: 'POST', body: notification })],
       stockItems: [],
+      stockCategories: [],
       expenses: [],
       penalties: [],
       workers: [],

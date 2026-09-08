@@ -2079,6 +2079,8 @@ class ArchiveAdditionalServiceItem(BaseModel):
     name: str
     price: int
     priceMode: str = "add"
+    isOutsource: bool = False
+    outsourceAmount: int | None = None
 
 
 class ArchiveBookingItem(BaseModel):

@@ -383,7 +383,7 @@ export function OwnerClientsScreen({
                               ...current,
                               [selectedSettingsClient.id]: {
                                 ...current[selectedSettingsClient.id],
-                                plate: normalizePlateInput(event.target.value, pt),
+                                plate: normalizePlateInput(event.target.value, pt as PlateType),
                               },
                             }));
                           }}

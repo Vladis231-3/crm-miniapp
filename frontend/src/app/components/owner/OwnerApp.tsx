@@ -2,19 +2,19 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useRef } from 'react';
 import {
-  Bell, Sun, Moon, Plus, Minus, X, Check, TrendingUp, Users, Box,
+  Bell, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
-  AlertCircle, Home, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, Calendar, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink,
+  AlertCircle, FileText, ArrowLeft, Building2, Sliders, Shield,
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink,
   LayoutDashboard, UsersRound, Settings2, FileChartColumn,
-  ArrowLeftRight, TrendingDown, Crown, Banknote, Split
+  ArrowLeftRight, TrendingDown, Crown, Split
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid
+  PieChart, Pie, Cell, CartesianGrid
 } from 'recharts';
-import { apiBlobUrl, apiRequest } from '../../api';
-import { useApp, type AdditionalService, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type ContentData, type StockWriteOff, type Worker } from '../../context/AppContext';
+import { apiRequest } from '../../api';
+import { useApp, type AdditionalService, type AdminShiftInspection, type Booking, type BookingStatus, type EmployeeSetting, type Expense, type Income, type OwnerDatabaseResetPreview, type OwnerExportParams, type PayrollEntry, type RegisteredClient, type Role, type ScheduleDay, type Service, type ShiftChecklist, type Worker } from '../../context/AppContext';
 import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { SourceBadge } from '../shared/SourceBadge';
@@ -27,7 +27,6 @@ import { Toaster } from '../atmosfera';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
-  isClientCardIncomplete,
   normalizePersonName,
   normalizePlateInput,
   normalizeVehicleInput,
@@ -38,7 +37,7 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
-import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
+import { formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 // Helper for unlimited category nesting  -  returns categoryId + all descendant ids
@@ -144,7 +143,7 @@ interface ArchiveBookingWorkerItem {
   workerId: string; workerName: string; percent: number; payType: string;
   fixedAmount?: number | null; earned: number; additionalServiceName?: string | null;
 }
-interface ArchiveAdditionalServiceItem { name: string; price: number; priceMode: string; }
+interface ArchiveAdditionalServiceItem { name: string; price: number; priceMode: string; isOutsource?: boolean; outsourceAmount?: number | null; }
 interface ArchiveBookingItem {
   id: string; date: string; time: string; service: string; clientName: string;
   clientPhone?: string; clientId?: string | null; car?: string | null; plate?: string | null; box: string;
@@ -271,6 +270,8 @@ interface PiggyBankData {
   remainingInPiggyBank: number;
   combinedBalance: number;
   spenderDebts?: PiggySpenderDebt[];
+  /** Архивы недель. Приходят с бэка (GET /api/owner/piggy-bank → archives). */
+  archives?: WeeklyArchiveInfo[];
 }
 
 interface WeeklyArchiveInfo {
@@ -301,6 +302,16 @@ interface WalletData {
 }
 
 const EXPENSE_CATEGORIES = ['Автомойка', 'Детейлинг', 'Расходные материалы', 'Аренда', 'Коммунальные', 'Зарплаты', 'Оборудование', 'Прочее'];
+const NOTIF_CHANNEL_ROWS: { key: 'telegramBot' | 'emailReports' | 'smsReminders'; label: string; desc: string }[] = [
+  { key: 'telegramBot', label: 'Telegram Bot', desc: '@atmosfera_bot' },
+  { key: 'emailReports', label: 'Email отчёты', desc: 'owner@atmosfera.ru' },
+  { key: 'smsReminders', label: 'SMS напоминания', desc: 'Для клиентов' },
+];
+const NOTIF_REPORT_ROWS: { key: 'lowStock' | 'dailyReport' | 'weeklyReport'; label: string; desc: string }[] = [
+  { key: 'lowStock', label: 'Низкий остаток склада', desc: 'При снижении до 5 единиц' },
+  { key: 'dailyReport', label: 'Ежедневный отчёт', desc: 'В 21:00 каждый день' },
+  { key: 'weeklyReport', label: 'Еженедельный отчёт', desc: 'По понедельникам в 9:00' },
+];
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'п.м', 'уп'];
 const SERVICE_TYPE_OPTIONS = [
   { value: 'Мойка', label: 'Мойка', resourceGroup: 'wash' },
@@ -324,12 +335,6 @@ function employeeRoleLabel(role: 'admin' | 'worker' | 'accountant') {
 
 function ownerServiceResourceGroup(serviceId: string, services: Array<{ id: string; resourceGroup?: string }>) {
   return services.find((service) => service.id === serviceId)?.resourceGroup || 'wash';
-}
-
-function ownerDefaultBoxForService(svcId: string, svcs: Array<{ id: string; resourceGroup?: string }>, bxs: Array<{ id: string; name: string; resourceGroup: string; active: boolean }>) {
-  const rg = ownerServiceResourceGroup(svcId, svcs);
-  const match = bxs.find(b => b.active && b.resourceGroup === rg);
-  return match?.name || bxs.find(b => b.active)?.name || '';
 }
 
 function ownerBookingBoxes(
@@ -620,17 +625,7 @@ function previewServiceSplit(
   return { materials, net, master, masterLabel, piggy, piggyLabel, owners, ownersLabel };
 }
 
-function ownerPaymentLabel(paymentType: 'cash' | 'transfer' | 'invoice', paymentSettled: boolean) {
-  if (!paymentSettled) return 'Не оплачено';
-  if (paymentType === 'transfer') return 'Перевод';
-  if (paymentType === 'invoice') return 'По счёту';
-  return 'Наличные';
-}
-
-function normalizeOwnerPhoneSearchValue(value: string) {
-  return value.replace(/\D/g, '');
-}
-
+/** Режим поиска клиентов OWNER-кодом больше не используется (поиск живёт в OwnerClientsScreen). */
 type OwnerClientSearchMode = 'phone' | 'name' | 'plate';
 
 /** Подключённый Google-календарь человека (мультиподключение). */
@@ -675,7 +670,6 @@ export function OwnerApp() {
   const {
     session,
     isDark,
-    toggleTheme,
     bookings,
     schedule,
     clients,
@@ -685,21 +679,14 @@ export function OwnerApp() {
     addIncome,
     updateExpense,
     updateIncome,
-    stockItems,    addStockItem,
-    writeOffStock,
-    getWriteOffHistory,
-    deleteStockItem,
+    stockItems,
     stockCategories,
-    addStockCategory,
-    updateStockCategory,
-    deleteStockCategory,
     notifications,
     markAllNotificationsRead,
     markNotificationRead,
     addBooking,
     updateBooking,
     deleteBooking,
-    addBookingService,
     addBookingAdditionalService,
     updateBookingAdditionalService,
     removeBookingAdditionalService,
@@ -746,7 +733,6 @@ export function OwnerApp() {
       openShiftForMasters,
       todayLabel,
       tomorrowLabel,
-      upcomingDates,
   } = useApp();
   const isAccountant = session?.role === 'accountant';
   const modalMaxHeight = useVisualViewport();
@@ -823,8 +809,8 @@ export function OwnerApp() {
   const __dowRpt = __nowRpt.getDay();
   const __monRpt = new Date(__nowRpt); __monRpt.setDate(__nowRpt.getDate() - (__dowRpt === 0 ? 6 : __dowRpt - 1));
   const __sunRpt = new Date(__monRpt); __sunRpt.setDate(__monRpt.getDate() + 6);
-  const [reportDateFrom, setReportDateFrom] = useState(formatDate(__monRpt));
-  const [reportDateTo, setReportDateTo] = useState(formatDate(__sunRpt));
+  const [reportDateFrom] = useState(formatDate(__monRpt));
+  const [reportDateTo] = useState(formatDate(__sunRpt));
 
   // Export wizard state
   const [showExportModal, setShowExportModal] = useState(false);
@@ -858,7 +844,6 @@ export function OwnerApp() {
 
   const [expenseForm, setExpenseForm] = useState({ title: '', amount: '', category: EXPENSE_CATEGORIES[0], resourceGroup: '' as '' | 'wash' | 'detailing', note: '', date: todayLabel });
   const [incomeForm, setIncomeForm] = useState({ amount: '', source: '', note: '', date: todayLabel, resourceGroup: '' as '' | 'wash' | 'detailing' });
-  const parentCategories = stockCategories.filter(c => !c.parentId);
   const [bookingForm, setBookingForm] = useState({
     clientId: '',
     clientName: '',
@@ -877,6 +862,8 @@ export function OwnerApp() {
     duration: 30,
     referralSource: '',
     isRepeatVisit: false,
+    isOutsource: false,
+    outsourceAmount: 0,
   });
   const [notifyBookingWorkers, setNotifyBookingWorkers] = useState(true);
   const [bookingWorkers, setBookingWorkers] = useState<{ id: string; percent: number | ''; payType?: 'percent' | 'fixed'; fixedAmount?: number }[]>([]);
@@ -1074,8 +1061,6 @@ export function OwnerApp() {
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
   const [clientHistoryServiceFilter, setClientHistoryServiceFilter] = useState<string>('');
-  const [newVehicleCar, setNewVehicleCar] = useState('');
-  const [newVehiclePlate, setNewVehiclePlate] = useState('');
   const [draftVehicles, setDraftVehicles] = useState<Record<string, Array<{ car: string; plate: string; plateType?: string; isMain?: boolean }>>>({});
   const [sendingReminders, setSendingReminders] = useState(false);
   const [sendingInactiveReminder, setSendingInactiveReminder] = useState(false);
@@ -1117,7 +1102,6 @@ export function OwnerApp() {
   const [ownerNewBookingMaterials, setOwnerNewBookingMaterials] = useState<{ stockItemId?: string; name: string; qty: number | string; unit: string; unitPrice: number }[]>([]);
   const [showOwnerMaterialPicker, setShowOwnerMaterialPicker] = useState(false);
   const [ownerMaterialPickerCategory, setOwnerMaterialPickerCategory] = useState<string | null>(null);
-  const [ownerNewBookingError, setOwnerNewBookingError] = useState<string | null>(null);
   const [ownerNewBookingSaving, setOwnerNewBookingSaving] = useState(false);
   const [ownerNewBookingErrors, setOwnerNewBookingErrors] = useState<{ clientName?: string; clientPhone?: string; car?: string; plate?: string; date?: string; time?: string; general?: string }>({});
   const [ownerNewBookingSaveSuccess, setOwnerNewBookingSaveSuccess] = useState<'notify' | 'silent' | null>(null);
@@ -1269,7 +1253,7 @@ export function OwnerApp() {
     if (!amount || amount < 1) return;
     try {
       setOwnerSalaryLoading(true);
-      const res = await apiRequest<{ newBalance: number }>('/api/owner/owners/pay-salary', {
+      await apiRequest<{ newBalance: number }>('/api/owner/owners/pay-salary', {
         method: 'POST',
         body: {
           ownerId,
@@ -1666,26 +1650,6 @@ export function OwnerApp() {
     : [];
   const totalStockValue = stockItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
 
-  // Finance breakdown by service category
-  const washRevenue = completedBookings
-    .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'wash')
-    .reduce((s, b) => s + b.price, 0);
-  const detailingRevenue = completedBookings
-    .filter(b => services.find(s => s.id === b.serviceId)?.resourceGroup === 'detailing')
-    .reduce((s, b) => s + b.price, 0);
-  const washExpenses = expenses
-    .filter(e => e.resourceGroup === 'wash')
-    .reduce((s, e) => s + e.amount, 0);
-  const detailingExpenses = expenses
-    .filter(e => e.resourceGroup === 'detailing')
-    .reduce((s, e) => s + e.amount, 0);
-  const washIncomes = incomes
-    .filter(i => i.resourceGroup === 'wash')
-    .reduce((s, i) => s + i.amount, 0);
-  const detailingIncomes = incomes
-    .filter(i => i.resourceGroup === 'detailing')
-    .reduce((s, i) => s + i.amount, 0);
-
   const resourceGroupLabel = (cat?: string) => {
     if (cat === 'wash') return 'Автомойка';
     if (cat === 'detailing') return 'Детейлинг';
@@ -1693,7 +1657,7 @@ export function OwnerApp() {
   };
   const payrollRows = (payrollData ?? workers).map(worker => {
     const workerPenalties = penalties.filter((penalty) => penalty.workerId === worker.id && isComplaintActive(penalty));
-    const complaintState = getComplaintPenaltyState(worker.defaultPercent, workerPenalties);
+    const complaintState = getComplaintPenaltyState(worker.defaultPercent || 0, workerPenalties);
     return {
       worker,
       payrollSummary: worker.payrollSummary,
@@ -2599,7 +2563,7 @@ export function OwnerApp() {
       category: expense.category,
       date: expense.date,
       note: expense.note ?? '',
-      resourceGroup: expense.resourceGroup || '',
+      resourceGroup: (expense.resourceGroup || '') as '' | 'wash' | 'detailing',
     });
     setEditFinanceError(null);
   };
@@ -2662,7 +2626,7 @@ export function OwnerApp() {
       source: income.source,
       note: income.note ?? '',
       date: income.date,
-      resourceGroup: income.resourceGroup || '',
+      resourceGroup: (income.resourceGroup || '') as '' | 'wash' | 'detailing',
     });
     setEditFinanceError(null);
   };
@@ -2891,8 +2855,6 @@ export function OwnerApp() {
           return next;
         });
       }
-      setNewVehicleCar('');
-      setNewVehiclePlate('');
       setEditingSettingsClientCard(false);
       setBottomToast('Карточка клиента сохранена');
       setTimeout(() => setBottomToast(null), 3000);
@@ -2933,6 +2895,25 @@ export function OwnerApp() {
   }, [page, payrollPeriod, payrollDateFrom, payrollDateTo]);
 
   useEffect(() => { loadPayrollData(); }, [loadPayrollData]);
+
+  // Аутсорс за тот же период ведомости (read-only; бэк GET /api/owner/outsource/payroll).
+  const loadOutsourcePayroll = useCallback(() => {
+    if (page !== 'payroll') return;
+    if (payrollPeriod === 'custom' && (!payrollDateFrom || !payrollDateTo)) {
+      setOutsourcePayroll(null);
+      return;
+    }
+    const params = new URLSearchParams({ period: payrollPeriod });
+    if (payrollPeriod === 'custom') {
+      params.set('date_from', payrollDateFrom);
+      params.set('date_to', payrollDateTo);
+    }
+    apiRequest<OutsourcePayrollData>(`/api/owner/outsource/payroll?${params.toString()}`)
+      .then(setOutsourcePayroll)
+      .catch(() => setOutsourcePayroll(null));
+  }, [page, payrollPeriod, payrollDateFrom, payrollDateTo]);
+
+  useEffect(() => { loadOutsourcePayroll(); }, [loadOutsourcePayroll]);
 
   const refreshSalaryDetail = () => {
     if (!selectedSalaryWorkerId) return;
@@ -3134,7 +3115,10 @@ export function OwnerApp() {
       try {
         const updated = await apiRequest<Worker[]>(`/api/admin/workers/payroll?${params.toString()}`);
         setPayrollData(updated);
-      } catch {}
+      } catch {
+        setBottomToast('Долг погашен, но ведомость не обновилась — перезагрузите страницу');
+        setTimeout(() => setBottomToast(null), 4000);
+      }
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось погасить долг');
       setTimeout(() => setBottomToast(null), 4000);
@@ -3296,6 +3280,7 @@ export function OwnerApp() {
       clientPhone: '',
       car: '',
       plate: '',
+      plateType: 'russian' as PlateType,
       service: firstSvc?.id || 's1',
       date: todayLabel,
       time: '10:00',
@@ -3305,6 +3290,10 @@ export function OwnerApp() {
       paymentSettled: false,
       price: firstSvc?.price || 0,
       duration: firstSvc?.duration || 30,
+      referralSource: '',
+      isRepeatVisit: false,
+      isOutsource: false,
+      outsourceAmount: 0,
     });
   };
 
@@ -3318,7 +3307,7 @@ export function OwnerApp() {
     const clientVehicles = draftVehicles[client.id] ?? (client.vehicles?.length
       ? client.vehicles
       : [{ car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian' }]);
-    const mainVehicle = clientVehicles.find((v) => v.isMain) ?? clientVehicles[0] ?? {};
+    const mainVehicle = clientVehicles.find((v) => v.isMain) ?? clientVehicles[0] ?? { car: '', plate: '', plateType: '' };
     setBookingWorkers([]);
     setNotifyBookingWorkers(true);
     setBookingForm({
@@ -3337,6 +3326,10 @@ export function OwnerApp() {
       paymentSettled: false,
       price: firstSvc?.price || 0,
       duration: firstSvc?.duration || 30,
+      referralSource: client.referralSource || '',
+      isRepeatVisit: false,
+      isOutsource: false,
+      outsourceAmount: 0,
     });
     setShowCreateBooking(true);
   };
@@ -3428,12 +3421,11 @@ export function OwnerApp() {
       return;
     }
 
-    const selectedWorkers = bookingWorkers
-      .map((item) => {
-        const worker = workers.find((candidate) => candidate.id === item.id);
-        return worker ? { workerId: worker.id, workerName: worker.name, percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount } : null;
-      })
-      .filter((item): item is { workerId: string; workerName: string; percent: number; payType?: string; fixedAmount?: number } => Boolean(item));
+    const selectedWorkers: { workerId: string; workerName: string; percent: number; payType: 'percent' | 'fixed'; fixedAmount?: number }[] = [];
+    bookingWorkers.forEach((item) => {
+      const worker = workers.find((candidate) => candidate.id === item.id);
+      if (worker) selectedWorkers.push({ workerId: worker.id, workerName: worker.name, percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount });
+    });
 
     try {
       const booking = await addBooking({
@@ -3475,12 +3467,6 @@ export function OwnerApp() {
 
   // Quick booking modal helpers (task 9.1)
   const ownerNewBookingMasterWorkers = workers.filter((worker) => worker.role === 'worker' || worker.role === 'owner');
-  const ownerNewBookingSelectableDates = Array.from(new Set([
-    todayLabel,
-    tomorrowLabel,
-    ...upcomingDates.slice(0, 7),
-    ...bookings.map((booking) => booking.date).filter(Boolean),
-  ])).slice(0, 10);
   const ownerNewBookingLocationLabel = ownerLocationLabel(ownerNewBookingForm.serviceId, services);
   const totalOwnerNewBookingPercent = ownerNewBookingWorkers.reduce((sum, worker) => sum + (worker.percent === '' ? 0 : worker.percent), 0);
 
@@ -3488,7 +3474,6 @@ export function OwnerApp() {
     setOwnerNewBookingSaveSuccess(null);
     setOwnerNewBookingSaving(false);
     setOwnerNewBookingErrors({});
-    setOwnerNewBookingError(null);
 setOwnerNewBookingWorkers([]);
     setOwnerNewBookingMaterials([]);
     setOwnerNewBookingForm({
@@ -3556,7 +3541,6 @@ paymentSettled: false,
 
   const handleSaveOwnerNewBooking = async (notify: boolean) => {
     setOwnerNewBookingErrors({});
-    setOwnerNewBookingError(null);
     if (!validateOwnerNewBookingForm()) return;
     const svc = services.find((s) => s.id === ownerNewBookingForm.serviceId);
     const normalizedClientName = normalizePersonName(ownerNewBookingForm.clientName);
@@ -3570,7 +3554,7 @@ paymentSettled: false,
     }
     const clientLabel = normalizedClientName || 'Клиент без имени';
     const carLabel = [normalizedCar, normalizedPlate].filter(Boolean).join(', ') || 'Авто не указано';
-    const createdWorkers = ownerNewBookingWorkers.map((item) => {
+    const createdWorkers: { workerId: string; workerName: string; percent: number; payType: 'percent' | 'fixed'; fixedAmount?: number }[] = ownerNewBookingWorkers.map((item) => {
       const worker = ownerNewBookingMasterWorkers.find((candidate) => candidate.id === item.id);
       return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount };
     });
@@ -3981,30 +3965,6 @@ paymentSettled: false,
     month: 'long',
   }) || selectedCalendarDate;
   const ownerCalendarLoadColors = OWNER_CALENDAR_LOAD_COLORS;
-  const boxLoadData = boxes
-    .filter((box) => box.active)
-    .map((box) => {
-      const weeklyBoxBookings = weeklyCompletedBookings.filter((booking) => booking.box === box.name);
-      return {
-        name: box.name,
-        count: weeklyBoxBookings.length,
-        revenue: weeklyBoxBookings.reduce((sum, booking) => sum + booking.price, 0),
-      };
-      });
-  const workerEfficiencyData = workers
-    .filter((worker) => worker.active)
-    .map((worker) => {
-      const workerBookings = weeklyCompletedBookings.filter((booking) => booking.workers.some((item) => item.workerId === worker.id));
-      const workerRevenue = workerBookings.reduce((sum, booking) => sum + booking.price, 0);
-      return {
-        id: worker.id,
-        name: worker.name,
-        completed: workerBookings.length,
-        revenue: workerRevenue,
-        averageCheck: workerBookings.length > 0 ? Math.round(workerRevenue / workerBookings.length) : 0,
-      };
-    })
-    .sort((left, right) => right.revenue - left.revenue);
   const clientInsights = clients.map((client) => {
     const clientBookings = bookings.filter((booking) => booking.clientId === client.id);
     const clientCompleted = clientBookings.filter((booking) => booking.status === 'completed');
@@ -4030,56 +3990,6 @@ paymentSettled: false,
       value.toLowerCase().includes(query),
     );
   });
-
-  const filteredSettingsClients = clients.filter((client) => {
-    if (!settingsClientSearchQuery.trim()) return true;
-    if (settingsClientSearchMode === 'phone') {
-      const normalized = normalizeOwnerPhoneSearchValue(settingsClientSearchQuery);
-      return normalizeOwnerPhoneSearchValue(client.phone).includes(normalized);
-    }
-    if (settingsClientSearchMode === 'plate') {
-      const normalized = normalizePlateInput(settingsClientSearchQuery);
-      if (!normalized) return false;
-      const plates = [
-        client.plate,
-        ...(client.vehicles || []).map((vehicle) => vehicle.plate),
-      ]
-        .map((plate) => normalizePlateInput(plate || ''))
-        .filter(Boolean);
-      return plates.some((plate) => plate.includes(normalized));
-    }
-    const query = settingsClientSearchQuery.trim().toLowerCase();
-    return client.name.toLowerCase().includes(query);
-  });
-  const selectedSettingsClient = clients.find((client) => client.id === settingsClientId) ?? null;
-  const selectedSettingsClientCardDraft = selectedSettingsClient ? clientCardDrafts[selectedSettingsClient.id] : undefined;
-  const selectedSettingsClientBookings = selectedSettingsClient
-    ? bookings
-      .filter((booking) => booking.clientId === selectedSettingsClient.id)
-      .sort((left, right) => {
-        const leftDate = parseFlexibleDate(left.date)?.getTime() ?? 0;
-        const rightDate = parseFlexibleDate(right.date)?.getTime() ?? 0;
-        if (rightDate !== leftDate) return rightDate - leftDate;
-        return right.time.localeCompare(left.time);
-      })
-    : [];
-  const selectedSettingsClientFilteredBookings = selectedSettingsClientBookings.filter((booking) => {
-    if (!clientHistoryServiceFilter) return true;
-    const svc = services.find((s) => s.id === clientHistoryServiceFilter);
-    if (!svc) return true;
-    return booking.serviceId === svc.id || booking.service === svc.name;
-  });
-  const selectedSettingsClientVehicles = selectedSettingsClient
-    ? (draftVehicles[selectedSettingsClient.id] ?? (selectedSettingsClient.vehicles?.length
-      ? selectedSettingsClient.vehicles
-      : [{ car: selectedSettingsClient.car || '', plate: selectedSettingsClient.plate || '', plateType: selectedSettingsClient.plateType || 'russian' }]))
-    : [];
-  const selectedSettingsClientSpent = selectedSettingsClientBookings
-    .filter((booking) => booking.status === 'completed')
-    .reduce((sum, booking) => sum + booking.price, 0);
-  const selectedSettingsClientCompletedCount = selectedSettingsClientBookings.filter((booking) => booking.status === 'completed').length;
-  const selectedSettingsClientUpcoming = selectedSettingsClientBookings.find((booking) => ['new', 'confirmed', 'scheduled', 'in_progress'].includes(booking.status));
-  const selectedSettingsClientLastVisit = selectedSettingsClientBookings.find((booking) => booking.status === 'completed');
 
   const ownerStatusLabel = (status: string) => ({
     new: 'Новая',
@@ -4741,6 +4651,18 @@ paymentSettled: false,
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
+              </div>}
+              {outsourcePayroll && outsourcePayroll.total > 0 && <div className={`${glass} rounded-2xl p-4 mb-4`}>
+                <div className={`text-xs ${sub} mb-1`}>Аутсорс за период</div>
+                <div className="font-bold text-xl" style={{ color: '#0EA5E9' }}>{outsourcePayroll.total.toLocaleString('ru')} ₽</div>
+                <div className="mt-2 space-y-1">
+                  {outsourcePayroll.rows.map(row => (
+                    <div key={row.name} className="flex justify-between text-xs">
+                      <span className={sub}>{row.name} · {row.count}</span>
+                      <span className="font-medium tabular-nums">{row.total.toLocaleString('ru')} ₽</span>
+                    </div>
+                  ))}
+                </div>
               </div>}
               <button onClick={() => { void handleSavePayrollSettings(); }} className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 mb-4" style={{ background: primary }}>
                 <Save size={16} strokeWidth={1.75} />Сохранить настройки зарплат
@@ -5505,7 +5427,6 @@ paymentSettled: false,
               onEditIncome={openEditIncome}
               onEditExpense={openEditExpense}
               primary={primary}
-              accent={accent}
               glass={glass}
               sub={sub}
               isDark={isDark}
@@ -5829,7 +5750,7 @@ paymentSettled: false,
                 />
                 <div className="space-y-3 mt-3">
                   {filteredClientInsights.slice(0, 12).map((client) => {
-                    const draft = clientCardDrafts[client.id] || { name: client.name || '', phone: client.phone || '', car: client.car || '', plate: client.plate || '', notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminRating: client.adminRating || 0, adminNote: client.adminNote || '', referralSource: client.referralSource || '' };
+                    const draft = clientCardDrafts[client.id] || { name: client.name || '', phone: client.phone || '', car: client.car || '', plate: client.plate || '', plateType: client.plateType || 'russian', notes: client.notes || '', debtBalance: String(client.debtBalance || 0), adminRating: client.adminRating || 0, adminNote: client.adminNote || '', referralSource: client.referralSource || '' };
                     return (
                       <div key={client.id} className={`${glass} rounded-2xl p-4`}>
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -6163,13 +6084,13 @@ paymentSettled: false,
                                 <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: 'rgba(148,163,184,0.12)' }}>
                                   <div className="space-y-1.5 mt-2">
                                     {[
-                                      { label: 'Материалы', v: d.materialsCost, c: '#EF4444' },
+                                      { label: 'Материалы', v: d.materialsCost, c: '#EF4444', key: 'materials' },
                                       ...d.workers.map((w, i) => ({ label: `Мастер: ${w.workerName}`, v: w.earned, c: '#F59E0B', key: `w${i}` })),
-                                      { label: 'Аутсорс', v: d.outsourceTotal, c: '#0EA5E9' },
-                                      { label: 'Копилка', v: d.piggyDeposit, c: '#F59E0B' },
+                                      { label: 'Аутсорс', v: d.outsourceTotal, c: '#0EA5E9', key: 'outsource' },
+                                      { label: 'Копилка', v: d.piggyDeposit, c: '#F59E0B', key: 'piggy' },
                                       ...d.owners.map((o, i) => ({ label: `Владелец: ${o.ownerName}${o.status === 'paid' ? ' ✓ выплачено' : ''}`, v: o.amount, c: '#8B5CF6', key: `o${i}` })),
                                     ].filter(r => r.v !== 0).map(r => (
-                                      <div key={r.key ?? r.label} className="flex justify-between text-xs">
+                                      <div key={r.key} className="flex justify-between text-xs">
                                         <span className={sub}>{r.label}</span>
                                         <span className="font-medium tabular-nums" style={{ color: r.c }}>{fmt(r.v)}</span>
                                       </div>
@@ -6204,7 +6125,7 @@ paymentSettled: false,
             <motion.div key="settings-main" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
-                { id: 'company', icon: Building2, label: 'Профиль компании', desc: 'ATMOSFERA · ИП Иванов', color: primary },
+                { id: 'company', icon: Building2, label: 'Профиль компании', desc: company.name?.trim() || 'Название не задано', color: primary },
                 { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' · ') || 'График не задан', color: '#F59E0B' },
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
                 { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#312E81' },
@@ -6217,11 +6138,11 @@ paymentSettled: false,
                 { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#8B5CF6' },
                 { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
                 { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
-                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Telegram, Email', color: '#EC4899' },
+                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: [notifSettings.telegramBot && 'Telegram', notifSettings.emailReports && 'Email', notifSettings.smsReminders && 'SMS'].filter(Boolean).join(', ') || 'Все каналы выключены', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
                 { id: 'reports', icon: FileText, label: 'Отчёты', desc: 'Сводные отчёты по мойке и детейлингу', color: '#F59E0B' },
-                { id: 'security', icon: Shield, label: 'Безопасность', desc: '2FA включена', color: '#EF4444' },
+                { id: 'security', icon: Shield, label: 'Безопасность', desc: twoFactor ? '2FA включена' : '2FA выключена', color: '#EF4444' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => {
@@ -7447,7 +7368,7 @@ paymentSettled: false,
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h2 className="font-semibold">Услуги и цены</h2>
                 <button
-                  onClick={handleAddServiceDraft}
+                  onClick={() => handleAddServiceDraft()}
                   className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
                   style={{ background: `${primary}18`, color: primary }}
                 >
@@ -7678,22 +7599,14 @@ paymentSettled: false,
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-4">Уведомления</h2>
               <div className={`text-xs font-medium ${sub} mb-2 uppercase tracking-wider`}>Каналы</div>
-              {[
-                { key: 'telegramBot', label: 'Telegram Bot', desc: '@atmosfera_bot' },
-                { key: 'emailReports', label: 'Email отчёты', desc: 'owner@atmosfera.ru' },
-                { key: 'smsReminders', label: 'SMS напоминания', desc: 'Для клиентов' },
-              ].map(item => (
-                <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
-                  onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
+              {NOTIF_CHANNEL_ROWS.map(item => (
+                <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key]}
+                  onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key] }))} />
               ))}
               <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Отчёты</div>
-              {[
-                { key: 'lowStock', label: 'Низкий остаток склада', desc: 'При снижении до 5 единиц' },
-                { key: 'dailyReport', label: 'Ежедневный отчёт', desc: 'В 21:00 каждый день' },
-                { key: 'weeklyReport', label: 'Еженедельный отчёт', desc: 'По понедельникам в 9:00' },
-              ].map(item => (
-                <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key as keyof typeof notifSettings]}
-                  onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))} />
+              {NOTIF_REPORT_ROWS.map(item => (
+                <SettingRow key={item.key} label={item.label} desc={item.desc} value={notifSettings[item.key]}
+                  onChange={() => setNotifSettings(p => ({ ...p, [item.key]: !p[item.key] }))} />
               ))}
               <div className={`text-xs font-medium ${sub} mb-2 mt-4 uppercase tracking-wider`}>Напоминания</div>
               <SettingRow
@@ -8329,7 +8242,7 @@ paymentSettled: false,
                   <>
                     {/* Самообслуживание */}
                     <div className="mb-3">
-                      <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание (1 000 ₽/ч)</div>
+                      <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание (1 000 ₽/ч)</div>
                       <div className="flex justify-between py-1.5 text-sm">
                         <span className={sub}>Выручка</span>
                         <span className="font-semibold">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
@@ -9441,7 +9354,7 @@ paymentSettled: false,
                     <div className="flex flex-wrap gap-1.5">
                       {bookingFormClientVehicles.map((vehicle, index) => {
                         const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(bookingForm.car)
-                          && normalizePlateInput(vehicle.plate || '', vehicle.plateType) === normalizePlateInput(bookingForm.plate, bookingForm.plateType);
+                          && normalizePlateInput(vehicle.plate || '', (vehicle.plateType as PlateType) || 'russian') === normalizePlateInput(bookingForm.plate, bookingForm.plateType);
                         return (
                           <button key={index} type="button" onClick={() => setBookingForm(p => ({ ...p, car: vehicle.car || '', plate: vehicle.plate || '', plateType: (vehicle.plateType as PlateType) || 'russian' }))}
                             className={`text-xs px-2.5 py-1.5 rounded-xl border transition hover:opacity-80 ${isActive ? 'text-white font-medium' : `${sub}`}`}
@@ -9814,7 +9727,7 @@ paymentSettled: false,
                               );
                             })
                           )}
-                          <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch {} }} className="text-xs text-red-500 mt-1">
+                          <button onClick={async () => { try { const updated = await removeBookingAdditionalService(selectedBooking.id, as.id); setSelectedBooking(updated); } catch { setBottomToast('Не удалось удалить допуслугу'); setTimeout(() => setBottomToast(null), 4000); } }} className="text-xs text-red-500 mt-1">
                             Удалить
                           </button>
                           <button onClick={() => handleOpenOwnerEditAsvc(as)} className="text-xs mt-1 ml-2" style={{ color: primary }}>
@@ -10579,6 +10492,8 @@ paymentSettled: false,
                         price: wasDefaultPrice ? (svc?.price || 0) : p.price,
                         duration: svc?.duration || 30,
                         priceMode: p.priceMode,
+                        isOutsource: p.isOutsource,
+                        outsourceAmount: p.outsourceAmount,
                       };
                     });
                     setOwnerAddServiceError(null);
@@ -11012,7 +10927,7 @@ paymentSettled: false,
                     <div className="flex flex-wrap gap-1.5">
                       {ownerNewBookingClientVehicles.map((vehicle, index) => {
                         const isActive = normalizeVehicleInput(vehicle.car || '') === normalizeVehicleInput(ownerNewBookingForm.car)
-                          && normalizePlateInput(vehicle.plate || '', vehicle.plateType) === normalizePlateInput(ownerNewBookingForm.plate, ownerNewBookingForm.plateType);
+                          && normalizePlateInput(vehicle.plate || '', (vehicle.plateType as PlateType) || 'russian') === normalizePlateInput(ownerNewBookingForm.plate, ownerNewBookingForm.plateType);
                         return (
                           <button key={index} type="button" onClick={() => {
                             setOwnerNewBookingForm(p => ({ ...p, car: vehicle.car || '', plate: vehicle.plate || '', plateType: (vehicle.plateType as PlateType) || 'russian' }));
@@ -11823,7 +11738,6 @@ paymentSettled: false,
                           <div className="space-y-1.5 mb-2">
                             {svc.materials!.map((mat, mi) => {
                               const stockItem = stockItems.find(s => s.id === mat.stockItemId);
-                              const rowCost = stockItem ? Number(mat.qty || 0) * stockItem.unitPrice : 0;
                               const insufficient = !!stockItem && mat.qty > stockItem.qty;
                               return (
                                 <div key={`${mat.stockItemId}-${mi}`} className={`${glass} rounded-xl px-3 py-2 flex items-center gap-2`}>

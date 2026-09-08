@@ -1,7 +1,7 @@
 # API drift — фронт↔бэк (статика, эвристика)
 
-Вызовов фронта: **107** (frontend + carwash; Showcase без API).
-Роутов бэка: **138**.
+Вызовов фронта: **109** (frontend + carwash; Showcase без API).
+Роутов бэка: **140**.
 
 ## A. Вызовы без роута: 0
 
@@ -44,11 +44,11 @@ URL собран в переменную — проверить вручную.
 
 | Path | Где |
 |---|---|
-| `/api/admin/shift-inspections` | frontend\src\app\context\AppContext.tsx:1874 |
-| `/api/owner/database-reset/approve` | frontend\src\app\context\AppContext.tsx:1968 |
-| `/api/owner/database-reset/start` | frontend\src\app\context\AppContext.tsx:1951 |
-| `/api/owner/exports/{id}` | frontend\src\app\context\AppContext.tsx:1718 |
-| `/api/owner/exports/{id}/telegram` | frontend\src\app\context\AppContext.tsx:1733 |
-| `/api/owner/piggy-bank` | frontend\src\app\components\owner\OwnerApp.tsx:1285 |
-| `/api/owner/wallet` | frontend\src\app\components\owner\OwnerApp.tsx:1302 |
-| `/api/shift-checklists` | frontend\src\app\context\AppContext.tsx:1861 |
+| `/api/admin/shift-inspections` | frontend\src\app\context\AppContext.tsx:1886 |
+| `/api/owner/database-reset/approve` | frontend\src\app\context\AppContext.tsx:1980 |
+| `/api/owner/database-reset/start` | frontend\src\app\context\AppContext.tsx:1963 |
+| `/api/owner/exports/{id}` | frontend\src\app\context\AppContext.tsx:1719 |
+| `/api/owner/exports/{id}/telegram` | frontend\src\app\context\AppContext.tsx:1734 |
+| `/api/owner/piggy-bank` | frontend\src\app\components\owner\OwnerApp.tsx:1319 |
+| `/api/owner/wallet` | frontend\src\app\components\owner\OwnerApp.tsx:1336 |
+| `/api/shift-checklists` | frontend\src\app\context\AppContext.tsx:1873 |

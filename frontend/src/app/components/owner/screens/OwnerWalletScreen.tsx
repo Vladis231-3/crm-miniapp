@@ -47,7 +47,6 @@ export function OwnerWalletScreen({
   onEditIncome,
   onEditExpense,
   primary,
-  accent,
   glass,
   sub,
   isDark,
@@ -66,7 +65,6 @@ export function OwnerWalletScreen({
   onEditIncome: (income: Income) => void;
   onEditExpense: (expense: Expense) => void;
   primary: string;
-  accent: string;
   glass: string;
   sub: string;
   isDark: boolean;

@@ -248,6 +248,8 @@ export function ClientApp() {
       box: defaultBoxName,
       paymentType: 'cash',
       paymentSettled: false,
+      isOutsource: false,
+      outsourceAmount: 0,
       car: primaryVehicle.car,
       plate: primaryVehicle.plate,
       plateType: (primaryVehicle as any).plateType || 'russian',

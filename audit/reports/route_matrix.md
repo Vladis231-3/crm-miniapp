@@ -1,6 +1,6 @@
 # Route × auth matrix — статика (эвристика)
 
-Всего декораторов: **139**.
+Всего декораторов: **141**.
 OPEN? — нет следов сессионной авторизации: проверить вручную первыми.
 
 | Method | Path | Handler | Auth |
@@ -91,8 +91,10 @@ OPEN? — нет следов сессионной авторизации: пр�
 | GET | `/api/owner/outsource/payroll` | get_owner_outsource_payroll | session+accountant/admin/owner |
 | POST | `/api/owner/owners/pay-salary` | owner_pay_salary | session+admin/owner object-check? |
 | GET | `/api/owner/owners/salary-detail` | owner_salary_detail | session+admin/owner object-check? |
+| PATCH | `/api/owner/owners/{owner_id}/master-role` | set_owner_master_role | session+owner object-check? |
 | GET | `/api/owner/piggy-bank` | get_piggy_bank | session+accountant/owner object-check? |
 | POST | `/api/owner/piggy-bank/adjust` | piggy_bank_adjust | session+accountant/owner |
+| DELETE | `/api/owner/piggy-bank/transactions/{tx_id}` | delete_piggy_bank_transaction | session+accountant/owner |
 | POST | `/api/owner/piggy-bank/withdraw` | piggy_bank_withdraw | session+accountant/owner object-check? |
 | POST | `/api/owner/reminders/dispatch` | dispatch_owner_booking_reminders | session+admin/owner |
 | POST | `/api/owner/reports/{period}/{segment}/telegram` | send_owner_summary_report_to_telegram | session+owner object-check? |
