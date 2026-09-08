@@ -3155,6 +3155,21 @@ def _render_owner_summary_excel_report(data: OwnerSummaryExportData) -> bytes:
 
 
 
+# OWASP CSV/Formula Injection: Excel выполняет содержимое ячейки как формулу,
+# если текст начинается с = + - @ (а также Tab/CR). Свободный текст
+# (заметки брони, названия/комментарии расходов, имена) попадает в xlsx
+# напрямую, поэтому нейтрализуем его в единой точке — здесь.
+_XLSX_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _neutralize_xlsx_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    if value[:1] in _XLSX_FORMULA_PREFIXES:
+        return "'" + value
+    return value
+
+
 def _append_sheet(workbook: Workbook, title: str, headers: list[str], rows: list[list[Any]], *, currency_cols: set[int] | None = None) -> None:
 
     sheet = workbook.create_sheet(title)
@@ -3165,7 +3180,7 @@ def _append_sheet(workbook: Workbook, title: str, headers: list[str], rows: list
 
         for row in rows:
 
-            sheet.append(row)
+            sheet.append([_neutralize_xlsx_value(cell) for cell in row])
 
     else:
 

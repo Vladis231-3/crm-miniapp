@@ -6216,10 +6216,29 @@ def register_or_login_client(
             # (test_client_registration_rejects_same_phone_for_different_telegram_ids).
             existing_tid = (phone_owner.telegram_id or "").strip()
             if telegram_id and existing_tid and telegram_id != existing_tid:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Этот телефон уже привязан к другому клиенту",
-                )
+                # H-06 (squat): номер мог заранее занять чужой Telegram, а
+                # настоящий владелец подтвердил его шарингом собственного
+                # контакта (user_id == chat_id, см. bot._extract_contact_phone).
+                # Возвращаем номер только доказанному владельцу и только если
+                # текущий держатель его никогда не подтверждал — иначе 409.
+                requester_verified = _client_phone_is_verified(db, telegram_id, payload.phone)
+                holder_verified = _client_phone_is_verified(db, existing_tid, payload.phone)
+                if requester_verified and not holder_verified:
+                    logger.warning(
+                        "SECURITY: verified reclaim номера %s: %s -> %s",
+                        payload.phone,
+                        existing_tid,
+                        telegram_id,
+                    )
+                    phone_owner.telegram_id = telegram_id
+                    phone_owner.updated_at = _now()
+                    db.commit()
+                    db.refresh(phone_owner)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Этот телефон уже привязан к другому клиенту",
+                    )
             if telegram_id and not existing_tid:
                 # Привязка вручную созданной записи ТОЛЬКО после того, как
                 # этот Telegram подтвердил номер через бота (шаринг своего
@@ -10974,12 +10993,6 @@ def _debug_owner_session(
     return session_data
 
 
-@app.get("/api/debug/encoding")
-def debug_encoding() -> dict:
-    """Временная диагностика кодировки — без БД, просто тест."""
-    return {"ok": True, "test": "Привет мир", "test_hex": "Привет мир".encode("utf-8").hex(), "static": "АТМОСФЕРА"}
-
-
 @app.get("/api/debug/db")
 def debug_db(
     session_data: dict = Depends(_debug_owner_session),
@@ -11418,9 +11431,15 @@ def submit_contact(
 
     payload: ContactPayload,
 
+    request: Request,
+
     db: Session = Depends(get_db),
 
 ) -> GenericMessage:
+
+    # H-02: публичная форма без защиты позволяла спам/флуд в Telegram
+    # владельцев и удержание воркера синхронными 60s-ретраями.
+    _check_rate_limit(_request_ip(request))
 
     name = (payload.name or "").strip()
 
@@ -11449,6 +11468,10 @@ def submit_contact(
         parts.append(f"<b>Сообщение:</b> {html.escape(message_text)}")
 
     text = "\n".join(parts)
+    # Telegram режет текст на 4096 символах (400 без truncate) — режем заранее,
+    # чтобы переполненная заявка не уходила в ретраи и не держала воркер.
+    if len(text) > 3500:
+        text = text[:3500] + "\n…"
 
     owners = _all_owner_telegram_recipients(db)
 

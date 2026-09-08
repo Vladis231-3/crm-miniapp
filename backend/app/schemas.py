@@ -1546,10 +1546,10 @@ class ContentPayload(BaseModel):
 
 
 class ContactPayload(BaseModel):
-    name: str
-    phone: str = ""
-    service: str = ""
-    message: str = ""
+    name: str = Field(max_length=100)
+    phone: str = Field(default="", max_length=32)
+    service: str = Field(default="", max_length=120)
+    message: str = Field(default="", max_length=2000)
 
 
 class ResetPasswordRequest(BaseModel):

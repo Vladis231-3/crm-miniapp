@@ -130,3 +130,19 @@ def test_permanent_owner_config_is_strict_and_contains_no_defaults(monkeypatch) 
     assert settings.permanent_telegram_owners == (
         ("owner-config", "owner_config", "123456789", "Owner"),
     )
+
+
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_strong_environments_neutralize_insecure_client_auth(monkeypatch, environment: str) -> None:
+    """H-01: ALLOW_INSECURE_CLIENT_AUTH=true обязан гаснуть в prod/staging.
+
+    Иначе любой подписанный чем угодно initData принимается за любой
+    user.id (полный bypass Telegram-подписи).
+    """
+    monkeypatch.setenv("APP_ENV", environment)
+    monkeypatch.setenv("APP_SECRET", "a" * 32)
+    monkeypatch.setenv("ALLOW_DEMO_SEED_DATA", "false")
+    monkeypatch.setenv("CORS_ORIGINS", "https://example.com")
+    monkeypatch.setenv("ALLOW_INSECURE_CLIENT_AUTH", "true")
+
+    assert get_settings().allow_insecure_client_auth is False
