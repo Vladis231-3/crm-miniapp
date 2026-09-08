@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-08 18:12 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-08 18:30 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **529**
-- Строк кода: **210 622**
+- Строк кода: **210 634**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 178, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -930,7 +930,7 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1817)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1871)
 
-### backend/app/main.py (24785 строк)
+### backend/app/main.py (24786 строк)
 
 Роуты (140):
 
@@ -995,86 +995,86 @@ concept1.0/
   `POST /api/owner/incomes` -> `create_income` (декоратор: стр. 15426)
   `PATCH /api/owner/incomes/{income_id}` -> `update_income` (декоратор: стр. 15490)
   `GET /api/owner/piggy-bank` -> `get_piggy_bank` (декоратор: стр. 15583)
-  `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 16263)
-  `POST /api/owner/piggy-bank/adjust` -> `piggy_bank_adjust` (декоратор: стр. 16708)
-  `DELETE /api/owner/piggy-bank/transactions/{tx_id}` -> `delete_piggy_bank_transaction` (декоратор: стр. 16891)
-  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 17258)
-  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 17302)
-  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 17337)
-  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 17364)
-  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 17390)
-  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 17408)
-  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 17420)
-  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 17438)
-  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 17451)
-  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 17530)
-  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 17615)
-  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 17675)
-  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 17900)
-  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 17996)
-  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 18076)
-  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 18144)
-  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 18323)
-  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 18405)
-  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 18555)
-  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 18697)
-  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 18843)
-  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 18897)
-  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 18973)
-  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 19031)
-  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 19079)
-  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 19153)
-  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 19177)
-  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 19237)
-  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 19279)
-  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 19303)
-  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 19327)
-  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 19362)
-  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 19433)
-  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 19531)
-  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 19550)
-  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 19587)
-  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 19622)
-  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 19648)
-  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 19681)
-  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 19693)
-  `GET /api/cron/google-sync` -> `run_google_calendar_sync_cron` (декоратор: стр. 19717)
-  `GET /api/cron/reminders` -> `run_reminders_cron` (декоратор: стр. 19742)
-  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 19774)
-  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 19832)
-  `GET /api/cron/reports` -> `run_reports_cron` (декоратор: стр. 19851)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 19897)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 19933)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 20036)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 20136)
-  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 20205)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 20275)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 20556)
-  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 20714)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 20804)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 21029)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 21117)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 21290)
-  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 21606)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 22148)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 22162)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 22551)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 23000)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 23408)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 23669)
-  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 23919)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 23946)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 24198)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 24336)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 24396)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 24590)
-  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 24604)
-  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 24619)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 24671)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 24683)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 24707)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 24715)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 24728)
+  `POST /api/owner/piggy-bank/withdraw` -> `piggy_bank_withdraw` (декоратор: стр. 16264)
+  `POST /api/owner/piggy-bank/adjust` -> `piggy_bank_adjust` (декоратор: стр. 16709)
+  `DELETE /api/owner/piggy-bank/transactions/{tx_id}` -> `delete_piggy_bank_transaction` (декоратор: стр. 16892)
+  `GET /api/owner/deposits` -> `list_deposit_clients` (декоратор: стр. 17259)
+  `PATCH /api/owner/deposits/{client_id}` -> `update_deposit_subscription` (декоратор: стр. 17303)
+  `POST /api/owner/deposits/{client_id}/topup` -> `deposit_topup` (декоратор: стр. 17338)
+  `POST /api/owner/deposits/{client_id}/adjust` -> `deposit_adjust` (декоратор: стр. 17365)
+  `GET /api/owner/deposits/export-all.xlsx` -> `deposit_export_all_excel` (декоратор: стр. 17391)
+  `POST /api/owner/deposits/export-all.xlsx/telegram` -> `deposit_export_all_excel_telegram` (декоратор: стр. 17409)
+  `POST /api/owner/deposits/{client_id}/export.xlsx/telegram` -> `deposit_export_excel_telegram` (декоратор: стр. 17421)
+  `GET /api/owner/deposits/{client_id}` -> `get_deposit_overview` (декоратор: стр. 17439)
+  `POST /api/owner/deposits/{client_id}/washes` -> `deposit_record_wash` (декоратор: стр. 17452)
+  `POST /api/owner/deposits/{client_id}/settle-month` -> `deposit_settle_month` (декоратор: стр. 17531)
+  `GET /api/owner/deposits/{client_id}/export.xlsx` -> `deposit_export_excel` (декоратор: стр. 17616)
+  `GET /api/owner/wallet` -> `get_wallet` (декоратор: стр. 17676)
+  `GET /api/owner/workers/{worker_id}/shift-attendance` -> `get_worker_shift_attendance` (декоратор: стр. 17901)
+  `GET /api/owner/shift-attendance` -> `get_all_workers_shift_attendance` (декоратор: стр. 17997)
+  `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 18077)
+  `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 18145)
+  `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 18324)
+  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 18406)
+  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 18556)
+  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 18698)
+  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 18844)
+  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 18898)
+  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 18974)
+  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 19032)
+  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 19080)
+  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 19154)
+  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 19178)
+  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 19238)
+  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 19280)
+  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 19304)
+  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 19328)
+  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 19363)
+  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 19434)
+  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 19532)
+  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 19551)
+  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 19588)
+  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 19623)
+  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 19649)
+  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 19682)
+  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 19694)
+  `GET /api/cron/google-sync` -> `run_google_calendar_sync_cron` (декоратор: стр. 19718)
+  `GET /api/cron/reminders` -> `run_reminders_cron` (декоратор: стр. 19743)
+  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 19775)
+  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 19833)
+  `GET /api/cron/reports` -> `run_reports_cron` (декоратор: стр. 19852)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 19898)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 19934)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 20037)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 20137)
+  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 20206)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 20276)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 20557)
+  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 20715)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 20805)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 21030)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 21118)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 21291)
+  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 21607)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 22149)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 22163)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 22552)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 23001)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 23409)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 23670)
+  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 23920)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 23947)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 24199)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 24337)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 24397)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 24591)
+  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 24605)
+  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 24620)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 24672)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 24684)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 24708)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 24716)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 24729)
 ```
 
 Классы и функции (272):
@@ -1314,7 +1314,7 @@ concept1.0/
 - `class DepositMonth(Base):` (стр. 627)
 - `class OwnerProfitShare(Base):` (стр. 645)
 
-### backend/app/schemas.py (2454 строк)
+### backend/app/schemas.py (2457 строк)
 
 Классы и функции (233):
 
@@ -1488,36 +1488,36 @@ concept1.0/
 - `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1646)
 - `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> IncomeUpdateRequest: # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as a` (стр. 1654)
 - `class PiggyBankTransactionPayload(BaseModel):` (стр. 1662)
-- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1700)
-- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1729)
-- `PiggyBankWithdrawRequest.validate_spent_by_namedef validate_spent_by_name(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() return stripped or None` (стр. 1736)
-- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1743)
-- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1753)
-- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1760)
-- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1773)
-- `class PiggyBankSpenderDebt(BaseModel):` (стр. 1784)
-- `class PiggyBankResponse(BaseModel):` (стр. 1791)
-- `class WeeklyArchivePayload(BaseModel):` (стр. 1811)
-- `class WalletResponse(BaseModel):` (стр. 1825)
-- `class OwnerProfitShareItem(BaseModel):` (стр. 1842)
-- `class OwnerProfitShareSummary(BaseModel):` (стр. 1859)
-- `class OwnerMasterRoleRequest(BaseModel):` (стр. 1870)
-- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1874)
-- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1881)
-- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1890)
-- `class OverrideEarnedRequest(BaseModel):` (стр. 1897)
-- `class BookingHistoryItem(BaseModel):` (стр. 1901)
-- `class BookingTotalsWorkerItem(BaseModel):` (стр. 1918)
-- `class BookingTotalsOwnerItem(BaseModel):` (стр. 1936)
-- `class BookingTotalsPiggyItem(BaseModel):` (стр. 1943)
-- `class BookingHistoryTotals(BaseModel):` (стр. 1949)
-- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 1955)
-- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1966)
-- `class BookingPiggyTxItem(BaseModel):` (стр. 1974)
-- `class BookingAdditionalServiceItem(BaseModel):` (стр. 1983)
-- `class BookingAsvcPiggyItem(BaseModel):` (стр. 1992)
-- `class BookingAsvcWorkerItem(BaseModel):` (стр. 1998)
-- `class BookingMoneySplitDetail(BaseModel):` (стр. 2009)
+- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1703)
+- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1732)
+- `PiggyBankWithdrawRequest.validate_spent_by_namedef validate_spent_by_name(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() return stripped or None` (стр. 1739)
+- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1746)
+- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1756)
+- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1763)
+- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1776)
+- `class PiggyBankSpenderDebt(BaseModel):` (стр. 1787)
+- `class PiggyBankResponse(BaseModel):` (стр. 1794)
+- `class WeeklyArchivePayload(BaseModel):` (стр. 1814)
+- `class WalletResponse(BaseModel):` (стр. 1828)
+- `class OwnerProfitShareItem(BaseModel):` (стр. 1845)
+- `class OwnerProfitShareSummary(BaseModel):` (стр. 1862)
+- `class OwnerMasterRoleRequest(BaseModel):` (стр. 1873)
+- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1877)
+- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1884)
+- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1893)
+- `class OverrideEarnedRequest(BaseModel):` (стр. 1900)
+- `class BookingHistoryItem(BaseModel):` (стр. 1904)
+- `class BookingTotalsWorkerItem(BaseModel):` (стр. 1921)
+- `class BookingTotalsOwnerItem(BaseModel):` (стр. 1939)
+- `class BookingTotalsPiggyItem(BaseModel):` (стр. 1946)
+- `class BookingHistoryTotals(BaseModel):` (стр. 1952)
+- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 1958)
+- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 1969)
+- `class BookingPiggyTxItem(BaseModel):` (стр. 1977)
+- `class BookingAdditionalServiceItem(BaseModel):` (стр. 1986)
+- `class BookingAsvcPiggyItem(BaseModel):` (стр. 1995)
+- `class BookingAsvcWorkerItem(BaseModel):` (стр. 2001)
+- `class BookingMoneySplitDetail(BaseModel):` (стр. 2012)
 - ...ещё 33
 
 ### backend/app/security.py (110 строк)
@@ -3975,208 +3975,208 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12265 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12272 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 44) — локальный
 - `map` (стр. 45) — локальный
 - `queue` (стр. 48) — локальный
 - `visited` (стр. 49) — локальный
-- `EXPENSE_CATEGORIES` (стр. 305) — локальный
-- `STOCK_UNITS` (стр. 316) — локальный
-- `SERVICE_TYPE_OPTIONS` (стр. 317) — локальный
-- `ownerBookingStatusRequiresScheduledSlot` (стр. 328) — локальный
-- `employeeRoleLabel` (стр. 331) — локальный
-- `ownerServiceResourceGroup` (стр. 337) — локальный
-- `ownerBookingBoxes` (стр. 341) — локальный
-- `ownerLocationLabel` (стр. 349) — локальный
-- `parseOwnerBookingMinutes` (стр. 353) — локальный
-- `match` (стр. 354) — локальный
-- `hours` (стр. 356) — локальный
-- `minutes` (стр. 357) — локальный
-- `OWNER_CALENDAR_WEEKDAYS` (стр. 362) — локальный
-- `OWNER_CALENDAR_MONTHS` (стр. 363) — локальный
-- `OWNER_CALENDAR_DEFAULT_OPEN` (стр. 367) — локальный
-- `OWNER_CALENDAR_DEFAULT_CLOSE` (стр. 368) — локальный
-- `ownerScheduleTimeToMinutes` (стр. 370) — локальный
-- `ownerMonthTitle` (стр. 374) — локальный
-- `ownerBuildMonthCells` (стр. 378) — локальный
-- `year` (стр. 379) — локальный
-- `month` (стр. 380) — локальный
-- `first` (стр. 381) — локальный
-- `offset` (стр. 382) — локальный
-- `daysInMonth` (стр. 383) — локальный
-- `date` (стр. 389) — локальный
-- `ownerCalendarDayHours` (стр. 398) — локальный
-- `parsedDate` (стр. 399) — локальный
-- `daySchedule` (стр. 403) — локальный
-- `open` (стр. 407) — локальный
-- `close` (стр. 408) — локальный
-- `OWNER_CALENDAR_LOAD_COLORS` (стр. 412) — локальный
-- `ownerCalendarLoadTone` (стр. 418) — локальный
-- `ratio` (стр. 420) — локальный
-- `ownerGroupBookingsByHour` (стр. 430) — локальный
-- `timed` (стр. 435) — локальный
-- `hourLabel` (стр. 438) — локальный
-- `slotEnd` (стр. 439) — локальный
-- `slotBookings` (стр. 440) — локальный
-- `start` (стр. 442) — локальный
-- `ownerOpenBookingDetail` (стр. 454) — локальный
-- `ownerBookingBlocksBox` (стр. 463) — локальный
-- `nextStart` (стр. 466) — локальный
-- `existingStart` (стр. 467) — локальный
-- `nextEnd` (стр. 469) — локальный
-- `existingEnd` (стр. 470) — локальный
-- `ownerPickDefaultBookingBox` (стр. 474) — локальный
-- `resourceGroup` (стр. 483) — локальный
-- `preferred` (стр. 484) — локальный
-- `fallback` (стр. 485) — локальный
-- `candidates` (стр. 486) — локальный
-- `serviceResourceGroupForCategory` (стр. 491) — локальный
-- `numberInputValue` (стр. 495) — локальный
-- `ORDER_STEPS` (стр. 509) — локальный
-- `serviceMoneySummary` (стр. 516) — локальный
-- `piggyTargetLabel` (стр. 517) — локальный
-- `master` (стр. 521) — локальный
-- `piggy` (стр. 526) — локальный
-- `owners` (стр. 535) — локальный
-- `previewServiceSplit` (стр. 543) — локальный
-- `materials` (стр. 548) — локальный
-- `net` (стр. 549) — локальный
-- `order` (стр. 550) — локальный
-- `pipeline` (стр. 551) — локальный
-- `piggyType` (стр. 552) — локальный
-- `computeMaster` (стр. 559) — локальный
-- `computePiggy` (стр. 568) — локальный
-- `m` (стр. 576) — локальный
-- `p` (стр. 578) — локальный
-- `afterMasterPiggy` (стр. 582) — локальный
-- `m` (стр. 601) — локальный
-- `p` (стр. 605) — локальный
-- `isLast` (стр. 609) — локальный
-- `claimed` (стр. 610) — локальный
-- `numberFromInput` (стр. 636) — локальный
-- `parseDecimalInput` (стр. 641) — локальный
-- `normalized` (стр. 642) — локальный
-- `parsed` (стр. 643) — локальный
-- `isValidAmountInput` (стр. 647) — локальный
-- `n` (стр. 648) — локальный
-- `toISODate` (стр. 652) — локальный
-- `parsed` (стр. 653) — локальный
-- `y` (стр. 655) — локальный
-- `m` (стр. 656) — локальный
-- `d` (стр. 657) — локальный
-- `TIME_SLOTS` (стр. 661) — локальный
-- `h` (стр. 662) — локальный
-- `m` (стр. 663) — локальный
-- `OwnerApp` (стр. 670)
-- `isAccountant` (стр. 738) — локальный
-- `modalMaxHeight` (стр. 739) — локальный
-- `financeRoleTitle` (стр. 740) — локальный
-- `financeNotificationRole` (стр. 741) — локальный
-- `__nowRpt` (стр. 810) — локальный
-- `__dowRpt` (стр. 811) — локальный
-- `__monRpt` (стр. 812) — локальный
-- `__sunRpt` (стр. 813) — локальный
-- `newPayRequestId` (стр. 828) — локальный
-- `piggyWithdrawRequestIdRef` (стр. 837) — локальный
-- `piggyAdjustRequestIdRef` (стр. 839) — локальный
-- `entryRequestIdRef` (стр. 892) — локальный
-- `today` (стр. 1046) — локальный
-- `clearOwnerResetFlow` (стр. 1166) — локальный
-- `nextBoxes` (стр. 1189) — локальный
-- `params` (стр. 1227) — локальный
-- `params` (стр. 1242) — локальный
-- `handlePayOwnerSalary` (стр. 1253) — локальный
-- `amount` (стр. 1254) — локальный
-- `updated` (стр. 1273) — локальный
-- `handleToggleOwnerMasterRole` (стр. 1281) — локальный
-- `params` (стр. 1286) — локальный
-- `updated` (стр. 1291) — локальный
-- `loadPiggyBank` (стр. 1302) — локальный
-- `params` (стр. 1306) — локальный
-- `qs` (стр. 1309) — локальный
-- `data` (стр. 1311) — локальный
-- `loadWallet` (стр. 1319) — локальный
-- `params` (стр. 1323) — локальный
-- `qs` (стр. 1326) — локальный
-- `data` (стр. 1328) — локальный
-- `handlePiggyWithdraw` (стр. 1334) — локальный
-- `f` (стр. 1335) — локальный
-- `amount` (стр. 1338) — локальный
-- `buyerLabel` (стр. 1370) — локальный
-- `segmentLabel` (стр. 1373) — локальный
-- `toastMsg` (стр. 1374) — локальный
-- `openPiggyWithdraw` (стр. 1389) — локальный
-- `handlePiggyBankExport` (стр. 1396) — локальный
-- `openPiggyAdjust` (стр. 1407) — локальный
-- `current` (стр. 1408) — локальный
-- `currentPrecise` (стр. 1412) — локальный
-- `handlePiggyAdjust` (стр. 1420) — локальный
-- `newBalance` (стр. 1421) — локальный
-- `delta` (стр. 1424) — локальный
-- `handlePiggyDeleteTx` (стр. 1458) — локальный
-- `syncCountdown` (стр. 1517) — локальный
-- `diffMs` (стр. 1518) — локальный
-- `intervalId` (стр. 1523) — локальный
-- `handleOpenShiftForMasters` (стр. 1553) — локальный
-- `saved` (стр. 1562) — локальный
-- `ownerNotifications` (стр. 1578) — локальный
-- `unreadCount` (стр. 1579) — локальный
-- `completedBookings` (стр. 1580) — локальный
-- `todayBookings` (стр. 1581) — локальный
-- `activeMasters` (стр. 1583) — локальный
-- `masterCameOutTodayAt` (стр. 1588) — локальный
-- `times` (стр. 1589) — локальный
-- `mastersCameOutToday` (стр. 1598) — локальный
-- `vv` (стр. 1602) — локальный
-- `handler` (стр. 1604) — локальный
-- `el` (стр. 1605) — локальный
-- `bookingFormBoxes` (стр. 1612) — локальный
-- `bookingFormLocationLabel` (стр. 1613) — локальный
-- `editBookingLocationLabel` (стр. 1614) — локальный
-- `todayRevenue` (стр. 1615) — локальный
-- `now` (стр. 1618) — локальный
-- `dayOfWeek` (стр. 1619) — локальный
-- `diffToSaturday` (стр. 1620) — локальный
-- `weekSaturday` (стр. 1621) — локальный
-- `weekFriday` (стр. 1624) — локальный
-- `isDateInWeek` (стр. 1627) — локальный
-- `d` (стр. 1628) — локальный
-- `weeklyCompletedBookings` (стр. 1631) — локальный
-- `weeklyBookings` (стр. 1632) — локальный
-- `weeklyExpenses` (стр. 1633) — локальный
-- `weeklyIncomes` (стр. 1634) — локальный
-- `totalRevenue` (стр. 1635) — локальный
-- `totalExpenses` (стр. 1636) — локальный
-- `totalIncomes` (стр. 1637) — локальный
-- `profit` (стр. 1638) — локальный
-- `averageCheck` (стр. 1639) — локальный
-- `activeBookings` (стр. 1640) — локальный
-- `pipelineCounts` (стр. 1641) — локальный
-- `statusListItems` (стр. 1648) — локальный
-- `totalStockValue` (стр. 1653) — локальный
-- `resourceGroupLabel` (стр. 1655) — локальный
-- `payrollRows` (стр. 1660) — локальный
-- `workerPenalties` (стр. 1661) — локальный
-- `complaintState` (стр. 1662) — локальный
-- `payrollTotal` (стр. 1670) — локальный
-- `formatComplaintDate` (стр. 1671) — локальный
-- `resetPreviewRows` (стр. 1672) — локальный
-- `resetExecuteLocked` (стр. 1686) — локальный
-- `glass` (стр. 1688) — локальный
-- `bg` (стр. 1689) — локальный
-- `text` (стр. 1690) — локальный
-- `sub` (стр. 1691) — локальный
-- `primary` (стр. 1692) — локальный
-- `accent` (стр. 1693) — локальный
-- `surface` (стр. 1694) — локальный
-- `inputCls` (стр. 1695) — локальный
-- `selectCls` (стр. 1696) — локальный
-- `tooltipStyle` (стр. 1697) — локальный
-- `createDraftId` (стр. 1698) — локальный
-- `handleAddBoxDraft` (стр. 1700) — локальный
-- `handleRemoveBoxDraft` (стр. 1714) — локальный
-- `handleAddServiceDraft` (стр. 1718) — локальный
+- `EXPENSE_CATEGORIES` (стр. 306) — локальный
+- `STOCK_UNITS` (стр. 317) — локальный
+- `SERVICE_TYPE_OPTIONS` (стр. 318) — локальный
+- `ownerBookingStatusRequiresScheduledSlot` (стр. 329) — локальный
+- `employeeRoleLabel` (стр. 332) — локальный
+- `ownerServiceResourceGroup` (стр. 338) — локальный
+- `ownerBookingBoxes` (стр. 342) — локальный
+- `ownerLocationLabel` (стр. 350) — локальный
+- `parseOwnerBookingMinutes` (стр. 354) — локальный
+- `match` (стр. 355) — локальный
+- `hours` (стр. 357) — локальный
+- `minutes` (стр. 358) — локальный
+- `OWNER_CALENDAR_WEEKDAYS` (стр. 363) — локальный
+- `OWNER_CALENDAR_MONTHS` (стр. 364) — локальный
+- `OWNER_CALENDAR_DEFAULT_OPEN` (стр. 368) — локальный
+- `OWNER_CALENDAR_DEFAULT_CLOSE` (стр. 369) — локальный
+- `ownerScheduleTimeToMinutes` (стр. 371) — локальный
+- `ownerMonthTitle` (стр. 375) — локальный
+- `ownerBuildMonthCells` (стр. 379) — локальный
+- `year` (стр. 380) — локальный
+- `month` (стр. 381) — локальный
+- `first` (стр. 382) — локальный
+- `offset` (стр. 383) — локальный
+- `daysInMonth` (стр. 384) — локальный
+- `date` (стр. 390) — локальный
+- `ownerCalendarDayHours` (стр. 399) — локальный
+- `parsedDate` (стр. 400) — локальный
+- `daySchedule` (стр. 404) — локальный
+- `open` (стр. 408) — локальный
+- `close` (стр. 409) — локальный
+- `OWNER_CALENDAR_LOAD_COLORS` (стр. 413) — локальный
+- `ownerCalendarLoadTone` (стр. 419) — локальный
+- `ratio` (стр. 421) — локальный
+- `ownerGroupBookingsByHour` (стр. 431) — локальный
+- `timed` (стр. 436) — локальный
+- `hourLabel` (стр. 439) — локальный
+- `slotEnd` (стр. 440) — локальный
+- `slotBookings` (стр. 441) — локальный
+- `start` (стр. 443) — локальный
+- `ownerOpenBookingDetail` (стр. 455) — локальный
+- `ownerBookingBlocksBox` (стр. 464) — локальный
+- `nextStart` (стр. 467) — локальный
+- `existingStart` (стр. 468) — локальный
+- `nextEnd` (стр. 470) — локальный
+- `existingEnd` (стр. 471) — локальный
+- `ownerPickDefaultBookingBox` (стр. 475) — локальный
+- `resourceGroup` (стр. 484) — локальный
+- `preferred` (стр. 485) — локальный
+- `fallback` (стр. 486) — локальный
+- `candidates` (стр. 487) — локальный
+- `serviceResourceGroupForCategory` (стр. 492) — локальный
+- `numberInputValue` (стр. 496) — локальный
+- `ORDER_STEPS` (стр. 510) — локальный
+- `serviceMoneySummary` (стр. 517) — локальный
+- `piggyTargetLabel` (стр. 518) — локальный
+- `master` (стр. 522) — локальный
+- `piggy` (стр. 527) — локальный
+- `owners` (стр. 536) — локальный
+- `previewServiceSplit` (стр. 544) — локальный
+- `materials` (стр. 549) — локальный
+- `net` (стр. 550) — локальный
+- `order` (стр. 551) — локальный
+- `pipeline` (стр. 552) — локальный
+- `piggyType` (стр. 553) — локальный
+- `computeMaster` (стр. 560) — локальный
+- `computePiggy` (стр. 569) — локальный
+- `m` (стр. 577) — локальный
+- `p` (стр. 579) — локальный
+- `afterMasterPiggy` (стр. 583) — локальный
+- `m` (стр. 602) — локальный
+- `p` (стр. 606) — локальный
+- `isLast` (стр. 610) — локальный
+- `claimed` (стр. 611) — локальный
+- `numberFromInput` (стр. 637) — локальный
+- `parseDecimalInput` (стр. 642) — локальный
+- `normalized` (стр. 643) — локальный
+- `parsed` (стр. 644) — локальный
+- `isValidAmountInput` (стр. 648) — локальный
+- `n` (стр. 649) — локальный
+- `toISODate` (стр. 653) — локальный
+- `parsed` (стр. 654) — локальный
+- `y` (стр. 656) — локальный
+- `m` (стр. 657) — локальный
+- `d` (стр. 658) — локальный
+- `TIME_SLOTS` (стр. 662) — локальный
+- `h` (стр. 663) — локальный
+- `m` (стр. 664) — локальный
+- `OwnerApp` (стр. 671)
+- `isAccountant` (стр. 739) — локальный
+- `modalMaxHeight` (стр. 740) — локальный
+- `financeRoleTitle` (стр. 741) — локальный
+- `financeNotificationRole` (стр. 742) — локальный
+- `__nowRpt` (стр. 812) — локальный
+- `__dowRpt` (стр. 813) — локальный
+- `__monRpt` (стр. 814) — локальный
+- `__sunRpt` (стр. 815) — локальный
+- `newPayRequestId` (стр. 830) — локальный
+- `piggyWithdrawRequestIdRef` (стр. 839) — локальный
+- `piggyAdjustRequestIdRef` (стр. 841) — локальный
+- `entryRequestIdRef` (стр. 894) — локальный
+- `today` (стр. 1048) — локальный
+- `clearOwnerResetFlow` (стр. 1168) — локальный
+- `nextBoxes` (стр. 1191) — локальный
+- `params` (стр. 1229) — локальный
+- `params` (стр. 1244) — локальный
+- `handlePayOwnerSalary` (стр. 1255) — локальный
+- `amount` (стр. 1256) — локальный
+- `updated` (стр. 1275) — локальный
+- `handleToggleOwnerMasterRole` (стр. 1283) — локальный
+- `params` (стр. 1288) — локальный
+- `updated` (стр. 1293) — локальный
+- `loadPiggyBank` (стр. 1304) — локальный
+- `params` (стр. 1308) — локальный
+- `qs` (стр. 1311) — локальный
+- `data` (стр. 1313) — локальный
+- `loadWallet` (стр. 1321) — локальный
+- `params` (стр. 1325) — локальный
+- `qs` (стр. 1328) — локальный
+- `data` (стр. 1330) — локальный
+- `handlePiggyWithdraw` (стр. 1336) — локальный
+- `f` (стр. 1337) — локальный
+- `amount` (стр. 1340) — локальный
+- `buyerLabel` (стр. 1372) — локальный
+- `segmentLabel` (стр. 1375) — локальный
+- `toastMsg` (стр. 1376) — локальный
+- `openPiggyWithdraw` (стр. 1391) — локальный
+- `handlePiggyBankExport` (стр. 1398) — локальный
+- `openPiggyAdjust` (стр. 1409) — локальный
+- `current` (стр. 1410) — локальный
+- `currentPrecise` (стр. 1414) — локальный
+- `handlePiggyAdjust` (стр. 1422) — локальный
+- `newBalance` (стр. 1423) — локальный
+- `delta` (стр. 1426) — локальный
+- `handlePiggyDeleteTx` (стр. 1460) — локальный
+- `syncCountdown` (стр. 1519) — локальный
+- `diffMs` (стр. 1520) — локальный
+- `intervalId` (стр. 1525) — локальный
+- `handleOpenShiftForMasters` (стр. 1555) — локальный
+- `saved` (стр. 1564) — локальный
+- `ownerNotifications` (стр. 1580) — локальный
+- `unreadCount` (стр. 1581) — локальный
+- `completedBookings` (стр. 1582) — локальный
+- `todayBookings` (стр. 1583) — локальный
+- `activeMasters` (стр. 1585) — локальный
+- `masterCameOutTodayAt` (стр. 1590) — локальный
+- `times` (стр. 1591) — локальный
+- `mastersCameOutToday` (стр. 1600) — локальный
+- `vv` (стр. 1604) — локальный
+- `handler` (стр. 1606) — локальный
+- `el` (стр. 1607) — локальный
+- `bookingFormBoxes` (стр. 1614) — локальный
+- `bookingFormLocationLabel` (стр. 1615) — локальный
+- `editBookingLocationLabel` (стр. 1616) — локальный
+- `todayRevenue` (стр. 1617) — локальный
+- `now` (стр. 1620) — локальный
+- `dayOfWeek` (стр. 1621) — локальный
+- `diffToSaturday` (стр. 1622) — локальный
+- `weekSaturday` (стр. 1623) — локальный
+- `weekFriday` (стр. 1626) — локальный
+- `isDateInWeek` (стр. 1629) — локальный
+- `d` (стр. 1630) — локальный
+- `weeklyCompletedBookings` (стр. 1633) — локальный
+- `weeklyBookings` (стр. 1634) — локальный
+- `weeklyExpenses` (стр. 1635) — локальный
+- `weeklyIncomes` (стр. 1636) — локальный
+- `totalRevenue` (стр. 1637) — локальный
+- `totalExpenses` (стр. 1638) — локальный
+- `totalIncomes` (стр. 1639) — локальный
+- `profit` (стр. 1640) — локальный
+- `averageCheck` (стр. 1641) — локальный
+- `activeBookings` (стр. 1642) — локальный
+- `pipelineCounts` (стр. 1643) — локальный
+- `statusListItems` (стр. 1650) — локальный
+- `totalStockValue` (стр. 1655) — локальный
+- `resourceGroupLabel` (стр. 1657) — локальный
+- `payrollRows` (стр. 1662) — локальный
+- `workerPenalties` (стр. 1663) — локальный
+- `complaintState` (стр. 1664) — локальный
+- `payrollTotal` (стр. 1672) — локальный
+- `formatComplaintDate` (стр. 1673) — локальный
+- `resetPreviewRows` (стр. 1674) — локальный
+- `resetExecuteLocked` (стр. 1688) — локальный
+- `glass` (стр. 1690) — локальный
+- `bg` (стр. 1691) — локальный
+- `text` (стр. 1692) — локальный
+- `sub` (стр. 1693) — локальный
+- `primary` (стр. 1694) — локальный
+- `accent` (стр. 1695) — локальный
+- `surface` (стр. 1696) — локальный
+- `inputCls` (стр. 1697) — локальный
+- `selectCls` (стр. 1698) — локальный
+- `tooltipStyle` (стр. 1699) — локальный
+- `createDraftId` (стр. 1700) — локальный
+- `handleAddBoxDraft` (стр. 1702) — локальный
+- `handleRemoveBoxDraft` (стр. 1716) — локальный
+- `handleAddServiceDraft` (стр. 1720) — локальный
 
 ### frontend/src/app/components/owner/screens/OwnerClientsScreen.tsx (831 строк)
 
@@ -4220,27 +4220,27 @@ concept1.0/
 - `current` (стр. 716) — локальный
 - `ownerPaymentLabel` (стр. 826) — локальный
 
-### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (643 строк)
+### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (644 строк)
 
-- `OwnerPiggyBankScreen` (стр. 60)
-- `ownerStatusBadge` (стр. 116) — локальный
-- `tabBalance` (стр. 168) — локальный
-- `tabLabel` (стр. 171) — локальный
-- `rem` (стр. 213) — локальный
-- `otherWd` (стр. 356) — локальный
-- `debtTxs` (стр. 423) — локальный
-- `total` (стр. 427) — локальный
-- `isOther` (стр. 453) — локальный
-- `filteredTxs` (стр. 495) — локальный
-- `legacyById` (стр. 503) — локальный
-- `isDeposit` (стр. 511) — локальный
-- `txLabel` (стр. 512) — локальный
-- `booking` (стр. 518) — локальный
-- `handleClick` (стр. 519) — локальный
-- `Wrapper` (стр. 526) — локальный
-- `txRunningBalance` (стр. 529) — локальный
-- `canDelete` (стр. 532) — локальный
-- `deleteLabel` (стр. 533) — локальный
+- `OwnerPiggyBankScreen` (стр. 61)
+- `ownerStatusBadge` (стр. 117) — локальный
+- `tabBalance` (стр. 169) — локальный
+- `tabLabel` (стр. 172) — локальный
+- `rem` (стр. 214) — локальный
+- `otherWd` (стр. 357) — локальный
+- `debtTxs` (стр. 424) — локальный
+- `total` (стр. 428) — локальный
+- `isOther` (стр. 454) — локальный
+- `filteredTxs` (стр. 496) — локальный
+- `legacyById` (стр. 504) — локальный
+- `isDeposit` (стр. 512) — локальный
+- `txLabel` (стр. 513) — локальный
+- `booking` (стр. 519) — локальный
+- `handleClick` (стр. 520) — локальный
+- `Wrapper` (стр. 527) — локальный
+- `txRunningBalance` (стр. 530) — локальный
+- `canDelete` (стр. 533) — локальный
+- `deleteLabel` (стр. 534) — локальный
 
 ### frontend/src/app/components/owner/screens/OwnerStockPage.tsx (361 строк)
 
@@ -5108,10 +5108,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-08 21:02)
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-08 20:58)
-- `backend/app/main.py` (2026-09-08 20:57)
-- `backend/app/schemas.py` (2026-09-08 20:56)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-08 21:29)
+- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-08 21:27)
+- `backend/app/main.py` (2026-09-08 21:26)
+- `backend/app/schemas.py` (2026-09-08 21:25)
 - `scripts/.project-map-watch.lock` (2026-09-08 20:42)
 - `backend/tests/test_phone_reclaim.py` (2026-09-08 10:41)
 - `backend/tests/test_contact_abuse.py` (2026-09-08 10:41)

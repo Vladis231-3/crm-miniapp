@@ -13,6 +13,7 @@ interface PiggyBankTx {
   date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
   spentById?: string | null; spentByName?: string | null;
   weekStart?: string | null; weekStartBalance?: number | null; weeklyBalance?: number | null;
+  weeklyWithdrawn?: number | null;
 }
 interface PiggyWashBreakdown {
   selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
@@ -609,7 +610,7 @@ export function OwnerPiggyBankScreen({
                           {booking.price.toLocaleString('ru')} ₽
                         </div>
                       )}
-                      <div className={`text-[10px] mt-1 tabular-nums ${sub}`} title={tx.weekStart ? `Неделя с ${tx.weekStart} · остаток без дохода недели` : 'Остаток без дохода недели'}>
+                      <div className={`text-[10px] mt-1 tabular-nums ${sub}`} title={tx.weekStart ? `Неделя с ${tx.weekStart} · начало ${(tx.weekStartBalance ?? 0).toLocaleString('ru')} · снято ${(tx.weeklyWithdrawn ?? 0).toLocaleString('ru')}` : 'Остаток без дохода недели'}>
                         = {txRunningBalance.toLocaleString('ru')} ₽
                       </div>
                       {tx.bookingId && (

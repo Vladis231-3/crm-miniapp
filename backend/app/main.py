@@ -16005,8 +16005,6 @@ def get_piggy_bank(
     # минус снятия своей группы с субботы по данную операцию включительно.
     # Доходы недели (депозиты/возвраты/доп.доходы) игнорируются.
     try:
-        _WEEKLY_WITHDRAWAL_TYPES = {"material_withdrawal", "other_withdrawal", "expense", "custom_withdrawal"}
-
         def _saturday_of(d: date) -> date:
             return d - timedelta(days=(d.weekday() - 5) % 7)
 
@@ -16123,14 +16121,17 @@ def get_piggy_bank(
             except Exception:
                 return datetime.min
 
-        _weekly_map: dict[str, tuple[str, float, float]] = {}
+        _weekly_map: dict[str, tuple[str, float, float, float]] = {}
         for (_grp, _sat), _lst in _grouped.items():
             _lst_sorted = sorted(_lst, key=lambda _x: ((_tx_parsed_date.get(_x.id) or date.min), _created_key(_x)))
             _sat_bal = float((_sat_cache.get(_sat) or {}).get(_grp, 0.0))
             _cum = 0.0
             for _t in _lst_sorted:
                 try:
-                    _is_wd = (_t.transaction_type in _WEEKLY_WITHDRAWAL_TYPES) and (float(_t.amount or 0) < 0)
+                    # Снятием считается ЛЮБАЯ отрицательная операция недели
+                    # (material/other_withdrawal, expense, отрицательный adjust...).
+                    # Положительные (депозиты/возвраты/плюсовые корректировки) игнорируются.
+                    _is_wd = float(_t.amount or 0) < 0
                 except (TypeError, ValueError):
                     _is_wd = False
                 if _is_wd:
@@ -16139,12 +16140,12 @@ def get_piggy_bank(
                     except (TypeError, ValueError):
                         pass
                 _weekly = round(_sat_bal - _cum, 2)
-                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly)
+                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly, round(_cum, 2))
 
         for _p in transaction_payloads:
             _info = _weekly_map.get(_p.id)
             if _info is not None:
-                _p.weekStart, _p.weekStartBalance, _p.weeklyBalance = _info
+                _p.weekStart, _p.weekStartBalance, _p.weeklyBalance, _p.weeklyWithdrawn = _info
     except Exception:
         pass
 

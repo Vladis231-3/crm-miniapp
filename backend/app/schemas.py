@@ -1692,9 +1692,12 @@ class PiggyBankTransactionPayload(BaseModel):
     #   (все операции/начисления строго до субботы).
     # weeklyBalance — weekStartBalance минус снятия своей группы
     #   с субботы по данную операцию включительно (доходы недели игнорируются).
+    #   Снятием считается ЛЮБАЯ операция недели с amount < 0
+    #   (material/other_withdrawal, expense, отрицательная корректировка и т.д.).
     weekStart: str | None = None
     weekStartBalance: float | None = None
     weeklyBalance: float | None = None
+    weeklyWithdrawn: float | None = None
 
 
 class PiggyBankWithdrawRequest(BaseModel):
