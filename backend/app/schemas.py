@@ -1686,6 +1686,15 @@ class PiggyBankTransactionPayload(BaseModel):
     source: str = "piggy"
     # id начисления компенсации в зарплате (только для source="own").
     payrollEntryId: str | None = None
+    # ── Недельный остаток без учёта дохода ──
+    # weekStart — суббота недели операции (ДД.ММ.ГГГГ).
+    # weekStartBalance — остаток копилки своей группы на утро субботы
+    #   (все операции/начисления строго до субботы).
+    # weeklyBalance — weekStartBalance минус снятия своей группы
+    #   с субботы по данную операцию включительно (доходы недели игнорируются).
+    weekStart: str | None = None
+    weekStartBalance: float | None = None
+    weeklyBalance: float | None = None
 
 
 class PiggyBankWithdrawRequest(BaseModel):

@@ -16000,6 +16000,154 @@ def get_piggy_bank(
     ]
     spender_debts.sort(key=lambda x: x.totalSpent, reverse=True)
 
+    # ── Недельный остаток без учёта дохода (суббота → снятия) ──
+    # Подчёркнутая сумма = остаток своей копилки на утро субботы
+    # минус снятия своей группы с субботы по данную операцию включительно.
+    # Доходы недели (депозиты/возвраты/доп.доходы) игнорируются.
+    try:
+        _WEEKLY_WITHDRAWAL_TYPES = {"material_withdrawal", "other_withdrawal", "expense", "custom_withdrawal"}
+
+        def _saturday_of(d: date) -> date:
+            return d - timedelta(days=(d.weekday() - 5) % 7)
+
+        _weekly_base_txs = full_all_tx_for_debt if not booking_id else []
+        _tx_parsed_date: dict[str, date | None] = {}
+        for _t in _weekly_base_txs:
+            _tx_parsed_date[_t.id] = _parse_date_str(_t.date) if getattr(_t, "date", None) else None
+
+        _distinct_saturdays: dict[date, None] = {}
+        for _d in _tx_parsed_date.values():
+            if _d is not None:
+                _distinct_saturdays[_saturday_of(_d)] = None
+        _saturdays = sorted(_distinct_saturdays.keys())
+
+        _sat_cache: dict[date, dict[str, float]] = {}
+        _booking_parsed: list[tuple[date | None, Any]] = []
+        for _b in all_completed_bookings:
+            _booking_parsed.append((_parse_date_str(_b.date) if getattr(_b, "date", None) else None, _b))
+        _exp_parsed: list[tuple[date | None, Any]] = []
+        for _e in all_expenses:
+            _exp_parsed.append((_parse_date_str(_e.date) if getattr(_e, "date", None) else None, _e))
+        _inc_parsed: list[tuple[date | None, Any]] = []
+        for _i in all_incomes:
+            _inc_parsed.append((_parse_date_str(_i.date) if getattr(_i, "date", None) else None, _i))
+
+        for _sat in _saturdays:
+            _det_sat = 0.0
+            _gen_sat = 0.0
+            for _t in _weekly_base_txs:
+                _d = _tx_parsed_date.get(_t.id)
+                if _d is None or not (_d < _sat):
+                    continue
+                try:
+                    _amt = float(_t.amount or 0)
+                except (TypeError, ValueError):
+                    _amt = 0.0
+                if _t.resource_group == "detailing":
+                    _det_sat += _amt
+                elif _t.resource_group == "general":
+                    _gen_sat += _amt
+            _self_rev = 0
+            _classic_rev = 0
+            for _bd, _b in _booking_parsed:
+                if _bd is None or not (_bd < _sat):
+                    continue
+                _svc = services_map.get(_b.service_id)
+                if _svc is None or _svc.resource_group != WASH_RESOURCE_GROUP:
+                    continue
+                if getattr(_svc, "wash_type", None) == "self_service":
+                    _self_rev += (_b.price or 0)
+                else:
+                    _classic_rev += (_b.price or 0)
+            _self_master = round(_self_rev * 10 / 100)
+            _self_piggy = _self_rev - _self_master
+            _classic_master = round(_classic_rev * 40 / 100)
+            _classic_piggy = _classic_rev - _classic_master
+            _total_piggy_before = _self_piggy + _classic_piggy
+            _outputs_before = 0
+            try:
+                _sat_exclusive_end = _sat - timedelta(days=1)
+                _base_start = date(2000, 1, 1)
+                for _w in workers_list:
+                    _sal = getattr(_w, "salary_per_shift", 0) or 0
+                    if not _sal:
+                        continue
+                    _cnt, _dates = _compute_shift_attendance(inspections, _w.id, _base_start, _sat_exclusive_end)
+                    _outputs_before += _cnt * _sal
+            except Exception:
+                _outputs_before = 0
+            _wash_exp_before = 0.0
+            for _ed, _e in _exp_parsed:
+                if _ed is not None and _ed < _sat and _e.resource_group == WASH_RESOURCE_GROUP:
+                    try:
+                        _wash_exp_before += float(_e.amount or 0)
+                    except (TypeError, ValueError):
+                        pass
+            _wash_inc_before = 0.0
+            for _iid, _i in _inc_parsed:
+                if _iid is not None and _iid < _sat and _i.resource_group == WASH_RESOURCE_GROUP:
+                    try:
+                        _wash_inc_before += float(_i.amount or 0)
+                    except (TypeError, ValueError):
+                        pass
+            _wash_adj_before = 0.0
+            for _t in _weekly_base_txs:
+                _d = _tx_parsed_date.get(_t.id)
+                if _d is None or not (_d < _sat):
+                    continue
+                if _t.transaction_type == "adjust" and _t.resource_group == WASH_RESOURCE_GROUP:
+                    try:
+                        _wash_adj_before += float(_t.amount or 0)
+                    except (TypeError, ValueError):
+                        pass
+            _wash_sat = float(_total_piggy_before - _outputs_before - _wash_exp_before + _wash_inc_before + _wash_adj_before)
+            _sat_cache[_sat] = {
+                "detailing": round(float(_det_sat), 2),
+                "general": round(float(_gen_sat), 2),
+                "wash": round(float(_wash_sat), 2),
+            }
+
+        from collections import defaultdict as _dd
+        _grouped: dict[tuple[str, date], list[Any]] = _dd(list)
+        for _t in _weekly_base_txs:
+            _d = _tx_parsed_date.get(_t.id)
+            if _d is None:
+                continue
+            _sat = _saturday_of(_d)
+            _grouped[(_t.resource_group or "detailing", _sat)].append(_t)
+
+        def _created_key(_t: Any) -> Any:
+            _ca = getattr(_t, "created_at", None)
+            try:
+                return _ca if _ca is not None else datetime.min
+            except Exception:
+                return datetime.min
+
+        _weekly_map: dict[str, tuple[str, float, float]] = {}
+        for (_grp, _sat), _lst in _grouped.items():
+            _lst_sorted = sorted(_lst, key=lambda _x: ((_tx_parsed_date.get(_x.id) or date.min), _created_key(_x)))
+            _sat_bal = float((_sat_cache.get(_sat) or {}).get(_grp, 0.0))
+            _cum = 0.0
+            for _t in _lst_sorted:
+                try:
+                    _is_wd = (_t.transaction_type in _WEEKLY_WITHDRAWAL_TYPES) and (float(_t.amount or 0) < 0)
+                except (TypeError, ValueError):
+                    _is_wd = False
+                if _is_wd:
+                    try:
+                        _cum += abs(float(_t.amount))
+                    except (TypeError, ValueError):
+                        pass
+                _weekly = round(_sat_bal - _cum, 2)
+                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly)
+
+        for _p in transaction_payloads:
+            _info = _weekly_map.get(_p.id)
+            if _info is not None:
+                _p.weekStart, _p.weekStartBalance, _p.weeklyBalance = _info
+    except Exception:
+        pass
+
     return PiggyBankResponse(
 
         balance=balance,

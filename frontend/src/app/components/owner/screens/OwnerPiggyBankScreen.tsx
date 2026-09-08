@@ -12,6 +12,7 @@ interface PiggyBankTx {
   purpose: string; materialName: string | null; materialCost: number | null;
   date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
   spentById?: string | null; spentByName?: string | null;
+  weekStart?: string | null; weekStartBalance?: number | null; weeklyBalance?: number | null;
 }
 interface PiggyWashBreakdown {
   selfServiceRevenue: number; selfServiceMaster: number; selfServicePiggy: number;
@@ -497,7 +498,13 @@ export function OwnerPiggyBankScreen({
         if (filteredTxs.length === 0) {
           return <div className={`text-center py-8 text-sm ${sub}`}>Пока нет операций</div>;
         }
-        let runningBalance = piggyBankBalance;
+        // Legacy fallback (если бэк ещё не отдал weeklyBalance, например фильтр по заказу).
+        let legacyRunning = piggyBankBalance;
+        const legacyById = new Map<string, number>();
+        for (const t of filteredTxs) {
+          legacyById.set(t.id, legacyRunning);
+          legacyRunning -= t.amount;
+        }
         return (
           <div className="space-y-2">
             {filteredTxs.map(tx => {
@@ -517,8 +524,11 @@ export function OwnerPiggyBankScreen({
                 }
               };
               const Wrapper = tx.bookingId ? 'button' : 'div';
-              const txRunningBalance = runningBalance;
-              runningBalance -= tx.amount;
+              // Недельный остаток без учёта дохода: суббота − снятия недели.
+              // В субботу равен балансу копилки своей группы.
+              const txRunningBalance = (tx.weeklyBalance ?? null) !== null
+                ? (tx.weeklyBalance as number)
+                : (legacyById.get(tx.id) ?? 0);
               const canDelete = ['adjust', 'material_withdrawal', 'other_withdrawal', 'material_repayment', 'expense'].includes(tx.transactionType);
               const deleteLabel = `${txLabel} ${tx.amount.toLocaleString('ru')} ₽ · ${tx.date}${tx.purpose ? ` · ${tx.purpose}` : ''}${tx.materialName ? ` · ${tx.materialName}` : ''}`;
               return (
@@ -599,7 +609,7 @@ export function OwnerPiggyBankScreen({
                           {booking.price.toLocaleString('ru')} ₽
                         </div>
                       )}
-                      <div className={`text-[10px] mt-1 tabular-nums ${sub}`}>
+                      <div className={`text-[10px] mt-1 tabular-nums ${sub}`} title={tx.weekStart ? `Неделя с ${tx.weekStart} · остаток без дохода недели` : 'Остаток без дохода недели'}>
                         = {txRunningBalance.toLocaleString('ru')} ₽
                       </div>
                       {tx.bookingId && (

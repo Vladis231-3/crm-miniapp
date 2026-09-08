@@ -110,7 +110,7 @@ interface MoneySplitWorkerItem {
   payType: string; fixedAmount?: number | null; earned: number; overrideEarned?: number | null;
 }
 interface MoneySplitOwnerItem { ownerId: string; ownerName: string; amount: number; status: string; shareId?: string; }
-interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; resourceGroup: string; date: string; bookingId?: string | null; bookingInfo?: string | null; createdAt?: string; }
+interface PiggyTxItem { id: string; amount: number; transactionType: string; purpose: string; resourceGroup: string; date: string; bookingId?: string | null; bookingInfo?: string | null; createdAt?: string; weekStart?: string | null; weekStartBalance?: number | null; weeklyBalance?: number | null; }
 interface AdditionalServiceItem { name: string; price: number; priceMode: string; duration: number; isOutsource?: boolean; outsourceAmount?: number; }
 interface AsvcPiggyItem { name: string; resourceGroup: string; amount: number; }
 interface AsvcWorkerItem {
@@ -255,6 +255,7 @@ interface PiggyBankTxGlobal {
   purpose: string; materialName: string | null; materialCost: number | null;
   date: string; resourceGroup: string; createdAt: string; bookingInfo: string | null;
   spentById?: string | null; spentByName?: string | null;
+  weekStart?: string | null; weekStartBalance?: number | null; weeklyBalance?: number | null;
 }
 interface PiggySpenderDebt { spentById: string | null; spentByName: string; totalSpent: number; count: number; }
 interface PiggyBankData {
@@ -785,6 +786,7 @@ export function OwnerApp() {
     bookingCar?: string | null; bookingPlate?: string | null;
     bookingPrice?: number | null; bookingStatus?: string | null;
     spentById?: string | null; spentByName?: string | null;
+    weekStart?: string | null; weekStartBalance?: number | null; weeklyBalance?: number | null;
   }
   const [piggyBankBalance, setPiggyBankBalance] = useState(0);
   const [piggyBankTxs, setPiggyBankTxs] = useState<PiggyBankTx[]>([]);
@@ -7100,6 +7102,11 @@ paymentSettled: false,
                             : tx.transactionType === 'custom_deposit' ? 'Пополнение'
                             : tx.transactionType === 'custom_withdrawal' ? 'Снятие'
                             : 'Корректировка';
+                          const weeklyFromHistory = piggyBankTxs.find(h => h.id === tx.id)?.weeklyBalance ?? null;
+                          const weeklyFromArchive = (tx as { weeklyBalance?: number | null }).weeklyBalance ?? null;
+                          const weeklyToShow = weeklyFromArchive ?? weeklyFromHistory;
+                          const weekStartToShow = (tx as { weekStart?: string | null }).weekStart
+                            ?? piggyBankTxs.find(h => h.id === tx.id)?.weekStart ?? null;
                           return (
                             <button key={tx.id}
                               id={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? archiveHighlightId(archiveHighlight) : undefined}
@@ -7121,6 +7128,11 @@ paymentSettled: false,
                                 </div>
                                 <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
                                   {isDeposit ? '+' : '-'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
+                                  {weeklyToShow != null && (
+                                    <div className={`font-normal text-[10px] mt-0.5 tabular-nums ${sub}`} title={weekStartToShow ? `Неделя с ${weekStartToShow} · остаток без дохода недели` : 'Остаток без дохода недели'}>
+                                      = {(weeklyToShow as number).toLocaleString('ru')} ₽
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </button>
