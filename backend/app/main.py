@@ -16122,25 +16122,113 @@ def get_piggy_bank(
                 return datetime.min
 
         _weekly_map: dict[str, tuple[str, float, float, float]] = {}
+        _WEEK_END_DELTA = timedelta(days=6)
         for (_grp, _sat), _lst in _grouped.items():
             _lst_sorted = sorted(_lst, key=lambda _x: ((_tx_parsed_date.get(_x.id) or date.min), _created_key(_x)))
             _sat_bal = float((_sat_cache.get(_sat) or {}).get(_grp, 0.0))
-            _cum = 0.0
-            for _t in _lst_sorted:
+            _week_end = _sat + _WEEK_END_DELTA
+            # Прямые расходы бюджета недели (без зеркал piggy, чтобы не задвоить).
+            _mirrored_ids: set[str] = set()
+            for _t in _lst:
+                _eid = getattr(_t, "expense_id", None)
+                if _eid:
+                    _mirrored_ids.add(str(_eid))
+            _unlinked_wd: list[tuple[date, float]] = []
+            for _t in _lst:
                 try:
-                    # Снятием считается ЛЮБАЯ отрицательная операция недели
-                    # (material/other_withdrawal, expense, отрицательный adjust...).
-                    # Положительные (депозиты/возвраты/плюсовые корректировки) игнорируются.
-                    _is_wd = float(_t.amount or 0) < 0
+                    _neg = float(_t.amount or 0) < 0
                 except (TypeError, ValueError):
-                    _is_wd = False
-                if _is_wd:
+                    _neg = False
+                if _neg and not getattr(_t, "expense_id", None):
+                    _dd2 = _tx_parsed_date.get(_t.id)
+                    if _dd2 is not None and _sat <= _dd2 <= _week_end:
+                        try:
+                            _unlinked_wd.append((_dd2, round(abs(float(_t.amount)), 2)))
+                        except (TypeError, ValueError):
+                            pass
+            _candidate_exp: list[tuple[Any, date, Any, float]] = []
+            for _ed, _e in _exp_parsed:
+                if _ed is None or not (_sat <= _ed <= _week_end):
+                    continue
+                if (_e.resource_group or "") != _grp:
+                    continue
+                try:
+                    _eamt = round(abs(float(_e.amount or 0)), 2)
+                except (TypeError, ValueError):
+                    continue
+                if _eamt <= 0:
+                    continue
+                if str(getattr(_e, "id", "")) in _mirrored_ids:
+                    continue
+                _candidate_exp.append((_e, _ed, getattr(_e, "created_at", None), _eamt))
+            _fallback_excluded: set[str] = set()
+            for (_wdate, _wamt) in _unlinked_wd:
+                for (_e, _ed, _ecr, _eamt) in _candidate_exp:
+                    _eid2 = str(getattr(_e, "id", ""))
+                    if _eid2 in _fallback_excluded:
+                        continue
+                    if _ed == _wdate and _eamt == _wamt:
+                        _fallback_excluded.add(_eid2)
+                        break
+            _week_expenses: list[tuple[date, Any, float]] = []
+            for (_e, _ed, _ecr, _eamt) in _candidate_exp:
+                if str(getattr(_e, "id", "")) not in _fallback_excluded:
+                    _week_expenses.append((_ed, _ecr, _eamt))
+            # Выходы мастеров недели — только для мойки.
+            _shift_events: list[tuple[date, float]] = []
+            if _grp == WASH_RESOURCE_GROUP:
+                try:
+                    for _w in workers_list:
+                        _sal = getattr(_w, "salary_per_shift", 0) or 0
+                        if not _sal:
+                            continue
+                        try:
+                            _cnt, _date_strs = _compute_shift_attendance(inspections, _w.id, _sat, _week_end)
+                        except Exception:
+                            continue
+                        for _ds in (_date_strs or []):
+                            _sd = _parse_date_str(_ds) if _ds else None
+                            if _sd is None or not (_sat <= _sd <= _week_end):
+                                continue
+                            try:
+                                _shift_events.append((_sd, float(_sal)))
+                            except (TypeError, ValueError):
+                                pass
+                except Exception:
+                    _shift_events = []
+            for _t in _lst_sorted:
+                _tdate = _tx_parsed_date.get(_t.id) or date.min
+                _tcr = _created_key(_t)
+                _cum2 = 0.0
+                for _pt in _lst_sorted:
+                    _pd = _tx_parsed_date.get(_pt.id) or date.min
+                    if _pd > _tdate:
+                        continue
                     try:
-                        _cum += abs(float(_t.amount))
+                        if _pd == _tdate and _created_key(_pt) > _tcr:
+                            continue
+                    except Exception:
+                        pass
+                    try:
+                        if float(_pt.amount or 0) < 0:
+                            _cum2 += abs(float(_pt.amount))
                     except (TypeError, ValueError):
                         pass
-                _weekly = round(_sat_bal - _cum, 2)
-                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly, round(_cum, 2))
+                for (_ed, _ecr, _eamt) in _week_expenses:
+                    if _ed < _tdate:
+                        _cum2 += _eamt
+                    elif _ed == _tdate:
+                        try:
+                            if (_ecr is None) or (_tcr is None) or (_ecr <= _tcr):
+                                _cum2 += _eamt
+                        except Exception:
+                            _cum2 += _eamt
+                for (_sd, _samt) in _shift_events:
+                    if _sd <= _tdate:
+                        _cum2 += _samt
+                _cum2 = round(_cum2, 2)
+                _weekly = round(_sat_bal - _cum2, 2)
+                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly, _cum2)
 
         for _p in transaction_payloads:
             _info = _weekly_map.get(_p.id)
