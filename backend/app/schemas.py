@@ -1690,10 +1690,10 @@ class PiggyBankTransactionPayload(BaseModel):
     # weekStart — суббота недели операции (ДД.ММ.ГГГГ).
     # weekStartBalance — остаток копилки своей группы на утро субботы
     #   (все операции/начисления строго до субботы).
-    # weeklyBalance — weekStartBalance минус ВСЕ расходы недели своей группы
+    # weeklyBalance — weekStartBalance минус расходы недели своей группы
     #   с субботы по данную операцию включительно (доходы недели игнорируются):
-    #   отрицательные операции копилки + прямые расходы бюджета (без зеркал,
-    #   чтобы не задвоить) + для мойки выходы мастеров.
+    #   detailing/general — только снятия из истории (как карточка netPiggy);
+    #   wash — отрицательные операции копилки + прямые расходы без зеркал + смены.
     weekStart: str | None = None
     weekStartBalance: float | None = None
     weeklyBalance: float | None = None

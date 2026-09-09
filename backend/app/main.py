@@ -16001,9 +16001,20 @@ def get_piggy_bank(
     spender_debts.sort(key=lambda x: x.totalSpent, reverse=True)
 
     # ── Недельный остаток без учёта дохода (суббота → снятия) ──
-    # Подчёркнутая сумма = остаток своей копилки на утро субботы
-    # минус снятия своей группы с субботы по данную операцию включительно.
-    # Доходы недели (депозиты/возвраты/доп.доходы) игнорируются.
+    # Подчёркнутая сумма = остаток СВОЕЙ копилки на утро субботы
+    # (в ТОЙ ЖЕ методологии, что карточка баланса) минус расходы недели.
+    # Доходы недели игнорируются. В субботу равно балансу копилки.
+    # Методология остатка обязана совпадать с карточкой, иначе суббота не сойдётся:
+    # - detailing/general: как netPiggy (депозиты + возвраты − снятия +
+    #   корректировки; тип expense и прочие игнор-лист карточки — тоже игнор);
+    # - wash: как remaining (брони − выходы − расходы + доходы + adjust).
+    # Расходы недели — то, что уменьшает карточку: detailing/general только
+    # material/other_withdrawal; wash плюс прямые расходы без зеркал и смены.
+    _WEEKLY_PIGGY_WD = {"material_withdrawal", "other_withdrawal"}
+    _CARD_PIGGY_TYPES = {
+        "deposit_24percent", "material_repayment",
+        "material_withdrawal", "other_withdrawal", "adjust",
+    }
     try:
         def _saturday_of(d: date) -> date:
             return d - timedelta(days=(d.weekday() - 5) % 7)
@@ -16031,11 +16042,15 @@ def get_piggy_bank(
             _inc_parsed.append((_parse_date_str(_i.date) if getattr(_i, "date", None) else None, _i))
 
         for _sat in _saturdays:
+            # Detailing/general: строго методология карточки netPiggy
+            # (см. deposits_24/repayments/withdrawals/adjustments выше).
             _det_sat = 0.0
             _gen_sat = 0.0
             for _t in _weekly_base_txs:
                 _d = _tx_parsed_date.get(_t.id)
                 if _d is None or not (_d < _sat):
+                    continue
+                if _t.transaction_type not in _CARD_PIGGY_TYPES:
                     continue
                 try:
                     _amt = float(_t.amount or 0)
@@ -16127,56 +16142,60 @@ def get_piggy_bank(
             _lst_sorted = sorted(_lst, key=lambda _x: ((_tx_parsed_date.get(_x.id) or date.min), _created_key(_x)))
             _sat_bal = float((_sat_cache.get(_sat) or {}).get(_grp, 0.0))
             _week_end = _sat + _WEEK_END_DELTA
-            # Прямые расходы бюджета недели (без зеркал piggy, чтобы не задвоить).
-            _mirrored_ids: set[str] = set()
-            for _t in _lst:
-                _eid = getattr(_t, "expense_id", None)
-                if _eid:
-                    _mirrored_ids.add(str(_eid))
-            _unlinked_wd: list[tuple[date, float]] = []
-            for _t in _lst:
-                try:
-                    _neg = float(_t.amount or 0) < 0
-                except (TypeError, ValueError):
-                    _neg = False
-                if _neg and not getattr(_t, "expense_id", None):
-                    _dd2 = _tx_parsed_date.get(_t.id)
-                    if _dd2 is not None and _sat <= _dd2 <= _week_end:
-                        try:
-                            _unlinked_wd.append((_dd2, round(abs(float(_t.amount)), 2)))
-                        except (TypeError, ValueError):
-                            pass
-            _candidate_exp: list[tuple[Any, date, Any, float]] = []
-            for _ed, _e in _exp_parsed:
-                if _ed is None or not (_sat <= _ed <= _week_end):
-                    continue
-                if (_e.resource_group or "") != _grp:
-                    continue
-                try:
-                    _eamt = round(abs(float(_e.amount or 0)), 2)
-                except (TypeError, ValueError):
-                    continue
-                if _eamt <= 0:
-                    continue
-                if str(getattr(_e, "id", "")) in _mirrored_ids:
-                    continue
-                _candidate_exp.append((_e, _ed, getattr(_e, "created_at", None), _eamt))
-            _fallback_excluded: set[str] = set()
-            for (_wdate, _wamt) in _unlinked_wd:
-                for (_e, _ed, _ecr, _eamt) in _candidate_exp:
-                    _eid2 = str(getattr(_e, "id", ""))
-                    if _eid2 in _fallback_excluded:
-                        continue
-                    if _ed == _wdate and _eamt == _wamt:
-                        _fallback_excluded.add(_eid2)
-                        break
+            # Прямые расходы и смены — только для мойки (её карточка их включает).
+            # У detailing/general карточка их не знает, недельный остаток —
+            # только снятия из истории, иначе суббота не сойдётся с карточкой.
+            _is_wash = (_grp == WASH_RESOURCE_GROUP)
             _week_expenses: list[tuple[date, Any, float]] = []
-            for (_e, _ed, _ecr, _eamt) in _candidate_exp:
-                if str(getattr(_e, "id", "")) not in _fallback_excluded:
-                    _week_expenses.append((_ed, _ecr, _eamt))
-            # Выходы мастеров недели — только для мойки.
             _shift_events: list[tuple[date, float]] = []
-            if _grp == WASH_RESOURCE_GROUP:
+            if _is_wash:
+                # Прямые расходы бюджета недели (без зеркал piggy, чтобы не задвоить).
+                _mirrored_ids: set[str] = set()
+                for _t in _lst:
+                    _eid = getattr(_t, "expense_id", None)
+                    if _eid:
+                        _mirrored_ids.add(str(_eid))
+                _unlinked_wd: list[tuple[date, float]] = []
+                for _t in _lst:
+                    try:
+                        _neg = float(_t.amount or 0) < 0
+                    except (TypeError, ValueError):
+                        _neg = False
+                    if _neg and not getattr(_t, "expense_id", None):
+                        _dd2 = _tx_parsed_date.get(_t.id)
+                        if _dd2 is not None and _sat <= _dd2 <= _week_end:
+                            try:
+                                _unlinked_wd.append((_dd2, round(abs(float(_t.amount)), 2)))
+                            except (TypeError, ValueError):
+                                pass
+                _candidate_exp: list[tuple[Any, date, Any, float]] = []
+                for _ed, _e in _exp_parsed:
+                    if _ed is None or not (_sat <= _ed <= _week_end):
+                        continue
+                    if (_e.resource_group or "") != _grp:
+                        continue
+                    try:
+                        _eamt = round(abs(float(_e.amount or 0)), 2)
+                    except (TypeError, ValueError):
+                        continue
+                    if _eamt <= 0:
+                        continue
+                    if str(getattr(_e, "id", "")) in _mirrored_ids:
+                        continue
+                    _candidate_exp.append((_e, _ed, getattr(_e, "created_at", None), _eamt))
+                _fallback_excluded: set[str] = set()
+                for (_wdate, _wamt) in _unlinked_wd:
+                    for (_e, _ed, _ecr, _eamt) in _candidate_exp:
+                        _eid2 = str(getattr(_e, "id", ""))
+                        if _eid2 in _fallback_excluded:
+                            continue
+                        if _ed == _wdate and _eamt == _wamt:
+                            _fallback_excluded.add(_eid2)
+                            break
+                for (_e, _ed, _ecr, _eamt) in _candidate_exp:
+                    if str(getattr(_e, "id", "")) not in _fallback_excluded:
+                        _week_expenses.append((_ed, _ecr, _eamt))
+                # Выходы мастеров недели — только для мойки.
                 try:
                     for _w in workers_list:
                         _sal = getattr(_w, "salary_per_shift", 0) or 0
@@ -16210,7 +16229,17 @@ def get_piggy_bank(
                     except Exception:
                         pass
                     try:
-                        if float(_pt.amount or 0) < 0:
+                        # detailing/general: только снятия из истории
+                        # (методология карточки netPiggy);
+                        # wash: любая отрицательная операция копилки.
+                        if _is_wash:
+                            _counts = float(_pt.amount or 0) < 0
+                        else:
+                            _counts = (
+                                _pt.transaction_type in _WEEKLY_PIGGY_WD
+                                and float(_pt.amount or 0) < 0
+                            )
+                        if _counts:
                             _cum2 += abs(float(_pt.amount))
                     except (TypeError, ValueError):
                         pass
