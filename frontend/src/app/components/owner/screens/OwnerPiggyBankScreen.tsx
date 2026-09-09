@@ -610,9 +610,14 @@ export function OwnerPiggyBankScreen({
                           {booking.price.toLocaleString('ru')} ₽
                         </div>
                       )}
-                      <div className={`text-[10px] mt-1 tabular-nums ${sub}`} title={tx.weekStart ? `Неделя с ${tx.weekStart} · начало ${(tx.weekStartBalance ?? 0).toLocaleString('ru')} · снято ${(tx.weeklyWithdrawn ?? 0).toLocaleString('ru')}` : 'Остаток без дохода недели'}>
+                      <div className={`text-[10px] mt-1 tabular-nums ${sub}`} title={tx.weekStart ? `Неделя с ${tx.weekStart} · начало ${(tx.weekStartBalance ?? 0).toLocaleString('ru')} · расходы ${(tx.weeklyWithdrawn ?? 0).toLocaleString('ru')}` : 'Остаток без дохода недели'}>
                         = {txRunningBalance.toLocaleString('ru')} ₽
                       </div>
+                      {tx.weekStart && (
+                        <div className={`text-[9px] tabular-nums ${sub} opacity-70`}>
+                          с {tx.weekStart} · нач {(tx.weekStartBalance ?? 0).toLocaleString('ru')} · расх {(tx.weeklyWithdrawn ?? 0).toLocaleString('ru')}
+                        </div>
+                      )}
                       {tx.bookingId && (
                         <ChevronRight size={12} strokeWidth={1.75} aria-hidden className={`mt-0.5 ${sub}`} />
                       )}

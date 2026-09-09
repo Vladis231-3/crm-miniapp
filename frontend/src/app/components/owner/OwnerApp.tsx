@@ -7136,8 +7136,11 @@ paymentSettled: false,
                                 <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
                                   {isDeposit ? '+' : '-'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
                                   {weeklyToShow != null && (
-                                    <div className={`font-normal text-[10px] mt-0.5 tabular-nums ${sub}`} title={weekStartToShow ? `Неделя с ${weekStartToShow} · начало ${(weekStartBalToShow ?? 0).toLocaleString('ru')} · снято ${(weeklyWdToShow ?? 0).toLocaleString('ru')}` : 'Остаток без дохода недели'}>
+                                    <div className={`font-normal text-[10px] mt-0.5 tabular-nums ${sub}`} title={weekStartToShow ? `Неделя с ${weekStartToShow} · начало ${(weekStartBalToShow ?? 0).toLocaleString('ru')} · расходы ${(weeklyWdToShow ?? 0).toLocaleString('ru')}` : 'Остаток без дохода недели'}>
                                       = {(weeklyToShow as number).toLocaleString('ru')} ₽
+                                      {weekStartToShow && (
+                                        <div className={`text-[9px] tabular-nums opacity-70`}>с {weekStartToShow} · нач {(weekStartBalToShow ?? 0).toLocaleString('ru')} · расх {(weeklyWdToShow ?? 0).toLocaleString('ru')}</div>
+                                      )}
                                     </div>
                                   )}
                                 </div>

@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-08 18:45 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-09 05:53 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **529**
-- Строк кода: **210 722**
+- Строк кода: **210 730**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 178, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -3975,7 +3975,7 @@ concept1.0/
 - `openTopupFor` (стр. 439) — локальный
 - `val` (стр. 1116) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12272 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12275 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 44) — локальный
 - `map` (стр. 45) — локальный
@@ -4220,7 +4220,7 @@ concept1.0/
 - `current` (стр. 716) — локальный
 - `ownerPaymentLabel` (стр. 826) — локальный
 
-### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (644 строк)
+### frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx (649 строк)
 
 - `OwnerPiggyBankScreen` (стр. 61)
 - `ownerStatusBadge` (стр. 117) — локальный
@@ -5108,10 +5108,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-09 08:53)
+- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-09 08:53)
 - `backend/app/schemas.py` (2026-09-08 21:43)
 - `backend/app/main.py` (2026-09-08 21:43)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-08 21:29)
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-08 21:27)
 - `scripts/.project-map-watch.lock` (2026-09-08 20:42)
 - `backend/tests/test_phone_reclaim.py` (2026-09-08 10:41)
 - `backend/tests/test_contact_abuse.py` (2026-09-08 10:41)
