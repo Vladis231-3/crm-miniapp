@@ -1809,6 +1809,8 @@ class PiggyBankResponse(BaseModel):
     ownerProfitPaid: float = 0
     ownerProfitBalance: float = 0
     spenderDebts: list[PiggyBankSpenderDebt] = Field(default_factory=list)
+    # Маркер версии weekly-формулы (см. WEEKLY_FORMULA_VERSION в main.py).
+    weeklyFormula: str = ""
 
 
 class WeeklyArchivePayload(BaseModel):

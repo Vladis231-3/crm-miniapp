@@ -42,6 +42,7 @@ interface PiggyBankScreenData {
   combinedBalance: number;
   archives?: Array<{ id: number }>;
   spenderDebts?: PiggySpenderDebt[];
+  weeklyFormula?: string | null;
 }
 
 interface ArchiveHighlightShape {
@@ -484,7 +485,7 @@ export function OwnerPiggyBankScreen({
 
       {/* Transaction history */}
       <button onClick={() => setPiggyTxExpanded(v => !v)} className="w-full flex items-center justify-between mb-3">
-        <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider`}>История операций</h3>
+        <h3 className={`text-xs font-medium ${sub} uppercase tracking-wider`}>История операций{piggyBank?.weeklyFormula ? ` · ${piggyBank.weeklyFormula}` : ''}</h3>
         <div className="flex items-center gap-2">
           {!piggyTxExpanded && (
             <span className={`text-[11px] ${sub}`}>{piggyBankTxs.length} операций</span>

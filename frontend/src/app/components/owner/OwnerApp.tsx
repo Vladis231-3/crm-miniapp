@@ -272,6 +272,7 @@ interface PiggyBankData {
   remainingInPiggyBank: number;
   combinedBalance: number;
   spenderDebts?: PiggySpenderDebt[];
+  weeklyFormula?: string | null;
   /** Архивы недель. Приходят с бэка (GET /api/owner/piggy-bank → archives). */
   archives?: WeeklyArchiveInfo[];
 }

@@ -709,6 +709,11 @@ DETAILING_RESOURCE_GROUP = "detailing"
 
 WASH_RESOURCE_GROUP = "wash"
 
+# Маркер версии формулы недельных остатков копилки (виден в UI рядом
+# с «История операций»). Поднимать при каждом изменении weekly-расчёта,
+# чтобы по скриншоту было понятно, какой бэкенд реально отвечает.
+WEEKLY_FORMULA_VERSION = "w5-card-whitelist"
+
 DETAILING_BOX_NAMES = ("Детейлинг 1", "Детейлинг 2", "Детейлинг 3")
 
 DETAILING_BOX_NAME = DETAILING_BOX_NAMES[0]
@@ -16371,6 +16376,8 @@ def get_piggy_bank(
         ownerProfitBalance=owner_total_accrued - owner_total_paid,
 
         spenderDebts=spender_debts,
+
+        weeklyFormula=WEEKLY_FORMULA_VERSION,
 
     )
 
