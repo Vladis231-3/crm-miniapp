@@ -228,8 +228,13 @@ export function OwnerPiggyBankScreen({
           <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
             <span className={sub}>Выход мастеров</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
           </div>
-          <div className="flex justify-between py-1.5 text-sm font-semibold">
-            <span>Остаток</span>
+          <div className="flex justify-between py-1.5 text-sm font-semibold items-center">
+            <span className="flex items-center gap-1.5">Остаток
+              <button onClick={() => onOpenAdjust('wash')} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
+                style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
+                <Edit3 size={12} strokeWidth={1.75} aria-hidden />
+              </button>
+            </span>
             <span className="tabular-nums" style={{ color: rem >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{rem.toLocaleString('ru')} ₽</span>
           </div>
         </div>
@@ -255,8 +260,14 @@ export function OwnerPiggyBankScreen({
               <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                 <span className={sub}>Возврат материалов</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.detailing.materialRepayments.toLocaleString('ru')} ₽</span>
               </div>
-              <div className="flex justify-between py-1.5 text-sm font-semibold">
-                <span>Нетто в копилке</span><span className="tabular-nums" style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽</span>
+              <div className="flex justify-between py-1.5 text-sm font-semibold items-center">
+                <span className="flex items-center gap-1.5">Нетто в копилке
+                  <button onClick={() => onOpenAdjust('detailing')} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
+                    style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
+                    <Edit3 size={12} strokeWidth={1.75} aria-hidden />
+                  </button>
+                </span>
+                <span className="tabular-nums" style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽</span>
               </div>
             </div>
           )}

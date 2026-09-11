@@ -8320,8 +8320,13 @@ paymentSettled: false,
                       <span className={sub}>Расходы на мойку</span>
                       <span style={{ color: '#FF6B6B' }}>-{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
-                    <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-                      <span>🏦 Остаток в копилке</span>
+                    <div className="flex justify-between py-3 text-base font-bold border-t mt-2 items-center" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+                      <span className="flex items-center gap-1.5">🏦 Остаток в копилке
+                        <button onClick={() => openPiggyAdjust('wash')} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
+                          style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
+                          <Edit3 size={12} strokeWidth={1.75} aria-hidden />
+                        </button>
+                      </span>
                       <span style={{ color: (piggyBank.remainingInPiggyBank ?? 0) >= 0 ? accent : '#FF6B6B' }}>
                         {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '-'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
                       </span>
@@ -8367,8 +8372,13 @@ paymentSettled: false,
                       <span className={sub}>Доп. доходы</span>
                       <span className="font-semibold" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} ₽</span>
                     </div>
-                    <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-                      <span>🏦 Нетто в копилке</span>
+                    <div className="flex justify-between py-3 text-base font-bold border-t mt-2 items-center" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+                      <span className="flex items-center gap-1.5">🏦 Нетто в копилке
+                        <button onClick={() => openPiggyAdjust('detailing')} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
+                          style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
+                          <Edit3 size={12} strokeWidth={1.75} aria-hidden />
+                        </button>
+                      </span>
                       <span style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? accent : '#FF6B6B' }}>
                         {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '-'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
                       </span>
