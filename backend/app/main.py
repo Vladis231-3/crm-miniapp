@@ -3791,11 +3791,45 @@ def _ensure_booking_within_schedule(
 
     if start_minutes < open_minutes or end_minutes > close_minutes:
 
+        def _minutes_label(value: int) -> str:
+
+            value = max(0, value)
+
+            day_shift, minutes_of_day = divmod(value, 24 * 60)
+
+            label = f"{minutes_of_day // 60:02d}:{minutes_of_day % 60:02d}"
+
+            return f"{label} (+{day_shift} дн.)" if day_shift else label
+
+        if start_minutes < open_minutes:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_400_BAD_REQUEST,
+
+                detail=(
+
+                    f"Время начала {_minutes_label(start_minutes)} раньше открытия "
+
+                    f"{day_schedule.open_time} (рабочее время {day_schedule.open_time}-{day_schedule.close_time})"
+
+                ),
+
+            )
+
         raise HTTPException(
 
             status_code=status.HTTP_400_BAD_REQUEST,
 
-            detail=f"Запись доступна только в часы работы: {day_schedule.open_time}-{day_schedule.close_time}",
+            detail=(
+
+                f"Запись на {_minutes_label(start_minutes)} с длительностью {duration} мин "
+
+                f"заканчивается в {_minutes_label(end_minutes)}, позже закрытия {day_schedule.close_time} "
+
+                f"(рабочее время {day_schedule.open_time}-{day_schedule.close_time})"
+
+            ),
 
         )
 

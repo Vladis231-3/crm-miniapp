@@ -361,6 +361,14 @@ function parseOwnerBookingMinutes(value: string): number | null {
   return hours * 60 + minutes;
 }
 
+function formatSlotMinutesLabel(totalMinutes: number): string {
+  const safe = Math.max(0, Math.round(totalMinutes));
+  const dayShift = Math.floor(safe / (24 * 60));
+  const minutesOfDay = safe % (24 * 60);
+  const label = `${String(Math.floor(minutesOfDay / 60)).padStart(2, '0')}:${String(minutesOfDay % 60).padStart(2, '0')}`;
+  return dayShift > 0 ? `${label} (+${dayShift} дн.)` : label;
+}
+
 const OWNER_CALENDAR_WEEKDAYS = ['Сб', 'Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
 const OWNER_CALENDAR_MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -3641,7 +3649,10 @@ paymentSettled: false,
       if (openMinutes === null || closeMinutes === null) {
         nextErrors.time = 'Для этого дня не настроены часы работы';
       } else if (slotStart < openMinutes || slotEnd > closeMinutes) {
-        nextErrors.time = `Рабочее время: ${scheduleDay.open}-${scheduleDay.close}`;
+        const startTimeLabel = timeValue.trim();
+        nextErrors.time = slotStart < openMinutes
+          ? `Время начала ${startTimeLabel} раньше открытия ${scheduleDay.open} (рабочее время ${scheduleDay.open}-${scheduleDay.close})`
+          : `Запись на ${startTimeLabel} с длительностью ${durationMinutes} мин заканчивается в ${formatSlotMinutesLabel(slotEnd)}, позже закрытия ${scheduleDay.close} (рабочее время ${scheduleDay.open}-${scheduleDay.close})`;
       }
     }
     return nextErrors;

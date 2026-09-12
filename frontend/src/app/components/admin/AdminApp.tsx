@@ -265,6 +265,14 @@ const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
   return `${h}:${m}`;
 });
 
+function formatSlotMinutesLabel(totalMinutes: number): string {
+  const safe = Math.max(0, Math.round(totalMinutes));
+  const dayShift = Math.floor(safe / (24 * 60));
+  const minutesOfDay = safe % (24 * 60);
+  const label = `${String(Math.floor(minutesOfDay / 60)).padStart(2, '0')}:${String(minutesOfDay % 60).padStart(2, '0')}`;
+  return dayShift > 0 ? `${label} (+${dayShift} дн.)` : label;
+}
+
 function dataUrlApproxBytes(dataUrl: string) {
   const [, encoded = ''] = dataUrl.split(',', 2);
   const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
@@ -891,7 +899,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       if (openMinutes === null || closeMinutes === null) {
         nextErrors.time = 'Для этого дня не настроены часы работы';
       } else if (slotStart < openMinutes || slotEnd > closeMinutes) {
-        nextErrors.time = `Рабочее время: ${scheduleDay.open}-${scheduleDay.close}`;
+        nextErrors.time = slotStart < openMinutes
+          ? `Время начала ${normalizedTime} раньше открытия ${scheduleDay.open} (рабочее время ${scheduleDay.open}-${scheduleDay.close})`
+          : `Запись на ${normalizedTime} с длительностью ${durationMinutes} мин заканчивается в ${formatSlotMinutesLabel(slotEnd)}, позже закрытия ${scheduleDay.close} (рабочее время ${scheduleDay.open}-${scheduleDay.close})`;
       }
     }
     return nextErrors;
@@ -922,7 +932,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
       if (openMinutes === null || closeMinutes === null) {
         nextErrors.time = 'Для этого дня не настроены часы работы';
       } else if (slotStart < openMinutes || slotEnd > closeMinutes) {
-        nextErrors.time = `Рабочее время: ${scheduleDay.open}-${scheduleDay.close}`;
+        nextErrors.time = slotStart < openMinutes
+          ? `Время начала ${normalizedTime} раньше открытия ${scheduleDay.open} (рабочее время ${scheduleDay.open}-${scheduleDay.close})`
+          : `Запись на ${normalizedTime} с длительностью ${durationMinutes} мин заканчивается в ${formatSlotMinutesLabel(slotEnd)}, позже закрытия ${scheduleDay.close} (рабочее время ${scheduleDay.open}-${scheduleDay.close})`;
       }
     }
     return nextErrors;
