@@ -6,7 +6,7 @@ import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
   Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
-  Shield, Sliders, BellOff, Save, Trash2, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
+  Shield, Sliders, BellOff, Save, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
 } from 'lucide-react';
 import { EmptyState } from '../shared/EmptyState';
@@ -360,7 +360,6 @@ export function AdminApp() {
     submitAdminShiftInspection,
     createTelegramLinkCode,
     deleteClient,
-    deleteBooking,
     changePassword,
     refreshActiveSessions,
     staffProfile,
@@ -1282,13 +1281,18 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     }
   };
 
-  const handleDeleteBooking = () => {
+  const handleCancelBooking = async () => {
     if (!selectedBooking) return;
+    if (selectedBooking.status === 'cancelled') return;
     const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
-    if (!window.confirm(`Удалить запись клиента "${name}"? Это действие нельзя отменить.`)) return;
-    deleteBooking(selectedBooking.id);
-    setShowEditModal(false);
-    setSelectedBooking(null);
+    if (!window.confirm(`Отменить запись клиента "${name}"? Она перейдёт в статус «Отменено».`)) return;
+    try {
+      await updateBooking(selectedBooking.id, { status: 'cancelled' });
+      setSelectedBooking((current) => (current ? { ...current, status: 'cancelled' } : null));
+      setShowEditModal(false);
+    } catch (error) {
+      setEditBookingError(error instanceof Error ? error.message : 'Не удалось отменить запись');
+    }
   };
 
   const handleAssignWorkers = async (notify: boolean) => {
@@ -1738,8 +1742,8 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               <div className="flex gap-1.5 mb-2">
                 {(['day', 'week', 'month', 'all', 'custom'] as const).map((p) => (
                   <button key={p} onClick={() => setPayrollPeriod(p)}
-                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors ${payrollPeriod === p ? 'text-white' : sub}`}
+                    style={{ background: payrollPeriod === p ? primary : 'transparent' }}>
                     {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Свой'}
                   </button>
                 ))}
@@ -3009,9 +3013,9 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               >
                 {editBookingSaving ? 'Сохраняем...' : editModalMode === 'reschedule' ? 'Перенести запись' : 'Сохранить'}
               </button>
-              {editModalMode !== 'reschedule' && (
-                <button onClick={handleDeleteBooking} className={`w-full mt-2 py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
-                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Удалить запись
+              {editModalMode !== 'reschedule' && selectedBooking?.status !== 'cancelled' && (
+                <button onClick={() => { void handleCancelBooking(); }} className={`w-full mt-2 py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
+                  <XCircle size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Отменить запись
                 </button>
               )}
             </motion.div>

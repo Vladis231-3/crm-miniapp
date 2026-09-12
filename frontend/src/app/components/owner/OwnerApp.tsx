@@ -5,7 +5,7 @@ import {
   Bell, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink,
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink, XCircle,
   LayoutDashboard, UsersRound, Settings2, FileChartColumn,
   ArrowLeftRight, TrendingDown, Crown, Split
 } from 'lucide-react';
@@ -697,7 +697,6 @@ export function OwnerApp() {
     markNotificationRead,
     addBooking,
     updateBooking,
-    deleteBooking,
     addBookingAdditionalService,
     updateBookingAdditionalService,
     removeBookingAdditionalService,
@@ -3791,13 +3790,19 @@ paymentSettled: false,
     }
   };
 
-  const handleDeleteOwnerBooking = () => {
+  const handleCancelOwnerBooking = async () => {
     if (!selectedBooking) return;
+    if (selectedBooking.status === 'cancelled') return;
     const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
-    if (!window.confirm(`Удалить запись клиента "${name}"? Это действие нельзя отменить.`)) return;
-    deleteBooking(selectedBooking.id);
-    setShowBookingDetail(false);
-    setSelectedBooking(null);
+    if (!window.confirm(`Отменить запись клиента "${name}"? Она перейдёт в статус «Отменена».`)) return;
+    try {
+      await updateBooking(selectedBooking.id, { status: 'cancelled' });
+      setSelectedBooking((current) => (current ? { ...current, status: 'cancelled' } : null));
+      setOwnerBookingEditMode(null);
+      setOwnerBookingEditError(null);
+    } catch (error) {
+      setOwnerBookingEditError(error instanceof Error ? error.message : 'Не удалось отменить запись');
+    }
   };
 
   const handleOpenOwnerAddService = () => {
@@ -4642,8 +4647,8 @@ paymentSettled: false,
               <div className="flex gap-1.5 mb-3">
                 {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                   <button key={p} onClick={() => setPayrollPeriod(p)}
-                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
+                    className={`flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors ${payrollPeriod === p ? 'text-white' : sub}`}
+                    style={{ background: payrollPeriod === p ? primary : 'transparent' }}>
                     {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                   </button>
                 ))}
@@ -4887,8 +4892,8 @@ paymentSettled: false,
                   <div className="flex gap-1 mb-3 flex-wrap">
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                       <button key={p} onClick={() => setOwnerSalaryPeriod(p)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                        style={{ background: ownerSalaryPeriod === p ? primary : 'transparent', color: ownerSalaryPeriod === p ? '#fff' : sub }}>
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${ownerSalaryPeriod === p ? 'text-white' : sub}`}
+                        style={{ background: ownerSalaryPeriod === p ? primary : 'transparent' }}>
                         {{ day: 'День', week: 'Неделя', month: 'Месяц', all: 'Всё', custom: 'Свои' }[p]}
                       </button>
                     ))}
@@ -4979,7 +4984,7 @@ paymentSettled: false,
                               </div>
                               <div className={`${glass} rounded-xl p-3`}>
                                 <div className={`text-[11px] ${sub} mb-1`}>К выплате за работу</div>
-                                <div className="text-sm font-semibold" style={{ color: (ps?.balance || 0) > 0 ? accent : sub }}>{(ps?.balance || 0).toLocaleString('ru')} ₽</div>
+                                <div className={`text-sm font-semibold ${(ps?.balance || 0) > 0 ? '' : sub}`} style={(ps?.balance || 0) > 0 ? { color: accent } : undefined}>{(ps?.balance || 0).toLocaleString('ru')} ₽</div>
                                 <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} заказов · {linked.complaintState.activeCount} жалоб</div>
                               </div>
                             </div>
@@ -5022,7 +5027,7 @@ paymentSettled: false,
                           <div className={`text-[11px] ${sub}`}>Выплачено</div>
                         </div>
                         <div className={`${glass} rounded-xl p-3 text-center`}>
-                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
+                          <div className={`text-sm font-semibold ${owner.balanceToPay > 0 ? '' : sub}`} style={owner.balanceToPay > 0 ? { color: '#22c55e' } : undefined}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Остаток</div>
                         </div>
                       </div>
@@ -5111,8 +5116,8 @@ paymentSettled: false,
                   <div className="flex gap-1.5 mb-2">
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                       <button key={p} onClick={() => setSalaryPeriod(p)}
-                        className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                        style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
+                        className={`flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors ${salaryPeriod === p ? 'text-white' : sub}`}
+                        style={{ background: salaryPeriod === p ? primary : 'transparent' }}>
                         {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                       </button>
                     ))}
@@ -5121,8 +5126,8 @@ paymentSettled: false,
                   <div className="flex gap-1.5">
                     {(['all', 'wash', 'detailing'] as const).map(s => (
                       <button key={s} onClick={() => setSalarySegment(s)}
-                        className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                        style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
+                        className={`flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors ${salarySegment === s ? 'text-white' : sub}`}
+                        style={{ background: salarySegment === s ? primary : 'transparent' }}>
                         {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
                       </button>
                     ))}
@@ -5171,7 +5176,7 @@ paymentSettled: false,
                       <div className={`text-[10px] ${sub}`}>Выплачено</div>
                     </div>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : sub }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
+                      <div className={`text-sm font-semibold ${salaryDetail.balanceToPay > 0 ? '' : sub}`} style={salaryDetail.balanceToPay > 0 ? { color: '#22c55e' } : undefined}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
                       <div className={`text-[10px] ${sub}`}>К выплате</div>
                     </div>
                   </div>
@@ -10283,9 +10288,11 @@ paymentSettled: false,
                     <AlertCircle size={14} strokeWidth={1.75} />{ownerBookingEditError}
                   </div>
                 )}
-                <button onClick={handleDeleteOwnerBooking} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
-                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Удалить запись
-                </button>
+                {selectedBooking?.status !== 'cancelled' && (
+                  <button onClick={() => { void handleCancelOwnerBooking(); }} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
+                    <XCircle size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Отменить запись
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>
