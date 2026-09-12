@@ -5,7 +5,7 @@ import {
   Bell, Plus, X, Check, TrendingUp, Users, Box,
   Settings, BarChart3, ChevronRight, Download, DollarSign, Package,
   AlertCircle, FileText, ArrowLeft, Building2, Sliders, Shield,
-  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink,
+  Globe, Save, Eye, EyeOff, CalendarDays, RefreshCw, Phone, Wallet, Edit3, Trash2, ChevronLeft, PiggyBank, Clock, Search, History, ChevronUp, ChevronDown, Archive, ExternalLink, XCircle,
   LayoutDashboard, UsersRound, Settings2, FileChartColumn,
   ArrowLeftRight, TrendingDown, Crown, Split
 } from 'lucide-react';
@@ -697,7 +697,6 @@ export function OwnerApp() {
     markNotificationRead,
     addBooking,
     updateBooking,
-    deleteBooking,
     addBookingAdditionalService,
     updateBookingAdditionalService,
     removeBookingAdditionalService,
@@ -3791,13 +3790,19 @@ paymentSettled: false,
     }
   };
 
-  const handleDeleteOwnerBooking = () => {
+  const handleCancelOwnerBooking = async () => {
     if (!selectedBooking) return;
+    if (selectedBooking.status === 'cancelled') return;
     const name = selectedBooking.clientName || `запись #${selectedBooking.id.slice(0, 6)}`;
-    if (!window.confirm(`Удалить запись клиента "${name}"? Это действие нельзя отменить.`)) return;
-    deleteBooking(selectedBooking.id);
-    setShowBookingDetail(false);
-    setSelectedBooking(null);
+    if (!window.confirm(`Отменить запись клиента "${name}"? Она перейдёт в статус «Отменена».`)) return;
+    try {
+      await updateBooking(selectedBooking.id, { status: 'cancelled' });
+      setSelectedBooking((current) => (current ? { ...current, status: 'cancelled' } : null));
+      setOwnerBookingEditMode(null);
+      setOwnerBookingEditError(null);
+    } catch (error) {
+      setOwnerBookingEditError(error instanceof Error ? error.message : 'Не удалось отменить запись');
+    }
   };
 
   const handleOpenOwnerAddService = () => {
@@ -10283,9 +10288,11 @@ paymentSettled: false,
                     <AlertCircle size={14} strokeWidth={1.75} />{ownerBookingEditError}
                   </div>
                 )}
-                <button onClick={handleDeleteOwnerBooking} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
-                  <Trash2 size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Удалить запись
-                </button>
+                {selectedBooking?.status !== 'cancelled' && (
+                  <button onClick={() => { void handleCancelOwnerBooking(); }} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
+                    <XCircle size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Отменить запись
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>
