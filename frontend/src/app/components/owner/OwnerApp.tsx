@@ -696,6 +696,7 @@ export function OwnerApp() {
     notifications,
     markAllNotificationsRead,
     markNotificationRead,
+    sendWorkerBroadcast,
     addBooking,
     updateBooking,
     addBookingAdditionalService,
@@ -753,6 +754,9 @@ export function OwnerApp() {
   const [page, setPage] = useState<OwnerPage>('dashboard');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [broadcastText, setBroadcastText] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showFinancePanel, setShowFinancePanel] = useState(false);
   const [showAddIncome, setShowAddIncome] = useState(false);
@@ -5260,15 +5264,27 @@ paymentSettled: false,
                   {/* Aggregate cards — кликабельны, открывают расшифровку */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <button type="button" onClick={() => setSalaryBreakdown('earned')} title="Заработано — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
-                      <div className="text-sm font-semibold">{salaryDetail.totalEarned.toLocaleString('ru')} ₽</div>
+                      <div className="text-sm font-semibold flex items-center justify-center gap-1">{salaryDetail.totalEarned.toLocaleString('ru')} ₽
+                        <span onClick={(e) => { e.stopPropagation(); document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+                          <EditAmountPencil primary={primary} size={10} title="Изменить сумму — премия/корректировка ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+                        </span>
+                      </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Заработано</div>
                     </button>
                     <button type="button" onClick={() => setSalaryBreakdown('paid')} title="Выплачено — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
-                      <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>
+                      <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽
+                        <span onClick={(e) => { e.stopPropagation(); document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+                          <EditAmountPencil primary={primary} size={10} title="Изменить сумму — выплата ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+                        </span>
+                      </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Выплачено</div>
                     </button>
                     <button type="button" onClick={() => setSalaryBreakdown('balance')} title="К выплате — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
-                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
+                      <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽
+                        <span onClick={(e) => { e.stopPropagation(); document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+                          <EditAmountPencil primary={primary} size={10} title="Изменить сумму — премия/штраф/списание ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+                        </span>
+                      </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>К выплате</div>
                     </button>
                   </div>
@@ -5362,7 +5378,7 @@ paymentSettled: false,
                   </div>
 
                   {/* Bonus form */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div id="salary-actions" className={`${glass} rounded-2xl p-4 mb-3`}>
                     <h3 className="font-semibold text-sm mb-3" style={{ color: '#22c55e' }}>Премия мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={bonusAmount}
@@ -5478,7 +5494,7 @@ paymentSettled: false,
                           bonus: '#22c55e', deduction: '#ef4444', fine: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
                           advance: '#f59e0b', adjustment: '#3b82f6',
                         };
-                        const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'fine' || e.kind === 'bonus';
+                        const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'fine' || e.kind === 'bonus' || e.kind === 'advance' || e.kind === 'adjustment';
                         // Legacy: старые штрафы хранятся как deduction — различаем по примечанию
                         const resolvedKind = e.kind === 'deduction' && /штраф/i.test(e.note || '') ? 'fine' : e.kind;
                         return (
@@ -5880,7 +5896,9 @@ paymentSettled: false,
                     </button>
                   </div>
                   <div className="flex justify-between py-2 text-sm">
-                    <span className={sub}>Баланс</span>
+                    <span className={`${sub} flex items-center gap-1.5`}>Баланс
+                      <EditAmountPencil primary={primary} size={11} title="Изменить сумму копилки" onClick={() => setPage('piggy-bank')} />
+                    </span>
                     <span className="font-semibold" style={{ color: piggyBankBalance >= 0 ? accent : '#FF6B6B' }}>{piggyBankBalance.toLocaleString('ru')} ₽</span>
                   </div>
                   {piggyBank.detailing && (
@@ -5905,7 +5923,9 @@ paymentSettled: false,
               {/* Доходы */}
               {reportFilteredIncomes.length > 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                  <div className={`text-xs ${sub} mb-3`}>ДОХОДЫ</div>
+                  <div className={`text-xs ${sub} mb-3 flex items-center gap-1.5`}>ДОХОДЫ
+                    <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить доход" onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                  </div>
                   <div className="space-y-2">
                     {reportFilteredIncomes.slice(0, 10).map(inc => (
                       <div key={inc.id} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
@@ -5913,7 +5933,10 @@ paymentSettled: false,
                           <div className="text-sm font-medium">{inc.source}</div>
                           <div className={`text-xs ${sub}`}>{inc.date}{inc.note ? ` · ${inc.note}` : ''}</div>
                         </div>
-                        <div className="font-semibold text-sm" style={{ color: primary }}>+{inc.amount.toLocaleString('ru')} ₽</div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="font-semibold text-sm" style={{ color: primary }}>+{inc.amount.toLocaleString('ru')} ₽</div>
+                          <EditAmountPencil primary={primary} size={11} title="Редактировать доход" onClick={() => openEditIncome(inc)} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -6179,16 +6202,26 @@ paymentSettled: false,
                     {/* Сводка */}
                     <div className={`${glass} rounded-2xl p-4 mb-3`}>
                       <div className="flex items-center justify-between mb-3">
-                        <span className={`text-xs font-medium ${sub}`}>КАССА ЗА ПЕРИОД</span>
+                        <span className={`text-xs font-medium ${sub} flex items-center gap-1.5`}>КАССА ЗА ПЕРИОД
+                          <EditAmountPencil primary={primary} size={11} title="Касса считается автоматически — скорректировать через доход/расход" onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                        </span>
                         <span className="text-xs font-semibold" style={{ color: s.cashBalance >= 0 ? '#10B981' : '#EF4444' }}>{fmt(s.cashBalance)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setMoneyFlowFilter('in')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.in}14` }}>
-                          <div className={`text-[11px] ${sub} mb-1`}>Пришло</div>
+                          <div className={`text-[11px] ${sub} mb-1 flex items-center gap-1.5`}>Пришло
+                            <span onClick={(e) => { e.stopPropagation(); setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }}>
+                              <EditAmountPencil primary={primary} size={10} title="Изменить сумму — добавить доход" onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                            </span>
+                          </div>
                           <div className="font-semibold text-base" style={{ color: kindColor.in }}>+{s.totalIn.toLocaleString('ru-RU')} ₽</div>
                         </button>
                         <button onClick={() => setMoneyFlowFilter('out')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.out}14` }}>
-                          <div className={`text-[11px] ${sub} mb-1`}>Вышло</div>
+                          <div className={`text-[11px] ${sub} mb-1 flex items-center gap-1.5`}>Вышло
+                            <span onClick={(e) => { e.stopPropagation(); setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }}>
+                              <EditAmountPencil primary={primary} size={10} title="Изменить сумму — добавить расход" onClick={() => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }} />
+                            </span>
+                          </div>
                           <div className="font-semibold text-base" style={{ color: kindColor.out }}>-{s.totalOut.toLocaleString('ru-RU')} ₽</div>
                         </button>
                       </div>
@@ -8487,7 +8520,17 @@ paymentSettled: false,
                   },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className="text-sm">{r.label}</span>
+                    <span className="text-sm flex items-center gap-1.5">{r.label}
+                      {r.label === 'Доп. доходы' && (
+                        <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить доход" onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                      )}
+                      {r.label === 'Расходы' && (
+                        <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить расход" onClick={() => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }} />
+                      )}
+                      {(r.label === 'Выручка' || r.label.startsWith('Прибыль')) && (
+                        <EditAmountPencil primary={primary} size={11} title={`${r.label} считается автоматически — скорректировать через доход`} onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                      )}
+                    </span>
                     <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
                   </div>
                 ))}
@@ -8893,6 +8936,22 @@ paymentSettled: false,
                 <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-2">
+                {!isAccountant && (
+                  <div className={`${glass} rounded-2xl p-3 mb-2`}>
+                    <div className="text-sm font-semibold mb-1">Сообщение всем мастерам 📢</div>
+                    <div className={`text-xs ${sub} mb-2`}>Увидят все мастера в миниаппе и в Telegram. Каждый сможет нажать «Взять в работу».</div>
+                    <textarea value={broadcastText} onChange={e => { setBroadcastText(e.target.value); setBroadcastError(null); }} placeholder="Например: помойте бокс после себя" rows={2} maxLength={2000} className={inputCls} />
+                    {broadcastError && <div className="text-xs mt-1" style={{ color: '#FF6B6B' }}>{broadcastError}</div>}
+                    <button disabled={broadcastSending || !broadcastText.trim()} onClick={() => {
+                      const text = broadcastText.trim();
+                      if (!text) { setBroadcastError('Введите текст сообщения'); return; }
+                      setBroadcastSending(true); setBroadcastError(null);
+                      sendWorkerBroadcast(text).then(res => { setBroadcastText(''); setBottomToast(res.message + '. Мастера увидят в ТГ и в приложении'); }).catch(e => setBroadcastError(e instanceof Error ? e.message : 'Не удалось отправить')).finally(() => setBroadcastSending(false));
+                    }} className="w-full mt-2 py-2.5 rounded-xl font-semibold text-white disabled:opacity-50 text-sm" style={{ background: primary }}>
+                      {broadcastSending ? 'Отправляем...' : 'Отправить всем мастерам'}
+                    </button>
+                  </div>
+                )}
                 {ownerNotifications.length === 0 ? (
                   <p className={`text-sm ${sub} text-center py-8`}>Нет уведомлений</p>
                 ) : ownerNotifications.map(n => (
@@ -9268,19 +9327,27 @@ paymentSettled: false,
                 {/* Сводка */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Выручка</div>
+                    <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Выручка
+                      <EditAmountPencil primary={primary} size={10} title="Выручка считается из записей — скорректировать через доход" onClick={() => { setShowFinancePanel(false); setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                    </div>
                     <div className="font-bold text-lg" style={{ color: accent }}>{totalRevenue.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Расходы</div>
+                    <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Расходы
+                      <EditAmountPencil primary={primary} size={10} title="Изменить сумму — добавить расход" onClick={() => { setShowFinancePanel(false); setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }} />
+                    </div>
                     <div className="font-bold text-lg" style={{ color: '#FF6B6B' }}>{totalExpenses.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
+                    <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Доп. доходы
+                      <EditAmountPencil primary={primary} size={10} title="Изменить сумму — добавить доход" onClick={() => { setShowFinancePanel(false); setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                    </div>
                     <div className="font-bold text-lg" style={{ color: primary }}>{totalIncomes.toLocaleString('ru')} ₽</div>
                   </div>
                   <div className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
+                    <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Прибыль
+                      <EditAmountPencil primary={primary} size={10} title="Прибыль считается автоматически — скорректировать через доход" onClick={() => { setShowFinancePanel(false); setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                    </div>
                     <div className="font-bold text-lg" style={{ color: profit >= 0 ? accent : '#FF6B6B' }}>
                       {Math.abs(profit).toLocaleString('ru')} ₽{profit < 0 ? ' (убыток)' : ''}
                     </div>
@@ -9291,7 +9358,9 @@ paymentSettled: false,
                 <div className={`${glass} rounded-2xl p-3 flex items-center justify-between cursor-pointer`} onClick={() => { setShowFinancePanel(false); setPage('piggy-bank'); }}>
                   <div className="flex items-center gap-2">
                     <PiggyBank size={18} strokeWidth={1.75} style={{ color: accent }} />
-                    <span className="text-sm font-medium">Копилка</span>
+                    <span className="text-sm font-medium flex items-center gap-1.5">Копилка
+                      <EditAmountPencil primary={primary} size={10} title="Изменить сумму копилки" onClick={() => { setShowFinancePanel(false); setPage('piggy-bank'); }} />
+                    </span>
                   </div>
                   <div className="font-bold text-sm" style={{ color: (piggyBank?.combinedBalance ?? piggyBankBalance) >= 0 ? accent : '#FF6B6B' }}>
                     {(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
@@ -10674,7 +10743,10 @@ paymentSettled: false,
                           <div className="text-sm font-medium truncate">{expense.title}</div>
                           <div className={`text-xs ${sub}`}>{expense.category} · {expense.date}</div>
                         </div>
-                        <div className="font-semibold text-sm shrink-0" style={{ color: '#FF6B6B' }}>-{expense.amount.toLocaleString('ru')} ₽</div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="font-semibold text-sm" style={{ color: '#FF6B6B' }}>-{expense.amount.toLocaleString('ru')} ₽</div>
+                          <EditAmountPencil primary={primary} size={11} title="Редактировать расход" onClick={() => { setKpiModal(null); openEditExpense(expense); }} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -10714,7 +10786,17 @@ paymentSettled: false,
                     { label: 'Прибыль за неделю', value: kpiModal.profit, color: kpiModal.color },
                   ].map(row => (
                     <div key={row.label} className={`${glass} rounded-xl p-3 flex justify-between items-center`}>
-                      <div className="text-sm">{row.label}</div>
+                      <div className="text-sm flex items-center gap-1.5">{row.label}
+                        {row.label.includes('Доходы') && (
+                          <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить доход" onClick={() => { setKpiModal(null); setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                        )}
+                        {row.label.includes('Расходы') && (
+                          <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить расход" onClick={() => { setKpiModal(null); setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }} />
+                        )}
+                        {(row.label.includes('Выручка') || row.label.includes('Прибыль')) && (
+                          <EditAmountPencil primary={primary} size={11} title={`${row.label} считается автоматически — скорректировать через доход`} onClick={() => { setKpiModal(null); setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                        )}
+                      </div>
                       <div className="font-semibold text-sm" style={{ color: row.color }}>
                         {row.value >= 0 ? '+' : ''}{row.value.toLocaleString('ru')} ₽
                       </div>

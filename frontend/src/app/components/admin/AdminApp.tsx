@@ -1740,11 +1740,11 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
               <h2 className="font-semibold mb-1">Контроль зарплат мастеров</h2>
               <p className={`text-xs ${sub} mb-2`}>Администратор может менять процент, оклад, активность и вести операции по зарплате мастеров с примечанием</p>
-              <div className="flex gap-1.5 mb-2">
+              <div className="flex gap-1 rounded-xl p-1 mb-2" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
                 {(['day', 'week', 'month', 'all', 'custom'] as const).map((p) => (
-                  <button key={p} onClick={() => setPayrollPeriod(p)}
-                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
+                  <button key={p} onClick={() => setPayrollPeriod(p)} aria-pressed={payrollPeriod === p}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${payrollPeriod === p ? '' : sub}`}
+                    style={payrollPeriod === p ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
                     {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Свой'}
                   </button>
                 ))}
