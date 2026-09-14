@@ -555,7 +555,7 @@ export function OwnerPiggyBankScreen({
                         <div className={`w-2 h-2 rounded-full ${isDeposit ? 'bg-[var(--status-success)]' : 'bg-[var(--status-danger)]'}`} />
                         <span className="text-sm font-medium">{txLabel}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${sub}`} style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
-                          {tx.resourceGroup === 'detailing' ? '✨' : '🚗'}
+                          {tx.resourceGroup === 'detailing' ? '✨ детейлинг' : tx.resourceGroup === 'wash' ? '🚗 мойка' : 'общая'}
                         </span>
                         {booking && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded ${ownerStatusBadge(booking.status)}`}>

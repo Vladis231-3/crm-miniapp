@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-14 06:19 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-14 06:33 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **530**
-- Строк кода: **211 088**
+- Строк кода: **211 097**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 179, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -4358,20 +4358,20 @@ concept1.0/
 
 - `ServiceSearchInput` (стр. 15)
 
-### frontend/src/app/components/shared/ServiceSearchSelect.tsx (176 строк)
+### frontend/src/app/components/shared/ServiceSearchSelect.tsx (185 строк)
 
 - `ServiceSearchSelect` (стр. 24)
-- `containerRef` (стр. 41) — локальный
-- `inputRef` (стр. 42) — локальный
-- `selectedService` (стр. 44) — локальный
-- `filtered` (стр. 46) — локальный
-- `handleClickOutside` (стр. 51) — локальный
-- `handleSelect` (стр. 60) — локальный
-- `handleInputChange` (стр. 66) — локальный
-- `handleInputFocus` (стр. 71) — локальный
-- `q` (стр. 114) — локальный
-- `q` (стр. 151) — локальный
-- `CheckIcon` (стр. 170) — локальный
+- `containerRef` (стр. 45) — локальный
+- `inputRef` (стр. 46) — локальный
+- `selectedService` (стр. 48) — локальный
+- `filtered` (стр. 50) — локальный
+- `handleClickOutside` (стр. 55) — локальный
+- `handleSelect` (стр. 64) — локальный
+- `handleInputChange` (стр. 70) — локальный
+- `handleInputFocus` (стр. 75) — локальный
+- `q` (стр. 123) — локальный
+- `q` (стр. 160) — локальный
+- `CheckIcon` (стр. 179) — локальный
 
 ### frontend/src/app/components/shared/Skeleton.tsx (31 строк)
 
@@ -5136,6 +5136,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-09-14 09:33)
+- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-14 09:32)
 - `frontend/src/app/components/worker/shared/CarSearch.tsx` (2026-09-14 09:19)
 - `backend/app/main.py` (2026-09-14 09:18)
 - `backend/tests/test_booking_logic.py` (2026-09-14 09:09)
@@ -5149,5 +5151,3 @@ concept1.0/
 - `backend/app/exports.py` (2026-09-14 09:02)
 - `scripts/.project-map-watch.lock` (2026-09-14 08:47)
 - `backend/tests/test_worker_car_search.py` (2026-09-13 09:20)
-- `backend/app/security.py` (2026-09-13 09:20)
-- `frontend/src/app/components/atmosfera/StatTile.tsx` (2026-09-13 09:20)
