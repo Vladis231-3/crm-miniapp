@@ -13,6 +13,7 @@ import {
 } from '../../context/AppContext';
 import { formatDate, parseFlexibleDate } from '../../utils/date';
 import { normalizePlateInput, type PlateType } from '../../utils/validation';
+import { EditAmountPencil } from '../atmosfera/EditAmountPencil';
 
 interface DepositPanelProps {
 
@@ -580,11 +581,13 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <div className="rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                  <div className={`text-xs ${sub}`}>Баланс депозита</div>
+                  <div className={`text-xs ${sub} flex items-center gap-1.5`}>Баланс депозита
+                    <EditAmountPencil primary={primary} size={11} title="Изменить сумму (коррекция баланса)" onClick={() => { setAmountDraft(''); setNoteDraft(''); setSheet('adjust'); }} />
+                  </div>
                   <div className={`text-lg font-semibold ${overview.balance < 0 ? 'text-red-500' : ''}`}>{formatMoney(overview.balance)}</div>
                   {overview.depositMinBalance > 0 && (
-                    <div className={`text-[10px] ${overview.needsTopUp ? 'text-[#F59E0B]' : sub}`}>
-                      порог {formatMoney(overview.depositMinBalance)}
+                    <div className={`text-[10px] ${overview.needsTopUp ? 'text-[#F59E0B]' : sub} flex items-center gap-1.5`}>порог {formatMoney(overview.depositMinBalance)}
+                      <EditAmountPencil primary={primary} size={10} title="Изменить порог (настройки депозита)" onClick={() => openActivateFor(selectedClient)} />
                     </div>
                   )}
                 </div>
@@ -596,12 +599,16 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
                   </div>
                 </div>
                 <div className="rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                  <div className={`text-xs ${sub}`}>Абонплата / мес</div>
+                  <div className={`text-xs ${sub} flex items-center gap-1.5`}>Абонплата / мес
+                    <EditAmountPencil primary={primary} size={11} title="Изменить абонплату (настройки депозита)" onClick={() => openActivateFor(selectedClient)} />
+                  </div>
                   <div className="text-sm font-semibold">{formatMoney(overview.monthSubscription)}</div>
                   <div className={`text-[10px] ${sub}`}>день {overview.depositBillingDay}</div>
                 </div>
                 <div className="rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
-                  <div className={`text-xs ${sub}`}>К оплате за месяц</div>
+                  <div className={`text-xs ${sub} flex items-center gap-1.5`}>К оплате за месяц
+                    <EditAmountPencil primary={primary} size={11} title="К оплате считается автоматически — изменить мойки/абонплату" onClick={() => openWashFor(selectedClient)} />
+                  </div>
                   <div className={`text-sm font-semibold ${overview.monthPayable < 0 ? 'text-red-500' : ''}`}>{formatMoney(overview.monthPayable)}</div>
                   {overview.planWashLimit > 0 && (
                     <div className={`text-[10px] ${overview.washesLeft > 0 ? sub : 'text-[#F59E0B]'}`}>

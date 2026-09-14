@@ -4,6 +4,7 @@ import { AlertCircle, Box, History, Package, Plus, X } from 'lucide-react';
 import { apiBlobUrl } from '../../../api';
 import { useApp, type AdminShiftInspection, type ShiftChecklist, type StockWriteOff, type StockCategory } from '../../../context/AppContext';
 import { Button, Dialog, FormRow, Input, Money, Sheet, toast } from '../../atmosfera';
+import { EditAmountPencil } from '../../atmosfera/EditAmountPencil';
 
 const STOCK_UNITS = ['л', 'кг', 'шт', 'фл', 'м', 'п.м', 'уп'];
 
@@ -265,7 +266,9 @@ export function OwnerStockPage({ shiftChecklists, adminShiftInspections }: Owner
         </div>
       </div>
       <div className={`${glass} rounded-2xl p-3 mb-4 flex justify-between items-center`}>
-        <div><div className={`text-xs ${sub}`}>Стоимость склада</div><div className="font-bold" style={{ color: 'var(--status-success)' }}><Money amount={totalStockValue} /></div></div>
+        <div><div className={`text-xs ${sub} flex items-center gap-1.5`}>Стоимость склада
+          <EditAmountPencil size={11} title="Изменить сумму — добавить/списать товар" onClick={() => setShowAddStock(true)} />
+        </div><div className="font-bold" style={{ color: 'var(--status-success)' }}><Money amount={totalStockValue} /></div></div>
         <div className="text-right"><div className={`text-xs ${sub}`}>Позиций</div><div className="font-bold">{stockItems.length}</div></div>
       </div>
       {categoryTree.length > 0 ? renderStockTree(categoryTree) : null}

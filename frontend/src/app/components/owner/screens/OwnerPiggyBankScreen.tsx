@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, Download, Edit3, Minus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useApp, type Booking } from '../../../context/AppContext';
-import { toast } from '../../atmosfera';
+import { toast, EditAmountPencil } from '../../atmosfera';
 
 type PiggyTab = 'all' | 'wash' | 'detailing';
 
@@ -177,11 +177,16 @@ export function OwnerPiggyBankScreen({
         <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
           <div className={`text-xs ${sub} mb-1 flex items-center justify-center gap-2`}>
             {tabLabel}
-            {piggyTab !== 'all' && (
+            {piggyTab !== 'all' ? (
               <button onClick={() => onOpenAdjust(piggyTab)} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
                 style={{ background: `${primary}20`, color: primary }} title="Изменить сумму">
                 <Edit3 size={12} strokeWidth={1.75} aria-hidden />
               </button>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <EditAmountPencil primary={primary} title="Изменить сумму · 🚗 Мойка" onClick={() => onOpenAdjust('wash')} />
+                <EditAmountPencil primary={primary} title="Изменить сумму · ✨ Детейлинг" onClick={() => onOpenAdjust('detailing')} />
+              </span>
             )}
           </div>
           <div className="font-bold text-3xl tabular-nums" style={{ color: tabBalance >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
@@ -275,7 +280,10 @@ export function OwnerPiggyBankScreen({
           {/* Total balance */}
           <div className={`${glass} rounded-2xl p-4 mb-4`}>
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Общий баланс копилки</span>
+              <span className="text-sm font-medium flex items-center gap-1.5">Общий баланс копилки
+                <EditAmountPencil primary={primary} title="Изменить сумму · 🚗 Мойка" onClick={() => onOpenAdjust('wash')} />
+                <EditAmountPencil primary={primary} title="Изменить сумму · ✨ Детейлинг" onClick={() => onOpenAdjust('detailing')} />
+              </span>
               <span className="font-bold text-lg tabular-nums" style={{ color: (piggyBank?.combinedBalance ?? piggyBankBalance) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                 {(piggyBank?.combinedBalance ?? piggyBankBalance).toLocaleString('ru')} ₽
               </span>
@@ -341,7 +349,9 @@ export function OwnerPiggyBankScreen({
             <span className={sub}>Доп. доходы</span><span className="font-semibold tabular-nums" style={{ color: primary }}>+{(piggyBank.washIncomes ?? 0).toLocaleString('ru')} ₽</span>
           </div>
           <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-            <span>🏦 Остаток в копилке</span>
+            <span className="flex items-center gap-1.5">🏦 Остаток в копилке
+              <EditAmountPencil primary={primary} title="Изменить сумму · 🚗 Мойка" onClick={() => onOpenAdjust('wash')} />
+            </span>
             <span className="tabular-nums" style={{ color: (piggyBank.remainingInPiggyBank ?? 0) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
               {(piggyBank.remainingInPiggyBank ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.remainingInPiggyBank ?? 0).toLocaleString('ru')} ₽
             </span>
@@ -386,7 +396,9 @@ export function OwnerPiggyBankScreen({
             <span className={sub}>Доп. доходы</span><span className="font-semibold tabular-nums" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} ₽</span>
           </div>
           <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-            <span>🏦 Нетто в копилке</span>
+            <span className="flex items-center gap-1.5">🏦 Нетто в копилке
+              <EditAmountPencil primary={primary} title="Изменить сумму · ✨ Детейлинг" onClick={() => onOpenAdjust('detailing')} />
+            </span>
             <span className="tabular-nums" style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
               {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
             </span>

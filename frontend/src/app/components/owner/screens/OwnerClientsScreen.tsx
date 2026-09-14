@@ -7,7 +7,7 @@ import { SourceBadge } from '../../shared/SourceBadge';
 import { REFERRAL_SOURCES } from '../../../constants/referralSources';
 import { isClientCardIncomplete, normalizePlateInput, normalizeVehicleInput, type PlateType } from '../../../utils/validation';
 import { parseFlexibleDate } from '../../../utils/date';
-import { Button, toast } from '../../atmosfera';
+import { Button, toast, EditAmountPencil } from '../../atmosfera';
 
 type OwnerClientSearchMode = 'phone' | 'name' | 'plate';
 
@@ -475,11 +475,22 @@ export function OwnerClientsScreen({
               {[
                 { label: 'Всего записей', value: selectedSettingsClientBookings.length },
                 { label: 'Завершённых', value: selectedSettingsClientCompletedCount },
-                { label: 'Потрачено', value: `${selectedSettingsClientSpent.toLocaleString('ru')} ₽` },
-                { label: 'Долг', value: `${selectedSettingsClient.debtBalance.toLocaleString('ru')} ₽` },
+                { label: 'Потрачено', value: `${selectedSettingsClientSpent.toLocaleString('ru')} ₽`, hint: 'Считается из завершённых записей — правится ценой записи в истории ниже' },
+                { label: 'Долг', value: `${selectedSettingsClient.debtBalance.toLocaleString('ru')} ₽`, editable: true },
               ].map((item) => (
                 <div key={item.label} className={`${isDark ? 'bg-white/5' : 'bg-black/3'} rounded-xl p-3`}>
-                  <div className="font-semibold">{item.value}</div>
+                  <div className="font-semibold flex items-center gap-1.5">{item.value}
+                    {(item as any).editable ? (
+                      <EditAmountPencil primary={primary} size={11} title="Изменить долг клиента" onClick={() => {
+                        setEditingSettingsClientCard(true);
+                        setTimeout(() => document.getElementById('client-debt-input')?.focus(), 50);
+                      }} />
+                    ) : (item as any).hint ? (
+                      <EditAmountPencil primary={primary} size={11} title={(item as any).hint} onClick={() => {
+                        setClientHistoryServiceFilter('');
+                      }} />
+                    ) : null}
+                  </div>
                   <div className={`text-xs ${sub}`}>{item.label}</div>
                 </div>
               ))}
@@ -521,6 +532,7 @@ export function OwnerClientsScreen({
               <div>
                 <label className={`text-xs ${sub} block mb-1`}>Долг клиента</label>
                 <input
+                  id="client-debt-input"
                   className={inputCls}
                   type="number"
                   placeholder="0"

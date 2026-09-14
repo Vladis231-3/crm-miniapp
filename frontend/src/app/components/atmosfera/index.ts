@@ -8,6 +8,7 @@ export { Dialog, type DialogProps } from './Dialog';
 export { FormRow, type FormRowProps } from './FormRow';
 export { Input, Textarea, type InputProps, type TextareaProps } from './Input';
 export { Money, type MoneyProps } from './Money';
+export { EditAmountPencil } from './EditAmountPencil';
 export { SectionHeader, type SectionHeaderProps } from './SectionHeader';
 export {
   Sheet,
