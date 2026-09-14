@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-14 06:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-14 06:19 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **530**
-- Строк кода: **211 048**
+- Строк кода: **211 088**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 179, `.ts`: 37, `.tsx`: 306
 
 ## Архитектура
@@ -931,7 +931,7 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1817)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1871)
 
-### backend/app/main.py (24995 строк)
+### backend/app/main.py (25007 строк)
 
 Роуты (140):
 
@@ -1016,66 +1016,66 @@ concept1.0/
   `GET /api/worker/shift-attendance` -> `get_own_shift_attendance` (декоратор: стр. 18241)
   `GET /api/worker/calendar` -> `get_worker_calendar_bookings` (декоратор: стр. 18309)
   `GET /api/worker/cars/search` -> `search_worker_cars` (декоратор: стр. 18488)
-  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 18609)
-  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 18759)
-  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 18901)
-  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 19047)
-  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 19101)
-  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 19177)
-  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 19235)
-  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 19283)
-  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 19357)
-  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 19381)
-  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 19441)
-  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 19483)
-  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 19507)
-  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 19531)
-  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 19566)
-  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 19637)
-  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 19735)
-  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 19754)
-  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 19791)
-  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 19826)
-  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 19852)
-  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 19885)
-  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 19897)
-  `GET /api/cron/google-sync` -> `run_google_calendar_sync_cron` (декоратор: стр. 19921)
-  `GET /api/cron/reminders` -> `run_reminders_cron` (декоратор: стр. 19946)
-  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 19978)
-  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 20036)
-  `GET /api/cron/reports` -> `run_reports_cron` (декоратор: стр. 20055)
-  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 20101)
-  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 20137)
-  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 20240)
-  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 20340)
-  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 20409)
-  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 20479)
-  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 20760)
-  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 20921)
-  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 21011)
-  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 21236)
-  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 21324)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 21498)
-  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 21815)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 22358)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 22372)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 22761)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 23210)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 23618)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 23879)
-  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 24129)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 24156)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 24408)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 24546)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 24606)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 24800)
-  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 24814)
-  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 24829)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 24881)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 24893)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 24917)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 24925)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 24938)
+  `POST /api/penalties` -> `create_penalty` (декоратор: стр. 18621)
+  `POST /api/penalties/{penalty_id}/revoke` -> `revoke_penalty` (декоратор: стр. 18771)
+  `POST /api/workers/{worker_id}/penalties/revoke-all` -> `revoke_all_worker_penalties` (декоратор: стр. 18913)
+  `POST /api/telegram/link-code` -> `generate_telegram_link_code` (декоратор: стр. 19059)
+  `PUT /api/settings/services` -> `save_services` (декоратор: стр. 19113)
+  `PUT /api/settings/boxes` -> `save_boxes` (декоратор: стр. 19189)
+  `PUT /api/settings/schedule` -> `save_schedule` (декоратор: стр. 19247)
+  `PUT /api/settings/admin/profile` -> `save_admin_profile` (декоратор: стр. 19295)
+  `PUT /api/settings/admin/notifications` -> `save_admin_notifications` (декоратор: стр. 19369)
+  `PUT /api/settings/workers/{worker_id}/profile` -> `save_worker_profile` (декоратор: стр. 19393)
+  `PUT /api/settings/workers/{worker_id}/notifications` -> `save_worker_notifications` (декоратор: стр. 19453)
+  `PUT /api/settings/owner/company` -> `save_owner_company` (декоратор: стр. 19495)
+  `PUT /api/settings/owner/notifications` -> `save_owner_notifications` (декоратор: стр. 19519)
+  `PUT /api/settings/owner/integrations` -> `save_owner_integrations` (декоратор: стр. 19543)
+  `GET /api/owner/integrations/google/auth-url` -> `get_google_calendar_auth_url` (декоратор: стр. 19578)
+  `GET /api/owner/integrations/google/callback` -> `google_calendar_callback` (декоратор: стр. 19649)
+  `POST /api/owner/integrations/google/disconnect` -> `disconnect_google_calendar` (декоратор: стр. 19747)
+  `GET /api/owner/integrations/google/status` -> `get_google_calendar_status` (декоратор: стр. 19766)
+  `POST /api/owner/integrations/google/invites` -> `create_google_calendar_invite` (декоратор: стр. 19803)
+  `DELETE /api/owner/integrations/google/connections/{connection_id}` -> `delete_google_calendar_connection` (декоратор: стр. 19838)
+  `PUT /api/owner/integrations/google/credentials` -> `save_google_calendar_credentials` (декоратор: стр. 19864)
+  `DELETE /api/owner/integrations/google/credentials` -> `delete_google_calendar_credentials` (декоратор: стр. 19897)
+  `POST /api/owner/integrations/google/sync` -> `sync_google_calendar_now` (декоратор: стр. 19909)
+  `GET /api/cron/google-sync` -> `run_google_calendar_sync_cron` (декоратор: стр. 19933)
+  `GET /api/cron/reminders` -> `run_reminders_cron` (декоратор: стр. 19958)
+  `POST /api/owner/inactive-clients/remind-admin` -> `remind_admin_about_inactive_clients` (декоратор: стр. 19990)
+  `POST /api/owner/reminders/dispatch` -> `dispatch_owner_booking_reminders` (декоратор: стр. 20048)
+  `GET /api/cron/reports` -> `run_reports_cron` (декоратор: стр. 20067)
+  `PUT /api/settings/owner/security` -> `save_owner_security` (декоратор: стр. 20113)
+  `PUT /api/workers/settings` -> `save_worker_settings` (декоратор: стр. 20149)
+  `GET /api/admin/workers/payroll` -> `get_admin_workers_payroll` (декоратор: стр. 20252)
+  `PUT /api/admin/workers/payroll` -> `save_admin_worker_payroll` (декоратор: стр. 20352)
+  `GET /api/owner/outsource/payroll` -> `get_owner_outsource_payroll` (декоратор: стр. 20421)
+  `POST /api/payroll/entries` -> `create_payroll_entry` (декоратор: стр. 20491)
+  `PUT /api/payroll/entries/{entry_id}` -> `update_payroll_entry` (декоратор: стр. 20772)
+  `DELETE /api/payroll/entries/{entry_id}` -> `delete_payroll_entry` (декоратор: стр. 20933)
+  `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 21023)
+  `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 21248)
+  `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 21336)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 21510)
+  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 21827)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 22370)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 22384)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 22773)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 23222)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 23630)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 23891)
+  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 24141)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 24168)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 24420)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 24558)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 24618)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 24812)
+  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 24826)
+  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 24841)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 24893)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 24905)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 24929)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 24937)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 24950)
 ```
 
 Классы и функции (273):
@@ -4454,13 +4454,20 @@ concept1.0/
 - `TaskCard` (стр. 148) — локальный
 - `myExtras` (стр. 149) — локальный
 
-### frontend/src/app/components/worker/shared/CarSearch.tsx (154 строк)
+### frontend/src/app/components/worker/shared/CarSearch.tsx (182 строк)
 
-- `CarSearch` (стр. 20)
-- `isMine` (стр. 26) — локальный
-- `myResults` (стр. 31) — локальный
-- `timer` (стр. 36) — локальный
-- `params` (стр. 38) — локальный
+- `CarSearch` (стр. 22)
+- `isMainParticipant` (стр. 28) — локальный
+- `myExtras` (стр. 30) — локальный
+- `isMine` (стр. 32) — локальный
+- `participationLabel` (стр. 33) — локальный
+- `isMain` (стр. 34) — локальный
+- `hasExtras` (стр. 35) — локальный
+- `myResults` (стр. 43) — локальный
+- `timer` (стр. 48) — локальный
+- `params` (стр. 50) — локальный
+- `extras` (стр. 130) — локальный
+- `isMain` (стр. 131) — локальный
 
 ### frontend/src/app/components/worker/shared/EarningsCalendar.tsx (138 строк)
 
@@ -5129,6 +5136,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/worker/shared/CarSearch.tsx` (2026-09-14 09:19)
+- `backend/app/main.py` (2026-09-14 09:18)
 - `backend/tests/test_booking_logic.py` (2026-09-14 09:09)
 - `backend/tests/test_money_fixes.py` (2026-09-14 09:09)
 - `frontend/src/app/components/admin/screens/AdminPayrollPage.tsx` (2026-09-14 09:05)
@@ -5138,9 +5147,7 @@ concept1.0/
 - `frontend/src/app/context/AppContext.tsx` (2026-09-14 09:03)
 - `backend/app/schemas.py` (2026-09-14 09:03)
 - `backend/app/exports.py` (2026-09-14 09:02)
-- `backend/app/main.py` (2026-09-14 09:02)
 - `scripts/.project-map-watch.lock` (2026-09-14 08:47)
-- `frontend/src/app/components/worker/shared/CarSearch.tsx` (2026-09-13 09:20)
 - `backend/tests/test_worker_car_search.py` (2026-09-13 09:20)
 - `backend/app/security.py` (2026-09-13 09:20)
 - `frontend/src/app/components/atmosfera/StatTile.tsx` (2026-09-13 09:20)

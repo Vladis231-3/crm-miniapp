@@ -18530,16 +18530,27 @@ def search_worker_cars(
     )
 
     normalized = _search_text_normalize(q)
+    date_filter = date.strip() if date and date.strip() else ""
     if normalized:
-        pass
-    elif date and date.strip():
-        query = query.where(Booking.date == date.strip())
+        # Поиск только по СВОИМ авто мастера: основная услуга ИЛИ доп. услуга
+        # (фильтр OR выше). Дата при наличии уточняет поиск, а не игнорируется.
+        # Текстовый фильтр — в Python (нормализация номеров), поэтому сначала
+        # забираем все свои записи (без лимита до фильтра), затем режем выдачу.
+        if date_filter:
+            query = query.where(Booking.date == date_filter)
+    elif date_filter:
+        query = query.where(Booking.date == date_filter)
     else:
         query = query.where(Booking.date == datetime.now().strftime("%d.%m.%Y"))
 
-    bookings = db.scalars(
-        query.order_by(Booking.date.desc(), Booking.time.desc()).limit(500)
-    ).all()
+    if normalized:
+        bookings = db.scalars(
+            query.order_by(Booking.date.desc(), Booking.time.desc())
+        ).all()
+    else:
+        bookings = db.scalars(
+            query.order_by(Booking.date.desc(), Booking.time.desc()).limit(500)
+        ).all()
 
     if normalized:
         plate_pattern = _search_plate_normalize(normalized)
@@ -18550,6 +18561,7 @@ def search_worker_cars(
             or normalized in _search_text_normalize(booking.car or "")
             or normalized in _search_text_normalize(booking.client_name or "")
         ]
+        bookings = bookings[:50]
 
     return [
         WorkerCalendarBookingPayload(
