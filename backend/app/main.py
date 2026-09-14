@@ -327,6 +327,10 @@ from .schemas import (
 
     ReadAllNotificationsRequest,
 
+    WorkerBroadcastRequest,
+
+    WorkerBroadcastResponse,
+
     SchedulePayload,
 
     ServicePayload,
@@ -1706,17 +1710,37 @@ def _apply_runtime_migrations() -> None:
                 "ALTER TABLE piggy_bank_transactions ADD COLUMN request_key VARCHAR(64)"
             )
         piggy_columns.add("request_key")
-    with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_expense_id "
-            "ON piggy_bank_transactions (expense_id)"
-        )
-        connection.exec_driver_sql(
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_request_key "
-            "ON piggy_bank_transactions (request_key)"
-        )
-        # Link only exact one-to-one legacy candidates; ambiguous pairs stay untouched.
-        connection.execute(text("""
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_expense_id "
+                "ON piggy_bank_transactions (expense_id)"
+            )
+            connection.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_piggy_bank_transactions_request_key "
+                "ON piggy_bank_transactions (request_key)"
+            )
+    except Exception:
+        # Параллельные cold start (serverless) могут конфликтовать на DDL —
+        # это не должно ронять старт приложения, повтор будет на следующем старте.
+        logger.warning("piggy-bank indexes creation skipped", exc_info=True)
+    # Link only exact one-to-one legacy candidates; ambiguous pairs stay untouched.
+    # Бэкфилл выполняется только при наличии несвязанных legacy-строк: в устоявшемся
+    # состоянии это дешёвый SELECT без RowExclusiveLock, поэтому параллельные старты
+    # не дедлокаются (см. DeadlockDetected на piggy_bank_transactions, 10.09.2026).
+    # Конфликт при реальном бэкфилле — warning, повтор на следующем старте.
+    try:
+        with engine.begin() as connection:
+            if engine.dialect.name == "postgresql":
+                connection.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+            has_unlinked = connection.execute(
+                text(
+                    "SELECT 1 FROM piggy_bank_transactions "
+                    "WHERE transaction_type = 'expense' AND expense_id IS NULL LIMIT 1"
+                )
+            ).first()
+            if has_unlinked is not None:
+                connection.execute(text("""
             UPDATE piggy_bank_transactions AS p
             SET expense_id = (
                 SELECT e.id FROM expenses AS e
@@ -1744,6 +1768,8 @@ def _apply_runtime_migrations() -> None:
                     AND p2.amount = p.amount
               )
         """))
+    except Exception:
+        logger.warning("piggy-bank expense backfill skipped", exc_info=True)
 
     client_columns = {column["name"] for column in inspector.get_columns("clients")}
 
@@ -14493,6 +14519,111 @@ def mark_all_notifications_read(
 
 
 
+
+
+def _active_master_recipients(db: Session) -> list[StaffUser]:
+    return list(db.scalars(select(StaffUser).where(StaffUser.active.is_(True), or_(StaffUser.role == "worker", _owner_master_condition())).order_by(StaffUser.name.asc(), StaffUser.id.asc())).all())
+
+
+@app.post("/api/broadcasts/workers", response_model=WorkerBroadcastResponse)
+def broadcast_to_workers(payload: WorkerBroadcastRequest, session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> WorkerBroadcastResponse:
+    if session_data["role"] not in {"owner", "admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    text = (payload.message or "").strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Пустое сообщение")
+    if len(text) > 2000:
+        raise HTTPException(status_code=422, detail="Сообщение слишком длинное (макс. 2000)")
+    sender = str(session_data.get("displayName") or "Владелец").strip() or "Владелец"
+    recipients = _active_master_recipients(db)
+    if not recipients:
+        raise HTTPException(status_code=404, detail="Нет активных мастеров для рассылки")
+    inbox_text = f"📢 от {sender}: {text}"
+    tg_text = f"📢 Сообщение от {sender} (всем мастерам):\n{text}"
+    telegram_sent = 0
+    for worker in recipients:
+        db.add(Notification(id=f"n-{uuid4()}", recipient_role="worker", recipient_id=worker.id, message=inbox_text, read=False, created_at=_now()))
+    db.commit()
+    for worker in recipients:
+        chat_id = (_safe_text(getattr(worker, "telegram_chat_id", ""))).strip()
+        if not chat_id:
+            continue
+        _send_telegram_safe(chat_id, tg_text)
+        telegram_sent += 1
+    return WorkerBroadcastResponse(delivered=len(recipients), telegramSent=telegram_sent, message=f"Отправлено {len(recipients)} мастерам")
+
+
+def _claim_tag(notification_id: str, worker_id: str, action: str) -> str:
+    return f"[task:{action}:{notification_id}:{worker_id}]"
+
+
+def _already_reported(db: Session, tag: str) -> bool:
+    row = db.scalar(select(Notification.id).where(Notification.message.like(f"%{tag}%")).limit(1))
+    return row is not None
+
+
+@app.post("/api/notifications/{notification_id}/take-to-work", response_model=NotificationPayload)
+def take_notification_to_work(notification_id: str, session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> NotificationPayload:
+    if session_data["role"] not in {"worker", "owner"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    actor_id = session_data["actorId"]
+    notification = db.get(Notification, notification_id)
+    if notification is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    if notification.recipient_role != "worker" or notification.recipient_id != actor_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    worker = db.get(StaffUser, actor_id)
+    worker_name = (worker.name if worker and worker.name else str(session_data.get("displayName") or "Мастер")).strip()
+    raw = (notification.message or "").strip()
+    short = raw if len(raw) <= 300 else raw[:300] + "…"
+    tag = _claim_tag(notification.id, actor_id, "take")
+    notification.read = True
+    if not _already_reported(db, tag):
+        report = f"🔧 {worker_name} взял(а) в работу: {short} {tag}"
+        db.add(Notification(id=f"n-{uuid4()}", recipient_role="owner", recipient_id=None, message=report, read=False, created_at=_now()))
+        db.add(Notification(id=f"n-{uuid4()}", recipient_role="admin", recipient_id=None, message=report, read=False, created_at=_now()))
+        db.commit()
+        tg_report = f"🔧 {worker_name} взял(а) в работу:\n{short}"
+        for owner in db.scalars(select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))).all():
+            _send_telegram_safe((_safe_text(owner.telegram_chat_id)).strip() or None, tg_report)
+        for admin in db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all():
+            _send_telegram_safe((_safe_text(admin.telegram_chat_id)).strip() or None, tg_report)
+    else:
+        db.commit()
+    db.refresh(notification)
+    return _notification_payload(notification)
+
+
+@app.post("/api/notifications/{notification_id}/complete", response_model=NotificationPayload)
+def complete_notification_task(notification_id: str, session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> NotificationPayload:
+    if session_data["role"] not in {"worker", "owner"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    actor_id = session_data["actorId"]
+    notification = db.get(Notification, notification_id)
+    if notification is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    if notification.recipient_role != "worker" or notification.recipient_id != actor_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    worker = db.get(StaffUser, actor_id)
+    worker_name = (worker.name if worker and worker.name else str(session_data.get("displayName") or "Мастер")).strip()
+    raw = (notification.message or "").strip()
+    short = raw if len(raw) <= 300 else raw[:300] + "…"
+    tag = _claim_tag(notification.id, actor_id, "done")
+    notification.read = True
+    if not _already_reported(db, tag):
+        report = f"✅ {worker_name} выполнил(а): {short} {tag}"
+        db.add(Notification(id=f"n-{uuid4()}", recipient_role="owner", recipient_id=None, message=report, read=False, created_at=_now()))
+        db.add(Notification(id=f"n-{uuid4()}", recipient_role="admin", recipient_id=None, message=report, read=False, created_at=_now()))
+        db.commit()
+        tg_report = f"✅ {worker_name} выполнил(а):\n{short}"
+        for owner in db.scalars(select(StaffUser).where(StaffUser.role == "owner", StaffUser.active.is_(True))).all():
+            _send_telegram_safe((_safe_text(owner.telegram_chat_id)).strip() or None, tg_report)
+        for admin in db.scalars(select(StaffUser).where(StaffUser.role == "admin", StaffUser.active.is_(True))).all():
+            _send_telegram_safe((_safe_text(admin.telegram_chat_id)).strip() or None, tg_report)
+    else:
+        db.commit()
+    db.refresh(notification)
+    return _notification_payload(notification)
 
 
 @app.post("/api/stock-items", response_model=StockItemPayload)
