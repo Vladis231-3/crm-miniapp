@@ -24,6 +24,7 @@ import { OwnerClientsScreen } from './screens/OwnerClientsScreen';
 import { OwnerWalletScreen } from './screens/OwnerWalletScreen';
 import { OwnerPiggyBankScreen } from './screens/OwnerPiggyBankScreen';
 import { Toaster } from '../atmosfera';
+import { EditAmountPencil } from '../atmosfera/EditAmountPencil';
 import { COMPLAINT_THRESHOLD, getComplaintPenaltyState, isComplaintActive } from '../../utils/complaints';
 import { formatDate, getLastNDates, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import {
@@ -890,6 +891,8 @@ export function OwnerApp() {
   const [salaryDateTo, setSalaryDateTo] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<SalaryDetailResponse | null>(null);
   const [salaryBookingDetail, setSalaryBookingDetail] = useState<SalaryBookingItem | null>(null);
+  /** Кликабельные плитки сводки в salary-detail: какая расшифровка открыта. */
+  const [salaryBreakdown, setSalaryBreakdown] = useState<'earned' | 'paid' | 'balance' | null>(null);
   const [salaryPayAmount, setSalaryPayAmount] = useState('');
   const [salaryPayNote, setSalaryPayNote] = useState('');
   // Ключ идемпотентности: генерируется один раз на форму выплаты, меняется
@@ -1699,6 +1702,11 @@ export function OwnerApp() {
   const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
   const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
   const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  // muted — тот же приглушённый цвет, но как hex для inline style.color
+  // (класс text-[...] в style.color — невалидный CSS и игнорируется браузером,
+  // из-за чего кнопки сегмент-контролов периода теряли цвет текста).
+  const muted = isDark ? '#A1A1AA' : '#71717A';
+  const segTrack = { background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' } as const;
   const primary = isDark ? '#6E76F2' : '#4F46E5';
   const accent = isDark ? '#34D399' : '#10B981';
   const surface = isDark ? '#1C1C1F' : '#ffffff';
@@ -2304,6 +2312,7 @@ export function OwnerApp() {
     setSalarySegment('all');
     setEditingOverrideLinkId(null);
     setEditingOverrideValue('');
+    setSalaryBreakdown(null);
     setArchiveHighlight({ target: 'worker', workerId });
   };
 
@@ -4392,7 +4401,10 @@ paymentSettled: false,
                     <div className="flex items-center gap-2 mb-2">
                       <card.icon size={15} strokeWidth={1.75} style={{ color: card.color }} />
                       <span className={`text-xs ${sub}`}>{card.label}</span>
-                      <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
+                      <span className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <EditAmountPencil primary={primary} size={11} title={`Изменить сумму — ${card.label} (открыть детализацию для правок)`} onClick={() => card.action()} />
+                        <ChevronRight size={12} strokeWidth={1.75} className={sub} />
+                      </span>
                     </div>
                     <div className="font-bold" style={{ color: card.color }}>{card.value}</div>
                     <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
@@ -4524,7 +4536,12 @@ paymentSettled: false,
                     className={`${glass} rounded-2xl p-4 text-left active:opacity-80`}>
                     <div className="flex items-center gap-1">
                       <div className={`text-xs ${sub}`}>{card.label}</div>
-                      <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
+                      <span className="ml-auto flex items-center" onClick={(e) => e.stopPropagation()}>
+                        {String(card.label).includes('чек') || String(card.label).includes('Топ') ? (
+                          <EditAmountPencil primary={primary} size={11} title={`Изменить сумму — ${card.label} (цены услуг в Настройки → Услуги)`} onClick={() => { setPage('settings'); setSettingsSection('services'); }} />
+                        ) : null}
+                        <ChevronRight size={12} strokeWidth={1.75} className={sub} />
+                      </span>
                     </div>
                     <div className="font-bold mt-2" style={{ color: card.color }}>{card.value}</div>
                     <div className={`text-[10px] ${sub} mt-1`}>Подробнее</div>
@@ -4599,7 +4616,10 @@ paymentSettled: false,
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => setPage('stock')} className={`${glass} rounded-2xl p-3 text-left active:opacity-80`}>
                   <div className={`text-xs ${sub} mb-2 flex items-center gap-1`}>
                     Склад
-                    <ChevronRight size={12} strokeWidth={1.75} className={`ml-auto ${sub}`} />
+                    <span className="ml-auto flex items-center" onClick={(e) => e.stopPropagation()}>
+                      <EditAmountPencil primary={primary} size={11} title="Изменить суммы склада (цены/остатки)" onClick={() => setPage('stock')} />
+                      <ChevronRight size={12} strokeWidth={1.75} className={sub} />
+                    </span>
                   </div>
                   <div className="font-bold text-lg" style={{ color: accent }}>{totalStockValue.toLocaleString('ru')} ₽</div>
                   <div className={`text-xs ${sub} mb-2`}>{stockItems.length} позиций</div>
@@ -4644,11 +4664,11 @@ paymentSettled: false,
               </div>
 
               {/* Period selector */}
-              <div className="flex gap-1.5 mb-3">
+              <div className="flex gap-1 rounded-xl p-1 mb-3" style={segTrack}>
                 {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
-                  <button key={p} onClick={() => setPayrollPeriod(p)}
-                    className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                    style={{ background: payrollPeriod === p ? primary : 'transparent', color: payrollPeriod === p ? '#fff' : sub }}>
+                  <button key={p} onClick={() => setPayrollPeriod(p)} aria-pressed={payrollPeriod === p}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${payrollPeriod === p ? '' : sub}`}
+                    style={payrollPeriod === p ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
                     {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                   </button>
                 ))}
@@ -4670,11 +4690,15 @@ paymentSettled: false,
               <div className={`text-[11px] ${sub} mb-3 px-1`}>Этот период также применяется к блоку «Работа как мастер» в карточках владельцев ниже</div>
 
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-1`}>Общий фонд выплат</div>
+                <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Общий фонд выплат
+                  <EditAmountPencil primary={primary} size={11} title="Фонд считается из зарплат мастеров — открыть список для правок" onClick={() => { const el = document.getElementById('payroll-workers-list'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />
+                </div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
               </div>}
               {outsourcePayroll && outsourcePayroll.total > 0 && <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className={`text-xs ${sub} mb-1`}>Аутсорс за период</div>
+                <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Аутсорс за период
+                  <EditAmountPencil primary={primary} size={11} title="Аутсорс считается из доп. услуг — правится в записи" onClick={() => setPage('calendar')} />
+                </div>
                 <div className="font-bold text-xl" style={{ color: '#0EA5E9' }}>{outsourcePayroll.total.toLocaleString('ru')} ₽</div>
                 <div className="mt-2 space-y-1">
                   {outsourcePayroll.rows.map(row => (
@@ -4705,18 +4729,49 @@ paymentSettled: false,
                 </button>
               </div>}
               {payrollRows.filter(row => row.worker.role !== 'owner').filter(row => row.worker.name.toLowerCase().includes(salaryWorkerSearch.toLowerCase())).map(({ worker, payrollSummary, complaintState, recentPenalties }) => (
-                <div key={worker.id} className={`${glass} rounded-2xl p-4 mb-3`}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>{worker.name.charAt(0)}</div>
-                    <div className="flex-1">
-                      <div className="font-semibold">{worker.name}</div>
+                <div key={worker.id} id="payroll-workers-list" className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSalaryWorkerId(worker.id);
+                      setSalaryPeriod('month');
+                      setSalaryDateFrom('');
+                      setSalaryDateTo('');
+                      setSalaryDetail(null);
+                      setSalaryError(null);
+                      setSalaryLoading(true);
+                      setEditingOverrideLinkId(null);
+                      setEditingOverrideValue('');
+                      setSalaryBreakdown(null);
+                      setPage('salary-detail');
+                    }}
+                    title="Открыть зарплату мастера"
+                    className="flex w-full items-center gap-3 mb-3 text-left rounded-xl cursor-pointer active:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ background: primary }}>{worker.name.charAt(0)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold underline decoration-dotted underline-offset-2">{worker.name}</div>
                       <div className={`text-xs ${sub}`}>{employeeRoleLabel(worker.role === 'owner' ? 'admin' : worker.role)} · база {worker.defaultPercent}%{worker.salaryPerShift > 0 ? ` · за выход: ${worker.salaryPerShift.toLocaleString('ru')} ₽` : ''}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽</div>
+                    <div className="text-right shrink-0">
+                      <div className="font-bold underline decoration-dotted underline-offset-2 flex items-center gap-1.5 justify-end" style={{ color: accent }}>{(payrollSummary?.balance || 0).toLocaleString('ru')} ₽
+                        <EditAmountPencil primary={primary} size={11} title="Изменить сумму — открыть зарплату мастера" onClick={() => {
+                          setSelectedSalaryWorkerId(worker.id);
+                          setSalaryPeriod('month');
+                          setSalaryDateFrom('');
+                          setSalaryDateTo('');
+                          setSalaryDetail(null);
+                          setSalaryError(null);
+                          setSalaryLoading(true);
+                          setEditingOverrideLinkId(null);
+                          setEditingOverrideValue('');
+                          setSalaryBreakdown(null);
+                          setPage('salary-detail');
+                        }} />
+                      </div>
                       <div className={`text-xs ${sub}`}>{payrollSummary?.completedBookings || 0} заказов · {complaintState.activeCount} активных жалоб</div>
                     </div>
-                  </div>
+                  </button>
                     <button
                       onClick={() => {
                         setSelectedSalaryWorkerId(worker.id);
@@ -4728,6 +4783,7 @@ paymentSettled: false,
                         setSalaryLoading(true);
                         setEditingOverrideLinkId(null);
                         setEditingOverrideValue('');
+                        setSalaryBreakdown(null);
                         setPage('salary-detail');
                       }}
                     className="mb-3 w-full rounded-xl border px-3 py-2 text-sm font-medium"
@@ -4736,10 +4792,22 @@ paymentSettled: false,
                     Открыть зарплату мастера
                   </button>
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold">{(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
+                    <button type="button" onClick={() => {
+                      setSelectedSalaryWorkerId(worker.id);
+                      setSalaryPeriod('month');
+                      setSalaryDateFrom('');
+                      setSalaryDateTo('');
+                      setSalaryDetail(null);
+                      setSalaryError(null);
+                      setSalaryLoading(true);
+                      setEditingOverrideLinkId(null);
+                      setEditingOverrideValue('');
+                      setSalaryBreakdown('earned');
+                      setPage('salary-detail');
+                    }} title="Заработано — открыть детали" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                      <div className="text-sm font-semibold underline decoration-dotted underline-offset-2">{(payrollSummary?.accruedFromBookings || 0).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub}`}>Заработано с заказов</div>
-                    </div>
+                    </button>
                     <div className={`${glass} rounded-xl p-3 text-center`}>
                       <div className="text-sm font-semibold text-red-500">{complaintState.effectivePercent}%</div>
                       <div className={`text-[11px] ${sub}`}>Текущий %</div>
@@ -4754,8 +4822,20 @@ paymentSettled: false,
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className={`${glass} rounded-xl p-3`}>
-                      <div className={`text-[11px] ${sub} mb-1`}>Начислено</div>
+                    <button type="button" onClick={() => {
+                      setSelectedSalaryWorkerId(worker.id);
+                      setSalaryPeriod('month');
+                      setSalaryDateFrom('');
+                      setSalaryDateTo('');
+                      setSalaryDetail(null);
+                      setSalaryError(null);
+                      setSalaryLoading(true);
+                      setEditingOverrideLinkId(null);
+                      setEditingOverrideValue('');
+                      setSalaryBreakdown('balance');
+                      setPage('salary-detail');
+                    }} title="Начислено — открыть детали" className={`${glass} rounded-xl p-3 text-left cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                      <div className={`text-[11px] ${sub} mb-1 underline decoration-dotted underline-offset-2`}>Начислено</div>
                       <div className="text-sm font-semibold">{(payrollSummary?.totalAccrued || 0).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub} mt-1`}>
                         {(payrollSummary && payrollSummary.shiftPayTotal > 0) && (
@@ -4763,14 +4843,26 @@ paymentSettled: false,
                         )}
                         Премии: {(payrollSummary?.bonusTotal || 0).toLocaleString('ru')} ₽ · Корректировки: {(payrollSummary?.adjustmentTotal || 0).toLocaleString('ru')} ₽
                       </div>
-                    </div>
-                    <div className={`${glass} rounded-xl p-3`}>
-                      <div className={`text-[11px] ${sub} mb-1`}>Удержано / выдано</div>
+                    </button>
+                    <button type="button" onClick={() => {
+                      setSelectedSalaryWorkerId(worker.id);
+                      setSalaryPeriod('month');
+                      setSalaryDateFrom('');
+                      setSalaryDateTo('');
+                      setSalaryDetail(null);
+                      setSalaryError(null);
+                      setSalaryLoading(true);
+                      setEditingOverrideLinkId(null);
+                      setEditingOverrideValue('');
+                      setSalaryBreakdown('paid');
+                      setPage('salary-detail');
+                    }} title="Удержано / выдано — открыть детали" className={`${glass} rounded-xl p-3 text-left cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                      <div className={`text-[11px] ${sub} mb-1 underline decoration-dotted underline-offset-2`}>Удержано / выдано</div>
                       <div className="text-sm font-semibold">{(payrollSummary?.totalDeducted || 0).toLocaleString('ru')} ₽</div>
                       <div className={`text-[11px] ${sub} mt-1`}>
                         Авансы: {(payrollSummary?.advanceTotal || 0).toLocaleString('ru')} ₽ · Выплаты: {(payrollSummary?.payoutTotal || 0).toLocaleString('ru')} ₽
                       </div>
-                    </div>
+                    </button>
                   </div>
                   {(() => {
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === worker.id);
@@ -4810,7 +4902,7 @@ paymentSettled: false,
                             <input className={inputCls} type="number" min={0} value={payrollDraft.salaryBase} onChange={e => setEmployeeSettings((current) => current.map((item) => item.id === worker.id ? { ...item, salaryBase: Math.max(0, Number(e.target.value) || 0) } : item))} />
                           </div>
                         </div>
-                        {!isAccountant && <div className="flex items-center justify-between rounded-xl px-3 py-3 mb-3 border border-white/10">
+                        {!isAccountant && <div className={`flex items-center justify-between rounded-xl px-3 py-3 mb-3 border ${isDark ? 'border-white/10' : 'border-black/10'}`}>
                           <div>
                             <div className="text-sm font-medium">Активность мастера</div>
                             <div className={`text-[11px] ${sub}`}>Можно временно снять мастера с новых записей</div>
@@ -4889,11 +4981,11 @@ paymentSettled: false,
                 <div className="mt-6">
                   <h2 className="font-semibold mb-1">Владельцы  -  единое окно ЗП</h2>
                   <div className={`text-xs ${sub} mb-3`}>Для каждого владельца: ЗП за работу как мастера/администратора + пассивный доход с заказов других мастеров</div>
-                  <div className="flex gap-1 mb-3 flex-wrap">
+                  <div className="flex gap-1 rounded-xl p-1 mb-3 flex-wrap" style={segTrack}>
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
-                      <button key={p} onClick={() => setOwnerSalaryPeriod(p)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                        style={{ background: ownerSalaryPeriod === p ? primary : 'transparent', color: ownerSalaryPeriod === p ? '#fff' : sub }}>
+                      <button key={p} onClick={() => setOwnerSalaryPeriod(p)} aria-pressed={ownerSalaryPeriod === p}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${ownerSalaryPeriod === p ? '' : sub}`}
+                        style={ownerSalaryPeriod === p ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
                         {{ day: 'День', week: 'Неделя', month: 'Месяц', all: 'Всё', custom: 'Свои' }[p]}
                       </button>
                     ))}
@@ -4984,11 +5076,11 @@ paymentSettled: false,
                               </div>
                               <div className={`${glass} rounded-xl p-3`}>
                                 <div className={`text-[11px] ${sub} mb-1`}>К выплате за работу</div>
-                                <div className="text-sm font-semibold" style={{ color: (ps?.balance || 0) > 0 ? accent : sub }}>{(ps?.balance || 0).toLocaleString('ru')} ₽</div>
+                                <div className="text-sm font-semibold" style={{ color: (ps?.balance || 0) > 0 ? accent : muted }}>{(ps?.balance || 0).toLocaleString('ru')} ₽</div>
                                 <div className={`text-[11px] ${sub} mt-1`}>{ps?.completedBookings || 0} заказов · {linked.complaintState.activeCount} жалоб</div>
                               </div>
                             </div>
-                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера  -  детали, премии, штрафы</button>
+                            <button onClick={() => { setSelectedSalaryWorkerId(linked.worker.id); setSalaryPeriod('month'); setSalaryDateFrom(''); setSalaryDateTo(''); setSalaryDetail(null); setSalaryError(null); setSalaryLoading(true); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setSalaryBreakdown(null); setPage('salary-detail'); }} className="w-full rounded-xl border px-3 py-2 text-sm font-medium mb-2" style={{ borderColor: `${primary}33`, color: primary, background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.7)' }}>Открыть зарплату мастера  -  детали, премии, штрафы</button>
                           </div>
                         );
                       })()}
@@ -5027,7 +5119,7 @@ paymentSettled: false,
                           <div className={`text-[11px] ${sub}`}>Выплачено</div>
                         </div>
                         <div className={`${glass} rounded-xl p-3 text-center`}>
-                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
+                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : muted }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Остаток</div>
                         </div>
                       </div>
@@ -5089,7 +5181,7 @@ paymentSettled: false,
           {/* в”Ђв”Ђ SALARY DETAIL в”Ђв”Ђ */}
           {page === 'salary-detail' && (
             <motion.div key="salary-detail" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
-              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setArchiveHighlight(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
+              <button onClick={() => { setPage('payroll'); setSelectedSalaryWorkerId(null); setSalaryDetail(null); setEditingOverrideLinkId(null); setEditingOverrideValue(''); setArchiveHighlight(null); setSalaryBreakdown(null); }} className="flex items-center gap-1.5 text-sm mb-3" style={{ color: primary }}>
                 <ArrowLeft size={16} strokeWidth={1.75} />Назад к зарплатам
               </button>
 
@@ -5113,21 +5205,21 @@ paymentSettled: false,
                   )}
 
                   {/* Period toggles */}
-                  <div className="flex gap-1.5 mb-2">
+                  <div className="flex gap-1 rounded-xl p-1 mb-2" style={segTrack}>
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
-                      <button key={p} onClick={() => setSalaryPeriod(p)}
-                        className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                        style={{ background: salaryPeriod === p ? primary : 'transparent', color: salaryPeriod === p ? '#fff' : sub }}>
+                      <button key={p} onClick={() => { setSalaryBreakdown(null); setSalaryPeriod(p); }} aria-pressed={salaryPeriod === p}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${salaryPeriod === p ? '' : sub}`}
+                        style={salaryPeriod === p ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
                         {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : p === 'all' ? 'Всё' : 'Своё'}
                       </button>
                     ))}
                   </div>
                   {/* Segment toggles */}
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1 rounded-xl p-1" style={segTrack}>
                     {(['all', 'wash', 'detailing'] as const).map(s => (
-                      <button key={s} onClick={() => setSalarySegment(s)}
-                        className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                        style={{ background: salarySegment === s ? primary : 'transparent', color: salarySegment === s ? '#fff' : sub }}>
+                      <button key={s} onClick={() => { setSalaryBreakdown(null); setSalarySegment(s); }} aria-pressed={salarySegment === s}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${salarySegment === s ? '' : sub}`}
+                        style={salarySegment === s ? { background: primary, color: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' } : undefined}>
                         {s === 'all' ? 'Все' : s === 'wash' ? 'Мойка' : 'Детейлинг'}
                       </button>
                     ))}
@@ -5136,12 +5228,12 @@ paymentSettled: false,
                     <div className="flex gap-2 mt-3">
                       <div className="flex-1">
                         <label className={`text-[11px] ${sub} block mb-1`}>От</label>
-                        <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryDateFrom(e.target.value); }}
+                        <input type="date" value={salaryDateFrom} onChange={(e) => { setSalaryBreakdown(null); setSalaryDateFrom(e.target.value); }}
                           className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       </div>
                       <div className="flex-1">
                         <label className={`text-[11px] ${sub} block mb-1`}>До</label>
-                        <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryDateTo(e.target.value); }}
+                        <input type="date" value={salaryDateTo} onChange={(e) => { setSalaryBreakdown(null); setSalaryDateTo(e.target.value); }}
                           className={`w-full ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       </div>
                     </div>
@@ -5165,20 +5257,20 @@ paymentSettled: false,
               {salaryDetail && (
                 <>
 
-                  {/* Aggregate cards */}
+                  {/* Aggregate cards — кликабельны, открывают расшифровку */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
-                    <div className={`${glass} rounded-xl p-3 text-center`}>
+                    <button type="button" onClick={() => setSalaryBreakdown('earned')} title="Заработано — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
                       <div className="text-sm font-semibold">{salaryDetail.totalEarned.toLocaleString('ru')} ₽</div>
-                      <div className={`text-[10px] ${sub}`}>Заработано</div>
-                    </div>
-                    <div className={`${glass} rounded-xl p-3 text-center`}>
+                      <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Заработано</div>
+                    </button>
+                    <button type="button" onClick={() => setSalaryBreakdown('paid')} title="Выплачено — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
                       <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>
-                      <div className={`text-[10px] ${sub}`}>Выплачено</div>
-                    </div>
-                    <div className={`${glass} rounded-xl p-3 text-center`}>
-                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : sub }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
-                      <div className={`text-[10px] ${sub}`}>К выплате</div>
-                    </div>
+                      <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Выплачено</div>
+                    </button>
+                    <button type="button" onClick={() => setSalaryBreakdown('balance')} title="К выплате — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                      <div className="text-sm font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</div>
+                      <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>К выплате</div>
+                    </button>
                   </div>
                   {(() => {
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === selectedSalaryWorkerId);
@@ -5234,27 +5326,29 @@ paymentSettled: false,
                           </div>
                           <div className="text-right shrink-0">
                             {b.linkId && editingOverrideLinkId === b.linkId ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                 <input type="number" value={editingOverrideValue}
                                   onChange={e => setEditingOverrideValue(e.target.value)}
+                                  onClick={e => e.stopPropagation()}
                                   className={`w-20 text-right text-sm rounded-lg px-2 py-1 ${inputCls}`}
                                   autoFocus onKeyDown={e => {
                                     if (e.key === 'Enter') handleSaveOverrideEarned(b.linkId!);
                                     if (e.key === 'Escape') handleCancelOverrideEarned();
                                   }} />
-                                <button onClick={() => handleSaveOverrideEarned(b.linkId!)}
+                                <button onClick={e => { e.stopPropagation(); handleSaveOverrideEarned(b.linkId!); }}
                                   className="text-xs px-1.5 py-0.5 rounded" style={{ background: accent, color: '#fff' }}>✓</button>
-                                <button onClick={handleCancelOverrideEarned}
-                                  className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#666', color: '#fff' }}>вњ•</button>
+                                <button onClick={e => { e.stopPropagation(); handleCancelOverrideEarned(); }}
+                                  className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#666', color: '#fff' }}>✕</button>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1.5">
                                 <div className="text-right">
-                                  <div className="text-sm font-semibold">{b.earned.toLocaleString('ru')} ₽</div>
+                                  <button type="button" onClick={e => { e.stopPropagation(); setSalaryBookingDetail(b); }} title="Открыть детали записи" className="text-sm font-semibold underline decoration-dotted underline-offset-2 cursor-pointer active:opacity-70">{b.earned.toLocaleString('ru')} ₽</button>
                                   <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг'}</div>
                                 </div>
                                 {b.linkId && (
-                                  <button onClick={() => {
+                                  <button onClick={e => {
+                                    e.stopPropagation();
                                     setEditingOverrideLinkId(b.linkId!);
                                     setEditingOverrideValue(String(b.overrideEarned ?? b.earned));
                                   }} className="text-xs opacity-50 hover:opacity-100 transition" title="Изменить заработок">✏️</button>
@@ -5371,8 +5465,7 @@ paymentSettled: false,
 
                   {/* Operations history */}
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-2">История операций</h3>
-                    {salaryDetail.entries.length === 0 ? (
+                    <h3 className="font-semibold text-sm mb-2">История операций</h3>                    {salaryDetail.entries.length === 0 ? (
                       <div className={`text-xs ${sub} py-3 text-center`}>Операций не было</div>
                     ) : (
                       salaryDetail.entries.slice(0, 20).map(e => {
@@ -5396,7 +5489,7 @@ paymentSettled: false,
                                   <input type="number" value={editAmount} onChange={e2 => setEditAmount(e2.target.value)} className={`${inputCls} flex-1 text-xs py-1 px-2 rounded-lg`} />
                                   <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} strokeWidth={1.75} /></button>
                                   <button onClick={() => { void handleDeleteEntry(); }} title="Удалить операцию" className="p-1 rounded-lg border" style={{ borderColor: '#ef444440', color: '#ef4444' }}><Trash2 size={14} strokeWidth={1.75} /></button>
-                                  <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: sub }}><X size={14} strokeWidth={1.75} /></button>
+                                  <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: muted }}><X size={14} strokeWidth={1.75} /></button>
                                 </div>
                                 <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="Примечание" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />
                               </div>
@@ -5404,7 +5497,7 @@ paymentSettled: false,
                               <>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs font-medium">
-                                    <span className="font-semibold" style={{ color: kindColor[resolvedKind] || sub }}>{kindLabel[resolvedKind] || e.kind}</span>
+                                    <span className="font-semibold" style={{ color: kindColor[resolvedKind] || muted }}>{kindLabel[resolvedKind] || e.kind}</span>
                                     {' · '}{e.amount.toLocaleString('ru')} ₽
                                   </div>
                                   {e.note && <div className={`text-[10px] ${sub}`}>{e.note}</div>}
@@ -5414,7 +5507,7 @@ paymentSettled: false,
                                     <div className="text-[11px] font-medium">{e.entryDate || new Date(e.createdAt).toLocaleDateString('ru')}</div>
                                     <div className={`text-[10px] ${sub}`}>{e.createdByName}</div>
                                   </div>
-                                  {canEdit && <button onClick={() => { setEditingEntryId(e.id); setEditAmount(String(e.amount)); setEditNote(e.note || ''); }} className="p-1 rounded hover:bg-white/10" style={{ color: sub }}><Edit3 size={12} strokeWidth={1.75} /></button>}
+                                  {canEdit && <button onClick={() => { setEditingEntryId(e.id); setEditAmount(String(e.amount)); setEditNote(e.note || ''); }} className="p-1 rounded hover:bg-white/10" style={{ color: muted }}><Edit3 size={12} strokeWidth={1.75} /></button>}
                                 </div>
                               </>
                             )}
@@ -5423,6 +5516,111 @@ paymentSettled: false,
                       })
                     )}
                   </div>
+                  {/* ── Расшифровка плитки (bottom-sheet): earned / paid / balance ── */}
+                  {salaryBreakdown && (
+                    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setSalaryBreakdown(null)}>
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} w-full max-w-sm rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto`}
+                      >
+                        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <h3 className="font-semibold">
+                            {salaryBreakdown === 'earned'
+                              ? `Заработано${salaryDetail ? ` · ${salaryDetail.completedBookingsCount} записей` : ''}`
+                              : salaryBreakdown === 'paid'
+                                ? 'Выплачено · расшифровка'
+                                : 'К выплате — состав'}
+                          </h3>
+                          <button onClick={() => setSalaryBreakdown(null)} className={`rounded-xl px-3 py-1.5 text-sm border border-border ${sub}`}>Закрыть</button>
+                        </div>
+                        {(!salaryDetail || salaryLoading) && (
+                          <div className={`text-sm ${sub} py-6 text-center`}>Загрузка…</div>
+                        )}
+                        {salaryDetail && !salaryLoading && salaryBreakdown === 'earned' && (
+                          <div className="space-y-1.5">
+                            {salaryDetail.bookings.length === 0 && <div className={`text-sm ${sub} py-4 text-center`}>Нет записей за период</div>}
+                            {salaryDetail.bookings.slice(0, 50).map((b) => (
+                              <button
+                                key={b.id}
+                                onClick={() => { setSalaryBreakdown(null); setSalaryBookingDetail(b); }}
+                                className="flex w-full items-center justify-between gap-3 rounded-xl p-3 text-left active:opacity-70"
+                                style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium tabular-nums">{b.date} {b.time} · {b.service}</div>
+                                  <div className={`text-xs ${sub}`}>{[b.car, b.plate].filter(Boolean).join(' · ')}{[b.car || b.plate, b.box].filter(Boolean).length > 0 ? ' · ' : ''}{b.box || ''} · {b.payType === 'fixed' ? 'фикс' : `${b.percent}%`}</div>
+                                </div>
+                                <div className="shrink-0 text-sm font-semibold" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
+                              </button>
+                            ))}
+                            <div className="flex justify-between pt-2 text-sm font-bold">
+                              <span>Итого</span>
+                              <span>{salaryDetail.totalEarned.toLocaleString('ru')} ₽</span>
+                            </div>
+                          </div>
+                        )}
+                        {salaryDetail && !salaryLoading && salaryBreakdown === 'paid' && (
+                          <div className="space-y-1.5">
+                            {(() => {
+                              const payouts = salaryDetail.entries.filter((e) => e.kind === 'payout');
+                              if (payouts.length === 0) {
+                                return <div className={`text-sm ${sub} py-4 text-center`}>Выплат за период не было · всего выплачено {salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>;
+                              }
+                              return (
+                                <>
+                                  {payouts.slice(0, 50).map((e) => (
+                                    <div key={e.id} className="flex items-center justify-between gap-3 rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium">Выплата</div>
+                                        <div className={`text-xs ${sub} truncate`}>{[e.note, e.createdByName].filter(Boolean).join(' · ')} · {e.entryDate || new Date(e.createdAt).toLocaleDateString('ru')}</div>
+                                      </div>
+                                      <div className="shrink-0 text-sm font-semibold">{e.amount.toLocaleString('ru')} ₽</div>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between pt-2 text-sm font-bold">
+                                    <span>Итого выплачено</span>
+                                    <span style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        {salaryDetail && !salaryLoading && salaryBreakdown === 'balance' && (
+                          <div className="space-y-1.5 text-sm">
+                            {(() => {
+                              const shiftPay = salaryDetail.shiftCount * salaryDetail.salaryPerShift;
+                              const bonuses = salaryDetail.entries.filter((e) => e.kind === 'bonus').reduce((s, e) => s + e.amount, 0);
+                              const advances = salaryDetail.entries.filter((e) => e.kind === 'advance').reduce((s, e) => s + e.amount, 0);
+                              const isLegacyFine = (e: PayrollEntry) => e.kind === 'deduction' && /штраф/i.test(e.note || '');
+                              const deductions = salaryDetail.entries.filter((e) => e.kind === 'deduction' && !isLegacyFine(e)).reduce((s, e) => s + e.amount, 0);
+                              const fines = salaryDetail.entries.filter((e) => e.kind === 'fine' || isLegacyFine(e)).reduce((s, e) => s + e.amount, 0);
+                              const adjustments = salaryDetail.entries.filter((e) => e.kind === 'adjustment').reduce((s, e) => s + e.amount, 0);
+                              return (
+                                <>
+                                  <div className="flex justify-between"><span className={sub}>С услуг</span><span className="font-medium">{salaryDetail.totalEarned.toLocaleString('ru')} ₽</span></div>
+                                  <div className="flex justify-between"><span className={sub}>Оклад</span><span className="font-medium">{salaryDetail.salaryBase.toLocaleString('ru')} ₽</span></div>
+                                  <div className="flex justify-between"><span className={sub}>За смены</span><span className="font-medium">{shiftPay.toLocaleString('ru')} ₽ <span className={`text-xs ${sub}`}>({salaryDetail.shiftCount} × {salaryDetail.salaryPerShift.toLocaleString('ru')} ₽)</span></span></div>
+                                  {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span className="font-medium" style={{ color: '#22c55e' }}>+{bonuses.toLocaleString('ru')} ₽</span></div>}
+                                  {adjustments > 0 && <div className="flex justify-between"><span className={sub}>Корректировки +</span><span className="font-medium" style={{ color: '#22c55e' }}>+{adjustments.toLocaleString('ru')} ₽</span></div>}
+                                  {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span className="font-medium" style={{ color: '#f59e0b' }}>-{advances.toLocaleString('ru')} ₽</span></div>}
+                                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span className="font-medium" style={{ color: '#ef4444' }}>-{deductions.toLocaleString('ru')} ₽</span></div>}
+                                  {fines > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span className="font-medium" style={{ color: '#ef4444' }}>-{fines.toLocaleString('ru')} ₽</span></div>}
+                                  {adjustments < 0 && <div className="flex justify-between"><span className={sub}>Корректировки −</span><span className="font-medium" style={{ color: '#ef4444' }}>{adjustments.toLocaleString('ru')} ₽</span></div>}
+                                  <div className="flex justify-between"><span className={sub}>Выплачено</span><span className="font-medium" style={{ color: '#ef4444' }}>-{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span></div>
+                                  <div className="mt-1.5 flex justify-between border-t pt-1.5 text-base font-bold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+                                    <span>К выплате</span>
+                                    <span style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</span>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </motion.div>
@@ -5592,7 +5790,14 @@ paymentSettled: false,
                   { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
                 ].map((item) => (
                   <div key={item.label} className={`${glass} rounded-2xl p-4`}>
-                    <div className={`text-xs ${sub}`}>{item.label}</div>
+                    <div className={`text-xs ${sub} flex items-center gap-1.5`}>{item.label}
+                      {item.label === 'Долги клиентов' && (
+                        <EditAmountPencil primary={primary} size={11} title="Изменить долги — открыть клиентов" onClick={() => { setPage('settings'); setSettingsSection('clients'); }} />
+                      )}
+                      {item.label === 'Средний чек' && (
+                        <EditAmountPencil primary={primary} size={11} title="Средний чек считается из записей — открыть календарь" onClick={() => setPage('calendar')} />
+                      )}
+                    </div>
                     <div className="font-bold mt-2" style={{ color: item.color }}>{item.value}</div>
                   </div>
                 ))}
@@ -5607,7 +5812,17 @@ paymentSettled: false,
                   { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#312E81' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className="text-sm">{r.label}</span>
+                    <span className="text-sm flex items-center gap-1.5">{r.label}
+                      {r.label === 'Доп. доходы' && (
+                        <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить доход" onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                      )}
+                      {r.label === 'Расходы' && (
+                        <EditAmountPencil primary={primary} size={11} title="Изменить сумму — добавить расход" onClick={() => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }} />
+                      )}
+                      {(r.label === 'Выручка' || r.label === 'Прибыль') && (
+                        <EditAmountPencil primary={primary} size={11} title={`${r.label} считается автоматически — скорректировать через доход`} onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
+                      )}
+                    </span>
                     <span className="font-semibold" style={{ color: r.color }}>{r.value}</span>
                   </div>
                 ))}
@@ -10431,10 +10646,12 @@ paymentSettled: false,
                                 {[booking.car, booking.plate].filter(Boolean).join(' · ')}
                               </div>
                             )}
-                            <div className="flex justify-between mt-2">
-                              <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
-                              <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
-                            </div>
+                          <div className="flex justify-between mt-2">
+                            <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
+                            <span className="text-sm font-semibold flex items-center gap-1.5">{booking.price.toLocaleString('ru')} ₽
+                              <EditAmountPencil primary={primary} size={11} title="Изменить сумму записи" onClick={() => { setSelectedBooking(booking); setShowBookingDetail(true); }} />
+                            </span>
+                          </div>
                           </div>
                         </div>
                       </motion.button>
@@ -12151,7 +12368,85 @@ paymentSettled: false,
         })()}
       </AnimatePresence>
 
-      {/* в”Ђв”Ђ MODAL: QUICK SERVICE EDIT в”Ђв”Ђ */}
+      {/* ── MODAL: SALARY SUMMARY BREAKDOWN (кликабельные плитки) ── */}
+      <AnimatePresence>
+        {salaryBreakdown && salaryDetail && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] bg-black/50" onClick={() => setSalaryBreakdown(null)} />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`fixed bottom-0 left-0 right-0 z-[80] ${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} rounded-t-3xl max-h-[92vh] overflow-y-auto`}
+            >
+              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-2 mb-1" />
+              <div className="flex justify-between items-center px-5 py-3 sticky top-0" style={{ background: surface }}>
+                <h3 className="font-semibold">
+                  {salaryBreakdown === 'earned' ? `Заработано · ${salaryDetail.completedBookingsCount} записей` : salaryBreakdown === 'paid' ? 'Выплачено · выплаты' : 'К выплате — состав'}
+                </h3>
+                <button onClick={() => setSalaryBreakdown(null)} className={`p-1.5 rounded-xl ${glass}`}><X size={16} strokeWidth={1.75} /></button>
+              </div>
+              <div className="px-5 pb-6 space-y-2">
+                {salaryBreakdown === 'earned' && (
+                  salaryDetail.bookings.length === 0 ? (
+                    <div className={`text-sm ${sub} py-4 text-center`}>Нет записей за период</div>
+                  ) : (
+                    salaryDetail.bookings.slice(0, 50).map(b => (
+                      <button key={b.id} onClick={() => { setSalaryBreakdown(null); setSalaryBookingDetail(b); }} className={`w-full flex items-center justify-between gap-3 rounded-xl p-3 text-left active:opacity-70 ${isDark ? 'bg-white/5' : 'bg-black/3'}`}>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate tabular-nums">{b.date} {b.time} · {b.service}</div>
+                          <div className={`text-xs ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${b.earned.toLocaleString('ru')} ₽` : `${b.percent}%`}</div>
+                        </div>
+                        <div className="shrink-0 text-sm font-semibold" style={{ color: accent }}>+{b.earned.toLocaleString('ru')} ₽</div>
+                      </button>
+                    ))
+                  )
+                )}
+                {salaryBreakdown === 'paid' && (
+                  (() => {
+                    const payouts = (salaryDetail.entries || []).filter(e => e.kind === 'payout');
+                    if (payouts.length === 0) return <div className={`text-sm ${sub} py-4 text-center`}>Выплат за период не было · всего {salaryDetail.totalPaid.toLocaleString('ru')} ₽</div>;
+                    return payouts.slice(0, 50).map(e => (
+                      <div key={e.id} className={`flex items-center justify-between gap-3 rounded-xl p-3 ${isDark ? 'bg-white/5' : 'bg-black/3'}`}>
+                        <div>
+                          <div className="text-sm font-medium">Выплата · {e.amount.toLocaleString('ru')} ₽</div>
+                          <div className={`text-xs ${sub}`}>{e.note || e.createdByName} · {e.entryDate || new Date(e.createdAt).toLocaleDateString('ru')}</div>
+                        </div>
+                        <div className="font-semibold shrink-0">{e.amount.toLocaleString('ru')} ₽</div>
+                      </div>
+                    ));
+                  })()
+                )}
+                {salaryBreakdown === 'balance' && (
+                  (() => {
+                    const entries = salaryDetail.entries || [];
+                    const bonus = entries.filter(e => e.kind === 'bonus').reduce((s, e) => s + e.amount, 0);
+                    const advance = entries.filter(e => e.kind === 'advance').reduce((s, e) => s + e.amount, 0);
+                    const isLegacyFine = (e: any) => e.kind === 'deduction' && /штраф/i.test(e.note || '');
+                    const deduction = entries.filter(e => e.kind === 'deduction' && !isLegacyFine(e)).reduce((s, e) => s + e.amount, 0);
+                    const fine = entries.filter(e => e.kind === 'fine' || isLegacyFine(e)).reduce((s, e) => s + e.amount, 0);
+                    const shiftPay = (salaryDetail.shiftCount || 0) * (salaryDetail.salaryPerShift || 0);
+                    return (
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex justify-between"><span className={sub}>С услуг</span><span className="font-medium">+{salaryDetail.totalEarned.toLocaleString('ru')} ₽</span></div>
+                        <div className="flex justify-between"><span className={sub}>Оклад</span><span className="font-medium">+{(salaryDetail.salaryBase || 0).toLocaleString('ru')} ₽</span></div>
+                        <div className="flex justify-between"><span className={sub}>За смены ({salaryDetail.shiftCount})</span><span className="font-medium">+{shiftPay.toLocaleString('ru')} ₽</span></div>
+                        {bonus > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: '#22c55e' }}>+{bonus.toLocaleString('ru')} ₽</span></div>}
+                        {advance > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: '#ef4444' }}>-{advance.toLocaleString('ru')} ₽</span></div>}
+                        {deduction > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span style={{ color: '#ef4444' }}>-{deduction.toLocaleString('ru')} ₽</span></div>}
+                        {fine > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: '#ef4444' }}>-{fine.toLocaleString('ru')} ₽</span></div>}
+                        <div className="flex justify-between"><span className={sub}>Выплачено</span><span style={{ color: '#ef4444' }}>-{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span></div>
+                        <div className="flex justify-between border-t pt-1.5 text-base font-bold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}><span>К выплате</span><span style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</span></div>
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: QUICK SERVICE EDIT ── */}
       <AnimatePresence>
         {serviceEditDraft && (() => {
           const svc = services.find(s => s.id === serviceEditDraft.id);
