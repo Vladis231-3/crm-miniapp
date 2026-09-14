@@ -152,6 +152,7 @@ const SHIFT_PHOTO_MIN_QUALITY = 0.45;
 const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   advance: 'Аванс',
   deduction: 'Списание',
+  fine: 'Штраф',
   bonus: 'Премия',
   payout: 'Выплата',
   adjustment: 'Корректировка',
@@ -1837,6 +1838,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                         >
                           <option value="advance">Аванс</option>
                           <option value="deduction">Списание</option>
+                          <option value="fine">Штраф</option>
                           <option value="bonus">Премия</option>
                           <option value="payout">Выплата</option>
                           <option value="adjustment">Корректировка +/-</option>
@@ -1904,11 +1906,13 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     )}
                     {(payrollSummary?.entries?.length || 0) > 0 && (
                       <div className="mt-3 space-y-2">
-                        {payrollSummary?.entries.slice(0, 4).map((entry) => (
+                        {payrollSummary?.entries.slice(0, 4).map((entry) => {
+                          const resolvedKind = entry.kind === 'deduction' && /штраф/i.test(entry.note || '') ? 'fine' : entry.kind;
+                          return (
                           <div key={entry.id} className={`${glass} rounded-xl p-3`}>
                             <div className="flex items-center justify-between gap-3">
                               <div className="text-sm font-medium">
-                                {PAYROLL_KIND_LABELS[entry.kind]}
+                                {PAYROLL_KIND_LABELS[resolvedKind]}
                               </div>
                               <div className="text-sm font-semibold">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽</div>
                             </div>
@@ -1917,7 +1921,8 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                             </div>
                             {entry.note && <div className={`text-xs ${sub} mt-1`}>{entry.note}</div>}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

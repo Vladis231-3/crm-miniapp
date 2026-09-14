@@ -4544,6 +4544,9 @@ def _worker_payroll_summaries_from_data(
         deduction_total = sum(
             item.amount for item in payroll_entries if item.kind == "deduction"
         )
+        fine_total = sum(
+            item.amount for item in payroll_entries if item.kind == "fine"
+        )
         payout_total = sum(
             item.amount for item in payroll_entries if item.kind == "payout"
         )
@@ -4575,7 +4578,7 @@ def _worker_payroll_summaries_from_data(
             + max(adjustment_total, 0)
         )
         total_deducted = (
-            advance_total + deduction_total + payout_total + max(-adjustment_total, 0)
+            advance_total + deduction_total + fine_total + payout_total + max(-adjustment_total, 0)
         )
         result[worker.id] = WorkerPayrollSummaryPayload(
             completedBookings=len(booking_items),
@@ -4588,6 +4591,7 @@ def _worker_payroll_summaries_from_data(
             adjustmentTotal=adjustment_total,
             advanceTotal=advance_total,
             deductionTotal=deduction_total,
+            fineTotal=fine_total,
             payoutTotal=payout_total,
             totalAccrued=total_accrued,
             totalDeducted=total_deducted,
@@ -10663,7 +10667,9 @@ def _payroll_entry_label(kind: str) -> str:
 
         "advance": "аванс",
 
-        "deduction": "удержание",
+        "deduction": "списание",
+
+        "fine": "штраф",
 
         "payout": "выплата",
 
@@ -18503,10 +18509,23 @@ def search_worker_cars(
 
     query = (
         select(Booking)
-        .options(selectinload(Booking.worker_links))
+        .options(
+            selectinload(Booking.worker_links),
+            selectinload(Booking.additional_services).selectinload(
+                BookingAdditionalService.worker_links
+            ),
+        )
         .where(
             Booking.deleted_at.is_(None),
             Booking.status != "cancelled",
+            or_(
+                Booking.worker_links.any(BookingWorker.worker_id == worker_id),
+                Booking.additional_services.any(
+                    BookingAdditionalService.worker_links.any(
+                        AdditionalServiceWorker.worker_id == worker_id
+                    )
+                ),
+            ),
         )
     )
 
@@ -18552,8 +18571,34 @@ def search_worker_cars(
             ],
             car=_safe_text(booking.car) or None,
             plate=_safe_text(booking.plate) or None,
+            source=getattr(booking, "source", None) or None,
             referralSource=getattr(booking, "referral_source", None) or "",
             isRepeatVisit=bool(getattr(booking, "is_repeat_visit", False)),
+            additionalServices=[
+                AdditionalServicePayload(
+                    id=asvc.id,
+                    serviceId=asvc.service_id,
+                    name=_safe_text(asvc.name),
+                    price=int(asvc.price or 0),
+                    duration=int(asvc.duration or 0),
+                    status=asvc.status or "pending",
+                    priceMode=asvc.price_mode or "add",
+                    isOutsource=bool(asvc.is_outsource),
+                    outsourceAmount=asvc.outsource_amount,
+                    createdAt=asvc.created_at,
+                    workers=[
+                        AdditionalServiceWorkerPayload(
+                            workerId=w.worker_id,
+                            workerName=_safe_text(w.worker_name),
+                            percent=int(w.percent or 0),
+                            payType=w.pay_type or "percent",
+                            fixedAmount=w.fixed_amount,
+                        )
+                        for w in asvc.worker_links
+                    ],
+                )
+                for asvc in (booking.additional_services or [])
+            ],
         )
         for booking in bookings
     ]
@@ -20607,12 +20652,12 @@ def create_payroll_entry(
         )
         db.add(expense)
         created_expense_id = expense.id
-    elif payload.kind == "deduction":
+    elif payload.kind in ("deduction", "fine"):
         income = Income(
             id=str(uuid4()),
             amount=amount,
-            source=f"Штраф: {worker.name}",
-            note=payload.note.strip() or "Штраф",
+            source=f"{'Штраф' if payload.kind == 'fine' else 'Списание'}: {worker.name}",
+            note=payload.note.strip() or ("Штраф" if payload.kind == "fine" else "Списание"),
             created_by_id=session_data["actorId"],
             date=op_date,
             resource_group="wash",
@@ -20768,7 +20813,7 @@ def update_payroll_entry(
     # и знаком суммы. При смене знака корректировки запись переводится между
     # Expense и Income, не создавая задвоения.
     new_amount = abs(payload.amount)
-    want_income = entry.kind == "deduction" or (
+    want_income = entry.kind in ("deduction", "fine") or (
         entry.kind == "adjustment" and payload.amount < 0
     )
 
@@ -20785,6 +20830,9 @@ def update_payroll_entry(
             linked_income.note = payload.note.strip() or linked_income.note
         else:
             if entry.kind == "deduction":
+                source = f"Списание: {worker.name}"
+                note = payload.note.strip() or "Списание"
+            elif entry.kind == "fine":
                 source = f"Штраф: {worker.name}"
                 note = payload.note.strip() or "Штраф"
             else:
@@ -21357,6 +21405,7 @@ def get_owner_bookings_history_totals(
             adjustmentTotal=summary.adjustmentTotal,
             advanceTotal=summary.advanceTotal,
             deductionTotal=summary.deductionTotal,
+            fineTotal=summary.fineTotal,
             payoutTotal=summary.payoutTotal,
             totalAccrued=summary.totalAccrued,
             totalDeducted=summary.totalDeducted,
@@ -21694,6 +21743,7 @@ def get_owner_archive(
             adjustmentTotal=summary_row.adjustmentTotal,
             advanceTotal=summary_row.advanceTotal,
             deductionTotal=summary_row.deductionTotal,
+            fineTotal=summary_row.fineTotal,
             payoutTotal=summary_row.payoutTotal,
             totalAccrued=summary_row.totalAccrued,
             totalDeducted=summary_row.totalDeducted,
@@ -22080,10 +22130,11 @@ def get_owner_money_flow(
                 )
             )
             summary.advances += amount
-        elif p.kind in ("bonus", "deduction", "adjustment"):
+        elif p.kind in ("bonus", "deduction", "adjustment", "fine"):
             titles = {
                 "bonus": f"Премия: {person_name}",
-                "deduction": f"Вычет из зарплаты: {person_name}",
+                "deduction": f"Списание: {person_name}",
+                "fine": f"Штраф: {person_name}",
                 "adjustment": f"Корректировка зарплаты: {person_name}",
             }
             entries.append(
@@ -22095,7 +22146,7 @@ def get_owner_money_flow(
                     title=titles[p.kind],
                     amount=amount,
                     counterparty=person_name,
-                    note=p.note or ("со знаком минус в расчётке" if p.kind == "deduction" else ""),
+                    note=p.note or ("со знаком минус в расчётке" if p.kind in ("deduction", "fine") else ""),
                     **base,
                 )
             )
@@ -22684,7 +22735,7 @@ def _worker_period_balance(
 
     bonus_total = sum(e.amount for e in entries if e.kind == "bonus")
     advance_total = sum(e.amount for e in entries if e.kind == "advance")
-    deduction_total = sum(e.amount for e in entries if e.kind == "deduction")
+    deduction_total = sum(e.amount for e in entries if e.kind in ("deduction", "fine"))
     payout_total = sum(e.amount for e in entries if e.kind == "payout")
     adjustment_total = sum(e.amount for e in entries if e.kind == "adjustment")
 
@@ -23093,7 +23144,7 @@ def owner_worker_salary_detail(
 
     advance_total = sum(e.amount for e in all_entries if e.kind == "advance")
 
-    deduction_total = sum(e.amount for e in all_entries if e.kind == "deduction")
+    deduction_total = sum(e.amount for e in all_entries if e.kind in ("deduction", "fine"))
 
     adjustment_total = sum(e.amount for e in all_entries if e.kind == "adjustment")
 
@@ -23501,7 +23552,7 @@ def worker_my_salary_detail(
 
     advance_total = sum(e.amount for e in all_entries if e.kind == "advance")
 
-    deduction_total = sum(e.amount for e in all_entries if e.kind == "deduction")
+    deduction_total = sum(e.amount for e in all_entries if e.kind in ("deduction", "fine"))
 
     adjustment_total = sum(e.amount for e in all_entries if e.kind == "adjustment")
 

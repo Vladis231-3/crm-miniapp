@@ -4,11 +4,12 @@ import { Calendar, Save } from 'lucide-react';
 import { useApp, type EmployeeSetting, type Worker } from '../../../context/AppContext';
 import { apiRequest } from '../../../api';
 
-type PayrollEntryKind = 'advance' | 'deduction' | 'bonus' | 'payout' | 'adjustment';
+type PayrollEntryKind = 'advance' | 'deduction' | 'bonus' | 'payout' | 'adjustment' | 'fine';
 
 const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   advance: 'Аванс',
   deduction: 'Списание',
+  fine: 'Штраф',
   bonus: 'Премия',
   payout: 'Выплата',
   adjustment: 'Корректировка',
@@ -303,6 +304,7 @@ export function AdminPayrollPage() {
                 >
                   <option value="advance">Аванс</option>
                   <option value="deduction">Списание</option>
+                  <option value="fine">Штраф</option>
                   <option value="bonus">Премия</option>
                   <option value="payout">Выплата</option>
                   <option value="adjustment">Корректировка +/-</option>
@@ -376,10 +378,12 @@ export function AdminPayrollPage() {
 
             {(payrollSummary?.entries?.length || 0) > 0 && (
               <div className="mt-3 space-y-2">
-                {payrollSummary?.entries.slice(0, 4).map((entry: any) => (
+                {payrollSummary?.entries.slice(0, 4).map((entry: any) => {
+                  const resolvedKind = (entry.kind === 'deduction' && /штраф/i.test(entry.note || '') ? 'fine' : entry.kind) as PayrollEntryKind;
+                  return (
                   <div key={entry.id} className={`${glass} rounded-xl p-3`}>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-medium">{PAYROLL_KIND_LABELS[entry.kind as PayrollEntryKind]}</div>
+                      <div className="text-sm font-medium">{PAYROLL_KIND_LABELS[resolvedKind]}</div>
                       <div className="text-sm font-semibold tabular-nums">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽</div>
                     </div>
                     <div className={`mt-1 text-[11px] ${sub}`}>
@@ -387,7 +391,8 @@ export function AdminPayrollPage() {
                     </div>
                     {entry.note && <div className={`mt-1 text-xs ${sub}`}>{entry.note}</div>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

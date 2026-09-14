@@ -10,7 +10,8 @@ import { Money, StatTile } from '../../atmosfera';
 
 const kindLabel: Record<string, string> = {
   bonus: 'Премия',
-  deduction: 'Штраф',
+  deduction: 'Списание',
+  fine: 'Штраф',
   payout: 'Выплата',
   advance: 'Аванс',
   adjustment: 'Корректировка',
@@ -172,10 +173,12 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
               const shiftPay = (salaryDetail.shiftCount || 0) * (salaryDetail.salaryPerShift || 0);
               const bonuses = (salaryDetail.entries || []).filter((e: any) => e.kind === 'bonus').reduce((s: number, e: any) => s + e.amount, 0);
               const advances = (salaryDetail.entries || []).filter((e: any) => e.kind === 'advance').reduce((s: number, e: any) => s + e.amount, 0);
-              const deductions = (salaryDetail.entries || []).filter((e: any) => e.kind === 'deduction').reduce((s: number, e: any) => s + e.amount, 0);
+              const isLegacyFine = (e: any) => e.kind === 'deduction' && /штраф/i.test(e.note || '');
+              const deductions = (salaryDetail.entries || []).filter((e: any) => e.kind === 'deduction' && !isLegacyFine(e)).reduce((s: number, e: any) => s + e.amount, 0);
+              const fines = (salaryDetail.entries || []).filter((e: any) => e.kind === 'fine' || isLegacyFine(e)).reduce((s: number, e: any) => s + e.amount, 0);
               const adjustments = (salaryDetail.entries || []).filter((e: any) => e.kind === 'adjustment').reduce((s: number, e: any) => s + e.amount, 0);
               const totalAccrued = salaryDetail.totalEarned + (salaryDetail.salaryBase || 0) + shiftPay + bonuses + Math.max(adjustments, 0);
-              const totalDeducted = advances + deductions + salaryDetail.totalPaid + Math.max(-adjustments, 0);
+              const totalDeducted = advances + deductions + fines + salaryDetail.totalPaid + Math.max(-adjustments, 0);
               return (
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between"><span className={sub}>С услуг</span><span><Money amount={salaryDetail.totalEarned} /> <span className={`text-xs ${sub}`}>({salaryDetail.completedBookingsCount} задач)</span></span></div>
@@ -183,7 +186,8 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
                   <div className="flex justify-between"><span className={sub}>За смены</span><span><Money amount={shiftPay} /> <span className={`text-xs ${sub}`}>({salaryDetail.shiftCount} × {(salaryDetail.salaryPerShift || 0).toLocaleString('ru')} ₽)</span></span></div>
                   {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: SUCCESS }}>+<Money amount={bonuses} /></span></div>}
                   {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: WARNING }}>-<Money amount={advances} /></span></div>}
-                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>-<Money amount={deductions} /></span></div>}
+                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span style={{ color: DANGER }}>-<Money amount={deductions} /></span></div>}
+                  {fines > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>-<Money amount={fines} /></span></div>}
                   {adjustments !== 0 && <div className="flex justify-between"><span className={sub}>Корректировки</span><span style={{ color: adjustments > 0 ? SUCCESS : DANGER }}>{adjustments > 0 ? '+' : ''}<Money amount={Math.abs(adjustments)} /></span></div>}
                   <div className="mt-1.5 flex justify-between border-t border-border pt-1.5 font-semibold">
                     <span>Итого начислено</span><span className="text-[var(--primary-600)]"><Money amount={totalAccrued} /></span>
@@ -323,10 +327,12 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
             <div className={`${glass} mb-3 rounded-2xl p-4`}>
               <div className={`section-kicker mb-2`}>Операции за период</div>
               <div className="space-y-1.5">
-                {salaryDetail.entries.slice(0, 10).map((entry: any) => (
+                {salaryDetail.entries.slice(0, 10).map((entry: any) => {
+                  const resolvedKind = entry.kind === 'deduction' && /штраф/i.test(entry.note || '') ? 'fine' : entry.kind;
+                  return (
                   <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--sunken,#EEEFF3)] p-3 dark:bg-white/5">
                     <div>
-                      <div className="text-sm font-medium">{kindLabel[entry.kind] || entry.kind}</div>
+                      <div className="text-sm font-medium">{kindLabel[resolvedKind] || entry.kind}</div>
                       <div className={`text-xs ${sub}`}>{entry.note || entry.createdByName}</div>
                     </div>
                     <div className="text-right">
@@ -334,7 +340,8 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
                       <div className={`text-[11px] ${sub}`}>{entry.entryDate || new Date(entry.createdAt).toLocaleDateString('ru-RU')}</div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

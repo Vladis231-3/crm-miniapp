@@ -23,7 +23,7 @@ BookingStatus = Literal[
     "admin_review",
 ]
 PaymentType = Literal["cash", "transfer", "invoice", "credit"]
-PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment"]
+PayrollEntryKind = Literal["bonus", "advance", "deduction", "payout", "adjustment", "fine"]
 
 NAME_PATTERN = re.compile(r"^[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9' -]{1,59}$")
 REPEATED_LETTERS_PATTERN = re.compile(r"([A-Za-zА-Яа-яЁё])\1{3,}")
@@ -344,6 +344,7 @@ class WorkerPayrollSummaryPayload(BaseModel):
     adjustmentTotal: int = 0
     advanceTotal: int = 0
     deductionTotal: int = 0
+    fineTotal: int = 0
     payoutTotal: int = 0
     totalAccrued: int = 0
     totalDeducted: int = 0
@@ -1932,6 +1933,7 @@ class BookingTotalsWorkerItem(BaseModel):
     adjustmentTotal: int = 0
     advanceTotal: int = 0
     deductionTotal: int = 0
+    fineTotal: int = 0
     payoutTotal: int = 0
     totalAccrued: int = 0
     totalDeducted: int = 0
@@ -2136,6 +2138,7 @@ class ArchivePayrollItem(BaseModel):
     adjustmentTotal: int = 0
     advanceTotal: int = 0
     deductionTotal: int = 0
+    fineTotal: int = 0
     payoutTotal: int = 0
     totalAccrued: int = 0
     totalDeducted: int = 0
@@ -2212,7 +2215,7 @@ class MoneyFlowEntry(BaseModel):
     kind: str  # in | allocation | out | move
     type: str  # booking_payment | booking_deposit_payment | booking_unpaid | income |
     # deposit_topup | deposit_adjust | expense | payout_worker | payout_owner | advance |
-    # salary_bonus | salary_deduction | salary_adjustment | piggy_withdrawal |
+    # salary_bonus | salary_deduction | salary_fine | salary_adjustment | piggy_withdrawal |
     # piggy_adjust | piggy_repayment | piggy_deposit_return
     date: str
     time: str = ""

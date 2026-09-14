@@ -118,7 +118,7 @@ export interface Worker {
   payrollSummary?: WorkerPayrollSummary;
 }
 
-export type PayrollEntryKind = 'bonus' | 'advance' | 'deduction' | 'payout' | 'adjustment';
+export type PayrollEntryKind = 'bonus' | 'advance' | 'deduction' | 'payout' | 'adjustment' | 'fine';
 
 export interface PayrollEntry {
   id: string;
@@ -157,6 +157,7 @@ export interface WorkerPayrollSummary {
   adjustmentTotal: number;
   advanceTotal: number;
   deductionTotal: number;
+  fineTotal?: number;
   payoutTotal: number;
   totalAccrued: number;
   totalDeducted: number;

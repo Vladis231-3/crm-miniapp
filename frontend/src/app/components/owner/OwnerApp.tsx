@@ -97,7 +97,7 @@ interface BookingTotalsWorkerItem {
   workerId: string; workerName: string; bookingCount: number;
   accruedFromBookings: number; baseSalary: number; shiftPayTotal: number; shiftCount: number;
   bonusTotal: number; adjustmentTotal: number; advanceTotal: number;
-  deductionTotal: number; payoutTotal: number;
+  deductionTotal: number; fineTotal?: number; payoutTotal: number;
   totalAccrued: number; totalDeducted: number; balance: number;
 }
 interface BookingTotalsOwnerItem { ownerId: string; ownerName: string; totalAccrued: number; totalPaid: number; bookingCount: number; }
@@ -156,7 +156,7 @@ interface ArchiveBookingItem {
 interface ArchivePayrollItem {
   workerId: string; workerName: string; bookingCount: number; accruedFromBookings: number;
   baseSalary: number; shiftPayTotal: number; shiftCount: number; bonusTotal: number;
-  adjustmentTotal: number; advanceTotal: number; deductionTotal: number; payoutTotal: number;
+  adjustmentTotal: number; advanceTotal: number; deductionTotal: number; fineTotal?: number; payoutTotal: number;
   totalAccrued: number; totalDeducted: number; balance: number;
 }
 interface ArchiveOwnerItem { ownerId: string; ownerName: string; totalAccrued: number; totalPaid: number; bookingCount: number; }
@@ -3043,7 +3043,7 @@ export function OwnerApp() {
     try {
       await createPayrollEntry({
         workerId: selectedSalaryWorkerId,
-        kind: 'deduction',
+        kind: 'fine',
         amount: Math.round(amount),
         note: fineNote.trim() || 'Штраф',
         period: salaryPeriod,
@@ -5378,14 +5378,16 @@ paymentSettled: false,
                       salaryDetail.entries.slice(0, 20).map(e => {
                         const isEditing = editingEntryId === e.id;
                         const kindLabel: Record<string, string> = {
-                          bonus: 'Премия', deduction: 'Штраф', payout: 'Выплата',
+                          bonus: 'Премия', deduction: 'Списание', fine: 'Штраф', payout: 'Выплата',
                           advance: 'Аванс', adjustment: 'Корректировка',
                         };
                         const kindColor: Record<string, string> = {
-                          bonus: '#22c55e', deduction: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
+                          bonus: '#22c55e', deduction: '#ef4444', fine: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
                           advance: '#f59e0b', adjustment: '#3b82f6',
                         };
-                        const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'bonus';
+                        const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'fine' || e.kind === 'bonus';
+                        // Legacy: старые штрафы хранятся как deduction — различаем по примечанию
+                        const resolvedKind = e.kind === 'deduction' && /штраф/i.test(e.note || '') ? 'fine' : e.kind;
                         return (
                           <div key={e.id} className="flex items-start justify-between py-2 border-b gap-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                             {isEditing ? (
@@ -5402,7 +5404,7 @@ paymentSettled: false,
                               <>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs font-medium">
-                                    <span className="font-semibold" style={{ color: kindColor[e.kind] || sub }}>{kindLabel[e.kind] || e.kind}</span>
+                                    <span className="font-semibold" style={{ color: kindColor[resolvedKind] || sub }}>{kindLabel[resolvedKind] || e.kind}</span>
                                     {' · '}{e.amount.toLocaleString('ru')} ₽
                                   </div>
                                   {e.note && <div className={`text-[10px] ${sub}`}>{e.note}</div>}
@@ -5928,7 +5930,8 @@ paymentSettled: false,
                   payout_owner: { color: '#8B5CF6', label: 'Выплата владельцу' },
                   advance: { color: '#F97316', label: 'Аванс' },
                   salary_bonus: { color: '#22C55E', label: 'Премия' },
-                  salary_deduction: { color: '#EF4444', label: 'Вычет из зарплаты' },
+                  salary_deduction: { color: '#EF4444', label: 'Списание' },
+                  salary_fine: { color: '#EF4444', label: 'Штраф' },
                   salary_adjustment: { color: '#64748B', label: 'Корректировка зарплаты' },
                   piggy_withdrawal: { color: '#94A3B8', label: 'Снятие из копилки' },
                   piggy_adjust: { color: '#94A3B8', label: 'Корректировка копилки' },
@@ -6432,7 +6435,10 @@ paymentSettled: false,
                               <div className="flex justify-between"><span>авансы</span><span className="font-medium">-{w.advanceTotal.toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.deductionTotal > 0 && (
-                              <div className="flex justify-between"><span>вычеты</span><span className="font-medium">-{w.deductionTotal.toLocaleString('ru')} ₽</span></div>
+                              <div className="flex justify-between"><span>списания</span><span className="font-medium">-{w.deductionTotal.toLocaleString('ru')} ₽</span></div>
+                            )}
+                            {(w.fineTotal || 0) > 0 && (
+                              <div className="flex justify-between"><span>штрафы</span><span className="font-medium">-{(w.fineTotal || 0).toLocaleString('ru')} ₽</span></div>
                             )}
                             {w.payoutTotal > 0 && (
                               <div className="flex justify-between"><span>выплачено</span><span className="font-medium">-{w.payoutTotal.toLocaleString('ru')} ₽</span></div>
@@ -7185,8 +7191,8 @@ paymentSettled: false,
                                   {(w.bonusTotal > 0 || w.adjustmentTotal !== 0) && (
                                     <div>бонусы: +{w.bonusTotal.toLocaleString('ru')} ₽ · поправки: {w.adjustmentTotal > 0 ? '+' : ''}{w.adjustmentTotal.toLocaleString('ru')} ₽</div>
                                   )}
-                                  {(w.advanceTotal > 0 || w.deductionTotal > 0 || w.payoutTotal > 0) && (
-                                    <div>авансы: -{w.advanceTotal.toLocaleString('ru')} ₽ · вычеты: -{w.deductionTotal.toLocaleString('ru')} ₽ · выплаты: -{w.payoutTotal.toLocaleString('ru')} ₽</div>
+                                  {(w.advanceTotal > 0 || w.deductionTotal > 0 || (w.fineTotal || 0) > 0 || w.payoutTotal > 0) && (
+                                    <div>авансы: -{w.advanceTotal.toLocaleString('ru')} ₽ · списания: -{w.deductionTotal.toLocaleString('ru')} ₽ · штрафы: -{(w.fineTotal || 0).toLocaleString('ru')} ₽ · выплаты: -{w.payoutTotal.toLocaleString('ru')} ₽</div>
                                   )}
                                 </div>
                               </div>
