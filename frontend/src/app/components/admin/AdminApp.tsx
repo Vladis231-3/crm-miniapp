@@ -158,6 +158,14 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   adjustment: 'Корректировка',
 };
 
+// kind="deduction" общий для штрафа и списания: подпись в списках выбираем
+// по примечанию, чтобы штраф владельца не выглядел у админа "Списанием".
+const isWriteOffNote = (note?: string) => (note || '').trim().toLowerCase().startsWith('списан');
+function payrollKindLabel(kind: string, note?: string): string {
+  if (kind === 'deduction') return isWriteOffNote(note) ? 'Списание' : 'Штраф';
+  return (PAYROLL_KIND_LABELS as Record<string, string>)[kind] || kind;
+}
+
 type AdminPage = 'calendar' | 'stats' | 'clients' | 'stock' | 'payroll' | 'employees' | 'settings';
 
 type SettingsSection = null | 'boxes' | 'schedule' | 'notifications' | 'profile' | 'security' | 'pricing' | 'payroll' | 'shift' | 'attendance' | 'content';
@@ -1464,11 +1472,15 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
     try {
       setPayrollError(null);
       setPayrollEntryLoading(workerId);
+      const rawNote = (draft.note || '').trim();
+      const noteToSend = draft.kind === 'deduction'
+        ? (!rawNote ? 'Списание' : rawNote.toLowerCase().startsWith('списан') ? rawNote : `Списание: ${rawNote}`)
+        : rawNote;
       await createPayrollEntry({
         workerId,
         kind: draft.kind,
         amount: Math.round(amount),
-        note: draft.note.trim(),
+        note: noteToSend,
         period: payrollPeriod,
         ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
       });
@@ -1907,12 +1919,11 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     {(payrollSummary?.entries?.length || 0) > 0 && (
                       <div className="mt-3 space-y-2">
                         {payrollSummary?.entries.slice(0, 4).map((entry) => {
-                          const resolvedKind = entry.kind === 'deduction' && /штраф/i.test(entry.note || '') ? 'fine' : entry.kind;
                           return (
                           <div key={entry.id} className={`${glass} rounded-xl p-3`}>
                             <div className="flex items-center justify-between gap-3">
                               <div className="text-sm font-medium">
-                                {PAYROLL_KIND_LABELS[resolvedKind]}
+                                {payrollKindLabel(entry.kind, entry.note)}
                               </div>
                               <div className="text-sm font-semibold">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽</div>
                             </div>

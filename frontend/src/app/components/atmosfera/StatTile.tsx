@@ -7,11 +7,13 @@ export interface StatTileProps {
   className?: string;
   /** Если задан — плитка становится кликабельной кнопкой (раскрытие расшифровки). */
   onClick?: () => void;
+  /** Подсветка активного состояния (например, включён фильтр). */
+  active?: boolean;
   title?: string;
 }
 
 /** StatTile — компактная плитка-показатель (используется сетками 3-в-ряд). */
-export function StatTile({ label, value, className, onClick, title }: StatTileProps) {
+export function StatTile({ label, value, className, onClick, active, title }: StatTileProps) {
   if (!onClick) {
     return (
       <div
@@ -31,8 +33,10 @@ export function StatTile({ label, value, className, onClick, title }: StatTilePr
       onClick={onClick}
       title={title || `${label} — нажмите для деталей`}
       aria-label={`${label} — нажмите для деталей`}
+      aria-pressed={active ? true : undefined}
       className={cn(
-        'rounded-2xl border border-border bg-[var(--card-raised,var(--card))] px-3 py-3 cursor-pointer text-center transition active:opacity-70 hover:border-[var(--primary-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+        'cursor-pointer rounded-2xl border border-border bg-[var(--card-raised,var(--card))] px-3 py-3 text-center transition outline-none hover:border-[var(--primary-600)]/50 hover:bg-[var(--card-raised,var(--card))] focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98]',
+        active && 'border-[var(--primary-600)]/60 ring-1 ring-[var(--primary-600)]/30',
         className,
       )}
     >

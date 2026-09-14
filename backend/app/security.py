@@ -99,7 +99,7 @@ def validate_telegram_init_data(
     except (json.JSONDecodeError, TypeError) as exc:
         raise ValueError("initData user is invalid") from exc
     if not isinstance(user, dict):
-        raise ValueError("initData user is invalid")  # noqa: TRY004 - validation contract
+        raise ValueError("initData user is invalid")  # noqa: TRY004 — вся функция на ValueError: callers ловят именно его (401, не 500)
     user_id = user.get("id")
     if isinstance(user_id, bool) or not isinstance(user_id, int) or user_id <= 0:
         raise ValueError("initData user.id is invalid")

@@ -328,6 +328,8 @@ class WorkerPayrollBookingPayload(BaseModel):
     price: int
     percent: float
     earned: int
+    mainEarned: int = 0
+    asvcEarned: int = 0
     overrideEarned: int | None = None
     car: str | None = None
     plate: str | None = None
@@ -337,6 +339,8 @@ class WorkerPayrollSummaryPayload(BaseModel):
     completedBookings: int = 0
     completedRevenue: int = 0
     accruedFromBookings: int = 0
+    accruedMain: int = 0
+    accruedAsvc: int = 0
     baseSalary: int = 0
     shiftPayTotal: int = 0
     shiftCount: int = 0
@@ -368,6 +372,8 @@ class SalaryBookingItem(BaseModel):
     box: str
     price: int
     earned: int
+    mainEarned: int = 0
+    asvcEarned: int = 0
     percent: float
     linkId: int | None = None
     overrideEarned: int | None = None
@@ -399,6 +405,8 @@ class SalaryDetailResponse(BaseModel):
     defaultPercent: float
     active: bool
     totalEarned: int
+    totalMainEarned: int = 0
+    totalAsvcEarned: int = 0
     totalPaid: int
     balanceToPay: int
     completedBookingsCount: int
@@ -2053,6 +2061,8 @@ class BookingMoneySplitDetail(BaseModel):
     masterTotal: int = 0
     masterTotalAuto: int = 0
     masterByWorker: dict[str, int] = Field(default_factory=dict)
+    mainByWorker: dict[str, int] = Field(default_factory=dict)
+    asvcByWorker: dict[str, int] = Field(default_factory=dict)
     asvcMasterPayTotal: int = 0
     asvcPiggyDeposits: list[BookingAsvcPiggyItem] = Field(default_factory=list)
     asvcOwnerExtra: int = 0

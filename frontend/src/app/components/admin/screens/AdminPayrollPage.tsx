@@ -15,6 +15,15 @@ const PAYROLL_KIND_LABELS: Record<PayrollEntryKind, string> = {
   adjustment: 'Корректировка',
 };
 
+// kind="deduction" общий для штрафа и списания: у админа опция называется
+// "Списание", но владелец может выписать штраф тем же kind — в списках
+// показываем точную подпись по примечанию, чтобы штраф не выглядел списанием.
+const isWriteOffNote = (note?: string) => (note || '').trim().toLowerCase().startsWith('списан');
+function payrollKindLabel(kind: string, note?: string): string {
+  if (kind === 'deduction') return isWriteOffNote(note) ? 'Списание' : 'Штраф';
+  return (PAYROLL_KIND_LABELS as Record<string, string>)[kind] || kind;
+}
+
 /**
  * AdminPayrollPage — «Зарплаты» как полноценная страница (§6.2).
  * Устраняет навигационный хак settings→payroll (аудит §2.4, AdminApp:3016–3021).
@@ -111,11 +120,18 @@ export function AdminPayrollPage() {
     try {
       setPayrollError(null);
       setPayrollEntryLoading(entryWorkerId);
+      // Админское "Списание" (kind=deduction) мастер должен увидеть как
+      // "Списание", а не "Штраф" — маркируем примечание тем же префиксом,
+      // что и форма списания у владельца.
+      const rawNote = (draft.note || '').trim();
+      const noteToSend = draft.kind === 'deduction'
+        ? (!rawNote ? 'Списание' : rawNote.toLowerCase().startsWith('списан') ? rawNote : `Списание: ${rawNote}`)
+        : rawNote;
       await createPayrollEntry({
         workerId: entryWorkerId,
         kind: draft.kind,
         amount: Math.round(amount),
-        note: draft.note.trim(),
+        note: noteToSend,
         period: payrollPeriod,
         ...(payrollPeriod === 'custom' ? { dateFrom: payrollDateFrom, dateTo: payrollDateTo } : {}),
       });
@@ -379,11 +395,10 @@ export function AdminPayrollPage() {
             {(payrollSummary?.entries?.length || 0) > 0 && (
               <div className="mt-3 space-y-2">
                 {payrollSummary?.entries.slice(0, 4).map((entry: any) => {
-                  const resolvedKind = (entry.kind === 'deduction' && /штраф/i.test(entry.note || '') ? 'fine' : entry.kind) as PayrollEntryKind;
                   return (
                   <div key={entry.id} className={`${glass} rounded-xl p-3`}>
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-medium">{PAYROLL_KIND_LABELS[resolvedKind]}</div>
+                      <div className="text-sm font-medium">{payrollKindLabel(entry.kind, entry.note)}</div>
                       <div className="text-sm font-semibold tabular-nums">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString('ru')} ₽</div>
                     </div>
                     <div className={`mt-1 text-[11px] ${sub}`}>

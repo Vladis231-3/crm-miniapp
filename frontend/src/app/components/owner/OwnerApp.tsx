@@ -925,6 +925,15 @@ export function OwnerApp() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [salaryHistoryFilter, setSalaryHistoryFilter] = useState<'all' | 'payout'>('all');
+  const salaryBookingsRef = useRef<HTMLDivElement | null>(null);
+  const salaryPayoutRef = useRef<HTMLDivElement | null>(null);
+  const salaryHistoryRef = useRef<HTMLDivElement | null>(null);
+  const scrollSalaryTo = (ref: React.RefObject<HTMLDivElement | null>) => {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
   const [payrollDateFrom, setPayrollDateFrom] = useState('');
   const [payrollDateTo, setPayrollDateTo] = useState('');
@@ -1232,7 +1241,7 @@ export function OwnerApp() {
     }));
   }, [workers]);
   useEffect(() => {
-    if (!selectedSalaryWorkerId) { setSalaryDetail(null); setSalaryError(null); return; }
+    if (!selectedSalaryWorkerId) { setSalaryDetail(null); setSalaryError(null); setSalaryHistoryFilter('all'); return; }
     if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
       setSalaryDetail(null);
       setSalaryLoading(false);
@@ -3090,12 +3099,22 @@ export function OwnerApp() {
       setTimeout(() => setBottomToast(null), 3000);
       return;
     }
+    // kind="deduction" общий для штрафа и списания — мастер различает их
+    // по примечанию (см. isWriteOffNote ниже). Поэтому произвольный текст
+    // всегда отправляем с префиксом "Списание: ", иначе у мастера
+    // операция отобразится как "Штраф".
+    const rawWriteOffNote = writeOffNote.trim();
+    const writeOffNoteToSend = !rawWriteOffNote
+      ? 'Списание'
+      : rawWriteOffNote.toLowerCase().startsWith('списан')
+        ? rawWriteOffNote
+        : `Списание: ${rawWriteOffNote}`;
     try {
       await createPayrollEntry({
         workerId: selectedSalaryWorkerId,
         kind: 'deduction',
         amount: Math.round(amount),
-        note: writeOffNote.trim() || 'Списание',
+        note: writeOffNoteToSend,
         period: salaryPeriod,
         clientRequestId: entryRequestIdRef.current,
         ...(salaryPeriod === 'custom' ? { dateFrom: salaryDateFrom, dateTo: salaryDateTo } : {}),
@@ -5121,18 +5140,43 @@ paymentSettled: false,
                       })()}
                       <div className={`text-xs font-semibold ${sub} uppercase tracking-wide mb-2`}>Пассивный доход  -  доля с заказов других мастеров</div>
                       <div className="grid grid-cols-3 gap-2 mb-3">
-                        <div className={`${glass} rounded-xl p-3 text-center`}>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedOwnerShares((prev) => ({ ...prev, [owner.ownerId]: true }))}
+                          title="Показать начисления по заказам"
+                          className={`${glass} rounded-xl p-3 text-center cursor-pointer transition outline-none hover:border-[var(--primary-600)]/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98]`}
+                        >
                           <div className="text-sm font-semibold" style={{ color: accent }}>{owner.totalAccrued.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Начислено</div>
-                        </div>
-                        <div className={`${glass} rounded-xl p-3 text-center`}>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (owner.balanceToPay > 0 && ownerPayTarget !== owner.ownerId && !ownerPayAmount) {
+                              setOwnerPayAmount(String(Math.round(owner.balanceToPay)));
+                            }
+                            setOwnerPayTarget(owner.ownerId);
+                          }}
+                          title="Перейти к выплате"
+                          className={`${glass} rounded-xl p-3 text-center cursor-pointer transition outline-none hover:border-[var(--primary-600)]/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98]`}
+                        >
                           <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{owner.totalPaid.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Выплачено</div>
-                        </div>
-                        <div className={`${glass} rounded-xl p-3 text-center`}>
-                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : muted }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (owner.balanceToPay > 0 && ownerPayTarget !== owner.ownerId && !ownerPayAmount) {
+                              setOwnerPayAmount(String(Math.round(owner.balanceToPay)));
+                            }
+                            setOwnerPayTarget(owner.ownerId);
+                          }}
+                          title="Перейти к выплате остатка"
+                          className={`${glass} rounded-xl p-3 text-center cursor-pointer transition outline-none hover:border-[var(--primary-600)]/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98]`}
+                        >
+                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Остаток</div>
-                        </div>
+                        </button>
                       </div>
                       {owner.shares.length > 0 && (
                         <div className="mb-3">
@@ -5276,7 +5320,7 @@ paymentSettled: false,
                           <EditAmountPencil primary={primary} size={10} title="Изменить сумму — премия/корректировка ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
                         </span>
                       </div>
-                      <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Заработано</div>
+                      <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Заработано{((salaryDetail.totalAsvcEarned || 0) > 0) ? ` · осн. ${(salaryDetail.totalMainEarned ?? (salaryDetail.totalEarned - (salaryDetail.totalAsvcEarned || 0))).toLocaleString('ru')} + допы ${(salaryDetail.totalAsvcEarned || 0).toLocaleString('ru')}` : ''}</div>
                     </button>
                     <button type="button" onClick={() => setSalaryBreakdown('paid')} title="Выплачено — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
                       <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽
@@ -5320,7 +5364,7 @@ paymentSettled: false,
                   })()}
 
                   {/* Bookings list */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div ref={salaryBookingsRef} className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="font-semibold text-sm">Записи ({salaryDetail.completedBookingsCount})</h3>
                       <span className={`text-[11px] ${sub}`}>Смен: {salaryDetail.shiftCount}</span>
@@ -5340,7 +5384,7 @@ paymentSettled: false,
                                 {b.service}
                               </span>
                             </div>
-                            <div className={`text-[10px] ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${b.earned.toLocaleString('ru')} ₽` : `${b.percent}%`}</div>
+                            <div className={`text-[10px] ${sub}`}>{b.box} · {b.payType === 'fixed' ? `фикс ${(b.mainEarned ?? b.earned).toLocaleString('ru')} ₽` : `${b.percent}%`}{(b.asvcEarned || 0) > 0 ? ` · допы +${(b.asvcEarned || 0).toLocaleString('ru')} ₽` : ''}</div>
                             {(b.car || b.plate) && (
                               <div className={`text-[10px] ${sub} mt-0.5`}>
                                 {[b.car, b.plate].filter(Boolean).join(' · ')}
@@ -5367,6 +5411,9 @@ paymentSettled: false,
                               <div className="flex items-center gap-1.5">
                                 <div className="text-right">
                                   <button type="button" onClick={e => { e.stopPropagation(); setSalaryBookingDetail(b); }} title="Открыть детали записи" className="text-sm font-semibold underline decoration-dotted underline-offset-2 cursor-pointer active:opacity-70">{b.earned.toLocaleString('ru')} ₽</button>
+                                  {(b.asvcEarned || 0) > 0 && (
+                                    <div className={`text-[10px] ${sub}`}>осн. {(b.mainEarned ?? (b.earned - (b.asvcEarned || 0))).toLocaleString('ru')} + допы {(b.asvcEarned || 0).toLocaleString('ru')}</div>
+                                  )}
                                   <div className={`text-[10px] ${sub}`}>{b.resourceGroup === 'wash' ? 'Мойка' : 'Детейлинг'}</div>
                                 </div>
                                 {b.linkId && (
@@ -5436,7 +5483,7 @@ paymentSettled: false,
                   </div>
 
                   {/* Payout form */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div ref={salaryPayoutRef} className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
                     <h3 className="font-semibold text-sm mb-3">Выплата мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={salaryPayAmount}
@@ -5487,23 +5534,62 @@ paymentSettled: false,
                   </div>
 
                   {/* Operations history */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-2">История операций</h3>                    {salaryDetail.entries.length === 0 ? (
-                      <div className={`text-xs ${sub} py-3 text-center`}>Операций не было</div>
-                    ) : (
-                      salaryDetail.entries.slice(0, 20).map(e => {
+                  <div ref={salaryHistoryRef} className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-sm">История операций</h3>
+                      <div className="flex gap-1">
+                        {(['all', 'payout'] as const).map((f) => (
+                          <button
+                            key={f}
+                            type="button"
+                            onClick={() => setSalaryHistoryFilter(f)}
+                            className="px-2 py-1 rounded-lg text-[11px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                            style={{ background: salaryHistoryFilter === f ? primary : 'transparent', color: salaryHistoryFilter === f ? '#fff' : sub }}
+                          >
+                            {f === 'all' ? 'Все' : 'Выплаты'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {(() => {
+                      const visibleEntries = salaryHistoryFilter === 'payout'
+                        ? salaryDetail.entries.filter((e) => e.kind === 'payout')
+                        : salaryDetail.entries;
+                      if (visibleEntries.length === 0) {
+                        return (
+                          <div>
+                            <div className={`text-xs ${sub} py-3 text-center`}>
+                              {salaryHistoryFilter === 'payout' ? 'Выплат за период не было' : 'Операций не было'}
+                            </div>
+                            {salaryHistoryFilter === 'payout' && salaryDetail.entries.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setSalaryHistoryFilter('all')}
+                                className="w-full py-1.5 text-xs font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                              >
+                                Показать все операции
+                              </button>
+                            )}
+                          </div>
+                        );
+                      }
+                      return visibleEntries.slice(0, 20).map(e => {
                         const isEditing = editingEntryId === e.id;
-                        const kindLabel: Record<string, string> = {
-                          bonus: 'Премия', deduction: 'Списание', fine: 'Штраф', payout: 'Выплата',
-                          advance: 'Аванс', adjustment: 'Корректировка',
+                        // kind="deduction" общий для штрафа и списания:
+                        // списание определяем по примечанию (форма списания
+                        // всегда пишет "Списание..." — см. handleAddWriteOff).
+                        const isWriteOffNote = (n?: string) => (n || '').trim().toLowerCase().startsWith('списан');
+                        const getKindLabel = (kind: string, note?: string) => {
+                          if (kind === 'deduction') return isWriteOffNote(note) ? 'Списание' : 'Штраф';
+                          return ({ bonus: 'Премия', payout: 'Выплата', advance: 'Аванс', adjustment: 'Корректировка', fine: 'Штраф', } as Record<string, string>)[kind] || kind;
                         };
+                        // Legacy: старые штрафы хранятся как deduction — различаем по примечанию
+                        const resolvedKind = e.kind === 'deduction' ? (isWriteOffNote(e.note) ? 'deduction' : 'fine') : e.kind;
                         const kindColor: Record<string, string> = {
                           bonus: '#22c55e', deduction: '#ef4444', fine: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
                           advance: '#f59e0b', adjustment: '#3b82f6',
                         };
                         const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'fine' || e.kind === 'bonus' || e.kind === 'advance' || e.kind === 'adjustment';
-                        // Legacy: старые штрафы хранятся как deduction — различаем по примечанию
-                        const resolvedKind = e.kind === 'deduction' && /штраф/i.test(e.note || '') ? 'fine' : e.kind;
                         return (
                           <div key={e.id} className="flex items-start justify-between py-2 border-b gap-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                             {isEditing ? (
@@ -5520,7 +5606,7 @@ paymentSettled: false,
                               <>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs font-medium">
-                                    <span className="font-semibold" style={{ color: kindColor[resolvedKind] || muted }}>{kindLabel[resolvedKind] || e.kind}</span>
+                                    <span className="font-semibold" style={{ color: kindColor[resolvedKind] || muted }}>{getKindLabel(e.kind, e.note)}</span>
                                     {' · '}{e.amount.toLocaleString('ru')} ₽
                                   </div>
                                   {e.note && <div className={`text-[10px] ${sub}`}>{e.note}</div>}
@@ -5537,7 +5623,7 @@ paymentSettled: false,
                           </div>
                         );
                       })
-                    )}
+                    })()}
                   </div>
                   {/* ── Расшифровка плитки (bottom-sheet): earned / paid / balance ── */}
                   {salaryBreakdown && (
