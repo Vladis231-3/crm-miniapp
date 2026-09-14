@@ -1301,6 +1301,20 @@ class ReadAllNotificationsRequest(BaseModel):
     role: Role
 
 
+class WorkerBroadcastRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    # None/отсутствует — всем активным мастерам (групповой чат).
+    # Список id — только выбранным. Пустой список запрещён (422).
+    workerIds: list[str] | None = None
+
+
+class WorkerBroadcastResponse(BaseModel):
+    delivered: int
+    telegramSent: int
+    message: str
+    recipientIds: list[str] = Field(default_factory=list)
+
+
 class StockItemCreateRequest(BaseModel):
     name: str
     qty: float = Field(ge=0)
@@ -2460,3 +2474,125 @@ class DepositSummaryItem(BaseModel):
     monthPending: bool = False
     startMonth: str = ""
     owners: list[ArchiveOwnerItem] = Field(default_factory=list)
+
+
+# --- Data cleanup (выборочное удаление за период + корзина 30 дней) ---
+
+DATA_CLEANUP_ENTITIES = (
+    "bookings",
+    "clients",
+    "incomes",
+    "expenses",
+    "piggy",
+    "payroll",
+    "writeoffs",
+    "notifications",
+)
+
+DATA_CLEANUP_ENTITY_DESCRIPTIONS: dict[str, str] = {
+    "bookings": "Записи клиентов: брони, визиты, статусы и привязки мастеров. Уберутся из календаря, истории и расчётов.",
+    "clients": "Клиенты: карточки, телефоны, авто и депозиты. Сами записи при этом остаются, скрывается только карточка.",
+    "incomes": "Доп. доходы: ручные поступления вне записей (пополнения, прочие).",
+    "expenses": "Расходы: закупки, аренда и прочие траты вне зарплаты.",
+    "piggy": "Копилка: накопления процента с записей и траты из копилки.",
+    "payroll": "Зарплата: начисления, авансы, выплаты и удержания мастеров.",
+    "writeoffs": "Списания склада: расход материалов (ручные и по записям).",
+    "notifications": "Уведомления: служебные сообщения клиентам, админам и владельцам.",
+}
+
+
+class DataCleanupRequest(BaseModel):
+    entities: list[str] = Field(min_length=1)
+    mode: str = Field(default="range", pattern="^(range|older_than)$")
+    dateFrom: str = ""
+    dateTo: str = ""
+    olderThanDays: int | None = Field(default=None, ge=1, le=3650)
+    password: str = Field(default="", max_length=128)
+
+    @field_validator("entities")
+    @classmethod
+    def validate_entities(cls, value: list[str]) -> list[str]:
+        cleaned = sorted({str(v).strip() for v in value if str(v).strip()})
+        if not cleaned:
+            raise ValueError("Выберите хотя бы одну сущность")
+        unknown = [v for v in cleaned if v not in DATA_CLEANUP_ENTITIES]
+        if unknown:
+            raise ValueError(f"Неизвестные сущности: {', '.join(unknown)}")
+        return cleaned
+
+
+class DataCleanupPreviewItem(BaseModel):
+    entity: str
+    title: str
+    description: str
+    count: int = 0
+
+
+class DataCleanupPreviewPayload(BaseModel):
+    mode: str = "range"
+    dateFrom: str = ""
+    dateTo: str = ""
+    olderThanDays: int | None = None
+    cutoffDate: str = ""
+    expiresAt: datetime | None = None
+    items: list[DataCleanupPreviewItem] = Field(default_factory=list)
+    total: int = 0
+
+
+class DataCleanupExecutePayload(BaseModel):
+    batchId: str
+    message: str = ""
+    mode: str = "range"
+    dateFrom: str = ""
+    dateTo: str = ""
+    olderThanDays: int | None = None
+    expiresAt: datetime | None = None
+    counts: dict[str, int] = Field(default_factory=dict)
+    total: int = 0
+
+
+class DataCleanupBatchPayload(BaseModel):
+    id: str
+    createdAt: datetime
+    createdById: str | None = None
+    mode: str = "range"
+    dateFrom: str = ""
+    dateTo: str = ""
+    olderThanDays: int | None = None
+    entities: list[str] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+    total: int = 0
+    expiresAt: datetime | None = None
+    restoredAt: datetime | None = None
+    purgedAt: datetime | None = None
+    status: str = "active"
+    activeItems: int = 0
+    restoredItems: int = 0
+
+
+class TrashItemPayload(BaseModel):
+    id: str
+    batchId: str
+    entityType: str
+    entityTitle: str = ""
+    entityId: str
+    label: str = ""
+    itemDate: str = ""
+    deletedAt: datetime
+    expiresAt: datetime | None = None
+    daysLeft: int = 0
+
+
+class TrashListPayload(BaseModel):
+    items: list[TrashItemPayload] = Field(default_factory=list)
+    total: int = 0
+
+
+class TrashRestoreRequest(BaseModel):
+    batchId: str | None = None
+    itemIds: list[str] = Field(default_factory=list)
+
+
+class TrashPurgeRequest(BaseModel):
+    batchId: str | None = None
+    itemIds: list[str] = Field(default_factory=list)

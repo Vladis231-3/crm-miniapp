@@ -273,6 +273,13 @@ export interface Notification {
   createdAt: Date;
 }
 
+export interface WorkerBroadcastResult {
+  delivered: number;
+  telegramSent: number;
+  message: string;
+  recipientIds: string[];
+}
+
 export interface StockItem {
   id: string;
   name: string;
@@ -901,6 +908,10 @@ interface AppContextType {
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: (role: Role) => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+  sendWorkerBroadcast: (message: string, workerIds?: string[]) => Promise<WorkerBroadcastResult>;
+  takeNotificationToWork: (id: string) => Promise<void>;
+  completeNotificationTask: (id: string) => Promise<void>;
   addStockItem: (item: Omit<StockItem, 'id'>) => Promise<void>;
   updateStockItem: (id: string, updates: Partial<StockItem>) => Promise<void>;
   writeOffStock: (id: string, qty: number) => Promise<void>;
@@ -1645,6 +1656,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }
 
+  async function refreshNotifications() {
+    const list = await apiRequest<BootstrapPayload['notifications']>('/api/notifications');
+    setNotifications(list.map((notification) => ({ ...notification, createdAt: new Date(notification.createdAt) })));
+  }
+
+  async function sendWorkerBroadcast(message: string, workerIds?: string[]): Promise<WorkerBroadcastResult> {
+    const body = workerIds && workerIds.length > 0 ? { message, workerIds } : { message };
+    const result = await apiRequest<WorkerBroadcastResult>('/api/broadcasts/workers', { method: 'POST', body });
+    await refreshBootstrap();
+    return result;
+  }
+
+  async function takeNotificationToWork(id: string) {
+    const updated = await apiRequest<Notification>('/api/notifications/' + id + '/take-to-work', { method: 'POST' });
+    setNotifications((current) => current.map((notification) => (notification.id === id ? { ...updated, createdAt: new Date((updated as unknown as { createdAt: string }).createdAt) } : notification)));
+  }
+
+  async function completeNotificationTask(id: string) {
+    const updated = await apiRequest<Notification>('/api/notifications/' + id + '/complete', { method: 'POST' });
+    setNotifications((current) => current.map((notification) => (notification.id === id ? { ...updated, createdAt: new Date((updated as unknown as { createdAt: string }).createdAt) } : notification)));
+  }
+
   async function addStockItem(item: Omit<StockItem, 'id'>) {
     const created = await apiRequest<StockItem>('/api/stock-items', { method: 'POST', body: item });
     setStockItems((current) => [...current, created]);
@@ -2132,6 +2165,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addNotification,
       markNotificationRead,
       markAllNotificationsRead,
+      refreshNotifications,
+      sendWorkerBroadcast,
+      takeNotificationToWork,
+      completeNotificationTask,
       addStockItem,
       updateStockItem,
       writeOffStock,

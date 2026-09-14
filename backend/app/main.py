@@ -137,6 +137,10 @@ from .models import (
 
     Client,
 
+    DataCleanupBatch,
+
+    TrashItem,
+
     DataConsent,
 
     Expense,
@@ -512,6 +516,26 @@ from .schemas import (
 
     DepositSummaryItem,
 
+    DataCleanupRequest,
+
+    DataCleanupPreviewItem,
+
+    DataCleanupPreviewPayload,
+
+    DataCleanupExecutePayload,
+
+    DataCleanupBatchPayload,
+
+    TrashItemPayload,
+
+    TrashListPayload,
+
+    TrashRestoreRequest,
+
+    TrashPurgeRequest,
+
+    DATA_CLEANUP_ENTITY_DESCRIPTIONS,
+
 )
 
 from .security import (
@@ -682,6 +706,20 @@ OWNER_DATABASE_RESET_CONFIRMATION_PHRASE = "ПОДТВЕРЖДАЮ ПОЛНУЮ 
 OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES = 10
 
 OWNER_DATABASE_RESET_DELAY_SECONDS = 10
+
+# Выборочная очистка за период: корзина живёт 30 дней, потом purge.
+DATA_CLEANUP_TRASH_DAYS = 30
+
+DATA_CLEANUP_ENTITY_TITLES: dict[str, str] = {
+    "bookings": "Записи",
+    "clients": "Клиенты",
+    "incomes": "Доходы",
+    "expenses": "Расходы",
+    "piggy": "Копилка",
+    "payroll": "Зарплата",
+    "writeoffs": "Списания склада",
+    "notifications": "Уведомления",
+}
 
 BOOKING_ACTIVE_STATUSES = {"new", "confirmed", "scheduled", "in_progress"}
 
@@ -2785,6 +2823,28 @@ def _apply_runtime_migrations() -> None:
                     connection.exec_driver_sql(
                         f"ALTER TABLE stock_write_offs ADD COLUMN {column} {column_type} DEFAULT NULL"
                     )
+    # Миграция: soft-delete для выборочной очистки (корзина 30 дней).
+    # Добавляем deleted_at туда, где его не было; новые таблицы создаёт create_all,
+    # но для существующих БД создаём явно.
+    for _table in (
+        "expenses",
+        "incomes",
+        "piggy_bank_transactions",
+        "payroll_entries",
+        "stock_write_offs",
+        "notifications",
+    ):
+        if _table in inspector.get_table_names():
+            _cols = {col["name"] for col in inspector.get_columns(_table)}
+            if "deleted_at" not in _cols:
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        f"ALTER TABLE {_table} ADD COLUMN deleted_at TIMESTAMP"
+                    )
+    if "data_cleanup_batches" not in inspector.get_table_names():
+        DataCleanupBatch.__table__.create(bind=engine)
+    if "trash_items" not in inspector.get_table_names():
+        TrashItem.__table__.create(bind=engine)
     # Горячие индексы (AUDIT-16): create_all их не добавляет в существующие БД.
     # CREATE INDEX IF NOT EXISTS валиден и в SQLite, и в PostgreSQL.
     for index_statement in (
@@ -2795,6 +2855,14 @@ def _apply_runtime_migrations() -> None:
         "CREATE INDEX IF NOT EXISTS ix_notifications_recipient ON notifications (recipient_role, recipient_id)",
         "CREATE INDEX IF NOT EXISTS ix_expenses_date ON expenses (date)",
         "CREATE INDEX IF NOT EXISTS ix_incomes_date ON incomes (date)",
+        "CREATE INDEX IF NOT EXISTS ix_cleanup_deleted_at_expenses ON expenses (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_cleanup_deleted_at_incomes ON incomes (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_cleanup_deleted_at_piggy ON piggy_bank_transactions (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_cleanup_deleted_at_payroll ON payroll_entries (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_cleanup_deleted_at_writeoffs ON stock_write_offs (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_cleanup_deleted_at_notifications ON notifications (deleted_at)",
+        "CREATE INDEX IF NOT EXISTS ix_trash_batch_id ON trash_items (batch_id)",
+        "CREATE INDEX IF NOT EXISTS ix_trash_entity ON trash_items (entity_type, entity_id)",
     ):
         try:
             with engine.begin() as connection:
@@ -5589,11 +5657,11 @@ def _build_bootstrap(
 
     )
 
-    notifications_query = select(Notification).order_by(Notification.created_at.desc())
+    notifications_query = select(Notification).where(Notification.deleted_at.is_(None)).order_by(Notification.created_at.desc())
 
     stock_query = select(StockItem).order_by(StockItem.name)
 
-    expense_query = select(Expense).order_by(
+    expense_query = select(Expense).where(Expense.deleted_at.is_(None)).order_by(
 
         Expense.date.desc(), Expense.created_at.desc()
 
@@ -8622,6 +8690,557 @@ def execute_owner_database_reset(
     return OwnerDatabaseResetExecutePayload(message="База очищена", preview=preview)
 
 
+# ── Выборочная очистка БД за период + корзина (30 дней) ────────────────────
+
+
+def _data_cleanup_iso_expr(col):
+    return (
+        func.substr(col, 7, 4)
+        .op("||")(func.substr(col, 4, 2))
+        .op("||")(func.substr(col, 1, 2))
+    )
+
+
+def _data_cleanup_resolve_period(payload: DataCleanupRequest):
+    mode = (payload.mode or "range").strip() or "range"
+    if mode not in ("range", "older_than"):
+        raise HTTPException(status_code=422, detail="Режим должен быть range или older_than")
+    if mode == "older_than":
+        days = payload.olderThanDays
+        if not days or int(days) < 1:
+            raise HTTPException(status_code=422, detail="Укажите давность в днях (≥ 1)")
+        days = int(days)
+        today = _now().date()
+        cutoff = date(today.year, today.month, today.day)
+        # Сущности старше N дней: дата сущности <= cutoff.
+        from datetime import timedelta as _td
+
+        cutoff_date = cutoff - _td(days=days)
+        return mode, "", "", None, cutoff_date, days, cutoff_date
+    # mode == range: хотя бы одна граница.
+    raw_from = (payload.dateFrom or "").strip()
+    raw_to = (payload.dateTo or "").strip()
+    if not raw_from and not raw_to:
+        raise HTTPException(status_code=422, detail="Укажите период: дату от и/или до")
+    try:
+        dmy_from = _parse_booking_date_param(raw_from) if raw_from else ""
+        dmy_to = _parse_booking_date_param(raw_to) if raw_to else ""
+    except HTTPException:
+        raise HTTPException(status_code=422, detail="Дата должна быть ДД.ММ.ГГГГ или YYYY-MM-DD")
+    parsed_from = parse_dmy(dmy_from) if dmy_from else None
+    parsed_to = parse_dmy(dmy_to) if dmy_to else None
+    if parsed_from and parsed_to:
+        try:
+            validate_range(parsed_from, parsed_to)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+    lower = parsed_from or date.min
+    upper = parsed_to or date.max
+    return mode, dmy_from, dmy_to, parsed_from, parsed_to, lower, upper
+
+
+def _data_cleanup_collect(db: Session, entities: list[str], period) -> dict[str, list[Any]]:
+    mode, dmy_from, dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
+    result: dict[str, list[Any]] = {}
+
+    def _range_filter_dmy(col):
+        conds = []
+        if parsed_from or parsed_to:
+            lower_iso = (parsed_from or date.min).strftime("%Y%m%d")
+            upper_iso = (parsed_to or date.max).strftime("%Y%m%d")
+            conds.append(_data_cleanup_iso_expr(col) >= lower_iso)
+            conds.append(_data_cleanup_iso_expr(col) <= upper_iso)
+        return conds
+
+    def _older_filter_dmy(col, cutoff: date):
+        iso = cutoff.strftime("%Y%m%d")
+        return [_data_cleanup_iso_expr(col) <= iso]
+
+    if "bookings" in entities:
+        q = select(Booking).where(Booking.deleted_at.is_(None))
+        if mode == "range":
+            for c in _range_filter_dmy(Booking.date):
+                q = q.where(c)
+        else:
+            for c in _older_filter_dmy(Booking.date, bound_b if isinstance(bound_b, date) else bound_a):
+                q = q.where(c)
+        result["bookings"] = list(db.scalars(q).all())
+
+    if "incomes" in entities:
+        q = select(Income).where(Income.deleted_at.is_(None))
+        if mode == "range":
+            for c in _range_filter_dmy(Income.date):
+                q = q.where(c)
+        else:
+            for c in _older_filter_dmy(Income.date, bound_b if isinstance(bound_b, date) else bound_a):
+                q = q.where(c)
+        result["incomes"] = list(db.scalars(q).all())
+
+    if "expenses" in entities:
+        q = select(Expense).where(Expense.deleted_at.is_(None))
+        if mode == "range":
+            for c in _range_filter_dmy(Expense.date):
+                q = q.where(c)
+        else:
+            for c in _older_filter_dmy(Expense.date, bound_b if isinstance(bound_b, date) else bound_a):
+                q = q.where(c)
+        result["expenses"] = list(db.scalars(q).all())
+
+    if "piggy" in entities:
+        q = select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None))
+        if mode == "range":
+            for c in _range_filter_dmy(PiggyBankTransaction.date):
+                q = q.where(c)
+        else:
+            for c in _older_filter_dmy(PiggyBankTransaction.date, bound_b if isinstance(bound_b, date) else bound_a):
+                q = q.where(c)
+        result["piggy"] = list(db.scalars(q).all())
+
+    def _created_at_in_scope(created_at: datetime | None, fallback_dmy: str | None = None) -> bool:
+        # Для payroll пробуем entry_date, иначе created_at.
+        if fallback_dmy:
+            try:
+                d = parse_dmy(fallback_dmy)
+            except (TypeError, ValueError):
+                pass
+            else:
+                if mode == "range":
+                    lo = parsed_from or date.min
+                    hi = parsed_to or date.max
+                    return lo <= d <= hi
+                cutoff = bound_b if isinstance(bound_b, date) else bound_a
+                return d <= cutoff
+        if created_at is None:
+            return False
+        d = _as_utc(created_at).date()
+        if mode == "range":
+            lo = parsed_from or date.min
+            hi = parsed_to or date.max
+            return lo <= d <= hi
+        cutoff = bound_b if isinstance(bound_b, date) else bound_a
+        return d <= cutoff
+
+    if "payroll" in entities:
+        rows = list(db.scalars(select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None))).all())
+        result["payroll"] = [r for r in rows if _created_at_in_scope(r.created_at, getattr(r, "entry_date", None))]
+
+    if "clients" in entities:
+        rows = list(db.scalars(select(Client).where(Client.deleted_at.is_(None))).all())
+        result["clients"] = [r for r in rows if _created_at_in_scope(r.created_at)]
+
+    if "notifications" in entities:
+        rows = list(db.scalars(select(Notification).where(Notification.deleted_at.is_(None))).all())
+        result["notifications"] = [r for r in rows if _created_at_in_scope(r.created_at)]
+
+    if "writeoffs" in entities:
+        rows = list(db.scalars(select(StockWriteOff).where(StockWriteOff.deleted_at.is_(None))).all())
+        result["writeoffs"] = [r for r in rows if _created_at_in_scope(r.created_at)]
+
+    return result
+
+
+def _data_cleanup_label(entity: str, obj: Any) -> tuple[str, str]:
+    try:
+        if entity == "bookings":
+            return (f"{getattr(obj, 'date', '')} {getattr(obj, 'time', '')} · {getattr(obj, 'service', '')} · {getattr(obj, 'client_name', '')}".strip(), str(getattr(obj, "date", "") or ""))
+        if entity == "clients":
+            return (f"{getattr(obj, 'name', '')} · {getattr(obj, 'phone', '')}".strip(" ·"), _as_utc(obj.created_at).date().strftime("%d.%m.%Y") if getattr(obj, "created_at", None) else "")
+        if entity == "incomes":
+            return (f"{getattr(obj, 'source', '')} · {int(getattr(obj, 'amount', 0) or 0)} ₽".strip(), str(getattr(obj, "date", "") or ""))
+        if entity == "expenses":
+            return (f"{getattr(obj, 'title', '')} · {int(getattr(obj, 'amount', 0) or 0)} ₽".strip(), str(getattr(obj, "date", "") or ""))
+        if entity == "piggy":
+            return (f"{getattr(obj, 'purpose', '')} · {int(getattr(obj, 'amount', 0) or 0)} ₽".strip(), str(getattr(obj, "date", "") or ""))
+        if entity == "payroll":
+            d = getattr(obj, "entry_date", None) or (_as_utc(obj.created_at).date().strftime("%d.%m.%Y") if getattr(obj, "created_at", None) else "")
+            return (f"{getattr(obj, 'kind', '')} · {int(getattr(obj, 'amount', 0) or 0)} ₽".strip(), str(d or ""))
+        if entity == "writeoffs":
+            d = _as_utc(obj.created_at).date().strftime("%d.%m.%Y") if getattr(obj, "created_at", None) else ""
+            return (f"{getattr(obj, 'stock_item_name', '')} · {getattr(obj, 'qty', '')}".strip(), str(d or ""))
+        if entity == "notifications":
+            msg = str(getattr(obj, "message", "") or "")
+            d = _as_utc(obj.created_at).date().strftime("%d.%m.%Y") if getattr(obj, "created_at", None) else ""
+            return (msg[:120], str(d or ""))
+    except Exception:
+        pass
+    return (str(getattr(obj, "id", "")), "")
+
+
+def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> DataCleanupPreviewPayload:
+    period = _data_cleanup_resolve_period(payload)
+    mode, dmy_from, dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
+    collected = _data_cleanup_collect(db, payload.entities, period)
+    items: list[DataCleanupPreviewItem] = []
+    total = 0
+    if mode == "older_than":
+        cutoff = bound_b if isinstance(bound_b, date) else bound_a
+        cutoff_dmy = cutoff.strftime("%d.%m.%Y") if isinstance(cutoff, date) else ""
+    else:
+        cutoff_dmy = ""
+    for entity in payload.entities:
+        count = len(collected.get(entity, []))
+        total += count
+        items.append(
+            DataCleanupPreviewItem(
+                entity=entity,
+                title=DATA_CLEANUP_ENTITY_TITLES.get(entity, entity),
+                description=DATA_CLEANUP_ENTITY_DESCRIPTIONS.get(entity, ""),
+                count=count,
+            )
+        )
+    return DataCleanupPreviewPayload(
+        mode=mode,
+        dateFrom=dmy_from,
+        dateTo=dmy_to,
+        olderThanDays=int(payload.olderThanDays) if mode == "older_than" else None,
+        cutoffDate=cutoff_dmy,
+        expiresAt=_now() + timedelta(days=DATA_CLEANUP_TRASH_DAYS),
+        items=items,
+        total=total,
+    )
+
+
+def _trash_get_entity(obj_type: str, entity_id: str, db: Session) -> Any | None:
+    mapping = {
+        "bookings": Booking,
+        "clients": Client,
+        "incomes": Income,
+        "expenses": Expense,
+        "piggy": PiggyBankTransaction,
+        "payroll": PayrollEntry,
+        "writeoffs": StockWriteOff,
+        "notifications": Notification,
+    }
+    model = mapping.get(obj_type)
+    if model is None:
+        return None
+    return db.get(model, entity_id)
+
+
+def _trash_purge_expired(db: Session) -> int:
+    now = _now()
+    expired = db.scalars(
+        select(TrashItem).where(
+            TrashItem.purged_at.is_(None),
+            TrashItem.restored_at.is_(None),
+            TrashItem.expires_at <= now,
+        )
+    ).all()
+    purged = 0
+    for item in expired:
+        obj = _trash_get_entity(item.entity_type, item.entity_id, db)
+        if obj is not None:
+            # Жёсткое удаление просроченной корзины.
+            if item.entity_type == "bookings" and getattr(obj, "deleted_at", None) is not None:
+                db.execute(sa_delete(BookingWorker).where(BookingWorker.booking_id == obj.id))
+                db.execute(sa_delete(BookingAdditionalService).where(BookingAdditionalService.booking_id == obj.id))
+                db.execute(sa_delete(BookingMaterial).where(BookingMaterial.booking_id == obj.id))
+            db.delete(obj)
+        item.purged_at = now
+        purged += 1
+    if purged:
+        db.flush()
+    return purged
+
+
+@app.post("/api/owner/data-cleanup/preview", response_model=DataCleanupPreviewPayload)
+def preview_data_cleanup(
+    payload: DataCleanupRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DataCleanupPreviewPayload:
+    _ensure_staff_role(session_data, {"owner"})
+    return _data_cleanup_preview_payload(db, payload)
+
+
+@app.post("/api/owner/data-cleanup/execute", response_model=DataCleanupExecutePayload)
+def execute_data_cleanup(
+    payload: DataCleanupRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> DataCleanupExecutePayload:
+    _ensure_staff_role(session_data, {"owner"})
+    staff = db.get(StaffUser, session_data["actorId"])
+    pwd = (payload.password or "").strip()
+    if not pwd or staff is None or not verify_password(pwd, staff.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль владельца")
+    period = _data_cleanup_resolve_period(payload)
+    mode, dmy_from, dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
+    collected = _data_cleanup_collect(db, payload.entities, period)
+    total = sum(len(v) for v in collected.values())
+    if total == 0:
+        raise HTTPException(status_code=400, detail="По заданному периоду ничего не найдено — удалять нечего")
+    now = _now()
+    expires_at = now + timedelta(days=DATA_CLEANUP_TRASH_DAYS)
+    batch_id = f"cln-{uuid4()}"
+    older_days = int(payload.olderThanDays) if mode == "older_than" else None
+    batch = DataCleanupBatch(
+        id=batch_id,
+        created_at=now,
+        created_by_id=session_data.get("actorId"),
+        mode=mode,
+        date_from=dmy_from or None,
+        date_to=dmy_to or None,
+        older_than_days=older_days,
+        entities=list(payload.entities),
+        counts={k: len(v) for k, v in collected.items()},
+        total=total,
+        expires_at=expires_at,
+        status="active",
+    )
+    db.add(batch)
+    counts: dict[str, int] = {}
+    for entity, objs in collected.items():
+        counts[entity] = 0
+        for obj in objs:
+            if getattr(obj, "deleted_at", None) is not None:
+                continue
+            obj.deleted_at = now
+            label, item_date = _data_cleanup_label(entity, obj)
+            db.add(
+                TrashItem(
+                    id=f"tr-{uuid4()}",
+                    batch_id=batch_id,
+                    entity_type=entity,
+                    entity_id=str(getattr(obj, "id", "")),
+                    label=label[:255],
+                    item_date=item_date or None,
+                    deleted_at=now,
+                    expires_at=expires_at,
+                )
+            )
+            counts[entity] += 1
+    db.commit()
+    return DataCleanupExecutePayload(
+        batchId=batch_id,
+        message=f"В корзину перемещено записей: {total}. Восстановить можно в течение {DATA_CLEANUP_TRASH_DAYS} дней.",
+        mode=mode,
+        dateFrom=dmy_from,
+        dateTo=dmy_to,
+        olderThanDays=older_days,
+        expiresAt=expires_at,
+        counts=counts,
+        total=total,
+    )
+
+
+@app.get("/api/owner/data-cleanup/batches", response_model=list[DataCleanupBatchPayload])
+def list_data_cleanup_batches(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> list[DataCleanupBatchPayload]:
+    _ensure_staff_role(session_data, {"owner"})
+    _trash_purge_expired(db)
+    db.commit()
+    batches = db.scalars(select(DataCleanupBatch).order_by(DataCleanupBatch.created_at.desc()).limit(50)).all()
+    out: list[DataCleanupBatchPayload] = []
+    for b in batches:
+        active = db.scalar(
+            select(func.count()).select_from(TrashItem).where(
+                TrashItem.batch_id == b.id,
+                TrashItem.restored_at.is_(None),
+                TrashItem.purged_at.is_(None),
+            )
+        ) or 0
+        restored = db.scalar(
+            select(func.count()).select_from(TrashItem).where(
+                TrashItem.batch_id == b.id,
+                TrashItem.restored_at.is_not(None),
+            )
+        ) or 0
+        status = b.status or "active"
+        if active == 0 and restored > 0 and status == "active":
+            status = "restored"
+        out.append(
+            DataCleanupBatchPayload(
+                id=b.id,
+                createdAt=_as_utc(b.created_at),
+                createdById=b.created_by_id,
+                mode=b.mode or "range",
+                dateFrom=b.date_from or "",
+                dateTo=b.date_to or "",
+                olderThanDays=b.older_than_days,
+                entities=list(b.entities or []),
+                counts=dict(b.counts or {}),
+                total=int(b.total or 0),
+                expiresAt=_as_utc(b.expires_at) if b.expires_at else None,
+                restoredAt=_as_utc(b.restored_at) if b.restored_at else None,
+                purgedAt=_as_utc(b.purged_at) if b.purged_at else None,
+                status=status,
+                activeItems=int(active),
+                restoredItems=int(restored),
+            )
+        )
+    return out
+
+
+@app.get("/api/owner/trash", response_model=TrashListPayload)
+def list_trash(
+    batchId: str | None = None,
+    entity: str | None = None,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> TrashListPayload:
+    _ensure_staff_role(session_data, {"owner"})
+    _trash_purge_expired(db)
+    db.commit()
+    q = select(TrashItem).where(TrashItem.restored_at.is_(None), TrashItem.purged_at.is_(None))
+    if batchId:
+        q = q.where(TrashItem.batch_id == batchId)
+    if entity:
+        q = q.where(TrashItem.entity_type == entity)
+    q = q.order_by(TrashItem.deleted_at.desc()).limit(500)
+    rows = list(db.scalars(q).all())
+    now = _now()
+    items: list[TrashItemPayload] = []
+    for r in rows:
+        exp = _as_utc(r.expires_at) if r.expires_at else now
+        days_left = max(0, (exp.date() - now.date()).days)
+        items.append(
+            TrashItemPayload(
+                id=r.id,
+                batchId=r.batch_id,
+                entityType=r.entity_type,
+                entityTitle=DATA_CLEANUP_ENTITY_TITLES.get(r.entity_type, r.entity_type),
+                entityId=r.entity_id,
+                label=r.label or "",
+                itemDate=r.item_date or "",
+                deletedAt=_as_utc(r.deleted_at),
+                expiresAt=exp,
+                daysLeft=days_left,
+            )
+        )
+    return TrashListPayload(items=items, total=len(items))
+
+
+@app.post("/api/owner/trash/restore", response_model=GenericMessage)
+def restore_trash(
+    payload: TrashRestoreRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    _ensure_staff_role(session_data, {"owner"})
+    now = _now()
+    if payload.batchId:
+        items = db.scalars(
+            select(TrashItem).where(
+                TrashItem.batch_id == payload.batchId,
+                TrashItem.restored_at.is_(None),
+                TrashItem.purged_at.is_(None),
+            )
+        ).all()
+    elif payload.itemIds:
+        items = db.scalars(
+            select(TrashItem).where(
+                TrashItem.id.in_(list(payload.itemIds)),
+                TrashItem.restored_at.is_(None),
+                TrashItem.purged_at.is_(None),
+            )
+        ).all()
+    else:
+        raise HTTPException(status_code=422, detail="Укажите batchId или itemIds")
+    if not items:
+        raise HTTPException(status_code=404, detail="В корзине ничего не найдено для восстановления")
+    restored = 0
+    touched_batches: set[str] = set()
+    for item in items:
+        obj = _trash_get_entity(item.entity_type, item.entity_id, db)
+        if obj is not None and getattr(obj, "deleted_at", None) is not None:
+            obj.deleted_at = None
+            restored += 1
+        elif obj is not None:
+            restored += 1
+        item.restored_at = now
+        touched_batches.add(item.batch_id)
+    for bid in touched_batches:
+        batch = db.get(DataCleanupBatch, bid)
+        if batch is not None:
+            left = db.scalar(
+                select(func.count()).select_from(TrashItem).where(
+                    TrashItem.batch_id == bid,
+                    TrashItem.restored_at.is_(None),
+                    TrashItem.purged_at.is_(None),
+                )
+            ) or 0
+            if left == 0:
+                batch.status = "restored"
+                batch.restored_at = now
+            else:
+                batch.status = "partial"
+    db.commit()
+    return GenericMessage(message=f"Восстановлено записей: {restored}")
+
+
+@app.post("/api/owner/trash/purge", response_model=GenericMessage)
+def purge_trash(
+    payload: TrashPurgeRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> GenericMessage:
+    _ensure_staff_role(session_data, {"owner"})
+    staff = db.get(StaffUser, session_data["actorId"])
+    if staff is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    now = _now()
+    if payload.batchId:
+        items = db.scalars(
+            select(TrashItem).where(
+                TrashItem.batch_id == payload.batchId,
+                TrashItem.restored_at.is_(None),
+                TrashItem.purged_at.is_(None),
+            )
+        ).all()
+    elif payload.itemIds:
+        items = db.scalars(
+            select(TrashItem).where(
+                TrashItem.id.in_(list(payload.itemIds)),
+                TrashItem.restored_at.is_(None),
+                TrashItem.purged_at.is_(None),
+            )
+        ).all()
+    else:
+        raise HTTPException(status_code=422, detail="Укажите batchId или itemIds")
+    if not items:
+        raise HTTPException(status_code=404, detail="В корзине ничего не найдено для удаления")
+    purged = 0
+    touched_batches: set[str] = set()
+    for item in items:
+        obj = _trash_get_entity(item.entity_type, item.entity_id, db)
+        if obj is not None:
+            if item.entity_type == "bookings":
+                db.execute(sa_delete(BookingWorker).where(BookingWorker.booking_id == obj.id))
+                db.execute(
+                    sa_delete(BookingAdditionalService).where(BookingAdditionalService.booking_id == obj.id)
+                )
+                db.execute(sa_delete(BookingMaterial).where(BookingMaterial.booking_id == obj.id))
+            db.delete(obj)
+        item.purged_at = now
+        touched_batches.add(item.batch_id)
+        purged += 1
+    for bid in touched_batches:
+        batch = db.get(DataCleanupBatch, bid)
+        if batch is not None:
+            left = db.scalar(
+                select(func.count()).select_from(TrashItem).where(
+                    TrashItem.batch_id == bid,
+                    TrashItem.restored_at.is_(None),
+                    TrashItem.purged_at.is_(None),
+                )
+            ) or 0
+            if left == 0:
+                has_restored = db.scalar(
+                    select(func.count()).select_from(TrashItem).where(
+                        TrashItem.batch_id == bid,
+                        TrashItem.restored_at.is_not(None),
+                    )
+                ) or 0
+                batch.status = "restored" if has_restored else "purged"
+                if batch.status == "purged":
+                    batch.purged_at = now
+    db.commit()
+    return GenericMessage(message=f"Безвозвратно удалено записей: {purged}")
+
+
 def _parse_date(s: str) -> date | None:
 
     if "." in s:
@@ -8736,7 +9355,7 @@ def _owner_export_file(
 
     expenses = db.scalars(
 
-        select(Expense).order_by(Expense.created_at.desc(), Expense.date.desc())
+        select(Expense).where(Expense.deleted_at.is_(None)).order_by(Expense.created_at.desc(), Expense.date.desc())
 
     ).all()
 
@@ -8754,19 +9373,19 @@ def _owner_export_file(
 
     incomes = db.scalars(
 
-        select(Income).order_by(Income.created_at.desc(), Income.date.desc())
+        select(Income).where(Income.deleted_at.is_(None)).order_by(Income.created_at.desc(), Income.date.desc())
 
     ).all()
 
     payroll_entries_list = db.scalars(
 
-        select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
+        select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None)).order_by(PayrollEntry.created_at.desc())
 
     ).all()
 
     piggy_transactions = db.scalars(
 
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -8926,7 +9545,7 @@ def _piggy_bank_export_file(
 
     piggy_transactions = db.scalars(
 
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -9231,13 +9850,13 @@ def _owner_summary_report(
 
     services = db.scalars(select(Service).order_by(Service.name)).all()
 
-    expenses = db.scalars(select(Expense).order_by(Expense.created_at.desc())).all()
+    expenses = db.scalars(select(Expense).where(Expense.deleted_at.is_(None)).order_by(Expense.created_at.desc())).all()
 
-    incomes = db.scalars(select(Income).order_by(Income.created_at.desc())).all()
+    incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None)).order_by(Income.created_at.desc())).all()
 
     piggy_transactions = db.scalars(
 
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -9353,7 +9972,7 @@ def _owner_summary_export_file(
 
     piggy_transactions = db.scalars(
 
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -14521,6 +15140,24 @@ def mark_all_notifications_read(
 
 
 
+@app.get("/api/notifications", response_model=list[NotificationPayload])
+def list_my_notifications(session_data: dict = Depends(_require_session), db: Session = Depends(get_db)) -> list[NotificationPayload]:
+    role = session_data["role"]
+    actor_id = session_data["actorId"]
+    query = select(Notification).where(Notification.deleted_at.is_(None)).order_by(Notification.created_at.desc())
+    if role == "client":
+        query = query.where(Notification.recipient_role == "client", Notification.recipient_id == actor_id)
+    elif role == "worker":
+        query = query.where(Notification.recipient_role == "worker", Notification.recipient_id == actor_id)
+    elif role in {"admin", "accountant"}:
+        query = query.where(Notification.recipient_role.in_(("admin", "accountant")), or_(Notification.recipient_id.is_(None), Notification.recipient_id == actor_id))
+    elif role == "owner":
+        query = query.where(Notification.recipient_role == "owner", or_(Notification.recipient_id.is_(None), Notification.recipient_id == actor_id))
+    else:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return [_notification_payload(item) for item in db.scalars(query).all()]
+
+
 def _active_master_recipients(db: Session) -> list[StaffUser]:
     return list(db.scalars(select(StaffUser).where(StaffUser.active.is_(True), or_(StaffUser.role == "worker", _owner_master_condition())).order_by(StaffUser.name.asc(), StaffUser.id.asc())).all())
 
@@ -14535,11 +15172,29 @@ def broadcast_to_workers(payload: WorkerBroadcastRequest, session_data: dict = D
     if len(text) > 2000:
         raise HTTPException(status_code=422, detail="Сообщение слишком длинное (макс. 2000)")
     sender = str(session_data.get("displayName") or "Владелец").strip() or "Владелец"
-    recipients = _active_master_recipients(db)
-    if not recipients:
+    eligible = {worker.id: worker for worker in _active_master_recipients(db)}
+    if not eligible:
         raise HTTPException(status_code=404, detail="Нет активных мастеров для рассылки")
+    if payload.workerIds is None:
+        recipients = list(eligible.values())
+        scope_label = "всем мастерам"
+    else:
+        seen: list[str] = []
+        for raw_id in payload.workerIds:
+            candidate = str(raw_id or "").strip()
+            if candidate and candidate not in seen:
+                seen.append(candidate)
+        if not seen:
+            raise HTTPException(status_code=422, detail="Выберите хотя бы одного мастера")
+        if len(seen) > 50:
+            raise HTTPException(status_code=422, detail="Слишком много получателей (макс. 50)")
+        invalid = [candidate for candidate in seen if candidate not in eligible]
+        if invalid:
+            raise HTTPException(status_code=422, detail="Выбраны недоступные мастера")
+        recipients = [eligible[candidate] for candidate in seen]
+        scope_label = f"выбранным мастерам ({len(recipients)})" if len(recipients) != len(eligible) else "всем мастерам"
     inbox_text = f"📢 от {sender}: {text}"
-    tg_text = f"📢 Сообщение от {sender} (всем мастерам):\n{text}"
+    tg_text = f"📢 Сообщение от {sender} ({scope_label}):\n{text}"
     telegram_sent = 0
     for worker in recipients:
         db.add(Notification(id=f"n-{uuid4()}", recipient_role="worker", recipient_id=worker.id, message=inbox_text, read=False, created_at=_now()))
@@ -14550,7 +15205,12 @@ def broadcast_to_workers(payload: WorkerBroadcastRequest, session_data: dict = D
             continue
         _send_telegram_safe(chat_id, tg_text)
         telegram_sent += 1
-    return WorkerBroadcastResponse(delivered=len(recipients), telegramSent=telegram_sent, message=f"Отправлено {len(recipients)} мастерам")
+    count = len(recipients)
+    if count % 10 == 1 and count % 100 != 11:
+        who = "мастеру"
+    else:
+        who = "мастерам"
+    return WorkerBroadcastResponse(delivered=count, telegramSent=telegram_sent, message=f"Отправлено {count} {who}", recipientIds=[worker.id for worker in recipients])
 
 
 def _claim_tag(notification_id: str, worker_id: str, action: str) -> str:
@@ -14766,7 +15426,7 @@ def get_write_off_history(
 ) -> list[StockWriteOffPayload]:
     _ensure_staff_role(session_data, {"admin", "owner", "accountant"})
     rows = db.scalars(
-        select(StockWriteOff).order_by(StockWriteOff.created_at.desc()).limit(200)
+        select(StockWriteOff).where(StockWriteOff.deleted_at.is_(None)).order_by(StockWriteOff.created_at.desc()).limit(200)
     ).all()
     return [
         StockWriteOffPayload(
@@ -15534,7 +16194,7 @@ def update_expense(
     # Обратная синхронизация: прямое редактирование расхода бюджета обновляет
     # связанную зарплатную операцию (иначе бюджет и ведомость расходятся).
     linked_entry = db.scalar(
-        select(PayrollEntry).where(PayrollEntry.expense_id == expense.id).limit(1)
+        select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.expense_id == expense.id).limit(1)
     )
     if linked_entry is not None and payload.amount is not None:
         linked_entry.amount = abs(expense.amount)
@@ -15565,7 +16225,7 @@ def list_incomes(
 
     incomes = db.scalars(
 
-        select(Income).order_by(Income.created_at.desc())
+        select(Income).where(Income.deleted_at.is_(None)).order_by(Income.created_at.desc())
 
     ).all()
 
@@ -15710,7 +16370,7 @@ def update_income(
     # deduction хранит положительную сумму; отрицательная корректировка —
     # отрицательную (доход зеркалится с abs()).
     linked_entry = db.scalar(
-        select(PayrollEntry).where(PayrollEntry.income_id == income.id).limit(1)
+        select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.income_id == income.id).limit(1)
     )
     if linked_entry is not None and payload.amount is not None:
         if linked_entry.kind == "adjustment":
@@ -15830,7 +16490,7 @@ def get_piggy_bank(
 
     all_tx = db.scalars(
 
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -16026,9 +16686,9 @@ def get_piggy_bank(
 
     # Expenses and incomes filtered in Python
 
-    all_expenses = db.scalars(select(Expense)).all()
+    all_expenses = db.scalars(select(Expense).where(Expense.deleted_at.is_(None))).all()
 
-    all_incomes = db.scalars(select(Income)).all()
+    all_incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None))).all()
 
 
 
@@ -18059,7 +18719,7 @@ def get_wallet(
 
     all_piggy = db.scalars(
 
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
 
     ).all()
 
@@ -20457,7 +21117,7 @@ def get_admin_workers_payroll(
             )
             .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
         ).unique().all()
-    entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
+    entries_query = select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.worker_id.in_(worker_ids))
     if period != "all":
         entries_query = entries_query.where(
             _payroll_entry_period_condition(
@@ -21234,7 +21894,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
 
     all_txs = db.scalars(
         select(PiggyBankTransaction)
-        .where(PiggyBankTransaction.booking_id == booking.id)
+        .where(PiggyBankTransaction.deleted_at.is_(None), PiggyBankTransaction.booking_id == booking.id)
         .order_by(PiggyBankTransaction.created_at.asc())
     ).all()
     deposit_txs = [t for t in all_txs if t.transaction_type == "deposit_24percent"]
@@ -21511,7 +22171,7 @@ def get_owner_bookings_history_totals(
             for alink in asvc.worker_links
         )
     ]
-    entries_query = select(PayrollEntry).where(PayrollEntry.worker_id.in_(worker_ids))
+    entries_query = select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.worker_id.in_(worker_ids))
     if date_from and date_to:
         dt_from, dt_to = _local_day_bounds(date_from)[0], _local_day_bounds(date_to)[1]
         entries_query = entries_query.where(
@@ -21762,10 +22422,10 @@ def get_owner_archive(
     summary.bookingCount = len(bookings)
 
     # ── Доходы и расходы за период ──
-    incomes = db.scalars(select(Income)).all()
+    incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None))).all()
     incomes = [i for i in incomes if i.date and _in_range(i.date)]
     incomes.sort(key=lambda i: (i.date, i.created_at), reverse=True)
-    expenses = db.scalars(select(Expense)).all()
+    expenses = db.scalars(select(Expense).where(Expense.deleted_at.is_(None))).all()
     expenses = [e for e in expenses if e.date and _in_range(e.date)]
     expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
 
@@ -21802,7 +22462,7 @@ def get_owner_archive(
 
     # ── Движения копилки за период ──
     piggy_txs = db.scalars(
-        select(PiggyBankTransaction).order_by(PiggyBankTransaction.created_at.desc())
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
     ).all()
     piggy_txs = [t for t in piggy_txs if _in_range(t.date)]
     summary.piggyTxCount = len(piggy_txs)
@@ -22042,14 +22702,14 @@ def get_owner_money_flow(
     payroll_expense_ids = {
         e.expense_id
         for e in db.scalars(
-            select(PayrollEntry).where(PayrollEntry.expense_id.is_not(None))
+            select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.expense_id.is_not(None))
         ).all()
         if e.expense_id
     }
     payroll_income_ids = {
         e.income_id
         for e in db.scalars(
-            select(PayrollEntry).where(PayrollEntry.income_id.is_not(None))
+            select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.income_id.is_not(None))
         ).all()
         if e.income_id
     }
@@ -22168,7 +22828,7 @@ def get_owner_money_flow(
         summary.allocatedOutsource += outsource_total
 
     # ── 2. Прочие доходы ──
-    incomes = [i for i in db.scalars(select(Income)).all() if i.date and _in_range(i.date)]
+    incomes = [i for i in db.scalars(select(Income).where(Income.deleted_at.is_(None))).all() if i.date and _in_range(i.date)]
     for i in sorted(incomes, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
         if i.id in payroll_income_ids:
             continue  # зеркало вычета из зарплаты — не реальный приход
@@ -22189,7 +22849,7 @@ def get_owner_money_flow(
         summary.otherIncome += amount
 
     # ── 3. Расходы ──
-    expenses = [e for e in db.scalars(select(Expense)).all() if e.date and _in_range(e.date)]
+    expenses = [e for e in db.scalars(select(Expense).where(Expense.deleted_at.is_(None))).all() if e.date and _in_range(e.date)]
     for e in sorted(expenses, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
         if e.id in payroll_expense_ids:
             continue  # зеркало премии/аванса/корректировки — учтено в выплатах
@@ -22224,7 +22884,7 @@ def get_owner_money_flow(
     # и мастерам за прошлый период не видны в журнале этого периода, а ночные
     # выплаты уезжают в соседний день и «теряются» в движении денег.
     all_payroll_entries = db.scalars(
-        select(PayrollEntry).order_by(PayrollEntry.created_at.desc())
+        select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None)).order_by(PayrollEntry.created_at.desc())
     ).all()
     if date_from and date_to:
         payroll_entries = [
@@ -22349,7 +23009,7 @@ def get_owner_money_flow(
         "deposit_return": "piggy_deposit_return",
     }
     piggy_txs = [
-        t for t in db.scalars(select(PiggyBankTransaction)).all() if t.date and _in_range(t.date)
+        t for t in db.scalars(select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None))).all() if t.date and _in_range(t.date)
     ]
     for t in sorted(piggy_txs, key=lambda x: (x.date, _sort_dt(x.created_at)), reverse=True):
         mapped = piggy_move_types.get(t.transaction_type or "")
@@ -22396,7 +23056,7 @@ def get_owner_money_flow(
         )
     ]
     all_worker_entries = [
-        p for p in db.scalars(select(PayrollEntry)).all() if p.worker_id in worker_ids
+        p for p in db.scalars(select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None))).all() if p.worker_id in worker_ids
     ] if not (date_from and date_to) else payroll_entries
     payroll_summaries = _worker_payroll_summaries_from_data(
         db,
@@ -22554,16 +23214,17 @@ def update_owner_booking_money_split(
     booking.money_split_overrides = overrides or None
 
     target_materials = int(payload.materialsCost) if payload.materialsCost is not None else _booking_materials_cost_actual(db, booking)
-    write_offs = db.scalars(select(StockWriteOff).where(StockWriteOff.booking_id == booking.id)).all()
+    write_offs = db.scalars(select(StockWriteOff).where(StockWriteOff.deleted_at.is_(None), StockWriteOff.booking_id == booking.id)).all()
     if len(write_offs) == 1 and payload.materialsCost is not None:
         # Ручной перерасчёт: единственная строка списания берёт всю целевую сумму.
         # При нескольких строках не переписываем — распределить сумму однозначно нельзя.
         write_offs[0].total_cost = target_materials
-    for expense in db.scalars(select(Expense).where(Expense.booking_id == booking.id)).all():
+    for expense in db.scalars(select(Expense).where(Expense.deleted_at.is_(None), Expense.booking_id == booking.id)).all():
         expense.amount = target_materials
 
     deposit_txs = db.scalars(
         select(PiggyBankTransaction).where(
+            PiggyBankTransaction.deleted_at.is_(None),
             PiggyBankTransaction.booking_id == booking.id,
             PiggyBankTransaction.transaction_type == "deposit_24percent",
         )

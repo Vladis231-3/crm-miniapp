@@ -19,6 +19,7 @@ import { ContentEditor } from '../admin/ContentEditor';
 import { ServiceSearchSelect } from '../shared/ServiceSearchSelect';
 import { SourceBadge } from '../shared/SourceBadge';
 import { DepositPanel } from './DepositPanel';
+import { OwnerCleanupSection } from './OwnerCleanupSection';
 import { OwnerStockPage } from './screens/OwnerStockPage';
 import { OwnerClientsScreen } from './screens/OwnerClientsScreen';
 import { OwnerWalletScreen } from './screens/OwnerWalletScreen';
@@ -53,7 +54,7 @@ function stockCategoryIdsWithDescendants(rootId: string, categories: { id: strin
 }
 
 type OwnerPage = 'dashboard' | 'calendar' | 'payroll' | 'salary-detail' | 'stock' | 'reports' | 'settings' | 'piggy-bank' | 'clients' | 'wallet';
-type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'money-flow' | 'deposit' | 'shift';
+type SettingsSection = null | 'company' | 'schedule' | 'boxes' | 'services' | 'employees' | 'clients' | 'notifications' | 'integrations' | 'security' | 'finance' | 'content' | 'wallet' | 'reports' | 'bookings-history' | 'archive' | 'money-flow' | 'deposit' | 'shift' | 'cleanup';
 type OwnerExportKind = 'report' | 'pdf' | 'piggy-bank';
 type KpiServiceItem = { name: string; revenue: number; count: number };
 type KpiModalData =
@@ -757,6 +758,8 @@ export function OwnerApp() {
   const [broadcastText, setBroadcastText] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
+  const [broadcastMode, setBroadcastMode] = useState<'all' | 'selected'>('all');
+  const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showFinancePanel, setShowFinancePanel] = useState(false);
   const [showAddIncome, setShowAddIncome] = useState(false);
@@ -1599,6 +1602,10 @@ export function OwnerApp() {
   // Активные мастера для блока «Мастера сегодня» (Настройки -> Смена)
   const activeMasters = workers
     .filter((worker) => worker.role === 'worker' && worker.active)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  // Получатели рассылки: активные мастера + владельцы с ролью мастера (как на бэкенде).
+  const broadcastTargets = workers
+    .filter((worker) => worker.active && (worker.role === 'worker' || (worker.role === 'owner' && (worker.extraRoles?.length ?? 0) > 0)))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
   // Выход мастера сегодня: отмечен (checked) в осмотре/открытии смены за сегодняшнюю дату.
   // Та же логика, что у бэкенд-подсчёта выходов (_compute_shift_attendance).
@@ -6410,6 +6417,7 @@ paymentSettled: false,
                 { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#8B5CF6' },
                 { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
                 { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
+                { id: 'cleanup', icon: Trash2, label: 'Очистка данных', desc: 'Выборочное удаление за период и корзина', color: '#EF4444' },
                 { id: 'notifications', icon: Bell, label: 'Уведомления', desc: [notifSettings.telegramBot && 'Telegram', notifSettings.emailReports && 'Email', notifSettings.smsReminders && 'SMS'].filter(Boolean).join(', ') || 'Все каналы выключены', color: '#EC4899' },
                 { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
                 { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
@@ -8501,6 +8509,11 @@ paymentSettled: false,
           )}
 
           {/* в”Ђв”Ђ SETTINGS: FINANCE в”Ђв”Ђ */}
+          {!isAccountant && page === 'settings' && settingsSection === 'cleanup' && (
+            <motion.div key="s-cleanup" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+              <OwnerCleanupSection glass={glass} inputCls={inputCls} sub={sub} primary={primary} isDark={isDark} onBack={() => setSettingsSection(null)} />
+            </motion.div>
+          )}
           {!isAccountant && page === 'settings' && settingsSection === 'finance' && (
             <motion.div key="s-finance" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="px-4 py-4">
               <button onClick={() => setSettingsSection(null)} className={`flex items-center gap-2 ${sub} mb-4 text-sm`}><ArrowLeft size={16} strokeWidth={1.75} />Назад</button>
@@ -8938,17 +8951,46 @@ paymentSettled: false,
               <div className="p-4 space-y-2">
                 {!isAccountant && (
                   <div className={`${glass} rounded-2xl p-3 mb-2`}>
-                    <div className="text-sm font-semibold mb-1">Сообщение всем мастерам 📢</div>
-                    <div className={`text-xs ${sub} mb-2`}>Увидят все мастера в миниаппе и в Telegram. Каждый сможет нажать «Взять в работу».</div>
+                    <div className="text-sm font-semibold mb-1">Сообщение мастерам 📢</div>
+                    <div className={`text-xs ${sub} mb-2`}>Как группа: текст увидят выбранные мастера в миниаппе и в Telegram. Каждый сможет нажать «Взять в работу».</div>
                     <textarea value={broadcastText} onChange={e => { setBroadcastText(e.target.value); setBroadcastError(null); }} placeholder="Например: помойте бокс после себя" rows={2} maxLength={2000} className={inputCls} />
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => setBroadcastMode('all')} className={`flex-1 py-2 rounded-xl text-xs font-semibold ${broadcastMode === 'all' ? 'text-white' : glass}`} style={broadcastMode === 'all' ? { background: primary } : {}}>Всем ({broadcastTargets.length})</button>
+                      <button onClick={() => { setBroadcastMode('selected'); if (selectedMasterIds.length === 0) setSelectedMasterIds(broadcastTargets.map(m => m.id)); }} className={`flex-1 py-2 rounded-xl text-xs font-semibold ${broadcastMode === 'selected' ? 'text-white' : glass}`} style={broadcastMode === 'selected' ? { background: primary } : {}}>Выбрать…</button>
+                    </div>
+                    {broadcastMode === 'selected' && (
+                      <div className="mt-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className={`text-xs ${sub}`}>Получатели: {selectedMasterIds.length}</span>
+                          <div className="flex gap-2">
+                            <button onClick={() => setSelectedMasterIds(broadcastTargets.map(m => m.id))} className={`text-xs ${sub} underline`}>Все</button>
+                            <button onClick={() => setSelectedMasterIds([])} className={`text-xs ${sub} underline`}>Снять все</button>
+                          </div>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-1 pr-0.5">
+                          {broadcastTargets.length === 0 && <div className={`text-xs ${sub} py-2 text-center`}>Нет активных мастеров</div>}
+                          {broadcastTargets.map(m => {
+                            const checked = selectedMasterIds.includes(m.id);
+                            return (
+                              <label key={m.id} className={`${glass} rounded-xl px-3 py-2 flex items-center gap-2 cursor-pointer`}>
+                                <input type="checkbox" checked={checked} onChange={() => setSelectedMasterIds(prev => prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id])} />
+                                <span className="text-sm flex-1">{m.name}</span>
+                                {m.role === 'owner' && <span className={`text-[11px] ${sub}`}>владелец</span>}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     {broadcastError && <div className="text-xs mt-1" style={{ color: '#FF6B6B' }}>{broadcastError}</div>}
-                    <button disabled={broadcastSending || !broadcastText.trim()} onClick={() => {
+                    <button disabled={broadcastSending || !broadcastText.trim() || (broadcastMode === 'selected' && selectedMasterIds.length === 0)} onClick={() => {
                       const text = broadcastText.trim();
                       if (!text) { setBroadcastError('Введите текст сообщения'); return; }
+                      if (broadcastMode === 'selected' && selectedMasterIds.length === 0) { setBroadcastError('Выберите хотя бы одного мастера'); return; }
                       setBroadcastSending(true); setBroadcastError(null);
-                      sendWorkerBroadcast(text).then(res => { setBroadcastText(''); setBottomToast(res.message + '. Мастера увидят в ТГ и в приложении'); }).catch(e => setBroadcastError(e instanceof Error ? e.message : 'Не удалось отправить')).finally(() => setBroadcastSending(false));
+                      sendWorkerBroadcast(text, broadcastMode === 'all' ? undefined : selectedMasterIds).then(res => { setBroadcastText(''); if (broadcastMode === 'selected') setSelectedMasterIds([]); setBottomToast(res.message + '. Мастера увидят в ТГ и в приложении'); }).catch(e => setBroadcastError(e instanceof Error ? e.message : 'Не удалось отправить')).finally(() => setBroadcastSending(false));
                     }} className="w-full mt-2 py-2.5 rounded-xl font-semibold text-white disabled:opacity-50 text-sm" style={{ background: primary }}>
-                      {broadcastSending ? 'Отправляем...' : 'Отправить всем мастерам'}
+                      {broadcastSending ? 'Отправляем...' : broadcastMode === 'all' ? `Отправить всем мастерам (${broadcastTargets.length})` : `Отправить выбранным (${selectedMasterIds.length})`}
                     </button>
                   </div>
                 )}
