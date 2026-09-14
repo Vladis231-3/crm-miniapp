@@ -229,12 +229,16 @@ export function OwnerCleanupSection({
 
   const handlePurgeBatch = async (batchId: string) => {
     if (!window.confirm('Удалить безвозвратно весь пакет? Это действие нельзя отменить.')) return;
+    if (!password.trim()) {
+      setError('Введите пароль владельца для безвозвратного удаления (поле ниже).');
+      return;
+    }
     setBusyId(batchId);
     setError(null);
     try {
       const data = await apiRequest<{ message: string }>('/api/owner/trash/purge', {
         method: 'POST',
-        body: { batchId },
+        body: { batchId, password: password.trim() },
       });
       setInfo(data.message);
       await loadBatches();
@@ -265,11 +269,15 @@ export function OwnerCleanupSection({
 
   const handlePurgeItem = async (id: string) => {
     if (!window.confirm('Удалить запись безвозвратно?')) return;
+    if (!password.trim()) {
+      setError('Введите пароль владельца для безвозвратного удаления (поле ниже).');
+      return;
+    }
     setBusyId(id);
     try {
       const data = await apiRequest<{ message: string }>('/api/owner/trash/purge', {
         method: 'POST',
-        body: { itemIds: [id] },
+        body: { itemIds: [id], password: password.trim() },
       });
       setInfo(data.message);
       await loadBatches();
@@ -428,6 +436,10 @@ export function OwnerCleanupSection({
           <button onClick={() => { void loadBatches(); void loadTrash(); }} className={`text-xs ${sub} flex items-center gap-1`}>
             <RefreshCw size={12} /> Обновить
           </button>
+        </div>
+        <div className="mb-3">
+          <label className={`text-xs ${sub} block mb-1`}>Пароль владельца для безвозвратного удаления</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Текущий пароль" className={inputCls} />
         </div>
         {batches.length === 0 ? (
           <div className={`text-xs ${sub}`}>Очисток пока не было.</div>

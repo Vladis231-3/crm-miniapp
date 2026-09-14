@@ -3,11 +3,11 @@
 import json
 import os
 import sys
+import unittest
 import urllib.parse
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
@@ -171,7 +171,7 @@ class DataCleanupTests(unittest.TestCase):
         batch2 = executed2.json()["batchId"]
 
         # purge пакета
-        purged = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch2})
+        purged = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch2, "password": "owner"})
         self.assertEqual(purged.status_code, 200, purged.text)
 
         # batches видны
@@ -187,6 +187,77 @@ class DataCleanupTests(unittest.TestCase):
             json={"entities": ["expenses"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02"},
         )
         self.assertIn(resp.status_code, (401, 403))
+
+    def test_purge_requires_password(self) -> None:
+        self._seed_operational()
+        owner = self.auth_headers(self.owner_token)
+        executed = self.client.post(
+            "/api/owner/data-cleanup/execute",
+            headers=owner,
+            json={"entities": ["expenses"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02", "password": "owner"},
+        )
+        self.assertEqual(executed.status_code, 200, executed.text)
+        batch_id = executed.json()["batchId"]
+
+        no_pwd = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch_id})
+        self.assertEqual(no_pwd.status_code, 401)
+
+        wrong = self.client.post(
+            "/api/owner/trash/purge", headers=owner, json={"batchId": batch_id, "password": "wrong"}
+        )
+        self.assertEqual(wrong.status_code, 401)
+
+        ok = self.client.post(
+            "/api/owner/trash/purge", headers=owner, json={"batchId": batch_id, "password": "owner"}
+        )
+        self.assertEqual(ok.status_code, 200, ok.text)
+
+    def test_deleted_bookings_hidden_from_history_and_payroll(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Booking
+
+        self._seed_operational()
+        owner = self.auth_headers(self.owner_token)
+        now = datetime.now(timezone.utc)
+        with SessionLocal() as db:
+            db.add(
+                Booking(
+                    id="b-clean-1",
+                    client_id="c-clean-1",
+                    client_name="Тест Клиент",
+                    client_phone="+70000000001",
+                    service="Мойка",
+                    service_id="",
+                    date="01.01.2020",
+                    time="10:00",
+                    duration=60,
+                    price=1000,
+                    status="completed",
+                    box="1",
+                    payment_type="cash",
+                    payment_settled=True,
+                    created_at=now,
+                )
+            )
+            db.commit()
+
+        before = self.client.get("/api/owner/bookings-history?date_from=01.01.2020&date_to=02.01.2020", headers=owner)
+        self.assertEqual(before.status_code, 200, before.text)
+        self.assertTrue(any(b["id"] == "b-clean-1" for b in before.json()))
+
+        executed = self.client.post(
+            "/api/owner/data-cleanup/execute",
+            headers=owner,
+            json={"entities": ["bookings"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02", "password": "owner"},
+        )
+        self.assertEqual(executed.status_code, 200, executed.text)
+
+        after = self.client.get("/api/owner/bookings-history?date_from=01.01.2020&date_to=02.01.2020", headers=owner)
+        self.assertEqual(after.status_code, 200, after.text)
+        self.assertFalse(any(b["id"] == "b-clean-1" for b in after.json()))
+
+        payroll = self.client.get("/api/admin/workers/payroll?period=all", headers=owner)
+        self.assertEqual(payroll.status_code, 200, payroll.text)
 
 
 if __name__ == "__main__":

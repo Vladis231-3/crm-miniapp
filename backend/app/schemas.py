@@ -2596,3 +2596,4 @@ class TrashRestoreRequest(BaseModel):
 class TrashPurgeRequest(BaseModel):
     batchId: str | None = None
     itemIds: list[str] = Field(default_factory=list)
+    password: str = Field(default="", max_length=128)

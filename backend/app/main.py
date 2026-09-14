@@ -4488,6 +4488,7 @@ def _worker_payroll_summaries(
                 joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
             )
             .where(
+                Booking.deleted_at.is_(None),
                 Booking.status == "completed",
                 or_(
                     Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
@@ -4507,7 +4508,7 @@ def _worker_payroll_summaries(
     )
     entries = db.scalars(
         select(PayrollEntry)
-        .where(PayrollEntry.worker_id.in_(worker_ids))
+        .where(PayrollEntry.deleted_at.is_(None), PayrollEntry.worker_id.in_(worker_ids))
         .order_by(PayrollEntry.created_at.desc())
     ).all()
     return _worker_payroll_summaries_from_data(
@@ -7407,6 +7408,7 @@ def _dispatch_booking_reminders(
                 select(Booking)
                 .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
                 .where(
+                    Booking.deleted_at.is_(None),
                     Booking.date == reminder_date,
                     Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)),
                 )
@@ -7422,7 +7424,7 @@ def _dispatch_booking_reminders(
             db.scalars(
                 select(Booking)
                 .options(joinedload(Booking.worker_links), joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
-                .where(Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)))
+                .where(Booking.deleted_at.is_(None), Booking.status.in_(tuple(BOOKING_REMINDER_ELIGIBLE_STATUSES)))
                 .order_by(Booking.time.asc(), Booking.created_at.asc())
             )
             .unique()
@@ -7620,7 +7622,7 @@ def _dispatch_return_visit_reminders(db: Session) -> int:
 
         select(Booking)
 
-        .where(Booking.status == "completed", Booking.client_id.is_not(None))
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed", Booking.client_id.is_not(None))
 
         .order_by(Booking.created_at.desc())
 
@@ -8740,7 +8742,7 @@ def _data_cleanup_resolve_period(payload: DataCleanupRequest):
 
 
 def _data_cleanup_collect(db: Session, entities: list[str], period) -> dict[str, list[Any]]:
-    mode, dmy_from, dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
+    mode, _dmy_from, _dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
     result: dict[str, list[Any]] = {}
 
     def _range_filter_dmy(col):
@@ -8868,7 +8870,7 @@ def _data_cleanup_label(entity: str, obj: Any) -> tuple[str, str]:
 
 def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> DataCleanupPreviewPayload:
     period = _data_cleanup_resolve_period(payload)
-    mode, dmy_from, dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
+    mode, dmy_from, dmy_to, _parsed_from, _parsed_to, bound_a, bound_b = period
     collected = _data_cleanup_collect(db, payload.entities, period)
     items: list[DataCleanupPreviewItem] = []
     total = 0
@@ -8965,7 +8967,7 @@ def execute_data_cleanup(
     if not pwd or staff is None or not verify_password(pwd, staff.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль владельца")
     period = _data_cleanup_resolve_period(payload)
-    mode, dmy_from, dmy_to, parsed_from, parsed_to, bound_a, bound_b = period
+    mode, dmy_from, dmy_to, _parsed_from, _parsed_to, _bound_a, _bound_b = period
     collected = _data_cleanup_collect(db, payload.entities, period)
     total = sum(len(v) for v in collected.values())
     if total == 0:
@@ -9179,8 +9181,9 @@ def purge_trash(
 ) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
     staff = db.get(StaffUser, session_data["actorId"])
-    if staff is None:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    pwd = (payload.password or "").strip()
+    if not pwd or staff is None or not verify_password(pwd, staff.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль владельца")
     now = _now()
     if payload.batchId:
         items = db.scalars(
@@ -9338,6 +9341,8 @@ def _owner_export_file(
             select(Booking)
 
             .options(joinedload(Booking.worker_links))
+
+            .where(Booking.deleted_at.is_(None))
 
             .order_by(
 
@@ -9834,6 +9839,8 @@ def _owner_summary_report(
 
             .options(joinedload(Booking.worker_links))
 
+            .where(Booking.deleted_at.is_(None))
+
             .order_by(
 
                 Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc()
@@ -9951,6 +9958,8 @@ def _owner_summary_export_file(
             select(Booking)
 
             .options(joinedload(Booking.worker_links))
+
+            .where(Booking.deleted_at.is_(None))
 
             .order_by(
 
@@ -14951,6 +14960,8 @@ def create_notification(
             .where(
 
                 BookingWorker.worker_id == session_data["actorId"],
+
+                Booking.deleted_at.is_(None),
 
                 Booking.client_id == payload.recipientId,
 
@@ -20790,7 +20801,7 @@ def remind_admin_about_inactive_clients(
     latest_by_client: dict[str, Booking] = {}
     for booking in db.scalars(
         select(Booking)
-        .where(Booking.status == "completed", Booking.client_id.is_not(None))
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed", Booking.client_id.is_not(None))
         .order_by(Booking.created_at.desc())
     ):
         if booking.client_id and booking.client_id not in latest_by_client:
@@ -21076,6 +21087,7 @@ def get_admin_workers_payroll(
                 joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
             )
             .where(
+                Booking.deleted_at.is_(None),
                 Booking.status == "completed",
                 or_(
                     Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
@@ -21103,6 +21115,7 @@ def get_admin_workers_payroll(
                 joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
             )
             .where(
+                Booking.deleted_at.is_(None),
                 Booking.status == "completed",
                 or_(
                     Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
@@ -21243,6 +21256,7 @@ def get_owner_outsource_payroll(
             .joinedload(BookingAdditionalService.worker_links)
         )
         .where(
+            Booking.deleted_at.is_(None),
             Booking.status == "completed",
             Booking.additional_services.any(BookingAdditionalService.is_outsource.is_(True)),
         )
@@ -23490,6 +23504,7 @@ def _worker_period_balance(
             joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
         )
         .where(
+            Booking.deleted_at.is_(None),
             or_(
                 Booking.worker_links.any(BookingWorker.worker_id == worker.id),
                 Booking.additional_services.any(
@@ -23669,6 +23684,8 @@ def owner_worker_salary_detail(
         )
 
         .where(
+
+            Booking.deleted_at.is_(None),
 
             or_(
 
@@ -24116,6 +24133,8 @@ def worker_my_salary_detail(
         )
 
         .where(
+
+            Booking.deleted_at.is_(None),
 
             or_(
 
@@ -25462,6 +25481,8 @@ def fire_worker(
                 .where(
 
                     BookingWorker.worker_id == worker_id,
+
+                    Booking.deleted_at.is_(None),
 
                     Booking.status.in_(tuple(BOOKING_ACTIVE_STATUSES)),
 
