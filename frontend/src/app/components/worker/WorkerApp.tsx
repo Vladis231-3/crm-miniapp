@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Bell, Sun, Moon, CalendarDays, Play,
@@ -101,6 +101,9 @@ export function WorkerApp() {
     notifications,
     markAllNotificationsRead,
     markNotificationRead,
+    refreshNotifications,
+    takeNotificationToWork,
+    completeNotificationTask,
     addNotification,
     session,
     services,
@@ -140,6 +143,30 @@ export function WorkerApp() {
 
   const myNotifications = notifications.filter(n => n.recipientRole === 'worker' && n.recipientId === workerId);
   const unreadCount = myNotifications.filter(n => !n.read).length;
+  const [taskActionId, setTaskActionId] = useState<string | null>(null);
+  const [taskActionError, setTaskActionError] = useState<string | null>(null);
+  // Локальный статус поручений от владельца: бэкенд хранит только read,
+  // поэтому «В работе»/«Выполнено» держим в памяти экрана (сбрасывается при перезапуске).
+  const [taskStatusById, setTaskStatusById] = useState<Record<string, 'taken' | 'done'>>({});
+  const isBroadcast = (message: string) => message.startsWith('📢');
+
+  // Подтягиваем новые уведомления (рассылка владельца), пока миниапп открыт:
+  // иначе мастер видит поручение только после перезапуска.
+  const refreshRef = useRef(refreshNotifications);
+  refreshRef.current = refreshNotifications;
+  useEffect(() => {
+    let alive = true;
+    let busy = false;
+    const tick = () => {
+      if (!alive || busy || document.hidden) return;
+      busy = true;
+      refreshRef.current().catch(() => {}).finally(() => { busy = false; });
+    };
+    const timerId = setInterval(tick, 30000);
+    const onVisible = () => { if (!document.hidden) tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { alive = false; clearInterval(timerId); document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
 
   const isMyTask = (b: Booking) =>
     b.workers.some(w => w.workerId === workerId) ||
@@ -638,6 +665,7 @@ export function WorkerApp() {
                 <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-2">
+                {taskActionError && <div className="text-xs rounded-xl px-3 py-2" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>{taskActionError}</div>}
                 {myNotifications.length === 0 ? (
                   <p className={`text-sm ${sub} text-center py-8`}>Нет уведомлений</p>
                 ) : myNotifications.map(n => (
@@ -645,9 +673,26 @@ export function WorkerApp() {
                     className={`${glass} rounded-xl p-3 cursor-pointer border-l-2`} style={{ borderLeftColor: n.read ? 'transparent' : primary }}>
                     <div className="flex items-start gap-2">
                       <Bell size={13} strokeWidth={1.75} style={{ color: primary }} className="mt-0.5 shrink-0" />
-                      <div>
+                      <div className="flex-1 min-w-0">
+                        {isBroadcast(n.message) && <div className="text-[11px] font-semibold mb-1" style={{ color: primary }}>От владельца · мастерам</div>}
                         <p className="text-sm">{n.message}</p>
                         <p className={`text-xs ${sub} mt-1`}>{n.createdAt.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</p>
+                        {isBroadcast(n.message) && taskStatusById[n.id] === 'taken' && (
+                          <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(234,179,8,0.15)', color: '#A16207' }}>🔧 В работе — владелец уведомлён</div>
+                        )}
+                        {isBroadcast(n.message) && taskStatusById[n.id] === 'done' && (
+                          <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(52,211,153,0.15)', color: accent }}>✅ Выполнено — владелец уведомлён</div>
+                        )}
+                        {isBroadcast(n.message) && !taskStatusById[n.id] && (
+                          <div className="flex gap-2 mt-2" onClick={e => e.stopPropagation()}>
+                            <button disabled={taskActionId === n.id} onClick={() => { setTaskActionError(null); setTaskActionId(n.id); takeNotificationToWork(n.id).then(() => setTaskStatusById(prev => ({ ...prev, [n.id]: 'taken' }))).catch(e => setTaskActionError(e instanceof Error ? e.message : 'Не удалось взять в работу')).finally(() => setTaskActionId(null)); }} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: '#EAB308' }}>
+                              {taskActionId === n.id ? '...' : 'Взять в работу'}
+                            </button>
+                            <button disabled={taskActionId === n.id} onClick={() => { setTaskActionError(null); setTaskActionId(n.id); completeNotificationTask(n.id).then(() => setTaskStatusById(prev => ({ ...prev, [n.id]: 'done' }))).catch(e => setTaskActionError(e instanceof Error ? e.message : 'Не удалось завершить')).finally(() => setTaskActionId(null)); }} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+                              {taskActionId === n.id ? '...' : 'Готово'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

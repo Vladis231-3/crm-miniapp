@@ -2476,7 +2476,7 @@ def _build_export_data(
 
         advance_total = sum(e.amount for e in worker_entries if e.kind == "advance")
 
-        deduction_total = sum(e.amount for e in worker_entries if e.kind == "deduction")
+        deduction_total = sum(e.amount for e in worker_entries if e.kind in ("deduction", "fine"))
 
         payout_total = sum(e.amount for e in worker_entries if e.kind == "payout")
 

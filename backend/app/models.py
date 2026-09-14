@@ -345,6 +345,9 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
 
 class StockCategory(Base):
@@ -407,6 +410,9 @@ class Expense(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
 
 class StockWriteOff(Base):
@@ -430,6 +436,9 @@ class StockWriteOff(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
     )
 
 
@@ -483,6 +492,9 @@ class PayrollEntry(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
     )
 
     worker: Mapped[StaffUser] = relationship(
@@ -547,6 +559,9 @@ class Income(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     created_by: Mapped[StaffUser] = relationship(back_populates="incomes")
 
@@ -602,6 +617,9 @@ class PiggyBankTransaction(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
     )
 
 
@@ -660,5 +678,65 @@ class OwnerProfitShare(Base):
         DateTime(timezone=True), default=utc_now
     )
     paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class DataCleanupBatch(Base):
+    """Пакет выборочной очистки БД за период (мягкое удаление + корзина 30 дней)."""
+
+    __tablename__ = "data_cleanup_batches"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    created_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mode: Mapped[str] = mapped_column(String(16), default="range")
+    date_from: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    date_to: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    older_than_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    entities: Mapped[list[str]] = mapped_column(JSON, default=list)
+    counts: Mapped[dict] = mapped_column(JSON, default=dict)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    restored_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    purged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="active")
+
+
+class TrashItem(Base):
+    """Индекс корзины: связь пакета очистки с конкретной мягко-удалённой строкой."""
+
+    __tablename__ = "trash_items"
+    __table_args__ = (
+        Index("ix_trash_batch", "batch_id"),
+        Index("ix_trash_entity", "entity_type", "entity_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    batch_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("data_cleanup_batches.id", ondelete="CASCADE")
+    )
+    entity_type: Mapped[str] = mapped_column(String(32))
+    entity_id: Mapped[str] = mapped_column(String(64))
+    label: Mapped[str] = mapped_column(String(255), default="")
+    item_date: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    restored_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    purged_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

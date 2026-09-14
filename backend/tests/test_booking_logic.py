@@ -2874,17 +2874,17 @@ class BookingLogicTests(unittest.TestCase):
         self.assertEqual(detail_after_payout.status_code, 200, detail_after_payout.text)
         self.assertNotIn("Выплата к удалению", [e["note"] for e in detail_after_payout.json()["entries"]])
 
-        # ── Штраф (deduction) создаёт связанный доход бюджета ──
+        # ── Штраф (fine) создаёт связанный доход бюджета ──
         fine_response = self.client.post(
             "/api/payroll/entries",
             headers=owner_headers,
-            json={"workerId": "w1", "kind": "deduction", "amount": 300, "note": "Штраф к удалению"},
+            json={"workerId": "w1", "kind": "fine", "amount": 300, "note": "Штраф к удалению"},
         )
         self.assertEqual(fine_response.status_code, 200, fine_response.text)
         fine = next(
             e
             for e in fine_response.json()["payrollSummary"]["entries"]
-            if e["kind"] == "deduction" and e["note"] == "Штраф к удалению"
+            if e["kind"] == "fine" and e["note"] == "Штраф к удалению"
         )
 
         with SessionLocal() as db:

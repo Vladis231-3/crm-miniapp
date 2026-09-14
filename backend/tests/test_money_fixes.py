@@ -562,7 +562,7 @@ class ReverseBudgetSyncTest(MoneyFixTestBase):
 
         with SessionLocal() as db:
             income = db.scalar(
-                select(Income).where(Income.source.like("Штраф:%"))
+                select(Income).where(Income.source.like("Списание:%"))
             )
             self.assertIsNotNone(income)
             assert income is not None

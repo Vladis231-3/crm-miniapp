@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, DollarSign } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
@@ -8,13 +8,15 @@ import { isFixedMasterService, formatFixedMasterAmount } from '../../ui/utils';
 import { EarningsCalendar } from '../shared/EarningsCalendar';
 import { Money, StatTile } from '../../atmosfera';
 
-const kindLabel: Record<string, string> = {
-  bonus: 'Премия',
-  deduction: 'Штраф',
-  payout: 'Выплата',
-  advance: 'Аванс',
-  adjustment: 'Корректировка',
-};
+const isWriteOffNote = (note?: string) => (note || '').trim().toLowerCase().startsWith('списан');
+
+function getPayrollKindLabel(kind: string, note?: string): string {
+  // kind="deduction" общий для штрафа и списания (бэкенд): списание
+  // определяем по примечанию — форма списания у владельца всегда пишет
+  // "Списание..." (см. OwnerApp handleAddWriteOff).
+  if (kind === 'deduction') return isWriteOffNote(note) ? 'Списание' : 'Штраф';
+  return ({ bonus: 'Премия', payout: 'Выплата', advance: 'Аванс', adjustment: 'Корректировка', fine: 'Штраф', } as Record<string, string>)[kind] || kind;
+}
 
 const DANGER = 'var(--status-danger)';
 const SUCCESS = 'var(--status-success)';
@@ -54,6 +56,17 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
   const [salaryDetail, setSalaryDetail] = useState<any>(null);
   const [earningsViewMode, setEarningsViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedCalDate, setSelectedCalDate] = useState<string | null>(null);
+  /** Кликабельные плитки сводки: какая расшифровка открыта. */
+  const [breakdown, setBreakdown] = useState<'earned' | 'paid' | 'balance' | 'shifts' | null>(null);
+  const [opsFilter, setOpsFilter] = useState<'all' | 'payout'>('all');
+  const compositionRef = useRef<HTMLDivElement | null>(null);
+  const bookingsRef = useRef<HTMLDivElement | null>(null);
+  const opsRef = useRef<HTMLDivElement | null>(null);
+  const scrollToRef = (ref: React.RefObject<HTMLDivElement | null>) => {
+    requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   useEffect(() => {
     if (salaryPeriod === 'custom' && (!salaryDateFrom || !salaryDateTo)) {
@@ -95,7 +108,7 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
           {(['day', 'week', 'month', 'all', 'custom'] as const).map((p) => (
             <button
               key={p}
-              onClick={() => setSalaryPeriod(p)}
+              onClick={() => { setBreakdown(null); setSalaryPeriod(p); }}
               className="flex-1 rounded-xl py-1.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
               style={{ background: salaryPeriod === p ? 'var(--primary-600)' : 'transparent', color: salaryPeriod === p ? '#fff' : undefined }}
             >
@@ -107,7 +120,7 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
           {(['all', 'wash', 'detailing'] as const).map((s) => (
             <button
               key={s}
-              onClick={() => setSalarySegment(s)}
+              onClick={() => { setBreakdown(null); setSalarySegment(s); }}
               className={`flex-1 rounded-xl py-1.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${salarySegment !== s ? `${sub}` : ''}`}
               style={{ background: salarySegment === s ? 'var(--primary-600)' : 'transparent', color: salarySegment === s ? '#fff' : undefined }}
             >
@@ -119,11 +132,11 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
           <div className="mt-3 flex gap-2">
             <div className="flex-1">
               <label className={`mb-1 block text-[11px] ${sub}`}>От</label>
-              <input type="date" value={salaryDateFrom} onChange={(e) => setSalaryDateFrom(e.target.value)} className={`${inputCls} px-3 py-2`} />
+              <input type="date" value={salaryDateFrom} onChange={(e) => { setBreakdown(null); setSalaryDateFrom(e.target.value); }} className={`${inputCls} px-3 py-2`} />
             </div>
             <div className="flex-1">
               <label className={`mb-1 block text-[11px] ${sub}`}>До</label>
-              <input type="date" value={salaryDateTo} onChange={(e) => setSalaryDateTo(e.target.value)} className={`${inputCls} px-3 py-2`} />
+              <input type="date" value={salaryDateTo} onChange={(e) => { setBreakdown(null); setSalaryDateTo(e.target.value); }} className={`${inputCls} px-3 py-2`} />
             </div>
           </div>
         )}
@@ -145,45 +158,55 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
         </div>
       ) : (
         <>
-          {/* Сводка */}
+          {/* Сводка — плитки кликабельны, открывают расшифровку */}
           <div className="mb-3 grid grid-cols-3 gap-2">
             <StatTile
               label="Заработано"
               value={<span className="text-[var(--primary-600)]"><Money amount={salaryDetail.totalEarned} /></span>}
               className="text-center [&>div:last-child]:mt-1"
+              onClick={() => setBreakdown('earned')}
             />
-            <StatTile label="Выплачено" value={<span className="font-semibold" style={{ color: DANGER }}><Money amount={salaryDetail.totalPaid} /></span>} className="text-center" />
+            <StatTile
+              label="Выплачено"
+              value={<span className="font-semibold" style={{ color: DANGER }}><Money amount={salaryDetail.totalPaid} /></span>}
+              className="text-center"
+              onClick={() => setBreakdown('paid')}
+            />
             <StatTile
               label="К выплате"
               value={<span className="font-semibold" style={{ color: salaryDetail.balanceToPay > 0 ? SUCCESS : undefined }}><Money amount={salaryDetail.balanceToPay} /></span>}
               className="text-center"
+              onClick={() => setBreakdown('balance')}
             />
           </div>
           <div className="mb-3 grid grid-cols-3 gap-2">
-            <StatTile label="Задач" value={String(salaryDetail.completedBookingsCount)} className="text-center" />
-            <StatTile label="Смен" value={String(salaryDetail.shiftCount)} className="text-center" />
-            <StatTile label="Оклад" value={<Money amount={salaryDetail.salaryBase || 0} />} className="text-center" />
+            <StatTile label="Задач" value={String(salaryDetail.completedBookingsCount)} className="text-center" onClick={() => setBreakdown('earned')} />
+            <StatTile label="Смен" value={String(salaryDetail.shiftCount)} className="text-center" onClick={() => setBreakdown('shifts')} />
+            <StatTile label="Оклад" value={<Money amount={salaryDetail.salaryBase || 0} />} className="text-center" onClick={() => setBreakdown('balance')} />
           </div>
 
           {/* Состав ЗП */}
-          <div className={`${glass} mb-3 rounded-2xl p-4`}>
+          <div ref={compositionRef} className={`${glass} mb-3 scroll-mt-24 rounded-2xl p-4`}>
             <div className={`section-kicker mb-2`}>Состав ЗП</div>
             {(() => {
               const shiftPay = (salaryDetail.shiftCount || 0) * (salaryDetail.salaryPerShift || 0);
               const bonuses = (salaryDetail.entries || []).filter((e: any) => e.kind === 'bonus').reduce((s: number, e: any) => s + e.amount, 0);
               const advances = (salaryDetail.entries || []).filter((e: any) => e.kind === 'advance').reduce((s: number, e: any) => s + e.amount, 0);
-              const deductions = (salaryDetail.entries || []).filter((e: any) => e.kind === 'deduction').reduce((s: number, e: any) => s + e.amount, 0);
+              const isLegacyFine = (e: any) => e.kind === 'deduction' && /штраф/i.test(e.note || '');
+              const deductions = (salaryDetail.entries || []).filter((e: any) => e.kind === 'deduction' && !isLegacyFine(e)).reduce((s: number, e: any) => s + e.amount, 0);
+              const fines = (salaryDetail.entries || []).filter((e: any) => e.kind === 'fine' || isLegacyFine(e)).reduce((s: number, e: any) => s + e.amount, 0);
               const adjustments = (salaryDetail.entries || []).filter((e: any) => e.kind === 'adjustment').reduce((s: number, e: any) => s + e.amount, 0);
               const totalAccrued = salaryDetail.totalEarned + (salaryDetail.salaryBase || 0) + shiftPay + bonuses + Math.max(adjustments, 0);
-              const totalDeducted = advances + deductions + salaryDetail.totalPaid + Math.max(-adjustments, 0);
+              const totalDeducted = advances + deductions + fines + salaryDetail.totalPaid + Math.max(-adjustments, 0);
               return (
                 <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className={sub}>С услуг</span><span><Money amount={salaryDetail.totalEarned} /> <span className={`text-xs ${sub}`}>({salaryDetail.completedBookingsCount} задач)</span></span></div>
+                  <div className="flex justify-between"><span className={sub}>С услуг</span><span><Money amount={salaryDetail.totalEarned} /> <span className={`text-xs ${sub}`}>({salaryDetail.completedBookingsCount} задач{(salaryDetail.totalAsvcEarned || 0) > 0 ? ` · осн. ${(salaryDetail.totalMainEarned ?? 0).toLocaleString('ru')} + допы ${(salaryDetail.totalAsvcEarned || 0).toLocaleString('ru')}` : ''})</span></span></div>
                   <div className="flex justify-between"><span className={sub}>Оклад</span><span><Money amount={salaryDetail.salaryBase || 0} /></span></div>
                   <div className="flex justify-between"><span className={sub}>За смены</span><span><Money amount={shiftPay} /> <span className={`text-xs ${sub}`}>({salaryDetail.shiftCount} × {(salaryDetail.salaryPerShift || 0).toLocaleString('ru')} ₽)</span></span></div>
                   {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: SUCCESS }}>+<Money amount={bonuses} /></span></div>}
                   {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: WARNING }}>-<Money amount={advances} /></span></div>}
-                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>-<Money amount={deductions} /></span></div>}
+                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span style={{ color: DANGER }}>-<Money amount={deductions} /></span></div>}
+                  {fines > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>-<Money amount={fines} /></span></div>}
                   {adjustments !== 0 && <div className="flex justify-between"><span className={sub}>Корректировки</span><span style={{ color: adjustments > 0 ? SUCCESS : DANGER }}>{adjustments > 0 ? '+' : ''}<Money amount={Math.abs(adjustments)} /></span></div>}
                   <div className="mt-1.5 flex justify-between border-t border-border pt-1.5 font-semibold">
                     <span>Итого начислено</span><span className="text-[var(--primary-600)]"><Money amount={totalAccrued} /></span>
@@ -200,7 +223,7 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
           </div>
 
           {/* Переключатель вида завершённых задач */}
-          <div className="mb-3 flex gap-1.5">
+          <div ref={bookingsRef} className="mb-3 flex scroll-mt-24 gap-1.5">
             {(['calendar', 'list'] as const).map((mode) => (
               <button
                 key={mode}
@@ -247,6 +270,9 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
                           <div className="text-sm font-semibold" style={{ color: SUCCESS }}>
                             +<Money amount={b.earned} />
                           </div>
+                          {(b.asvcEarned || 0) > 0 && (
+                            <div className={`text-xs ${sub}`}>осн. {(b.mainEarned ?? (b.earned - (b.asvcEarned || 0))).toLocaleString('ru')} + допы {(b.asvcEarned || 0).toLocaleString('ru')}</div>
+                          )}
                           {isFixedMasterService(services, b.serviceId, b.service)
                             ? <div className={`text-xs ${sub}`}>фикс {formatFixedMasterAmount()}</div>
                             : b.payType === 'fixed'
@@ -320,13 +346,52 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
 
           {/* Операции за период */}
           {(salaryDetail.entries?.length || 0) > 0 && (
-            <div className={`${glass} mb-3 rounded-2xl p-4`}>
-              <div className={`section-kicker mb-2`}>Операции за период</div>
+            <div ref={opsRef} className={`${glass} mb-3 scroll-mt-24 rounded-2xl p-4`}>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className={`section-kicker`}>Операции за период</div>
+                <div className="flex gap-1">
+                  {(['all', 'payout'] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setOpsFilter(f)}
+                      className="rounded-lg px-2 py-1 text-[11px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                      style={{
+                        background: opsFilter === f ? 'var(--primary-600)' : 'transparent',
+                        color: opsFilter === f ? '#fff' : undefined,
+                      }}
+                    >
+                      {f === 'all' ? 'Все' : 'Выплаты'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {(() => {
+                const visible = opsFilter === 'payout'
+                  ? (salaryDetail.entries || []).filter((e: any) => e.kind === 'payout')
+                  : (salaryDetail.entries || []);
+                if (visible.length === 0) {
+                  return (
+                    <div className="space-y-1.5">
+                      <div className={`rounded-xl bg-[var(--sunken,#EEEFF3)] p-3 text-center text-xs ${sub} dark:bg-white/5`}>
+                        Выплат за период нет
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOpsFilter('all')}
+                        className="w-full rounded-xl py-1.5 text-xs font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                      >
+                        Показать все операции
+                      </button>
+                    </div>
+                  );
+                }
+                return (
               <div className="space-y-1.5">
-                {salaryDetail.entries.slice(0, 10).map((entry: any) => (
+                {visible.slice(0, 10).map((entry: any) => (
                   <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--sunken,#EEEFF3)] p-3 dark:bg-white/5">
                     <div>
-                      <div className="text-sm font-medium">{kindLabel[entry.kind] || entry.kind}</div>
+                      <div className="text-sm font-medium">{getPayrollKindLabel(entry.kind, entry.note)}</div>
                       <div className={`text-xs ${sub}`}>{entry.note || entry.createdByName}</div>
                     </div>
                     <div className="text-right">
@@ -336,9 +401,101 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
                   </div>
                 ))}
               </div>
+                );
+              })()}
             </div>
           )}
         </>
+      )}
+
+      {/* ── Расшифровка плитки (bottom-sheet) ── */}
+      {breakdown && salaryDetail && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setBreakdown(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`${isDark ? 'bg-[#1C1C1F]' : 'bg-white'} w-full max-w-sm rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto`}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold">
+                {breakdown === 'earned' ? `Заработано · ${salaryDetail.completedBookingsCount} задач` : breakdown === 'paid' ? 'Выплачено' : breakdown === 'shifts' ? `Смены · ${salaryDetail.shiftCount}` : 'К выплате — состав'}
+              </h3>
+              <button onClick={() => setBreakdown(null)} className={`rounded-xl px-3 py-1.5 text-sm ${sub} border border-border`}>Закрыть</button>
+            </div>
+
+            {breakdown === 'earned' && (
+              <div className="space-y-1.5">
+                {(salaryDetail.bookings || []).length === 0 && <div className={`text-sm ${sub} py-4 text-center`}>Нет задач за период</div>}
+                {(salaryDetail.bookings || []).slice(0, 50).map((b: any) => (
+                  <button key={b.id} onClick={() => { setBreakdown(null); onSelectBooking(b); }} className="flex w-full items-center justify-between gap-3 rounded-xl bg-[var(--sunken,#EEEFF3)] p-3 text-left active:opacity-70 dark:bg-white/5">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium tabular-nums">{b.date} {b.time} · {b.service}</div>
+                      <div className={`text-xs ${sub}`}>{b.car ? `${b.car} · ` : ''}{b.box || ''}</div>
+                    </div>
+                    <div className="shrink-0 text-sm font-semibold" style={{ color: SUCCESS }}>+<Money amount={b.earned} /></div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {breakdown === 'paid' && (
+              <div className="space-y-1.5">
+                {(() => {
+                  const payouts = (salaryDetail.entries || []).filter((e: any) => e.kind === 'payout');
+                  if (payouts.length === 0) return <div className={`text-sm ${sub} py-4 text-center`}>Выплат за период не было · всего выплачено <Money amount={salaryDetail.totalPaid} /></div>;
+                  return payouts.slice(0, 50).map((e: any) => (
+                    <div key={e.id} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--sunken,#EEEFF3)] p-3 dark:bg-white/5">
+                      <div>
+                        <div className="text-sm font-medium">Выплата</div>
+                        <div className={`text-xs ${sub}`}>{e.note || e.createdByName} · {e.entryDate || new Date(e.createdAt).toLocaleDateString('ru-RU')}</div>
+                      </div>
+                      <div className="font-semibold"><Money amount={e.amount} /></div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+
+            {breakdown === 'shifts' && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className={sub}>Смен</span><span className="font-semibold">{salaryDetail.shiftCount} × {(salaryDetail.salaryPerShift || 0).toLocaleString('ru')} ₽</span></div>
+                <div className="flex justify-between"><span className={sub}>За смены</span><span className="font-semibold"><Money amount={(salaryDetail.shiftCount || 0) * (salaryDetail.salaryPerShift || 0)} /></span></div>
+                {(salaryDetail.shiftDates?.length || 0) > 0 && (
+                  <div className={`rounded-xl p-3 text-xs ${sub} bg-[var(--sunken,#EEEFF3)] dark:bg-white/5`}>Выходы: {salaryDetail.shiftDates.join(', ')}</div>
+                )}
+              </div>
+            )}
+
+            {breakdown === 'balance' && (
+              <div className="space-y-1.5 text-sm">
+                {(() => {
+                  const shiftPay = (salaryDetail.shiftCount || 0) * (salaryDetail.salaryPerShift || 0);
+                  const bonuses = (salaryDetail.entries || []).filter((e: any) => e.kind === 'bonus').reduce((s: number, e: any) => s + e.amount, 0);
+                  const advances = (salaryDetail.entries || []).filter((e: any) => e.kind === 'advance').reduce((s: number, e: any) => s + e.amount, 0);
+                  const isLegacyFine = (e: any) => e.kind === 'deduction' && /штраф/i.test(e.note || '');
+                  const deductions = (salaryDetail.entries || []).filter((e: any) => e.kind === 'deduction' && !isLegacyFine(e)).reduce((s: number, e: any) => s + e.amount, 0);
+                  const fines = (salaryDetail.entries || []).filter((e: any) => e.kind === 'fine' || isLegacyFine(e)).reduce((s: number, e: any) => s + e.amount, 0);
+                  const adjustments = (salaryDetail.entries || []).filter((e: any) => e.kind === 'adjustment').reduce((s: number, e: any) => s + e.amount, 0);
+                  return (
+                    <>
+                      <div className="flex justify-between"><span className={sub}>С услуг</span><span><Money amount={salaryDetail.totalEarned} /></span></div>
+                      <div className="flex justify-between"><span className={sub}>Оклад</span><span><Money amount={salaryDetail.salaryBase || 0} /></span></div>
+                      <div className="flex justify-between"><span className={sub}>За смены</span><span><Money amount={shiftPay} /></span></div>
+                      {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: SUCCESS }}>+<Money amount={bonuses} /></span></div>}
+                      {adjustments > 0 && <div className="flex justify-between"><span className={sub}>Корректировки +</span><span style={{ color: SUCCESS }}>+<Money amount={adjustments} /></span></div>}
+                      {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: WARNING }}>-<Money amount={advances} /></span></div>}
+                      {deductions > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span style={{ color: DANGER }}>-<Money amount={deductions} /></span></div>}
+                      {fines > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: DANGER }}>-<Money amount={fines} /></span></div>}
+                      {adjustments < 0 && <div className="flex justify-between"><span className={sub}>Корректировки −</span><span style={{ color: DANGER }}><Money amount={adjustments} /></span></div>}
+                      <div className="flex justify-between"><span className={sub}>Выплачено</span><span style={{ color: DANGER }}>-<Money amount={salaryDetail.totalPaid} /></span></div>
+                      <div className="mt-1.5 flex justify-between border-t border-border pt-1.5 text-base font-bold"><span>К выплате</span><span style={{ color: SUCCESS }}><Money amount={salaryDetail.balanceToPay} /></span></div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </motion.div>
   );

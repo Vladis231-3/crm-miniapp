@@ -2,11 +2,12 @@
 Unit tests for the read-only worker car search endpoint.
 
 Covers:
-- GET /api/worker/cars/search by a worker → 200 with matching bookings (all workers)
+- GET /api/worker/cars/search by a worker → 200 with matching OWN bookings only
 - Case-insensitive plate search (spaces/dashes stripped)
 - Car model and client name search
-- Empty q → only today's bookings
+- Empty q → only today's OWN bookings
 - Cancelled bookings are excluded
+- Bookings of other workers are excluded
 - Owner calling the endpoint → 403, no auth → 401
 """
 from __future__ import annotations
@@ -139,7 +140,7 @@ class WorkerCarSearchTests(unittest.TestCase):
             db.commit()
         return client_id, phone
 
-    def _create_booking(self, *, worker_id: str = "w2", status: str = "new", time: str = "10:00") -> str:
+    def _create_booking(self, *, worker_id: str = "w1", status: str = "new", time: str = "10:00") -> str:
         client_id, client_phone = self._create_client()
         response = self.client.post(
             "/api/bookings",
@@ -174,7 +175,7 @@ class WorkerCarSearchTests(unittest.TestCase):
         car: str = "BMW",
         client_name: str = "Тест Клиент",
         status: str = "new",
-        worker_id: str = "w2",
+        worker_id: str = "w1",
     ) -> str:
         from app.database import SessionLocal
         from app.models import Booking, BookingWorker, Client
@@ -228,7 +229,7 @@ class WorkerCarSearchTests(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_worker_searches_by_plate_case_insensitive(self) -> None:
-        booking_id = self._create_booking(worker_id="w2")
+        booking_id = self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -240,7 +241,7 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertIn(booking_id, ids)
 
     def test_worker_searches_by_plate_with_spaces_and_dashes(self) -> None:
-        booking_id = self._create_booking(worker_id="w2")
+        booking_id = self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -252,7 +253,7 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertIn(booking_id, ids)
 
     def test_worker_searches_by_car_model(self) -> None:
-        booking_id = self._create_booking(worker_id="w2")
+        booking_id = self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -264,7 +265,7 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertIn(booking_id, ids)
 
     def test_worker_searches_by_client_name(self) -> None:
-        booking_id = self._create_booking(worker_id="w2")
+        booking_id = self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -276,7 +277,7 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertIn(booking_id, ids)
 
     def test_worker_search_no_match_returns_empty_list(self) -> None:
-        self._create_booking(worker_id="w2")
+        self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -314,14 +315,14 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertIn(future_id, ids)
 
     def test_worker_search_excludes_cancelled(self) -> None:
-        active_id = self._create_booking(worker_id="w2")
+        active_id = self._create_booking(worker_id="w1")
         cancel_response = self.client.patch(
             f"/api/bookings/{active_id}",
             headers=self._auth_headers(self.owner_token),
             json={"status": "cancelled"},
         )
         self.assertEqual(cancel_response.status_code, 200, cancel_response.text)
-        fresh_id = self._create_booking(worker_id="w2", time="11:00")
+        fresh_id = self._create_booking(worker_id="w1", time="11:00")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -334,7 +335,7 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertNotIn(active_id, ids)
 
     def test_worker_search_reports_workers_on_booking(self) -> None:
-        self._create_booking(worker_id="w2")
+        self._create_booking(worker_id="w1")
 
         response = self.client.get(
             "/api/worker/cars/search",
@@ -344,7 +345,21 @@ class WorkerCarSearchTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         item = response.json()[0]
         self.assertIn("workers", item)
-        self.assertTrue(any(link["workerId"] == "w2" for link in item["workers"]))
+        self.assertTrue(any(link["workerId"] == "w1" for link in item["workers"]))
+
+    def test_worker_search_excludes_other_workers_bookings(self) -> None:
+        own_id = self._create_booking(worker_id="w1")
+        alien_id = self._create_booking(worker_id="w2", time="11:00")
+
+        response = self.client.get(
+            "/api/worker/cars/search",
+            headers=self._auth_headers(self.worker_token),
+            params={"q": "M001AA"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        ids = {item["id"] for item in response.json()}
+        self.assertIn(own_id, ids)
+        self.assertNotIn(alien_id, ids)
 
     def test_worker_search_forbidden_for_owner(self) -> None:
         response = self.client.get(

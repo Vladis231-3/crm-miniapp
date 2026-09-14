@@ -27,8 +27,10 @@ export function ServiceSearchSelect({
   services,
   selectCls = '',
   inputCls = '',
-  glass = '',
-  text = '',
+  // glass/text оставлены в API для совместимости вызовов (Owner/Admin),
+  // но обёртке их применять нельзя — см. комментарий ниже.
+  glass: _glass = '',
+  text: _text = '',
   sub = '',
   primary = '',
   isDark = false,
@@ -36,6 +38,8 @@ export function ServiceSearchSelect({
   onCreateNew,
   createNewLabel = 'Возможно вы хотите создать новую?',
 }: ServiceSearchSelectProps) {
+  void _glass;
+  void _text;
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -75,18 +79,24 @@ export function ServiceSearchSelect({
   };
 
   return (
-    <div ref={containerRef} className={`relative ${glass}`}>
+    // isolate + z-30 при открытом списке: поднимает весь контрол (включая
+    // выпадающий список) выше следующих glass-блоков модалки
+    // («Для базы клиентов...», статус и т.д.). glass-блокам нельзя давать
+    // обёртку: backdrop-blur создаёт свой stacking-контекст с z-auto и
+    // начинает рисоваться ПОВЕРХ списка. Поэтому обёртка — чистый relative.
+    // Проп glass оставлен в API для совместимости вызовов, но сюда не применяется.
+    <div ref={containerRef} className={`relative isolate ${isOpen ? 'z-30' : 'z-auto'}`}>
       {selectedService && !isOpen ? (
         <div
-          className={`${selectCls} cursor-pointer flex items-center justify-between`}
+          className={`${selectCls} cursor-pointer flex items-center justify-between gap-2`}
           onClick={() => { setIsOpen(true); setQuery(''); }}
         >
-          <span>{selectedService.name}</span>
-          <Search size={14} strokeWidth={1.75} className={sub} />
+          <span className="min-w-0 flex-1 truncate">{selectedService.name}</span>
+          <Search size={14} strokeWidth={1.75} className={`${sub} shrink-0`} />
         </div>
       ) : (
         <div className="relative">
-          <Search size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
+          <Search size={14} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${sub}`} />
           <input
             ref={inputRef}
             className={`${inputCls} pl-9`}
@@ -95,14 +105,13 @@ export function ServiceSearchSelect({
             value={query}
             onChange={handleInputChange}
             onFocus={handleInputFocus}
-            autoFocus
           />
         </div>
       )}
 
       {isOpen && (
         <div
-          className={`absolute z-50 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-2xl shadow-xl ${isDark ? 'bg-[#1C1C1F] border border-white/10' : 'bg-white border border-black/5 shadow-sm'}`}
+          className={`absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-2xl shadow-2xl ring-1 ${isDark ? 'bg-[#1C1C1F] border border-white/10 ring-white/10' : 'bg-white border border-black/10 ring-black/5'}`}
         >
           {filtered.length === 0 ? (
             <div className={`px-4 py-3 text-sm ${sub} space-y-2`}>
@@ -133,12 +142,12 @@ export function ServiceSearchSelect({
                 <button
                   key={s.id}
                   type="button"
-                  className={`w-full text-left px-4 py-3 text-sm hover:bg-white/10 transition-colors ${s.id === value ? (primary ? `font-semibold` : '') : ''}`}
+                  className={`w-full text-left px-4 py-3 text-sm transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'} ${s.id === value ? (primary ? `font-semibold` : '') : ''}`}
                   style={s.id === value && primary ? { color: primary } : {}}
                   onClick={() => handleSelect(s.id)}
                 >
-                  <div className="flex items-center justify-between">
-                    <span>{s.name}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate">{s.name}</span>
                     {s.id === value && <CheckIcon />}
                   </div>
                 </button>

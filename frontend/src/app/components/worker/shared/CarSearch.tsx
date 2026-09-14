@@ -13,15 +13,34 @@ export interface CarSearchProps {  /** Текущий мастер  -  для п
 }
 
 /**
- * CarSearch — поиск по машинам (госномер/марка/клиент) из «Сегодня» (§6.3).
- * Оживлённый бывший мёртвый таб cars: тот же эндпоинт /api/worker/cars/search,
- * пустой запрос = машины на сегодня. Debounce 300мс.
+ * CarSearch — поиск ТОЛЬКО по своим машинам мастера (госномер/марка/клиент) из «Сегодня» (§6.3).
+ * Своя = участвовал в основной услуге ИЛИ делал доп. услугу.
+ * Чужие авто не показываются никогда: бэкенд /api/worker/cars/search отдаёт
+ * только записи мастера, клиент дополнительно отсекает чужие.
+ * Пустой запрос = свои машины на сегодня. Debounce 300мс.
  */
 export function CarSearch({ workerId }: CarSearchProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<WorkerCalendarBooking[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const isMainParticipant = (b: WorkerCalendarBooking) =>
+    b.workers.some((w) => w.workerId === workerId);
+  const myExtras = (b: WorkerCalendarBooking) =>
+    (b.additionalServices || []).filter((as) => (as.workers || []).some((w) => w.workerId === workerId));
+  const isMine = (b: WorkerCalendarBooking) => isMainParticipant(b) || myExtras(b).length > 0;
+  const participationLabel = (b: WorkerCalendarBooking) => {
+    const isMain = isMainParticipant(b);
+    const hasExtras = myExtras(b).length > 0;
+    if (isMain && hasExtras) return 'Осн. + доп';
+    if (isMain) return 'Основная';
+    return 'Доп';
+  };
+
+  // Бэкенд уже отдаёт только свои (основная ИЛИ доп), но на всякий случай
+  // отсекаем чужие авто и на клиенте — показываем только те, где мастер участвовал.
+  const myResults = results.filter(isMine);
 
   useEffect(() => {
     if (!open) return;
@@ -91,22 +110,25 @@ export function CarSearch({ workerId }: CarSearchProps) {
             )}
           </div>
           <div className="mt-2 text-xs text-[var(--fg-secondary,#5A6072)]">
-            {query.trim() ? 'Поиск по всем записям' : 'Машины на сегодня'}
+            {query.trim()
+              ? 'Только ваши авто — где вы основной мастер или делали доп. услуги'
+              : 'Мои машины на сегодня'}
           </div>
 
           <div className="mt-3">
             {loading ? (
               <SkeletonRows count={3} />
-            ) : results.length === 0 ? (
+            ) : myResults.length === 0 ? (
               <EmptyState
                 icon={Search}
                 title="Ничего не найдено"
-                subtitle={query.trim() ? 'Попробуйте изменить запрос' : 'На сегодня записей нет'}
+                subtitle={query.trim() ? 'Среди ваших записей ничего нет' : 'На сегодня ваших записей нет'}
               />
             ) : (
               <div className="space-y-3">
-                {results.map((b) => {
-                  const assignedToMe = b.workers.some((w) => w.workerId === workerId);
+                {myResults.map((b) => {
+                  const extras = myExtras(b);
+                  const isMain = isMainParticipant(b);
                   return (
                     <div key={b.id} className="rounded-2xl border border-border bg-[var(--card-raised,var(--card))] p-4">
                       <div className="mb-2 flex items-start justify-between">
@@ -122,30 +144,30 @@ export function CarSearch({ workerId }: CarSearchProps) {
                             <SourceBadge source={b.source} className="ml-1.5 align-middle" />
                           </div>
                           <div className="text-xs text-[var(--fg-secondary,#5A6072)]">
-                            {b.date} · {b.time} · {b.box} · {b.service}
+                            {b.date} · {b.time} · {b.box} · {isMain ? b.service : extras.map((a) => `+ ${a.name}`).join(', ')}
                           </div>
+                          {extras.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {extras.map((a) => (
+                                <span
+                                  key={a.id}
+                                  className="rounded-full bg-[var(--primary-50)] px-2 py-0.5 text-[11px] text-[var(--primary-700)] dark:bg-[var(--primary-100)] dark:text-[var(--primary-300)]"
+                                >
+                                  + {a.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <StatusBadge status={b.status} className="shrink-0" />
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 truncate text-xs text-[var(--fg-secondary,#5A6072)]">
-                          {b.workers.length === 0
-                            ? 'Мастер не назначен'
-                            : <>Мастера: {b.workers.map((w) => w.workerName).join(', ')}</>}
+                          Мастера: {b.workers.map((w) => w.workerName).join(', ')}
                         </div>
-                        {assignedToMe ? (
-                          <span className="shrink-0 rounded-full bg-[var(--status-success-soft)] px-2 py-1 text-xs text-[var(--status-success)]">
-                            ✓ Заведена на вас
-                          </span>
-                        ) : b.workers.length === 0 ? (
-                          <span className="shrink-0 rounded-full bg-[var(--status-danger-soft)] px-2 py-1 text-xs text-[var(--status-danger)]">
-                            Не заведена
-                          </span>
-                        ) : (
-                          <span className="shrink-0 rounded-full bg-[var(--status-warning-soft)] px-2 py-1 text-xs text-[var(--status-warning)]">
-                            Не на вас
-                          </span>
-                        )}
+                        <span className="shrink-0 rounded-full bg-[var(--status-success-soft)] px-2 py-1 text-xs text-[var(--status-success)]">
+                          ✓ {participationLabel(b)}
+                        </span>
                       </div>
                     </div>
                   );

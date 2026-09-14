@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable
-
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 WORKER_MAX_PERCENT = 100
 COMPLAINT_THRESHOLD = 3
 COMPLAINT_PERCENT_DEDUCTION = 10
 COMPLAINT_DURATION_DAYS = 7
-LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
+LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or UTC
 
 
 @dataclass(frozen=True)
@@ -22,8 +22,8 @@ class ComplaintStatus:
 
 def as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def clamp_worker_percent(value: float) -> float:
@@ -41,12 +41,12 @@ def complaint_end_at(complaint: Any) -> datetime:
     active_until = getattr(complaint, "active_until", None)
     if active_until is not None:
         return as_utc(active_until)
-    return complaint_active_until(getattr(complaint, "created_at"))
+    return complaint_active_until(complaint.created_at)
 
 
 def complaint_is_active_at(complaint: Any, at: datetime | None = None) -> bool:
-    current = as_utc(at or datetime.now(timezone.utc))
-    starts_at = as_utc(getattr(complaint, "created_at"))
+    current = as_utc(at or datetime.now(UTC))
+    starts_at = as_utc(complaint.created_at)
     ends_at = complaint_end_at(complaint)
     return starts_at <= current < ends_at
 
@@ -57,7 +57,7 @@ def complaint_status_for_percent(
     *,
     at: datetime | None = None,
 ) -> ComplaintStatus:
-    current = as_utc(at or datetime.now(timezone.utc))
+    current = as_utc(at or datetime.now(UTC))
     active_end_times = sorted(
         complaint_end_at(item)
         for item in complaints
@@ -82,7 +82,7 @@ def parse_booking_datetime(date_value: str, time_value: str) -> datetime | None:
         parsed = datetime.strptime(f"{date_value} {time_value}", "%d.%m.%Y %H:%M")
     except ValueError:
         return None
-    return parsed.replace(tzinfo=LOCAL_TIMEZONE).astimezone(timezone.utc)
+    return parsed.replace(tzinfo=LOCAL_TIMEZONE).astimezone(UTC)
 
 
 def adjusted_booking_percent(
@@ -94,5 +94,5 @@ def adjusted_booking_percent(
     fallback: datetime | None = None,
 ) -> float:
     booking_at = parse_booking_datetime(date_value, time_value)
-    effective_at = booking_at or as_utc(fallback or datetime.now(timezone.utc))
+    effective_at = booking_at or as_utc(fallback or datetime.now(UTC))
     return complaint_status_for_percent(assigned_percent, complaints, at=effective_at).effective_percent

@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { ArrowLeft, Edit3, RefreshCw } from 'lucide-react';
 import { useApp, type Expense, type Income } from '../../../context/AppContext';
+import { EditAmountPencil } from '../../atmosfera';
 
 /** Структурная копия локального интерфейса родителя (OwnerApp.tsx:254). */
 interface WalletArchiveRow {
@@ -104,20 +105,28 @@ export function OwnerWalletScreen({
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className={`${glass} rounded-2xl p-4`}>
-              <div className={`text-xs ${sub} mb-1`}>Выручка</div>
+              <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Выручка
+                <EditAmountPencil primary={primary} size={11} title="Выручка считается из завершённых записей — скорректировать через доход" onClick={() => onStartAddIncome()} />
+              </div>
               <div className="font-bold text-lg tabular-nums" style={{ color: 'var(--status-success)' }}>{walletData.revenue.toLocaleString('ru')} ₽</div>
               <div className={`text-[11px] ${sub} mt-1`}>{walletData.bookingCount} записей</div>
             </div>
             <div className={`${glass} rounded-2xl p-4`}>
-              <div className={`text-xs ${sub} mb-1`}>Доп. доходы</div>
+              <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Доп. доходы
+                <EditAmountPencil primary={primary} size={11} title="Изменить сумму (добавить доход-корректировку)" onClick={() => onStartAddIncome()} />
+              </div>
               <div className="font-bold text-lg tabular-nums" style={{ color: primary }}>+{walletData.totalIncome.toLocaleString('ru')} ₽</div>
             </div>
             <div className={`${glass} rounded-2xl p-4`}>
-              <div className={`text-xs ${sub} mb-1`}>Расходы</div>
+              <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Расходы
+                <EditAmountPencil primary={primary} size={11} title="Изменить сумму (добавить расход-корректировку)" onClick={() => onStartAddExpense()} />
+              </div>
               <div className="font-bold text-lg tabular-nums" style={{ color: 'var(--status-danger)' }}>-{walletData.totalExpense.toLocaleString('ru')} ₽</div>
             </div>
             <div className={`${glass} rounded-2xl p-4`}>
-              <div className={`text-xs ${sub} mb-1`}>Прибыль</div>
+              <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Прибыль
+                <EditAmountPencil primary={primary} size={11} title="Прибыль = выручка + доходы − расходы — скорректировать через доход/расход" onClick={() => onStartAddIncome()} />
+              </div>
               <div className="font-bold text-lg tabular-nums" style={{ color: walletData.profit >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                 {walletData.profit >= 0 ? '+' : ''}{walletData.profit.toLocaleString('ru')} ₽
               </div>
@@ -202,8 +211,9 @@ export function OwnerWalletScreen({
                 {walletData.archives.map(a => (
                   <div key={a.id} className={`${glass} rounded-xl p-3`}>
                     <div className="flex justify-between items-start mb-2">
-                      <div className="text-sm font-medium">
+                      <div className="text-sm font-medium flex items-center gap-1.5">
                         {a.weekStart.split('-').reverse().join('.')}  -  {a.weekEnd.split('-').reverse().join('.')}
+                        <EditAmountPencil primary={primary} size={11} title="Архив не редактируется — перейти к текущей неделе для правок" onClick={() => onClearDates()} />
                       </div>
                       <div className="font-semibold text-sm tabular-nums" style={{ color: a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                         {a.totalRevenue + a.totalIncome - a.totalExpense >= 0 ? '+' : ''}{(a.totalRevenue + a.totalIncome - a.totalExpense).toLocaleString('ru')} ₽
