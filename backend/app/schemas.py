@@ -1864,6 +1864,27 @@ class PiggyBankResponse(BaseModel):
     spenderDebts: list[PiggyBankSpenderDebt] = Field(default_factory=list)
     # Маркер версии weekly-формулы (см. WEEKLY_FORMULA_VERSION в main.py).
     weeklyFormula: str = ""
+    # ── Снимок текущей недели (суббота → сейчас, без учёта заработка недели) ──
+    # currentWeekStart — суббота текущей недели (ДД.ММ.ГГГГ).
+    # *WeekStartBalance — остаток своей копилки на утро субботы (та же
+    #   методология, что карточка баланса).
+    # *WeeklyWithdrawn — расходы с субботы по сегодня включительно.
+    # *WeeklyBalance — остаток без заработка на нынешний момент
+    #   (weekStartBalance − weeklyWithdrawn).
+    currentWeekStart: str = ""
+    washWeekStart: str | None = None
+    washWeekStartBalance: float | None = None
+    washWeeklyWithdrawn: float | None = None
+    washWeeklyBalance: float | None = None
+    detailingWeekStart: str | None = None
+    detailingWeekStartBalance: float | None = None
+    detailingWeeklyWithdrawn: float | None = None
+    detailingWeeklyBalance: float | None = None
+    generalWeekStart: str | None = None
+    generalWeekStartBalance: float | None = None
+    generalWeeklyWithdrawn: float | None = None
+    generalWeeklyBalance: float | None = None
+    combinedWeeklyBalance: float | None = None
 
 
 class WeeklyArchivePayload(BaseModel):

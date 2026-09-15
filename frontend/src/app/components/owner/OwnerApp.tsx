@@ -275,6 +275,17 @@ interface PiggyBankData {
   combinedBalance: number;
   spenderDebts?: PiggySpenderDebt[];
   weeklyFormula?: string | null;
+  currentWeekStart?: string | null;
+  washWeekStart?: string | null;
+  washWeekStartBalance?: number | null;
+  washWeeklyWithdrawn?: number | null;
+  washWeeklyBalance?: number | null;
+  detailingWeekStart?: string | null;
+  detailingWeekStartBalance?: number | null;
+  detailingWeeklyWithdrawn?: number | null;
+  detailingWeeklyBalance?: number | null;
+  generalWeeklyBalance?: number | null;
+  combinedWeeklyBalance?: number | null;
   /** Архивы недель. Приходят с бэка (GET /api/owner/piggy-bank → archives). */
   archives?: WeeklyArchiveInfo[];
 }

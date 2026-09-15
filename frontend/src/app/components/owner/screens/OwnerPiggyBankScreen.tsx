@@ -43,6 +43,17 @@ interface PiggyBankScreenData {
   archives?: Array<{ id: number }>;
   spenderDebts?: PiggySpenderDebt[];
   weeklyFormula?: string | null;
+  currentWeekStart?: string | null;
+  washWeekStart?: string | null;
+  washWeekStartBalance?: number | null;
+  washWeeklyWithdrawn?: number | null;
+  washWeeklyBalance?: number | null;
+  detailingWeekStart?: string | null;
+  detailingWeekStartBalance?: number | null;
+  detailingWeeklyWithdrawn?: number | null;
+  detailingWeeklyBalance?: number | null;
+  generalWeeklyBalance?: number | null;
+  combinedWeeklyBalance?: number | null;
 }
 
 interface ArchiveHighlightShape {
@@ -173,6 +184,12 @@ export function OwnerPiggyBankScreen({
         const tabLabel = piggyTab === 'all' ? 'Баланс копилки'
           : piggyTab === 'wash' ? 'Баланс · Мойка'
           : 'Баланс · Детейлинг';
+        const weeklyNow = piggyTab === 'all' ? (piggyBank?.combinedWeeklyBalance ?? null)
+          : piggyTab === 'wash' ? (piggyBank?.washWeeklyBalance ?? null)
+          : (piggyBank?.detailingWeeklyBalance ?? null);
+        const weeklyStart = piggyTab === 'all' ? (piggyBank?.currentWeekStart ?? null)
+          : piggyTab === 'wash' ? (piggyBank?.washWeekStart ?? piggyBank?.currentWeekStart ?? null)
+          : (piggyBank?.detailingWeekStart ?? piggyBank?.currentWeekStart ?? null);
         return (
         <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
           <div className={`text-xs ${sub} mb-1 flex items-center justify-center gap-2`}>
@@ -192,6 +209,11 @@ export function OwnerPiggyBankScreen({
           <div className="font-bold text-3xl tabular-nums" style={{ color: tabBalance >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
             {tabBalance.toLocaleString('ru')} ₽
           </div>
+          {weeklyNow !== null && weeklyNow !== undefined && (
+            <div className={`text-xs ${sub} mt-2 tabular-nums`} title="Остаток на утро субботы минус расходы с субботы по сегодня. Заработок недели не учитывается.">
+              Без заработка недели{weeklyStart ? ` · на ${weeklyStart}` : ''}: <span className="font-semibold" style={{ color: weeklyNow >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>{weeklyNow.toLocaleString('ru')} ₽</span>
+            </div>
+          )}
         </div>
         );
       })()}
@@ -348,6 +370,11 @@ export function OwnerPiggyBankScreen({
           <div className="flex justify-between py-2 text-sm">
             <span className={sub}>Доп. доходы</span><span className="font-semibold tabular-nums" style={{ color: primary }}>+{(piggyBank.washIncomes ?? 0).toLocaleString('ru')} ₽</span>
           </div>
+          {(piggyBank.washWeekStartBalance !== null && piggyBank.washWeekStartBalance !== undefined) && (
+            <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+              <span className={sub}>На начало недели{(piggyBank.washWeekStart ?? piggyBank.currentWeekStart) ? ` (с ${piggyBank.washWeekStart ?? piggyBank.currentWeekStart})` : ''}</span><span className="font-semibold tabular-nums">{(piggyBank.washWeekStartBalance ?? 0).toLocaleString('ru')} ₽</span>
+            </div>
+          )}
           <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
             <span className="flex items-center gap-1.5">🏦 Остаток в копилке
               <EditAmountPencil primary={primary} title="Изменить сумму · 🚗 Мойка" onClick={() => onOpenAdjust('wash')} />
@@ -395,6 +422,11 @@ export function OwnerPiggyBankScreen({
           <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
             <span className={sub}>Доп. доходы</span><span className="font-semibold tabular-nums" style={{ color: primary }}>+{(piggyBank.detailingIncomes ?? 0).toLocaleString('ru')} ₽</span>
           </div>
+          {(piggyBank.detailingWeekStartBalance !== null && piggyBank.detailingWeekStartBalance !== undefined) && (
+            <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+              <span className={sub}>На начало недели{(piggyBank.detailingWeekStart ?? piggyBank.currentWeekStart) ? ` (с ${piggyBank.detailingWeekStart ?? piggyBank.currentWeekStart})` : ''}</span><span className="font-semibold tabular-nums">{(piggyBank.detailingWeekStartBalance ?? 0).toLocaleString('ru')} ₽</span>
+            </div>
+          )}
           <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
             <span className="flex items-center gap-1.5">🏦 Нетто в копилке
               <EditAmountPencil primary={primary} title="Изменить сумму · ✨ Детейлинг" onClick={() => onOpenAdjust('detailing')} />

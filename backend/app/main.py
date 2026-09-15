@@ -756,7 +756,7 @@ WASH_RESOURCE_GROUP = "wash"
 # Маркер версии формулы недельных остатков копилки (виден в UI рядом
 # с «История операций»). Поднимать при каждом изменении weekly-расчёта,
 # чтобы по скриншоту было понятно, какой бэкенд реально отвечает.
-WEEKLY_FORMULA_VERSION = "w5-card-whitelist"
+WEEKLY_FORMULA_VERSION = "w6-current-week"
 
 DETAILING_BOX_NAMES = ("Детейлинг 1", "Детейлинг 2", "Детейлинг 3")
 
@@ -17156,6 +17156,235 @@ def get_piggy_bank(
     except Exception:
         pass
 
+    # ── Снимок текущей недели на сейчас (без учёта заработка недели) ──
+    # Отдельной строкой в UI: «остаток без заработка сейчас» =
+    # остаток своей копилки на утро субботы минус расходы с субботы по сегодня.
+    # В табах под расходами: «на начало недели» = weekStartBalance.
+    _cur_week_start_str = ""
+    _wash_ws: str | None = None
+    _wash_wsb: float | None = None
+    _wash_wdw: float | None = None
+    _wash_wb: float | None = None
+    _det_ws: str | None = None
+    _det_wsb: float | None = None
+    _det_wdw: float | None = None
+    _det_wb: float | None = None
+    _gen_ws: str | None = None
+    _gen_wsb: float | None = None
+    _gen_wdw: float | None = None
+    _gen_wb: float | None = None
+    _combined_wb: float | None = None
+    try:
+        if not booking_id:
+            _today = date.today()
+
+            def _cur_saturday_of(d: date) -> date:
+                return d - timedelta(days=(d.weekday() - 5) % 7)
+
+            _cur_sat = _cur_saturday_of(_today)
+            _cur_week_start_str = _cur_sat.strftime("%d.%m.%Y")
+
+            # Балансы на утро субботы (та же методология, что _sat_cache выше).
+            # Если суббота уже посчитана — берём из кэша, иначе считаем заново.
+            try:
+                _cur_sat_bal = dict(_sat_cache.get(_cur_sat) or {})
+            except Exception:
+                _cur_sat_bal = {}
+            if not _cur_sat_bal or not all(k in _cur_sat_bal for k in ("wash", "detailing", "general")):
+                _det_sat = 0.0
+                _gen_sat = 0.0
+                for _t in _weekly_base_txs:
+                    _d = _tx_parsed_date.get(_t.id)
+                    if _d is None or not (_d < _cur_sat):
+                        continue
+                    if _t.transaction_type not in _CARD_PIGGY_TYPES:
+                        continue
+                    try:
+                        _amt = float(_t.amount or 0)
+                    except (TypeError, ValueError):
+                        _amt = 0.0
+                    if _t.resource_group == "detailing":
+                        _det_sat += _amt
+                    elif _t.resource_group == "general":
+                        _gen_sat += _amt
+                _self_rev = 0
+                _classic_rev = 0
+                for _bd, _b in _booking_parsed:
+                    if _bd is None or not (_bd < _cur_sat):
+                        continue
+                    _svc = services_map.get(_b.service_id)
+                    if _svc is None or _svc.resource_group != WASH_RESOURCE_GROUP:
+                        continue
+                    if getattr(_svc, "wash_type", None) == "self_service":
+                        _self_rev += (_b.price or 0)
+                    else:
+                        _classic_rev += (_b.price or 0)
+                _self_master = round(_self_rev * 10 / 100)
+                _self_piggy = _self_rev - _self_master
+                _classic_master = round(_classic_rev * 40 / 100)
+                _classic_piggy = _classic_rev - _classic_master
+                _total_piggy_before = _self_piggy + _classic_piggy
+                _outputs_before = 0
+                try:
+                    _sat_exclusive_end = _cur_sat - timedelta(days=1)
+                    _base_start = date(2000, 1, 1)
+                    for _w in workers_list:
+                        _sal = getattr(_w, "salary_per_shift", 0) or 0
+                        if not _sal:
+                            continue
+                        _cnt, _dates = _compute_shift_attendance(inspections, _w.id, _base_start, _sat_exclusive_end)
+                        _outputs_before += _cnt * _sal
+                except Exception:
+                    _outputs_before = 0
+                _wash_exp_before = 0.0
+                for _ed, _e in _exp_parsed:
+                    if _ed is not None and _ed < _cur_sat and _e.resource_group == WASH_RESOURCE_GROUP:
+                        try:
+                            _wash_exp_before += float(_e.amount or 0)
+                        except (TypeError, ValueError):
+                            pass
+                _wash_inc_before = 0.0
+                for _iid, _i in _inc_parsed:
+                    if _iid is not None and _iid < _cur_sat and _i.resource_group == WASH_RESOURCE_GROUP:
+                        try:
+                            _wash_inc_before += float(_i.amount or 0)
+                        except (TypeError, ValueError):
+                            pass
+                _wash_adj_before = 0.0
+                for _t in _weekly_base_txs:
+                    _d = _tx_parsed_date.get(_t.id)
+                    if _d is None or not (_d < _cur_sat):
+                        continue
+                    if _t.transaction_type == "adjust" and _t.resource_group == WASH_RESOURCE_GROUP:
+                        try:
+                            _wash_adj_before += float(_t.amount or 0)
+                        except (TypeError, ValueError):
+                            pass
+                _wash_sat = float(_total_piggy_before - _outputs_before - _wash_exp_before + _wash_inc_before + _wash_adj_before)
+                _cur_sat_bal = {
+                    "detailing": round(float(_det_sat), 2),
+                    "general": round(float(_gen_sat), 2),
+                    "wash": round(float(_wash_sat), 2),
+                }
+
+            # Расходы с субботы по сегодня включительно (будущие дни недели не считаем).
+            def _cum_for_group(_grp: str) -> float:
+                _cum = 0.0
+                _is_wash = (_grp == WASH_RESOURCE_GROUP)
+                for _t in _weekly_base_txs:
+                    if (_t.resource_group or "detailing") != _grp:
+                        continue
+                    _d = _tx_parsed_date.get(_t.id)
+                    if _d is None or not (_cur_sat <= _d <= _today):
+                        continue
+                    try:
+                        if _is_wash:
+                            _counts = float(_t.amount or 0) < 0
+                        else:
+                            _counts = (
+                                _t.transaction_type in _WEEKLY_PIGGY_WD
+                                and float(_t.amount or 0) < 0
+                            )
+                        if _counts:
+                            _cum += abs(float(_t.amount))
+                    except (TypeError, ValueError):
+                        pass
+                if _is_wash:
+                    _mirrored_ids: set[str] = set()
+                    for _t in _weekly_base_txs:
+                        if (_t.resource_group or "") != _grp:
+                            continue
+                        _d = _tx_parsed_date.get(_t.id)
+                        if _d is None or not (_cur_sat <= _d <= _today):
+                            continue
+                        _eid = getattr(_t, "expense_id", None)
+                        if _eid:
+                            _mirrored_ids.add(str(_eid))
+                    _unlinked: list[tuple[date, float]] = []
+                    for _t in _weekly_base_txs:
+                        if (_t.resource_group or "") != _grp:
+                            continue
+                        try:
+                            _neg = float(_t.amount or 0) < 0
+                        except (TypeError, ValueError):
+                            _neg = False
+                        if _neg and not getattr(_t, "expense_id", None):
+                            _dd = _tx_parsed_date.get(_t.id)
+                            if _dd is not None and _cur_sat <= _dd <= _today:
+                                try:
+                                    _unlinked.append((_dd, round(abs(float(_t.amount)), 2)))
+                                except (TypeError, ValueError):
+                                    pass
+                    _candidate: list[tuple[Any, date, Any, float]] = []
+                    for _ed, _e in _exp_parsed:
+                        if _ed is None or not (_cur_sat <= _ed <= _today):
+                            continue
+                        if (_e.resource_group or "") != _grp:
+                            continue
+                        try:
+                            _eamt = round(abs(float(_e.amount or 0)), 2)
+                        except (TypeError, ValueError):
+                            continue
+                        if _eamt <= 0:
+                            continue
+                        if str(getattr(_e, "id", "")) in _mirrored_ids:
+                            continue
+                        _candidate.append((_e, _ed, getattr(_e, "created_at", None), _eamt))
+                    _fallback_excluded: set[str] = set()
+                    for (_wdate, _wamt) in _unlinked:
+                        for (_e, _ed, _ecr, _eamt) in _candidate:
+                            _eid2 = str(getattr(_e, "id", ""))
+                            if _eid2 in _fallback_excluded:
+                                continue
+                            if _ed == _wdate and _eamt == _wamt:
+                                _fallback_excluded.add(_eid2)
+                                break
+                    for (_e, _ed, _ecr, _eamt) in _candidate:
+                        if str(getattr(_e, "id", "")) not in _fallback_excluded:
+                            _cum += _eamt
+                    try:
+                        for _w in workers_list:
+                            _sal = getattr(_w, "salary_per_shift", 0) or 0
+                            if not _sal:
+                                continue
+                            try:
+                                _cnt, _date_strs = _compute_shift_attendance(inspections, _w.id, _cur_sat, _today)
+                            except Exception:
+                                continue
+                            for _ds in (_date_strs or []):
+                                _sd = _parse_date_str(_ds) if _ds else None
+                                if _sd is None or not (_cur_sat <= _sd <= _today):
+                                    continue
+                                try:
+                                    _cum += float(_sal)
+                                except (TypeError, ValueError):
+                                    pass
+                    except Exception:
+                        pass
+                return round(_cum, 2)
+
+            _wash_sat_bal = round(float(_cur_sat_bal.get("wash", 0.0)), 2)
+            _det_sat_bal = round(float(_cur_sat_bal.get("detailing", 0.0)), 2)
+            _gen_sat_bal = round(float(_cur_sat_bal.get("general", 0.0)), 2)
+            _wash_cum = _cum_for_group("wash")
+            _det_cum = _cum_for_group("detailing")
+            _gen_cum = _cum_for_group("general")
+            _wash_ws = _cur_week_start_str
+            _wash_wsb = _wash_sat_bal
+            _wash_wdw = _wash_cum
+            _wash_wb = round(_wash_sat_bal - _wash_cum, 2)
+            _det_ws = _cur_week_start_str
+            _det_wsb = _det_sat_bal
+            _det_wdw = _det_cum
+            _det_wb = round(_det_sat_bal - _det_cum, 2)
+            _gen_ws = _cur_week_start_str
+            _gen_wsb = _gen_sat_bal
+            _gen_wdw = _gen_cum
+            _gen_wb = round(_gen_sat_bal - _gen_cum, 2)
+            _combined_wb = round(_wash_wb + _det_wb + _gen_wb, 2)
+    except Exception:
+        pass
+
     return PiggyBankResponse(
 
         balance=balance,
@@ -17263,6 +17492,21 @@ def get_piggy_bank(
         spenderDebts=spender_debts,
 
         weeklyFormula=WEEKLY_FORMULA_VERSION,
+
+        currentWeekStart=_cur_week_start_str,
+        washWeekStart=_wash_ws,
+        washWeekStartBalance=_wash_wsb,
+        washWeeklyWithdrawn=_wash_wdw,
+        washWeeklyBalance=_wash_wb,
+        detailingWeekStart=_det_ws,
+        detailingWeekStartBalance=_det_wsb,
+        detailingWeeklyWithdrawn=_det_wdw,
+        detailingWeeklyBalance=_det_wb,
+        generalWeekStart=_gen_ws,
+        generalWeekStartBalance=_gen_wsb,
+        generalWeeklyWithdrawn=_gen_wdw,
+        generalWeeklyBalance=_gen_wb,
+        combinedWeeklyBalance=_combined_wb,
 
     )
 
