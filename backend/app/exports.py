@@ -86,6 +86,8 @@ PIGGY_TYPE_LABELS = {
 
     "material_repayment": "Возврат материалов",
 
+    "debt_repayment": "Возврат долга копилки человеку",
+
     "deposit_return": "Возврат депозита",
 
     "month_return": "Закрытие месяца (возврат)",
@@ -465,11 +467,13 @@ def build_owner_summary_report(
 
         other_withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "other_withdrawal" and t.amount < 0)
 
+        debt_repays = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "debt_repayment" and t.amount < 0)
+
         repayments = sum(t.amount for t in period_piggy if t.transaction_type == "material_repayment" and t.amount > 0)
 
         total_balance = sum(t.amount for t in piggy_transactions)
 
-        if deposits or withdrawals or repayments or returns:
+        if deposits or withdrawals or repayments or returns or debt_repays:
 
             lines.append("")
 
@@ -494,6 +498,10 @@ def build_owner_summary_report(
             if repayments:
 
                 lines.append(f"  Возврат материалов: +{_format_money(repayments)}")
+
+            if debt_repays:
+
+                lines.append(f"  Возврат долга копилки: −{_format_money(debt_repays)}")
 
             lines.append(f"  Баланс: {_format_money(total_balance)}")
 
@@ -1837,6 +1845,9 @@ def build_piggy_bank_export(
     repayments = _period_sum(
         lambda t: t.transaction_type == "material_repayment" and t.amount > 0
     )
+    debt_repays = -_period_sum(
+        lambda t: t.transaction_type == "debt_repayment" and t.amount < 0
+    )
     deposit_returns = _period_sum(
         lambda t: t.transaction_type == "deposit_return" and t.amount > 0
     )
@@ -1849,6 +1860,7 @@ def build_piggy_bank_export(
         - material_withdrawals
         - other_withdrawals
         - expense_outflows
+        - debt_repays
     )
     wash_delta = _period_sum(lambda t: t.resource_group == "wash")
     detailing_delta = _period_sum(lambda t: t.resource_group == "detailing")

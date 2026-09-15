@@ -536,6 +536,7 @@ export function OwnerPiggyBankScreen({
               const isDeposit = tx.amount > 0;
               const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
                 : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                : tx.transactionType === 'debt_repayment' ? 'Возврат долга человеку'
                 : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
                 : tx.transactionType === 'other_withdrawal' ? 'Снятие · прочие расходы'
                 : tx.transactionType === 'expense' ? 'Расход из копилки'
@@ -554,7 +555,7 @@ export function OwnerPiggyBankScreen({
               const txRunningBalance = (tx.weeklyBalance ?? null) !== null
                 ? (tx.weeklyBalance as number)
                 : (legacyById.get(tx.id) ?? 0);
-              const canDelete = ['adjust', 'material_withdrawal', 'other_withdrawal', 'material_repayment', 'expense'].includes(tx.transactionType);
+              const canDelete = ['adjust', 'material_withdrawal', 'other_withdrawal', 'material_repayment', 'debt_repayment', 'expense'].includes(tx.transactionType);
               const deleteLabel = `${txLabel} ${tx.amount.toLocaleString('ru')} ₽ · ${tx.date}${tx.purpose ? ` · ${tx.purpose}` : ''}${tx.materialName ? ` · ${tx.materialName}` : ''}`;
               return (
                 <Wrapper key={tx.id} onClick={handleClick}

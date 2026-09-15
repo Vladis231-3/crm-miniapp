@@ -1783,6 +1783,36 @@ class PiggyBankAdjustRequest(BaseModel):
         return stripped
 
 
+class PiggyBankRepayRequest(BaseModel):
+    # Возврат долга копилки человеку (копилка возвращает долг за покупку
+    # на свои деньги): деньги УХОДЯТ из копилки наружу к человеку.
+    # Создаёт: PiggyBankTransaction debt_repayment (−) + Expense +
+    # PayrollEntry payout (реальная выплата, а не начисление bonus).
+    workerId: str | None = None
+    spentById: str | None = None
+    spentByName: str | None = Field(default=None, max_length=120)
+    amount: float = Field(ge=1, le=10_000_000)
+    date: str = ""
+    note: str = ""
+    resourceGroup: str = Field(default="", pattern=r"^(wash|detailing|general)?$")
+    clientRequestId: str | None = Field(default=None, max_length=64)
+
+    @field_validator("amount")
+    @classmethod
+    def validate_whole_rubles(cls, value: float) -> float:
+        if not float(value).is_integer():
+            raise ValueError("Сумма должна быть в целых рублях (без копеек)")
+        return value
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, value: str) -> str:
+        stripped = (value or "").strip()
+        if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):
+            raise ValueError("Дата должна быть в формате ДД.ММ.ГГГГ")
+        return stripped
+
+
 class PiggyBankWashBreakdown(BaseModel):
     selfServiceRevenue: float = 0
     selfServiceMaster: float = 0

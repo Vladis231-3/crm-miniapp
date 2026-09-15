@@ -321,6 +321,8 @@ from .schemas import (
 
     PiggyBankAdjustRequest,
 
+    PiggyBankRepayRequest,
+
     PiggyBankSpenderDebt,
 
     PiggyBankTransactionPayload,
@@ -16721,21 +16723,27 @@ def get_piggy_bank(
 
     withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing")
 
+    # Возвраты долга копилки человеку (debt_repayment, amount < 0) — деньги
+    # УХОДЯТ из копилки наружу: уменьшают нетто как списания.
+    debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "detailing")
+
     repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing")
 
-    net_piggy = deposits_24 + repayments - withdrawals
+    net_piggy = deposits_24 + repayments - withdrawals - debt_repay_out
 
     # Wash net piggy (from actual transactions, same methodology)
     wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash")
     wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash")
+    wash_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "wash")
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
-    wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals
+    wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals - wash_debt_repay_out
 
     # General piggy bank (deposits targeted to "general")
     general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general")
     general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general")
+    general_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "general")
     general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general")
-    general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals
+    general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals - general_debt_repay_out
 
     # Manual adjustments (transaction_type == "adjust") — affect every bucket
     detailing_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "detailing")
@@ -16821,12 +16829,16 @@ def get_piggy_bank(
 
             owner_total_paid += s.amount
 
-    # --- Debts: сумма списаний по каждому кто покупал (spent_by) ---
-    # Каждый чек из копилки фиксирует кто покупал, долг вешается именно на него
-    # и отражается в зарплате (PayrollEntry deduction). Выбор в форме теперь влияет.
+    # --- Debts: нетто-долг копилки человеку (кто покупал на свои) ---
+    # Списания (material/other_withdrawal, amount < 0) — сколько взято/потрачено.
+    # Возвраты долга (debt_repayment, amount < 0 через POST /repay) — сколько
+    # копилка уже вернула человеку наружу: уменьшают долг и баланс копилки.
+    # Старі начисления «Погашение долга по копилке» (bonus через старую кнопку,
+    # без piggy-транзакции) тоже вычитаем для обратной совместимости, чтобы
+    # долг не показывался заново после фикса.
     debt_map: dict[str, dict] = {}
     for tx in full_all_tx_for_debt:
-        if tx.transaction_type not in ("material_withdrawal", "other_withdrawal"):
+        if tx.transaction_type not in ("material_withdrawal", "other_withdrawal", "debt_repayment"):
             continue
         if tx.amount >= 0:
             continue
@@ -16839,11 +16851,42 @@ def get_piggy_bank(
             debt_map[key] = {"spentById": sid, "spentByName": name or (sid or "Неизвестно"), "totalSpent": 0.0, "count": 0}
         if name:
             debt_map[key]["spentByName"] = name
-        debt_map[key]["totalSpent"] += abs(float(tx.amount))
-        debt_map[key]["count"] += 1
+        if tx.transaction_type == "debt_repayment":
+            debt_map[key]["totalSpent"] -= abs(float(tx.amount))
+        else:
+            debt_map[key]["totalSpent"] += abs(float(tx.amount))
+            debt_map[key]["count"] += 1
+    # Обратная совместимость: старые bonus «Погашение долга по копилке»
+    # (без debt_repayment-транзакции, т.к. раньше копилка не трогалась).
+    # Вычитаем их один раз, но только если к их Expense не привязана
+    # debt_repayment-транзакция нового флоу (иначе вычтем дважды).
+    try:
+        _repay_notes = db.scalars(
+            select(PayrollEntry).where(
+                PayrollEntry.deleted_at.is_(None),
+                PayrollEntry.note.ilike("%Погашение долга по копилке%"),
+            )
+        ).all()
+        _tx_expense_ids = {
+            str(getattr(t, "expense_id", "") or "")
+            for t in full_all_tx_for_debt
+            if getattr(t, "transaction_type", "") == "debt_repayment" and getattr(t, "expense_id", None)
+        }
+        for _pe in _repay_notes:
+            if getattr(_pe, "expense_id", None) and str(_pe.expense_id) in _tx_expense_ids:
+                continue
+            _sid = getattr(_pe, "worker_id", None)
+            if not _sid:
+                continue
+            if _sid in debt_map:
+                debt_map[_sid]["totalSpent"] -= abs(float(getattr(_pe, "amount", 0) or 0))
+    except Exception:
+        pass
+    # Убираем нулевые/отрицательные (переплата) из списка долгов
     spender_debts = [
-        PiggyBankSpenderDebt(spentById=v["spentById"], spentByName=v["spentByName"], totalSpent=v["totalSpent"], count=v["count"])
+        PiggyBankSpenderDebt(spentById=v["spentById"], spentByName=v["spentByName"], totalSpent=round(max(0.0, v["totalSpent"]), 2), count=v["count"])
         for v in debt_map.values()
+        if v["totalSpent"] > 0.5
     ]
     spender_debts.sort(key=lambda x: x.totalSpent, reverse=True)
 
@@ -16857,10 +16900,10 @@ def get_piggy_bank(
     # - wash: как remaining (брони − выходы − расходы + доходы + adjust).
     # Расходы недели — то, что уменьшает карточку: detailing/general только
     # material/other_withdrawal; wash плюс прямые расходы без зеркал и смены.
-    _WEEKLY_PIGGY_WD = {"material_withdrawal", "other_withdrawal"}
+    _WEEKLY_PIGGY_WD = {"material_withdrawal", "other_withdrawal", "debt_repayment"}
     _CARD_PIGGY_TYPES = {
         "deposit_24percent", "material_repayment",
-        "material_withdrawal", "other_withdrawal", "adjust",
+        "material_withdrawal", "other_withdrawal", "debt_repayment", "adjust",
     }
     try:
         def _saturday_of(d: date) -> date:
@@ -17672,6 +17715,326 @@ def piggy_bank_withdraw(
 
 
 
+@app.post("/api/owner/piggy-bank/repay", response_model=PiggyBankTransactionPayload)
+def piggy_bank_repay(
+    payload: PiggyBankRepayRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> PiggyBankTransactionPayload:
+    """Возврат долга копилки человеку (копилка возвращает долг за покупку на свои).
+
+    Было: кнопка «Погасить» начисляла bonus (рост «К выплате»), но не создавала
+    piggy-транзакцию и не уменьшала долг/баланс — деньги «выдавались», но
+    внешне никуда не уходили. Стало: создаём debt_repayment (− из копилки) +
+    один Expense + PayrollEntry payout (реальная выплата наружу).
+    Expense и транзакция в ОДНОЙ группе (иначе combined уменьшится дважды:
+    wash считает расходы, detailing — транзакции).
+    """
+    _ensure_staff_role(session_data, {"owner", "admin", "accountant"})
+
+    worker_id = (payload.workerId or payload.spentById or "").strip()
+    spent_name = (payload.spentByName or "").strip() or None
+    if not worker_id and not spent_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите сотрудника (workerId) для возврата долга",
+        )
+    try:
+        amount = int(round(float(payload.amount)))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Некорректная сумма"
+        )
+    if amount < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Сумма должна быть больше нуля"
+        )
+
+    # Идемпотентность (дабл-клик/ретрай): вернуть первую операцию.
+    if payload.clientRequestId:
+        _existing_tx = db.scalar(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.request_key == payload.clientRequestId
+            )
+        )
+        if _existing_tx is not None:
+            _pe = None
+            if getattr(_existing_tx, "expense_id", None):
+                _pe = db.scalar(
+                    select(PayrollEntry).where(
+                        PayrollEntry.expense_id == _existing_tx.expense_id
+                    )
+                )
+            return PiggyBankTransactionPayload(
+                id=_existing_tx.id,
+                bookingId=_existing_tx.booking_id,
+                amount=_existing_tx.amount,
+                transactionType=_existing_tx.transaction_type,
+                purpose=_existing_tx.purpose,
+                materialName=_existing_tx.material_name,
+                materialCost=_existing_tx.material_cost,
+                date=_existing_tx.date,
+                resourceGroup=_existing_tx.resource_group,
+                createdAt=_existing_tx.created_at,
+                bookingInfo=None,
+                bookingClientName=None,
+                bookingService=None,
+                bookingDate=None,
+                bookingTime=None,
+                bookingCar=None,
+                bookingPlate=None,
+                bookingPrice=None,
+                bookingStatus=None,
+                spentById=getattr(_existing_tx, "spent_by_id", None),
+                spentByName=getattr(_existing_tx, "spent_by_name", None),
+                source="piggy",
+                payrollEntryId=getattr(_pe, "id", None) if _pe is not None else None,
+            )
+        _existing_pay = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.request_key == payload.clientRequestId
+            )
+        )
+        if _existing_pay is not None:
+            return PiggyBankTransactionPayload(
+                id=_existing_pay.id,
+                bookingId=None,
+                amount=-float(getattr(_existing_pay, "amount", 0) or 0),
+                transactionType="debt_repayment",
+                purpose=getattr(_existing_pay, "note", "") or "Возврат долга по копилке",
+                materialName=None,
+                materialCost=float(getattr(_existing_pay, "amount", 0) or 0),
+                date=getattr(_existing_pay, "entry_date", "") or "",
+                resourceGroup="",
+                createdAt=getattr(_existing_pay, "created_at", None),
+                bookingInfo=None,
+                bookingClientName=None,
+                bookingService=None,
+                bookingDate=None,
+                bookingTime=None,
+                bookingCar=None,
+                bookingPlate=None,
+                bookingPrice=None,
+                bookingStatus=None,
+                spentById=getattr(_existing_pay, "worker_id", None),
+                spentByName=None,
+                source="piggy",
+                payrollEntryId=_existing_pay.id,
+            )
+
+    worker = db.get(StaffUser, worker_id) if worker_id else None
+    if worker is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
+        )
+    if worker.role not in {"admin", "worker", "accountant"} and not _is_owner_master(worker):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Сотрудник не найден"
+        )
+    if session_data["role"] == "admin" and not (
+        worker.role == "worker" or _is_owner_master(worker)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Администратор может возвращать долги только мастерам",
+        )
+    spent_by_id = worker.id
+    spent_by_name = worker.name
+    repay_key = worker.id
+
+    # Нетто-долг этого человека (та же методология, что GET /piggy-bank):
+    # списания − уже возвращённое (debt_repayment) − старые bonus-погашения без транзакции.
+    _all_tx = db.scalars(
+        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None))
+    ).all()
+    _spent_total = 0.0
+    _group_totals: dict[str, float] = {}
+    for _t in _all_tx:
+        if getattr(_t, "spent_by_id", None) != repay_key:
+            continue
+        _tt = getattr(_t, "transaction_type", "")
+        try:
+            _amt = abs(float(getattr(_t, "amount", 0) or 0))
+        except (TypeError, ValueError):
+            continue
+        if _tt in ("material_withdrawal", "other_withdrawal"):
+            if float(getattr(_t, "amount", 0) or 0) >= 0:
+                continue
+            _spent_total += _amt
+            _rg = getattr(_t, "resource_group", "") or "detailing"
+            _group_totals[_rg] = _group_totals.get(_rg, 0.0) + _amt
+        elif _tt == "debt_repayment":
+            if float(getattr(_t, "amount", 0) or 0) >= 0:
+                continue
+            _spent_total -= _amt
+    try:
+        _old_repays = db.scalars(
+            select(PayrollEntry).where(
+                PayrollEntry.deleted_at.is_(None),
+                PayrollEntry.worker_id == repay_key,
+                PayrollEntry.note.ilike("%Погашение долга по копилке%"),
+            )
+        ).all()
+        _linked_tx_exp = {
+            str(getattr(_t, "expense_id", "") or "")
+            for _t in _all_tx
+            if getattr(_t, "transaction_type", "") == "debt_repayment"
+            and getattr(_t, "expense_id", None)
+        }
+        for _pe in _old_repays:
+            if getattr(_pe, "expense_id", None) and str(_pe.expense_id) in _linked_tx_exp:
+                continue
+            try:
+                _spent_total -= abs(float(getattr(_pe, "amount", 0) or 0))
+            except (TypeError, ValueError):
+                pass
+    except Exception:
+        pass
+    _spent_total = round(_spent_total, 2)
+    if _spent_total <= 0.5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Долг по копилке уже погашен"
+        )
+    # Копейки: долг 51 071,92, а форма вводит целые 51 072 — разрешаем ceil.
+    import math as _math
+
+    _max_payable = int(_math.ceil(_spent_total))
+    if amount > _max_payable:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Сумма больше долга ({_max_payable} ₽)",
+        )
+
+    rg = (payload.resourceGroup or "").strip()
+    if rg not in {"wash", "detailing", "general"}:
+        rg = max(_group_totals, key=lambda k: _group_totals[k]) if _group_totals else "wash"
+
+    op_date = (payload.date or "").strip() or date.today().strftime("%d.%m.%Y")
+    note = (payload.note or "").strip() or "Погашение долга по копилке"
+
+    expense = Expense(
+        id=f"exp-{uuid4()}",
+        title=f"Возврат долга копилки: {spent_by_name}",
+        amount=amount,
+        category="Зарплата",
+        date=op_date,
+        note=f"{note} · {spent_by_name}",
+        resource_group=rg,
+        created_at=_now(),
+    )
+    db.add(expense)
+    db.flush()
+
+    transaction = PiggyBankTransaction(
+        id=f"pb-{uuid4()}",
+        booking_id=None,
+        amount=-amount,
+        transaction_type="debt_repayment",
+        purpose=f"Возврат долга по копилке: {spent_by_name} — {note}",
+        material_name=None,
+        material_cost=amount,
+        date=op_date,
+        resource_group=rg,
+        spent_by_id=spent_by_id,
+        spent_by_name=spent_by_name,
+        expense_id=expense.id,
+        request_key=payload.clientRequestId,
+        created_at=_now(),
+    )
+    db.add(transaction)
+
+    pay_entry = PayrollEntry(
+        id=f"pay-{uuid4()}",
+        worker_id=worker.id,
+        actor_id=session_data["actorId"],
+        actor_role=session_data["role"],
+        kind="payout",
+        amount=amount,
+        note=note,
+        entry_date=op_date,
+        expense_id=expense.id,
+        request_key=payload.clientRequestId,
+        created_at=_now(),
+    )
+    db.add(pay_entry)
+    worker.updated_at = _now()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if payload.clientRequestId:
+            _winner = db.scalar(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.request_key == payload.clientRequestId
+                )
+            )
+            if _winner is not None:
+                return PiggyBankTransactionPayload(
+                    id=_winner.id,
+                    bookingId=_winner.booking_id,
+                    amount=_winner.amount,
+                    transactionType=_winner.transaction_type,
+                    purpose=_winner.purpose,
+                    materialName=_winner.material_name,
+                    materialCost=_winner.material_cost,
+                    date=_winner.date,
+                    resourceGroup=_winner.resource_group,
+                    createdAt=_winner.created_at,
+                    bookingInfo=None,
+                    bookingClientName=None,
+                    bookingService=None,
+                    bookingDate=None,
+                    bookingTime=None,
+                    bookingCar=None,
+                    bookingPlate=None,
+                    bookingPrice=None,
+                    bookingStatus=None,
+                    spentById=getattr(_winner, "spent_by_id", None),
+                    spentByName=getattr(_winner, "spent_by_name", None),
+                    source="piggy",
+                    payrollEntryId=None,
+                )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Операция с тем же ключом уже существует",
+        )
+    db.refresh(transaction)
+    _notify_worker_about_payroll_entry(
+        db,
+        worker,
+        actor_role=session_data["role"],
+        actor_id=session_data["actorId"],
+        kind="payout",
+        amount=amount,
+        note=note,
+    )
+    return PiggyBankTransactionPayload(
+        id=transaction.id,
+        bookingId=transaction.booking_id,
+        amount=transaction.amount,
+        transactionType=transaction.transaction_type,
+        purpose=transaction.purpose,
+        materialName=transaction.material_name,
+        materialCost=transaction.material_cost,
+        date=transaction.date,
+        resourceGroup=transaction.resource_group,
+        createdAt=transaction.created_at,
+        bookingInfo=None,
+        bookingClientName=None,
+        bookingService=None,
+        bookingDate=None,
+        bookingTime=None,
+        bookingCar=None,
+        bookingPlate=None,
+        bookingPrice=None,
+        bookingStatus=None,
+        spentById=transaction.spent_by_id,
+        spentByName=transaction.spent_by_name,
+        source="piggy",
+        payrollEntryId=pay_entry.id,
+    )
+
+
 @app.post("/api/owner/piggy-bank/adjust", response_model=PiggyBankTransactionPayload)
 
 def piggy_bank_adjust(
@@ -17870,6 +18233,7 @@ def delete_piggy_bank_transaction(
         "material_withdrawal",
         "other_withdrawal",
         "material_repayment",
+        "debt_repayment",
         "expense",
     }:
         raise HTTPException(
@@ -23020,6 +23384,7 @@ def get_owner_money_flow(
         "other_withdrawal": "piggy_withdrawal",
         "adjust": "piggy_adjust",
         "material_repayment": "piggy_repayment",
+        "debt_repayment": "piggy_debt_repayment",
         "deposit_return": "piggy_deposit_return",
     }
     piggy_txs = [
@@ -23033,6 +23398,7 @@ def get_owner_money_flow(
             "piggy_withdrawal": "Снятие из копилки",
             "piggy_adjust": "Корректировка копилки",
             "piggy_repayment": "Возврат материалов в копилку",
+            "piggy_debt_repayment": "Возврат долга копилки человеку",
             "piggy_deposit_return": "Возврат депозитных моек в копилку",
         }
         entries.append(

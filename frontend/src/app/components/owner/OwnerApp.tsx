@@ -3134,16 +3134,17 @@ export function OwnerApp() {
   const handleRepayPiggyDebt = async (workerId: string, amount: number) => {
     if (!workerId || !amount || amount <= 0) return;
     const workerName = workers.find(w => w.id === workerId)?.name || 'сотрудника';
-    const ok = window.confirm(`Погасить долг по копилке ${Math.round(amount).toLocaleString('ru')} ₽ для ${workerName}? Будет начислена премия на эту сумму.`);
+    const ok = window.confirm(`Вернуть долг копилки ${Math.round(amount).toLocaleString('ru')} ₽ для ${workerName}? Деньги уйдут из копилки человеку (выплата наружу), долг и баланс уменьшатся.`);
     if (!ok) return;
     try {
-      await createPayrollEntry({
-        workerId,
-        kind: 'bonus',
-        amount: Math.round(amount),
-        note: 'Погашение долга по копилке',
-        period: 'all',
-        clientRequestId: entryRequestIdRef.current,
+      await apiRequest('/api/owner/piggy-bank/repay', {
+        method: 'POST',
+        body: {
+          workerId,
+          amount: Math.round(amount),
+          note: 'Погашение долга по копилке',
+          clientRequestId: entryRequestIdRef.current,
+        },
       });
       entryRequestIdRef.current = newPayRequestId();
       setBottomToast(`Долг ${Math.round(amount).toLocaleString('ru')} ₽ погашен для ${workerName}`);
@@ -6267,6 +6268,7 @@ paymentSettled: false,
                   piggy_withdrawal: { color: '#94A3B8', label: 'Снятие из копилки' },
                   piggy_adjust: { color: '#94A3B8', label: 'Корректировка копилки' },
                   piggy_repayment: { color: '#94A3B8', label: 'Возврат в копилку' },
+                  piggy_debt_repayment: { color: '#94A3B8', label: 'Возврат долга копилки' },
                   piggy_deposit_return: { color: '#94A3B8', label: 'Возврат моек в копилку' },
                 };
                 const fmt = (n: number) => `${n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('ru-RU')} ₽`;
@@ -7148,6 +7150,7 @@ paymentSettled: false,
                               deposit_24percent: 'Депозит',
                               material_withdrawal: 'Списание материалов',
                               material_repayment: 'Возврат материалов',
+                              debt_repayment: 'Возврат долга человеку',
                             }[tx.transactionType] || tx.transactionType;
                             return (
                               <div key={tx.id} className="flex items-start justify-between gap-2 text-xs">
@@ -7465,6 +7468,7 @@ paymentSettled: false,
                           const isDeposit = tx.amount > 0;
                           const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
                             : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
+                            : tx.transactionType === 'debt_repayment' ? 'Возврат долга человеку'
                             : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
                             : tx.transactionType === 'custom_deposit' ? 'Пополнение'
                             : tx.transactionType === 'custom_withdrawal' ? 'Снятие'
