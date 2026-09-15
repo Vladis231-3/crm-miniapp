@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-14 09:08 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-15 16:15 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **533**
-- Строк кода: **214 170**
+- Строк кода: **214 209**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 180, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -3985,7 +3985,7 @@ concept1.0/
 
 - `WorksPage` (стр. 8)
 
-### frontend/src/app/components/owner/DepositPanel.tsx (1153 строк)
+### frontend/src/app/components/owner/DepositPanel.tsx (1192 строк)
 
 - `toISODate` (стр. 23) — локальный
 - `parsed` (стр. 24) — локальный
@@ -4027,37 +4027,39 @@ concept1.0/
 - `danger` (стр. 176) — локальный
 - `inputCls` (стр. 177) — локальный
 - `selectCls` (стр. 178) — локальный
-- `loadSummaries` (стр. 213) — локальный
-- `loadOverview` (стр. 225) — локальный
-- `timer` (стр. 240) — локальный
-- `selectedClient` (стр. 244) — локальный
-- `workerOptions` (стр. 249) — локальный
-- `eligibleClients` (стр. 251) — локальный
-- `monthOptions` (стр. 253) — локальный
-- `months` (стр. 254) — локальный
-- `filteredTxns` (стр. 259) — локальный
-- `openClient` (стр. 268) — локальный
-- `runAndRefresh` (стр. 275) — локальный
-- `handleActivate` (стр. 287) — локальный
-- `handleTopup` (стр. 313) — локальный
-- `handleAdjust` (стр. 323) — локальный
-- `handleRecordWash` (стр. 332) — локальный
-- `selectedWorker` (стр. 342) — локальный
-- `handleSettle` (стр. 366) — локальный
-- `handleExportOne` (стр. 371) — локальный
-- `fileName` (стр. 376) — локальный
-- `delivery` (стр. 378) — локальный
-- `msg` (стр. 381) — локальный
-- `delivery` (стр. 386) — локальный
-- `handleExportAll` (стр. 394) — локальный
-- `fileName` (стр. 398) — локальный
-- `delivery` (стр. 400) — локальный
-- `msg` (стр. 403) — локальный
-- `delivery` (стр. 408) — локальный
-- `openActivateFor` (стр. 416) — локальный
-- `openWashFor` (стр. 429) — локальный
-- `openTopupFor` (стр. 440) — локальный
-- `val` (стр. 1123) — локальный
+- `loadSummaries` (стр. 214) — локальный
+- `loadOverview` (стр. 226) — локальный
+- `timer` (стр. 241) — локальный
+- `selectedClient` (стр. 245) — локальный
+- `workerOptions` (стр. 250) — локальный
+- `eligibleClients` (стр. 252) — локальный
+- `filteredEligibleClients` (стр. 254) — локальный
+- `query` (стр. 255) — локальный
+- `monthOptions` (стр. 264) — локальный
+- `months` (стр. 265) — локальный
+- `filteredTxns` (стр. 270) — локальный
+- `openClient` (стр. 279) — локальный
+- `runAndRefresh` (стр. 286) — локальный
+- `handleActivate` (стр. 298) — локальный
+- `handleTopup` (стр. 325) — локальный
+- `handleAdjust` (стр. 335) — локальный
+- `handleRecordWash` (стр. 344) — локальный
+- `selectedWorker` (стр. 354) — локальный
+- `handleSettle` (стр. 378) — локальный
+- `handleExportOne` (стр. 383) — локальный
+- `fileName` (стр. 388) — локальный
+- `delivery` (стр. 390) — локальный
+- `msg` (стр. 393) — локальный
+- `delivery` (стр. 398) — локальный
+- `handleExportAll` (стр. 406) — локальный
+- `fileName` (стр. 410) — локальный
+- `delivery` (стр. 412) — локальный
+- `msg` (стр. 415) — локальный
+- `delivery` (стр. 420) — локальный
+- `openActivateFor` (стр. 428) — локальный
+- `openWashFor` (стр. 442) — локальный
+- `openTopupFor` (стр. 453) — локальный
+- `val` (стр. 1162) — локальный
 
 ### frontend/src/app/components/owner/OwnerApp.tsx (12815 строк)
 
@@ -5247,6 +5249,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-09-15 19:15)
+- `scripts/.project-map-watch.lock` (2026-09-15 19:04)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-14 12:08)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-09-14 12:07)
 - `frontend/src/app/context/AppContext.tsx` (2026-09-14 12:07)
@@ -5259,6 +5263,4 @@ concept1.0/
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-14 12:07)
 - `frontend/src/app/components/owner/screens/OwnerClientsScreen.tsx` (2026-09-14 12:07)
 - `frontend/src/app/components/owner/OwnerCleanupSection.tsx` (2026-09-14 12:07)
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-09-14 12:07)
 - `frontend/src/app/components/atmosfera/index.ts` (2026-09-14 12:07)
-- `frontend/src/app/components/atmosfera/StatTile.tsx` (2026-09-14 12:07)

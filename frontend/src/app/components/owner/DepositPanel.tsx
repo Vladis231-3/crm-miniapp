@@ -186,6 +186,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
   const [sheet, setSheet] = useState<null | 'activate' | 'topup' | 'adjust' | 'wash'>(null);
 
   const [activateClientId, setActivateClientId] = useState('');
+  const [activateClientSearch, setActivateClientSearch] = useState('');
   const [activateActive, setActivateActive] = useState(false);
   const [activateMonthly, setActivateMonthly] = useState('');
   const [activatePlan, setActivatePlan] = useState<string>('fee');
@@ -250,6 +251,16 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
   const eligibleClients = useMemo(() => clients.filter((client) => !client.depositActive), [clients]);
 
+  const filteredEligibleClients = useMemo(() => {
+    const query = activateClientSearch.trim().toLowerCase();
+    if (!query) return eligibleClients;
+    return eligibleClients.filter((client) =>
+      [client.name, client.phone, client.plate, client.car]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [eligibleClients, activateClientSearch]);
+
   const monthOptions = useMemo(() => {
     const months = new Set<string>([overview?.monthLabel ?? '']);
     (overview?.monthRows ?? []).forEach((row) => months.add(row.month));
@@ -300,6 +311,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
       }),
     );
     setActivateClientId('');
+    setActivateClientSearch('');
     setActivateMonthly('');
     setActivateActive(false);
     setActivatePlan('fee');
@@ -415,6 +427,7 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
 
   const openActivateFor = (client: RegisteredClient | null) => {
     setActivateClientId(client?.id ?? '');
+    setActivateClientSearch('');
     setActivateActive(client ? !!client.depositActive : true);
     setActivateMonthly(client && client.depositMonthly ? String(client.depositMonthly) : '');
     setActivatePlan(client?.depositPlan || 'fee');
@@ -835,14 +848,40 @@ export function DepositPanel({ onBack }: DepositPanelProps) {
             {!activateClientId && (
               <div className="mb-3">
                 {fieldLabel('Клиент')}
+                <div className="relative mb-2">
+                  <input
+                    className={`${inputCls} pr-9`}
+                    type="text"
+                    placeholder="Поиск по имени, телефону, авто…"
+                    value={activateClientSearch}
+                    onChange={(event) => setActivateClientSearch(event.target.value)}
+                  />
+                  {activateClientSearch && (
+                    <button
+                      type="button"
+                      aria-label="Очистить поиск"
+                      onClick={() => setActivateClientSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 opacity-60"
+                    >
+                      <X size={16} strokeWidth={1.75} />
+                    </button>
+                  )}
+                </div>
                 <select className={selectCls} value={activateClientId} onChange={(event) => setActivateClientId(event.target.value)}>
-                  <option value="">Выберите клиента…</option>
-                  {eligibleClients.map((client) => (
+                  <option value="">
+                    {filteredEligibleClients.length > 0
+                      ? `Выберите клиента… (${filteredEligibleClients.length})`
+                      : 'Выберите клиента…'}
+                  </option>
+                  {filteredEligibleClients.map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.name} · {client.phone || client.plate || 'без номера'}
                     </option>
                   ))}
                 </select>
+                {activateClientSearch.trim() && filteredEligibleClients.length === 0 && (
+                  <div className={`text-xs mt-1.5 ${sub}`}>Ничего не найдено — уточните запрос</div>
+                )}
               </div>
             )}
 
