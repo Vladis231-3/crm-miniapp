@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-15 17:01 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-15 17:14 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **534**
-- Строк кода: **215 128**
+- Строк кода: **215 135**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 181, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -3101,7 +3101,7 @@ concept1.0/
 
 ## Frontend — CRM-минапп (frontend/src)
 
-### frontend/src/app/api.ts (348 строк)
+### frontend/src/app/api.ts (355 строк)
 
 - `API_BASE_URL` (стр. 1) — локальный
 - `getInitData` (стр. 76) — локальный
@@ -3147,23 +3147,24 @@ concept1.0/
 - `apiRequest` (стр. 253)
 - `initData` (стр. 260) — локальный
 - `response` (стр. 265) — локальный
-- `raw` (стр. 281) — локальный
-- `apiDownload` (стр. 285)
-- `initData` (стр. 287) — локальный
-- `response` (стр. 292) — локальный
-- `fileName` (стр. 301) — локальный
-- `blob` (стр. 302) — локальный
-- `objectUrl` (стр. 303) — локальный
-- `anchor` (стр. 304) — локальный
-- `apiUploadFile` (стр. 314)
-- `initData` (стр. 315) — локальный
-- `formData` (стр. 316) — локальный
-- `response` (стр. 318) — локальный
-- `uploaded` (стр. 326) — локальный
-- `apiBlobUrl` (стр. 330)
-- `initData` (стр. 332) — локальный
-- `response` (стр. 337) — локальный
-- `blob` (стр. 346) — локальный
+- `detail` (стр. 272) — локальный
+- `raw` (стр. 288) — локальный
+- `apiDownload` (стр. 292)
+- `initData` (стр. 294) — локальный
+- `response` (стр. 299) — локальный
+- `fileName` (стр. 308) — локальный
+- `blob` (стр. 309) — локальный
+- `objectUrl` (стр. 310) — локальный
+- `anchor` (стр. 311) — локальный
+- `apiUploadFile` (стр. 321)
+- `initData` (стр. 322) — локальный
+- `formData` (стр. 323) — локальный
+- `response` (стр. 325) — локальный
+- `uploaded` (стр. 333) — локальный
+- `apiBlobUrl` (стр. 337)
+- `initData` (стр. 339) — локальный
+- `response` (стр. 344) — локальный
+- `blob` (стр. 353) — локальный
 
 ### frontend/src/app/App.tsx (764 строк)
 
@@ -5267,6 +5268,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/api.ts` (2026-09-15 20:14)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-15 20:01)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-15 20:01)
 - `backend/app/main.py` (2026-09-15 20:00)
@@ -5281,4 +5283,3 @@ concept1.0/
 - `frontend/src/app/components/worker/screens/WorkerEarningsScreen.tsx` (2026-09-14 12:07)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-09-14 12:07)
 - `frontend/src/app/components/shared/ServiceSearchSelect.tsx` (2026-09-14 12:07)
-- `frontend/src/app/components/owner/screens/OwnerWalletScreen.tsx` (2026-09-14 12:07)

@@ -269,13 +269,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   if (!response.ok) {
+    const detail = await getErrorDetail(response);
     if (response.status === 401) {
+      // 401 от проверки пароля владельца (execute/purge очистки данных и др.)
+      // раньше маскировался под «сессия устарела». Показываем серверный текст как есть.
+      if (/парол/i.test(detail)) {
+        throw new Error(detail);
+      }
       throw new Error(
         'Сессия устарела: закройте миниапп и откройте его заново, затем повторите действие. ' +
-          'Если вы долго не пользовались  -  это нормально.'
+          'Если вы долго не пользовались  -  это нормально.' +
+          (detail && detail !== `Ошибка сервера (${response.status})` ? ` Детали: ${detail}` : ''),
       );
     }
-    throw new Error(await getErrorDetail(response));
+    throw new Error(detail);
   }
 
   const raw = (await response.json()) as T;
