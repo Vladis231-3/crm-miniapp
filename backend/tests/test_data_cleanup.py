@@ -125,19 +125,19 @@ class DataCleanupTests(unittest.TestCase):
         # описания должны присутствовать
         self.assertTrue(all(i["description"] for i in body["items"]))
 
-        # execute без пароля — 401
+        # пароль больше не требуется — execute без пароля на пустом периоде даёт 400, а не 401
         bad = self.client.post(
             "/api/owner/data-cleanup/execute",
             headers=owner,
-            json={"entities": ["expenses"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02", "password": "wrong"},
+            json={"entities": ["expenses"], "mode": "range", "dateFrom": "2021-01-01", "dateTo": "2021-01-02"},
         )
-        self.assertEqual(bad.status_code, 401)
+        self.assertEqual(bad.status_code, 400)
 
-        # execute с паролем owner
+        # execute без пароля
         executed = self.client.post(
             "/api/owner/data-cleanup/execute",
             headers=owner,
-            json={"entities": ["expenses", "incomes", "piggy"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02", "password": "owner"},
+            json={"entities": ["expenses", "incomes", "piggy"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02"},
         )
         self.assertEqual(executed.status_code, 200, executed.text)
         batch_id = executed.json()["batchId"]
@@ -160,18 +160,18 @@ class DataCleanupTests(unittest.TestCase):
         trash2 = self.client.get("/api/owner/trash", headers=owner)
         self.assertEqual(trash2.json()["total"], 0)
 
-        # повторная очистка + older_than режим
+        # повторная очистка + older_than режим (без пароля)
         executed2 = self.client.post(
             "/api/owner/data-cleanup/execute",
             headers=owner,
-            json={"entities": ["expenses"], "mode": "older_than", "olderThanDays": 1, "password": "owner"},
+            json={"entities": ["expenses"], "mode": "older_than", "olderThanDays": 1},
         )
         # расход от 2020 точно старше 1 дня
         self.assertEqual(executed2.status_code, 200, executed2.text)
         batch2 = executed2.json()["batchId"]
 
-        # purge пакета
-        purged = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch2, "password": "owner"})
+        # purge пакета (без пароля)
+        purged = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch2})
         self.assertEqual(purged.status_code, 200, purged.text)
 
         # batches видны
@@ -188,29 +188,24 @@ class DataCleanupTests(unittest.TestCase):
         )
         self.assertIn(resp.status_code, (401, 403))
 
-    def test_purge_requires_password(self) -> None:
+    def test_purge_without_password(self) -> None:
         self._seed_operational()
         owner = self.auth_headers(self.owner_token)
         executed = self.client.post(
             "/api/owner/data-cleanup/execute",
             headers=owner,
-            json={"entities": ["expenses"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02", "password": "owner"},
+            json={"entities": ["expenses"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02"},
         )
         self.assertEqual(executed.status_code, 200, executed.text)
         batch_id = executed.json()["batchId"]
 
+        # purge без пароля — 200
         no_pwd = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch_id})
-        self.assertEqual(no_pwd.status_code, 401)
+        self.assertEqual(no_pwd.status_code, 200, no_pwd.text)
 
-        wrong = self.client.post(
-            "/api/owner/trash/purge", headers=owner, json={"batchId": batch_id, "password": "wrong"}
-        )
-        self.assertEqual(wrong.status_code, 401)
-
-        ok = self.client.post(
-            "/api/owner/trash/purge", headers=owner, json={"batchId": batch_id, "password": "owner"}
-        )
-        self.assertEqual(ok.status_code, 200, ok.text)
+        # повторный purge уже пустого пакета — 404, а не 401
+        again = self.client.post("/api/owner/trash/purge", headers=owner, json={"batchId": batch_id})
+        self.assertEqual(again.status_code, 404)
 
     def test_deleted_bookings_hidden_from_history_and_payroll(self) -> None:
         from app.database import SessionLocal
@@ -248,7 +243,7 @@ class DataCleanupTests(unittest.TestCase):
         executed = self.client.post(
             "/api/owner/data-cleanup/execute",
             headers=owner,
-            json={"entities": ["bookings"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02", "password": "owner"},
+            json={"entities": ["bookings"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02"},
         )
         self.assertEqual(executed.status_code, 200, executed.text)
 

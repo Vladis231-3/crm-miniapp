@@ -82,7 +82,6 @@ export function OwnerCleanupSection({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [olderThanDays, setOlderThanDays] = useState('365');
-  const [password, setPassword] = useState('');
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [executeLoading, setExecuteLoading] = useState(false);
@@ -172,10 +171,6 @@ export function OwnerCleanupSection({
       setError('Сначала постройте предпросмотр с ненулевым количеством.');
       return;
     }
-    if (!password.trim()) {
-      setError('Введите пароль владельца для подтверждения.');
-      return;
-    }
     if (!armed) {
       setArmed(true);
       return;
@@ -192,14 +187,12 @@ export function OwnerCleanupSection({
             dateFrom: dateFrom || '',
             dateTo: dateTo || '',
             olderThanDays: mode === 'older_than' ? Number(olderThanDays) : null,
-            password: password.trim(),
           },
         },
       );
       setInfo(data.message);
       setPreview(null);
       setArmed(false);
-      setPassword('');
       await loadBatches();
       await loadTrash();
     } catch (e) {
@@ -229,16 +222,12 @@ export function OwnerCleanupSection({
 
   const handlePurgeBatch = async (batchId: string) => {
     if (!window.confirm('Удалить безвозвратно весь пакет? Это действие нельзя отменить.')) return;
-    if (!password.trim()) {
-      setError('Введите пароль владельца для безвозвратного удаления (поле ниже).');
-      return;
-    }
     setBusyId(batchId);
     setError(null);
     try {
       const data = await apiRequest<{ message: string }>('/api/owner/trash/purge', {
         method: 'POST',
-        body: { batchId, password: password.trim() },
+        body: { batchId },
       });
       setInfo(data.message);
       await loadBatches();
@@ -269,15 +258,11 @@ export function OwnerCleanupSection({
 
   const handlePurgeItem = async (id: string) => {
     if (!window.confirm('Удалить запись безвозвратно?')) return;
-    if (!password.trim()) {
-      setError('Введите пароль владельца для безвозвратного удаления (поле ниже).');
-      return;
-    }
     setBusyId(id);
     try {
       const data = await apiRequest<{ message: string }>('/api/owner/trash/purge', {
         method: 'POST',
-        body: { itemIds: [id], password: password.trim() },
+        body: { itemIds: [id] },
       });
       setInfo(data.message);
       await loadBatches();
@@ -410,10 +395,6 @@ export function OwnerCleanupSection({
               Всего: {preview.total} шт.
               {preview.expiresAt && <> · корзина до {new Date(preview.expiresAt).toLocaleDateString('ru-RU')}</>}
             </div>
-            <div className="mt-3">
-              <label className={`text-xs ${sub} block mb-1`}>Пароль владельца</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Текущий пароль" className={inputCls} />
-            </div>
             <button
               type="button"
               onClick={() => void handleExecute()}
@@ -436,10 +417,6 @@ export function OwnerCleanupSection({
           <button onClick={() => { void loadBatches(); void loadTrash(); }} className={`text-xs ${sub} flex items-center gap-1`}>
             <RefreshCw size={12} /> Обновить
           </button>
-        </div>
-        <div className="mb-3">
-          <label className={`text-xs ${sub} block mb-1`}>Пароль владельца для безвозвратного удаления</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Текущий пароль" className={inputCls} />
         </div>
         {batches.length === 0 ? (
           <div className={`text-xs ${sub}`}>Очисток пока не было.</div>

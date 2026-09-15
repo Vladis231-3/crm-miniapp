@@ -8964,10 +8964,6 @@ def execute_data_cleanup(
     db: Session = Depends(get_db),
 ) -> DataCleanupExecutePayload:
     _ensure_staff_role(session_data, {"owner"})
-    staff = db.get(StaffUser, session_data["actorId"])
-    pwd = (payload.password or "").strip()
-    if not pwd or staff is None or not verify_password(pwd, staff.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль владельца")
     period = _data_cleanup_resolve_period(payload)
     mode, dmy_from, dmy_to, _parsed_from, _parsed_to, _bound_a, _bound_b = period
     collected = _data_cleanup_collect(db, payload.entities, period)
@@ -9182,10 +9178,6 @@ def purge_trash(
     db: Session = Depends(get_db),
 ) -> GenericMessage:
     _ensure_staff_role(session_data, {"owner"})
-    staff = db.get(StaffUser, session_data["actorId"])
-    pwd = (payload.password or "").strip()
-    if not pwd or staff is None or not verify_password(pwd, staff.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный пароль владельца")
     now = _now()
     if payload.batchId:
         items = db.scalars(
