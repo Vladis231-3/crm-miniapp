@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-15 17:31 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-16 06:16 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **534**
-- Строк кода: **215 099**
+- Строк кода: **215 107**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 181, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -4620,7 +4620,7 @@ concept1.0/
 - `isSelected` (стр. 86) — локальный
 - `isToday` (стр. 87) — локальный
 
-### frontend/src/app/components/worker/WorkerApp.tsx (788 строк)
+### frontend/src/app/components/worker/WorkerApp.tsx (796 строк)
 
 - `workerStatusLabel` (стр. 22) — локальный
 - `workerStatusBadge` (стр. 45) — локальный
@@ -4669,6 +4669,7 @@ concept1.0/
 - `started` (стр. 457) — локальный
 - `completed` (стр. 458) — локальный
 - `isActive` (стр. 536) — локальный
+- `isOwnerMsg` (стр. 672) — локальный
 
 ### frontend/src/app/components/worker/WorkerCalendar.tsx (552 строк)
 
@@ -5268,9 +5269,11 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/worker/WorkerApp.tsx` (2026-09-16 09:14)
+- `backend/app/main.py` (2026-09-16 09:14)
+- `scripts/.project-map-watch.lock` (2026-09-16 09:12)
 - `backend/tests/test_data_cleanup.py` (2026-09-15 20:31)
 - `frontend/src/app/components/owner/OwnerCleanupSection.tsx` (2026-09-15 20:31)
-- `backend/app/main.py` (2026-09-15 20:30)
 - `frontend/src/app/api.ts` (2026-09-15 20:14)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-15 20:01)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-15 20:01)
@@ -5278,8 +5281,6 @@ concept1.0/
 - `backend/tests/test_piggy_repay.py` (2026-09-15 19:47)
 - `backend/app/exports.py` (2026-09-15 19:39)
 - `frontend/src/app/components/owner/DepositPanel.tsx` (2026-09-15 19:15)
-- `scripts/.project-map-watch.lock` (2026-09-15 19:04)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-09-14 12:07)
 - `frontend/src/app/context/AppContext.tsx` (2026-09-14 12:07)
 - `frontend/src/app/components/worker/shared/CarSearch.tsx` (2026-09-14 12:07)
-- `frontend/src/app/components/worker/screens/WorkerEarningsScreen.tsx` (2026-09-14 12:07)

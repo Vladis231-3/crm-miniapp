@@ -148,7 +148,7 @@ export function WorkerApp() {
   // Локальный статус поручений от владельца: бэкенд хранит только read,
   // поэтому «В работе»/«Выполнено» держим в памяти экрана (сбрасывается при перезапуске).
   const [taskStatusById, setTaskStatusById] = useState<Record<string, 'taken' | 'done'>>({});
-  const isBroadcast = (message: string) => message.startsWith('📢');
+  const isBroadcast = (message: string) => message.startsWith('📢') || message.startsWith('🔥') || message.startsWith('👑') || message.startsWith('⭐') || message.startsWith('🌟') || message.startsWith('✨');
 
   // Подтягиваем новые уведомления (рассылка владельца), пока миниапп открыт:
   // иначе мастер видит поручение только после перезапуска.
@@ -668,14 +668,21 @@ export function WorkerApp() {
                 {taskActionError && <div className="text-xs rounded-xl px-3 py-2" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>{taskActionError}</div>}
                 {myNotifications.length === 0 ? (
                   <p className={`text-sm ${sub} text-center py-8`}>Нет уведомлений</p>
-                ) : myNotifications.map(n => (
+                ) : myNotifications.map(n => {
+                  const isOwnerMsg = isBroadcast(n.message);
+                  return (
                   <div key={n.id} onClick={() => markNotificationRead(n.id)}
-                    className={`${glass} rounded-xl p-3 cursor-pointer border-l-2`} style={{ borderLeftColor: n.read ? 'transparent' : primary }}>
+                    className={isOwnerMsg ? 'rounded-xl p-3 cursor-pointer border-2' : `${glass} rounded-xl p-3 cursor-pointer border-l-2`}
+                    style={isOwnerMsg
+                      ? (isDark
+                        ? { background: 'linear-gradient(135deg, rgba(234,179,8,0.28), rgba(249,115,22,0.28))', borderColor: '#EAB308', boxShadow: '0 0 14px rgba(234,179,8,0.4)' }
+                        : { background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', borderColor: '#F59E0B', boxShadow: '0 2px 14px rgba(245,158,11,0.4)' })
+                      : { borderLeftColor: n.read ? 'transparent' : primary }}>
                     <div className="flex items-start gap-2">
-                      <Bell size={13} strokeWidth={1.75} style={{ color: primary }} className="mt-0.5 shrink-0" />
+                      <Bell size={isOwnerMsg ? 16 : 13} strokeWidth={1.75} style={{ color: isOwnerMsg ? (isDark ? '#FBBF24' : '#D97706') : primary }} className="mt-0.5 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        {isBroadcast(n.message) && <div className="text-[11px] font-semibold mb-1" style={{ color: primary }}>От владельца · мастерам</div>}
-                        <p className="text-sm">{n.message}</p>
+                        {isOwnerMsg && <div className="text-[11px] font-bold mb-1 inline-block rounded-full px-2 py-0.5" style={isDark ? { background: 'rgba(234,179,8,0.3)', color: '#FDE68A' } : { background: '#F59E0B', color: 'white' }}>👑🔥 От владельца · мастерам ✨</div>}
+                        <p className={isOwnerMsg ? 'text-sm font-semibold' : 'text-sm'}>{n.message}</p>
                         <p className={`text-xs ${sub} mt-1`}>{n.createdAt.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</p>
                         {isBroadcast(n.message) && taskStatusById[n.id] === 'taken' && (
                           <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(234,179,8,0.15)', color: '#A16207' }}>🔧 В работе — владелец уведомлён</div>
@@ -696,7 +703,8 @@ export function WorkerApp() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           </>

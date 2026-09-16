@@ -15198,8 +15198,8 @@ def broadcast_to_workers(payload: WorkerBroadcastRequest, session_data: dict = D
             raise HTTPException(status_code=422, detail="Выбраны недоступные мастера")
         recipients = [eligible[candidate] for candidate in seen]
         scope_label = f"выбранным мастерам ({len(recipients)})" if len(recipients) != len(eligible) else "всем мастерам"
-    inbox_text = f"📢 от {sender}: {text}"
-    tg_text = f"📢 Сообщение от {sender} ({scope_label}):\n{text}"
+    inbox_text = f"📢🔥👑 от {sender}: {text} ✨"
+    tg_text = f"📢🔥👑 Сообщение от {sender} ({scope_label}):\n✨ {text} ✨"
     telegram_sent = 0
     for worker in recipients:
         db.add(Notification(id=f"n-{uuid4()}", recipient_role="worker", recipient_id=worker.id, message=inbox_text, read=False, created_at=_now()))
