@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-16 07:17 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-16 07:36 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **534**
-- Строк кода: **215 394**
+- Строк кода: **215 445**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 181, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -3101,7 +3101,7 @@ concept1.0/
 
 ## Frontend — CRM-минапп (frontend/src)
 
-### frontend/src/app/api.ts (355 строк)
+### frontend/src/app/api.ts (386 строк)
 
 - `API_BASE_URL` (стр. 1) — локальный
 - `getInitData` (стр. 76) — локальный
@@ -3121,50 +3121,53 @@ concept1.0/
 - `decodeUtf8Strict` (стр. 118) — локальный
 - `cyrCount` (стр. 126) — локальный
 - `m` (стр. 127) — локальный
-- `repairStep` (стр. 131) — локальный
-- `variants` (стр. 132) — локальный
-- `seen` (стр. 135) — локальный
-- `bytes` (стр. 138) — локальный
-- `fixed` (стр. 140) — локальный
-- `repairMojibake` (стр. 150) — локальный
-- `step` (стр. 154) — локальный
-- `repairNested` (стр. 161) — локальный
-- `getErrorDetail` (стр. 172) — локальный
-- `payload` (стр. 175) — локальный
-- `messages` (стр. 179) — локальный
-- `field` (стр. 180) — локальный
-- `msg` (стр. 181) — локальный
-- `getDownloadFileName` (стр. 191) — локальный
-- `disposition` (стр. 192) — локальный
-- `utf8Match` (стр. 193) — локальный
-- `plainMatch` (стр. 197) — локальный
-- `getTelegramWebApp` (стр. 204)
-- `getTelegramInitData` (стр. 208)
-- `setupTelegramWebApp` (стр. 221)
-- `tg` (стр. 222) — локальный
-- `isDark` (стр. 243) — локальный
-- `isInsideTelegram` (стр. 249)
-- `apiRequest` (стр. 253)
-- `initData` (стр. 260) — локальный
-- `response` (стр. 265) — локальный
-- `detail` (стр. 272) — локальный
-- `raw` (стр. 288) — локальный
-- `apiDownload` (стр. 292)
-- `initData` (стр. 294) — локальный
-- `response` (стр. 299) — локальный
-- `fileName` (стр. 308) — локальный
-- `blob` (стр. 309) — локальный
-- `objectUrl` (стр. 310) — локальный
-- `anchor` (стр. 311) — локальный
-- `apiUploadFile` (стр. 321)
-- `initData` (стр. 322) — локальный
-- `formData` (стр. 323) — локальный
-- `response` (стр. 325) — локальный
-- `uploaded` (стр. 333) — локальный
-- `apiBlobUrl` (стр. 337)
-- `initData` (стр. 339) — локальный
-- `response` (стр. 344) — локальный
-- `blob` (стр. 353) — локальный
+- `looksLikeFixedMojibake` (стр. 136) — локальный
+- `repairStep` (стр. 146) — локальный
+- `variants` (стр. 147) — локальный
+- `seen` (стр. 150) — локальный
+- `bytes` (стр. 153) — локальный
+- `fixed` (стр. 155) — локальный
+- `repairMojibake` (стр. 166) — локальный
+- `step` (стр. 170) — локальный
+- `repairNested` (стр. 177) — локальный
+- `fixedKey` (стр. 185) — локальный
+- `getErrorDetail` (стр. 193) — локальный
+- `payload` (стр. 196) — локальный
+- `messages` (стр. 200) — локальный
+- `field` (стр. 201) — локальный
+- `msg` (стр. 202) — локальный
+- `getDownloadFileName` (стр. 212) — локальный
+- `disposition` (стр. 213) — локальный
+- `utf8Match` (стр. 214) — локальный
+- `plainMatch` (стр. 222) — локальный
+- `raw` (стр. 224) — локальный
+- `getTelegramWebApp` (стр. 235)
+- `getTelegramInitData` (стр. 239)
+- `setupTelegramWebApp` (стр. 252)
+- `tg` (стр. 253) — локальный
+- `isDark` (стр. 274) — локальный
+- `isInsideTelegram` (стр. 280)
+- `apiRequest` (стр. 284)
+- `initData` (стр. 291) — локальный
+- `response` (стр. 296) — локальный
+- `detail` (стр. 303) — локальный
+- `raw` (стр. 319) — локальный
+- `apiDownload` (стр. 323)
+- `initData` (стр. 325) — локальный
+- `response` (стр. 330) — локальный
+- `fileName` (стр. 339) — локальный
+- `blob` (стр. 340) — локальный
+- `objectUrl` (стр. 341) — локальный
+- `anchor` (стр. 342) — локальный
+- `apiUploadFile` (стр. 352)
+- `initData` (стр. 353) — локальный
+- `formData` (стр. 354) — локальный
+- `response` (стр. 356) — локальный
+- `uploaded` (стр. 364) — локальный
+- `apiBlobUrl` (стр. 368)
+- `initData` (стр. 370) — локальный
+- `response` (стр. 375) — локальный
+- `blob` (стр. 384) — локальный
 
 ### frontend/src/app/App.tsx (764 строк)
 
@@ -5054,7 +5057,7 @@ concept1.0/
 
 ## Carwash — лендинг (carwash/src)
 
-### carwash/src/api.ts (134 строк)
+### carwash/src/api.ts (154 строк)
 
 - `API_BASE` (стр. 1) — локальный
 - `MOJIBAKE_ENCODINGS` (стр. 7) — локальный
@@ -5073,16 +5076,18 @@ concept1.0/
 - `decodeUtf8Strict` (стр. 42) — локальный
 - `cyrCount` (стр. 50) — локальный
 - `m` (стр. 51) — локальный
-- `repairStep` (стр. 55) — локальный
-- `variants` (стр. 56) — локальный
-- `seen` (стр. 58) — локальный
-- `bytes` (стр. 61) — локальный
-- `fixed` (стр. 63) — локальный
-- `repairMojibake` (стр. 73) — локальный
-- `step` (стр. 77) — локальный
-- `repairNested` (стр. 84) — локальный
-- `fetchContent` (стр. 123)
-- `res` (стр. 131) — локальный
+- `looksLikeFixedMojibake` (стр. 60) — локальный
+- `repairStep` (стр. 70) — локальный
+- `variants` (стр. 71) — локальный
+- `seen` (стр. 73) — локальный
+- `bytes` (стр. 76) — локальный
+- `fixed` (стр. 78) — локальный
+- `repairMojibake` (стр. 89) — локальный
+- `step` (стр. 93) — локальный
+- `repairNested` (стр. 100) — локальный
+- `fixedKey` (стр. 107) — локальный
+- `fetchContent` (стр. 143)
+- `res` (стр. 151) — локальный
 
 ### carwash/src/app/App.tsx (46 строк)
 
@@ -5272,7 +5277,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/app/main.py` (2026-09-16 10:17)
+- `carwash/src/api.ts` (2026-09-16 10:36)
+- `frontend/src/app/api.ts` (2026-09-16 10:36)
+- `frontend/src/app/components/owner/screens/OwnerStockPage.tsx` (2026-09-16 10:34)
+- `frontend/src/app/components/admin/screens/AdminStockPage.tsx` (2026-09-16 10:34)
+- `backend/app/main.py` (2026-09-16 10:33)
+- `carwash/src/app/components/Contact.tsx` (2026-09-16 10:33)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-16 10:11)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-16 10:11)
 - `backend/app/schemas.py` (2026-09-16 10:08)
@@ -5280,10 +5290,5 @@ concept1.0/
 - `scripts/.project-map-watch.lock` (2026-09-16 09:12)
 - `backend/tests/test_data_cleanup.py` (2026-09-15 20:31)
 - `frontend/src/app/components/owner/OwnerCleanupSection.tsx` (2026-09-15 20:31)
-- `frontend/src/app/api.ts` (2026-09-15 20:14)
 - `backend/tests/test_piggy_repay.py` (2026-09-15 19:47)
 - `backend/app/exports.py` (2026-09-15 19:39)
-- `frontend/src/app/components/owner/DepositPanel.tsx` (2026-09-15 19:15)
-- `frontend/src/app/components/admin/AdminApp.tsx` (2026-09-14 12:07)
-- `frontend/src/app/context/AppContext.tsx` (2026-09-14 12:07)
-- `frontend/src/app/components/worker/shared/CarSearch.tsx` (2026-09-14 12:07)

@@ -128,6 +128,21 @@ function cyrCount(s: string): number {
   return m ? m.length : 0;
 }
 
+// Результат похож на починенное mojibake, а не на мусор:
+// кириллица, ₽/€/№, русская типографика (— – « » … ’ “ ”),
+// символы-диинги (★ ☀ →) и эмодзи (суррогатные пары + variation selector).
+// Нужно, т.к. старые строки в БД бывают только из тире/кавычек/эмодзи
+// без единой кириллической буквы — прежний гейт их отбрасывал.
+function looksLikeFixedMojibake(s: string): boolean {
+  if (cyrCount(s) > 0) return true;
+  if (s.includes('\u20BD') || s.includes('\u20AC') || s.includes('\u2116')) return true;
+  if (/[‑–—―‘’‚‛“”„‟…«» ]/.test(s)) return true;
+  if (/[☀-➿⬀-⯿]/.test(s)) return true;
+  if (s.includes('\uFE0F')) return true; // variation selector VS16 — признак эмодзи
+  if (/[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(s)) return true;
+  return false;
+}
+
 function repairStep(value: string): string | null {
   const variants = [value];
   // Апостроф при конвертациях искажался: байт 0x92 (’) часто превращался в '/`
@@ -139,8 +154,9 @@ function repairStep(value: string): string | null {
       if (!bytes) continue;
       const fixed = decodeUtf8Strict(bytes);
       if (!fixed || fixed === value || seen.has(fixed)) continue;
-      // Результат обязан содержать кириллицу или ₽
-      if (cyrCount(fixed) === 0 && !fixed.includes('\u20BD')) continue;
+      // Результат обязан быть похож на осмысленный текст (кириллица, ₽/€/№,
+      // типографика, символы, эмодзи) — иначе это ложное срабатывание.
+      if (!looksLikeFixedMojibake(fixed)) continue;
       return fixed;
     }
   }
@@ -163,7 +179,12 @@ function repairNested<T>(value: T): T {
   if (Array.isArray(value)) return (value as unknown[]).map((v) => repairNested(v)) as unknown as T;
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = repairNested(v);
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      // Ключи тоже чиним: сервер отдаёт динамические ключи (имена услуг/категорий),
+      // старые строки там бывают битыми. ASCII-ключи repairMojibake возвращает как есть.
+      const fixedKey = repairMojibake(k);
+      out[fixedKey] = repairNested(v);
+    }
     return out as T;
   }
   return value;
@@ -192,11 +213,21 @@ function getDownloadFileName(response: Response, fallback: string) {
   const disposition = response.headers.get('content-disposition') || '';
   const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
   if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]);
+    try {
+      return repairMojibake(decodeURIComponent(utf8Match[1].trim().replace(/^"|"$/g, '')));
+    } catch {
+      return repairMojibake(utf8Match[1].trim().replace(/^"|"$/g, ''));
+    }
   }
   const plainMatch = disposition.match(/filename="?([^"]+)"?/i);
   if (plainMatch?.[1]) {
-    return plainMatch[1];
+    const raw = plainMatch[1].trim();
+    // Сервер шлёт plain filename как latin1 (байты UTF-8 кириллицы видны как mojibake).
+    // Пробуем percent-decode (если %D0%...), затем чиним mojibake. ASCII остаётся как есть.
+    try {
+      if (/%[0-9A-Fa-f]{2}/.test(raw)) return repairMojibake(decodeURIComponent(raw));
+    } catch {}
+    return repairMojibake(raw);
   }
   return fallback;
 }

@@ -52,6 +52,21 @@ function cyrCount(s: string): number {
   return m ? m.length : 0;
 }
 
+// Результат похож на починенное mojibake, а не на мусор:
+// кириллица, ₽/€/№, русская типографика (— – « » … ’ “ ”),
+// символы-диинги (★ ☀ →) и эмодзи (суррогатные пары + variation selector).
+// Нужно, т.к. старые строки в БД бывают только из тире/кавычек/эмодзи
+// без единой кириллической буквы — прежний гейт их отбрасывал.
+function looksLikeFixedMojibake(s: string): boolean {
+  if (cyrCount(s) > 0) return true;
+  if (s.includes('\u20BD') || s.includes('\u20AC') || s.includes('\u2116')) return true;
+  if (/[‑–—―‘’‚‛“”„‟…«» ]/.test(s)) return true;
+  if (/[☀-➿⬀-⯿]/.test(s)) return true;
+  if (s.includes('\uFE0F')) return true;
+  if (/[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(s)) return true;
+  return false;
+}
+
 function repairStep(value: string): string | null {
   const variants = [value];
   if (value.includes("'") || value.includes('`')) variants.push(value.replace(/['`]/g, '\u2019'));
@@ -62,8 +77,9 @@ function repairStep(value: string): string | null {
       if (!bytes) continue;
       const fixed = decodeUtf8Strict(bytes);
       if (!fixed || fixed === value || seen.has(fixed)) continue;
-      // Результат обязан содержать кириллицу или ₽
-      if (cyrCount(fixed) === 0 && !fixed.includes('\u20BD')) continue;
+      // Результат обязан быть похож на осмысленный текст (кириллица, ₽/€/№,
+      // типографика, символы, эмодзи) — иначе это ложное срабатывание.
+      if (!looksLikeFixedMojibake(fixed)) continue;
       return fixed;
     }
   }
@@ -86,7 +102,11 @@ function repairNested<T>(value: T): T {
   if (Array.isArray(value)) return (value as unknown[]).map((v) => repairNested(v)) as unknown as T;
   if (value && typeof value === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = repairNested(v);
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      // Ключи тоже чиним: сервер отдаёт динамические ключи, старые строки там бывают битыми.
+      const fixedKey = repairMojibake(k);
+      out[fixedKey] = repairNested(v);
+    }
     return out as T;
   }
   return value;

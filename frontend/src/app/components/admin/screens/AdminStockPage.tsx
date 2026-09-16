@@ -478,7 +478,7 @@ export function AdminStockPage() {
                     <div className={`text-xs tabular-nums ${sub}`}>{w.totalCost.toLocaleString('ru')} ₽</div>
                   </div>
                 </div>
-                <div className={`mt-1 text-[10px] ${sub}`}>{new Date(w.createdAt).toLocaleString('ru')}</div>
+                <div className={`mt-1 text-[10px] ${sub}`}>{new Date(w.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
               </div>
             ))}
           </div>

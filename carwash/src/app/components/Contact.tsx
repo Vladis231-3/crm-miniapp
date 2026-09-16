@@ -130,7 +130,7 @@ export const Contact = forwardRef<HTMLElement, ContactProps>(function Contact(
                 <path d="M12 2C6.477 2 2 6.477 2 12C2 17.523 6.477 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2Z" fill="white" />
                 <path d="M16.5 8.5L8.5 12.5L7.5 9.5L6 10.5L8.5 16.5L10.5 15.5L13 12.5L15.5 15.5L17 9L16.5 8.5Z" fill="#229ED9" />
               </svg>
-              Записаться через Telegram
+              Book via Telegram
             </a>
           </div>
 
