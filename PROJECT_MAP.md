@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-16 06:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-16 06:42 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **534**
-- Строк кода: **215 111**
+- Строк кода: **215 156**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 181, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -4078,7 +4078,7 @@ concept1.0/
 - `openTopupFor` (стр. 453) — локальный
 - `val` (стр. 1162) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12834 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12879 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 46) — локальный
 - `map` (стр. 47) — локальный
@@ -4273,13 +4273,13 @@ concept1.0/
 - `workerPenalties` (стр. 1705) — локальный
 - `complaintState` (стр. 1706) — локальный
 - `payrollTotal` (стр. 1714) — локальный
-- `formatComplaintDate` (стр. 1715) — локальный
-- `resetPreviewRows` (стр. 1716) — локальный
-- `resetExecuteLocked` (стр. 1730) — локальный
-- `glass` (стр. 1732) — локальный
-- `bg` (стр. 1733) — локальный
-- `text` (стр. 1734) — локальный
-- `sub` (стр. 1735) — локальный
+- `fundBreakdown` (стр. 1717) — локальный
+- `s` (стр. 1718) — локальный
+- `adj` (стр. 1720) — локальный
+- `fundOwnerMastersCount` (стр. 1743) — локальный
+- `fundPeriodLabel` (стр. 1744) — локальный
+- `formatComplaintDate` (стр. 1745) — локальный
+- `resetPreviewRows` (стр. 1746) — локальный
 
 ### frontend/src/app/components/owner/OwnerCleanupSection.tsx (498 строк)
 
@@ -5269,7 +5269,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-16 09:23)
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-16 09:42)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-09-16 09:14)
 - `backend/app/main.py` (2026-09-16 09:14)
 - `scripts/.project-map-watch.lock` (2026-09-16 09:12)

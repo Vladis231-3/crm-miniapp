@@ -1712,6 +1712,36 @@ export function OwnerApp() {
     };
   });
   const payrollTotal = payrollRows.reduce((sum, row) => sum + (row.payrollSummary?.balance || 0), 0);
+  // Детализация «Общего фонда выплат»: сумма всех «К выплате» + из чего состоит.
+  // Фонд = Начислено - Удержано. Считается за выбранный payrollPeriod (см. /api/admin/workers/payroll).
+  const fundBreakdown = payrollRows.reduce((acc, row) => {
+    const s = row.payrollSummary;
+    if (!s) return acc;
+    const adj = s.adjustmentTotal || 0;
+    acc.totalAccrued += s.totalAccrued || 0;
+    acc.totalDeducted += s.totalDeducted || 0;
+    acc.accruedFromBookings += s.accruedFromBookings || 0;
+    acc.baseSalary += s.baseSalary || 0;
+    acc.shiftPayTotal += s.shiftPayTotal || 0;
+    acc.shiftCount += s.shiftCount || 0;
+    acc.bonusTotal += s.bonusTotal || 0;
+    if (adj > 0) acc.adjPos += adj; else acc.adjNeg += -adj;
+    acc.advanceTotal += s.advanceTotal || 0;
+    acc.payoutTotal += s.payoutTotal || 0;
+    acc.deductionTotal += s.deductionTotal || 0;
+    acc.fineTotal += s.fineTotal || 0;
+    acc.completedBookings += s.completedBookings || 0;
+    acc.completedRevenue += s.completedRevenue || 0;
+    return acc;
+  }, {
+    totalAccrued: 0, totalDeducted: 0,
+    accruedFromBookings: 0, baseSalary: 0, shiftPayTotal: 0, shiftCount: 0,
+    bonusTotal: 0, adjPos: 0, adjNeg: 0,
+    advanceTotal: 0, payoutTotal: 0, deductionTotal: 0, fineTotal: 0,
+    completedBookings: 0, completedRevenue: 0,
+  });
+  const fundOwnerMastersCount = payrollRows.filter(row => row.worker.role === 'owner').length;
+  const fundPeriodLabel = payrollPeriod === 'day' ? 'День' : payrollPeriod === 'week' ? 'Неделя' : payrollPeriod === 'month' ? 'Месяц' : payrollPeriod === 'all' ? 'Всё время' : `Своё: ${payrollDateFrom || '—'} — ${payrollDateTo || '—'}`;
   const formatComplaintDate = (value: Date) => value.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const resetPreviewRows = resetPreview ? [
     { label: 'Сохранятся владельцы', value: resetPreview.ownersPreserved },
@@ -4740,6 +4770,21 @@ paymentSettled: false,
                   <EditAmountPencil primary={primary} size={11} title="Фонд считается из зарплат мастеров — открыть список для правок" onClick={() => { const el = document.getElementById('payroll-workers-list'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />
                 </div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
+                <div className={`text-[11px] ${sub} mt-1 leading-snug`}>За что отвечает: долг перед мастерами за период — сумма всех «К выплате». Если всё выплатить сейчас, фонд станет 0. Период: {fundPeriodLabel} · людей в фонде: {payrollRows.length}{fundOwnerMastersCount > 0 ? ` (в т.ч. владельцев как мастеров: ${fundOwnerMastersCount})` : ''} · заказов: {fundBreakdown.completedBookings}</div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                    <div className={`text-[11px] ${sub} mb-1`}>Начислено всего</div>
+                    <div className="text-sm font-semibold">+{fundBreakdown.totalAccrued.toLocaleString('ru')} ₽</div>
+                    <div className={`text-[11px] ${sub} mt-1 leading-snug`}>с заказов: +{fundBreakdown.accruedFromBookings.toLocaleString('ru')} ₽<br />оклад: +{fundBreakdown.baseSalary.toLocaleString('ru')} ₽<br />смены: +{fundBreakdown.shiftPayTotal.toLocaleString('ru')} ₽ ({fundBreakdown.shiftCount} вых.)<br />премии: +{fundBreakdown.bonusTotal.toLocaleString('ru')} ₽<br />корректировки +: +{fundBreakdown.adjPos.toLocaleString('ru')} ₽</div>
+                  </div>
+                  <div className="rounded-xl p-3" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
+                    <div className={`text-[11px] ${sub} mb-1`}>Удержано / выдано</div>
+                    <div className="text-sm font-semibold">−{fundBreakdown.totalDeducted.toLocaleString('ru')} ₽</div>
+                    <div className={`text-[11px] ${sub} mt-1 leading-snug`}>авансы: −{fundBreakdown.advanceTotal.toLocaleString('ru')} ₽<br />выплаты: −{fundBreakdown.payoutTotal.toLocaleString('ru')} ₽<br />списания: −{fundBreakdown.deductionTotal.toLocaleString('ru')} ₽<br />штрафы: −{fundBreakdown.fineTotal.toLocaleString('ru')} ₽<br />корректировки −: −{fundBreakdown.adjNeg.toLocaleString('ru')} ₽</div>
+                  </div>
+                </div>
+                <div className={`text-[11px] ${sub} mt-2 leading-snug`}>Формула: фонд = начислено − удержано. Выручка мастеров за период: {fundBreakdown.completedRevenue.toLocaleString('ru')} ₽.</div>
+                <div className={`text-[11px] ${sub} mt-1 leading-snug`}>Не входит: аутсорс (отдельная карточка) и пассивный доход владельцев (карточки владельцев ниже).</div>
               </div>}
               {outsourcePayroll && outsourcePayroll.total > 0 && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Аутсорс за период
