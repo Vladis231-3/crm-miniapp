@@ -16595,7 +16595,7 @@ def get_piggy_bank(
         .options(joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
         .where(Booking.status == "completed", Booking.deleted_at.is_(None))
         .order_by(Booking.date.desc())
-    ).all()
+    ).unique().all()
 
 
 
