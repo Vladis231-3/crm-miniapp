@@ -245,12 +245,14 @@ interface PiggyBankWashBreakdown {
   classicRevenue: number; classicMaster: number; classicPiggy: number;
   totalRevenue: number; totalMaster: number; totalPiggy: number;
   washNetPiggy: number;
+  additionalRevenue?: number; additionalMaster?: number; additionalPiggy?: number;
 }
 interface PiggyBankDetailingBreakdown {
   detailingRevenue: number; detailingMaster: number;
   deposits24Percent: number; materialWithdrawals: number;
   materialRepayments: number; netPiggy: number;
   detailingExpenses: number; detailingIncomes: number;
+  additionalRevenue?: number; additionalMaster?: number; additionalPiggy?: number;
 }
 interface PiggyBankTxGlobal {
   id: string; bookingId: string | null; amount: number; transactionType: string;
@@ -481,6 +483,19 @@ function ownerOpenBookingDetail(
 ) {
   setSelectedBooking(booking);
   setShowBookingDetail(true);
+}
+
+/** Подпись вклада в копилку по purpose (как в OwnerPiggyBankScreen): не хардкодим 24%,
+ * Бэк уже отдаёт точный процент/фикс/доп. услугу в purpose. */
+function piggyDepositLabel(purpose: string | null | undefined): string {
+  const p = (purpose || '').trim();
+  if (!p) return 'Вклад в копилку';
+  if (p.startsWith('Доп. услуга:')) return 'Доп. услуга';
+  const pct = p.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  if (pct) return `${pct[1].replace('.', ',')}% от заказа`;
+  if (p.startsWith('Фикс')) return 'Фикс в копилку';
+  if (p.startsWith('Остаток')) return 'Остаток в копилку';
+  return 'Вклад в копилку';
 }
 
 function ownerBookingBlocksBox(booking: Booking, date: string, time: string, duration: number, boxName: string) {
@@ -779,6 +794,9 @@ export function OwnerApp() {
   const [showCreateClient, setShowCreateClient] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetail, setShowBookingDetail] = useState(false);
+  // Движение денег в карточке записи (видно и из копилки при клике на операцию).
+  const [piggyBookingSplit, setPiggyBookingSplit] = useState<MoneySplitDetail | null>(null);
+  const [piggyBookingSplitLoading, setPiggyBookingSplitLoading] = useState(false);
   const [showStatusList, setShowStatusList] = useState<BookingStatus | null>(null);
   const [kpiModal, setKpiModal] = useState<KpiModalData | null>(null);
   const [expenseAdded, setExpenseAdded] = useState(false);
@@ -2476,6 +2494,28 @@ export function OwnerApp() {
     setSplitDetail(null);
     void loadSplitDetail(bookingId);
   };
+
+  // Движение денег в карточке записи (для копилки и остальных мест).
+  // Грузим money-split при открытии модалки, чтобы рядом с карточкой услуги
+  // было видно распределение: материалы → мастера (+доп) → копилка (по банкам) → владельцы.
+  useEffect(() => {
+    if (!showBookingDetail || !selectedBooking) return;
+    const bookingId = selectedBooking.id;
+    setPiggyBookingSplit(null);
+    setPiggyBookingSplitLoading(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const detail = await apiRequest<MoneySplitDetail>(`/api/owner/bookings/${bookingId}/money-split`);
+        if (!cancelled) setPiggyBookingSplit(detail);
+      } catch {
+        if (!cancelled) setPiggyBookingSplit(null);
+      } finally {
+        if (!cancelled) setPiggyBookingSplitLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showBookingDetail, selectedBooking?.id]);
 
   const closeHistoryBooking = () => {
     setSelectedHistoryBookingId(null);
@@ -7526,7 +7566,7 @@ paymentSettled: false,
                       <div className="space-y-2">
                         {archiveData.piggyTransactions.map(tx => {
                           const isDeposit = tx.amount > 0;
-                          const txLabel = tx.transactionType === 'deposit_24percent' ? '24% от заказа'
+                          const txLabel = tx.transactionType === 'deposit_24percent' ? piggyDepositLabel((tx as { purpose?: string }).purpose)
                             : tx.transactionType === 'material_repayment' ? 'Возврат материалов'
                             : tx.transactionType === 'debt_repayment' ? 'Возврат долга человеку'
                             : tx.transactionType === 'material_withdrawal' ? 'Снятие на материалы'
@@ -10301,6 +10341,99 @@ paymentSettled: false,
                     </>
                     );
                   })()}
+                </div>
+
+                {/* Движение денег по записи (видно и из копилки при клике на операцию) */}
+                <div className={`${glass} rounded-2xl p-4`}>
+                  <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-2`}>Движение денег</div>
+                  {piggyBookingSplitLoading || (!piggyBookingSplit && showBookingDetail && selectedBooking) ? (
+                    <div className={`text-xs ${sub}`}>{piggyBookingSplitLoading ? 'Загрузка распределения...' : 'Загрузка...'}</div>
+                  ) : piggyBookingSplit ? (
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between"><span className={sub}>Цена записи</span><span className="font-semibold">{piggyBookingSplit.price.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between"><span className={sub}>Основная услуга</span><span>{piggyBookingSplit.mainPrice.toLocaleString('ru')} ₽</span></div>
+                      {piggyBookingSplit.additionalServices.map(a => (
+                        <div key={`bm-${a.name}-${a.price}`} className="flex justify-between">
+                          <span className={sub}>+ {a.name}{a.priceMode === 'subtract' ? ' (вычет)' : ''}{a.isOutsource ? ' (аутсорс)' : ''}</span>
+                          <span>{a.priceMode === 'subtract' ? '-' : ''}{a.price.toLocaleString('ru')} ₽</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between"><span className={sub}>− Материалы</span><span>−{piggyBookingSplit.materialsCost.toLocaleString('ru')} ₽</span></div>
+                      <div className="flex justify-between"><span className={sub}>Выручка (нетто)</span><span className="font-semibold">{piggyBookingSplit.net.toLocaleString('ru')} ₽</span></div>
+                      {piggyBookingSplit.subtractTotal > 0 && (
+                        <div className="flex justify-between"><span className={sub}>− Доп. услуги (вычет)</span><span>−{piggyBookingSplit.subtractTotal.toLocaleString('ru')} ₽</span></div>
+                      )}
+                      <div className="flex justify-between border-t border-white/10 pt-1"><span className={sub}>База расчёта</span><span className="font-semibold">{piggyBookingSplit.splitBase.toLocaleString('ru')} ₽</span></div>
+                      <div className={`text-[10px] font-semibold uppercase tracking-wide pt-2 ${sub}`}>Кому и куда пошло</div>
+                      {piggyBookingSplit.workers.map(w => {
+                        const how = w.overrideEarned !== null && w.overrideEarned !== undefined
+                          ? 'вручную'
+                          : w.payType === 'fixed'
+                            ? `фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽`
+                            : `${w.percent}% от базы`;
+                        return (
+                          <button key={`bm-w-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)} className="flex justify-between w-full text-left hover:opacity-80">
+                            <span className={`${sub} truncate`}>· {w.workerName} ({how})</span>
+                            <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                          </button>
+                        );
+                      })}
+                      {piggyBookingSplit.asvcWorkers.map(w => (
+                        <button key={`bm-aw-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)} className="flex justify-between w-full text-left hover:opacity-80">
+                          <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName} — ${w.additionalServiceName}`}>
+                            · {w.workerName} — «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
+                          </span>
+                          <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                        </button>
+                      ))}
+                      {(() => {
+                        const asvcPiggyTotal = piggyBookingSplit.asvcPiggyDeposits.reduce((s, d) => s + (d.amount || 0), 0);
+                        const mainPiggyDeposit = Math.max(0, piggyBookingSplit.piggyDeposit - asvcPiggyTotal);
+                        const piggyHow = piggyBookingSplit.piggyPayType === 'rest'
+                          ? ' (весь остаток)'
+                          : piggyBookingSplit.piggyPayValue > 0
+                            ? ` (${piggyBookingSplit.piggyPayValue}% от базы)`
+                            : piggyBookingSplit.piggyPayType === 'fixed'
+                              ? ` (фикс ${piggyBookingSplit.piggyPayValue.toLocaleString('ru')} ₽)`
+                              : '';
+                        return (
+                          <>
+                            <button className="flex justify-between w-full text-left hover:opacity-80" onClick={() => gotoPiggyBank()}>
+                              <span className={`${sub} truncate`}>· в {piggyBankLabel(piggyBookingSplit.piggyTarget)}{piggyHow}</span>
+                              <span className="font-medium shrink-0" style={{ color: '#F59E0B' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
+                            </button>
+                            {piggyBookingSplit.asvcPiggyDeposits.map(d => (
+                              <button key={`bm-ap-${d.name}-${d.amount}`} className="flex justify-between w-full text-left hover:opacity-80" onClick={() => gotoPiggyBank()}>
+                                <span className={`${sub} truncate`} title={`«${d.name}» → в ${piggyBankLabel(d.resourceGroup)}`}>
+                                  · «{d.name}» → в {piggyBankLabel(d.resourceGroup)}
+                                </span>
+                                <span className="font-medium">{d.amount.toLocaleString('ru')} ₽</span>
+                              </button>
+                            ))}
+                          </>
+                        );
+                      })()}
+                      {piggyBookingSplit.ownerShares.map(o => (
+                        <button key={`bm-o-${o.ownerId}`} onClick={() => gotoOwnerSalary(o.ownerId)} className="flex justify-between w-full text-left hover:opacity-80">
+                          <span className={`${sub} truncate`}>· {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}</span>
+                          <span className="font-medium shrink-0" style={{ color: '#312E81' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
+                        </button>
+                      ))}
+                      {piggyBookingSplit.piggyTransactions.length > 0 && (
+                        <div className="pt-2">
+                          <div className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Проводки в копилке</div>
+                          {piggyBookingSplit.piggyTransactions.map(tx => (
+                            <button key={`bm-tx-${tx.id}`} onClick={() => gotoPiggyBank(tx.id)} className="flex justify-between w-full text-left hover:opacity-80 py-0.5">
+                              <span className={`${sub} truncate`}>· {piggyDepositLabel(tx.purpose)} · {piggyBankLabel(tx.resourceGroup)}{tx.date ? ` · ${tx.date}` : ''}</span>
+                              <span className="font-medium shrink-0" style={{ color: tx.amount >= 0 ? '#22C55E' : '#EF4444' }}>{tx.amount >= 0 ? '+' : '−'}{Math.abs(tx.amount).toLocaleString('ru')} ₽</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={`text-xs ${sub}`}>Не удалось загрузить распределение</div>
+                  )}
                 </div>
 
                 {/* Materials card */}

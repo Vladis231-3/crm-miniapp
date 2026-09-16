@@ -16591,74 +16591,78 @@ def get_piggy_bank(
     # === Wash breakdown ===
 
     all_completed_bookings = db.scalars(
-
         select(Booking)
-
+        .options(joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
         .where(Booking.status == "completed", Booking.deleted_at.is_(None))
-
         .order_by(Booking.date.desc())
-
     ).all()
 
 
 
     self_service_revenue = 0
-
     classic_revenue = 0
-
+    wash_asvc_revenue = 0
+    wash_asvc_master = 0
+    wash_asvc_piggy = 0
+    detailing_asvc_revenue = 0
+    detailing_asvc_master = 0
+    detailing_asvc_piggy = 0
+    detailing_main_revenue = 0
     for booking in all_completed_bookings:
-
         if not _in_range(booking.date):
-
             continue
-
+        add_dops = [a for a in (booking.additional_services or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
+        add_total = sum(int(a.price or 0) for a in add_dops)
+        main_price = max(0, int(booking.price or 0) - add_total)
         svc = services_map.get(booking.service_id)
-
-        if svc is None or svc.resource_group != WASH_RESOURCE_GROUP:
-
-            continue
-
-        if svc.wash_type == "self_service":
-
-            self_service_revenue += booking.price
-
-        else:
-
-            classic_revenue += booking.price
-
+        if svc is not None and svc.resource_group == WASH_RESOURCE_GROUP:
+            if svc.wash_type == "self_service":
+                self_service_revenue += main_price
+            else:
+                classic_revenue += main_price
+        elif svc is not None and svc.resource_group == "detailing":
+            detailing_main_revenue += main_price
+        for asvc in add_dops:
+            dop_svc = services_map.get(asvc.service_id) if asvc.service_id else None
+            if dop_svc is not None:
+                dop_group = _service_resource_group(dop_svc)
+            elif svc is not None:
+                dop_group = _service_resource_group(svc)
+            else:
+                dop_group = DEFAULT_RESOURCE_GROUP
+            if asvc.is_outsource:
+                dop_master = 0
+            else:
+                dop_master = 0
+                for alink in (asvc.worker_links or []):
+                    if alink.pay_type == "fixed":
+                        dop_master += int(alink.fixed_amount or 0)
+                    else:
+                        dop_master += money_int(int(asvc.price or 0) * (alink.percent or 0) / 100)
+            dop_remainder = max(0, int(asvc.price or 0) - dop_master)
+            dop_piggy = money_int(dop_remainder * 24 / 100) if dop_remainder > 0 else 0
+            if dop_group == WASH_RESOURCE_GROUP:
+                wash_asvc_revenue += int(asvc.price or 0)
+                wash_asvc_master += dop_master
+                wash_asvc_piggy += dop_piggy
+            elif dop_group == "detailing":
+                detailing_asvc_revenue += int(asvc.price or 0)
+                detailing_asvc_master += dop_master
+                detailing_asvc_piggy += dop_piggy
     self_master = round(self_service_revenue * 10 / 100)
-
     self_piggy = self_service_revenue - self_master
-
     classic_master = round(classic_revenue * 40 / 100)
-
     classic_piggy = classic_revenue - classic_master
-
-    total_revenue = self_service_revenue + classic_revenue
-
-    total_master = self_master + classic_master
-
-    total_piggy = self_piggy + classic_piggy
+    total_revenue = self_service_revenue + classic_revenue + wash_asvc_revenue
+    total_master = self_master + classic_master + wash_asvc_master
+    total_piggy = self_piggy + classic_piggy + wash_asvc_piggy
 
 
 
-    # === Detailing breakdown ===
-
-    detailing_revenue = 0
-
-    for booking in all_completed_bookings:
-
-        if not _in_range(booking.date):
-
-            continue
-
-        svc = services_map.get(booking.service_id)
-
-        if svc and svc.resource_group == "detailing":
-
-            detailing_revenue += booking.price
-
-    detailing_master = round(detailing_revenue * 40 / 100)
+    # === Detailing breakdown (main without dop + dop in its own group) ===
+    detailing_revenue = detailing_main_revenue + detailing_asvc_revenue
+    detailing_main_master = round(detailing_main_revenue * 40 / 100)
+    detailing_master = detailing_main_master + detailing_asvc_master
 
 
     # Master daily outputs (use date range if provided)
@@ -16944,21 +16948,46 @@ def get_piggy_bank(
                     _gen_sat += _amt
             _self_rev = 0
             _classic_rev = 0
+            _wash_asvc_piggy_before = 0
             for _bd, _b in _booking_parsed:
                 if _bd is None or not (_bd < _sat):
                     continue
+                _add_dops = [a for a in (getattr(_b, "additional_services", None) or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
+                _add_total = sum(int(a.price or 0) for a in _add_dops)
+                _main_price = max(0, int(_b.price or 0) - _add_total)
                 _svc = services_map.get(_b.service_id)
-                if _svc is None or _svc.resource_group != WASH_RESOURCE_GROUP:
-                    continue
-                if getattr(_svc, "wash_type", None) == "self_service":
-                    _self_rev += (_b.price or 0)
-                else:
-                    _classic_rev += (_b.price or 0)
+                if _svc is not None and _svc.resource_group == WASH_RESOURCE_GROUP:
+                    if getattr(_svc, "wash_type", None) == "self_service":
+                        _self_rev += _main_price
+                    else:
+                        _classic_rev += _main_price
+                for _asvc in _add_dops:
+                    _dop_svc = services_map.get(_asvc.service_id) if _asvc.service_id else None
+                    if _dop_svc is not None:
+                        _dop_group = _service_resource_group(_dop_svc)
+                    elif _svc is not None:
+                        _dop_group = _service_resource_group(_svc)
+                    else:
+                        _dop_group = DEFAULT_RESOURCE_GROUP
+                    if _dop_group != WASH_RESOURCE_GROUP:
+                        continue
+                    if _asvc.is_outsource:
+                        _dop_master = 0
+                    else:
+                        _dop_master = 0
+                        for _alink in (getattr(_asvc, "worker_links", None) or []):
+                            if _alink.pay_type == "fixed":
+                                _dop_master += int(_alink.fixed_amount or 0)
+                            else:
+                                _dop_master += money_int(int(_asvc.price or 0) * (_alink.percent or 0) / 100)
+                    _dop_rem = max(0, int(_asvc.price or 0) - _dop_master)
+                    if _dop_rem > 0:
+                        _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
             _self_master = round(_self_rev * 10 / 100)
             _self_piggy = _self_rev - _self_master
             _classic_master = round(_classic_rev * 40 / 100)
             _classic_piggy = _classic_rev - _classic_master
-            _total_piggy_before = _self_piggy + _classic_piggy
+            _total_piggy_before = _self_piggy + _classic_piggy + _wash_asvc_piggy_before
             _outputs_before = 0
             try:
                 _sat_exclusive_end = _sat - timedelta(days=1)
@@ -17201,21 +17230,46 @@ def get_piggy_bank(
                         _gen_sat += _amt
                 _self_rev = 0
                 _classic_rev = 0
+                _wash_asvc_piggy_before = 0
                 for _bd, _b in _booking_parsed:
                     if _bd is None or not (_bd < _cur_sat):
                         continue
+                    _add_dops = [a for a in (getattr(_b, "additional_services", None) or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
+                    _add_total = sum(int(a.price or 0) for a in _add_dops)
+                    _main_price = max(0, int(_b.price or 0) - _add_total)
                     _svc = services_map.get(_b.service_id)
-                    if _svc is None or _svc.resource_group != WASH_RESOURCE_GROUP:
-                        continue
-                    if getattr(_svc, "wash_type", None) == "self_service":
-                        _self_rev += (_b.price or 0)
-                    else:
-                        _classic_rev += (_b.price or 0)
+                    if _svc is not None and _svc.resource_group == WASH_RESOURCE_GROUP:
+                        if getattr(_svc, "wash_type", None) == "self_service":
+                            _self_rev += _main_price
+                        else:
+                            _classic_rev += _main_price
+                    for _asvc in _add_dops:
+                        _dop_svc = services_map.get(_asvc.service_id) if _asvc.service_id else None
+                        if _dop_svc is not None:
+                            _dop_group = _service_resource_group(_dop_svc)
+                        elif _svc is not None:
+                            _dop_group = _service_resource_group(_svc)
+                        else:
+                            _dop_group = DEFAULT_RESOURCE_GROUP
+                        if _dop_group != WASH_RESOURCE_GROUP:
+                            continue
+                        if _asvc.is_outsource:
+                            _dop_master = 0
+                        else:
+                            _dop_master = 0
+                            for _alink in (getattr(_asvc, "worker_links", None) or []):
+                                if _alink.pay_type == "fixed":
+                                    _dop_master += int(_alink.fixed_amount or 0)
+                                else:
+                                    _dop_master += money_int(int(_asvc.price or 0) * (_alink.percent or 0) / 100)
+                        _dop_rem = max(0, int(_asvc.price or 0) - _dop_master)
+                        if _dop_rem > 0:
+                            _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
                 _self_master = round(_self_rev * 10 / 100)
                 _self_piggy = _self_rev - _self_master
                 _classic_master = round(_classic_rev * 40 / 100)
                 _classic_piggy = _classic_rev - _classic_master
-                _total_piggy_before = _self_piggy + _classic_piggy
+                _total_piggy_before = _self_piggy + _classic_piggy + _wash_asvc_piggy_before
                 _outputs_before = 0
                 try:
                     _sat_exclusive_end = _cur_sat - timedelta(days=1)
@@ -17384,47 +17438,33 @@ def get_piggy_bank(
         transactions=transaction_payloads,
 
         wash=PiggyBankWashBreakdown(
-
             selfServiceRevenue=self_service_revenue,
-
             selfServiceMaster=self_master,
-
             selfServicePiggy=self_piggy,
-
             classicRevenue=classic_revenue,
-
             classicMaster=classic_master,
-
             classicPiggy=classic_piggy,
-
             totalRevenue=total_revenue,
-
             totalMaster=total_master,
-
             totalPiggy=total_piggy,
-
             washNetPiggy=wash_net_piggy,
-
+            additionalRevenue=wash_asvc_revenue,
+            additionalMaster=wash_asvc_master,
+            additionalPiggy=wash_asvc_piggy,
         ),
 
         detailing=PiggyBankDetailingBreakdown(
-
             detailingRevenue=detailing_revenue,
-
             detailingMaster=detailing_master,
-
             deposits24Percent=deposits_24,
-
             materialWithdrawals=withdrawals,
-
             materialRepayments=repayments,
-
             netPiggy=net_piggy,
-
             detailingExpenses=detailing_expenses,
-
             detailingIncomes=detailing_incomes,
-
+            additionalRevenue=detailing_asvc_revenue,
+            additionalMaster=detailing_asvc_master,
+            additionalPiggy=detailing_asvc_piggy,
         ),
 
         masterDailyOutputs=total_daily_outputs,

@@ -1824,6 +1824,10 @@ class PiggyBankWashBreakdown(BaseModel):
     totalMaster: float = 0
     totalPiggy: float = 0
     washNetPiggy: float = 0
+    # Доп. услуги отдельно от основной (своя копилка, не вместе с основной услугой)
+    additionalRevenue: float = 0
+    additionalMaster: float = 0
+    additionalPiggy: float = 0
 
 
 class PiggyBankDetailingBreakdown(BaseModel):
@@ -1835,6 +1839,10 @@ class PiggyBankDetailingBreakdown(BaseModel):
     netPiggy: float = 0
     detailingExpenses: float = 0
     detailingIncomes: float = 0
+    # Доп. услуги отдельно от основной (своя копилка, не вместе с основной услугой)
+    additionalRevenue: float = 0
+    additionalMaster: float = 0
+    additionalPiggy: float = 0
 
 
 class PiggyBankSpenderDebt(BaseModel):
