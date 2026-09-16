@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-16 06:16 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-16 06:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **534**
-- Строк кода: **215 107**
+- Строк кода: **215 111**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 181, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -4078,7 +4078,7 @@ concept1.0/
 - `openTopupFor` (стр. 453) — локальный
 - `val` (стр. 1162) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (12830 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (12834 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 46) — локальный
 - `map` (стр. 47) — локальный
@@ -5269,13 +5269,13 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-16 09:23)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-09-16 09:14)
 - `backend/app/main.py` (2026-09-16 09:14)
 - `scripts/.project-map-watch.lock` (2026-09-16 09:12)
 - `backend/tests/test_data_cleanup.py` (2026-09-15 20:31)
 - `frontend/src/app/components/owner/OwnerCleanupSection.tsx` (2026-09-15 20:31)
 - `frontend/src/app/api.ts` (2026-09-15 20:14)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-15 20:01)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-15 20:01)
 - `backend/app/schemas.py` (2026-09-15 20:00)
 - `backend/tests/test_piggy_repay.py` (2026-09-15 19:47)

@@ -2140,8 +2140,9 @@ export function OwnerApp() {
     const today = new Date();
     if (historyPeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
     if (historyPeriod === 'week') {
+      // Финансовая неделя Сб–Пт (как в кошельке/копилке/ЗП): от субботы по сегодня.
       const from = new Date(today);
-      const offset = (today.getDay() + 6) % 7;
+      const offset = (today.getDay() + 1) % 7;
       from.setDate(today.getDate() - offset);
       return { dateFrom: formatDate(from), dateTo: formatDate(today) };
     }
@@ -2189,8 +2190,9 @@ export function OwnerApp() {
     const today = new Date();
     if (archivePeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
     if (archivePeriod === 'week') {
+      // Финансовая неделя Сб–Пт (как в кошельке/копилке/ЗП): от субботы по сегодня.
       const from = new Date(today);
-      const offset = (today.getDay() + 6) % 7;
+      const offset = (today.getDay() + 1) % 7;
       from.setDate(today.getDate() - offset);
       return { dateFrom: formatDate(from), dateTo: formatDate(today) };
     }
@@ -2214,7 +2216,8 @@ export function OwnerApp() {
     const seen = new Set<string>();
     for (let d = 1; d <= daysInMonth; d++) {
       const day = new Date(year, month, d);
-      const offset = (day.getDay() + 6) % 7;
+      // Финансовая неделя Сб–Пт (как в кошельке/копилке/ЗП).
+      const offset = (day.getDay() + 1) % 7;
       const start = new Date(year, month, d - offset);
       const key = start.toDateString();
       if (seen.has(key)) continue;
@@ -2256,8 +2259,9 @@ export function OwnerApp() {
     const today = new Date();
     if (moneyFlowPeriod === 'day') return { dateFrom: formatDate(today), dateTo: formatDate(today) };
     if (moneyFlowPeriod === 'week') {
+      // Финансовая неделя Сб–Пт (как в кошельке/копилке/ЗП): от субботы по сегодня.
       const from = new Date(today);
-      const offset = (today.getDay() + 6) % 7;
+      const offset = (today.getDay() + 1) % 7;
       from.setDate(today.getDate() - offset);
       return { dateFrom: formatDate(from), dateTo: formatDate(today) };
     }
