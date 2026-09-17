@@ -958,9 +958,18 @@ export function OwnerApp() {
   const salaryBookingsRef = useRef<HTMLDivElement | null>(null);
   const salaryPayoutRef = useRef<HTMLDivElement | null>(null);
   const salaryHistoryRef = useRef<HTMLDivElement | null>(null);
-  const scrollSalaryTo = (ref: React.RefObject<HTMLDivElement | null>) => {
+  /** Карандаш итога: закрыть расшифровку, промотать к нужной форме, подсветить и поставить фокус в сумму. */
+  const flashSalaryForm = (id: string) => {
+    setSalaryBreakdown(null);
     requestAnimationFrame(() => {
-      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = el.querySelector('input');
+      if (input) setTimeout(() => (input as HTMLInputElement).focus({ preventScroll: true }), 400);
+      el.style.transition = 'box-shadow 0.3s';
+      el.style.boxShadow = '0 0 0 2px var(--primary-600)';
+      setTimeout(() => { el.style.boxShadow = ''; }, 1800);
     });
   };
   const [payrollPeriod, setPayrollPeriod] = useState<'day' | 'week' | 'month' | 'all' | 'custom'>('month');
@@ -4807,7 +4816,7 @@ paymentSettled: false,
 
               {!isAccountant && <div className={`${glass} rounded-2xl p-4 mb-4`}>
                 <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Общий фонд выплат
-                  <EditAmountPencil primary={primary} size={11} title="Фонд считается из зарплат мастеров — открыть список для правок" onClick={() => { const el = document.getElementById('payroll-workers-list'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} />
+                  <EditAmountPencil primary={primary} size={11} title="Фонд считается из зарплат мастеров — открыть список для правок" onClick={() => flashSalaryForm('payroll-workers-list')} />
                 </div>
                 <div className="font-bold text-xl" style={{ color: accent }}>{payrollTotal.toLocaleString('ru')} ₽</div>
                 <div className={`text-[11px] ${sub} mt-1 leading-snug`}>За что отвечает: долг перед мастерами за период — сумма всех «К выплате». Если всё выплатить сейчас, фонд станет 0. Период: {fundPeriodLabel} · людей в фонде: {payrollRows.length}{fundOwnerMastersCount > 0 ? ` (в т.ч. владельцев как мастеров: ${fundOwnerMastersCount})` : ''} · заказов: {fundBreakdown.completedBookings}</div>
@@ -5413,32 +5422,26 @@ paymentSettled: false,
               {salaryDetail && (
                 <>
 
-                  {/* Aggregate cards — кликабельны, открывают расшифровку */}
+                  {/* Aggregate cards — кликабельны, открывают расшифровку (div, чтобы карандаш-кнопка внутри была валидной) */}
                   <div className="grid grid-cols-3 gap-2 mb-3">
-                    <button type="button" onClick={() => setSalaryBreakdown('earned')} title="Заработано — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                    <div role="button" tabIndex={0} onClick={() => setSalaryBreakdown('earned')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSalaryBreakdown('earned'); } }} title="Заработано — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
                       <div className="text-sm font-semibold flex items-center justify-center gap-1">{salaryDetail.totalEarned.toLocaleString('ru')} ₽
-                        <span onClick={(e) => { e.stopPropagation(); document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-                          <EditAmountPencil primary={primary} size={10} title="Изменить сумму — премия/корректировка ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
-                        </span>
+                        <EditAmountPencil primary={primary} size={10} title="Изменить сумму — открыть форму премии ниже" onClick={() => flashSalaryForm('salary-actions')} />
                       </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Заработано{((salaryDetail.totalAsvcEarned || 0) > 0) ? ` · осн. ${(salaryDetail.totalMainEarned ?? (salaryDetail.totalEarned - (salaryDetail.totalAsvcEarned || 0))).toLocaleString('ru')} + допы ${(salaryDetail.totalAsvcEarned || 0).toLocaleString('ru')}` : ''}</div>
-                    </button>
-                    <button type="button" onClick={() => setSalaryBreakdown('paid')} title="Выплачено — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                    </div>
+                    <div role="button" tabIndex={0} onClick={() => setSalaryBreakdown('paid')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSalaryBreakdown('paid'); } }} title="Выплачено — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
                       <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽
-                        <span onClick={(e) => { e.stopPropagation(); document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-                          <EditAmountPencil primary={primary} size={10} title="Изменить сумму — выплата ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
-                        </span>
+                        <EditAmountPencil primary={primary} size={10} title="Изменить сумму — открыть форму выплаты ниже" onClick={() => flashSalaryForm('salary-payout')} />
                       </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Выплачено</div>
-                    </button>
-                    <button type="button" onClick={() => setSalaryBreakdown('balance')} title="К выплате — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
+                    </div>
+                    <div role="button" tabIndex={0} onClick={() => setSalaryBreakdown('balance')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSalaryBreakdown('balance'); } }} title="К выплате — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
                       <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽
-                        <span onClick={(e) => { e.stopPropagation(); document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-                          <EditAmountPencil primary={primary} size={10} title="Изменить сумму — премия/штраф/списание ниже" onClick={() => document.getElementById('salary-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
-                        </span>
+                        <EditAmountPencil primary={primary} size={10} title="Изменить сумму — открыть форму штрафа ниже" onClick={() => flashSalaryForm('salary-fine')} />
                       </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>К выплате</div>
-                    </button>
+                    </div>
                   </div>
                   {(() => {
                     const debt = piggyBank?.spenderDebts?.find(d => d.spentById === selectedSalaryWorkerId);
@@ -5550,7 +5553,7 @@ paymentSettled: false,
                   </div>
 
                   {/* Fine form */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div id="salary-fine" className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
                     <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Штраф мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={fineAmount}
@@ -5567,7 +5570,7 @@ paymentSettled: false,
                   </div>
 
                   {/* Write-off form */}
-                  <div className={`${glass} rounded-2xl p-4 mb-3`}>
+                  <div id="salary-writeoff" className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
                     <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Списание мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={writeOffAmount}
@@ -5584,7 +5587,7 @@ paymentSettled: false,
                   </div>
 
                   {/* Payout form */}
-                  <div ref={salaryPayoutRef} className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
+                  <div ref={salaryPayoutRef} id="salary-payout" className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
                     <h3 className="font-semibold text-sm mb-3">Выплата мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={salaryPayAmount}
@@ -5726,8 +5729,8 @@ paymentSettled: false,
                       })
                     })()}
                   </div>
-                  {/* ── Расшифровка плитки (bottom-sheet): earned / paid / balance ── */}
-                  {salaryBreakdown && (
+                  {/* Дубль расшифровки отключён: единый bottom-sheet SALARY SUMMARY BREAKDOWN внизу файла */}
+                  {false && salaryBreakdown && (
                     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50" onClick={() => setSalaryBreakdown(null)}>
                       <div
                         onClick={(e) => e.stopPropagation()}
