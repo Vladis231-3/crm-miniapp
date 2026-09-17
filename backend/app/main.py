@@ -20588,9 +20588,13 @@ def save_services(
 
         service.duration = item.duration
 
-        # Группа ресурсов сохраняется как запрошено, без привязки к категории.
-
-        service.resource_group = _resource_group_key(item.resourceGroup)
+        # Группа ресурсов: только wash/detailing/general, иначе fallback по категории.
+        # Раньше сохранялось как прислали — произвольная строка давала piggy=0
+        # и расхождение с фронтом (Мойка→wash, Детейлинг→detailing).
+        _rg_raw = _resource_group_key(item.resourceGroup)
+        if _rg_raw not in ("wash", "detailing", "general"):
+            _rg_raw = _resource_group_for_service_category(item.category)
+        service.resource_group = _rg_raw
 
         service.wash_type = item.washType or ""
 
@@ -20610,7 +20614,11 @@ def save_services(
         service.owner_split_enabled = item.ownerSplitEnabled
         service.materials = item.materials or []
         service.split_order = item.splitOrder or []
-        service.piggy_target = item.piggyTarget or ""
+        # piggyTarget: только wash/detailing/general или пусто (иначе игнор в сплите).
+        _piggy_target_raw = (item.piggyTarget or "").strip().lower()
+        if _piggy_target_raw not in ("wash", "detailing", "general"):
+            _piggy_target_raw = ""
+        service.piggy_target = _piggy_target_raw
 
     for service_id, service in existing.items():
 

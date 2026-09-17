@@ -75,13 +75,15 @@ function bookingBasePrice(booking: Booking) {
   return Math.max(0, booking.price - additionalTotal - servicesTotal);
 }
 
-// Доля мастера по основной услуге (та же логика, что во вкладке «Заработок»)
+// Доля мастера по основной услуге (та же логика, что во вкладке «Заработок»).
+// База = цена − допы(add) − работы в составе; точная сумма — salary-detail с бэка
+// (там ещё вычитаются материалы/subtract, жалобы и кастомный master_pay_type).
 function bookingBaseWorkerEarned(booking: Booking, workerId: string, services: Service[]) {
   const link = booking.workers.find(w => w.workerId === workerId);
   if (!link) return 0;
   if (link.payType === 'fixed') return link.fixedAmount || 0;
   if (isFixedMasterService(services, booking.serviceId, booking.service)) return FIXED_MASTER_EARNED;
-  return Math.round(booking.price * (link.percent || 0) / 100);
+  return Math.round(bookingBasePrice(booking) * (link.percent || 0) / 100);
 }
 
 function formatBookingInstant(value: string | Date | null | undefined) {

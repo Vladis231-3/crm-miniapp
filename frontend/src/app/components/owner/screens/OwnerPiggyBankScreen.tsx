@@ -78,7 +78,7 @@ interface ArchiveHighlightShape {
 
 /**
  * OwnerPiggyBankScreen — вырезка из OwnerApp (§6.4, Фаза 5 / вырезка №4).
- * Копилка: баланс по табам Всё/Мойка/Детейлинг, мини-сводки (90%+60% / 24%),
+ * Копилка: баланс по табам Всё/Мойка/Детейлинг, мини-сводки (суммы с бэка),
  * снятие на материалы/прочее, корректировка, история операций с running-balance,
  * кто брал из копилки. Единая кнопка «Снять на расходы» (копилка или свои деньги).
  * Данные, формы withdraw/adjust и экспорт остаются в родителе (кросснав
@@ -265,7 +265,7 @@ export function OwnerPiggyBankScreen({
             <span className={sub}>ЗП мастеров</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
           </div>
           <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            <span className={sub}>В копилку (90%+60%)</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} ₽</span>
+            <span className={sub}>В копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.wash.totalPiggy.toLocaleString('ru')} ₽</span>
           </div>
           {(piggyBank.wash.additionalRevenue ?? 0) > 0 && (
             <>
@@ -276,7 +276,7 @@ export function OwnerPiggyBankScreen({
                 <span className={sub}>· доп. услуги мастерам</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.wash.additionalMaster ?? 0).toLocaleString('ru')} ₽</span>
               </div>
               <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                <span className={sub}>· доп. услуги в копилку (24%)</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.wash.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span>
+                <span className={sub}>· доп. услуги в копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.wash.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span>
               </div>
             </>
           )}
@@ -307,7 +307,7 @@ export function OwnerPiggyBankScreen({
                 <span className={sub}>ЗП мастеров</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
               </div>
               <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                <span className={sub}>Начислено 24%</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
+                <span className={sub}>Начислено в копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
               </div>
               {(piggyBank.detailing.additionalRevenue ?? 0) > 0 && (
                 <>
@@ -318,7 +318,7 @@ export function OwnerPiggyBankScreen({
                     <span className={sub}>· доп. услуги мастерам</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.detailing.additionalMaster ?? 0).toLocaleString('ru')} ₽</span>
                   </div>
                   <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                    <span className={sub}>· доп. услуги в копилку (24%)</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.detailing.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span>
+                    <span className={sub}>· доп. услуги в копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.detailing.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span>
                   </div>
                 </>
               )}
@@ -376,7 +376,7 @@ export function OwnerPiggyBankScreen({
               <span className={sub}>ЗП мастера</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{piggyBank.wash.selfServiceMaster.toLocaleString('ru')} ₽</span>
             </div>
             <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-              <span className={sub}>В копилку (90%)</span><span className="font-semibold tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} ₽</span>
+              <span className={sub}>В копилку</span><span className="font-semibold tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.wash.selfServicePiggy.toLocaleString('ru')} ₽</span>
             </div>
           </div>
           {/* Classic */}
@@ -401,7 +401,7 @@ export function OwnerPiggyBankScreen({
               <div className={`font-medium ${sub} mb-1`}>▸ Доп. услуги отдельно (своя копилка)</div>
               <div className="flex justify-between py-0.5"><span className={sub}>Выручка допов</span><span className="tabular-nums">+{(piggyBank.wash.additionalRevenue ?? 0).toLocaleString('ru')} ₽</span></div>
               <div className="flex justify-between py-0.5"><span className={sub}>Мастерам за допы</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.wash.additionalMaster ?? 0).toLocaleString('ru')} ₽</span></div>
-              <div className="flex justify-between py-0.5"><span className={sub}>Допы в копилку (24%)</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.wash.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span></div>
+              <div className="flex justify-between py-0.5"><span className={sub}>Допы в копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.wash.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span></div>
             </div>
           )}
           <div className="flex justify-between py-2 text-sm">
@@ -446,14 +446,14 @@ export function OwnerPiggyBankScreen({
             <span className={sub}>ЗП мастеров</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{piggyBank.detailing.detailingMaster.toLocaleString('ru')} ₽</span>
           </div>
           <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            <span className={sub}>Начислено 24%</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
+            <span className={sub}>Начислено в копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{piggyBank.detailing.deposits24Percent.toLocaleString('ru')} ₽</span>
           </div>
           {(piggyBank.detailing.additionalRevenue ?? 0) > 0 && (
             <div className="my-2 rounded-xl p-2.5 text-xs" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}>
               <div className={`font-medium ${sub} mb-1`}>▸ Доп. услуги отдельно (своя копилка)</div>
               <div className="flex justify-between py-0.5"><span className={sub}>Выручка допов</span><span className="tabular-nums">+{(piggyBank.detailing.additionalRevenue ?? 0).toLocaleString('ru')} ₽</span></div>
               <div className="flex justify-between py-0.5"><span className={sub}>Мастерам за допы</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.detailing.additionalMaster ?? 0).toLocaleString('ru')} ₽</span></div>
-              <div className="flex justify-between py-0.5"><span className={sub}>Допы в копилку (24%)</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.detailing.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span></div>
+              <div className="flex justify-between py-0.5"><span className={sub}>Допы в копилку</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{(piggyBank.detailing.additionalPiggy ?? 0).toLocaleString('ru')} ₽</span></div>
             </div>
           )}
           <div className="flex justify-between py-2 text-sm">

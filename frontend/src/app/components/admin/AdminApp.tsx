@@ -720,11 +720,16 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
   const workerStats = masterWorkers.map(w => ({
     ...w,
     tasks: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).length,
+    // Оценка для дашборда: база = цена − допы(add) − работы в составе.
+    // Точная сумма — salary-detail с бэка (материалы/subtract/жалобы/master_pay_type).
     earned: completedAll.filter(b => b.workers.some(bw => bw.workerId === w.id)).reduce((s, b) => {
       const bw = b.workers.find(bwk => bwk.workerId === w.id);
       if (bw?.payType === 'fixed') return s + (bw.fixedAmount || 0);
       if (isFixedMasterService(services, b.serviceId, b.service)) return s + FIXED_MASTER_EARNED;
-      return s + Math.round(b.price * (bw?.percent || 0) / 100);
+      const addTotal = (b.additionalServices || []).reduce((t, as) => t + (as.priceMode === 'subtract' ? 0 : as.price), 0);
+      const legacyTotal = (b.services || []).reduce((t, svc) => t + svc.price, 0);
+      const base = Math.max(0, b.price - addTotal - legacyTotal);
+      return s + Math.round(base * (bw?.percent || 0) / 100);
     }, 0),
   }));
 

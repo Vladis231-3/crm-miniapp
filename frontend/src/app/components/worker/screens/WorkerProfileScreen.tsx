@@ -13,6 +13,17 @@ import {
 import { isFixedMasterService, FIXED_MASTER_EARNED } from '../../ui/utils';
 import { AttendanceTable } from '../../shared/AttendanceTable';
 
+/** База основной услуги: цена − допы(add) − работы в составе (как в AdminCalendarDayScreen).
+ * Точная сумма — salary-detail с бэка (материалы/subtract/жалобы/master_pay_type). */
+function bookingBasePrice(b: any): number {
+  const addTotal = (b.additionalServices || []).reduce(
+    (s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0),
+    0,
+  );
+  const legacyTotal = (b.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
+  return Math.max(0, (Number(b.price) || 0) - addTotal - legacyTotal);
+}
+
 export type WorkerProfileSection =
   | null
   | 'personal'
@@ -116,7 +127,7 @@ export function WorkerProfileScreen({
           ? w.fixedAmount || 0
           : isFixedMasterService(services, b.serviceId, b.service)
             ? FIXED_MASTER_EARNED
-            : Math.round(b.price * (w?.percent || 0) / 100);
+            : Math.round(bookingBasePrice(b) * (w?.percent || 0) / 100);
       return { ...b, earned };
     });
   const totalEarned = myEarnings.reduce((s, b) => s + b.earned, 0);
@@ -501,7 +512,7 @@ export function WorkerProfileScreen({
                   ? w.fixedAmount || 0
                   : isFixedMasterService(services, task.serviceId, task.service)
                     ? FIXED_MASTER_EARNED
-                    : Math.round(task.price * (w?.percent || 0) / 100)
+                    : Math.round(bookingBasePrice(task) * (w?.percent || 0) / 100)
                 : 0;
             const paymentLabel =
               task.paymentType === 'cash' ? 'Наличные' : task.paymentType === 'transfer' ? 'Перевод' : task.paymentType === 'invoice' ? 'По счёту' : '';

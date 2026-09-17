@@ -14,8 +14,9 @@ export function formatFixedMasterAmount(): string {
 }
 
 // Детект строго ПО НАЗВАНИЮ услуги "подготовка к полировке".
-// Флаг isFixedMaster у услуги работает как дополнительный способ включить
-// фикс для ДРУГИХ услуг; для "подготовка к полировке" фикс гарантирован по имени.
+// Совпадает с бэком (_is_fixed_master_service_db в backend/app/main.py):
+// услуга "подготовка к полировке" всегда фиксированная независимо от флага.
+// Флаг isFixedMaster у услуги включает фикс для ДРУГИХ услуг.
 const FIXED_MASTER_SERVICE_NAME = "подготовка к полировке";
 
 export function isFixedMasterService(
@@ -34,7 +35,6 @@ export function isFixedMasterService(
     if (serviceId) {
       const byId = services.find((s) => s.id === serviceId);
       if (byId) {
-        if (byId.isFixedMaster === false && norm(byId.name) === KNOWN) return false; // явно выключено
         if (norm(byId.name) === KNOWN) return true;
         if (Boolean(byId.isFixedMaster)) return true;
       }
@@ -43,7 +43,7 @@ export function isFixedMasterService(
     if (serviceName) {
       const byName = services.find((s) => norm(s.name) === norm(serviceName));
       if (byName) {
-        if (byName.isFixedMaster === false && norm(byName.name) === KNOWN) return false;
+        if (norm(byName.name) === KNOWN) return true;
         if (Boolean(byName.isFixedMaster)) return true;
       }
     }
