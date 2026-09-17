@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-17 19:31 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-17 19:41 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **534**
-- Строк кода: **215 479**
-- По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 181, `.ts`: 37, `.tsx`: 308
+- Файлов кода: **536**
+- Строк кода: **216 029**
+- По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 183, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
 
@@ -262,6 +262,7 @@ concept1.0/
 │   │   ├── test_money_e2e_chain.py
 │   │   ├── test_money_fixes.py
 │   │   ├── test_money_flow.py
+│   │   ├── test_money_matrix.py
 │   │   ├── test_money_split_fuzz.py
 │   │   ├── test_orphan_endpoints.py
 │   │   ├── test_owner_export_stock_decimal.py
@@ -276,6 +277,7 @@ concept1.0/
 │   │   ├── test_piggy_repay.py
 │   │   ├── test_piggy_startup_migration.py
 │   │   ├── test_security_hardening.py
+│   │   ├── test_service_resource_group_validation.py
 │   │   ├── test_subtract_fits_net.py
 │   │   ├── test_upload_security.py
 │   │   ├── test_v1_gaps.py
@@ -2656,6 +2658,33 @@ concept1.0/
 - `MoneyFlowEndpointTests.test_deposit_topup_is_inflowdef test_deposit_topup_is_inflow(self) -> None: from app.database import SessionLocal from app.models import Client client_id = f"c-{uuid4().hex[:12]}" client_name = "Депозит Клиен` (стр. 350)
 - `MoneyFlowEndpointTests.test_period_filtering_excludes_other_datesdef test_period_filtering_excludes_other_dates(self) -> None: booking = self.create_completed_booking(price=1200) old_date = (datetime.now() - timedelta(days=365)).strftime("%d.%m.` (стр. 389)
 
+### backend/tests/test_money_matrix.py (328 строк)
+
+Классы и функции (22):
+
+- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 22)
+- `class MoneyMatrixTests(unittest.TestCase):` (стр. 38)
+- `MoneyMatrixTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 39)
+- `MoneyMatrixTests.tearDowndef tearDown(self) -> None: self.shutdown_app() reset_app_modules() if self.db_path.exists():` (стр. 60)
+- `MoneyMatrixTests.shutdown_appdef shutdown_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 66)
+- `MoneyMatrixTests.restart_appdef restart_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 75)
+- `MoneyMatrixTests.login_staffdef login_staff(self, login: str, password: str) -> str: response = self.client.post( "/api/auth/staff/login", json={"login": login, "password": password} ) self.assertEqual(respon` (стр. 84)
+- `MoneyMatrixTests.auth_headersdef auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 92)
+- `MoneyMatrixTests.next_active_datedef next_active_date() -> str: candidate = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) for offset in range(1, 8):` (стр. 96)
+- `MoneyMatrixTests.reset_servicesdef reset_services(self) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: for sid, rg in (("s1", "wash"), ("s2", "detailing"` (стр. 105)
+- `MoneyMatrixTests.cfgdef cfg(self, service_id: str, **kw) -> None: from app.database import SessionLocal from app.models import Service with SessionLocal() as db: svc = db.get(Service, service_id) for ` (стр. 125)
+- `MoneyMatrixTests.make_bookingdef make_booking(self, service_id: str, service_name: str, box: str, price: int, payment_type: str = "cash") -> dict:` (стр. 135)
+- `MoneyMatrixTests.add_dopdef add_dop(self, booking_id: str, **kw) -> dict: payload: dict = {"serviceId": "s1", "name": "Доп", "price": 2000, "duration": 30, "priceMode": "add", "workers": []} payload.updat` (стр. 155)
+- `MoneyMatrixTests.completedef complete(self, booking_id: str) -> dict: response = self.client.patch( f"/api/bookings/{booking_id}", headers=self.auth_headers(self.admin_token), json={"status": "completed", ` (стр. 165)
+- `MoneyMatrixTests.split_ofdef split_of(self, booking_id: str) -> dict: response = self.client.get( f"/api/owner/bookings/{booking_id}/money-split", headers=self.auth_headers(self.owner_token)) self.assertEq` (стр. 172)
+- `MoneyMatrixTests.deposits_ofdef deposits_of(self, booking_id: str) -> list[dict]: from app.database import SessionLocal from app.models import PiggyBankTransaction with SessionLocal() as db: txs = db.scalars(` (стр. 179)
+- `MoneyMatrixTests.test_piggy_modes_washdef test_piggy_modes_wash(self) -> None: """R1-R5: default 24% / fixed / percent / rest / none на мойке.""" self.reset_services() booking = self.complete(self.make_booking(*S1, 100` (стр. 190)
+- `MoneyMatrixTests.test_master_fixed_pooldef test_master_fixed_pool(self) -> None: """R6: общий котёл мастера fixed 2000 делится по весам (один мастер -> 2000).""" self.reset_services() self.cfg("s1", master_pay_type="fix` (стр. 224)
+- `MoneyMatrixTests.test_detailing_and_piggy_targetsdef test_detailing_and_piggy_targets(self) -> None: """R7-R9: detailing default + редирект вклада в wash/general.""" self.reset_services() booking = self.complete(self.make_booking` (стр. 233)
+- `MoneyMatrixTests.test_add_and_outsource_dopsdef test_add_and_outsource_dops(self) -> None: """R10: add-доп 2000/50% -> мастеру 1000, в копилку 24% от 1000=240. R11: outsource-доп 2000/1500 -> копилка 24% от 500=120, владельц` (стр. 262)
+- `MoneyMatrixTests.test_credit_skips_postingsdef test_credit_skips_postings(self) -> None: """R12: кредит — нет проводок копилки и долей, мастеру авто-начисление есть.""" from app.database import SessionLocal from app.models ` (стр. 294)
+- `MoneyMatrixTests.test_salary_linkagedef test_salary_linkage(self) -> None: """R13: salary-detail видит те же earned, что посчитал сплит (основа + допы).""" self.reset_services() plain = self.complete(self.make_bookin` (стр. 310)
+
 ### backend/tests/test_money_split_fuzz.py (320 строк)
 
 Классы и функции (15):
@@ -2899,6 +2928,27 @@ concept1.0/
 - `test_rejects_invalid_user_structuredef test_rejects_invalid_user_structure(user: object) -> None: with pytest.raises(ValueError, match="user"):` (стр. 46)
 - `test_rejects_future_auth_date_beyond_skewdef test_rejects_future_auth_date_beyond_skew() -> None: with pytest.raises(ValueError, match="auth_date"):` (стр. 51)
 - `test_rejects_expired_init_data_using_configured_ttldef test_rejects_expired_init_data_using_configured_ttl() -> None: with pytest.raises(ValueError, match="expired"):` (стр. 60)
+
+### backend/tests/test_service_resource_group_validation.py (222 строк)
+
+Классы и функции (16):
+
+- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 17)
+- `class ServiceResourceGroupValidationTests(unittest.TestCase):` (стр. 29)
+- `ServiceResourceGroupValidationTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 36)
+- `ServiceResourceGroupValidationTests.tearDowndef tearDown(self) -> None: self.shutdown_app() reset_app_modules() if self.db_path.exists():` (стр. 54)
+- `ServiceResourceGroupValidationTests.shutdown_appdef shutdown_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 60)
+- `ServiceResourceGroupValidationTests.restart_appdef restart_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 69)
+- `ServiceResourceGroupValidationTests.login_staffdef login_staff(self, login: str, password: str) -> str: response = self.client.post( "/api/auth/staff/login", json={"login": login, "password": password}, ) self.assertEqual(respo` (стр. 78)
+- `ServiceResourceGroupValidationTests.auth_headersdef auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 87)
+- `ServiceResourceGroupValidationTests.next_active_datedef next_active_date() -> str: candidate = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) for offset in range(1, 8):` (стр. 91)
+- `ServiceResourceGroupValidationTests._bootstrap_servicesdef _bootstrap_services(self, owner_token: str) -> list[dict]: bootstrap = self.client.get( "/api/auth/session", headers=self.auth_headers(owner_token) ).json() return bootstrap["s` (стр. 99)
+- `ServiceResourceGroupValidationTests._savedef _save(self, owner_token: str, services: list[dict]): return self.client.put( "/api/settings/services", headers=self.auth_headers(owner_token), json=services, )` (стр. 105)
+- `ServiceResourceGroupValidationTests.test_invalid_resource_group_falls_back_to_categorydef test_invalid_resource_group_falls_back_to_category(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0][` (стр. 112)
+- `ServiceResourceGroupValidationTests.test_valid_resource_group_override_preserveddef test_valid_resource_group_override_preserved(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["categ` (стр. 131)
+- `ServiceResourceGroupValidationTests.test_invalid_piggy_target_cleareddef test_invalid_piggy_target_cleared(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["piggyTarget"] = ` (стр. 141)
+- `ServiceResourceGroupValidationTests.test_valid_piggy_target_preserveddef test_valid_piggy_target_preserved(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["piggyTarget"] = ` (стр. 150)
+- `ServiceResourceGroupValidationTests.test_piggy_target_redirects_main_depositdef test_piggy_target_redirects_main_deposit(self) -> None: """piggy_target перебивает группу вклада основной услуги. s2 (Детейлинг) с piggy_target=wash: deposit_24percent должен л` (стр. 159)
 
 ### backend/tests/test_subtract_fits_net.py (199 строк)
 
@@ -5283,6 +5333,8 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/tests/test_money_matrix.py` (2026-09-17 22:41)
+- `backend/tests/test_service_resource_group_validation.py` (2026-09-17 22:37)
 - `frontend/src/app/components/worker/screens/WorkerProfileScreen.tsx` (2026-09-17 22:17)
 - `frontend/src/app/components/admin/screens/AdminStatsPage.tsx` (2026-09-17 22:16)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-09-17 22:16)
@@ -5296,5 +5348,3 @@ concept1.0/
 - `frontend/src/app/api.ts` (2026-09-16 10:36)
 - `frontend/src/app/components/owner/screens/OwnerStockPage.tsx` (2026-09-16 10:34)
 - `frontend/src/app/components/admin/screens/AdminStockPage.tsx` (2026-09-16 10:34)
-- `carwash/src/app/components/Contact.tsx` (2026-09-16 10:33)
-- `backend/app/schemas.py` (2026-09-16 10:08)
