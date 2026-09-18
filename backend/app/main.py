@@ -16592,7 +16592,11 @@ def get_piggy_bank(
 
     all_completed_bookings = db.scalars(
         select(Booking)
-        .options(joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links))
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.materials),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
         .where(Booking.status == "completed", Booking.deleted_at.is_(None))
         .order_by(Booking.date.desc())
     ).unique().all()
@@ -16600,7 +16604,11 @@ def get_piggy_bank(
 
 
     self_service_revenue = 0
+    self_service_master = 0
+    self_service_piggy = 0
     classic_revenue = 0
+    classic_master = 0
+    classic_piggy = 0
     wash_asvc_revenue = 0
     wash_asvc_master = 0
     wash_asvc_piggy = 0
@@ -16608,6 +16616,24 @@ def get_piggy_bank(
     detailing_asvc_master = 0
     detailing_asvc_piggy = 0
     detailing_main_revenue = 0
+    detailing_main_master = 0
+    # Жалобы режут процент мастеров — одна карта на все записи (как в зарплатах).
+    complaints_by_worker = _complaints_by_worker(_load_penalties(db))
+    # (main_master, main_piggy) основной услуги реальным сплитом — один расчёт
+    # на запись, переиспользуется мини-карточками и недельными остатками.
+    _main_split_cache: dict[str, tuple[int, int]] = {}
+
+    def _booking_main_split(booking: Booking) -> tuple[int, int]:
+        cached = _main_split_cache.get(booking.id)
+        if cached is None:
+            split = _booking_money_split(db, booking, complaints_by_worker)
+            cached = (
+                split["master_total"] - split["asvc_master_pay"],
+                split["piggy_deposit"] - sum(d["amount"] for d in split["asvc_piggy_deposits"]),
+            )
+            _main_split_cache[booking.id] = cached
+        return cached
+
     for booking in all_completed_bookings:
         if not _in_range(booking.date):
             continue
@@ -16615,13 +16641,22 @@ def get_piggy_bank(
         add_total = sum(int(a.price or 0) for a in add_dops)
         main_price = max(0, int(booking.price or 0) - add_total)
         svc = services_map.get(booking.service_id)
+        # Реальный сплит вместо захардкоженных 10/90 и 40/60: учитывает
+        # материалы, вычеты, жалобы, кастомные режимы услуги и ручные правки.
+        # Иначе баланс мойки/детейлинга врёт при любом кастомном сплите.
+        main_master, main_piggy = _booking_main_split(booking)
         if svc is not None and svc.resource_group == WASH_RESOURCE_GROUP:
             if svc.wash_type == "self_service":
                 self_service_revenue += main_price
+                self_service_master += main_master
+                self_service_piggy += main_piggy
             else:
                 classic_revenue += main_price
+                classic_master += main_master
+                classic_piggy += main_piggy
         elif svc is not None and svc.resource_group == "detailing":
             detailing_main_revenue += main_price
+            detailing_main_master += main_master
         for asvc in add_dops:
             dop_svc = services_map.get(asvc.service_id) if asvc.service_id else None
             if dop_svc is not None:
@@ -16649,19 +16684,14 @@ def get_piggy_bank(
                 detailing_asvc_revenue += int(asvc.price or 0)
                 detailing_asvc_master += dop_master
                 detailing_asvc_piggy += dop_piggy
-    self_master = round(self_service_revenue * 10 / 100)
-    self_piggy = self_service_revenue - self_master
-    classic_master = round(classic_revenue * 40 / 100)
-    classic_piggy = classic_revenue - classic_master
     total_revenue = self_service_revenue + classic_revenue + wash_asvc_revenue
-    total_master = self_master + classic_master + wash_asvc_master
-    total_piggy = self_piggy + classic_piggy + wash_asvc_piggy
+    total_master = self_service_master + classic_master + wash_asvc_master
+    total_piggy = self_service_piggy + classic_piggy + wash_asvc_piggy
 
 
 
     # === Detailing breakdown (main without dop + dop in its own group) ===
     detailing_revenue = detailing_main_revenue + detailing_asvc_revenue
-    detailing_main_master = round(detailing_main_revenue * 40 / 100)
     detailing_master = detailing_main_master + detailing_asvc_master
 
 
@@ -16946,21 +16976,24 @@ def get_piggy_bank(
                     _det_sat += _amt
                 elif _t.resource_group == "general":
                     _gen_sat += _amt
-            _self_rev = 0
-            _classic_rev = 0
+            _self_master_before = 0
+            _self_piggy_before = 0
+            _classic_master_before = 0
+            _classic_piggy_before = 0
             _wash_asvc_piggy_before = 0
             for _bd, _b in _booking_parsed:
                 if _bd is None or not (_bd < _sat):
                     continue
                 _add_dops = [a for a in (getattr(_b, "additional_services", None) or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
-                _add_total = sum(int(a.price or 0) for a in _add_dops)
-                _main_price = max(0, int(_b.price or 0) - _add_total)
                 _svc = services_map.get(_b.service_id)
                 if _svc is not None and _svc.resource_group == WASH_RESOURCE_GROUP:
+                    _b_master, _b_piggy = _booking_main_split(_b)
                     if getattr(_svc, "wash_type", None) == "self_service":
-                        _self_rev += _main_price
+                        _self_master_before += _b_master
+                        _self_piggy_before += _b_piggy
                     else:
-                        _classic_rev += _main_price
+                        _classic_master_before += _b_master
+                        _classic_piggy_before += _b_piggy
                 for _asvc in _add_dops:
                     _dop_svc = services_map.get(_asvc.service_id) if _asvc.service_id else None
                     if _dop_svc is not None:
@@ -16983,11 +17016,7 @@ def get_piggy_bank(
                     _dop_rem = max(0, int(_asvc.price or 0) - _dop_master)
                     if _dop_rem > 0:
                         _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
-            _self_master = round(_self_rev * 10 / 100)
-            _self_piggy = _self_rev - _self_master
-            _classic_master = round(_classic_rev * 40 / 100)
-            _classic_piggy = _classic_rev - _classic_master
-            _total_piggy_before = _self_piggy + _classic_piggy + _wash_asvc_piggy_before
+            _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
             _outputs_before = 0
             try:
                 _sat_exclusive_end = _sat - timedelta(days=1)
@@ -17228,21 +17257,24 @@ def get_piggy_bank(
                         _det_sat += _amt
                     elif _t.resource_group == "general":
                         _gen_sat += _amt
-                _self_rev = 0
-                _classic_rev = 0
+                _self_master_before = 0
+                _self_piggy_before = 0
+                _classic_master_before = 0
+                _classic_piggy_before = 0
                 _wash_asvc_piggy_before = 0
                 for _bd, _b in _booking_parsed:
                     if _bd is None or not (_bd < _cur_sat):
                         continue
                     _add_dops = [a for a in (getattr(_b, "additional_services", None) or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
-                    _add_total = sum(int(a.price or 0) for a in _add_dops)
-                    _main_price = max(0, int(_b.price or 0) - _add_total)
                     _svc = services_map.get(_b.service_id)
                     if _svc is not None and _svc.resource_group == WASH_RESOURCE_GROUP:
+                        _b_master, _b_piggy = _booking_main_split(_b)
                         if getattr(_svc, "wash_type", None) == "self_service":
-                            _self_rev += _main_price
+                            _self_master_before += _b_master
+                            _self_piggy_before += _b_piggy
                         else:
-                            _classic_rev += _main_price
+                            _classic_master_before += _b_master
+                            _classic_piggy_before += _b_piggy
                     for _asvc in _add_dops:
                         _dop_svc = services_map.get(_asvc.service_id) if _asvc.service_id else None
                         if _dop_svc is not None:
@@ -17265,11 +17297,7 @@ def get_piggy_bank(
                         _dop_rem = max(0, int(_asvc.price or 0) - _dop_master)
                         if _dop_rem > 0:
                             _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
-                _self_master = round(_self_rev * 10 / 100)
-                _self_piggy = _self_rev - _self_master
-                _classic_master = round(_classic_rev * 40 / 100)
-                _classic_piggy = _classic_rev - _classic_master
-                _total_piggy_before = _self_piggy + _classic_piggy + _wash_asvc_piggy_before
+                _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
                 _outputs_before = 0
                 try:
                     _sat_exclusive_end = _cur_sat - timedelta(days=1)
@@ -17439,8 +17467,8 @@ def get_piggy_bank(
 
         wash=PiggyBankWashBreakdown(
             selfServiceRevenue=self_service_revenue,
-            selfServiceMaster=self_master,
-            selfServicePiggy=self_piggy,
+            selfServiceMaster=self_service_master,
+            selfServicePiggy=self_service_piggy,
             classicRevenue=classic_revenue,
             classicMaster=classic_master,
             classicPiggy=classic_piggy,

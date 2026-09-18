@@ -326,3 +326,26 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(items[plain["id"]]["earned"], 3000)
         self.assertIn(with_dop["id"], items)
         self.assertEqual(items[with_dop["id"]]["earned"], 4000)
+
+    def piggy_bank(self) -> dict:
+        response = self.client.get(
+            "/api/owner/piggy-bank", headers=self.auth_headers(self.owner_token))
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()
+
+    def test_piggy_breakdown_follows_custom_split(self) -> None:
+        """R14: мини-карточки копилки считают реальным сплитом, а не 10/90 и 40/60."""
+        self.reset_services()
+        self.cfg("s1", piggy_pay_type="fixed", piggy_pay_value=1000)
+        self.complete(self.make_booking(*S1, 10000)["id"])
+        piggy = self.piggy_bank()
+        self.assertEqual(piggy["wash"]["totalMaster"], 3000)
+        self.assertEqual(piggy["wash"]["totalPiggy"], 1000)
+        self.assertEqual(piggy["wash"]["classicMaster"], 3000)
+        self.assertEqual(piggy["wash"]["classicPiggy"], 1000)
+        self.assertEqual(piggy["remainingInPiggyBank"], 1000)
+
+        self.cfg("s2", master_pay_type="percent", master_pay_value=50)
+        self.complete(self.make_booking(*S2, 10000)["id"])
+        piggy = self.piggy_bank()
+        self.assertEqual(piggy["detailing"]["detailingMaster"], 5000)
