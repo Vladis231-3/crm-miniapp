@@ -550,7 +550,7 @@ class PiggyBankWithdrawFlexTests(unittest.TestCase):
         september = next(r for r in month_rows[1:] if r[0] == "Сентябрь 2026")
         self.assertEqual(float(september[13]), -2500.0)
         self.assertEqual(float(september[14]), -1500.0)   # Δ к августу: -2500 − (−1000)
-        self.assertEqual(september[15], "-150,0%")        # Δ% к прошлому месяцу
+        self.assertEqual(september[15], "'-150,0%")  # Δ% к прошлому месяцу (' — нейтрализация xlsx-формул)
         self.assertEqual(float(september[16]), -3500.0)   # баланс на 30.09
         self.assertEqual(float(september[18]), -2500.0)   # сальдо · детейлинг
 

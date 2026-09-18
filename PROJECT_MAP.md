@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-18 06:35 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-18 07:18 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -5357,6 +5357,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `backend/tests/test_piggy_bank_withdraw_flex.py` (2026-09-18 10:16)
 - `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-09-18 09:35)
 - `backend/tests/test_service_resource_group_validation.py` (2026-09-18 09:35)
 - `backend/app/schemas.py` (2026-09-18 09:35)
@@ -5371,4 +5372,3 @@ concept1.0/
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-17 22:16)
 - `frontend/src/app/components/ui/utils.ts` (2026-09-17 22:15)
 - `backend/app/main.py` (2026-09-17 22:15)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-17 21:39)
