@@ -349,3 +349,125 @@ class MoneyMatrixTests(unittest.TestCase):
         self.complete(self.make_booking(*S2, 10000)["id"])
         piggy = self.piggy_bank()
         self.assertEqual(piggy["detailing"]["detailingMaster"], 5000)
+
+    def test_wallet_ignores_soft_deleted(self) -> None:
+        """F1: удалённые (cleanup) доходы/расходы не входят в итоги кошелька."""
+        date = self.next_active_date()
+        income = self.client.post(
+            "/api/owner/incomes", headers=self.auth_headers(self.owner_token),
+            json={"amount": 5000, "source": "Тест", "date": date, "resourceGroup": "wash"})
+        self.assertEqual(income.status_code, 201, income.text)
+        expense = self.client.post(
+            "/api/expenses", headers=self.auth_headers(self.owner_token),
+            json={"title": "Тест", "amount": 1000, "category": "Материалы",
+                  "date": date, "resourceGroup": "wash"})
+        self.assertEqual(expense.status_code, 200, expense.text)
+        before = self.client.get(
+            "/api/owner/wallet", headers=self.auth_headers(self.owner_token),
+            params={"date_from": date, "date_to": date})
+        self.assertEqual(before.status_code, 200, before.text)
+        self.assertEqual(before.json()["totalIncome"], 5000)
+        self.assertEqual(before.json()["totalExpense"], 1000)
+
+        day_iso = f"{date[6:10]}-{date[3:5]}-{date[0:2]}"
+        cleanup = self.client.post(
+            "/api/owner/data-cleanup/execute", headers=self.auth_headers(self.owner_token),
+            json={"entities": ["incomes", "expenses"], "mode": "range",
+                  "dateFrom": day_iso, "dateTo": day_iso})
+        self.assertEqual(cleanup.status_code, 200, cleanup.text)
+        after = self.client.get(
+            "/api/owner/wallet", headers=self.auth_headers(self.owner_token),
+            params={"date_from": date, "date_to": date})
+        self.assertEqual(after.status_code, 200, after.text)
+        self.assertEqual(after.json()["totalIncome"], 0)
+        self.assertEqual(after.json()["totalExpense"], 0)
+
+    def test_piggy_breakdown_outsource_dop(self) -> None:
+        """F2: аутсорс-доп в карточке копилки: 24% от (цена − аутсорс), а не от цены."""
+        self.reset_services()
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], name="Аутсорс", price=2000, priceMode="add",
+                     isOutsource=True, outsourceAmount=1500, workers=[])
+        self.complete(booking["id"])
+        piggy = self.piggy_bank()
+        self.assertEqual(piggy["wash"]["additionalPiggy"], 120)
+
+    def test_fractional_dop_rounding(self) -> None:
+        """F3: доп 10₽/25%: мастеру 3 (HALF_UP), инвариант цена == мастер+копилка+владельцы."""
+        self.reset_services()
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], name="Мелочь", price=10, priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван", "percent": 25}])
+        booking = self.complete(booking["id"])
+        split = self.split_of(booking["id"])
+        self.assertEqual(split["price"], 10010)
+        self.assertEqual(split["masterTotal"], 3003)
+        self.assertEqual(split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"], 10010)
+
+    def test_detail_override_keeps_own_dop(self) -> None:
+        """F4: override основы + свой доп: детализация показывает override + доп."""
+        self.reset_services()
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], name="Доп", price=2000, priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
+        booking = self.complete(booking["id"])
+        split = self.client.get(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token)).json()
+        link_id = split["workers"][0]["linkId"]
+        put = self.client.put(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token),
+            json={"workers": [{"linkId": link_id, "overrideEarned": 777}],
+                  "materialsCost": None, "piggyDeposit": None, "owners": []})
+        self.assertEqual(put.status_code, 200, put.text)
+        detail = put.json()
+        self.assertEqual(detail["masterTotalAuto"], 1777)
+        self.assertEqual(detail["masterTotal"], 1777)
+
+    def test_cancelled_booking_drops_owner_accrual(self) -> None:
+        """F5: отмена completed-записи убирает её pending-доли из ЗП владельцев."""
+        self.reset_services()
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        date = booking["date"]
+
+        def accrued() -> int:
+            response = self.client.get(
+                "/api/owner/owners/salary-detail",
+                headers=self.auth_headers(self.owner_token),
+                params={"period": "custom", "date_from": date, "date_to": date})
+            self.assertEqual(response.status_code, 200, response.text)
+            return sum(o["totalAccrued"] for o in response.json()["owners"])
+
+        self.assertEqual(accrued(), 4600)
+        cancel = self.client.patch(
+            f"/api/bookings/{booking['id']}", headers=self.auth_headers(self.admin_token),
+            json={"status": "cancelled"})
+        self.assertEqual(cancel.status_code, 200, cancel.text)
+        self.assertEqual(accrued(), 0)
+
+    def test_owner_pay_salary_replay_after_full_payout(self) -> None:
+        """F6: повтор выплаты тем же ключом после полного погашения — replay, а не 400."""
+        from app.database import SessionLocal
+        from app.models import OwnerProfitShare
+
+        self.reset_services()
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        with SessionLocal() as db:
+            share = db.scalar(select(OwnerProfitShare).where(
+                OwnerProfitShare.booking_id == booking["id"],
+                OwnerProfitShare.status == "pending"))
+            self.assertIsNotNone(share)
+            assert share is not None
+            owner_id, pending = share.owner_id, int(share.amount)
+        key = "f6-replay-key"
+        first = self.client.post(
+            "/api/owner/owners/pay-salary", headers=self.auth_headers(self.owner_token),
+            json={"ownerId": owner_id, "amount": pending, "note": "", "clientRequestId": key})
+        self.assertEqual(first.status_code, 200, first.text)
+        second = self.client.post(
+            "/api/owner/owners/pay-salary", headers=self.auth_headers(self.owner_token),
+            json={"ownerId": owner_id, "amount": pending, "note": "", "clientRequestId": key})
+        self.assertEqual(second.status_code, 200, second.text)
+        self.assertEqual(second.json()["payoutId"], first.json()["payoutId"])
+        self.assertEqual(second.json()["message"], "Выплата уже проведена ранее")

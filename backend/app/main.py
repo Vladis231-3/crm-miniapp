@@ -13123,7 +13123,11 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
 
 
 def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
-    """Сколько уходит с доп. услуги: аутсорсеру или мастерам (фикс/процент)."""
+    """Сколько уходит с доп. услуги: аутсорсеру или мастерам (фикс/процент).
+
+    Округление — money_int (HALF_UP), как в сплите мастеров: round() банкира
+    давал ±1₽ на дробных .5 (напр. 10₽×25%: 2 vs 3) и разводил остаток/копилку.
+    """
     if asvc.is_outsource:
         return int(asvc.outsource_amount or 0)
     total = 0
@@ -13131,7 +13135,7 @@ def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
         if alink.pay_type == "fixed":
             total += int(alink.fixed_amount or 0)
         else:
-            total += round(asvc.price * (alink.percent or 0) / 100)
+            total += money_int(asvc.price * (alink.percent or 0) / 100)
     return total
 
 
@@ -16674,7 +16678,7 @@ def get_piggy_bank(
                         dop_master += int(alink.fixed_amount or 0)
                     else:
                         dop_master += money_int(int(asvc.price or 0) * (alink.percent or 0) / 100)
-            dop_remainder = max(0, int(asvc.price or 0) - dop_master)
+            dop_remainder = max(0, int(asvc.price or 0) - _asvc_paid_amount(asvc))
             dop_piggy = money_int(dop_remainder * 24 / 100) if dop_remainder > 0 else 0
             if dop_group == WASH_RESOURCE_GROUP:
                 wash_asvc_revenue += int(asvc.price or 0)
@@ -17004,16 +17008,7 @@ def get_piggy_bank(
                         _dop_group = DEFAULT_RESOURCE_GROUP
                     if _dop_group != WASH_RESOURCE_GROUP:
                         continue
-                    if _asvc.is_outsource:
-                        _dop_master = 0
-                    else:
-                        _dop_master = 0
-                        for _alink in (getattr(_asvc, "worker_links", None) or []):
-                            if _alink.pay_type == "fixed":
-                                _dop_master += int(_alink.fixed_amount or 0)
-                            else:
-                                _dop_master += money_int(int(_asvc.price or 0) * (_alink.percent or 0) / 100)
-                    _dop_rem = max(0, int(_asvc.price or 0) - _dop_master)
+                    _dop_rem = max(0, int(_asvc.price or 0) - _asvc_paid_amount(_asvc))
                     if _dop_rem > 0:
                         _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
             _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
@@ -17285,16 +17280,7 @@ def get_piggy_bank(
                             _dop_group = DEFAULT_RESOURCE_GROUP
                         if _dop_group != WASH_RESOURCE_GROUP:
                             continue
-                        if _asvc.is_outsource:
-                            _dop_master = 0
-                        else:
-                            _dop_master = 0
-                            for _alink in (getattr(_asvc, "worker_links", None) or []):
-                                if _alink.pay_type == "fixed":
-                                    _dop_master += int(_alink.fixed_amount or 0)
-                                else:
-                                    _dop_master += money_int(int(_asvc.price or 0) * (_alink.percent or 0) / 100)
-                        _dop_rem = max(0, int(_asvc.price or 0) - _dop_master)
+                        _dop_rem = max(0, int(_asvc.price or 0) - _asvc_paid_amount(_asvc))
                         if _dop_rem > 0:
                             _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
                 _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
@@ -19358,6 +19344,7 @@ def get_wallet(
         select(Income)
         .where(
             Income.date.is_not(None),
+            Income.deleted_at.is_(None),
             _stored_date_iso_expr(Income.date) >= week_iso_min,
             _stored_date_iso_expr(Income.date) <= week_iso_max,
         )
@@ -19368,6 +19355,7 @@ def get_wallet(
         select(Expense)
         .where(
             Expense.date.is_not(None),
+            Expense.deleted_at.is_(None),
             _stored_date_iso_expr(Expense.date) >= week_iso_min,
             _stored_date_iso_expr(Expense.date) <= week_iso_max,
         )
@@ -22645,8 +22633,14 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     split_base = int(split.get("split_base", max(0, split["net"] - subtract_total)))
 
     link_worker_ids = {link.worker_id for link in booking.worker_links}
+    # При override earned заменяет только основу мастера — его допы добавляются
+    # отдельно (как в сплите), иначе детализация занижает итог на доп.
+    override_worker_ids = {
+        link.worker_id for link in booking.worker_links if link.override_earned is not None
+    }
     master_effective_total += sum(
-        w.earned for w in asvc_workers if w.workerId not in link_worker_ids
+        w.earned for w in asvc_workers
+        if w.workerId not in link_worker_ids or w.workerId in override_worker_ids
     )
 
     return BookingMoneySplitDetail(
@@ -25458,6 +25452,22 @@ def owner_salary_detail(
         or (share.status != "pending" and dt_from <= _ops_ts(share.paid_at or share.created_at) <= dt_to)
     ]
 
+    # Начисление — только за живые завершённые записи: отмена/удаление после
+    # complete оставляют pending-строки, которые долгом уже не являются
+    # (у мастеров и в money-flow такие записи исключены выборкой completed).
+    live_booking_ids = {
+        bid for (bid,) in db.execute(
+            select(Booking.id).where(
+                Booking.deleted_at.is_(None),
+                Booking.status == "completed",
+            )
+        ).all()
+    }
+    period_shares = [
+        share for share in period_shares
+        if share.booking_id is None or share.booking_id in live_booking_ids
+    ]
+
 
 
     total_accrued = 0
@@ -25676,7 +25686,32 @@ def owner_pay_salary(
 
         raise HTTPException(status_code=404, detail="Владелец не найден")
 
-
+    # Идемпотентность: повтор с тем же clientRequestId возвращает первую
+    # выплату (как у мастеров). Без pre-check ретрай после полной выплаты
+    # упирался бы в 400 «больше, чем накоплено» вместо replay.
+    if payload.clientRequestId:
+        existing_entry = db.scalar(
+            select(PayrollEntry).where(
+                PayrollEntry.request_key == payload.clientRequestId,
+                PayrollEntry.worker_id == owner.id,
+                PayrollEntry.kind == "payout",
+            )
+        )
+        if existing_entry is not None:
+            replay_balance = sum(
+                s.amount for s in db.scalars(
+                    select(OwnerProfitShare).where(
+                        OwnerProfitShare.owner_id == payload.ownerId,
+                        OwnerProfitShare.status == "pending",
+                    )
+                ).all()
+            )
+            return PayOwnerSalaryResponse(
+                message="Выплата уже проведена ранее",
+                payoutId=existing_entry.id,
+                expenseId=existing_entry.expense_id or "",
+                newBalance=replay_balance,
+            )
 
     amount = payload.amount
 
@@ -25692,7 +25727,7 @@ def owner_pay_salary(
 
             OwnerProfitShare.status == "pending",
 
-        ).order_by(OwnerProfitShare.created_at.asc())
+        ).order_by(OwnerProfitShare.created_at.asc(), OwnerProfitShare.id.asc())
 
     ).all()
 
