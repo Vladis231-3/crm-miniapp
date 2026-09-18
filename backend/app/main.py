@@ -16631,9 +16631,15 @@ def get_piggy_bank(
         cached = _main_split_cache.get(booking.id)
         if cached is None:
             split = _booking_money_split(db, booking, complaints_by_worker)
+            piggy = split["piggy_deposit"] - sum(d["amount"] for d in split["asvc_piggy_deposits"])
+            if (booking.payment_type or "") == "credit":
+                # Кредит (в т.ч. мойки через депозит): проводок копилки нет —
+                # вернутся lump-суммой через settle-month (deposit_return).
+                # Мастера/выручка считаются как обычно (ЗП начисляется).
+                piggy = 0
             cached = (
                 split["master_total"] - split["asvc_master_pay"],
-                split["piggy_deposit"] - sum(d["amount"] for d in split["asvc_piggy_deposits"]),
+                piggy,
             )
             _main_split_cache[booking.id] = cached
         return cached
@@ -16679,7 +16685,10 @@ def get_piggy_bank(
                     else:
                         dop_master += money_int(int(asvc.price or 0) * (alink.percent or 0) / 100)
             dop_remainder = max(0, int(asvc.price or 0) - _asvc_paid_amount(asvc))
-            dop_piggy = money_int(dop_remainder * 24 / 100) if dop_remainder > 0 else 0
+            # Кредит: допы тоже без проводок — в копилку 0 (см. _booking_main_split).
+            dop_piggy = 0 if (booking.payment_type or "") == "credit" else (
+                money_int(dop_remainder * 24 / 100) if dop_remainder > 0 else 0
+            )
             if dop_group == WASH_RESOURCE_GROUP:
                 wash_asvc_revenue += int(asvc.price or 0)
                 wash_asvc_master += dop_master
@@ -16691,6 +16700,14 @@ def get_piggy_bank(
     total_revenue = self_service_revenue + classic_revenue + wash_asvc_revenue
     total_master = self_service_master + classic_master + wash_asvc_master
     total_piggy = self_service_piggy + classic_piggy + wash_asvc_piggy
+    # Возвраты settle-month (deposit_return, без записи): реальные деньги
+    # копилки мойки, у revenue-цикла пары нет — добавляем явно.
+    total_piggy += sum(
+        t.amount for t in all_tx
+        if t.transaction_type == "deposit_return"
+        and t.resource_group == WASH_RESOURCE_GROUP
+        and _in_range(t.date)
+    )
 
 
 
@@ -17009,8 +17026,17 @@ def get_piggy_bank(
                     if _dop_group != WASH_RESOURCE_GROUP:
                         continue
                     _dop_rem = max(0, int(_asvc.price or 0) - _asvc_paid_amount(_asvc))
-                    if _dop_rem > 0:
+                    if _dop_rem > 0 and (_b.payment_type or "") != "credit":
                         _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
+            for _t in _weekly_base_txs:
+                _d = _tx_parsed_date.get(_t.id)
+                if _d is None or not (_d < _sat):
+                    continue
+                if _t.transaction_type == "deposit_return" and _t.resource_group == WASH_RESOURCE_GROUP:
+                    try:
+                        _wash_asvc_piggy_before += float(_t.amount or 0)
+                    except (TypeError, ValueError):
+                        pass
             _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
             _outputs_before = 0
             try:
@@ -17281,8 +17307,17 @@ def get_piggy_bank(
                         if _dop_group != WASH_RESOURCE_GROUP:
                             continue
                         _dop_rem = max(0, int(_asvc.price or 0) - _asvc_paid_amount(_asvc))
-                        if _dop_rem > 0:
+                        if _dop_rem > 0 and (_b.payment_type or "") != "credit":
                             _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
+                for _t in _weekly_base_txs:
+                    _d = _tx_parsed_date.get(_t.id)
+                    if _d is None or not (_d < _cur_sat):
+                        continue
+                    if _t.transaction_type == "deposit_return" and _t.resource_group == WASH_RESOURCE_GROUP:
+                        try:
+                            _wash_asvc_piggy_before += float(_t.amount or 0)
+                        except (TypeError, ValueError):
+                            pass
                 _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
                 _outputs_before = 0
                 try:

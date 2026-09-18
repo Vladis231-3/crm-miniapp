@@ -561,3 +561,31 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(len(entries), 1)
         earned = sum(w["earned"] for w in entries[0]["distribution"]["workers"])
         self.assertEqual(earned, 1777)
+
+    def test_credit_booking_zero_piggy_in_breakdown(self) -> None:
+        """Кредит: в карточке копилки 0 (проводок нет), мастера/выручка как обычно."""
+        self.reset_services()
+        booking = self.complete(self.make_booking(*S1, 10000, payment_type="credit")["id"])
+        piggy = self.piggy_bank()
+        self.assertEqual(piggy["wash"]["totalMaster"], 3000)
+        self.assertEqual(piggy["wash"]["totalPiggy"], 0)
+        self.assertEqual(piggy["wash"]["totalRevenue"], 10000)
+        self.assertEqual(piggy["remainingInPiggyBank"], 0)
+
+    def test_settle_refund_visible_in_wash_piggy(self) -> None:
+        """Возврат settle-month (deposit_return) входит в копилку мойки."""
+        from app.database import SessionLocal
+        from app.models import PiggyBankTransaction
+
+        self.reset_services()
+        date = self.next_active_date()
+        with SessionLocal() as db:
+            db.add(PiggyBankTransaction(
+                id="pb-refund-1", booking_id=None, amount=7000,
+                transaction_type="deposit_return",
+                purpose="Депозит Тест: возврат моек",
+                date=date, resource_group="wash"))
+            db.commit()
+        piggy = self.piggy_bank()
+        self.assertEqual(piggy["wash"]["totalPiggy"], 7000)
+        self.assertEqual(piggy["remainingInPiggyBank"], 7000)
