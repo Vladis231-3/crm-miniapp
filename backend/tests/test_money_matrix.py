@@ -471,3 +471,93 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(second.status_code, 200, second.text)
         self.assertEqual(second.json()["payoutId"], first.json()["payoutId"])
         self.assertEqual(second.json()["message"], "Выплата уже проведена ранее")
+
+    def test_history_totals_match_archive_after_manual_piggy_edit(self) -> None:
+        """D4: totals берут фактические проводки как архив, а не авто-расчёт."""
+        self.reset_services()
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        date = booking["date"]
+        put = self.client.put(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token),
+            json={"workers": [], "materialsCost": None,
+                  "piggyDeposit": 5000, "owners": []})
+        self.assertEqual(put.status_code, 200, put.text)
+        totals = self.client.get(
+            "/api/owner/bookings-history/totals",
+            headers=self.auth_headers(self.owner_token),
+            params={"date_from": date, "date_to": date})
+        self.assertEqual(totals.status_code, 200, totals.text)
+        wash = [p for p in totals.json()["piggy"] if p["resourceGroup"] == "wash"]
+        self.assertEqual(len(wash), 1)
+        self.assertEqual(wash[0]["amount"], 5000)
+        archive = self.client.get(
+            "/api/owner/archive",
+            headers=self.auth_headers(self.owner_token),
+            params={"date_from": date, "date_to": date})
+        self.assertEqual(archive.status_code, 200, archive.text)
+        items = [b for b in archive.json()["bookings"] if b["id"] == booking["id"]]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["piggyDeposit"], 5000)
+
+    def test_archive_profit_counts_booking_materials_once(self) -> None:
+        """Архив: списание материалов сидит в net — Expense-строка не дублирует его в profit."""
+        self.reset_services()
+        stock = self.client.post(
+            "/api/stock-items", headers=self.auth_headers(self.admin_token),
+            json={"name": "Шампунь-тест", "qty": 100, "unit": "шт",
+                  "unitPrice": 500, "category": "Химия"})
+        self.assertEqual(stock.status_code, 200, stock.text)
+        stock_id = stock.json()["id"]
+        created = self.client.post(
+            "/api/bookings", headers=self.auth_headers(self.admin_token),
+            json={
+                "clientId": "", "clientName": "Materials Client",
+                "clientPhone": "+7 (999) 333-44-55",
+                "service": "Мойка базовая", "serviceId": "s1",
+                "date": self.next_active_date(), "time": "10:00", "duration": 30,
+                "price": 10000, "status": "scheduled",
+                "workers": [{"workerId": "w1", "workerName": "Иван", "percent": 30}],
+                "box": "Бокс 1", "paymentType": "cash",
+                "car": "Lada Vesta", "plate": "A123BC",
+                "materials": [{"id": "bm-1", "stockItemId": stock_id,
+                               "name": "Шампунь-тест", "qty": 2,
+                               "unit": "шт", "unitPrice": 500}],
+            })
+        self.assertEqual(created.status_code, 200, created.text)
+        booking = self.complete(created.json()["id"])
+        archive = self.client.get(
+            "/api/owner/archive", headers=self.auth_headers(self.owner_token),
+            params={"date_from": booking["date"], "date_to": booking["date"]})
+        self.assertEqual(archive.status_code, 200, archive.text)
+        summary = archive.json()["summary"]
+        self.assertEqual(summary["revenue"], 10000)
+        self.assertEqual(summary["net"], 9000)
+        self.assertEqual(summary["totalExpense"], 0)
+        self.assertEqual(summary["profit"], 9000)
+
+    def test_money_flow_workers_include_override_dop(self) -> None:
+        """money-flow: доп override-мастера входит в расшифровку workers."""
+        self.reset_services()
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], name="Доп", price=2000, priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
+        booking = self.complete(booking["id"])
+        split = self.client.get(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token)).json()
+        link_id = split["workers"][0]["linkId"]
+        put = self.client.put(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token),
+            json={"workers": [{"linkId": link_id, "overrideEarned": 777}],
+                  "materialsCost": None, "piggyDeposit": None, "owners": []})
+        self.assertEqual(put.status_code, 200, put.text)
+        flow = self.client.get(
+            "/api/owner/money-flow", headers=self.auth_headers(self.owner_token),
+            params={"date_from": booking["date"], "date_to": booking["date"]})
+        self.assertEqual(flow.status_code, 200, flow.text)
+        entries = [e for e in flow.json()["entries"] if e["id"] == f"mf-b:{booking['id']}"]
+        self.assertEqual(len(entries), 1)
+        earned = sum(w["earned"] for w in entries[0]["distribution"]["workers"])
+        self.assertEqual(earned, 1777)

@@ -463,7 +463,7 @@ def build_owner_summary_report(
 
         returns = sum(t.amount for t in period_piggy if t.transaction_type == "deposit_return" and t.amount > 0)
 
-        withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0)
+        withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "material_withdrawal" and t.amount < 0)
 
         other_withdrawals = sum(abs(t.amount) for t in period_piggy if t.transaction_type == "other_withdrawal" and t.amount < 0)
 

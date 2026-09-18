@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-18 08:02 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-18 08:34 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **536**
-- Строк кода: **216 640**
-- По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 183, `.ts`: 37, `.tsx`: 308
+- Файлов кода: **537**
+- Строк кода: **216 838**
+- По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 184, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
 
@@ -268,6 +268,7 @@ concept1.0/
 │   │   ├── test_owner_export_stock_decimal.py
 │   │   ├── test_owner_masters.py
 │   │   ├── test_owner_salary_asvc_only.py
+│   │   ├── test_owner_summary_piggy.py
 │   │   ├── test_payroll_date_migration.py
 │   │   ├── test_performance_wave3.py
 │   │   ├── test_phone_reclaim.py
@@ -936,7 +937,7 @@ concept1.0/
 - `_pull_one_calendardef _pull_one_calendar(db: Any, settings: Settings, conn: dict[str, Any]) -> dict[str, Any]: """Обратная синхронизация одного календаря. Возвращает свою статистику. result["ok"]=Fa` (стр. 1817)
 - `_pull_calendar_changes_impldef _pull_calendar_changes_impl(db: Any, settings: Settings) -> dict[str, Any]: result = _empty_pull_result() if not is_configured(settings, db):` (стр. 1871)
 
-### backend/app/main.py (26533 строк)
+### backend/app/main.py (26578 строк)
 
 Роуты (151):
 
@@ -1071,27 +1072,27 @@ concept1.0/
   `PUT /api/payroll/booking-workers/{link_id}/override-earned` -> `update_booking_worker_override_earned` (декоратор: стр. 22492)
   `GET /api/owner/bookings-history` -> `get_owner_bookings_history` (декоратор: стр. 22723)
   `GET /api/owner/bookings-history/totals` -> `get_owner_bookings_history_totals` (декоратор: стр. 22811)
-  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 22985)
-  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 23302)
-  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 23847)
-  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 23861)
-  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 24252)
-  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 24703)
-  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 25113)
-  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 25374)
-  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 25640)
-  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 25667)
-  `POST /api/workers` -> `create_worker` (декоратор: стр. 25944)
-  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 26082)
-  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 26142)
-  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 26338)
-  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 26352)
-  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 26367)
-  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 26419)
-  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 26431)
-  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 26455)
-  `POST /api/auth/logout` -> `logout` (декоратор: стр. 26463)
-  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 26476)
+  `GET /api/owner/archive` -> `get_owner_archive` (декоратор: стр. 23019)
+  `GET /api/owner/money-flow` -> `get_owner_money_flow` (декоратор: стр. 23344)
+  `GET /api/owner/bookings/{booking_id}/money-split` -> `get_owner_booking_money_split` (декоратор: стр. 23892)
+  `PUT /api/owner/bookings/{booking_id}/money-split` -> `update_owner_booking_money_split` (декоратор: стр. 23906)
+  `GET /api/owner/workers/{worker_id}/salary-detail` -> `owner_worker_salary_detail` (декоратор: стр. 24297)
+  `GET /api/worker/salary-detail` -> `worker_my_salary_detail` (декоратор: стр. 24748)
+  `POST /api/owner/workers/{worker_id}/pay-salary` -> `owner_worker_pay_salary` (декоратор: стр. 25158)
+  `GET /api/owner/owners/salary-detail` -> `owner_salary_detail` (декоратор: стр. 25419)
+  `PATCH /api/owner/owners/{owner_id}/master-role` -> `set_owner_master_role` (декоратор: стр. 25685)
+  `POST /api/owner/owners/pay-salary` -> `owner_pay_salary` (декоратор: стр. 25712)
+  `POST /api/workers` -> `create_worker` (декоратор: стр. 25989)
+  `POST /api/workers/{worker_id}/reset-password` -> `reset_worker_password` (декоратор: стр. 26127)
+  `DELETE /api/workers/{worker_id}` -> `fire_worker` (декоратор: стр. 26187)
+  `GET /api/auth/session` -> `get_session_bootstrap` (декоратор: стр. 26383)
+  `GET /api/auth/role-preview` -> `get_role_preview` (декоратор: стр. 26397)
+  `POST /api/auth/role-preview` -> `set_role_preview` (декоратор: стр. 26412)
+  `GET /api/auth/consent/check` -> `check_consent` (декоратор: стр. 26464)
+  `POST /api/auth/consent` -> `record_consent` (декоратор: стр. 26476)
+  `GET /api/auth/sessions` -> `get_active_sessions` (декоратор: стр. 26500)
+  `POST /api/auth/logout` -> `logout` (декоратор: стр. 26508)
+  `POST /api/auth/change-password` -> `change_password` (декоратор: стр. 26521)
 ```
 
 Классы и функции (289):
@@ -2658,9 +2659,9 @@ concept1.0/
 - `MoneyFlowEndpointTests.test_deposit_topup_is_inflowdef test_deposit_topup_is_inflow(self) -> None: from app.database import SessionLocal from app.models import Client client_id = f"c-{uuid4().hex[:12]}" client_name = "Депозит Клиен` (стр. 350)
 - `MoneyFlowEndpointTests.test_period_filtering_excludes_other_datesdef test_period_filtering_excludes_other_dates(self) -> None: booking = self.create_completed_booking(price=1200) old_date = (datetime.now() - timedelta(days=365)).strftime("%d.%m.` (стр. 389)
 
-### backend/tests/test_money_matrix.py (473 строк)
+### backend/tests/test_money_matrix.py (563 строк)
 
-Классы и функции (31):
+Классы и функции (34):
 
 - `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 22)
 - `class MoneyMatrixTests(unittest.TestCase):` (стр. 38)
@@ -2693,6 +2694,9 @@ concept1.0/
 - `MoneyMatrixTests.test_cancelled_booking_drops_owner_accrualdef test_cancelled_booking_drops_owner_accrual(self) -> None: """F5: отмена completed-записи убирает её pending-доли из ЗП владельцев.""" self.reset_services() booking = self.compl` (стр. 428)
 - `MoneyMatrixTests.accrueddef accrued() -> int: response = self.client.get( "/api/owner/owners/salary-detail", headers=self.auth_headers(self.owner_token), params={"period": "custom", "date_from": date, "da` (стр. 434)
 - `MoneyMatrixTests.test_owner_pay_salary_replay_after_full_payoutdef test_owner_pay_salary_replay_after_full_payout(self) -> None: """F6: повтор выплаты тем же ключом после полного погашения — replay, а не 400.""" from app.database import Sessio` (стр. 449)
+- `MoneyMatrixTests.test_history_totals_match_archive_after_manual_piggy_editdef test_history_totals_match_archive_after_manual_piggy_edit(self) -> None: """D4: totals берут фактические проводки как архив, а не авто-расчёт.""" self.reset_services() booking ` (стр. 475)
+- `MoneyMatrixTests.test_archive_profit_counts_booking_materials_oncedef test_archive_profit_counts_booking_materials_once(self) -> None: """Архив: списание материалов сидит в net — Expense-строка не дублирует его в profit.""" self.reset_services() ` (стр. 503)
+- `MoneyMatrixTests.test_money_flow_workers_include_override_dopdef test_money_flow_workers_include_override_dop(self) -> None: """money-flow: доп override-мастера входит в расшифровку workers.""" self.reset_services() booking = self.make_booki` (стр. 539)
 
 ### backend/tests/test_money_split_fuzz.py (320 строк)
 
@@ -2776,6 +2780,15 @@ concept1.0/
 - `OwnerSalaryAsvcOnlyTest._todaydef _today() -> str: return datetime.now(timezone.utc).strftime("%d.%m.%Y")` (стр. 104)
 - `OwnerSalaryAsvcOnlyTest._create_clientdef _create_client(self) -> tuple[str, str]: from app.database import SessionLocal from app.models import Client from app.schemas import normalize_phone client_id = f"c-{uuid4().he` (стр. 107)
 - `OwnerSalaryAsvcOnlyTest.test_owner_salary_detail_includes_asvc_only_workerdef test_owner_salary_detail_includes_asvc_only_worker(self) -> None: """Owner should see earnings for worker assigned ONLY to additional service.""" client_id, client_phone = self` (стр. 127)
+
+### backend/tests/test_owner_summary_piggy.py (63 строк)
+
+Классы и функции (4):
+
+- `_booking_todaydef _booking_today() -> Booking: today = datetime.now().strftime("%d.%m.%Y") return Booking( id="b-tg-1", service_id="s1", service="Мойка базовая", date=today, time="11:00", price=` (стр. 15)
+- `_servicedef _service() -> Service: return Service(id="s1", name="Мойка базовая", category="Мойка", price=10000)` (стр. 29)
+- `_txdef _tx(tx_id: str, kind: str, amount: float) -> PiggyBankTransaction: today = datetime.now().strftime("%d.%m.%Y") return PiggyBankTransaction( id=tx_id, amount=amount, transaction` (стр. 33)
+- `test_other_withdrawal_not_doubled_in_materials_linedef test_other_withdrawal_not_doubled_in_materials_line() -> None: report = build_owner_summary_report( company_name="Тест", bookings=[_booking_today()], services=[_service()], pig` (стр. 45)
 
 ### backend/tests/test_payroll_date_migration.py (179 строк)
 
@@ -5366,8 +5379,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/tests/test_money_matrix.py` (2026-09-18 10:50)
-- `backend/app/main.py` (2026-09-18 10:47)
+- `backend/app/main.py` (2026-09-18 11:11)
+- `backend/tests/test_money_matrix.py` (2026-09-18 11:10)
+- `backend/app/exports.py` (2026-09-18 11:05)
+- `backend/tests/test_owner_summary_piggy.py` (2026-09-18 11:05)
 - `backend/tests/test_piggy_bank_withdraw_flex.py` (2026-09-18 10:16)
 - `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-09-18 09:35)
 - `backend/tests/test_service_resource_group_validation.py` (2026-09-18 09:35)
@@ -5379,5 +5394,3 @@ concept1.0/
 - `frontend/src/app/components/admin/screens/AdminStatsPage.tsx` (2026-09-17 22:16)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-09-17 22:16)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-09-17 22:16)
-- `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-09-17 22:16)
-- `frontend/src/app/components/ui/utils.ts` (2026-09-17 22:15)

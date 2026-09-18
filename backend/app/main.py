@@ -22948,12 +22948,46 @@ def get_owner_bookings_history_totals(
         )
     ]
 
-    # ── Копилка: вклады по банкам (основной вклад + вклады доп. услуг) ──
+    # ── Копилка: вклады по банкам (фактические проводки как в архиве,
+    # авто-расчёт только если проводок ещё нет) ──
     piggy_totals: dict[str, dict] = {}
     penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(penalties)
+    deposit_by_booking: dict[str, list] = {}
+    if booking_ids:
+        for txn in db.scalars(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.deleted_at.is_(None),
+                PiggyBankTransaction.booking_id.in_(booking_ids),
+                PiggyBankTransaction.transaction_type == "deposit_24percent",
+            )
+        ).all():
+            deposit_by_booking.setdefault(txn.booking_id, []).append(txn)
     for booking in bookings:
         split = _booking_money_split(db, booking, complaints_by_worker)
+        factual = deposit_by_booking.get(booking.id, [])
+        if factual:
+            main_dep = sum(
+                int(t.amount or 0) for t in factual
+                if not (t.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX)
+            )
+            if main_dep > 0:
+                svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
+                piggy_target = (svc_for_piggy.piggy_target or "").strip() if svc_for_piggy else ""
+                if piggy_target not in ("detailing", "wash", "general"):
+                    piggy_target = ""
+                bank = piggy_target or split.get("resource_group") or "general"
+                entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
+                entry["amount"] += main_dep
+                entry["booking_ids"].add(booking.id)
+            for txn in factual:
+                if not (txn.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX):
+                    continue
+                bank = txn.resource_group or split.get("resource_group") or "general"
+                entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
+                entry["amount"] += int(txn.amount or 0)
+                entry["booking_ids"].add(booking.id)
+            continue
         asvc_sum = sum(int(d.get("amount") or 0) for d in split.get("asvc_piggy_deposits") or [])
         main_dep = max(0, int(split.get("piggy_deposit") or 0) - asvc_sum)
         if main_dep > 0:
@@ -23114,7 +23148,15 @@ def get_owner_archive(
     expenses.sort(key=lambda e: (e.date, e.created_at), reverse=True)
 
     summary.totalIncome = int(sum(i.amount for i in incomes))
-    summary.totalExpense = int(sum(e.amount for e in expenses))
+    # Списания материалов по записям уже сидят в net (materials_cost):
+    # их Expense-строки («Расходные материалы» с booking_id) исключаем из
+    # итогов, иначе материалы вычитаются дважды (net + expenses).
+    # Строки остаются видимыми в списке, в итоги не входят.
+    _writeoff_ids = {
+        e.id for e in expenses
+        if e.booking_id and (e.category or "") == "Расходные материалы"
+    }
+    summary.totalExpense = int(sum(e.amount for e in expenses if e.id not in _writeoff_ids))
     summary.incomeCount = len(incomes)
     summary.expenseCount = len(expenses)
 
@@ -23441,7 +23483,10 @@ def get_owner_money_flow(
                     earned=int(w.earned or 0),
                 )
                 for w in detail.asvcWorkers
+                # override заменяет только основу: доп override-мастера
+                # добавляется отдельно (как в masterTotal детализации)
                 if w.workerId not in {x.workerId for x in detail.workers}
+                or w.workerId in {x.workerId for x in detail.workers if x.overrideEarned is not None}
             ],
             owners=[
                 MoneyFlowDistributionOwnerItem(
