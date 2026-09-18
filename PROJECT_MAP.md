@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-17 19:41 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-18 06:35 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **536**
-- Строк кода: **216 029**
+- Строк кода: **216 432**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 183, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -857,11 +857,11 @@ concept1.0/
 - `prorated_monthly_salarydef prorated_monthly_salary(monthly_salary: object, date_from: date, date_to: date) -> Decimal: """Prorate a monthly salary over inclusive calendar dates, month by month.""" if dat` (стр. 19)
 - `salary_base_for_perioddef salary_base_for_period( monthly_salary: object, date_from: date, date_to: date, *, period: str, today: date | None = None,` (стр. 36)
 
-### backend/app/finance_sync.py (52 строк)
+### backend/app/finance_sync.py (77 строк)
 
 Классы и функции (1):
 
-- `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync.""" # Зарплатные расходы (премии/авансы` (стр. 14)
+- `sync_expense_piggy_transactiondef sync_expense_piggy_transaction(db: Session, expense: Expense) -> None: """Keep the single piggy transaction linked to an expense in sync. Два вида связанных транзакций: - mirro` (стр. 21)
 
 ### backend/app/google_calendar.py (1943 строк)
 
@@ -1298,7 +1298,7 @@ concept1.0/
 - `_booking_receipt_textdef _booking_receipt_text(booking: Booking, *, worker_name: str | None = None) -> str: worker_line = f"\nМастер: {worker_name}" if worker_name else "" add_block = _additional_servi` (стр. 10811)
 - ...ещё 88
 
-### backend/app/models.py (742 строк)
+### backend/app/models.py (744 строк)
 
 Классы и функции (30):
 
@@ -1327,13 +1327,13 @@ concept1.0/
 - `class Income(Base):` (стр. 546)
 - `class WeeklyArchive(Base):` (стр. 569)
 - `class PiggyBankTransaction(Base):` (стр. 587)
-- `class DepositTransaction(Base):` (стр. 626)
-- `class DepositMonth(Base):` (стр. 645)
-- `class OwnerProfitShare(Base):` (стр. 663)
-- `class DataCleanupBatch(Base):` (стр. 685)
-- `class TrashItem(Base):` (стр. 714)
+- `class DepositTransaction(Base):` (стр. 628)
+- `class DepositMonth(Base):` (стр. 647)
+- `class OwnerProfitShare(Base):` (стр. 665)
+- `class DataCleanupBatch(Base):` (стр. 687)
+- `class TrashItem(Base):` (стр. 716)
 
-### backend/app/schemas.py (2668 строк)
+### backend/app/schemas.py (2670 строк)
 
 Классы и функции (248):
 
@@ -1472,71 +1472,71 @@ concept1.0/
 - `class IncomePayload(BaseModel):` (стр. 1399)
 - `IncomePayload._validate_amountdef _validate_amount(cls, value: Any) -> int: return _coerce_money_int(value)` (стр. 1411)
 - `class ExpenseCreateRequest(BaseModel):` (стр. 1415)
-- `ExpenseCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1425)
-- `class PenaltyCreateRequest(BaseModel):` (стр. 1431)
-- `class OwnerReminderDispatchRequest(BaseModel):` (стр. 1437)
-- `class OwnerReminderDispatchPayload(BaseModel):` (стр. 1442)
-- `class StaffLoginRequest(BaseModel):` (стр. 1450)
-- `class ChangePasswordRequest(BaseModel):` (стр. 1455)
-- `class OwnerDatabaseResetPreviewPayload(BaseModel):` (стр. 1460)
-- `class OwnerDatabaseResetStartRequest(BaseModel):` (стр. 1475)
-- `class OwnerDatabaseResetApproveRequest(BaseModel):` (стр. 1479)
-- `class OwnerDatabaseResetExecuteRequest(BaseModel):` (стр. 1485)
-- `class OwnerDatabaseResetStartPayload(BaseModel):` (стр. 1489)
-- `class OwnerDatabaseResetApprovePayload(BaseModel):` (стр. 1498)
-- `class OwnerDatabaseResetExecutePayload(BaseModel):` (стр. 1506)
-- `class ContentAboutPayload(BaseModel):` (стр. 1511)
-- `class ContentServicePayload(BaseModel):` (стр. 1517)
-- `class ContentWorksPayload(BaseModel):` (стр. 1528)
-- `class ContentStatsPayload(BaseModel):` (стр. 1534)
-- `class ContentTitlePayload(BaseModel):` (стр. 1539)
-- `ContentTitlePayload.to_full_titledef to_full_title(self) -> str: return f"{self.before}{self.highlight}{self.after}"` (стр. 1544)
-- `class ContentHeroPayload(BaseModel):` (стр. 1548)
-- `class ContentPayload(BaseModel):` (стр. 1564)
-- `class ContactPayload(BaseModel):` (стр. 1571)
-- `class ResetPasswordRequest(BaseModel):` (стр. 1578)
-- `class GenericMessage(BaseModel):` (стр. 1582)
-- `class TelegramDeliveryResult(BaseModel):` (стр. 1586)
-- `class TelegramBroadcastPayload(BaseModel):` (стр. 1592)
-- `class OwnerExportDeliveryPayload(BaseModel):` (стр. 1598)
-- `class ShiftAttendancePayload(BaseModel):` (стр. 1605)
-- `class ExpenseUpdateRequest(BaseModel):` (стр. 1616)
-- `ExpenseUpdateRequest.validate_titledef validate_title(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("title не может быть пустым или с` (стр. 1626)
-- `ExpenseUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1636)
-- `ExpenseUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> ExpenseUpdateRequest: if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):` (стр. 1644)
-- `class IncomeUpdateRequest(BaseModel):` (стр. 1650)
-- `IncomeUpdateRequest.validate_sourcedef validate_source(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или` (стр. 1659)
-- `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1669)
-- `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> IncomeUpdateRequest: # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as a` (стр. 1677)
-- `class PiggyBankTransactionPayload(BaseModel):` (стр. 1685)
-- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1726)
-- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1755)
-- `PiggyBankWithdrawRequest.validate_spent_by_namedef validate_spent_by_name(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() return stripped or None` (стр. 1762)
-- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1769)
-- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1779)
-- `class PiggyBankRepayRequest(BaseModel):` (стр. 1786)
-- `PiggyBankRepayRequest.validate_whole_rublesdef validate_whole_rubles(cls, value: float) -> float: if not float(value).is_integer():` (стр. 1802)
-- `PiggyBankRepayRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = (value or "").strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1809)
-- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1816)
-- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1833)
-- `class PiggyBankSpenderDebt(BaseModel):` (стр. 1848)
-- `class PiggyBankResponse(BaseModel):` (стр. 1855)
-- `class WeeklyArchivePayload(BaseModel):` (стр. 1898)
-- `class WalletResponse(BaseModel):` (стр. 1912)
-- `class OwnerProfitShareItem(BaseModel):` (стр. 1929)
-- `class OwnerProfitShareSummary(BaseModel):` (стр. 1946)
-- `class OwnerMasterRoleRequest(BaseModel):` (стр. 1957)
-- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1961)
-- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1968)
-- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1977)
-- `class OverrideEarnedRequest(BaseModel):` (стр. 1984)
-- `class BookingHistoryItem(BaseModel):` (стр. 1988)
-- `class BookingTotalsWorkerItem(BaseModel):` (стр. 2005)
-- `class BookingTotalsOwnerItem(BaseModel):` (стр. 2024)
-- `class BookingTotalsPiggyItem(BaseModel):` (стр. 2031)
-- `class BookingHistoryTotals(BaseModel):` (стр. 2037)
-- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 2043)
-- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 2054)
+- `ExpenseCreateRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1427)
+- `class PenaltyCreateRequest(BaseModel):` (стр. 1433)
+- `class OwnerReminderDispatchRequest(BaseModel):` (стр. 1439)
+- `class OwnerReminderDispatchPayload(BaseModel):` (стр. 1444)
+- `class StaffLoginRequest(BaseModel):` (стр. 1452)
+- `class ChangePasswordRequest(BaseModel):` (стр. 1457)
+- `class OwnerDatabaseResetPreviewPayload(BaseModel):` (стр. 1462)
+- `class OwnerDatabaseResetStartRequest(BaseModel):` (стр. 1477)
+- `class OwnerDatabaseResetApproveRequest(BaseModel):` (стр. 1481)
+- `class OwnerDatabaseResetExecuteRequest(BaseModel):` (стр. 1487)
+- `class OwnerDatabaseResetStartPayload(BaseModel):` (стр. 1491)
+- `class OwnerDatabaseResetApprovePayload(BaseModel):` (стр. 1500)
+- `class OwnerDatabaseResetExecutePayload(BaseModel):` (стр. 1508)
+- `class ContentAboutPayload(BaseModel):` (стр. 1513)
+- `class ContentServicePayload(BaseModel):` (стр. 1519)
+- `class ContentWorksPayload(BaseModel):` (стр. 1530)
+- `class ContentStatsPayload(BaseModel):` (стр. 1536)
+- `class ContentTitlePayload(BaseModel):` (стр. 1541)
+- `ContentTitlePayload.to_full_titledef to_full_title(self) -> str: return f"{self.before}{self.highlight}{self.after}"` (стр. 1546)
+- `class ContentHeroPayload(BaseModel):` (стр. 1550)
+- `class ContentPayload(BaseModel):` (стр. 1566)
+- `class ContactPayload(BaseModel):` (стр. 1573)
+- `class ResetPasswordRequest(BaseModel):` (стр. 1580)
+- `class GenericMessage(BaseModel):` (стр. 1584)
+- `class TelegramDeliveryResult(BaseModel):` (стр. 1588)
+- `class TelegramBroadcastPayload(BaseModel):` (стр. 1594)
+- `class OwnerExportDeliveryPayload(BaseModel):` (стр. 1600)
+- `class ShiftAttendancePayload(BaseModel):` (стр. 1607)
+- `class ExpenseUpdateRequest(BaseModel):` (стр. 1618)
+- `ExpenseUpdateRequest.validate_titledef validate_title(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("title не может быть пустым или с` (стр. 1628)
+- `ExpenseUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1638)
+- `ExpenseUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> ExpenseUpdateRequest: if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note, self.resourceGroup]):` (стр. 1646)
+- `class IncomeUpdateRequest(BaseModel):` (стр. 1652)
+- `IncomeUpdateRequest.validate_sourcedef validate_source(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() if not stripped: raise ValueError("source не может быть пустым или` (стр. 1661)
+- `IncomeUpdateRequest.validate_datedef validate_date(cls, value: str | None) -> str | None: if value is None: return None if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value):` (стр. 1671)
+- `IncomeUpdateRequest.require_at_least_one_fielddef require_at_least_one_field(self) -> IncomeUpdateRequest: # Use model_fields_set to detect explicitly provided fields (including null). # This allows {"note": null} to pass as a` (стр. 1679)
+- `class PiggyBankTransactionPayload(BaseModel):` (стр. 1687)
+- `class PiggyBankWithdrawRequest(BaseModel):` (стр. 1728)
+- `PiggyBankWithdrawRequest.validate_datedef validate_date(cls, value: str) -> str: if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", value.strip()):` (стр. 1757)
+- `PiggyBankWithdrawRequest.validate_spent_by_namedef validate_spent_by_name(cls, value: str | None) -> str | None: if value is None: return None stripped = value.strip() return stripped or None` (стр. 1764)
+- `class PiggyBankAdjustRequest(BaseModel):` (стр. 1771)
+- `PiggyBankAdjustRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = value.strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1781)
+- `class PiggyBankRepayRequest(BaseModel):` (стр. 1788)
+- `PiggyBankRepayRequest.validate_whole_rublesdef validate_whole_rubles(cls, value: float) -> float: if not float(value).is_integer():` (стр. 1804)
+- `PiggyBankRepayRequest.validate_datedef validate_date(cls, value: str) -> str: stripped = (value or "").strip() if stripped and not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", stripped):` (стр. 1811)
+- `class PiggyBankWashBreakdown(BaseModel):` (стр. 1818)
+- `class PiggyBankDetailingBreakdown(BaseModel):` (стр. 1835)
+- `class PiggyBankSpenderDebt(BaseModel):` (стр. 1850)
+- `class PiggyBankResponse(BaseModel):` (стр. 1857)
+- `class WeeklyArchivePayload(BaseModel):` (стр. 1900)
+- `class WalletResponse(BaseModel):` (стр. 1914)
+- `class OwnerProfitShareItem(BaseModel):` (стр. 1931)
+- `class OwnerProfitShareSummary(BaseModel):` (стр. 1948)
+- `class OwnerMasterRoleRequest(BaseModel):` (стр. 1959)
+- `class OwnerSalaryDetailResponse(BaseModel):` (стр. 1963)
+- `class PayOwnerSalaryRequest(BaseModel):` (стр. 1970)
+- `class PayOwnerSalaryResponse(BaseModel):` (стр. 1979)
+- `class OverrideEarnedRequest(BaseModel):` (стр. 1986)
+- `class BookingHistoryItem(BaseModel):` (стр. 1990)
+- `class BookingTotalsWorkerItem(BaseModel):` (стр. 2007)
+- `class BookingTotalsOwnerItem(BaseModel):` (стр. 2026)
+- `class BookingTotalsPiggyItem(BaseModel):` (стр. 2033)
+- `class BookingHistoryTotals(BaseModel):` (стр. 2039)
+- `class BookingMoneySplitWorkerItem(BaseModel):` (стр. 2045)
+- `class BookingMoneySplitOwnerItem(BaseModel):` (стр. 2056)
 - ...ещё 48
 
 ### backend/app/security.py (110 строк)
@@ -2929,26 +2929,35 @@ concept1.0/
 - `test_rejects_future_auth_date_beyond_skewdef test_rejects_future_auth_date_beyond_skew() -> None: with pytest.raises(ValueError, match="auth_date"):` (стр. 51)
 - `test_rejects_expired_init_data_using_configured_ttldef test_rejects_expired_init_data_using_configured_ttl() -> None: with pytest.raises(ValueError, match="expired"):` (стр. 60)
 
-### backend/tests/test_service_resource_group_validation.py (222 строк)
+### backend/tests/test_service_resource_group_validation.py (412 строк)
 
-Классы и функции (16):
+Классы и функции (25):
 
-- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 17)
-- `class ServiceResourceGroupValidationTests(unittest.TestCase):` (стр. 29)
-- `ServiceResourceGroupValidationTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 36)
-- `ServiceResourceGroupValidationTests.tearDowndef tearDown(self) -> None: self.shutdown_app() reset_app_modules() if self.db_path.exists():` (стр. 54)
-- `ServiceResourceGroupValidationTests.shutdown_appdef shutdown_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 60)
-- `ServiceResourceGroupValidationTests.restart_appdef restart_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 69)
-- `ServiceResourceGroupValidationTests.login_staffdef login_staff(self, login: str, password: str) -> str: response = self.client.post( "/api/auth/staff/login", json={"login": login, "password": password}, ) self.assertEqual(respo` (стр. 78)
-- `ServiceResourceGroupValidationTests.auth_headersdef auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 87)
-- `ServiceResourceGroupValidationTests.next_active_datedef next_active_date() -> str: candidate = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) for offset in range(1, 8):` (стр. 91)
-- `ServiceResourceGroupValidationTests._bootstrap_servicesdef _bootstrap_services(self, owner_token: str) -> list[dict]: bootstrap = self.client.get( "/api/auth/session", headers=self.auth_headers(owner_token) ).json() return bootstrap["s` (стр. 99)
-- `ServiceResourceGroupValidationTests._savedef _save(self, owner_token: str, services: list[dict]): return self.client.put( "/api/settings/services", headers=self.auth_headers(owner_token), json=services, )` (стр. 105)
-- `ServiceResourceGroupValidationTests.test_invalid_resource_group_falls_back_to_categorydef test_invalid_resource_group_falls_back_to_category(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0][` (стр. 112)
-- `ServiceResourceGroupValidationTests.test_valid_resource_group_override_preserveddef test_valid_resource_group_override_preserved(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["categ` (стр. 131)
-- `ServiceResourceGroupValidationTests.test_invalid_piggy_target_cleareddef test_invalid_piggy_target_cleared(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["piggyTarget"] = ` (стр. 141)
-- `ServiceResourceGroupValidationTests.test_valid_piggy_target_preserveddef test_valid_piggy_target_preserved(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["piggyTarget"] = ` (стр. 150)
-- `ServiceResourceGroupValidationTests.test_piggy_target_redirects_main_depositdef test_piggy_target_redirects_main_deposit(self) -> None: """piggy_target перебивает группу вклада основной услуги. s2 (Детейлинг) с piggy_target=wash: deposit_24percent должен л` (стр. 159)
+- `reset_app_modulesdef reset_app_modules() -> None: for name in list(sys.modules):` (стр. 18)
+- `class ServiceResourceGroupValidationTests(unittest.TestCase):` (стр. 30)
+- `ServiceResourceGroupValidationTests.setUpdef setUp(self) -> None: data_dir = Path(__file__).resolve().parents[1] / "data" data_dir.mkdir(parents=True, exist_ok=True) self.db_path = data_dir / f"test_suite_{uuid4().hex}.sq` (стр. 37)
+- `ServiceResourceGroupValidationTests.tearDowndef tearDown(self) -> None: self.shutdown_app() reset_app_modules() if self.db_path.exists():` (стр. 55)
+- `ServiceResourceGroupValidationTests.shutdown_appdef shutdown_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 61)
+- `ServiceResourceGroupValidationTests.restart_appdef restart_app(self) -> None: if hasattr(self, "client_manager"):` (стр. 70)
+- `ServiceResourceGroupValidationTests.login_staffdef login_staff(self, login: str, password: str) -> str: response = self.client.post( "/api/auth/staff/login", json={"login": login, "password": password}, ) self.assertEqual(respo` (стр. 79)
+- `ServiceResourceGroupValidationTests.auth_headersdef auth_headers(token: str) -> dict[str, str]: return {"Authorization": token}` (стр. 88)
+- `ServiceResourceGroupValidationTests.next_active_datedef next_active_date() -> str: candidate = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) for offset in range(1, 8):` (стр. 92)
+- `ServiceResourceGroupValidationTests._bootstrap_servicesdef _bootstrap_services(self, owner_token: str) -> list[dict]: bootstrap = self.client.get( "/api/auth/session", headers=self.auth_headers(owner_token) ).json() return bootstrap["s` (стр. 100)
+- `ServiceResourceGroupValidationTests._savedef _save(self, owner_token: str, services: list[dict]): return self.client.put( "/api/settings/services", headers=self.auth_headers(owner_token), json=services, )` (стр. 106)
+- `ServiceResourceGroupValidationTests._create_expensedef _create_expense(self, token: str, **kw) -> dict: payload = {"title": "Химия", "amount": 1000, "category": "Материалы", "date": self.next_active_date(), "resourceGroup": "wash"}` (стр. 113)
+- `ServiceResourceGroupValidationTests._withdrawdef _withdraw(self, token: str, **kw) -> dict: payload = {"resourceGroup": "wash", "materialName": "Плёнка", "materialCost": 1000, "date": self.next_active_date()} payload.update(k` (стр. 121)
+- `ServiceResourceGroupValidationTests._tx_by_request_keydef _tx_by_request_key(self, key: str) -> dict: from app.database import SessionLocal from app.models import PiggyBankTransaction with SessionLocal() as db: txn = db.scalar(select(` (стр. 131)
+- `ServiceResourceGroupValidationTests.test_expense_group_validation_rejects_garbagedef test_expense_group_validation_rejects_garbage(self) -> None: owner_token = self.login_staff("owner", "owner") response = self._create_expense(owner_token, resourceGroup="foo") ` (стр. 145)
+- `ServiceResourceGroupValidationTests.test_general_withdraw_pair_survives_expense_editdef test_general_withdraw_pair_survives_expense_edit(self) -> None: """Баг R5: правка расхода general-снятия удаляла транзакцию копилки.""" from app.database import SessionLocal fr` (стр. 164)
+- `ServiceResourceGroupValidationTests.test_pair_follows_group_movesdef test_pair_follows_group_moves(self) -> None: owner_token = self.login_staff("owner", "owner") key = f"r5-{uuid4().hex[:8]}" self._withdraw(owner_token, resourceGroup="wash", ma` (стр. 191)
+- `ServiceResourceGroupValidationTests.test_standalone_general_expense_has_no_mirrordef test_standalone_general_expense_has_no_mirror(self) -> None: from app.database import SessionLocal from app.models import PiggyBankTransaction owner_token = self.login_staff("o` (стр. 219)
+- `ServiceResourceGroupValidationTests.mirrordef mirror() -> object: with SessionLocal() as db: return db.scalar(select(PiggyBankTransaction).where( PiggyBankTransaction.expense_id == expense_id))` (стр. 228)
+- `ServiceResourceGroupValidationTests.test_invalid_resource_group_falls_back_to_categorydef test_invalid_resource_group_falls_back_to_category(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0][` (стр. 248)
+- `ServiceResourceGroupValidationTests.test_valid_resource_group_override_preserveddef test_valid_resource_group_override_preserved(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["categ` (стр. 267)
+- `ServiceResourceGroupValidationTests.test_invalid_piggy_target_cleareddef test_invalid_piggy_target_cleared(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["piggyTarget"] = ` (стр. 277)
+- `ServiceResourceGroupValidationTests.test_valid_piggy_target_preserveddef test_valid_piggy_target_preserved(self) -> None: owner_token = self.login_staff("owner", "owner") services = self._bootstrap_services(owner_token) services[0]["piggyTarget"] = ` (стр. 286)
+- `ServiceResourceGroupValidationTests.test_custom_split_round_trip_via_put_and_money_splitdef test_custom_split_round_trip_via_put_and_money_split(self) -> None: """Кастомный сплит из настроек (путь UI) сохраняется и влияет на сплит. s1: piggy fixed 1500 -> вклад 1500, ` (стр. 295)
+- `ServiceResourceGroupValidationTests.test_piggy_target_redirects_main_depositdef test_piggy_target_redirects_main_deposit(self) -> None: """piggy_target перебивает группу вклада основной услуги. s2 (Детейлинг) с piggy_target=wash: deposit_24percent должен л` (стр. 349)
 
 ### backend/tests/test_subtract_fits_net.py (199 строк)
 
@@ -3689,7 +3698,7 @@ concept1.0/
 - `cat` (стр. 529) — локальный
 - `InlineRename` (стр. 704) — локальный
 
-### frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx (829 строк)
+### frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx (1013 строк)
 
 - `SERVICE_TYPE_OPTIONS` (стр. 7) — локальный
 - `adminServiceResourceGroupForCategory` (стр. 13) — локальный
@@ -3708,44 +3717,59 @@ concept1.0/
 - `NOTIF_ITEMS` (стр. 205) — локальный
 - `NotificationsSection` (стр. 213)
 - `ProfileSection` (стр. 250)
-- `PricingSection` (стр. 327)
-- `q` (стр. 348) — локальный
-- `matches` (стр. 349) — локальный
-- `SecuritySection` (стр. 439)
-- `ContentSectionShell` (стр. 534)
-- `SHIFT_PHOTO_CATEGORIES` (стр. 551) — локальный
-- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 569) — локальный
-- `SHIFT_PHOTO_TARGET_BYTES` (стр. 570) — локальный
-- `SHIFT_PHOTO_MIN_QUALITY` (стр. 571) — локальный
-- `dataUrlApproxBytes` (стр. 573) — локальный
-- `padding` (стр. 575) — локальный
-- `loadImage` (стр. 579) — локальный
-- `image` (стр. 581) — локальный
-- `compressShiftPhoto` (стр. 588) — локальный
-- `objectUrl` (стр. 589) — локальный
-- `image` (стр. 591) — локальный
-- `scale` (стр. 592) — локальный
-- `width` (стр. 593) — локальный
-- `height` (стр. 594) — локальный
-- `canvas` (стр. 595) — локальный
-- `context` (стр. 598) — локальный
-- `ShiftSection` (стр. 613)
-- `masterWorkers` (стр. 616) — локальный
-- `shiftSupplies` (стр. 628) — локальный
-- `uploadedShiftPhotos` (стр. 639) — локальный
-- `handleShiftPhotoChange` (стр. 645) — локальный
-- `file` (стр. 646) — локальный
-- `dataUrl` (стр. 650) — локальный
-- `handleSubmitShiftInspection` (стр. 659) — локальный
-- `primaryPhoto` (стр. 663) — локальный
-- `uploadedCategoriesLabel` (стр. 666) — локальный
-- `composedNote` (стр. 667) — локальный
-- `saved` (стр. 671) — локальный
-- `statusPill` (стр. 688) — локальный
-- `statusLabel` (стр. 694) — локальный
-- `statusTitle` (стр. 696) — локальный
-- `photo` (стр. 712) — локальный
-- `checked` (стр. 745) — локальный
+- `MASTER_PAY_OPTIONS` (стр. 327) — локальный
+- `PIGGY_PAY_OPTIONS` (стр. 333) — локальный
+- `PIGGY_TARGET_OPTIONS` (стр. 341) — локальный
+- `OWNER_PAY_OPTIONS` (стр. 348) — локальный
+- `splitOrderPresetKey` (стр. 359) — локальный
+- `norm` (стр. 360) — локальный
+- `clampPercentInput` (стр. 364) — локальный
+- `n` (стр. 366) — локальный
+- `clampMoneyInput` (стр. 371) — локальный
+- `n` (стр. 373) — локальный
+- `splitSummary` (стр. 388) — локальный
+- `master` (стр. 389) — локальный
+- `piggy` (стр. 392) — локальный
+- `owners` (стр. 397) — локальный
+- `PricingSection` (стр. 402)
+- `q` (стр. 423) — локальный
+- `matches` (стр. 424) — локальный
+- `preset` (стр. 591) — локальный
+- `SecuritySection` (стр. 623)
+- `ContentSectionShell` (стр. 718)
+- `SHIFT_PHOTO_CATEGORIES` (стр. 735) — локальный
+- `SHIFT_PHOTO_MAX_DIMENSION` (стр. 753) — локальный
+- `SHIFT_PHOTO_TARGET_BYTES` (стр. 754) — локальный
+- `SHIFT_PHOTO_MIN_QUALITY` (стр. 755) — локальный
+- `dataUrlApproxBytes` (стр. 757) — локальный
+- `padding` (стр. 759) — локальный
+- `loadImage` (стр. 763) — локальный
+- `image` (стр. 765) — локальный
+- `compressShiftPhoto` (стр. 772) — локальный
+- `objectUrl` (стр. 773) — локальный
+- `image` (стр. 775) — локальный
+- `scale` (стр. 776) — локальный
+- `width` (стр. 777) — локальный
+- `height` (стр. 778) — локальный
+- `canvas` (стр. 779) — локальный
+- `context` (стр. 782) — локальный
+- `ShiftSection` (стр. 797)
+- `masterWorkers` (стр. 800) — локальный
+- `shiftSupplies` (стр. 812) — локальный
+- `uploadedShiftPhotos` (стр. 823) — локальный
+- `handleShiftPhotoChange` (стр. 829) — локальный
+- `file` (стр. 830) — локальный
+- `dataUrl` (стр. 834) — локальный
+- `handleSubmitShiftInspection` (стр. 843) — локальный
+- `primaryPhoto` (стр. 847) — локальный
+- `uploadedCategoriesLabel` (стр. 850) — локальный
+- `composedNote` (стр. 851) — локальный
+- `saved` (стр. 855) — локальный
+- `statusPill` (стр. 872) — локальный
+- `statusLabel` (стр. 878) — локальный
+- `statusTitle` (стр. 880) — локальный
+- `photo` (стр. 896) — локальный
+- `checked` (стр. 929) — локальный
 
 ### frontend/src/app/components/admin/shared/AssignWorkersDialog.tsx (160 строк)
 
@@ -5333,8 +5357,13 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-09-18 09:35)
+- `backend/tests/test_service_resource_group_validation.py` (2026-09-18 09:35)
+- `backend/app/schemas.py` (2026-09-18 09:35)
+- `backend/app/models.py` (2026-09-18 09:35)
+- `backend/app/finance_sync.py` (2026-09-18 09:35)
+- `scripts/.project-map-watch.lock` (2026-09-18 09:28)
 - `backend/tests/test_money_matrix.py` (2026-09-17 22:41)
-- `backend/tests/test_service_resource_group_validation.py` (2026-09-17 22:37)
 - `frontend/src/app/components/worker/screens/WorkerProfileScreen.tsx` (2026-09-17 22:17)
 - `frontend/src/app/components/admin/screens/AdminStatsPage.tsx` (2026-09-17 22:16)
 - `frontend/src/app/components/admin/AdminApp.tsx` (2026-09-17 22:16)
@@ -5343,8 +5372,3 @@ concept1.0/
 - `frontend/src/app/components/ui/utils.ts` (2026-09-17 22:15)
 - `backend/app/main.py` (2026-09-17 22:15)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-17 21:39)
-- `scripts/.project-map-watch.lock` (2026-09-17 21:18)
-- `carwash/src/api.ts` (2026-09-16 10:36)
-- `frontend/src/app/api.ts` (2026-09-16 10:36)
-- `frontend/src/app/components/owner/screens/OwnerStockPage.tsx` (2026-09-16 10:34)
-- `frontend/src/app/components/admin/screens/AdminStockPage.tsx` (2026-09-16 10:34)

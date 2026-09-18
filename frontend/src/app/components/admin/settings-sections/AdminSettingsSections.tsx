@@ -323,6 +323,81 @@ export function ProfileSection({
   );
 }
 
+/* ── PRICING: раздел денег (кастомный сплит услуги) ── */
+const MASTER_PAY_OPTIONS = [
+  { value: '', label: 'Проценты мастеров (как в записи)' },
+  { value: 'fixed', label: 'Фикс-котёл на всех мастеров (₽)' },
+  { value: 'percent', label: 'Процент от базы (делится по весам %)' },
+] as const;
+
+const PIGGY_PAY_OPTIONS = [
+  { value: '', label: 'По умолчанию (24% · мойка/детейлинг)' },
+  { value: 'fixed', label: 'Фикс в копилку (₽)' },
+  { value: 'percent', label: 'Процент от базы (%)' },
+  { value: 'rest', label: 'Остаток после мастеров' },
+  { value: 'none', label: 'Не начислять' },
+] as const;
+
+const PIGGY_TARGET_OPTIONS = [
+  { value: '', label: 'В копилку своей группы' },
+  { value: 'wash', label: 'Всегда в мойку' },
+  { value: 'detailing', label: 'Всегда в детейлинг' },
+  { value: 'general', label: 'В общую копилку' },
+] as const;
+
+const OWNER_PAY_OPTIONS = [
+  { value: '', label: 'Остаток после копилки' },
+  { value: 'percent', label: 'Процент от остатка (%)' },
+] as const;
+
+const SPLIT_ORDER_PRESETS: Array<{ key: string; label: string; order: string[] }> = [
+  { key: 'classic', label: 'Классика: материалы → мастера → копилка → владельцы', order: [] },
+  { key: 'piggy-first', label: 'Копилка до мастеров', order: ['materials', 'piggy', 'master', 'owners'] },
+  { key: 'owners-before-piggy', label: 'Владельцы до копилки', order: ['materials', 'master', 'owners', 'piggy'] },
+];
+
+function splitOrderPresetKey(order: string[] | undefined): string {
+  const norm = (order || []).join(',');
+  return SPLIT_ORDER_PRESETS.find((p) => p.order.join(',') === norm)?.key || 'classic';
+}
+
+function clampPercentInput(value: string): number {
+  if (value === '') return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+function clampMoneyInput(value: string): number {
+  if (value === '') return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n));
+}
+
+type PricingService = {
+  id: string; name: string; category: string; desc?: string;
+  price: number; duration: number; materialConsumption?: number | null;
+  isFixedMaster?: boolean; resourceGroup?: string;
+  masterPayType?: string; masterPayValue?: number;
+  piggyPayType?: string; piggyPayValue?: number; piggyTarget?: string;
+  ownerPayType?: string; ownerPayValue?: number; ownerSplitEnabled?: boolean;
+  splitOrder?: string[];
+};
+
+function splitSummary(svc: PricingService): string {
+  const master = svc.masterPayType === 'fixed' ? `котёл ${svc.masterPayValue || 0} ₽`
+    : svc.masterPayType === 'percent' ? `${svc.masterPayValue || 0}%`
+    : 'проценты';
+  const piggy = svc.piggyPayType === 'fixed' ? `фикс ${svc.piggyPayValue || 0} ₽`
+    : svc.piggyPayType === 'percent' ? `${svc.piggyPayValue || 0}%`
+    : svc.piggyPayType === 'rest' ? 'остаток'
+    : svc.piggyPayType === 'none' ? 'нет'
+    : '24%';
+  const owners = svc.ownerPayType === 'percent' ? `${svc.ownerPayValue || 0}% остатка` : 'остаток';
+  return `мастера: ${master} · копилка: ${piggy} · владельцам: ${owners}`;
+}
+
 /* ── PRICING ── */
 export function PricingSection({
   services,
@@ -335,7 +410,7 @@ export function PricingSection({
   saved,
   onCreateNew,
 }: {
-  services: Array<{ id: string; name: string; category: string; desc?: string; price: number; duration: number; materialConsumption?: number | null; isFixedMaster?: boolean }>;
+  services: PricingService[];
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onServicePatch: (index: number, patch: Record<string, unknown>) => void;
@@ -413,6 +488,115 @@ export function PricingSection({
                   onChange={(event) => onServicePatch(i, { isFixedMaster: event.target.checked })}
                 />
               </label>
+              <details className={`${glassCls} mt-2 rounded-2xl px-3 py-2`}>
+                <summary className="cursor-pointer py-1 text-xs font-medium">
+                  Раздел денег: {splitSummary(svc)}
+                </summary>
+                <div className={`pb-2 pt-1 text-[11px] ${subCls}`}>
+                  Действует на новые записи. Точный расчёт — в карточке записи и ведомости ЗП.
+                </div>
+                <div className="space-y-2 pb-2">
+                  <div>
+                    <label className={`mb-1 block text-xs ${subCls}`}>Мастера</label>
+                    <select
+                      className={inputCls}
+                      value={svc.masterPayType || ''}
+                      onChange={(e) => onServicePatch(i, { masterPayType: e.target.value, ...(e.target.value === '' ? { masterPayValue: 0 } : {}) })}
+                    >
+                      {MASTER_PAY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                    </select>
+                  </div>
+                  {(svc.masterPayType === 'fixed' || svc.masterPayType === 'percent') && (
+                    <div>
+                      <label className={`mb-1 block text-xs ${subCls}`}>
+                        {svc.masterPayType === 'fixed' ? 'Котёл мастеров (₽)' : 'Процент мастерам (% от базы)'}
+                      </label>
+                      <input
+                        className={inputCls} type="number" min={0} {...(svc.masterPayType === 'percent' ? { max: 100 } : {})}
+                        value={numberInputValue(svc.masterPayValue || 0)}
+                        onChange={(e) => onServicePatch(i, {
+                          masterPayValue: svc.masterPayType === 'percent' ? clampPercentInput(e.target.value) : clampMoneyInput(e.target.value),
+                        })}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className={`mb-1 block text-xs ${subCls}`}>Копилка</label>
+                    <select
+                      className={inputCls}
+                      value={svc.piggyPayType || ''}
+                      onChange={(e) => onServicePatch(i, { piggyPayType: e.target.value, ...(e.target.value === '' || e.target.value === 'rest' || e.target.value === 'none' ? { piggyPayValue: 0 } : {}) })}
+                    >
+                      {PIGGY_PAY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                    </select>
+                  </div>
+                  {(svc.piggyPayType === 'fixed' || svc.piggyPayType === 'percent') && (
+                    <div>
+                      <label className={`mb-1 block text-xs ${subCls}`}>
+                        {svc.piggyPayType === 'fixed' ? 'Фикс в копилку (₽)' : 'Процент в копилку (% от базы)'}
+                      </label>
+                      <input
+                        className={inputCls} type="number" min={0} {...(svc.piggyPayType === 'percent' ? { max: 100 } : {})}
+                        value={numberInputValue(svc.piggyPayValue || 0)}
+                        onChange={(e) => onServicePatch(i, {
+                          piggyPayValue: svc.piggyPayType === 'percent' ? clampPercentInput(e.target.value) : clampMoneyInput(e.target.value),
+                        })}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className={`mb-1 block text-xs ${subCls}`}>Куда падает копилка (группа: {svc.resourceGroup || 'авто по типу'})</label>
+                    <select
+                      className={inputCls}
+                      value={svc.piggyTarget || ''}
+                      onChange={(e) => onServicePatch(i, { piggyTarget: e.target.value })}
+                    >
+                      {PIGGY_TARGET_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={`mb-1 block text-xs ${subCls}`}>Владельцы</label>
+                    <select
+                      className={inputCls}
+                      value={svc.ownerPayType || ''}
+                      onChange={(e) => onServicePatch(i, { ownerPayType: e.target.value, ...(e.target.value === '' ? { ownerPayValue: 0 } : {}) })}
+                    >
+                      {OWNER_PAY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                    </select>
+                  </div>
+                  {svc.ownerPayType === 'percent' && (
+                    <div>
+                      <label className={`mb-1 block text-xs ${subCls}`}>Процент владельцам (% от остатка)</label>
+                      <input
+                        className={inputCls} type="number" min={0} max={100}
+                        value={numberInputValue(svc.ownerPayValue || 0)}
+                        onChange={(e) => onServicePatch(i, { ownerPayValue: clampPercentInput(e.target.value) })}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-3 rounded-2xl px-1 py-1 text-sm">
+                    <span className={`text-xs ${subCls}`}>Делить долю между владельцами</span>
+                    <Toggle
+                      checked={svc.ownerSplitEnabled !== false}
+                      onChange={() => onServicePatch(i, { ownerSplitEnabled: !(svc.ownerSplitEnabled !== false) })}
+                      label="Делить долю между владельцами"
+                    />
+                  </div>
+                  <div>
+                    <label className={`mb-1 block text-xs ${subCls}`}>Порядок раздела</label>
+                    <select
+                      className={inputCls}
+                      value={splitOrderPresetKey(svc.splitOrder)}
+                      onChange={(e) => {
+                        const preset = SPLIT_ORDER_PRESETS.find((p) => p.key === e.target.value);
+                        onServicePatch(i, { splitOrder: preset ? preset.order : [] });
+                      }}
+                    >
+                      {SPLIT_ORDER_PRESETS.map((p) => (<option key={p.key} value={p.key}>{p.label}</option>))}
+                    </select>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
         );

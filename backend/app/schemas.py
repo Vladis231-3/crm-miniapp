@@ -1418,7 +1418,9 @@ class ExpenseCreateRequest(BaseModel):
     category: str
     date: str
     note: str | None = None
-    resourceGroup: str = "wash"
+    # Пусто = бюджетный расход без копилки; wash/detailing = зеркало в копилку;
+    # general = расход общей копилки (зеркала нет, пара withdraw/repay хранит движение).
+    resourceGroup: str = Field(default="wash", pattern=r"^(wash|detailing|general)?$")
 
     @field_validator("date")
     @classmethod
@@ -1619,7 +1621,7 @@ class ExpenseUpdateRequest(BaseModel):
     category: str | None = Field(default=None, max_length=100)
     date: str | None = None  # DD.MM.YYYY
     note: str | None = Field(default=None, max_length=1000)
-    resourceGroup: str | None = None
+    resourceGroup: str | None = Field(default=None, pattern=r"^(wash|detailing|general)?$")
 
     @field_validator("title")
     @classmethod
@@ -1642,7 +1644,7 @@ class ExpenseUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def require_at_least_one_field(self) -> ExpenseUpdateRequest:
-        if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note]):
+        if all(v is None for v in [self.title, self.amount, self.category, self.date, self.note, self.resourceGroup]):
             raise ValueError("Необходимо передать хотя бы одно поле для обновления")
         return self
 

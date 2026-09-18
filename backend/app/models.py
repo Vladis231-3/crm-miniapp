@@ -605,7 +605,9 @@ class PiggyBankTransaction(Base):
     material_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     material_cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     date: Mapped[str] = mapped_column(String(16))
-    resource_group: Mapped[str] = mapped_column(String(64), default="detailing")
+    # Дефолт wash = DEFAULT_RESOURCE_GROUP. Все 8 мест создания в коде
+    # передают resource_group явно; дефолт — страховка, а не логика.
+    resource_group: Mapped[str] = mapped_column(String(64), default="wash")
     spent_by_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("staff_users.id", ondelete="SET NULL"), nullable=True
     )
