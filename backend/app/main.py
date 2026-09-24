@@ -8800,6 +8800,31 @@ def _data_cleanup_collect(db: Session, entities: list[str], period) -> dict[str,
                 q = q.where(c)
         result["piggy"] = list(db.scalars(q).all())
 
+    # CASCADE bookings -> piggy: удаление записей тянет связанные начисления
+    # копилки в корзину, иначе после удаления bookings в истории копилки
+    # висят orphan-транзакции, а суммы расходятся с календарём/финансами.
+    # Связанные piggy добавляются к result["piggy"] (дедуп по id), даже если
+    # сущность piggy явно не выбрана, — превью показывает их отдельной строкой.
+    if "bookings" in entities and result.get("bookings"):
+        _booking_ids = [b.id for b in result["bookings"]]
+        if _booking_ids:
+            _linked = list(
+                db.scalars(
+                    select(PiggyBankTransaction).where(
+                        PiggyBankTransaction.deleted_at.is_(None),
+                        PiggyBankTransaction.booking_id.in_(_booking_ids),
+                    )
+                ).all()
+            )
+            if _linked:
+                _existing = {o.id for o in result.get("piggy", [])}
+                _merged = list(result.get("piggy", []))
+                for _tx in _linked:
+                    if _tx.id not in _existing:
+                        _merged.append(_tx)
+                        _existing.add(_tx.id)
+                result["piggy"] = _merged
+
     def _created_at_in_scope(created_at: datetime | None, fallback_dmy: str | None = None) -> bool:
         # Для payroll пробуем entry_date, иначе created_at.
         if fallback_dmy:
@@ -8892,6 +8917,20 @@ def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> D
                 count=count,
             )
         )
+    # Каскад bookings -> piggy: если связанные начисления найдены, а piggy
+    # явно не выбран — показываем отдельной строкой, чтобы preview == execute.
+    if "bookings" in payload.entities and "piggy" not in payload.entities:
+        _cascaded = len(collected.get("piggy", []))
+        if _cascaded:
+            total += _cascaded
+            items.append(
+                DataCleanupPreviewItem(
+                    entity="piggy",
+                    title="Копилка (связанные с записями)",
+                    description="Начисления копилки по удаляемым записям — уйдут в корзину вместе с записями.",
+                    count=_cascaded,
+                )
+            )
     return DataCleanupPreviewPayload(
         mode=mode,
         dateFrom=dmy_from,
@@ -16697,6 +16736,47 @@ def get_piggy_bank(
                 detailing_asvc_revenue += int(asvc.price or 0)
                 detailing_asvc_master += dop_master
                 detailing_asvc_piggy += dop_piggy
+    # FIX piggy-cleanup hang: «В копилку» мойки/допов считаем по фактическим
+    # НЕудалённым piggy-транзакциям, а не пересчётом сплита броней.
+    # Иначе удаление копилки через Очистку данных опустошает историю/balance,
+    # а wash.totalPiggy/remaining/combined висят (считались из bookings).
+    # Выручка/мастера остаются booking-derived (заработок не исчезает с копилкой).
+    _completed_by_id = {b.id: b for b in all_completed_bookings}
+    _tx_self_piggy = 0
+    _tx_classic_piggy = 0
+    _tx_wash_dop_piggy = 0
+    _tx_detail_dop_piggy = 0
+    for _t in all_tx:
+        if _t.transaction_type != "deposit_24percent":
+            continue
+        if not _in_range(_t.date):
+            continue
+        if _t.booking_id and _t.booking_id not in _completed_by_id:
+            continue
+        try:
+            _amt = int(_t.amount or 0)
+        except (TypeError, ValueError):
+            continue
+        if _amt == 0:
+            continue
+        _is_dop = (_t.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX)
+        _grp = (_t.resource_group or "")
+        if _grp == WASH_RESOURCE_GROUP:
+            if _is_dop:
+                _tx_wash_dop_piggy += _amt
+            else:
+                _b = _completed_by_id.get(_t.booking_id) if _t.booking_id else None
+                _svc2 = services_map.get(_b.service_id) if _b is not None else None
+                if _svc2 is not None and _svc2.resource_group == WASH_RESOURCE_GROUP and getattr(_svc2, "wash_type", None) == "self_service":
+                    _tx_self_piggy += _amt
+                else:
+                    _tx_classic_piggy += _amt
+        elif _grp == "detailing" and _is_dop:
+            _tx_detail_dop_piggy += _amt
+    self_service_piggy = _tx_self_piggy
+    classic_piggy = _tx_classic_piggy
+    wash_asvc_piggy = _tx_wash_dop_piggy
+    detailing_asvc_piggy = _tx_detail_dop_piggy
     total_revenue = self_service_revenue + classic_revenue + wash_asvc_revenue
     total_master = self_service_master + classic_master + wash_asvc_master
     total_piggy = self_service_piggy + classic_piggy + wash_asvc_piggy
