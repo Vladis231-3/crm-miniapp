@@ -4,5 +4,7 @@ export const REFERRAL_SOURCES = [
   { value: 'Яндекс карты', label: 'Яндекс карты' },
   { value: '2ГИС', label: '2ГИС' },
   { value: 'Яндекс бизнес', label: 'Яндекс бизнес' },
+  { value: 'Telegram', label: 'Telegram' },
+  { value: 'Instagram', label: 'Instagram' },
   { value: 'Рекомендации', label: 'Рекомендации' },
 ] as const;
