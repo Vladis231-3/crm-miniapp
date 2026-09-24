@@ -8878,6 +8878,31 @@ def _data_cleanup_collect(db: Session, entities: list[str], period) -> dict[str,
                         _existing_e.add(_e.id)
                 result["expenses"] = _merged_e
 
+    # PERIOD piggy -> bookings: удаление копилки за период тянет записи
+    # за ТОТ ЖЕ период (по дате), а не только связанные по booking_id.
+    # Связей может не быть: кредитные записи (проводок копилки нет),
+    # записи без начислений, повторная чистка после уже удалённой копилки.
+    # Без этого Выручка/ЗП висят, хотя копилка пустая. Работает всегда,
+    # когда выбрана копилка, — даже если транзакций уже нет.
+    if "piggy" in entities:
+        _pq = select(Booking).where(Booking.deleted_at.is_(None))
+        if mode == "range":
+            for _c in _range_filter_dmy(Booking.date):
+                _pq = _pq.where(_c)
+        else:
+            _cutoff = bound_b if isinstance(bound_b, date) else bound_a
+            for _c in _older_filter_dmy(Booking.date, _cutoff):
+                _pq = _pq.where(_c)
+        _period_bookings = list(db.scalars(_pq).all())
+        if _period_bookings:
+            _existing_pb = {o.id for o in result.get("bookings", [])}
+            _merged_pb = list(result.get("bookings", []))
+            for _b in _period_bookings:
+                if _b.id not in _existing_pb:
+                    _merged_pb.append(_b)
+                    _existing_pb.add(_b.id)
+            result["bookings"] = _merged_pb
+
     def _created_at_in_scope(created_at: datetime | None, fallback_dmy: str | None = None) -> bool:
         # Для payroll пробуем entry_date, иначе created_at.
         if fallback_dmy:
@@ -8984,10 +9009,10 @@ def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> D
                     count=_cascaded,
                 )
             )
-    # Каскад piggy -> bookings/expenses: если связанные записи/расходы
-    # найдены, а эти сущности явно не выбраны — показываем отдельными
-    # строками, чтобы preview == execute и таб копилки реально обнулялся
-    # (иначе Выручка/ЗП висят, а остаток уходит в минус).
+    # Каскад piggy -> bookings/expenses: записи за период и зеркальные
+    # расходы найдены, а эти сущности явно не выбраны — показываем
+    # отдельными строками, чтобы preview == execute и таб копилки реально
+    # обнулялся (иначе Выручка/ЗП висят, а остаток уходит в минус).
     if "piggy" in payload.entities and "bookings" not in payload.entities:
         _casc_b = len(collected.get("bookings", []))
         if _casc_b:
@@ -8995,8 +9020,8 @@ def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> D
             items.append(
                 DataCleanupPreviewItem(
                     entity="bookings",
-                    title="Записи (связанные с копилкой)",
-                    description="Записи, по которым начислена удаляемая копилка, — уйдут в корзину вместе с копилкой, иначе Выручка/ЗП останутся, а баланс уйдёт в минус.",
+                    title="Записи за период (вместе с копилкой)",
+                    description="Очистится: записи клиентов за выбранный период — календарь, история, Выручка и ЗП обнулятся. Без этого копилка пустеет, а выручка висит.",
                     count=_casc_b,
                 )
             )
@@ -9008,7 +9033,7 @@ def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> D
                 DataCleanupPreviewItem(
                     entity="expenses",
                     title="Расходы (связанные с копилкой)",
-                    description="Зеркальные расходы трат из копилки — уйдут в корзину вместе с копилкой.",
+                    description="Очистится: зеркальные расходы трат из копилки — уйдут в корзину вместе с копилкой.",
                     count=_casc_e,
                 )
             )

@@ -254,6 +254,57 @@ class DataCleanupTests(unittest.TestCase):
         payroll = self.client.get("/api/admin/workers/payroll?period=all", headers=owner)
         self.assertEqual(payroll.status_code, 200, payroll.text)
 
+    def test_piggy_cleanup_drags_period_bookings_without_piggy_tx(self) -> None:
+        """Кредитная запись без проводок копилки тоже уходит при чистке копилки."""
+        from app.database import SessionLocal
+        from app.models import Booking
+
+        self._seed_operational()
+        owner = self.auth_headers(self.owner_token)
+        now = datetime.now(timezone.utc)
+        with SessionLocal() as db:
+            db.add(
+                Booking(
+                    id="b-credit-1",
+                    client_id="c-clean-1",
+                    client_name="Тест Клиент",
+                    client_phone="+70000000001",
+                    service="Мойка",
+                    service_id="",
+                    date="01.01.2020",
+                    time="10:00",
+                    duration=60,
+                    price=1000,
+                    status="completed",
+                    box="1",
+                    payment_type="credit",
+                    payment_settled=True,
+                    created_at=now,
+                )
+            )
+            db.commit()
+
+        prev = self.client.post(
+            "/api/owner/data-cleanup/preview",
+            headers=owner,
+            json={"entities": ["piggy"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02"},
+        )
+        self.assertEqual(prev.status_code, 200, prev.text)
+        by_entity = {i["entity"]: i["count"] for i in prev.json()["items"]}
+        self.assertEqual(by_entity.get("piggy"), 1)
+        self.assertEqual(by_entity.get("bookings"), 1)
+
+        executed = self.client.post(
+            "/api/owner/data-cleanup/execute",
+            headers=owner,
+            json={"entities": ["piggy"], "mode": "range", "dateFrom": "2020-01-01", "dateTo": "2020-01-02"},
+        )
+        self.assertEqual(executed.status_code, 200, executed.text)
+
+        after = self.client.get("/api/owner/bookings-history?date_from=01.01.2020&date_to=02.01.2020", headers=owner)
+        self.assertEqual(after.status_code, 200, after.text)
+        self.assertFalse(any(b["id"] == "b-credit-1" for b in after.json()))
+
 
 if __name__ == "__main__":
     unittest.main()
