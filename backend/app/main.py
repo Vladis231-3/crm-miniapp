@@ -8825,6 +8825,59 @@ def _data_cleanup_collect(db: Session, entities: list[str], period) -> dict[str,
                         _existing.add(_tx.id)
                 result["piggy"] = _merged
 
+    # CASCADE piggy -> bookings/expenses: удаление копилки тянет связанные
+    # записи и зеркальные расходы, иначе после удаления только piggy
+    # в табе копилки висят Выручка/ЗП (из записей), а остаток уходит
+    # в огромный минус (расходы/выходы остались, а начислений нет).
+    # Связанные bookings/expenses добавляются к result (дедуп по id),
+    # даже если эти сущности явно не выбраны, — превью показывает их
+    # отдельными строками, чтобы preview == execute.
+    if "piggy" in entities and result.get("piggy"):
+        _piggy_booking_ids = list({
+            str(t.booking_id)
+            for t in result["piggy"]
+            if getattr(t, "booking_id", None)
+        })
+        if _piggy_booking_ids:
+            _linked_bookings = list(
+                db.scalars(
+                    select(Booking).where(
+                        Booking.deleted_at.is_(None),
+                        Booking.id.in_(_piggy_booking_ids),
+                    )
+                ).all()
+            )
+            if _linked_bookings:
+                _existing_b = {o.id for o in result.get("bookings", [])}
+                _merged_b = list(result.get("bookings", []))
+                for _b in _linked_bookings:
+                    if _b.id not in _existing_b:
+                        _merged_b.append(_b)
+                        _existing_b.add(_b.id)
+                result["bookings"] = _merged_b
+        _piggy_expense_ids = list({
+            str(t.expense_id)
+            for t in result["piggy"]
+            if getattr(t, "expense_id", None)
+        })
+        if _piggy_expense_ids:
+            _linked_expenses = list(
+                db.scalars(
+                    select(Expense).where(
+                        Expense.deleted_at.is_(None),
+                        Expense.id.in_(_piggy_expense_ids),
+                    )
+                ).all()
+            )
+            if _linked_expenses:
+                _existing_e = {o.id for o in result.get("expenses", [])}
+                _merged_e = list(result.get("expenses", []))
+                for _e in _linked_expenses:
+                    if _e.id not in _existing_e:
+                        _merged_e.append(_e)
+                        _existing_e.add(_e.id)
+                result["expenses"] = _merged_e
+
     def _created_at_in_scope(created_at: datetime | None, fallback_dmy: str | None = None) -> bool:
         # Для payroll пробуем entry_date, иначе created_at.
         if fallback_dmy:
@@ -8929,6 +8982,34 @@ def _data_cleanup_preview_payload(db: Session, payload: DataCleanupRequest) -> D
                     title="Копилка (связанные с записями)",
                     description="Начисления копилки по удаляемым записям — уйдут в корзину вместе с записями.",
                     count=_cascaded,
+                )
+            )
+    # Каскад piggy -> bookings/expenses: если связанные записи/расходы
+    # найдены, а эти сущности явно не выбраны — показываем отдельными
+    # строками, чтобы preview == execute и таб копилки реально обнулялся
+    # (иначе Выручка/ЗП висят, а остаток уходит в минус).
+    if "piggy" in payload.entities and "bookings" not in payload.entities:
+        _casc_b = len(collected.get("bookings", []))
+        if _casc_b:
+            total += _casc_b
+            items.append(
+                DataCleanupPreviewItem(
+                    entity="bookings",
+                    title="Записи (связанные с копилкой)",
+                    description="Записи, по которым начислена удаляемая копилка, — уйдут в корзину вместе с копилкой, иначе Выручка/ЗП останутся, а баланс уйдёт в минус.",
+                    count=_casc_b,
+                )
+            )
+    if "piggy" in payload.entities and "expenses" not in payload.entities:
+        _casc_e = len(collected.get("expenses", []))
+        if _casc_e:
+            total += _casc_e
+            items.append(
+                DataCleanupPreviewItem(
+                    entity="expenses",
+                    title="Расходы (связанные с копилкой)",
+                    description="Зеркальные расходы трат из копилки — уйдут в корзину вместе с копилкой.",
+                    count=_casc_e,
                 )
             )
     return DataCleanupPreviewPayload(
@@ -16846,36 +16927,36 @@ def get_piggy_bank(
 
 
 
-    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing")
+    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing" and _in_range(t.date))
 
-    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing")
+    withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing" and _in_range(t.date))
 
     # Возвраты долга копилки человеку (debt_repayment, amount < 0) — деньги
     # УХОДЯТ из копилки наружу: уменьшают нетто как списания.
-    debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "detailing")
+    debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "detailing" and _in_range(t.date))
 
-    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing")
+    repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing" and _in_range(t.date))
 
     net_piggy = deposits_24 + repayments - withdrawals - debt_repay_out
 
     # Wash net piggy (from actual transactions, same methodology)
-    wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash")
-    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash")
-    wash_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "wash")
-    wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash")
+    wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash" and _in_range(t.date))
+    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash" and _in_range(t.date))
+    wash_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "wash" and _in_range(t.date))
+    wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash" and _in_range(t.date))
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals - wash_debt_repay_out
 
     # General piggy bank (deposits targeted to "general")
-    general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general")
-    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general")
-    general_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "general")
-    general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general")
+    general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general" and _in_range(t.date))
+    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general" and _in_range(t.date))
+    general_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "general" and _in_range(t.date))
+    general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general" and _in_range(t.date))
     general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals - general_debt_repay_out
 
     # Manual adjustments (transaction_type == "adjust") — affect every bucket
-    detailing_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "detailing")
-    wash_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "wash")
-    general_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "general")
+    detailing_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "detailing" and _in_range(t.date))
+    wash_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "wash" and _in_range(t.date))
+    general_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "general" and _in_range(t.date))
 
     remaining = remaining + wash_adjustments
     net_piggy = net_piggy + detailing_adjustments
@@ -16921,6 +17002,10 @@ def get_piggy_bank(
             continue
 
         b = db.get(Booking, s.booking_id)
+        # FIX cleanup: доли удалённых записей не висят в копилке.
+        # Иначе после очистки bookings Выручка/ЗП уходят, а доли владельцев остаются.
+        if b is None or getattr(b, "deleted_at", None) is not None:
+            continue
 
         owner_share_items.append(
 
@@ -17077,47 +17162,34 @@ def get_piggy_bank(
                     _det_sat += _amt
                 elif _t.resource_group == "general":
                     _gen_sat += _amt
-            _self_master_before = 0
-            _self_piggy_before = 0
-            _classic_master_before = 0
-            _classic_piggy_before = 0
-            _wash_asvc_piggy_before = 0
-            for _bd, _b in _booking_parsed:
-                if _bd is None or not (_bd < _sat):
-                    continue
-                _add_dops = [a for a in (getattr(_b, "additional_services", None) or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
-                _svc = services_map.get(_b.service_id)
-                if _svc is not None and _svc.resource_group == WASH_RESOURCE_GROUP:
-                    _b_master, _b_piggy = _booking_main_split(_b)
-                    if getattr(_svc, "wash_type", None) == "self_service":
-                        _self_master_before += _b_master
-                        _self_piggy_before += _b_piggy
-                    else:
-                        _classic_master_before += _b_master
-                        _classic_piggy_before += _b_piggy
-                for _asvc in _add_dops:
-                    _dop_svc = services_map.get(_asvc.service_id) if _asvc.service_id else None
-                    if _dop_svc is not None:
-                        _dop_group = _service_resource_group(_dop_svc)
-                    elif _svc is not None:
-                        _dop_group = _service_resource_group(_svc)
-                    else:
-                        _dop_group = DEFAULT_RESOURCE_GROUP
-                    if _dop_group != WASH_RESOURCE_GROUP:
-                        continue
-                    _dop_rem = max(0, int(_asvc.price or 0) - _asvc_paid_amount(_asvc))
-                    if _dop_rem > 0 and (_b.payment_type or "") != "credit":
-                        _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
+            # FIX cleanup-consistency: остаток мойки на субботу считаем по
+            # фактическим НЕудалённым транзакциям (как карточка remaining),
+            # а не пересчётом сплита броней. Иначе после очистки piggy
+            # субботний остаток висит (booking-derived), а карточка уже 0.
+            _total_piggy_before = 0.0
             for _t in _weekly_base_txs:
                 _d = _tx_parsed_date.get(_t.id)
                 if _d is None or not (_d < _sat):
                     continue
-                if _t.transaction_type == "deposit_return" and _t.resource_group == WASH_RESOURCE_GROUP:
+                if (_t.resource_group or "") != WASH_RESOURCE_GROUP:
+                    continue
+                if _t.transaction_type not in ("deposit_24percent", "deposit_return"):
+                    continue
+                try:
+                    _amt = float(_t.amount or 0)
+                except (TypeError, ValueError):
+                    continue
+                if _amt == 0:
+                    continue
+                # Игнор orphan-начислений удалённых записей (как в карточке).
+                if getattr(_t, "booking_id", None) and _t.transaction_type == "deposit_24percent":
                     try:
-                        _wash_asvc_piggy_before += float(_t.amount or 0)
-                    except (TypeError, ValueError):
-                        pass
-            _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
+                        _bid_in_map = _t.booking_id in _completed_by_id
+                    except Exception:
+                        _bid_in_map = False
+                    if not _bid_in_map:
+                        continue
+                _total_piggy_before += _amt
             _outputs_before = 0
             try:
                 _sat_exclusive_end = _sat - timedelta(days=1)
@@ -17358,47 +17430,30 @@ def get_piggy_bank(
                         _det_sat += _amt
                     elif _t.resource_group == "general":
                         _gen_sat += _amt
-                _self_master_before = 0
-                _self_piggy_before = 0
-                _classic_master_before = 0
-                _classic_piggy_before = 0
-                _wash_asvc_piggy_before = 0
-                for _bd, _b in _booking_parsed:
-                    if _bd is None or not (_bd < _cur_sat):
-                        continue
-                    _add_dops = [a for a in (getattr(_b, "additional_services", None) or []) if (getattr(a, "price_mode", "add") or "add") != "subtract" and (a.price or 0) > 0]
-                    _svc = services_map.get(_b.service_id)
-                    if _svc is not None and _svc.resource_group == WASH_RESOURCE_GROUP:
-                        _b_master, _b_piggy = _booking_main_split(_b)
-                        if getattr(_svc, "wash_type", None) == "self_service":
-                            _self_master_before += _b_master
-                            _self_piggy_before += _b_piggy
-                        else:
-                            _classic_master_before += _b_master
-                            _classic_piggy_before += _b_piggy
-                    for _asvc in _add_dops:
-                        _dop_svc = services_map.get(_asvc.service_id) if _asvc.service_id else None
-                        if _dop_svc is not None:
-                            _dop_group = _service_resource_group(_dop_svc)
-                        elif _svc is not None:
-                            _dop_group = _service_resource_group(_svc)
-                        else:
-                            _dop_group = DEFAULT_RESOURCE_GROUP
-                        if _dop_group != WASH_RESOURCE_GROUP:
-                            continue
-                        _dop_rem = max(0, int(_asvc.price or 0) - _asvc_paid_amount(_asvc))
-                        if _dop_rem > 0 and (_b.payment_type or "") != "credit":
-                            _wash_asvc_piggy_before += money_int(_dop_rem * 24 / 100)
+                # FIX cleanup-consistency (текущая суббота): как выше — по транзакциям.
+                _total_piggy_before = 0.0
                 for _t in _weekly_base_txs:
                     _d = _tx_parsed_date.get(_t.id)
                     if _d is None or not (_d < _cur_sat):
                         continue
-                    if _t.transaction_type == "deposit_return" and _t.resource_group == WASH_RESOURCE_GROUP:
+                    if (_t.resource_group or "") != WASH_RESOURCE_GROUP:
+                        continue
+                    if _t.transaction_type not in ("deposit_24percent", "deposit_return"):
+                        continue
+                    try:
+                        _amt = float(_t.amount or 0)
+                    except (TypeError, ValueError):
+                        continue
+                    if _amt == 0:
+                        continue
+                    if getattr(_t, "booking_id", None) and _t.transaction_type == "deposit_24percent":
                         try:
-                            _wash_asvc_piggy_before += float(_t.amount or 0)
-                        except (TypeError, ValueError):
-                            pass
-                _total_piggy_before = _self_piggy_before + _classic_piggy_before + _wash_asvc_piggy_before
+                            _bid_in_map = _t.booking_id in _completed_by_id
+                        except Exception:
+                            _bid_in_map = False
+                        if not _bid_in_map:
+                            continue
+                    _total_piggy_before += _amt
                 _outputs_before = 0
                 try:
                     _sat_exclusive_end = _cur_sat - timedelta(days=1)
