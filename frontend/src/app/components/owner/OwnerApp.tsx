@@ -5284,13 +5284,10 @@ paymentSettled: false,
                   <h2 className="font-semibold mb-1">Владельцы  -  единое окно ЗП</h2>
                   <div className={`text-xs ${sub} mb-3`}>Для каждого владельца: ЗП за работу как мастера/администратора + пассивный доход с заказов других мастеров</div>
                   <OwnerPayoutWeightsEditor
-                    owners={(ownerSalaryData?.owners ?? []).map(o => {
-                      const rawId = o.ownerId.replace('owner-tg-', '');
-                      return {
-                        ownerId: o.ownerId,
-                        ownerName: rawId === '476719812' ? 'Юра' : rawId === '1768985608' ? 'Максим' : o.ownerName,
-                      };
-                    })}
+                    owners={(ownerSalaryData?.owners ?? []).map(o => ({
+                      ownerId: o.ownerId,
+                      ownerName: o.ownerName || 'Владелец',
+                    }))}
                     glass={glass} inputCls={inputCls} sub={sub} primary={primary}
                   />
                   <div className="flex gap-1 rounded-xl p-1 mb-3 flex-wrap" style={segTrack}>
@@ -5314,8 +5311,7 @@ paymentSettled: false,
                   )}
                   {ownerSalaryLoading && <div className={`text-xs ${sub} py-4 text-center`}>Загрузка...</div>}
                   {!ownerSalaryLoading && ownerSalaryData && ownerSalaryData.owners.map(owner => {
-                    const rawId = owner.ownerId.replace('owner-tg-', '');
-                    const ownerDisplayName = rawId === '476719812' ? 'Юра' : rawId === '1768985608' ? 'Максим' : owner.ownerName;
+                    const ownerDisplayName = owner.ownerName || 'Владелец';
                     return (
                     <div key={owner.ownerId}
                       id={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? archiveHighlightId(archiveHighlight) : undefined}
@@ -12778,7 +12774,7 @@ paymentSettled: false,
                           <div>
                             <label className={`text-xs ${sub} block mb-1`}>Доля владельцев</label>
                             <select className={selectCls} value={svc.ownerPayType || ''} onChange={e => patch({ ownerPayType: e.target.value })}>
-                              <option value="">Весь остаток (50/50)</option>
+                              <option value="">Весь остаток</option>
                               <option value="percent">Процент от остатка</option>
                             </select>
                           </div>
@@ -12836,7 +12832,7 @@ paymentSettled: false,
                         );
                       })}
                     </div>
-                    <p className={`text-xs ${sub} mt-1.5`}>Классика: % от полной базы (цена − материалы − вычеты). Конвейер (любой порядок ≠ классики, даже частичный): каждый % от текущего остатка по шагам. Владельцы забирают весь остаток, если стоят последними (иначе 50% или свой %).</p>
+                    <p className={`text-xs ${sub} mt-1.5`}>Классика: % от полной базы (цена − материалы − вычеты). Конвейер (любой порядок ≠ классики, даже частичный): каждый % от текущего остатка по шагам. Владельцы забирают весь остаток, если стоят последними (иначе 50%, свой % или веса владельцев).</p>
                   </div>
 
                   <div>
@@ -12844,7 +12840,7 @@ paymentSettled: false,
                     <div className={`${glass} rounded-2xl p-3 text-[11px] leading-relaxed ${sub}`}>
                       <div>1. База = цена − материалы − вычеты (subtract-допы).</div>
                       <div>2. Мастера → копилка → владельцы (или ваш порядок). Фикс/процент упираются в остаток.</div>
-                      <div>3. Доп-услуги: мастеру — своё, остаток «цена − оплата» — в копилку допа по его настройкам, остальное — владельцам.</div>
+                      <div>3. Доп-услуги: мастеру — своё, остаток «цена − оплата» — по порядку шагов самой доп-услуги (копилка/владельцы); вычет с «не отчислять» — целиком владельцам.</div>
                       <div>4. Кредит: в копилку и владельцам — 0 до закрытия месяца (вернётся через settle-month в мойку).</div>
                       <div>5. Если мастеров несколько — общий котёл делится по их % из профиля.</div>
                     </div>
@@ -12882,34 +12878,12 @@ paymentSettled: false,
                           <span className={sub}>Копилка ({preview.piggyLabel})</span>
                           <span style={{ color: '#EAB308' }}>{preview.piggy.toLocaleString('ru')} ₽</span>
                         </div>
-                        {preview.owners > 0 ? (
-                          <>
-                            {(() => {
-                              const ownerHalf = Math.round(preview.owners / 2);
-                              const ownerFirst = preview.owners - ownerHalf;
-                              return (
-                                <>
-                                  <div className="flex justify-between">
-                                    <span className={sub}>Максим</span>
-                                    <span style={{ color: primary }}>{ownerFirst.toLocaleString('ru')} ₽</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className={sub}>Юра</span>
-                                    <span style={{ color: primary }}>{ownerHalf.toLocaleString('ru')} ₽</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className={sub}>Владельцы ({preview.ownersLabel})</span>
-                                    <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
-                                  </div>
-                                </>
-                              );
-                            })()}
-                          </>
-                        ) : (
-                          <div className="flex justify-between">
-                            <span className={sub}>Владельцы ({preview.ownersLabel})</span>
-                            <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
-                          </div>
+                        <div className="flex justify-between">
+                          <span className={sub}>Владельцы ({preview.ownersLabel})</span>
+                          <span style={{ color: primary }}>{preview.owners.toLocaleString('ru')} ₽</span>
+                        </div>
+                        {preview.owners > 0 && (
+                          <div className={`text-[11px] ${sub}`}>Делёж — по весам владельцев (окно ЗП), иначе 50/50.</div>
                         )}
                         <div className="border-t pt-1 flex justify-between" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
                           <span className={sub}>Итого распределено</span>

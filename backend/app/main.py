@@ -355,6 +355,8 @@ from .schemas import (
 
     ServicePayload,
 
+    normalize_split_order,
+
     OwnerPayoutSettings,
 
     SplitPreviewRequest,
@@ -13700,7 +13702,10 @@ def _booking_money_split(
         return master_by_worker, master_total, main_master_total
 
     # Остаток вычитаемых доп услуг (цена − оплата мастеров на них) уходит
-    # в копилку доп-услуги с учётом её piggyTarget (carve-out, не из пула)
+    # в копилку доп-услуги с учётом её piggyTarget (carve-out, не из пула).
+    # H9: явный piggy=none — запрет отчислений: остаток идёт владельцам
+    # доп-долей, а не в копилку (инвариант цена == мастер+копилка+владельцы цел).
+    asvc_owner_extra_total = 0
     asvc_piggy_deposits: list[dict] = []
     for asvc in (booking.additional_services or []):
         if asvc.price_mode != "subtract":
@@ -13709,6 +13714,9 @@ def _booking_money_split(
         asvc_deposit = max(0, int(asvc.price) - asvc_pays)
         if asvc_deposit > 0:
             asvc_svc = _asvc_service(asvc)
+            if asvc_svc is not None and (asvc_svc.piggy_pay_type or "") == "none":
+                asvc_owner_extra_total += asvc_deposit
+                continue
             asvc_rg = _dop_piggy_bank(asvc_svc, rg)
             asvc_piggy_deposits.append(
                 {
@@ -13719,10 +13727,10 @@ def _booking_money_split(
                 }
             )
 
-    # Не-вычитаемые доп услуги: остаток (цена − оплата мастеров) →
-    # в копилку по настройкам самой доп-услуги (дефолт 24% для wash/detailing),
-    # остальное — владельцам (доп. доля 50/50)
-    asvc_owner_extra_total = 0
+    # Не-вычитаемые доп услуги: остаток (цена − оплата мастеров) делится
+    # по порядку и настройкам самой доп-услуги (H8): классика — копилка
+    # по piggy-настройкам + остаток владельцам; конвейер — piggy/owners
+    # по шагам допа (мастера уже оплачены явно, материалов у допов нет).
     for asvc in (booking.additional_services or []):
         if asvc.price_mode == "subtract":
             continue
@@ -13731,17 +13739,52 @@ def _booking_money_split(
         if asvc_remainder <= 0:
             continue
         asvc_svc = _asvc_service(asvc)
-        asvc_piggy_amount, asvc_rg = _dop_remainder_piggy(asvc_remainder, asvc_svc, rg)
-        if asvc_piggy_amount > 0:
-            asvc_piggy_deposits.append(
-                {
-                    "name": asvc.name,
-                    "resource_group": asvc_rg,
-                    "amount": asvc_piggy_amount,
-                    "label": _dop_piggy_label(asvc_remainder, asvc_svc, asvc.name),
-                }
-            )
-        asvc_owner_extra_total += asvc_remainder - asvc_piggy_amount
+        dop_order = normalize_split_order(asvc_svc.split_order if asvc_svc else [])
+        dop_pipeline = bool(dop_order) and dop_order != ["materials", "master", "piggy", "owners"]
+        if not dop_pipeline:
+            asvc_piggy_amount, asvc_rg = _dop_remainder_piggy(asvc_remainder, asvc_svc, rg)
+            if asvc_piggy_amount > 0:
+                asvc_piggy_deposits.append(
+                    {
+                        "name": asvc.name,
+                        "resource_group": asvc_rg,
+                        "amount": asvc_piggy_amount,
+                        "label": _dop_piggy_label(asvc_remainder, asvc_svc, asvc.name),
+                    }
+                )
+            asvc_owner_extra_total += asvc_remainder - asvc_piggy_amount
+            continue
+        dop_pool = asvc_remainder
+        dop_owner_type = asvc_svc.owner_pay_type if asvc_svc else ""
+        dop_owner_value = int(asvc_svc.owner_pay_value or 0) if asvc_svc else 0
+        dop_owner_enabled = (asvc_svc.owner_split_enabled if asvc_svc else True) is not False
+        dop_steps = [s for s in dop_order if s in ("piggy", "owners")]
+        dop_last = dop_steps[-1] if dop_steps else "owners"
+        for dop_step in dop_steps:
+            if dop_step == "piggy":
+                step_piggy, step_bank = _dop_remainder_piggy(dop_pool, asvc_svc, rg)
+                if step_piggy > 0:
+                    asvc_piggy_deposits.append(
+                        {
+                            "name": asvc.name,
+                            "resource_group": step_bank,
+                            "amount": step_piggy,
+                            "label": _dop_piggy_label(dop_pool, asvc_svc, asvc.name),
+                        }
+                    )
+                dop_pool = max(0, dop_pool - step_piggy)
+            else:
+                if not dop_owner_enabled:
+                    continue
+                if dop_owner_type == "percent":
+                    dop_claimed = money_int(dop_pool * dop_owner_value / 100)
+                elif dop_step == dop_last:
+                    dop_claimed = dop_pool
+                else:
+                    dop_claimed = money_int(dop_pool * 50 / 100)
+                dop_owners = max(0, min(dop_claimed, dop_pool))
+                asvc_owner_extra_total += dop_owners
+                dop_pool = max(0, dop_pool - dop_owners)
 
     asvc_piggy_total = sum(d["amount"] for d in asvc_piggy_deposits)
 

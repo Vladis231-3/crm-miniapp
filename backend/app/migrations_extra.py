@@ -271,9 +271,42 @@ def upgrade_deposit_month_numeric() -> str:
     return "applied"
 
 
+def upgrade_booking_money_split_snapshot() -> str:
+    """005: Booking.money_split_snapshot (заморозка авто-сплита).
+
+    Урок прод-инцидента 27.09.2026: колонка была добавлена только в тело
+    baseline (_apply_runtime_migrations), а версионный раннер выполняет
+    baseline ОДИН раз и дальше возвращает skipped. На проде baseline уже был
+    записан старым деплоем → колонка не появилась → старт упал с
+    UndefinedColumn в _repair_text_data. Новую DDL — только версионным
+    extra-путем (блок в baseline оставлен для первичных БД).
+    """
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy import text
+
+    from .database import engine
+
+    insp = sa_inspect(engine)
+    if "bookings" not in insp.get_table_names():
+        return "applied"
+    columns = {col["name"] for col in insp.get_columns("bookings")}
+    if "money_split_snapshot" in columns:
+        return "applied"
+    dialect = engine.dialect.name
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE bookings ADD COLUMN money_split_snapshot "
+                + ("JSONB DEFAULT NULL" if dialect == "postgresql" else "TEXT DEFAULT NULL")
+            )
+        )
+    return "applied"
+
+
 EXTRA_MIGRATIONS: list[tuple[str, Callable[[], str | None]]] = [
     (SLOT_UNIQUE_ID, upgrade_slot_unique_index),
     (OPKEY_ID, upgrade_op_keys),
     ("2026-10-01-deposit-op-key-003", upgrade_deposit_op_key),
     ("2026-10-01-deposit-month-numeric-004", upgrade_deposit_month_numeric),
+    ("2026-09-27-booking-split-snapshot-005", upgrade_booking_money_split_snapshot),
 ]

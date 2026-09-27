@@ -718,6 +718,21 @@ class TelegramLinkCodePayload(BaseModel):
 _SPLIT_ORDER_STEPS = ("materials", "master", "piggy", "owners")
 
 
+def normalize_split_order(order: list[str] | None) -> list[str]:
+    """Полный порядок из частичного: мусор и дубли выкидываются, пусто = классика,
+    иначе недостающие шаги дописываются классическим хвостом (H3 — шаги не теряются)."""
+    seen: list[str] = []
+    for step in order or []:
+        if step in _SPLIT_ORDER_STEPS and step not in seen:
+            seen.append(step)
+    if seen:
+        for step in _SPLIT_ORDER_STEPS:
+            if step not in seen:
+                seen.append(step)
+        return seen
+    return []
+
+
 class ServicePayload(BaseModel):
     id: str
     name: str
@@ -768,18 +783,8 @@ class ServicePayload(BaseModel):
         else:
             self.ownerPayValue = max(0, min(10_000_000, int(self.ownerPayValue or 0)))
         # Порядок всегда полный: частичный молча терял шаги и деньги (H3).
-        # Пусто = классика; иначе недостающие дописываем в классическом хвосте.
-        seen: list[str] = []
-        for step in self.splitOrder or []:
-            if step in _SPLIT_ORDER_STEPS and step not in seen:
-                seen.append(step)
-        if seen:
-            for step in _SPLIT_ORDER_STEPS:
-                if step not in seen:
-                    seen.append(step)
-            self.splitOrder = seen
-        else:
-            self.splitOrder = []
+        # Пусто = классика; иначе недостающие дописываем классическим хвостом.
+        self.splitOrder = normalize_split_order(self.splitOrder)
         return self
 
 

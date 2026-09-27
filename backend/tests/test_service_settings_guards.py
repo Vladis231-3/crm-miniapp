@@ -381,22 +381,47 @@ class ServiceSettingsGuardsTests(unittest.TestCase):
         self.assertEqual(preview["asvcOwnerExtra"], 0)
 
     def test_snapshot_column_migration_adds_and_reruns(self) -> None:
+        import tempfile
+        from pathlib import Path as _Path
+
         from sqlalchemy import inspect as sa_inspect
 
         from app.database import Base, engine
         from app.main import _apply_runtime_migrations
+        from app.migrations_extra import EXTRA_MIGRATIONS
+        from app.models import SchemaMigration
+        from app.runtime_migrations import run_startup_migrations
 
+        # Прод-сценарий 27.09.2026: baseline записан старым деплоем (колонки и
+        # записи 005 там никогда не было). Раннер обязан применить extra-005.
         Base.metadata.create_all(bind=engine)
         with engine.begin() as conn:
             conn.exec_driver_sql("ALTER TABLE bookings DROP COLUMN money_split_snapshot")
+            conn.execute(
+                SchemaMigration.__table__.delete().where(
+                    SchemaMigration.version == "2026-09-27-booking-split-snapshot-005"
+                )
+            )
         before = {c["name"] for c in sa_inspect(engine).get_columns("bookings")}
         self.assertNotIn("money_split_snapshot", before)
-        _apply_runtime_migrations()
+        lock_dir = _Path(tempfile.mkdtemp(prefix="snap_extra_"))
+        result = run_startup_migrations(
+            _apply_runtime_migrations,
+            engine=engine,
+            lock_dir=lock_dir,
+            extra_migrations=EXTRA_MIGRATIONS,
+        )
         cols = {c["name"] for c in sa_inspect(engine).get_columns("bookings")}
         self.assertIn("money_split_snapshot", cols)
-        _apply_runtime_migrations()
-        cols = {c["name"] for c in sa_inspect(engine).get_columns("bookings")}
-        self.assertIn("money_split_snapshot", cols)
+        self.assertNotEqual(result.get("status"), "skipped")
+        # Повторный старт — чисто, без падений.
+        rerun = run_startup_migrations(
+            _apply_runtime_migrations,
+            engine=engine,
+            lock_dir=lock_dir,
+            extra_migrations=EXTRA_MIGRATIONS,
+        )
+        self.assertEqual(rerun.get("status"), "skipped")
 
 
 if __name__ == "__main__":
