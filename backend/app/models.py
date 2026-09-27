@@ -215,6 +215,9 @@ class Booking(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     money_split_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
+    # Замороженный авто-сплит на момент завершения ({"v": 1, ...поля сплита}).
+    # Смена настроек услуги не переписывает историю; ручная правка обновляет.
+    money_split_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
 
     # Google Calendar интеграция (бот -> Google).
     google_event_id: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)

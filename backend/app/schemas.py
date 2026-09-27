@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -715,28 +715,140 @@ class TelegramLinkCodePayload(BaseModel):
     linked: bool
 
 
+_SPLIT_ORDER_STEPS = ("materials", "master", "piggy", "owners")
+
+
 class ServicePayload(BaseModel):
     id: str
     name: str
     category: str
-    price: int
-    duration: int
+    price: int = Field(default=0, ge=0)
+    duration: int = Field(default=0, ge=0)
     resourceGroup: str = "wash"
     washType: str = ""
     desc: str = Field(default="")
     active: bool = True
     materialConsumption: int | None = None
     isFixedMaster: bool = False
-    masterPayType: str = ""
+    masterPayType: Literal["", "percent", "fixed"] = ""
     masterPayValue: int = 0
-    piggyPayType: str = ""
+    piggyPayType: Literal["", "percent", "fixed", "rest", "none"] = ""
     piggyPayValue: int = 0
-    ownerPayType: str = ""
+    ownerPayType: Literal["", "percent"] = ""
     ownerPayValue: int = 0
     ownerSplitEnabled: bool = True
     materials: list[dict] = Field(default_factory=list)
     splitOrder: list[str] = Field(default_factory=list)
     piggyTarget: str = ""
+
+    @field_validator("materialConsumption", mode="before")
+    @classmethod
+    def _non_negative_consumption(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return None
+
+    @model_validator(mode="after")
+    def _clamp_pay_values_and_order(self) -> Self:
+        # H1: граница доверия — проценты всегда 0..100, фиксы неотрицательны.
+        # Раньше 500% или отрицательный фикс записывались молча и ломали сплит.
+        if self.masterPayType == "percent":
+            self.masterPayValue = max(0, min(100, int(self.masterPayValue or 0)))
+        else:
+            self.masterPayValue = max(0, min(10_000_000, int(self.masterPayValue or 0)))
+        if self.piggyPayType == "percent":
+            self.piggyPayValue = max(0, min(100, int(self.piggyPayValue or 0)))
+        else:
+            self.piggyPayValue = max(0, min(10_000_000, int(self.piggyPayValue or 0)))
+        if self.ownerPayType == "percent":
+            self.ownerPayValue = max(0, min(100, int(self.ownerPayValue or 0)))
+        else:
+            self.ownerPayValue = max(0, min(10_000_000, int(self.ownerPayValue or 0)))
+        # Порядок всегда полный: частичный молча терял шаги и деньги (H3).
+        # Пусто = классика; иначе недостающие дописываем в классическом хвосте.
+        seen: list[str] = []
+        for step in self.splitOrder or []:
+            if step in _SPLIT_ORDER_STEPS and step not in seen:
+                seen.append(step)
+        if seen:
+            for step in _SPLIT_ORDER_STEPS:
+                if step not in seen:
+                    seen.append(step)
+            self.splitOrder = seen
+        else:
+            self.splitOrder = []
+        return self
+
+
+class SplitPreviewDopWorker(BaseModel):
+    percent: float = Field(default=0, ge=0, le=100)
+    payType: Literal["percent", "fixed"] = "percent"
+    fixedAmount: int | None = Field(default=None, ge=0)
+
+
+class SplitPreviewDop(BaseModel):
+    serviceId: str | None = None
+    name: str = "Доп"
+    price: int = Field(default=0, ge=0)
+    priceMode: Literal["add", "subtract"] = "add"
+    isOutsource: bool = False
+    outsourceAmount: int | None = Field(default=None, ge=0)
+    workers: list[SplitPreviewDopWorker] = Field(default_factory=list, max_length=10)
+
+
+class SplitPreviewRequest(BaseModel):
+    """Превью сплита черновика услуги: считает бэкенд, а не дубль на фронте (O1)."""
+
+    service: ServicePayload
+    samplePrice: int = Field(default=0, ge=0)
+    samplePercent: float = Field(default=30, ge=0, le=100)
+    complaintPenaltyPp: float = Field(default=0, ge=0, le=100)
+    dops: list[SplitPreviewDop] = Field(default_factory=list, max_length=10)
+
+
+class SplitPreviewAsvcPiggy(BaseModel):
+    name: str = ""
+    resourceGroup: str = ""
+    amount: int = 0
+
+
+class SplitPreviewStep(BaseModel):
+    step: str = ""
+    name: str = ""
+    amount: int = 0
+    poolAfter: int = 0
+    bank: str = ""
+
+
+class SplitPreviewResponse(BaseModel):
+    materialsCost: int = 0
+    net: int = 0
+    splitBase: int = 0
+    masterTotal: int = 0
+    piggyDeposit: int = 0
+    ownersTotal: int = 0
+    resourceGroup: str = "wash"
+    piggyBank: str = "wash"
+    hasCustom: bool = False
+    totalPrice: int = 0
+    asvcMaster: int = 0
+    asvcOwnerExtra: int = 0
+    asvcPiggy: list[SplitPreviewAsvcPiggy] = Field(default_factory=list)
+    steps: list[SplitPreviewStep] = Field(default_factory=list)
+
+
+class OwnerWeightItem(BaseModel):
+    ownerId: str
+    weight: float = Field(default=0, ge=0, le=1_000_000)
+
+
+class OwnerPayoutSettings(BaseModel):
+    """Веса владельцев для дележа долей. Пусто = legacy 50/50."""
+
+    weights: list[OwnerWeightItem] = Field(default_factory=list, max_length=50)
 
 
 class DetailingRequestCreateRequest(BaseModel):

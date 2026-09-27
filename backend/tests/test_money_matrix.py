@@ -425,6 +425,142 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(detail["masterTotalAuto"], 1777)
         self.assertEqual(detail["masterTotal"], 1777)
 
+    def test_general_without_custom_has_no_phantom_owners(self) -> None:
+        """H2: общая услуга без кастома — доли не персистятся, карточка показывает 0."""
+        from app.database import SessionLocal
+        from app.models import OwnerProfitShare
+        from sqlalchemy import select
+
+        self.reset_services()
+        self.cfg("s1", resource_group="general")
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        split = self.split_of(booking["id"])
+        self.assertEqual(split["piggyDeposit"], 0)
+        self.assertGreater(split["ownersTotalAuto"], 0)
+        self.assertEqual(split["ownersTotal"], 0)
+        with SessionLocal() as db:
+            shares = db.scalars(select(OwnerProfitShare).where(
+                OwnerProfitShare.booking_id == booking["id"])).all()
+        self.assertEqual(list(shares), [])
+
+    def test_fixed_master_clamped_to_base(self) -> None:
+        """H4: фикс мастера больше базы — упирается в базу, деньги не из воздуха."""
+        self.reset_services()
+        self.cfg("s1", master_pay_type="fixed", master_pay_value=20000)
+        split = self.split_of(self.complete(self.make_booking(*S1, 10000)["id"])["id"])
+        self.assertEqual(split["masterTotal"], 10000)
+        self.assertEqual(split["piggyDeposit"], 0)
+        self.assertEqual(split["ownersTotal"], 0)
+        self.assertEqual(split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"], 10000)
+
+    def test_fixed_dop_worker_clamped_to_dop_price(self) -> None:
+        """H4: фикс мастера допа больше цены допа — упирается в цену допа."""
+        self.reset_services()
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], name="Доп", price=2000, priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван",
+                               "payType": "fixed", "fixedAmount": 5000}])
+        booking = self.complete(booking["id"])
+        split = self.split_of(booking["id"])
+        self.assertEqual(split["price"], 12000)
+        self.assertEqual(split["asvcMasterPayTotal"], 2000)
+        dops = split["asvcPiggyDeposits"]
+        self.assertEqual(dops, [])
+        self.assertEqual(split["asvcOwnerExtra"], 0)
+        total = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertEqual(total, 12000)
+
+    def test_snapshot_freezes_history_on_settings_change(self) -> None:
+        """Заморозка: смена настроек не переписывает завершённую запись."""
+        self.reset_services()
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        before = self.split_of(booking["id"])
+        self.assertEqual(
+            (before["masterTotal"], before["piggyDeposit"], before["ownersTotal"]),
+            (3000, 2400, 4600),
+        )
+        self.cfg("s1", master_pay_type="percent", master_pay_value=50,
+                 piggy_pay_type="fixed", piggy_pay_value=1000)
+        after = self.split_of(booking["id"])
+        # Живой пересчёт дал бы мастера 5000 / копилку 1000 / владельцев 4000.
+        self.assertEqual(after["masterTotal"], 3000)
+        self.assertEqual(after["piggyDeposit"], 2400)
+        self.assertEqual(after["piggyDepositAuto"], 2400)
+        self.assertEqual(after["ownersTotal"], 4600)
+        self.assertEqual(after["ownersTotalAuto"], 4600)
+        piggy = self.piggy_bank()
+        self.assertEqual(piggy["wash"]["classicMaster"], 3000)
+
+    def test_put_refreshes_snapshot_to_current_settings(self) -> None:
+        """Ручная правка = пересчёт по текущим настройкам + новая заморозка."""
+        self.reset_services()
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        self.cfg("s1", piggy_pay_type="fixed", piggy_pay_value=1000)
+        split = self.split_of(booking["id"])
+        self.assertEqual(split["piggyDepositAuto"], 2400)
+        link_id = split["workers"][0]["linkId"]
+        put = self.client.put(
+            f"/api/owner/bookings/{booking['id']}/money-split",
+            headers=self.auth_headers(self.owner_token),
+            json={"workers": [{"linkId": link_id, "overrideEarned": 3000}],
+                  "materialsCost": None, "piggyDeposit": None, "owners": []})
+        self.assertEqual(put.status_code, 200, put.text)
+        detail = put.json()
+        self.assertEqual(detail["piggyDepositAuto"], 1000)
+        self.assertEqual(detail["ownersTotalAuto"], 6000)
+
+    def test_owner_weights_split(self) -> None:
+        """Веса владельцев: 70/30 вместо legacy 50/50; пусто = legacy."""
+        from app.database import SessionLocal
+        from app.models import OwnerProfitShare, StaffUser
+        from sqlalchemy import select
+
+        self.reset_services()
+        with SessionLocal() as db:
+            db.add(StaffUser(id="owner-2", login="owner2", password_hash="x",
+                             role="owner", name="Второй", phone="+7 (900) 000-00-02",
+                             email="o2@x.ru", active=True, available=True))
+            db.commit()
+
+        booking = self.complete(self.make_booking(*S1, 10000)["id"])
+        with SessionLocal() as db:
+            shares = {s.owner_id: s.amount for s in db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking["id"])).all()}
+        # Legacy без весов: 50/50 на двух активных.
+        self.assertEqual(sorted(shares.values()), [2300, 2300])
+
+        put = self.client.put(
+            "/api/settings/owner/payout", headers=self.auth_headers(self.owner_token),
+            json={"weights": [{"ownerId": "owner-1", "weight": 70},
+                              {"ownerId": "owner-2", "weight": 30}]})
+        self.assertEqual(put.status_code, 200, put.text)
+        got = self.client.get("/api/settings/owner/payout",
+                              headers=self.auth_headers(self.owner_token))
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertEqual(
+            {w["ownerId"]: w["weight"] for w in got.json()["weights"]},
+            {"owner-1": 70, "owner-2": 30},
+        )
+
+        booking2 = self.complete(self.make_booking(*S1, 10000)["id"])
+        split2 = self.split_of(booking2["id"])
+        self.assertEqual(split2["ownersTotal"], 4600)
+        self.assertEqual(split2["ownerByOwner"], {"owner-1": 3220, "owner-2": 1380})
+        with SessionLocal() as db:
+            shares2 = {s.owner_id: s.amount for s in db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking2["id"])).all()}
+        self.assertEqual(shares2, {"owner-1": 3220, "owner-2": 1380})
+
+    def test_owner_weights_validation(self) -> None:
+        bad = self.client.put(
+            "/api/settings/owner/payout", headers=self.auth_headers(self.owner_token),
+            json={"weights": [{"ownerId": "owner-1", "weight": -5}]})
+        self.assertEqual(bad.status_code, 422, bad.text)
+        forbidden = self.client.get(
+            "/api/settings/owner/payout", headers=self.auth_headers(self.admin_token))
+        # admin — не owner: точный код зависит от guards, главное не 200 с данными
+        self.assertIn(forbidden.status_code, (401, 403), forbidden.text)
+
     def test_cancelled_booking_drops_owner_accrual(self) -> None:
         """F5: отмена completed-записи убирает её pending-доли из ЗП владельцев."""
         self.reset_services()

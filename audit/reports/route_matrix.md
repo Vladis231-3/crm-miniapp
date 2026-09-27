@@ -1,6 +1,6 @@
 # Route × auth matrix — статика (эвристика)
 
-Всего декораторов: **141**.
+Всего декораторов: **156**.
 OPEN? — нет следов сессионной авторизации: проверить вручную первыми.
 
 | Method | Path | Handler | Auth |
@@ -33,6 +33,7 @@ OPEN? — нет следов сессионной авторизации: пр�
 | DELETE | `/api/bookings/{booking_id}/additional-services/{additional_service_id}` | remove_booking_additional_service | session+?roles object-check? |
 | PATCH | `/api/bookings/{booking_id}/additional-services/{additional_service_id}` | update_booking_additional_service | session+?roles object-check? |
 | POST | `/api/bookings/{booking_id}/services` | add_booking_service | session+?roles object-check? |
+| POST | `/api/broadcasts/workers` | broadcast_to_workers | session+?roles object-check? |
 | POST | `/api/clients` | create_client | session+admin/owner |
 | PATCH | `/api/clients/me` | update_client_me | session+client object-check? |
 | DELETE | `/api/clients/{client_id}` | delete_client | session+admin/owner object-check? |
@@ -41,23 +42,30 @@ OPEN? — нет следов сессионной авторизации: пр�
 | GET | `/api/content` | get_public_content | OPEN? 🔴 |
 | PUT | `/api/content` | save_content | session+admin/owner |
 | GET | `/api/cron/google-sync` | run_google_calendar_sync_cron | OPEN? 🔴 |
+| GET | `/api/cron/outbox` | run_outbox_cron | OPEN? 🔴 |
 | GET | `/api/cron/reminders` | run_reminders_cron | OPEN? 🔴 |
 | GET | `/api/cron/reports` | run_reports_cron | OPEN? 🔴 |
 | GET | `/api/debug/db` | debug_db | OPEN? 🔴 |
-| GET | `/api/debug/encoding` | debug_encoding | OPEN? 🔴 |
 | POST | `/api/debug/mojibake-repair` | debug_mojibake_repair | OPEN? 🔴 |
 | GET | `/api/debug/mojibake-scan` | debug_mojibake_scan | OPEN? 🔴 |
 | POST | `/api/expenses` | create_expense | session+accountant/owner |
 | PATCH | `/api/expenses/{expense_id}` | update_expense | session+accountant/owner |
 | GET | `/api/health` | health | OPEN? 🔴 |
+| GET | `/api/notifications` | list_my_notifications | session+?roles object-check? |
 | POST | `/api/notifications` | create_notification | session+?roles object-check? |
 | POST | `/api/notifications/read-all` | mark_all_notifications_read | session+?roles object-check? |
+| POST | `/api/notifications/{notification_id}/complete` | complete_notification_task | session+?roles object-check? |
 | PATCH | `/api/notifications/{notification_id}/read` | mark_notification_read | session+?roles object-check? |
+| POST | `/api/notifications/{notification_id}/take-to-work` | take_notification_to_work | session+?roles object-check? |
 | GET | `/api/owner/archive` | get_owner_archive | session+owner object-check? |
+| GET | `/api/owner/audit-log` | list_audit_log | session+owner object-check? |
 | GET | `/api/owner/bookings-history` | get_owner_bookings_history | session+owner |
 | GET | `/api/owner/bookings-history/totals` | get_owner_bookings_history_totals | session+owner object-check? |
 | GET | `/api/owner/bookings/{booking_id}/money-split` | get_owner_booking_money_split | session+owner |
 | PUT | `/api/owner/bookings/{booking_id}/money-split` | update_owner_booking_money_split | session+owner object-check? |
+| GET | `/api/owner/data-cleanup/batches` | list_data_cleanup_batches | session+owner |
+| POST | `/api/owner/data-cleanup/execute` | execute_data_cleanup | session+owner object-check? |
+| POST | `/api/owner/data-cleanup/preview` | preview_data_cleanup | session+owner |
 | POST | `/api/owner/database-reset/approve` | approve_owner_database_reset | session+owner |
 | POST | `/api/owner/database-reset/execute` | execute_owner_database_reset | session+owner |
 | POST | `/api/owner/database-reset/start` | start_owner_database_reset | session+owner object-check? |
@@ -94,12 +102,16 @@ OPEN? — нет следов сессионной авторизации: пр�
 | PATCH | `/api/owner/owners/{owner_id}/master-role` | set_owner_master_role | session+owner object-check? |
 | GET | `/api/owner/piggy-bank` | get_piggy_bank | session+accountant/owner object-check? |
 | POST | `/api/owner/piggy-bank/adjust` | piggy_bank_adjust | session+accountant/owner |
+| POST | `/api/owner/piggy-bank/repay` | piggy_bank_repay | session+accountant/admin/owner object-check? |
 | DELETE | `/api/owner/piggy-bank/transactions/{tx_id}` | delete_piggy_bank_transaction | session+accountant/owner |
 | POST | `/api/owner/piggy-bank/withdraw` | piggy_bank_withdraw | session+accountant/owner object-check? |
 | POST | `/api/owner/reminders/dispatch` | dispatch_owner_booking_reminders | session+admin/owner |
 | POST | `/api/owner/reports/{period}/{segment}/telegram` | send_owner_summary_report_to_telegram | session+owner object-check? |
 | GET | `/api/owner/shift-attendance` | get_all_workers_shift_attendance | session+admin/owner |
 | POST | `/api/owner/shift-openings` | open_shift_for_masters | session+owner object-check? |
+| GET | `/api/owner/trash` | list_trash | session+owner |
+| POST | `/api/owner/trash/purge` | purge_trash | session+owner |
+| POST | `/api/owner/trash/restore` | restore_trash | session+owner |
 | GET | `/api/owner/wallet` | get_wallet | session+accountant/owner |
 | POST | `/api/owner/workers/{worker_id}/pay-salary` | owner_worker_pay_salary | session+owner object-check? |
 | GET | `/api/owner/workers/{worker_id}/salary-detail` | owner_worker_salary_detail | session+owner |
@@ -116,9 +128,12 @@ OPEN? — нет следов сессионной авторизации: пр�
 | PUT | `/api/settings/owner/company` | save_owner_company | session+owner |
 | PUT | `/api/settings/owner/integrations` | save_owner_integrations | session+owner |
 | PUT | `/api/settings/owner/notifications` | save_owner_notifications | session+owner |
+| GET | `/api/settings/owner/payout` | get_owner_payout | session+owner |
+| PUT | `/api/settings/owner/payout` | save_owner_payout | session+owner object-check? |
 | PUT | `/api/settings/owner/security` | save_owner_security | session+owner object-check? |
 | PUT | `/api/settings/schedule` | save_schedule | session+admin/owner |
 | PUT | `/api/settings/services` | save_services | session+admin/owner |
+| POST | `/api/settings/services/split-preview` | preview_service_split | session+admin/owner |
 | PUT | `/api/settings/workers/{worker_id}/notifications` | save_worker_notifications | session+?roles object-check? |
 | PUT | `/api/settings/workers/{worker_id}/profile` | save_worker_profile | session+?roles object-check? |
 | GET | `/api/shift-checklists` | list_shift_checklists | session+accountant/admin/owner/worker object-check? |

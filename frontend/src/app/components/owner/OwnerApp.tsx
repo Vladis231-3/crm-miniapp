@@ -559,6 +559,21 @@ const ORDER_STEPS = [
   { id: 'owners', label: 'Владельцы' },
 ];
 
+// Пресеты раздела денег: одним нажатием заполняют форму (не сохраняют сами).
+const SERVICE_SPLIT_PRESETS: Array<{ key: string; label: string; desc: string; patch: Partial<Service> }> = [
+  { key: 'standard', label: 'Стандарт', desc: '24% / % из профиля / остаток', patch: { masterPayType: '', masterPayValue: 0, piggyPayType: '', piggyPayValue: 0, piggyTarget: '', ownerPayType: '', ownerPayValue: 0, ownerSplitEnabled: true, splitOrder: [] } },
+  { key: 'no-piggy', label: 'Без копилки', desc: 'всё мимо копилки', patch: { piggyPayType: 'none', piggyPayValue: 0 } },
+  { key: 'piggy-percent', label: 'Копилка 10%', desc: '% от базы', patch: { piggyPayType: 'percent', piggyPayValue: 10 } },
+  { key: 'piggy-fixed', label: 'Копилка фикс', desc: '1000 ₽', patch: { piggyPayType: 'fixed', piggyPayValue: 1000 } },
+  { key: 'piggy-rest', label: 'Всё в копилку', desc: 'весь остаток', patch: { piggyPayType: 'rest', piggyPayValue: 0 } },
+  { key: 'master-pool', label: 'Котёл мастеров 30%', desc: 'общий процент', patch: { masterPayType: 'percent', masterPayValue: 30 } },
+  { key: 'master-fixed', label: 'Котёл мастеров фикс', desc: '2000 ₽ на всех', patch: { masterPayType: 'fixed', masterPayValue: 2000 } },
+  { key: 'piggy-general', label: 'Копилка → общая', desc: 'редирект вклада', patch: { piggyTarget: 'general' } },
+  { key: 'piggy-first', label: 'Копилка до мастеров', desc: 'конвейер', patch: { splitOrder: ['materials', 'piggy', 'master', 'owners'] } },
+  { key: 'owners-percent', label: 'Владельцам 50% остатка', desc: 'остальное не делится', patch: { ownerSplitEnabled: true, ownerPayType: 'percent', ownerPayValue: 50 } },
+  { key: 'no-owners', label: 'Без долей владельцам', desc: 'остаток не делится', patch: { ownerSplitEnabled: false } },
+];
+
 function serviceMoneySummary(service: MoneyServiceDraft) {
   const piggyTargetLabel = service.piggyTarget === 'wash' ? ' → мойка'
     : service.piggyTarget === 'detailing' ? ' → детейлинг'
@@ -716,6 +731,91 @@ const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
 });
 
 type PercentValue = number | '';
+
+
+function OwnerPayoutWeightsEditor({ owners, glass, inputCls, sub, primary }: {
+  owners: Array<{ ownerId: string; ownerName: string }>;
+  glass: string; inputCls: string; sub: string; primary: string;
+}) {
+  const [weights, setWeights] = useState<Record<string, string>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => {
+    apiRequest<{ weights: Array<{ ownerId: string; weight: number }> }>('/api/settings/owner/payout')
+      .then(d => {
+        const m: Record<string, string> = {};
+        (d.weights ?? []).forEach(w => { m[w.ownerId] = String(w.weight); });
+        setWeights(m);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+  const total = owners.reduce((s, o) => s + (Number(weights[o.ownerId]) || 0), 0);
+  const save = async () => {
+    setSaving(true);
+    setMsg('');
+    try {
+      const body = {
+        weights: owners
+          .map(o => ({ ownerId: o.ownerId, weight: Number(weights[o.ownerId]) || 0 }))
+          .filter(w => w.weight > 0),
+      };
+      const saved = await apiRequest<{ weights: Array<{ ownerId: string; weight: number }> }>(
+        '/api/settings/owner/payout', { method: 'PUT', body });
+      const m: Record<string, string> = {};
+      saved.weights.forEach(w => { m[w.ownerId] = String(w.weight); });
+      setWeights(m);
+      setMsg(saved.weights.length > 0 ? 'Сохранено: доли делятся по весам' : 'Сохранено: веса сброшены, делёж 50/50');
+    } catch {
+      setMsg('Не сохранилось — проверьте соединение');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className={`${glass} rounded-2xl p-4 mb-3`}>
+      <div className="font-semibold text-sm mb-1">Делёж долей владельцев</div>
+      <div className={`text-xs ${sub} mb-3`}>
+        Веса делят каждую долю пропорционально (остаток копеек — по наибольшему остатку).
+        Все веса пустые/нули = как раньше 50/50. Действует на новые записи.
+      </div>
+      {!loaded && <div className={`text-xs ${sub} py-2 text-center`}>Загрузка весов...</div>}
+      {loaded && owners.length === 0 && (
+        <div className={`text-xs ${sub}`}>Нет владельцев в ведомости за период — веса появятся здесь.</div>
+      )}
+      {loaded && owners.map(o => {
+        const w = Number(weights[o.ownerId]) || 0;
+        const share = total > 0 ? Math.round((w / total) * 100) : null;
+        return (
+          <div key={o.ownerId} className="flex items-center gap-2 mb-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{o.ownerName}</div>
+              <div className={`text-[11px] ${sub}`}>{share === null ? '50/50' : `${share}% доли`}</div>
+            </div>
+            <div className="w-24 shrink-0">
+              <input
+                type="number" inputMode="decimal" min={0}
+                placeholder="0"
+                value={weights[o.ownerId] ?? ''}
+                onChange={e => setWeights(p => ({ ...p, [o.ownerId]: e.target.value }))}
+                className={`${inputCls} text-right rounded-xl text-sm`}
+              />
+            </div>
+          </div>
+        );
+      })}
+      {loaded && owners.length > 0 && (
+        <button onClick={() => void save()} disabled={saving}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+          style={{ background: primary }}>
+          {saving ? 'Сохранение...' : 'Сохранить веса'}
+        </button>
+      )}
+      {msg && <div className={`text-xs mt-2 ${sub}`}>{msg}</div>}
+    </div>
+  );
+}
 
 
 export function OwnerApp() {
@@ -1139,6 +1239,55 @@ export function OwnerApp() {
   const [showServiceMaterialPicker, setShowServiceMaterialPicker] = useState(false);
   const [serviceMaterialPickerCategory, setServiceMaterialPickerCategory] = useState<string | null>(null);
   const [serviceSettingsSaving, setServiceSettingsSaving] = useState(false);
+  // O1: каноническое превью считает бэкенд (тот же _booking_money_split).
+  // Локальный расчёт — мгновенный фолбэк, пока серверный не приехал.
+  interface CanonicalSplitPreview {
+    materialsCost: number; net: number; splitBase: number; masterTotal: number;
+    piggyDeposit: number; ownersTotal: number; resourceGroup: string;
+    piggyBank: string; hasCustom: boolean; totalPrice: number;
+    asvcMaster: number; asvcOwnerExtra: number;
+    asvcPiggy: Array<{ name: string; resourceGroup: string; amount: number }>;
+    steps: Array<{ step: string; name: string; amount: number; poolAfter: number; bank: string }>;
+  }
+  type PreviewSlot = { key: string; data: CanonicalSplitPreview } | null;
+  const [canonicalPreview, setCanonicalPreview] = useState<PreviewSlot>(null);
+  const [simResult, setSimResult] = useState<PreviewSlot>(null);
+  const previewDraftRef = useRef<{ key: string; body: unknown } | null>(null);
+  const simDraftRef = useRef<{ key: string; body: unknown } | null>(null);
+  // Симулятор «что если»: пусто = как в услуге.
+  const [simPrice, setSimPrice] = useState('');
+  const [simPercent, setSimPercent] = useState('');
+  const [simCredit, setSimCredit] = useState(false);
+  const [simComplaintPp, setSimComplaintPp] = useState('');
+  const [simDopPrice, setSimDopPrice] = useState('');
+  const [simDopPercent, setSimDopPercent] = useState('50');
+  const [simDopFixed, setSimDopFixed] = useState('');
+  const [simOutsource, setSimOutsource] = useState(false);
+  const [simOutsourceAmount, setSimOutsourceAmount] = useState('');
+  const [simSubtract, setSimSubtract] = useState('');
+  const [simDopServiceId, setSimDopServiceId] = useState('');
+  useEffect(() => {
+    const jobs: Array<{ key: string; body: unknown; cur: PreviewSlot; apply: (d: CanonicalSplitPreview) => void; live: () => { key: string; body: unknown } | null }> = [];
+    const pd = previewDraftRef.current;
+    if (pd && (!canonicalPreview || canonicalPreview.key !== pd.key)) {
+      jobs.push({ key: pd.key, body: pd.body, cur: canonicalPreview, live: () => previewDraftRef.current,
+        apply: d => { const cur = previewDraftRef.current; if (cur && cur.key === pd.key) setCanonicalPreview({ key: pd.key, data: d }); } });
+    }
+    const sd = simDraftRef.current;
+    if (sd && (!simResult || simResult.key !== sd.key)) {
+      jobs.push({ key: sd.key, body: sd.body, cur: simResult, live: () => simDraftRef.current,
+        apply: d => { const cur = simDraftRef.current; if (cur && cur.key === sd.key) setSimResult({ key: sd.key, data: d }); } });
+    }
+    if (jobs.length === 0) return;
+    const t = setTimeout(() => {
+      jobs.forEach(j => {
+        apiRequest<CanonicalSplitPreview>('/api/settings/services/split-preview', { method: 'POST', body: j.body })
+          .then(d => j.apply(d))
+          .catch(() => {});
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  });
   const [editingSettingsClientCard, setEditingSettingsClientCard] = useState(false);
   const [clientCardDrafts, setClientCardDrafts] = useState<Record<string, { name: string; phone: string; car: string; plate: string; plateType: string; notes: string; debtBalance: string; adminRating: number; adminNote: string; referralSource: string }>>({});
   const [savingClientId, setSavingClientId] = useState<string | null>(null);
@@ -5134,6 +5283,16 @@ paymentSettled: false,
                 <div className="mt-6">
                   <h2 className="font-semibold mb-1">Владельцы  -  единое окно ЗП</h2>
                   <div className={`text-xs ${sub} mb-3`}>Для каждого владельца: ЗП за работу как мастера/администратора + пассивный доход с заказов других мастеров</div>
+                  <OwnerPayoutWeightsEditor
+                    owners={(ownerSalaryData?.owners ?? []).map(o => {
+                      const rawId = o.ownerId.replace('owner-tg-', '');
+                      return {
+                        ownerId: o.ownerId,
+                        ownerName: rawId === '476719812' ? 'Юра' : rawId === '1768985608' ? 'Максим' : o.ownerName,
+                      };
+                    })}
+                    glass={glass} inputCls={inputCls} sub={sub} primary={primary}
+                  />
                   <div className="flex gap-1 rounded-xl p-1 mb-3 flex-wrap" style={segTrack}>
                     {(['day', 'week', 'month', 'all', 'custom'] as const).map(p => (
                       <button key={p} onClick={() => setOwnerSalaryPeriod(p)} aria-pressed={ownerSalaryPeriod === p}
@@ -12292,11 +12451,69 @@ paymentSettled: false,
             list.splice(index, 1);
             applyMaterials(list);
           };
-          const preview = previewServiceSplit(
+          const servicePayloadForPreview = {
+            id: svc.id, name: svc.name, category: svc.category, price: svc.price,
+            duration: svc.duration, resourceGroup: svc.resourceGroup ?? '',
+            washType: svc.washType ?? '', desc: svc.desc ?? '', active: svc.active !== false,
+            materialConsumption: (svc.materials ?? []).length > 0 ? Math.round(svcMaterialsCost) : (svc.materialConsumption ?? null),
+            isFixedMaster: Boolean(svc.isFixedMaster),
+            masterPayType: svc.masterPayType || '', masterPayValue: svc.masterPayValue ?? 0,
+            piggyPayType: svc.piggyPayType || '', piggyPayValue: svc.piggyPayValue ?? 0,
+            ownerPayType: svc.ownerPayType || '', ownerPayValue: svc.ownerPayValue ?? 0,
+            ownerSplitEnabled: svc.ownerSplitEnabled !== false,
+            materials: svc.materials ?? [], splitOrder: svc.splitOrder ?? [],
+            piggyTarget: svc.piggyTarget || '',
+          };
+          const previewBody = {
+            service: servicePayloadForPreview,
+            samplePrice, samplePercent,
+          };
+          const previewKey = JSON.stringify(previewBody);
+          previewDraftRef.current = { key: previewKey, body: previewBody };
+          // Симулятор: те же настройки, но свой сценарий (цены, кредит, жалоба, допы).
+          const simPriceNum = simPrice === '' ? samplePrice : Math.max(0, numberFromInput(simPrice) || 0);
+          const simPercentNum = simPercent === '' ? samplePercent : Math.max(0, Number(simPercent) || 0);
+          const simComplaintNum = Math.max(0, Number(simComplaintPp) || 0);
+          const simDops: Array<Record<string, unknown>> = [];
+          const simDopPriceNum = Math.max(0, numberFromInput(simDopPrice) || 0);
+          const simSubtractNum = Math.max(0, numberFromInput(simSubtract) || 0);
+          if (simDopPriceNum > 0) {
+            const fixedAmt = simDopFixed === '' ? null : Math.max(0, numberFromInput(simDopFixed) || 0);
+            simDops.push({
+              serviceId: simDopServiceId || null,
+              name: 'Доп', price: simDopPriceNum, priceMode: 'add',
+              isOutsource: simOutsource,
+              outsourceAmount: simOutsource ? Math.max(0, numberFromInput(simOutsourceAmount) || 0) : null,
+              workers: simOutsource ? [] : (fixedAmt !== null
+                ? [{ percent: 0, payType: 'fixed', fixedAmount: fixedAmt }]
+                : [{ percent: Math.max(0, Number(simDopPercent) || 0), payType: 'percent', fixedAmount: null }]),
+            });
+          }
+          if (simSubtractNum > 0) {
+            simDops.push({ name: 'Вычет', price: simSubtractNum, priceMode: 'subtract', isOutsource: false, outsourceAmount: null, workers: [] });
+          }
+          const simBody = {
+            service: servicePayloadForPreview,
+            samplePrice: simPriceNum, samplePercent: simPercentNum,
+            complaintPenaltyPp: simComplaintNum, dops: simDops,
+          };
+          const simKey = JSON.stringify(simBody);
+          simDraftRef.current = { key: simKey, body: simBody };
+          const sim = simResult && simResult.key === simKey ? simResult.data : null;
+          const localPreview = previewServiceSplit(
             { ...svc, materialConsumption: (svc.materials ?? []).length > 0 ? Math.round(svcMaterialsCost) : (svc.materialConsumption ?? 0) },
             samplePrice,
             samplePercent,
           );
+          const canonical = canonicalPreview && canonicalPreview.key === previewKey ? canonicalPreview.data : null;
+          const preview = canonical
+            ? {
+                ...localPreview,
+                materials: canonical.materialsCost, net: canonical.net,
+                master: canonical.masterTotal, piggy: canonical.piggyDeposit,
+                owners: canonical.ownersTotal,
+              }
+            : localPreview;
           const total = Math.max(1, preview.materials + preview.master + preview.piggy + preview.owners);
           const distributed = Math.min(samplePrice, preview.materials + preview.master + preview.piggy + preview.owners);
           return (
@@ -12438,6 +12655,15 @@ paymentSettled: false,
                   <div>
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Распределение денег</div>
                     <div className="space-y-2">
+                      <div>
+                        <label className={`text-xs ${sub} block mb-1`}>Пресет (заполняет форму, не сохраняет)</label>
+                        <select className={selectCls} value="" onChange={e => { const p = SERVICE_SPLIT_PRESETS.find(x => x.key === e.target.value); if (p) patch(p.patch); }}>
+                          <option value="">Применить пресет...</option>
+                          {SERVICE_SPLIT_PRESETS.map(p => (
+                            <option key={p.key} value={p.key}>{p.label} — {p.desc}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Материалы со склада (списываются при завершении записи)</label>
                         {(svc.materials ?? []).length > 0 && (
@@ -12625,7 +12851,7 @@ paymentSettled: false,
                   </div>
 
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Предпросмотр при цене {samplePrice.toLocaleString('ru')} ₽</div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Предпросмотр при цене {samplePrice.toLocaleString('ru')} ₽{canonical ? ' · точный расчёт' : ''}</div>
                     <div className={`${glass} rounded-2xl p-3 space-y-2`}>
                       <div className="h-2.5 rounded-full overflow-hidden flex">
                         {preview.materials > 0 && <div style={{ width: `${(preview.materials / total) * 100}%`, background: '#64748B' }} />}
@@ -12726,6 +12952,163 @@ paymentSettled: false,
                     <p className={`text-xs ${sub} mt-2`}>
                       Предпросмотр — обычная наличная запись без допов и вычетов: subtract-допы уменьшают базу, допы делятся по своим настройкам копилки, жалобы уменьшают % мастера (факт может быть меньше), кредит — см. строку выше. Точный расчёт — в карточке записи после завершения. Если мастеров несколько, сумма делится по их % из профиля.
                     </p>
+                    <div className={`${glass} rounded-2xl p-3 mt-3`}>
+                      <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: primary }}>Симулятор «что если»</div>
+                      <div className={`text-[11px] ${sub} mb-2`}>Считает сервер тем же движком, что проводки. Пустое поле = как в услуге.</div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Цена услуги (₽)</label>
+                          <input className={inputCls} type="number" min={0} placeholder={String(samplePrice)} value={simPrice} onChange={e => setSimPrice(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>% мастера</label>
+                          <input className={inputCls} type="number" min={0} max={100} placeholder={String(samplePercent)} value={simPercent} onChange={e => setSimPercent(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Жалоба −п.п.</label>
+                          <input className={inputCls} type="number" min={0} max={100} placeholder="0" value={simComplaintPp} onChange={e => setSimComplaintPp(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Вычет subtract (₽)</label>
+                          <input className={inputCls} type="number" min={0} placeholder="0" value={simSubtract} onChange={e => setSimSubtract(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Доп: цена (₽)</label>
+                          <input className={inputCls} type="number" min={0} placeholder="0" value={simDopPrice} onChange={e => setSimDopPrice(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Доп: % мастеру</label>
+                          <input className={inputCls} type="number" min={0} max={100} placeholder="50" value={simDopPercent} onChange={e => setSimDopPercent(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Доп: фикс мастеру (₽)</label>
+                          <input className={inputCls} type="number" min={0} placeholder="вместо %" value={simDopFixed} onChange={e => setSimDopFixed(e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${sub} block mb-1`}>Аутсорс допа (₽)</label>
+                          <input className={inputCls} type="number" min={0} placeholder="0" value={simOutsourceAmount} onChange={e => setSimOutsourceAmount(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="mb-2">
+                        <label className={`text-xs ${sub} block mb-1`}>Доп как услуга из справочника (копилка — по её настройкам)</label>
+                        <select className={selectCls} value={simDopServiceId} onChange={e => setSimDopServiceId(e.target.value)}>
+                          <option value="">По умолчанию (24% мойка/детейлинг, 0 общая)</option>
+                          {services.map(s => (
+                            <option key={s.id} value={s.id}>{s.name} — {s.category}</option>
+                          ))}
+                        </select>
+                        {(() => {
+                          const dopSvc = services.find(s => s.id === simDopServiceId);
+                          if (!dopSvc) return null;
+                          return (
+                            <div className={`text-[11px] ${sub} mt-1`}>У допа: {serviceMoneySummary(dopSvc)[1]}</div>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-4 mb-2">
+                        <label className="flex items-center gap-2 text-xs">
+                          <SwitchToggle value={simCredit} onChange={() => setSimCredit(v => !v)} />
+                          <span>Кредит (депозит)</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs">
+                          <SwitchToggle value={simOutsource} onChange={() => setSimOutsource(v => !v)} />
+                          <span>Доп — аутсорс</span>
+                        </label>
+                      </div>
+                      {!sim && <div className={`text-xs ${sub} py-2 text-center`}>Считаю сценарий...</div>}
+                      {sim && (() => {
+                        const simAsvcPiggy = (sim.asvcPiggy ?? []).reduce((s, d) => s + (d.amount || 0), 0);
+                        const simMainPiggy = Math.max(0, sim.piggyDeposit - simAsvcPiggy);
+                        const simTotal = sim.totalPrice;
+                        const simDistributed = sim.masterTotal + sim.piggyDeposit + sim.ownersTotal;
+                        const simUndistributed = Math.max(0, simTotal - simDistributed);
+                        return (
+                          <div className="text-xs space-y-1">
+                            <div className="flex justify-between">
+                              <span className={sub}>Чек сценария</span>
+                              <span className="font-medium">{simTotal.toLocaleString('ru')} ₽</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className={sub}>Мастера{sim.asvcMaster > 0 ? ` (в т.ч. доп: ${sim.asvcMaster.toLocaleString('ru')} ₽)` : ''}</span>
+                              <span style={{ color: accent }}>{sim.masterTotal.toLocaleString('ru')} ₽</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className={`${sub} truncate`}>· в {piggyBankLabel(sim.piggyBank)}</span>
+                              <span className="font-medium shrink-0" style={{ color: '#EAB308' }}>{simMainPiggy.toLocaleString('ru')} ₽</span>
+                            </div>
+                            {(sim.asvcPiggy ?? []).map(d => (
+                              <div key={`sim-ap-${d.name}-${d.amount}`} className="flex justify-between">
+                                <span className={`${sub} truncate`}>· «{d.name}» → в {piggyBankLabel(d.resourceGroup)}</span>
+                                <span className="font-medium">{d.amount.toLocaleString('ru')} ₽</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between">
+                              <span className={sub}>Владельцы</span>
+                              <span style={{ color: primary }}>{sim.ownersTotal.toLocaleString('ru')} ₽</span>
+                            </div>
+                            {simUndistributed > 1 && (
+                              <div className="flex justify-between">
+                                <span className={sub}>Не распределено</span>
+                                <span className="font-medium text-red-500">{simUndistributed.toLocaleString('ru')} ₽</span>
+                              </div>
+                            )}
+                            {(sim.steps ?? []).length > 0 && (
+                              <div className="pt-1">
+                                <div className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Ход расчёта</div>
+                                {(sim.steps ?? []).map((st, si) => {
+                                  const stepLabel = st.step === 'start' ? 'Старт'
+                                    : st.step === 'dop' ? `Доп «${st.name}»`
+                                    : st.step === 'dop_masters' ? 'Мастера допов'
+                                    : (ORDER_STEPS.find(o => o.id === st.step)?.label ?? st.step);
+                                  if (st.step === 'start') {
+                                    return (
+                                      <div key={`sim-st-${si}`} className="flex justify-between">
+                                        <span className={sub}>{stepLabel}</span>
+                                        <span className="font-medium">{st.poolAfter.toLocaleString('ru')} ₽</span>
+                                      </div>
+                                    );
+                                  }
+                                  if (st.step === 'dop') {
+                                    return (
+                                      <div key={`sim-st-${si}`} className="flex justify-between">
+                                        <span className={`${sub} truncate`}>· {stepLabel} → в {piggyBankLabel(st.bank)}</span>
+                                        <span className="font-medium">+{st.amount.toLocaleString('ru')} ₽</span>
+                                      </div>
+                                    );
+                                  }
+                                  if (st.step === 'dop_masters') {
+                                    return (
+                                      <div key={`sim-st-${si}`} className="flex justify-between">
+                                        <span className={sub}>· {stepLabel} (из цен допов)</span>
+                                        <span className="font-medium">+{st.amount.toLocaleString('ru')} ₽</span>
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div key={`sim-st-${si}`} className="flex justify-between">
+                                      <span className={sub}>· {stepLabel}</span>
+                                      <span className="font-medium">−{st.amount.toLocaleString('ru')} ₽ · ост. {st.poolAfter.toLocaleString('ru')} ₽</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {simCredit && (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className={sub}>Кредит сейчас: копилка / владельцы</span>
+                                  <span className="font-medium">0 ₽</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className={sub}>После settle-month</span>
+                                  <span className="font-medium">{sim.piggyDeposit.toLocaleString('ru')} / {sim.ownersTotal.toLocaleString('ru')} ₽</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                   </>
                   )}

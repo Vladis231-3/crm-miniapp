@@ -355,6 +355,16 @@ from .schemas import (
 
     ServicePayload,
 
+    OwnerPayoutSettings,
+
+    SplitPreviewRequest,
+
+    SplitPreviewResponse,
+
+    SplitPreviewAsvcPiggy,
+
+    SplitPreviewStep,
+
     SessionPayload,
 
     ShiftChecklistPayload,
@@ -2814,6 +2824,28 @@ def _apply_runtime_migrations() -> None:
                     connection.exec_driver_sql(
                         "ALTER TABLE bookings ALTER COLUMN money_split_overrides "
                         "TYPE JSONB USING money_split_overrides::jsonb"
+                    )
+
+    # Миграция: замороженный авто-сплит записи (JSON: {"v": 1, ...}).
+    if "bookings" in inspector.get_table_names():
+        booking_snap_columns = {col["name"] for col in inspector.get_columns("bookings")}
+        if "money_split_snapshot" not in booking_snap_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE bookings ADD COLUMN money_split_snapshot "
+                    + ("JSONB DEFAULT NULL" if engine.dialect.name == "postgresql" else "TEXT DEFAULT NULL")
+                )
+        elif engine.dialect.name == "postgresql":
+            snap_column_type = next(
+                col["type"].__class__.__name__.lower()
+                for col in inspector.get_columns("bookings")
+                if col["name"] == "money_split_snapshot"
+            )
+            if snap_column_type == "text":
+                with engine.begin() as connection:
+                    connection.exec_driver_sql(
+                        "ALTER TABLE bookings ALTER COLUMN money_split_snapshot "
+                        "TYPE JSONB USING money_split_snapshot::jsonb"
                     )
 
     # Миграция: поля Google Calendar интеграции на записи
@@ -13431,6 +13463,17 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
     return 0
 
 
+def _asvc_link_earned(asvc_price: int, alink) -> int:
+    """Оплата мастеру доп-услуги по одной связке.
+
+    H4: фикс упирается в цену допа — иначе мастер допа получал бы больше
+    цены допа, а остаток уходил бы в минус. Процент ограничен схемой (0..100).
+    """
+    if alink.pay_type == "fixed":
+        return max(0, min(int(alink.fixed_amount or 0), max(0, int(asvc_price or 0))))
+    return money_int(asvc_price * (alink.percent or 0) / 100)
+
+
 def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
     """Сколько уходит с доп. услуги: аутсорсеру или мастерам (фикс/процент).
 
@@ -13441,10 +13484,7 @@ def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
         return int(asvc.outsource_amount or 0)
     total = 0
     for alink in asvc.worker_links:
-        if alink.pay_type == "fixed":
-            total += int(alink.fixed_amount or 0)
-        else:
-            total += money_int(asvc.price * (alink.percent or 0) / 100)
+        total += _asvc_link_earned(asvc.price, alink)
     return total
 
 
@@ -13504,18 +13544,34 @@ def _dop_piggy_label(remainder: int, dop_svc: Service | None, name: str) -> str:
     return f"24% от остатка «{name}»"
 
 
+def _should_persist_owner_shares(split: dict) -> bool:
+    """Доли владельцев персистятся только для мойки/детейлинга или кастомных услуг.
+
+    H2: раньше карточка и архив показывали ownersTotalAuto общей услуги без
+    кастома как живые деньги, хотя доли никогда не создавались (фантомы).
+    Единый гард для _process_owner_profit_share и деталей сплита.
+    """
+    return split["resource_group"] in ("detailing", "wash") or bool(split.get("has_custom"))
+
+
 def _booking_money_split(
     db: Session,
     booking: Booking,
     complaints_by_worker: dict[str, list] | None = None,
+    *,
+    service_override: Service | None = None,
 ) -> dict:
     """Единая модель распределения денег по записи.
 
     Порядок: цена → материалы → мастера → копилка → владельцы.
     Фикс/процент мастера — общая сумма на услугу и делится между мастерами
     пропорционально их процентам из профиля (новичок с меньшим % получает меньше).
+    service_override — транзитная услуга для split-preview (без записи в БД).
     """
-    svc = db.get(Service, booking.service_id) if booking.service_id else None
+    if service_override is not None:
+        svc = service_override
+    else:
+        svc = db.get(Service, booking.service_id) if booking.service_id else None
 
     # Кэш услуг доп. услуг в рамках одного вызова: избегаем N+1 при пакетной
     # обработке завершённых записей на странице зарплат.
@@ -13592,7 +13648,9 @@ def _booking_money_split(
                     time_value=booking.time,
                     fallback=booking.created_at,
                 )
-                if _is_fixed_master_service_db(db, booking.service_id, booking.service):
+                if service_override is not None and service_override.is_fixed_master:
+                    amount = FIXED_MASTER_EARNED
+                elif _is_fixed_master_service_db(db, booking.service_id, booking.service):
                     amount = FIXED_MASTER_EARNED
                 else:
                     amount = money_int(base * percent / 100)
@@ -13600,10 +13658,13 @@ def _booking_money_split(
                 explicit_total += amount
 
         if has_service_master_mode and weighted_workers:
+            # H4: котёл не может превышать базу — иначе мастер получал бы больше
+            # чека, а деньги брались бы из воздуха (превью честно предупреждает).
+            base_cap = max(0, int(base or 0))
             if master_pay_type == "fixed":
-                total_master_pay = master_pay_value
+                total_master_pay = max(0, min(int(master_pay_value or 0), base_cap))
             elif master_pay_type == "percent":
-                total_master_pay = money_int(base * master_pay_value / 100)
+                total_master_pay = max(0, min(money_int(base * master_pay_value / 100), base_cap))
             else:
                 total_master_pay = 0
             if total_master_pay > 0:
@@ -13632,10 +13693,7 @@ def _booking_money_split(
         # Дополнительные услуги (оплата работникам)
         for asvc in (booking.additional_services or []):
             for alink in asvc.worker_links:
-                if alink.pay_type == "fixed":
-                    amount = int(alink.fixed_amount or 0)
-                else:
-                    amount = money_int(asvc.price * (alink.percent or 0) / 100)
+                amount = _asvc_link_earned(asvc.price, alink)
                 master_by_worker[alink.worker_id] = master_by_worker.get(alink.worker_id, 0) + amount
                 master_total += amount
 
@@ -13730,20 +13788,62 @@ def _booking_money_split(
                         StaffUser.active.is_(True),
                     )
                 ).all()
-            owners_sorted = sorted(owners, key=lambda owner: owner.id)
-            if len(owners_sorted) == 1:
-                # Один активный владелец получает всю долю
-                owner_by_owner[owners_sorted[0].id] = owners_total
-            elif len(owners_sorted) >= 2:
-                first_share = owners_total // 2
-                owner_by_owner[owners_sorted[0].id] = first_share
-                owner_by_owner[owners_sorted[1].id] = owners_total - first_share
+            weights = _owner_payout_weights(db)
+            if weights:
+                # Явные веса: пул + владельцы из весов с весом > 0.
+                # Пустой итог при кривой конфигурации — осознанно: деньги не
+                # уходят не тем людям (видно как нераспределённые).
+                by_id = {owner.id: owner for owner in owners}
+                extra = db.scalars(
+                    select(StaffUser).where(
+                        StaffUser.role == "owner",
+                        StaffUser.active.is_(True),
+                    )
+                ).all()
+                for owner in extra:
+                    by_id.setdefault(owner.id, owner)
+                weighted = sorted(
+                    ((oid, weights[oid]) for oid in by_id if weights.get(oid, 0) > 0),
+                    key=lambda item: item[0],
+                )
+                if weighted:
+                    total_w = sum(w for _, w in weighted)
+                    alloc = 0
+                    remainders: list[tuple[float, str, int]] = []
+                    for oid, w in weighted:
+                        exact = owners_total * w / total_w
+                        base = int(exact)
+                        owner_by_owner[oid] = base
+                        alloc += base
+                        remainders.append((exact - base, oid, base))
+                    leftover = owners_total - alloc
+                    remainders.sort(key=lambda item: (-item[0], item[1]))
+                    for index in range(min(leftover, len(remainders))):
+                        owner_by_owner[remainders[index][1]] += 1
+                    owner_by_owner = {oid: amt for oid, amt in owner_by_owner.items() if amt > 0}
+                else:
+                    print(f"[PROFIT_DEBUG] owner weights set but no eligible owners — distributing nothing")
+            else:
+                owners_sorted = sorted(owners, key=lambda owner: owner.id)
+                if len(owners_sorted) == 1:
+                    # Один активный владелец получает всю долю
+                    owner_by_owner[owners_sorted[0].id] = owners_total
+                elif len(owners_sorted) >= 2:
+                    first_share = owners_total // 2
+                    owner_by_owner[owners_sorted[0].id] = first_share
+                    owner_by_owner[owners_sorted[1].id] = owners_total - first_share
         return owners_total, owner_by_owner
+
+    # Пошаговая трассировка для симулятора: [{step, name, amount, pool_after, bank}].
+    # amount шага основного потока = взято из пула; допы идут отдельными
+    # записями (carve-out, пул не затрагивают). Только для чтения/превью.
+    trace: list[dict] = []
 
     if pipeline_mode:
         # Конвейер: каждый шаг забирает свою сумму из текущего остатка
         pool = max(0, main_price - subtract_total)
         pool_start = pool
+        trace.append({"step": "start", "name": "", "amount": 0, "pool_after": pool, "bank": ""})
         materials_deducted = 0
         master_by_worker: dict[str, int] = {}
         master_total = 0
@@ -13752,6 +13852,8 @@ def _booking_money_split(
         owners_total = 0
         owner_by_owner: dict[str, int] = {}
         for index, step in enumerate(split_order):
+            trace_before = pool
+            trace_added = 0
             if step == "materials":
                 materials_deducted = min(materials_cost, pool)
                 pool = max(0, pool - materials_deducted)
@@ -13766,6 +13868,7 @@ def _booking_money_split(
                 if asvc_owner_extra_total > 0:
                     # Доп. доля владельцев от остатка не-вычитаемых доп услуг
                     pool += asvc_owner_extra_total
+                    trace_added = asvc_owner_extra_total
                 if owner_pay_type == "percent":
                     claimed = money_int(pool * owner_pay_value / 100)
                 elif is_last:
@@ -13774,6 +13877,8 @@ def _booking_money_split(
                     claimed = money_int(pool * 50 / 100)
                 owners_total, owner_by_owner = _allocate_owners(claimed, pool)
                 pool = max(0, pool - owners_total)
+            trace.append({"step": step, "name": "", "amount": max(0, trace_before + trace_added - pool),
+                          "pool_after": pool, "bank": ""})
         # Вклады вычитаемых доп услуг — из их carve-out, пул не затрагивают
         piggy_deposit += asvc_piggy_total
         # База отчёта = пул минус фактически ушедшее на шаге материалов
@@ -13781,7 +13886,13 @@ def _booking_money_split(
     else:
         # Классический порядок: материалы → мастера → копилка → владельцы
         split_base_report = split_base
+        trace_pool0 = max(0, main_price - subtract_total)
+        trace.append({"step": "start", "name": "", "amount": 0, "pool_after": trace_pool0, "bank": ""})
+        trace.append({"step": "materials", "name": "", "amount": max(0, trace_pool0 - split_base),
+                      "pool_after": split_base, "bank": ""})
         master_by_worker, master_total, main_master_total = _compute_master(split_base)
+        trace.append({"step": "master", "name": "", "amount": main_master_total,
+                      "pool_after": split_base - main_master_total, "bank": ""})
         if piggy_pay_type == "rest":
             # Остаток после мастеров не может быть отрицательным (владелец забирает всё)
             main_piggy = max(0, split_base - main_master_total)
@@ -13790,6 +13901,8 @@ def _booking_money_split(
             # иначе при override/fixed > базы копилка получала бы 24% сверху,
             # и распределённая сумма превышала бы чек (AUDIT-06).
             main_piggy = max(0, min(_compute_piggy(split_base), split_base - main_master_total))
+        trace.append({"step": "piggy", "name": "", "amount": main_piggy,
+                      "pool_after": split_base - main_master_total - main_piggy, "bank": ""})
         # Вклад доп услуг в копилку — из carve-out цены доп услуги, долю владельцев не уменьшает
         piggy_deposit = main_piggy + asvc_piggy_total
         remaining = split_base - main_master_total - main_piggy
@@ -13799,6 +13912,16 @@ def _booking_money_split(
             remaining += asvc_owner_extra_total
             claimed += asvc_owner_extra_total
         owners_total, owner_by_owner = _allocate_owners(claimed, remaining)
+        trace.append({"step": "owners", "name": "", "amount": owners_total,
+                      "pool_after": max(0, remaining - owners_total), "bank": ""})
+
+    for dep in asvc_piggy_deposits:
+        trace.append({"step": "dop", "name": str(dep.get("name") or ""),
+                      "amount": int(dep.get("amount") or 0), "pool_after": 0,
+                      "bank": str(dep.get("resource_group") or "")})
+    if master_total - main_master_total > 0:
+        trace.append({"step": "dop_masters", "name": "", "amount": master_total - main_master_total,
+                      "pool_after": 0, "bank": ""})
 
     return {
         "resource_group": rg,
@@ -13817,7 +13940,82 @@ def _booking_money_split(
         "master_pay_type": master_pay_type,
         "piggy_pay_type": piggy_pay_type,
         "has_custom": bool(master_pay_type) or bool(piggy_pay_type) or pipeline_mode,
+        "trace": trace,
     }
+
+
+_SNAPSHOT_REQUIRED_KEYS = (
+    "resource_group", "main_price", "materials_cost", "net", "split_base",
+    "master_total", "master_by_worker", "asvc_master_pay", "asvc_piggy_deposits",
+    "asvc_owner_extra", "piggy_deposit", "owners_total", "owner_by_owner",
+    "master_pay_type", "piggy_pay_type", "has_custom",
+)
+
+
+def _freeze_booking_split(
+    db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None
+) -> dict:
+    """Заморозить авто-сплит записи: смена настроек услуги историю не перепишет.
+
+    Пишет {"v": 1, ...split} в booking.money_split_snapshot (коммитит вызывающий).
+    Фактические проводки/ручные правки поверх — как раньше (effective-слой).
+    Зарплатные расчёты намеренно остаются живыми (жалобы влияют на ЗП).
+    """
+    if complaints_by_worker is None:
+        complaints_by_worker = _complaints_by_worker(_load_penalties(db))
+    split = _booking_money_split(db, booking, complaints_by_worker)
+    booking.money_split_snapshot = {"v": 1, **split}
+    return split
+
+
+def _booking_split_auto(
+    db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None
+) -> dict:
+    """Авто-сплит для чтения: замороженный при наличии, иначе живой расчёт.
+
+    Битый/неполный снапшот молча игнорируется (fail-safe к живому расчёту).
+    """
+    snap = getattr(booking, "money_split_snapshot", None)
+    if isinstance(snap, dict) and snap.get("v") == 1:
+        try:
+            frozen = {key: snap[key] for key in _SNAPSHOT_REQUIRED_KEYS}
+            if not isinstance(frozen["master_by_worker"], dict):
+                raise KeyError("master_by_worker")
+            if not isinstance(frozen["owner_by_owner"], dict):
+                raise KeyError("owner_by_owner")
+            if not isinstance(frozen["asvc_piggy_deposits"], list):
+                raise KeyError("asvc_piggy_deposits")
+            for dep in frozen["asvc_piggy_deposits"]:
+                int(dep.get("amount") or 0)
+            return {
+                "resource_group": str(frozen["resource_group"]),
+                "main_price": int(frozen["main_price"]),
+                "materials_cost": int(frozen["materials_cost"]),
+                "net": int(frozen["net"]),
+                "split_base": int(frozen["split_base"]),
+                "master_total": int(frozen["master_total"]),
+                "master_by_worker": {str(k): int(v) for k, v in frozen["master_by_worker"].items()},
+                "asvc_master_pay": int(frozen["asvc_master_pay"]),
+                "asvc_piggy_deposits": [
+                    {
+                        "name": str(dep.get("name") or ""),
+                        "resource_group": str(dep.get("resource_group") or ""),
+                        "amount": int(dep.get("amount") or 0),
+                        "label": str(dep.get("label") or ""),
+                    }
+                    for dep in frozen["asvc_piggy_deposits"]
+                ],
+                "asvc_owner_extra": int(frozen["asvc_owner_extra"]),
+                "piggy_deposit": int(frozen["piggy_deposit"]),
+                "owners_total": int(frozen["owners_total"]),
+                "owner_by_owner": {str(k): int(v) for k, v in frozen["owner_by_owner"].items()},
+                "master_pay_type": str(frozen["master_pay_type"] or ""),
+                "piggy_pay_type": str(frozen["piggy_pay_type"] or ""),
+                "has_custom": bool(frozen["has_custom"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            pass
+    return _booking_money_split(db, booking, complaints_by_worker)
 
 
 ASVC_PIGGY_PURPOSE_PREFIX = "Доп. услуга:"
@@ -14091,7 +14289,7 @@ def _process_owner_profit_share(
 
     # Only process for detailing/wash or services with custom piggy/master settings
 
-    if split["resource_group"] not in ("detailing", "wash") and not split["has_custom"]:
+    if not _should_persist_owner_shares(split):
         print(f"[PROFIT_DEBUG] early return: rg={split['resource_group']} has_custom={split['has_custom']}")
         return
 
@@ -14745,6 +14943,9 @@ def update_booking(
         _process_piggy_bank_for_booking(db, booking)
 
         _process_owner_profit_share(db, booking)
+
+        # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
+        _freeze_booking_split(db, booking)
 
 
 
@@ -17122,12 +17323,12 @@ def get_piggy_bank(
     def _booking_main_split(booking: Booking) -> tuple[int, int]:
         cached = _main_split_cache.get(booking.id)
         if cached is None:
-            split = _booking_money_split(db, booking, complaints_by_worker)
+            # Замороженный авто-сплит: смена настроек историю не переписывает.
+            split = _booking_split_auto(db, booking, complaints_by_worker)
             piggy = split["piggy_deposit"] - sum(d["amount"] for d in split["asvc_piggy_deposits"])
             if (booking.payment_type or "") == "credit":
-                # Кредит (в т.ч. мойки через депозит): проводок копилки нет —
-                # вернутся lump-суммой через settle-month (deposit_return).
-                # Мастера/выручка считаются как обычно (ЗП начисляется).
+                # Кредит: проводок копилки нет до settle-month (там сплит
+                # доигрывается по настройкам). Мастера/выручка как обычно.
                 piggy = 0
             cached = (
                 split["master_total"] - split["asvc_master_pay"],
@@ -17172,10 +17373,7 @@ def get_piggy_bank(
             else:
                 dop_master = 0
                 for alink in (asvc.worker_links or []):
-                    if alink.pay_type == "fixed":
-                        dop_master += int(alink.fixed_amount or 0)
-                    else:
-                        dop_master += money_int(int(asvc.price or 0) * (alink.percent or 0) / 100)
+                    dop_master += _asvc_link_earned(asvc.price, alink)
             dop_remainder = max(0, int(asvc.price or 0) - _asvc_paid_amount(asvc))
             # Кредит: допы тоже без проводок — в копилку 0 (см. _booking_main_split).
             # Иначе — по настройкам самой доп-услуги (R1), банк — её piggyTarget (R2).
@@ -19738,6 +19936,10 @@ def deposit_record_wash(
     )
     txn.created_by_id = session_data["actorId"]
 
+    # Депозитная мойка сразу завершена: замораживаем авто-сплит (проводок нет,
+    # доиграет settle-month; история не поплывёт при смене настроек).
+    _freeze_booking_split(db, booking)
+
     db.commit()
     return _deposit_overview(db, client_id, client)
 
@@ -19809,6 +20011,7 @@ def deposit_settle_month(
     for _booking in eligible:
         _process_piggy_bank_for_booking(db, _booking, force_credit_replay=True)
         _process_owner_profit_share(db, _booking, force_credit_replay=True)
+        _freeze_booking_split(db, _booking)
 
     # Депозитный учёт без изменений: month_return возвращает выручку
     # включённых моек на баланс (wash_total/total — как раньше).
@@ -21251,6 +21454,8 @@ def save_services(
 
             db.delete(service)
 
+    log_action(db, action="services.save", session_data=session_data,
+               detail=f"services={len(payload)}")
     db.commit()
 
     services = db.scalars(select(Service).order_by(Service.name)).all()
@@ -21258,6 +21463,144 @@ def save_services(
     return [_service_payload(service) for service in services]
 
 
+
+
+@app.post("/api/settings/services/split-preview", response_model=SplitPreviewResponse)
+def preview_service_split(
+    payload: SplitPreviewRequest,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> SplitPreviewResponse:
+    """O1: каноническое превью сплита черновика услуги.
+
+    Считает тот же _booking_money_split, что и проводки/карточки, — вместо
+    дубля логики на фронте. Обычная наличная запись по цене сэмпла, один
+    мастер с samplePercent, без жалоб/допов/вычетов (их нет в черновике).
+    Ничего не пишет в БД.
+    """
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    item = payload.service
+    sample_price = max(0, int(payload.samplePrice or 0))
+    _rg = _resource_group_key(item.resourceGroup)
+    if _rg not in ("wash", "detailing", "general"):
+        _rg = _resource_group_for_service_category(item.category)
+    _target = (item.piggyTarget or "").strip().lower()
+    if _target not in ("wash", "detailing", "general"):
+        _target = ""
+    preview_id = f"preview-{uuid4().hex}"
+    svc = Service(
+        id=preview_id,
+        name=item.name or "Услуга",
+        category=item.category or "",
+        price=sample_price,
+        duration=max(0, int(item.duration or 0)),
+        resource_group=_rg,
+        wash_type=item.washType or "",
+        description=item.desc or "",
+        active=True,
+        material_consumption=item.materialConsumption,
+        is_fixed_master=bool(item.isFixedMaster),
+        master_pay_type=item.masterPayType,
+        master_pay_value=item.masterPayValue,
+        piggy_pay_type=item.piggyPayType,
+        piggy_pay_value=item.piggyPayValue,
+        owner_pay_type=item.ownerPayType,
+        owner_pay_value=item.ownerPayValue,
+        owner_split_enabled=item.ownerSplitEnabled,
+        materials=item.materials or [],
+        split_order=item.splitOrder or [],
+        piggy_target=_target,
+    )
+    booking = Booking(
+        id=f"pb-preview-{uuid4().hex}",
+        client_id="",
+        client_name="Превью",
+        client_phone="",
+        service=svc.name,
+        service_id=svc.id,
+        date=datetime.now().strftime("%d.%m.%Y"),
+        time="12:00",
+        duration=max(1, int(item.duration or 60)),
+        price=sample_price,
+        status="scheduled",
+        box="",
+        payment_type="cash",
+        payment_settled=True,
+    )
+    booking.worker_links = [
+        BookingWorker(
+            booking_id=booking.id,
+            worker_id="preview",
+            worker_name="Мастер",
+            percent=max(0.0, float(payload.samplePercent or 0) - float(payload.complaintPenaltyPp or 0)),
+            pay_type="percent",
+        )
+    ]
+    transient_dops: list[BookingAdditionalService] = []
+    for dop_index, dop in enumerate(payload.dops or []):
+        asvc = BookingAdditionalService(
+            id=f"preview-asvc-{uuid4().hex}",
+            booking_id=booking.id,
+            service_id=dop.serviceId,
+            name=(dop.name or "Доп")[:120],
+            price=max(0, int(dop.price or 0)),
+            duration=30,
+            price_mode=dop.priceMode,
+            is_outsource=bool(dop.isOutsource),
+            outsource_amount=dop.outsourceAmount,
+            created_at=_now(),
+        )
+        asvc.worker_links = [
+            AdditionalServiceWorker(
+                additional_service_id=asvc.id,
+                worker_id=f"preview-dw-{dop_index}-{link_index}",
+                worker_name="Мастер",
+                percent=float(w.percent or 0),
+                pay_type=w.payType,
+                fixed_amount=w.fixedAmount,
+            )
+            for link_index, w in enumerate(dop.workers or [])
+        ]
+        transient_dops.append(asvc)
+    booking.additional_services = transient_dops
+    booking.price = sample_price + sum(
+        int(d.price or 0) for d in (payload.dops or []) if d.priceMode != "subtract"
+    )
+    booking.materials = []
+    split = _booking_money_split(db, booking, {}, service_override=svc)
+    bank = _target or split.get("resource_group") or "general"
+    return SplitPreviewResponse(
+        materialsCost=split["materials_cost"],
+        net=split["net"],
+        splitBase=split["split_base"],
+        masterTotal=split["master_total"],
+        piggyDeposit=split["piggy_deposit"],
+        ownersTotal=split["owners_total"],
+        resourceGroup=split["resource_group"],
+        piggyBank=bank,
+        hasCustom=split["has_custom"],
+        totalPrice=int(booking.price or 0),
+        asvcMaster=int(split.get("asvc_master_pay") or 0),
+        asvcOwnerExtra=int(split.get("asvc_owner_extra") or 0),
+        asvcPiggy=[
+            SplitPreviewAsvcPiggy(
+                name=str(d.get("name") or ""),
+                resourceGroup=str(d.get("resource_group") or ""),
+                amount=int(d.get("amount") or 0),
+            )
+            for d in split.get("asvc_piggy_deposits") or []
+        ],
+        steps=[
+            SplitPreviewStep(
+                step=str(t.get("step") or ""),
+                name=str(t.get("name") or ""),
+                amount=int(t.get("amount") or 0),
+                poolAfter=int(t.get("pool_after") or 0),
+                bank=str(t.get("bank") or ""),
+            )
+            for t in split.get("trace") or []
+        ],
+    )
 
 
 
@@ -21610,6 +21953,67 @@ def save_owner_notifications(
     db.commit()
 
     return OwnerNotificationSettings.model_validate(value)
+
+
+
+
+def _owner_payout_weights(db: Session) -> dict[str, float]:
+    """Веса владельцев {owner_id: weight}; пусто = legacy 50/50.
+
+    Чтение без записи (в отличие от _setting): вызывается из каждого сплита.
+    """
+    row = db.get(AppSetting, "owner_payout")
+    if row is None or not isinstance(row.value, dict):
+        return {}
+    weights: dict[str, float] = {}
+    for item in row.value.get("weights") or []:
+        if not isinstance(item, dict):
+            continue
+        owner_id = str(item.get("ownerId") or "").strip()
+        try:
+            weight = float(item.get("weight") or 0)
+        except (TypeError, ValueError):
+            continue
+        if owner_id and weight > 0:
+            weights[owner_id] = weight
+    return weights
+
+
+@app.get("/api/settings/owner/payout", response_model=OwnerPayoutSettings)
+def get_owner_payout(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerPayoutSettings:
+    _ensure_staff_role(session_data, {"owner"})
+    weights = _owner_payout_weights(db)
+    return OwnerPayoutSettings(
+        weights=[{"ownerId": oid, "weight": w} for oid, w in sorted(weights.items())]
+    )
+
+
+@app.put("/api/settings/owner/payout", response_model=OwnerPayoutSettings)
+def save_owner_payout(
+    payload: OwnerPayoutSettings,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> OwnerPayoutSettings:
+    _ensure_staff_role(session_data, {"owner"})
+    merged: dict[str, float] = {}
+    for item in payload.weights[:50]:
+        owner_id = (item.ownerId or "").strip()
+        if not owner_id:
+            continue
+        merged[owner_id] = max(0.0, float(item.weight or 0))
+    merged = {oid: w for oid, w in merged.items() if w > 0}
+    value = _upsert_setting(
+        db,
+        "owner_payout",
+        {"weights": [{"ownerId": oid, "weight": w} for oid, w in sorted(merged.items())]},
+    )
+    log_action(db, action="owner.payout.save", session_data=session_data,
+               detail=f"weights={len(merged)}")
+    db.commit()
+    return OwnerPayoutSettings.model_validate(value)
 
 
 
@@ -23058,7 +23462,8 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     """Полная деталь распределения денег по записи: авто-расчёт + фактические значения."""
     penalties = _load_penalties(db)
     complaints_by_worker = _complaints_by_worker(penalties)
-    split = _booking_money_split(db, booking, complaints_by_worker)
+    # Авто-часть заморожена на момент завершения; effective-слой поверх как раньше.
+    split = _booking_split_auto(db, booking, complaints_by_worker)
 
     overrides = booking.money_split_overrides or {}
     materials_auto = _booking_materials_cost_actual(db, booking)
@@ -23115,7 +23520,12 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         )
         owner_by_owner_effective[share.owner_id] = owner_by_owner_effective.get(share.owner_id, 0) + int(share.amount)
     # Кредит: долей владельцев нет до settle-month — эффективный итог 0, авто остаётся.
-    owners_effective = sum(owner_by_owner_effective.values()) if owner_shares else (0 if is_credit else split["owners_total"])
+    # Общая услуга без кастома: доли не персистятся (H2) — эффективный итог 0.
+    owners_effective = (
+        sum(owner_by_owner_effective.values())
+        if owner_shares
+        else (split["owners_total"] if (not is_credit and _should_persist_owner_shares(split)) else 0)
+    )
 
     piggy_svc = db.get(Service, booking.service_id) if booking.service_id else None
     piggy_target = (piggy_svc.piggy_target or "").strip() if piggy_svc else ""
@@ -23129,10 +23539,7 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
     asvc_workers: list[BookingAsvcWorkerItem] = []
     for asvc in add_services:
         for alink in asvc.worker_links:
-            if alink.pay_type == "fixed":
-                earned = int(alink.fixed_amount or 0)
-            else:
-                earned = money_int(asvc.price * (alink.percent or 0) / 100)
+            earned = _asvc_link_earned(asvc.price, alink)
             asvc_workers.append(
                 BookingAsvcWorkerItem(
                     linkId=alink.id,
@@ -23482,7 +23889,7 @@ def get_owner_bookings_history_totals(
         ).all():
             deposit_by_booking.setdefault(txn.booking_id, []).append(txn)
     for booking in bookings:
-        split = _booking_money_split(db, booking, complaints_by_worker)
+        split = _booking_split_auto(db, booking, complaints_by_worker)
         factual = deposit_by_booking.get(booking.id, [])
         if factual:
             main_dep = sum(
@@ -24561,6 +24968,10 @@ def update_owner_booking_money_split(
                     )
                 )
 
+    db.commit()
+    db.refresh(booking)
+    # Ручная правка = пересчёт по текущим настройкам + новая заморозка.
+    _freeze_booking_split(db, booking)
     db.commit()
     db.refresh(booking)
     return _booking_money_split_detail(db, booking)
