@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-27 13:09 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-27 13:20 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -5680,6 +5680,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `vercel.json` (2026-09-27 16:20)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-27 16:09)
 - `backend/app/main.py` (2026-09-27 16:08)
 - `backend/tests/test_deposit.py` (2026-09-27 16:07)
@@ -5694,4 +5695,3 @@ concept1.0/
 - `frontend/src/app/components/shared/SourceBadge.tsx` (2026-09-27 14:25)
 - `frontend/src/app/components/worker/WorkerCalendar.tsx` (2026-09-27 14:25)
 - `frontend/src/app/context/AppContext.tsx` (2026-09-27 14:25)
-- `frontend/src/app/components/shared/Atmosfera.tsx` (2026-09-27 14:25)
