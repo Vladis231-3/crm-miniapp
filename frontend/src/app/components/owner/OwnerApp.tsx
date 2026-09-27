@@ -12689,6 +12689,23 @@ paymentSettled: false,
                           <span className={sub}>Итого распределено</span>
                           <span className="font-medium">{distributed.toLocaleString('ru')} ₽</span>
                         </div>
+                        <div className="border-t pt-1 space-y-0.5" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+                          <div className="flex justify-between">
+                            <span className={sub}>Если запись в кредит (депозит)</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className={`${sub} pl-2`}>· мастера (зарплата начисляется)</span>
+                            <span style={{ color: accent }}>{preview.master.toLocaleString('ru')} ₽</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className={`${sub} pl-2`}>· копилка / владельцы сейчас</span>
+                            <span className="font-medium">0 ₽</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className={`${sub} pl-2`}>· копилка / владельцы после settle-month</span>
+                            <span className="font-medium">{preview.piggy.toLocaleString('ru')} / {preview.owners.toLocaleString('ru')} ₽</span>
+                          </div>
+                        </div>
                         {distributed < samplePrice - 1 && (
                           <div className="flex justify-between text-xs">
                             <span className={sub}>Не распределено</span>
@@ -12707,7 +12724,7 @@ paymentSettled: false,
                       </div>
                     </div>
                     <p className={`text-xs ${sub} mt-2`}>
-                      Предпросмотр — упрощённый (без жалоб, ручных правок, допов, вычетов и кредита). Точный расчёт — в карточке записи после завершения. Если мастеров несколько, сумма делится по их % из профиля.
+                      Предпросмотр — обычная наличная запись без допов и вычетов: subtract-допы уменьшают базу, допы делятся по своим настройкам копилки, жалобы уменьшают % мастера (факт может быть меньше), кредит — см. строку выше. Точный расчёт — в карточке записи после завершения. Если мастеров несколько, сумма делится по их % из профиля.
                     </p>
                   </div>
                   </>

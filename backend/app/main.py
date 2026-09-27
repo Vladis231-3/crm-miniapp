@@ -13823,9 +13823,16 @@ def _booking_money_split(
 ASVC_PIGGY_PURPOSE_PREFIX = "Доп. услуга:"
 
 
-def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
+def _process_piggy_bank_for_booking(
+    db: Session, booking: Booking, *, force_credit_replay: bool = False
+) -> None:
 
-    """Auto-deposit 24% into piggy bank for detailing bookings and repay material withdrawals for any service."""
+    """Auto-deposit into piggy bank per service settings (+ repay material withdrawals).
+
+    Кредитные записи по умолчанию пропускаются (возврат — через settle-month).
+    settle-month вызывает с force_credit_replay=True и тем самым проигрывает
+    обычный сплит: вклады ложатся по piggyPayType/Value/Target услуги.
+    """
 
     print(f"[PIGGY_DEBUG] booking.id={booking.id} booking.service_id={booking.service_id!r} booking.status={booking.status} booking.payment_settled={booking.payment_settled}")
 
@@ -13951,7 +13958,7 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
         for purpose in existing_purposes
     )
 
-    if booking.payment_type == "credit":
+    if booking.payment_type == "credit" and not force_credit_replay:
         print(f"[PIGGY_DEBUG] credit booking {booking.id} — 24% deposit deferred to month settle")
         return
 
@@ -14060,11 +14067,17 @@ def _process_piggy_bank_for_booking(db: Session, booking: Booking) -> None:
 
 
 
-def _process_owner_profit_share(db: Session, booking: Booking) -> None:
+def _process_owner_profit_share(
+    db: Session, booking: Booking, *, force_credit_replay: bool = False
+) -> None:
 
-    """Расчёт доли владельцев: цена → материалы → мастера → копилка → остаток владельцам (50/50)."""
+    """Расчёт доли владельцев: цена → материалы → мастера → копилка → остаток владельцам (50/50).
 
-    if booking.payment_type == "credit":
+    Кредитные записи по умолчанию пропускаются; settle-month доигрывает их
+    с force_credit_replay=True по тем же настройкам услуги.
+    """
+
+    if booking.payment_type == "credit" and not force_credit_replay:
         print(f"[PROFIT_DEBUG] credit booking {booking.id} — owner share deferred to month settle")
         return
 
@@ -19238,28 +19251,29 @@ def _deposit_month_wash_extra(db: Session, client: Client, month: str) -> float:
     if _deposit_plan_key(client.deposit_plan or "") != "washes":
         return 0.0
     limit = _deposit_wash_limit(db, client, month)
+    month_rows = _deposit_month_bookings_for(db, client.id, month)
+    if limit <= 0:
+        return float(sum(b.price for b in month_rows))
+    return float(sum(b.price for b in month_rows[limit:]))
+
+
+def _deposit_month_bookings_for(db: Session, client_id: str, month: str) -> list:
+    """Кредитные завершённые записи клиента за месяц (кандидаты на возврат при settle).
+
+    Сортировка — как в _deposit_month_wash_extra: по дате/времени завершения,
+    чтобы лимит плана 'washes' отсекал те же самые «лишние» мойки.
+    """
     rows = db.scalars(
         select(Booking).where(
-            Booking.client_id == client.id,
+            Booking.client_id == client_id,
             Booking.payment_type == "credit",
             Booking.status == "completed",
             Booking.deleted_at.is_(None),
         )
     ).all()
-    month_rows = [
-        b
-        for b in rows
-        if _deposit_month_of(b.date) == month
-    ]
-    if limit <= 0:
-        return float(sum(b.price for b in month_rows))
-    total = 0.0
-    for used, booking in enumerate(
-        sorted(month_rows, key=lambda b: (b.date or "", b.completed_at or b.created_at or _now()))
-    ):
-        if used >= limit:
-            total += float(booking.price)
-    return total
+    month_rows = [b for b in rows if _deposit_month_of(b.date) == month]
+    month_rows.sort(key=lambda b: (b.date or "", b.completed_at or b.created_at or _now()))
+    return month_rows
 
 
 def _deposit_month_payable(db: Session, client: Client, month: str) -> float:
@@ -19778,36 +19792,35 @@ def deposit_settle_month(
         )
     )
 
-    # Возврат моек в копилку мойки (24% не вносился при мойке — возвращаем выручку целиком)
-    # Планы: fee/unlimited — возврат всей суммы; washes — только включённые мойки
-    # (сверх лимита остаются списанными); per_wash — возврат не делается (оплата за мойку).
-    refund = wash_total
-    if _deposit_plan_key(client.deposit_plan or "") == "per_wash":
-        refund = money(0)
-    elif _deposit_plan_key(client.deposit_plan or "") == "washes":
-        refund = money(max(0, float(wash_total) - _deposit_month_wash_extra(db, client, month)))
+    # Возврат — строго по настройкам услуг: доигрываем сплит кредитных записей
+    # месяца (копилка по piggyPayType/Value/Target + доли владельцев).
+    # Мастера уже получили зарплату при записи, их не трогаем.
+    # Планы: fee/unlimited — все записи; washes — только включённые в лимит
+    # (сверх лимита остаются списанными); per_wash — возврата нет.
+    plan_key = _deposit_plan_key(client.deposit_plan or "")
+    month_rows = _deposit_month_bookings_for(db, client_id, month)
+    if plan_key == "per_wash":
+        eligible: list = []
+    elif plan_key == "washes":
+        limit = _deposit_wash_limit(db, client, month)
+        eligible = month_rows[: max(0, limit)] if limit > 0 else []
+    else:
+        eligible = month_rows
+    for _booking in eligible:
+        _process_piggy_bank_for_booking(db, _booking, force_credit_replay=True)
+        _process_owner_profit_share(db, _booking, force_credit_replay=True)
+
+    # Депозитный учёт без изменений: month_return возвращает выручку
+    # включённых моек на баланс (wash_total/total — как раньше).
+    refund = money(sum(float(b.price or 0) for b in eligible))
 
     if refund > 0:
-        db.add(
-            PiggyBankTransaction(
-                id=f"pb-{uuid4()}",
-                booking_id=None,
-                amount=money(refund),
-                transaction_type="deposit_return",
-                purpose=f"Депозит {client.name}: возврат моек за {month} в копилку мойки",
-                material_name=None,
-                material_cost=None,
-                date=datetime.now().strftime("%d.%m.%Y"),
-                resource_group="wash",
-                created_at=_now(),
-            )
-        )
         _deposit_add_transaction(
             db,
             client_id,
             "month_return",
             float(refund),
-            f"Закрытие {month}: возврат моек в копилку",
+            f"Закрытие {month}: возврат моек (копилка и владельцы — по настройкам услуг)",
             date=datetime.now().strftime("%d.%m.%Y"),
         )
 

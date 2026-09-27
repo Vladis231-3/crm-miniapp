@@ -142,7 +142,7 @@ class DepositTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200, response.text)
 
-    def _record_wash(self, client_id: str, price: float = 1000.0, car: str = "BMW", plate: str = "M001AA") -> None:
+    def _record_wash(self, client_id: str, price: float = 1000.0, car: str = "BMW", plate: str = "M001AA", service_id: str = "") -> None:
         response = self.client.post(
             f"/api/owner/deposits/{client_id}/washes",
             headers=self._auth_headers(self.owner_token),
@@ -152,6 +152,7 @@ class DepositTests(unittest.TestCase):
                 "plate": plate,
                 "price": price,
                 "service": "Мойка",
+                "serviceId": service_id,
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -232,16 +233,20 @@ class DepositTests(unittest.TestCase):
         self._record_wash(client_id, 1500)
 
         from app.database import SessionLocal
-        from app.models import PiggyBankTransaction
+        from app.models import Booking, OwnerProfitShare, PiggyBankTransaction
         from sqlalchemy import select
 
         with SessionLocal() as db:
-            before = db.scalar(
+            booking = db.scalar(select(Booking).where(Booking.client_id == client_id))
+            self.assertIsNotNone(booking)
+            booking_id = booking.id
+            before = db.scalars(
                 select(PiggyBankTransaction).where(
-                    PiggyBankTransaction.transaction_type == "deposit_return"
+                    PiggyBankTransaction.booking_id == booking_id,
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
                 )
-            )
-        self.assertIsNone(before)
+            ).all()
+        self.assertEqual(before, [])
 
         month = __import__("datetime").date.today().strftime("%m.%Y")
         response = self.client.post(
@@ -257,12 +262,67 @@ class DepositTests(unittest.TestCase):
                     PiggyBankTransaction.transaction_type == "deposit_return"
                 )
             ).all()
-        self.assertEqual(len(returns), 1)
-        self.assertEqual(returns[0].amount, 1500)
-        self.assertEqual(returns[0].resource_group, "wash")
+            self.assertEqual(returns, [], "settle больше не возвращает выручку целиком — только сплит по настройкам")
+            deposits = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.booking_id == booking_id,
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                )
+            ).all()
+            # Услуга не привязана: дефолт мойки 24% от 1500 = 360 в копилку мойки.
+            self.assertEqual(len(deposits), 1)
+            self.assertEqual(deposits[0].amount, 360)
+            self.assertEqual(deposits[0].resource_group, "wash")
+            shares = db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking_id)
+            ).all()
+            # Остаток 1500 − 360 = 1140 — владельцам, как у наличной записи.
+            self.assertEqual(sum(s.amount for s in shares), 1140)
 
         overview = self._overview(client_id)
         self.assertTrue(any(closed["month"] == month for closed in overview["closedMonths"]))
+        self.assertEqual(overview["balance"], 4000, "month_return вернул 1500 на баланс")
+
+    def test_settle_month_replays_custom_service_settings(self) -> None:
+        from app.database import SessionLocal
+        from app.models import Booking, OwnerProfitShare, PiggyBankTransaction, Service
+        from sqlalchemy import select
+
+        client_id = self._create_client()
+        self._activate_deposit(client_id, 4000)
+        self._topup(client_id, 4000)
+        with SessionLocal() as db:
+            svc = db.get(Service, "s1")
+            svc.piggy_pay_type = "percent"
+            svc.piggy_pay_value = 10
+            svc.piggy_target = "general"
+            db.commit()
+        self._record_wash(client_id, 1000, service_id="s1")
+
+        month = __import__("datetime").date.today().strftime("%m.%Y")
+        response = self.client.post(
+            f"/api/owner/deposits/{client_id}/settle-month",
+            headers=self._auth_headers(self.owner_token),
+            json={"clientId": client_id, "month": month},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+        with SessionLocal() as db:
+            booking = db.scalar(select(Booking).where(Booking.client_id == client_id))
+            deposits = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.booking_id == booking.id,
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                )
+            ).all()
+            # 10% от 1000 = 100 — в общую копилку по piggyTarget, а не в мойку.
+            self.assertEqual(len(deposits), 1)
+            self.assertEqual(deposits[0].amount, 100)
+            self.assertEqual(deposits[0].resource_group, "general")
+            shares = db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
+            ).all()
+            self.assertEqual(sum(s.amount for s in shares), 900)
 
     def test_settle_month_twice_is_rejected(self) -> None:
         client_id = self._create_client()
@@ -406,7 +466,7 @@ class DepositTests(unittest.TestCase):
         self.assertEqual(self._overview(client_id)["balance"], 3500)
 
         from app.database import SessionLocal
-        from app.models import PiggyBankTransaction
+        from app.models import Booking, OwnerProfitShare, PiggyBankTransaction
         from sqlalchemy import select
 
         with SessionLocal() as db:
@@ -415,7 +475,19 @@ class DepositTests(unittest.TestCase):
                     PiggyBankTransaction.transaction_type == "deposit_return"
                 )
             ).all()
-        self.assertEqual(len(returns), 0, "per_wash: возврата моек в копилку быть не должно")
+            self.assertEqual(len(returns), 0, "per_wash: возврата моек в копилку быть не должно")
+            booking = db.scalar(select(Booking).where(Booking.client_id == client_id))
+            deposits = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.booking_id == booking.id,
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                )
+            ).all()
+            self.assertEqual(deposits, [], "per_wash: сплит не доигрывается")
+            shares = db.scalars(
+                select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
+            ).all()
+            self.assertEqual(list(shares), [])
 
     def test_washes_plan_charges_full_price_and_refunds_only_covered(self) -> None:
         client_id = self._create_client()
@@ -446,7 +518,7 @@ class DepositTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
 
         from app.database import SessionLocal
-        from app.models import PiggyBankTransaction
+        from app.models import Booking, OwnerProfitShare, PiggyBankTransaction
         from sqlalchemy import select
 
         with SessionLocal() as db:
@@ -455,10 +527,34 @@ class DepositTests(unittest.TestCase):
                     PiggyBankTransaction.transaction_type == "deposit_return"
                 )
             ).all()
-        self.assertEqual(len(returns), 1)
-        self.assertEqual(
-            returns[0].amount, 2000, "возврат только 2 включённых моек, 3-я остаётся оплаченной"
-        )
+            self.assertEqual(returns, [], "settle возвращает сплит по настройкам, а не выручку целиком")
+            deposits = db.scalars(
+                select(PiggyBankTransaction).where(
+                    PiggyBankTransaction.transaction_type == "deposit_24percent"
+                )
+            ).all()
+            # 2 включённые мойки × 24% от 1000 = 2 × 240; 3-я сверх лимита — без проводок.
+            self.assertEqual(sorted(d.amount for d in deposits), [240, 240])
+            self.assertTrue(all(d.resource_group == "wash" for d in deposits))
+            bookings = db.scalars(select(Booking).where(Booking.client_id == client_id)).all()
+            self.assertEqual(len(bookings), 3)
+            by_booking: dict[str, int] = {}
+            for d in deposits:
+                by_booking[d.booking_id] = by_booking.get(d.booking_id, 0) + d.amount
+            # Возврат только 2 включённых моек, 3-я остаётся оплаченной — и это первые две.
+            self.assertEqual(len(by_booking), 2)
+            self.assertTrue(all(v == 240 for v in by_booking.values()))
+            first_two = sorted(bookings, key=lambda b: b.created_at)[:2]
+            self.assertEqual(set(by_booking), {b.id for b in first_two})
+            shares = db.scalars(select(OwnerProfitShare)).all()
+            # 2 × (1000 − 240) = 1520 владельцам; 3-я мойка — без долей.
+            self.assertEqual(sum(s.amount for s in shares), 1520)
+            uncovered = [b for b in bookings if b.id not in by_booking]
+            self.assertEqual(len(uncovered), 1)
+            self.assertEqual(
+                [s for s in shares if s.booking_id == uncovered[0].id],
+                [],
+            )
         self.assertEqual(self._overview(client_id)["balance"], 3000)
 
     def test_washes_plan_carryover_from_previous_month(self) -> None:
