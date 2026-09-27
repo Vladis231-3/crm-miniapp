@@ -1147,6 +1147,9 @@ class BookingCreateRequest(BaseModel):
     isRepeatVisit: bool = False
     notifyWorkers: bool = False
     materials: list[BookingMaterialPayload] = Field(default_factory=list)
+    # T3: ключ идемпотентности. Повтор POST с тем же ключом возвращает
+    # существующую запись (replay), а не дубликат.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("date")
     @classmethod
@@ -1379,6 +1382,8 @@ class IncomeCreateRequest(BaseModel):
     note: str | None = None
     date: str  # DD.MM.YYYY
     resourceGroup: str = "wash"
+    # T3: ключ идемпотентности, см. BookingCreateRequest.clientRequestId.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("source")
     @classmethod
@@ -1421,6 +1426,8 @@ class ExpenseCreateRequest(BaseModel):
     # Пусто = бюджетный расход без копилки; wash/detailing = зеркало в копилку;
     # general = расход общей копилки (зеркала нет, пара withdraw/repay хранит движение).
     resourceGroup: str = Field(default="wash", pattern=r"^(wash|detailing|general)?$")
+    # T3: ключ идемпотентности, см. BookingCreateRequest.clientRequestId.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("date")
     @classmethod
@@ -2388,6 +2395,8 @@ class DepositTopUpRequest(BaseModel):
     amount: float = Field(ge=1, le=100_000_000)
     date: str = ""
     note: str = ""
+    # T5: ключ идемпотентности, см. BookingCreateRequest.clientRequestId.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("date")
     @classmethod
@@ -2403,6 +2412,8 @@ class DepositAdjustRequest(BaseModel):
     amount: float = Field(ge=-100_000_000, le=100_000_000)
     note: str = ""
     date: str = ""
+    # T5: ключ идемпотентности, см. BookingCreateRequest.clientRequestId.
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("date")
     @classmethod
@@ -2442,6 +2453,9 @@ class DepositWashRequest(BaseModel):
 class DepositSettleRequest(BaseModel):
     clientId: str = Field(min_length=1, max_length=64)
     month: str
+    # T5: ключ идемпотентности (естественный ключ — (client, month),
+    # дубликат месяца отклоняется/возвращается существующим).
+    clientRequestId: str | None = Field(default=None, max_length=64)
 
     @field_validator("month")
     @classmethod
@@ -2668,3 +2682,19 @@ class TrashPurgeRequest(BaseModel):
     batchId: str | None = None
     itemIds: list[str] = Field(default_factory=list)
     password: str = Field(default="", max_length=128)
+
+
+class AuditLogPayload(BaseModel):
+    id: str
+    createdAt: datetime
+    actorId: str = ""
+    actorRole: str = ""
+    action: str
+    objectType: str | None = None
+    objectId: str | None = None
+    detail: str = ""
+
+
+class AuditLogListPayload(BaseModel):
+    items: list[AuditLogPayload] = Field(default_factory=list)
+    total: int = 0

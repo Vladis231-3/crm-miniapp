@@ -10,7 +10,7 @@ import urllib.parse
 import json
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -91,7 +91,12 @@ class AdditionalServiceValidationTest(unittest.TestCase):
 
     @staticmethod
     def _today() -> str:
-        return datetime.now(timezone.utc).strftime("%d.%m.%Y")
+        # День, когда студия открыта: сид держит воскресенье неактивным,
+        # иначе тесты падают только по воскресеньям.
+        candidate = datetime.now(timezone.utc)
+        while candidate.weekday() == 6:
+            candidate += timedelta(days=1)
+        return candidate.strftime("%d.%m.%Y")
 
     def _create_client(self) -> tuple[str, str]:
         from app.database import SessionLocal

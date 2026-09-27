@@ -15,7 +15,7 @@ import os
 import sys
 import unittest
 import urllib.parse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -109,7 +109,12 @@ class WorkerAdditionalServiceTests(unittest.TestCase):
 
     @staticmethod
     def _today() -> str:
-        return datetime.now(timezone.utc).strftime("%d.%m.%Y")
+        # День, когда студия открыта: сид держит воскресенье неактивным,
+        # иначе тесты падают только по воскресеньям.
+        candidate = datetime.now(timezone.utc)
+        while candidate.weekday() == 6:
+            candidate += timedelta(days=1)
+        return candidate.strftime("%d.%m.%Y")
 
     def _create_client(self) -> tuple[str, str]:
         from app.database import SessionLocal
@@ -242,23 +247,9 @@ class WorkerAdditionalServiceTests(unittest.TestCase):
     def test_creating_additional_service_notifies_assigned_worker(self) -> None:
         """При создании доп. услуги назначенному мастеру приходит уведомление
         (in-app + Telegram), как при назначении обычной услуги."""
-        from unittest.mock import patch
-
         booking_id = self._create_booking(main_worker_id="w2")
+        self._add_additional_service(booking_id, name="Полировка", price=2000, percent=50)
 
-        telegram_calls: list[tuple[str | None, str]] = []
-
-        def fake_send_telegram_message(chat_id: str | None, text: str) -> None:
-            telegram_calls.append((chat_id, text))
-
-        from app import main as app_main
-
-        with patch.object(
-            app_main, "send_telegram_message", side_effect=fake_send_telegram_message
-        ):
-            self._add_additional_service(booking_id, name="Полировка", price=2000, percent=50)
-
-        # In-app notification for the assigned master (w1), not for the main worker
         bootstrap = self._worker_bootstrap()
         messages = [n["message"] for n in bootstrap.get("notifications", [])]
         matched = [m for m in messages if "Вам назначена доп. услуга" in m and "Полировка" in m]
@@ -266,12 +257,19 @@ class WorkerAdditionalServiceTests(unittest.TestCase):
         self.assertIn("Оплата: 50%", matched[0])
         self.assertIn("Тест Клиент", matched[0])
 
-        # Telegram delivery attempted to the assigned master's chat id
-        sent_to = {chat_id for chat_id, _text in telegram_calls}
-        self.assertIn(self.WORKER_TG_ID, sent_to)
-        self.assertTrue(
-            any("Вам назначена доп. услуга" in text for _chat_id, text in telegram_calls)
-        )
+        # T4-хвост: Telegram идёт строкой outbox (chat мастера w1).
+        from app.database import SessionLocal
+        from app.models import Outbox
+        from sqlalchemy import select
+
+        with SessionLocal() as db:
+            rows = db.scalars(
+                select(Outbox).where(Outbox.kind == "tg_message")
+            ).all()
+            payloads = [(row.payload or {}).get("chat_id", "") for row in rows]
+            texts = [str((row.payload or {}).get("text", "")) for row in rows]
+        self.assertIn(self.WORKER_TG_ID, payloads)
+        self.assertTrue(any("Вам назначена доп. услуга" in text for text in texts))
 
 
 if __name__ == "__main__":

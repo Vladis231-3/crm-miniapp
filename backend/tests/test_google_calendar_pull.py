@@ -71,6 +71,10 @@ class GoogleCalendarPullTests(unittest.TestCase):
         # Фоновый поток обратной синхронизации не должен вмешиваться в моки.
         self._sync_thread_patch = patch("app.main.start_google_sync_thread")
         self._sync_thread_patch.start()
+        # T4: outbox-воркер тоже не стартует в тестах (иначе daemon-потоки
+        # держат sqlite-файлы и валят teardown соседних тестов WinError 32).
+        self._outbox_thread_patch = patch("app.main.start_outbox_worker_if_configured")
+        self._outbox_thread_patch.start()
 
         self.client_manager = TestClient(app)
         self.client = self.client_manager.__enter__()
@@ -85,6 +89,16 @@ class GoogleCalendarPullTests(unittest.TestCase):
         engine.dispose()
         self.client_manager.__exit__(None, None, None)
         self._sync_thread_patch.stop()
+        self._outbox_thread_patch.stop()
+        # T4: GOOGLE_* env не должен утекать в соседние тесты — иначе их
+        # стартапы увидят настроенный Google и поднимут фоновые потоки.
+        for _key in (
+            "GOOGLE_CALENDAR_CLIENT_ID",
+            "GOOGLE_CALENDAR_CLIENT_SECRET",
+            "GOOGLE_CALENDAR_REDIRECT_URI",
+            "GOOGLE_CALENDAR_TIMEZONE",
+        ):
+            os.environ.pop(_key, None)
         reset_app_modules()
         for suffix in ("", "-wal", "-shm"):
             path = Path(f"{self.db_path}{suffix}")

@@ -18,6 +18,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 MAIN = REPO / "backend" / "app" / "main.py"
+# T7: доменные роутеры сканируются вместе с монолитом (декораторы @router.*).
+ROUTER_FILES = sorted((REPO / "backend" / "app" / "routers").glob("*.py"))
 
 ROLE_CALL = "_ensure_staff_role"
 SESSION_DEPS = ("_require_session", "_require_client", "_optional_session")
@@ -60,24 +62,26 @@ def auth_of(func: ast.FunctionDef) -> str:
 
 
 def main() -> None:
-    tree = ast.parse(MAIN.read_text(encoding="utf-8"))
+    files = [MAIN] + [path for path in ROUTER_FILES if path.name != "__init__.py"]
     rows: list[tuple[str, str, str, str]] = []
-    for node in tree.body:
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        for dec in node.decorator_list:
-            if not isinstance(dec, ast.Call):
+    for source in files:
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            func = getattr(dec.func, "value", None)
-            method = getattr(dec.func, "attr", "")
-            if (
-                getattr(func, "id", "") != "app"
-                or method not in ("get", "post", "put", "patch", "delete")
-                or not dec.args
-            ):
-                continue
-            path = dec.args[0].value if isinstance(dec.args[0], ast.Constant) else "?"
-            rows.append((method.upper(), path, node.name, auth_of(node)))
+            for dec in node.decorator_list:
+                if not isinstance(dec, ast.Call):
+                    continue
+                func = getattr(dec.func, "value", None)
+                method = getattr(dec.func, "attr", "")
+                if (
+                    getattr(func, "id", "") not in ("app", "router")
+                    or method not in ("get", "post", "put", "patch", "delete")
+                    or not dec.args
+                ):
+                    continue
+                path = dec.args[0].value if isinstance(dec.args[0], ast.Constant) else "?"
+                rows.append((method.upper(), path, node.name, auth_of(node)))
 
     out = REPO / "audit" / "reports" / "route_matrix.md"
     lines = [

@@ -672,7 +672,7 @@ def process_telegram_update(update: dict[str, Any]) -> None:
     _process_telegram_update(runtime, update)
 
 
-def run_polling() -> None:
+def run_polling(stop_event=None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
         # Ошибки цикла бота (logging.error/exception ниже) дублируются в ТГ владельцам.
@@ -684,7 +684,9 @@ def run_polling() -> None:
     logger.info("Bot started as @%s with mini app %s", username, runtime.webapp_url)
 
     offset = 0
-    while True:
+    # T1.3-хвост: stop_event — кооперативная остановка (lifespan shutdown).
+    # Граница отклика — long-poll timeout=30с + паузы; поток daemon.
+    while stop_event is None or not stop_event.is_set():
         try:
             updates = _telegram_call(
                 runtime,

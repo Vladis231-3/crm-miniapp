@@ -408,6 +408,23 @@ class BookingLogicTests(unittest.TestCase):
                 return next_date.strftime("%d.%m.%Y")
         raise AssertionError("Unable to find active schedule day")
 
+    def tg_outbox_messages(self) -> list[tuple[str, str]]:
+        """TG-строки outbox (T4-хвост): замена перехвату send_telegram_message."""
+        from app.database import SessionLocal
+        from app.models import Outbox
+
+        with SessionLocal() as db:
+            rows = db.scalars(
+                select(Outbox).where(Outbox.kind == "tg_message")
+            ).all()
+            return [
+                (
+                    str((row.payload or {}).get("chat_id", "")),
+                    str((row.payload or {}).get("text", "")),
+                )
+                for row in rows
+            ]
+
     def test_client_booking_uses_session_client_and_forces_admin_review_status(self) -> None:
         token, actor_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")
         response = self.client.post(
@@ -1301,7 +1318,10 @@ class BookingLogicTests(unittest.TestCase):
 
         # Воркеру приходит его уведомление; дополнительно могут уведомляться
         # владелец/админ — фильтруем по chat_id мастера.
-        worker_messages = [m for m in sent_messages if str(m[0]) == "555777999"]
+        # T4-хвост: TG идёт строкой outbox, прямой отправки в реквесте нет.
+        self.assertEqual(sent_messages, [])
+        tg_messages = self.tg_outbox_messages()
+        worker_messages = [m for m in tg_messages if str(m[0]) == "555777999"]
         self.assertEqual(len(worker_messages), 1)
         self.assertIn("Pavel", worker_messages[0][1])
         self.assertIn("urgent wash", worker_messages[0][1])
@@ -3141,7 +3161,9 @@ class BookingLogicTests(unittest.TestCase):
 
         self.assertTrue(any("перенёс вашу запись" in item.message for item in notifications))
         self.assertTrue(any("Было:" in item.message and "Стало:" in item.message for item in notifications))
-        self.assertTrue(any(chat_id == "777888999" and "перенёс вашу запись" in text for chat_id, text in sent_messages))
+        # T4-хвост: TG идёт строкой outbox, прямой отправки в реквесте нет.
+        tg_messages = self.tg_outbox_messages()
+        self.assertTrue(any(chat_id == "777888999" and "перенёс вашу запись" in text for chat_id, text in tg_messages))
 
     def test_worker_start_and_completion_notify_owner_and_send_receipt(self) -> None:
         from app.database import SessionLocal
@@ -3229,10 +3251,12 @@ class BookingLogicTests(unittest.TestCase):
         self.assertTrue(any("Чек по записи" in item.message for item in owner_notifications))
         self.assertTrue(any("Чек по записи" in item.message for item in admin_notifications))
         self.assertTrue(any("Чек по записи" in item.message for item in client_notifications))
-        self.assertTrue(any(chat_id == "123123123" and "Мастер начал работу по записи" in text for chat_id, text in sent_messages))
-        self.assertTrue(any(chat_id == "123123123" and "Чек по записи" in text for chat_id, text in sent_messages))
-        self.assertTrue(any(chat_id == "456456456" and "Чек по записи" in text for chat_id, text in sent_messages))
-        self.assertTrue(any(chat_id == "999888777" and "Чек по записи" in text for chat_id, text in sent_messages))
+        # T4-хвост: TG идёт строками outbox, прямой отправки в реквесте нет.
+        tg_messages = self.tg_outbox_messages()
+        self.assertTrue(any(chat_id == "123123123" and "Мастер начал работу по записи" in text for chat_id, text in tg_messages))
+        self.assertTrue(any(chat_id == "123123123" and "Чек по записи" in text for chat_id, text in tg_messages))
+        self.assertTrue(any(chat_id == "456456456" and "Чек по записи" in text for chat_id, text in tg_messages))
+        self.assertTrue(any(chat_id == "999888777" and "Чек по записи" in text for chat_id, text in tg_messages))
 
     def test_client_can_store_multiple_vehicles(self) -> None:
         token, client_id = self.login_client(name="Alice", phone="+7 (999) 111-22-33")

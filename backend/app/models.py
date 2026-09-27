@@ -179,6 +179,11 @@ class Booking(Base):
         Index("ix_bookings_date", "date"),
         Index("ix_bookings_client_id", "client_id"),
         Index("ix_bookings_box_date_time", "box", "date", "time"),
+        # T3: бэкстоп гонки check-then-act (_ensure_booking_has_no_conflicts).
+        # Точный старт слота; предикат = BOOKING_ACTIVE_STATUSES (история слот
+        # не блокирует). Оверлапы с разным стартом ловит app-проверка.
+        # NULL не конфликтуют — ключ идемпотентности опционален.
+        Index("ux_bookings_op_key", "op_key", unique=True),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -224,6 +229,12 @@ class Booking(Base):
     # Источник записи: "bot" (Telegram-миниапп), "google" (Google Calendar),
     # "manual" (создана вручную в админке). NULL — исторические записи.
     source: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
+
+    # T3: ключ идемпотентности создания (clientRequestId). Повтор с тем же
+    # ключом возвращает существующую запись вместо дубликата.
+    op_key: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+
+    # «Откуда о нас узнал» — на уровне визита (дублируется в карточку клиента).
 
     # «Откуда о нас узнал» — на уровне визита (дублируется в карточку клиента).
     referral_source: Mapped[str] = mapped_column(String(64), default="")
@@ -397,6 +408,7 @@ class Expense(Base):
     __table_args__ = (
         Index("ix_expenses_date", "date"),
         Index("ix_expenses_booking_id", "booking_id"),
+        Index("ux_expenses_op_key", "op_key", unique=True),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -407,6 +419,8 @@ class Expense(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     resource_group: Mapped[str] = mapped_column(String(64), default="wash")
     booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    # T3: ключ идемпотентности создания (clientRequestId), см. Booking.op_key.
+    op_key: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
@@ -545,7 +559,10 @@ class DataConsent(Base):
 
 class Income(Base):
     __tablename__ = "incomes"
-    __table_args__ = (Index("ix_incomes_date", "date"),)
+    __table_args__ = (
+        Index("ix_incomes_date", "date"),
+        Index("ux_incomes_op_key", "op_key", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
@@ -562,6 +579,9 @@ class Income(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
+
+    # T3: ключ идемпотентности создания (clientRequestId), см. Booking.op_key.
+    op_key: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
 
     created_by: Mapped[StaffUser] = relationship(back_populates="incomes")
 
@@ -627,6 +647,9 @@ class PiggyBankTransaction(Base):
 
 class DepositTransaction(Base):
     __tablename__ = "deposit_transactions"
+    __table_args__ = (
+        Index("ux_deposit_tx_op_key", "op_key", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     client_id: Mapped[str] = mapped_column(
@@ -639,6 +662,8 @@ class DepositTransaction(Base):
     description: Mapped[str] = mapped_column(String(255), default="")
     booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # T5: ключ идемпотентности (clientRequestId), см. Booking.op_key.
+    op_key: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
@@ -646,13 +671,19 @@ class DepositTransaction(Base):
 
 class DepositMonth(Base):
     __tablename__ = "deposit_months"
+    __table_args__ = (
+        # T5: повторное закрытие месяца — replay существующей строки.
+        Index("ux_deposit_month_client_month", "client_id", "month", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     client_id: Mapped[str] = mapped_column(String(64), index=True)
     month: Mapped[str] = mapped_column(String(16))
-    subscription: Mapped[float] = mapped_column(Float, default=0)
-    wash_total: Mapped[float] = mapped_column(Float, default=0)
-    balance_after: Mapped[float] = mapped_column(Float, default=0)
+    # T5: точные деньги вместо Float (миграция 2026-10-депозит; на SQLite
+    # приложение квантует через money() на записи/чтении).
+    subscription: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal(0))
+    wash_total: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal(0))
+    balance_after: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal(0))
     carryover_washes: Mapped[int] = mapped_column(Integer, default=0)
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -741,4 +772,82 @@ class TrashItem(Base):
     )
     purged_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+
+class AuditLog(Base):
+    """Аудит owner-опасных и security-чувствительных действий (T1.2).
+
+    Строка пишется в той же транзакции, что и действие (откат действия
+    откатывает и запись). Новая таблица создаётся через create_all,
+    ALTER существующих таблиц не требуется.
+    """
+
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_created_at", "created_at"),
+        Index("ix_audit_log_action", "action"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+    actor_id: Mapped[str] = mapped_column(String(64), default="")
+    actor_role: Mapped[str] = mapped_column(String(32), default="")
+    action: Mapped[str] = mapped_column(String(64))
+    object_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    object_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    detail: Mapped[str] = mapped_column(String(500), default="")
+
+
+class SchemaMigration(Base):
+    """Реестр применённых схема-миграций (T2.1).
+
+    Одна строка = одна успешно применённая версия. Warm-старт пропускает
+    тело рантайм-миграций, если baseline уже записан. Downgrade отдельных
+    версий не поддерживается (DDL частично необратим) — откат только
+    restore из pre-migration dump, см. runtime_migrations.downgrade().
+    """
+
+    __tablename__ = "schema_migrations"
+
+    version: Mapped[str] = mapped_column(String(128), primary_key=True)
+    applied_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
+class Outbox(Base):
+    """T4: transactional outbox внешней доставки (Google Calendar; TG — позже).
+
+    Строка пишется в ТОЙ ЖЕ транзакции, что и бизнес-операция: откат операции
+    откатывает и задание (нет «событие ушло, записи нет» и наоборот).
+    Воркер доставляет идемпотентно (Google upsert по stored event_ids),
+    дубли при параллельных воркерах безвредны (at-least-once).
+    """
+
+    __tablename__ = "outbox"
+    __table_args__ = (
+        Index("ix_outbox_status_retry", "status", "next_retry_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # Коалесцирование: одна pending-строка на (сущность, действие).
+    op_key: Mapped[str] = mapped_column(String(128), unique=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    booking_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    last_error: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
     )

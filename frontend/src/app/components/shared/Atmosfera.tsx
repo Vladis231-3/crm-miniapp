@@ -1,4 +1,4 @@
-import React, { type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Bell, Moon, Sun, type LucideIcon } from "lucide-react";
 export type NavItem<T extends string>={id:T;label:string;icon:LucideIcon;badge?:number;active?:boolean;onSelect?:()=>void};
 export function RoleNavigation<T extends string>({items,active,onSelect}:{items:NavItem<T>[];active:T;onSelect:(id:T)=>void}){return <nav className="role-nav" aria-label="Навигация"><div className="role-nav__scroll">{items.map(x=>{const yes=x.active??x.id===active;return <button key={x.id} className={`role-nav__item ${yes?"is-active":""}`} onClick={()=>x.onSelect?x.onSelect():onSelect(x.id)}><span className="role-nav__icon"><x.icon size={19} strokeWidth={1.75}/>{!!x.badge&&<span className="role-nav__badge">{x.badge}</span>}</span><span className="role-nav__label">{x.label}</span></button>})}</div></nav>}

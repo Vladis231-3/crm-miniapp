@@ -24,11 +24,13 @@ from decimal import Decimal
 
 from pathlib import Path
 
-from threading import Thread
+from threading import Event, Thread
 
 from typing import Any
 
 from uuid import uuid4
+
+from contextlib import asynccontextmanager
 
 from pydantic import ValidationError
 
@@ -47,7 +49,7 @@ import json as _json_stdlib
 
 from math import isinf as _math_isinf
 
-from sqlalchemy import String, and_, cast, delete as sa_delete, inspect, or_, select, func, update as sa_update
+from sqlalchemy import String, and_, cast, delete as sa_delete, inspect, or_, select, func, text, update as sa_update
 
 from sqlalchemy.exc import IntegrityError
 
@@ -77,7 +79,7 @@ from .complaints import (
 
 from .config import get_settings, PERSISTENT_DATA_DIR
 from .date_utils import parse_date_param, parse_dmy, validate_range
-from .finance import money_int, salary_base_for_period
+from .finance import money, money_int, salary_base_for_period
 from .finance_sync import sync_expense_piggy_transaction
 
 from .google_calendar import (
@@ -105,6 +107,16 @@ from .google_calendar import (
 
 from .database import Base, engine, get_db, session_scope
 
+from .outbox import enqueue_google_sync, enqueue_tg_message, start_outbox_worker_if_configured
+
+from .runtime_migrations import run_startup_migrations
+
+from .migrations_extra import EXTRA_MIGRATIONS
+
+from .audit_log import log_action
+
+from .authz import authorize_role
+
 from .exports import (
 
     GeneratedExport,
@@ -126,6 +138,8 @@ from .models import (
     AdditionalServiceWorker,
 
     AppSetting,
+
+    AuditLog,
 
     Booking,
 
@@ -528,6 +542,10 @@ from .schemas import (
 
     DataCleanupBatchPayload,
 
+    AuditLogPayload,
+
+    AuditLogListPayload,
+
     TrashItemPayload,
 
     TrashListPayload,
@@ -608,6 +626,11 @@ settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
+# T4: serverless (Vercel) — daemon-потоки не переживают вызов: после коммита
+# делаем и outbox-строку (для ретраев/аудита), и прямой best-effort вызов
+# (мгновенная доставка как раньше). Воркер/крон добирают остальное.
+IS_SERVERLESS = bool(os.getenv("VERCEL"))
+
 
 
 
@@ -651,6 +674,18 @@ except OSError:
     logger.warning("Cannot create upload dir at %s", UPLOAD_DIR)
 
 bot_thread: Thread | None = None
+
+# T1.3-хвост: кооперативная остановка фоновых потоков (lifespan shutdown).
+# Потоки daemon (процесс не блокируют), событие — best-effort graceful.
+_shutdown_event = Event()
+
+
+def _stop_thread(name: str, thread: Thread | None, *, timeout: float = 5.0) -> None:
+    if thread is None:
+        return
+    thread.join(timeout=timeout)
+    if thread.is_alive():
+        logger.warning("shutdown: поток %s не остановился за %ss", name, timeout)
 
 # Периодическая обратная синхронизация Google Calendar -> CRM.
 GOOGLE_SYNC_INTERVAL_SECONDS = 300
@@ -835,7 +870,20 @@ class AsciiJSONResponse(JSONResponse):
         return _json_stdlib.dumps(content, ensure_ascii=True, allow_nan=False, indent=None, separators=(",", ":")).encode("utf-8")
 
 
-app = FastAPI(title=settings.app_name, default_response_class=AsciiJSONResponse)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """T1.3-хвост: lifespan вместо deprecated on_event (тихий graceful shutdown)."""
+    on_startup()
+    yield
+    _shutdown_event.set()
+    from .outbox import stop_outbox_worker
+
+    stop_outbox_worker()
+    _stop_thread("telegram-bot", bot_thread)
+    _stop_thread("google-sync", google_sync_thread)
+
+
+app = FastAPI(title=settings.app_name, default_response_class=AsciiJSONResponse, lifespan=lifespan)
 
 app.add_middleware(
 
@@ -1075,15 +1123,14 @@ async def serve_single_page_app(request: Request, call_next):
 
 
 
-@app.on_event("startup")
-
 def on_startup() -> None:
+    """Стартап-последовательность (вызывается из lifespan)."""
 
     global bot_thread
 
     Base.metadata.create_all(bind=engine)
 
-    _apply_runtime_migrations()
+    run_startup_migrations(_apply_runtime_migrations, extra_migrations=EXTRA_MIGRATIONS)
 
     db = next(get_db())
 
@@ -1155,11 +1202,18 @@ def on_startup() -> None:
 
     ):
 
-        bot_thread = Thread(target=run_polling, name="telegram-bot", daemon=True)
+        bot_thread = Thread(
+            target=run_polling,
+            kwargs={"stop_event": _shutdown_event},
+            name="telegram-bot",
+            daemon=True,
+        )
 
         bot_thread.start()
 
     start_google_sync_thread()
+
+    start_outbox_worker_if_configured()
 
 
 def start_google_sync_thread() -> None:
@@ -1184,7 +1238,10 @@ def start_google_sync_thread() -> None:
         )
     if google_sync_thread is None and configured:
         google_sync_thread = Thread(
-            target=_google_sync_loop, name="google-sync", daemon=True
+            target=_google_sync_loop,
+            kwargs={"stop_event": _shutdown_event},
+            name="google-sync",
+            daemon=True,
         )
         google_sync_thread.start()
 
@@ -4302,6 +4359,62 @@ def _ensure_booking_has_no_conflicts(
             )
 
 
+_BOOKING_SLOT_CONFLICT_DETAIL = "Бокс уже занят в это время — обновите календарь и попробуйте снова"
+
+
+def _find_by_op_key(db: Session, model, op_key: str, *, tries: int = 5):
+    """Найти запись по ключу идемпотентности с bounded retry.
+
+    Проигравший гонку может не видеть незакоммиченную строку победителя —
+    ждём до ~1с только на конфликтном пути (обычный replay попадает сразу).
+    """
+    for _ in range(tries):
+        row = db.scalar(select(model).where(model.op_key == op_key))
+        if row is not None:
+            return row
+        time_module.sleep(0.2)
+    return None
+
+
+def _resolve_booking_write_conflict(
+    db: Session,
+    exc: IntegrityError,
+    *,
+    op_key: str | None,
+    booking_id: str | None = None,
+    box: str | None = None,
+    date_value: str | None = None,
+    time_value: str | None = None,
+) -> BookingPayload:
+    """Разобрать IntegrityError записи брони (T3) — всегда возвращает или кидает.
+
+    Определение причины — lookup'ом, а не парсингом текста ошибки (SQLite не
+    отдаёт имя индекса): сначала replay по op_key, затем поиск активного
+    занятия слота → 409, иначе переброс исходного исключения.
+    """
+    db.rollback()
+    if op_key:
+        existing = _find_by_op_key(db, Booking, op_key)
+        if existing is not None:
+            return _booking_payload_for_response(db, existing)
+    if box:
+        clash = db.scalar(
+            select(Booking.id).where(
+                Booking.box == box,
+                Booking.date == date_value,
+                Booking.time == time_value,
+                Booking.deleted_at.is_(None),
+                Booking.status.in_(BOOKING_ACTIVE_STATUSES),
+                Booking.id != (booking_id or ""),
+            ).limit(1)
+        )
+        if clash is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=_BOOKING_SLOT_CONFLICT_DETAIL
+            )
+    raise exc
+
+
 
 
 
@@ -4954,6 +5067,32 @@ def _expense_payload(expense: Expense) -> ExpensePayload:
 
     )
 
+
+
+
+def _income_payload(income: Income) -> IncomePayload:
+
+    # T3: единый конструктор ответа (create + replay повтора).
+
+    return IncomePayload(
+
+        id=income.id,
+
+        amount=money_int(income.amount),
+
+        source=income.source,
+
+        note=income.note,
+
+        createdById=income.created_by_id,
+
+        date=income.date,
+
+        resourceGroup=income.resource_group,
+
+        createdAt=income.created_at,
+
+    )
 
 
 
@@ -6854,6 +6993,20 @@ def _send_telegram_safe(chat_id: str | None, text: str) -> None:
         logger.warning("Ошибка отправки Telegram-уведомления (chat_id=%s): %s", chat_id, exc)
 
 
+def tg_notify(db: Session, chat_id: str | None, text: str) -> None:
+    """TG-уведомление жизненного цикла брони (T4-хвост).
+
+    По умолчанию — строкой outbox в текущей транзакции (доставка воркером
+    с ретраями вместо молчаливой потери). Флаг OUTBOX_TG_ENABLED=false —
+    старый прямой вызов. Остальные домены (штрафы, рассылки, payroll)
+    оставлены на прямом вызове отдельной задачей.
+    """
+    if not settings.outbox_tg_enabled:
+        _send_telegram_safe(chat_id, text)
+        return
+    enqueue_tg_message(db, chat_id, text)
+
+
 
 
 
@@ -8587,6 +8740,13 @@ def start_owner_database_reset(
             "requestedAt": _now().isoformat(),
         },
     )
+    log_action(
+        db,
+        action="owner.database_reset.start",
+        session_data=session_data,
+        object_type="database_reset",
+        object_id=request_id,
+    )
     db.commit()
     send_telegram_message(
         chat_id,
@@ -8647,6 +8807,13 @@ def approve_owner_database_reset(
     state["approved"] = True
     state["finalizeAfter"] = finalize_after.isoformat()
     _save_owner_database_reset_state(db, state)
+    log_action(
+        db,
+        action="owner.database_reset.approve",
+        session_data=session_data,
+        object_type="database_reset",
+        object_id=payload.requestId,
+    )
     db.commit()
     preview = _owner_database_reset_preview(db)
     return OwnerDatabaseResetApprovePayload(
@@ -8690,6 +8857,13 @@ def execute_owner_database_reset(
         )
     preview = _owner_database_reset_preview(db)
     _perform_owner_database_reset(db)
+    log_action(
+        db,
+        action="owner.database_reset.execute",
+        session_data=session_data,
+        object_type="database_reset",
+        object_id=payload.requestId,
+    )
     db.commit()
     return OwnerDatabaseResetExecutePayload(message="База очищена", preview=preview)
 
@@ -9155,6 +9329,14 @@ def execute_data_cleanup(
                 )
             )
             counts[entity] += 1
+    log_action(
+        db,
+        action="owner.data_cleanup.execute",
+        session_data=session_data,
+        object_type="data_cleanup_batch",
+        object_id=batch_id,
+        detail=f"total={total} counts={counts}",
+    )
     db.commit()
     return DataCleanupExecutePayload(
         batchId=batch_id,
@@ -9258,6 +9440,47 @@ def list_trash(
     return TrashListPayload(items=items, total=len(items))
 
 
+@app.get("/api/owner/audit-log", response_model=AuditLogListPayload)
+def list_audit_log(
+    action: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> AuditLogListPayload:
+    """Хвост T1.2: чтение аудита owner-опасных действий (только owner)."""
+    _ensure_staff_role(session_data, {"owner"})
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+    q = select(AuditLog)
+    count_q = select(func.count()).select_from(AuditLog)
+    if action:
+        q = q.where(AuditLog.action == action)
+        count_q = count_q.where(AuditLog.action == action)
+    total = db.scalar(count_q) or 0
+    rows = list(
+        db.scalars(
+            q.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+        ).all()
+    )
+    return AuditLogListPayload(
+        items=[
+            AuditLogPayload(
+                id=r.id,
+                createdAt=_as_utc(r.created_at),
+                actorId=r.actor_id or "",
+                actorRole=r.actor_role or "",
+                action=r.action,
+                objectType=r.object_type,
+                objectId=r.object_id,
+                detail=r.detail or "",
+            )
+            for r in rows
+        ],
+        total=total,
+    )
+
+
 @app.post("/api/owner/trash/restore", response_model=GenericMessage)
 def restore_trash(
     payload: TrashRestoreRequest,
@@ -9312,6 +9535,14 @@ def restore_trash(
                 batch.restored_at = now
             else:
                 batch.status = "partial"
+    log_action(
+        db,
+        action="owner.trash.restore",
+        session_data=session_data,
+        object_type="trash",
+        object_id=payload.batchId,
+        detail=f"restored={restored} batches={len(touched_batches)}",
+    )
     db.commit()
     return GenericMessage(message=f"Восстановлено записей: {restored}")
 
@@ -9379,6 +9610,14 @@ def purge_trash(
                 batch.status = "restored" if has_restored else "purged"
                 if batch.status == "purged":
                     batch.purged_at = now
+    log_action(
+        db,
+        action="owner.trash.purge",
+        session_data=session_data,
+        object_type="trash",
+        object_id=payload.batchId,
+        detail=f"purged={purged} batches={len(touched_batches)}",
+    )
     db.commit()
     return GenericMessage(message=f"Безвозвратно удалено записей: {purged}")
 
@@ -10483,7 +10722,7 @@ def _notify_admins_about_booking(db: Session, booking: Booking) -> None:
 
     for admin in admins:
 
-        _send_telegram_safe(admin.telegram_chat_id, text)
+        tg_notify(db, admin.telegram_chat_id, text)
 
 
 
@@ -10513,7 +10752,7 @@ def _notify_owners_about_booking(db: Session, booking: Booking) -> None:
 
     for owner in owners:
 
-        _send_telegram_safe(owner.telegram_chat_id, text)
+        tg_notify(db, owner.telegram_chat_id, text)
 
 
 
@@ -10947,7 +11186,7 @@ def _notify_owners(db: Session, text: str) -> None:
 
     for owner in owners:
 
-        _send_telegram_safe(owner.telegram_chat_id, text)
+        tg_notify(db, owner.telegram_chat_id, text)
 
 
 
@@ -11039,7 +11278,7 @@ def _notify_booking_completion_receipt(
 
         if client is not None:
 
-            _send_telegram_safe(client.telegram_id, message)
+            tg_notify(db, client.telegram_id, message)
 
     _notify_owners(db, message)
 
@@ -11051,7 +11290,7 @@ def _notify_booking_completion_receipt(
 
     for admin in admins:
 
-        _send_telegram_safe(admin.telegram_chat_id, message)
+        tg_notify(db, admin.telegram_chat_id, message)
 
 
 
@@ -11182,7 +11421,7 @@ def _notify_workers_about_assignment(
 
         )
 
-        _send_telegram_safe(worker.telegram_chat_id, text)
+        tg_notify(db, worker.telegram_chat_id, text)
 
 
 
@@ -11284,7 +11523,7 @@ def _notify_workers_about_additional_service(
 
         )
 
-        _send_telegram_safe(worker.telegram_chat_id, text)
+        tg_notify(db, worker.telegram_chat_id, text)
 
 
 
@@ -11446,7 +11685,7 @@ def _notify_workers_about_reschedule(
 
         )
 
-        _send_telegram_safe(worker.telegram_chat_id, text)
+        tg_notify(db, worker.telegram_chat_id, text)
 
 
 
@@ -11831,135 +12070,9 @@ def _debug_owner_session(
     return session_data
 
 
-@app.get("/api/debug/db")
-def debug_db(
-    session_data: dict = Depends(_debug_owner_session),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Диагностика БД — первые 3 staff/service с hex. S-001: только владелец."""
-    try:
-        from sqlalchemy import select
-
-        staff = []
-        for s in db.scalars(select(StaffUser).limit(3)).all():
-            staff.append(
-                {
-                    "id": s.id,
-                    "login": s.login,
-                    "name": s.name,
-                    "name_hex": (s.name or "").encode("utf-8").hex(),
-                    "city": s.city,
-                    "city_hex": (s.city or "").encode("utf-8").hex() if s.city else "",
-                }
-            )
-        services = []
-        for svc in db.scalars(select(Service).limit(3)).all():
-            services.append({"id": svc.id, "name": svc.name, "hex": (svc.name or "").encode("utf-8").hex()})
-        return {"ok": True, "staff": staff, "services": services}
-    except Exception as e:
-        import traceback
-
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:3000]}
 
 
-def _mojibake_scan_rows(db: Session) -> list[dict]:
-    """Найти строки-кандидаты mojibake: строгий ремонт меняет значение."""
-    rows: list[dict] = []
-    for model, fields in _TEXT_REPAIR_TARGETS:
-        table = getattr(model, "__tablename__", getattr(model, "__name__", "?"))
-        for item in db.scalars(select(model)).all():
-            for field in fields:
-                value = getattr(item, field, None)
-                if not isinstance(value, str) or not value:
-                    continue
-                fixed = _repair_text_value(value)
-                if fixed == value:
-                    continue
-                rows.append(
-                    {
-                        "table": table,
-                        "id": getattr(item, "id", None),
-                        "field": field,
-                        "value": value[:200],
-                        "value_hex": value.encode("utf-8").hex()[:400],
-                        "fixed": fixed[:200],
-                    }
-                )
-    for setting in db.scalars(select(AppSetting)).all():
-        fixed_value = _repair_nested_text(setting.value)
-        if fixed_value != setting.value:
-            rows.append(
-                {
-                    "table": "app_settings",
-                    "id": getattr(setting, "key", None),
-                    "field": "value",
-                    "value": repr(setting.value)[:200],
-                    "fixed": repr(fixed_value)[:200],
-                }
-            )
-    for notification in db.scalars(select(Notification)).all():
-        fixed_message = _sanitize_notification_message(notification.message)
-        if fixed_message != notification.message:
-            rows.append(
-                {
-                    "table": "notifications",
-                    "id": getattr(notification, "id", None),
-                    "field": "message",
-                    "value": notification.message[:200],
-                    "fixed": fixed_message[:200],
-                }
-            )
-    return rows
-
-
-@app.get("/api/debug/mojibake-scan")
-def debug_mojibake_scan(
-    session_data: dict = Depends(_debug_owner_session),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Диагностика: какие строки в БД выглядят как mojibake и чем их починит строгий ремонт."""
-    rows = _mojibake_scan_rows(db)
-    return {"ok": True, "count": len(rows), "rows": rows[:200]}
-
-
-@app.post("/api/debug/mojibake-repair")
-def debug_mojibake_repair(
-    payload: dict | None = None,
-    session_data: dict = Depends(_debug_owner_session),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Строгий ремонт mojibake в БД. По умолчанию dry-run; {"apply": true} — применить."""
-    apply_fix = bool((payload or {}).get("apply"))
-    rows = _mojibake_scan_rows(db)
-    if not apply_fix:
-        return {"ok": True, "dry_run": True, "would_change": len(rows)}
-    changed = 0
-    for model, fields in _TEXT_REPAIR_TARGETS:
-        for item in db.scalars(select(model)).all():
-            for field in fields:
-                value = getattr(item, field, None)
-                if not isinstance(value, str) or not value:
-                    continue
-                fixed = _repair_text_value(value)
-                if fixed != value:
-                    setattr(item, field, fixed)
-                    changed += 1
-    for setting in db.scalars(select(AppSetting)).all():
-        fixed_value = _repair_nested_text(setting.value)
-        if fixed_value != setting.value:
-            setting.value = fixed_value
-            changed += 1
-    for notification in db.scalars(select(Notification)).all():
-        fixed_message = _sanitize_notification_message(notification.message)
-        if not fixed_message:
-            db.delete(notification)
-            changed += 1
-            continue
-        if fixed_message != notification.message:
-            notification.message = fixed_message
-            changed += 1
-    db.commit()
-    return {"ok": True, "dry_run": False, "changed": changed}
+# ── T7: эндпоинты переехали в app/routers/debug.py (контракты те же) ──
 
 
 
@@ -12614,13 +12727,14 @@ def _google_sync_booking(db, booking, *, action="upsert") -> None:
     db.flush()
 
 
-def _google_sync_loop() -> None:
+def _google_sync_loop(stop_event=None) -> None:
     """Фоновый цикл обратной синхронизации «Google Calendar -> CRM».
 
     Запускается daemon-потоком при старте приложения. No-op, если интеграция
     не настроена или токены не привязаны. Ошибки логируются и не роняют цикл.
+    stop_event (lifespan shutdown) — кооперативная остановка.
     """
-    while True:
+    while stop_event is None or not stop_event.is_set():
         try:
             db = next(get_db())
             try:
@@ -12630,7 +12744,11 @@ def _google_sync_loop() -> None:
                 db.close()
         except Exception:  # noqa: BLE001
             logger.exception("Google Calendar background sync iteration failed")
-        time_module.sleep(GOOGLE_SYNC_INTERVAL_SECONDS)
+        if stop_event is not None:
+            if stop_event.wait(GOOGLE_SYNC_INTERVAL_SECONDS):
+                break
+        else:
+            time_module.sleep(GOOGLE_SYNC_INTERVAL_SECONDS)
 
 
 @app.post("/api/bookings", response_model=BookingPayload)
@@ -12666,6 +12784,17 @@ def create_booking(
     booking_time = payload.time.strip()
 
     booking_box = payload.box.strip()
+
+    op_key = (payload.clientRequestId or "").strip() or None
+
+    if op_key:
+
+        # T3: повтор POST с тем же ключом — replay существующей записи.
+        existing_booking = db.scalar(select(Booking).where(Booking.op_key == op_key))
+
+        if existing_booking is not None:
+
+            return _booking_payload_for_response(db, existing_booking)
 
     is_box_rental = _is_box_rental_service(service)
 
@@ -13013,13 +13142,30 @@ def create_booking(
 
         is_repeat_visit=payload.isRepeatVisit,
 
+        op_key=op_key,
+
         created_at=_now(),
 
     )
 
     db.add(booking)
 
-    db.flush()
+    try:
+
+        db.flush()
+
+    except IntegrityError as exc:
+
+        # T3: гонка мимо app-проверки — replay (свой ключ) или 409 (слот).
+        return _resolve_booking_write_conflict(
+            db,
+            exc,
+            op_key=op_key,
+            booking_id=booking.id,
+            box=booking_box,
+            date_value=booking_date,
+            time_value=booking_time,
+        )
 
     _sync_booking_workers(db, booking, booking_workers)
 
@@ -13140,11 +13286,18 @@ def create_booking(
 
         _notify_owners_about_booking(db, booking)
 
+    if settings.outbox_google_enabled:
+
+        # T4: задание доставки — в той же транзакции, что и бронь.
+        enqueue_google_sync(db, booking.id, "upsert")
+
     db.commit()
 
     db.refresh(booking)
 
-    _google_sync_booking(db, booking, action="upsert")
+    if not settings.outbox_google_enabled or IS_SERVERLESS:
+
+        _google_sync_booking(db, booking, action="upsert")
 
     return _booking_payload_for_response(db, booking)
 
@@ -13191,7 +13344,18 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
             stock_item = db.get(StockItem, bm.stock_item_id)
             if stock_item:
                 print(f"[WRITE_OFF] stock '{stock_item.name}' before={stock_item.qty}, deducting {bm.qty}")
-                stock_item.qty = max(0, stock_item.qty - bm.qty)
+                # T3: атомарное списание одним UPDATE — иначе параллельные
+                # брони теряют обновления (read-modify-write). Семантика
+                # clamp max(0, ..) сохранена, вычисление на стороне БД.
+                db.execute(
+                    text(
+                        "UPDATE stock_items SET qty = CASE "
+                        "WHEN COALESCE(qty, 0) - :q < 0 THEN 0 "
+                        "ELSE COALESCE(qty, 0) - :q END WHERE id = :sid"
+                    ),
+                    {"q": float(bm.qty or 0), "sid": stock_item.id},
+                )
+                db.refresh(stock_item)
                 line_total = bm.qty * float(bm.unit_price)
                 total_cost += line_total
                 material_details.append(f"{bm.name} x{bm.qty} {bm.unit}")
@@ -13282,6 +13446,62 @@ def _asvc_paid_amount(asvc: BookingAdditionalService) -> int:
         else:
             total += money_int(asvc.price * (alink.percent or 0) / 100)
     return total
+
+
+def _dop_piggy_bank(dop_svc: Service | None, fallback_group: str) -> str:
+    """Банк доп-услуги: piggyTarget допа, иначе её resource_group.
+
+    Раньше редирект piggyTarget применялся только к основному вкладу,
+    а допы всегда падали в свою группу — подпись «Куда падает копилка»
+    для доп-услуг была декоративной (R2).
+    """
+    target = ((dop_svc.piggy_target or "").strip() if dop_svc else "")
+    if target in ("detailing", "wash", "general"):
+        return target
+    if dop_svc is not None:
+        return _service_resource_group(dop_svc)
+    return fallback_group or DEFAULT_RESOURCE_GROUP
+
+
+def _dop_remainder_piggy(remainder: int, dop_svc: Service | None, fallback_group: str) -> tuple[int, str]:
+    """Вклад доп-услуги из остатка (цена − оплата мастерам/аутсорс).
+
+    Уважает piggyPayType/Value доп-услуги (R1), иначе дефолт 24% для
+    wash/detailing и 0 для остальных — как у основной услуги.
+    Возвращает (сумма_в_копилку, банк).
+    """
+    remainder = max(0, int(remainder or 0))
+    bank = _dop_piggy_bank(dop_svc, fallback_group)
+    if remainder <= 0:
+        return 0, bank
+    pay_type = (dop_svc.piggy_pay_type if dop_svc else "") or ""
+    pay_value = int(dop_svc.piggy_pay_value or 0) if dop_svc else 0
+    if pay_type == "fixed":
+        return max(0, min(int(pay_value or 0), remainder)), bank
+    if pay_type == "percent":
+        return money_int(remainder * pay_value / 100), bank
+    if pay_type == "rest":
+        return remainder, bank
+    if pay_type == "none":
+        return 0, bank
+    group = _service_resource_group(dop_svc) if dop_svc is not None else (fallback_group or "")
+    if group in ("detailing", "wash"):
+        return money_int(remainder * 24 / 100), bank
+    return 0, bank
+
+
+def _dop_piggy_label(remainder: int, dop_svc: Service | None, name: str) -> str:
+    pay_type = (dop_svc.piggy_pay_type if dop_svc else "") or ""
+    pay_value = int(dop_svc.piggy_pay_value or 0) if dop_svc else 0
+    if pay_type == "fixed":
+        return f"фикс {pay_value}₽ от остатка «{name}»"
+    if pay_type == "percent":
+        return f"{pay_value}% от остатка «{name}»"
+    if pay_type == "rest":
+        return f"остаток от «{name}»"
+    if pay_type == "none":
+        return f"без копилки «{name}»"
+    return f"24% от остатка «{name}»"
 
 
 def _booking_money_split(
@@ -13422,7 +13642,7 @@ def _booking_money_split(
         return master_by_worker, master_total, main_master_total
 
     # Остаток вычитаемых доп услуг (цена − оплата мастеров на них) уходит
-    # в копилку ресурсной группы этой услуги (carve-out, не из пула)
+    # в копилку доп-услуги с учётом её piggyTarget (carve-out, не из пула)
     asvc_piggy_deposits: list[dict] = []
     for asvc in (booking.additional_services or []):
         if asvc.price_mode != "subtract":
@@ -13431,7 +13651,7 @@ def _booking_money_split(
         asvc_deposit = max(0, int(asvc.price) - asvc_pays)
         if asvc_deposit > 0:
             asvc_svc = _asvc_service(asvc)
-            asvc_rg = _service_resource_group(asvc_svc)
+            asvc_rg = _dop_piggy_bank(asvc_svc, rg)
             asvc_piggy_deposits.append(
                 {
                     "name": asvc.name,
@@ -13442,7 +13662,8 @@ def _booking_money_split(
             )
 
     # Не-вычитаемые доп услуги: остаток (цена − оплата мастеров) →
-    # 24% в копилку своей категории, остальное — владельцам (доп. доля 50/50)
+    # в копилку по настройкам самой доп-услуги (дефолт 24% для wash/detailing),
+    # остальное — владельцам (доп. доля 50/50)
     asvc_owner_extra_total = 0
     for asvc in (booking.additional_services or []):
         if asvc.price_mode == "subtract":
@@ -13451,19 +13672,18 @@ def _booking_money_split(
         asvc_remainder = max(0, int(asvc.price) - asvc_pays)
         if asvc_remainder <= 0:
             continue
-        asvc_piggy_24 = money_int(asvc_remainder * 24 / 100)
-        if asvc_piggy_24 > 0:
-            asvc_svc = _asvc_service(asvc)
-            asvc_rg = _service_resource_group(asvc_svc)
+        asvc_svc = _asvc_service(asvc)
+        asvc_piggy_amount, asvc_rg = _dop_remainder_piggy(asvc_remainder, asvc_svc, rg)
+        if asvc_piggy_amount > 0:
             asvc_piggy_deposits.append(
                 {
                     "name": asvc.name,
                     "resource_group": asvc_rg,
-                    "amount": asvc_piggy_24,
-                    "label": f"24% от остатка «{asvc.name}»",
+                    "amount": asvc_piggy_amount,
+                    "label": _dop_piggy_label(asvc_remainder, asvc_svc, asvc.name),
                 }
             )
-        asvc_owner_extra_total += asvc_remainder - asvc_piggy_24
+        asvc_owner_extra_total += asvc_remainder - asvc_piggy_amount
 
     asvc_piggy_total = sum(d["amount"] for d in asvc_piggy_deposits)
 
@@ -13932,6 +14152,11 @@ def update_booking(
 
     _ensure_staff_role(session_data, {"admin", "worker", "owner", "accountant"})
 
+    if session_data["role"] == "accountant":
+        # T1.2 permissive: правка любой брони бухгалтером без ограничения полей —
+        # FINDING матрицы (test_accountant_patch_any_booking_allowed_FINDING).
+        authorize_role(session_data, {"admin", "owner"}, action="booking.update")
+
     booking = db.scalar(
 
         select(Booking)
@@ -14329,6 +14554,24 @@ def update_booking(
         setattr(booking, target_field, value)
 
 
+    try:
+
+        # T3: форсируем проверку слот-индекса здесь — позже autoflush
+        # размазал бы IntegrityError по _write_off/piggy (см. разбор в T3).
+        db.flush()
+
+    except IntegrityError as exc:
+
+        return _resolve_booking_write_conflict(
+            db,
+            exc,
+            op_key=None,
+            booking_id=booking.id,
+            box=next_box,
+            date_value=next_date,
+            time_value=next_time,
+        )
+
     previous_worker_ids = _booking_all_worker_ids(booking)
 
     if payload.workers is not None:
@@ -14492,6 +14735,12 @@ def update_booking(
 
 
 
+    if settings.outbox_google_enabled:
+
+        # T4: задание доставки — в той же транзакции (коалесцируется по op_key
+        # при повторных правках до визита воркера).
+        enqueue_google_sync(db, booking.id, "upsert")
+
     db.commit()
 
     db.refresh(booking)
@@ -14592,7 +14841,9 @@ def update_booking(
 
         db.commit()
 
-    _google_sync_booking(db, booking, action="upsert")
+    if not settings.outbox_google_enabled or IS_SERVERLESS:
+
+        _google_sync_booking(db, booking, action="upsert")
 
     return _booking_payload_for_response(db, booking)
 
@@ -14615,6 +14866,12 @@ def delete_booking(
     if session_data["role"] not in {"client", "admin", "owner", "accountant"}:
 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    if session_data["role"] == "accountant":
+        # T1.2 permissive: удаление броней бухгалтером — FINDING матрицы
+        # (test_accountant_delete_any_booking_allowed_FINDING). В enforce-режиме
+        # authorize_role вернёт 403.
+        authorize_role(session_data, {"admin", "owner"}, action="booking.delete")
 
     booking = db.get(Booking, booking_id)
 
@@ -14688,9 +14945,16 @@ def delete_booking(
 
     booking.deleted_at = _now()
 
+    if settings.outbox_google_enabled:
+
+        # T4: удаление события — заданием в той же транзакции.
+        enqueue_google_sync(db, booking.id, "delete")
+
     db.commit()
 
-    _google_sync_booking(db, booking, action="delete")
+    if not settings.outbox_google_enabled or IS_SERVERLESS:
+
+        _google_sync_booking(db, booking, action="delete")
 
     return GenericMessage(message="Запись удалена")
 
@@ -14717,6 +14981,11 @@ def add_booking_service(
     if session_data["role"] not in {"admin", "owner", "accountant"}:
 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    if session_data["role"] == "accountant":
+        # T1.2 permissive: добавление услуг бухгалтером меняет сплит —
+        # та же категория FINDING, что и booking.update.
+        authorize_role(session_data, {"admin", "owner"}, action="booking.add_service")
 
     booking = db.scalar(
 
@@ -16267,6 +16536,17 @@ def create_expense(
 
     _ensure_staff_role(session_data, {"owner", "accountant"})
 
+    op_key = (payload.clientRequestId or "").strip() or None
+
+    if op_key:
+
+        # T3: повтор POST с тем же ключом — replay (по образцу Piggy/Payroll).
+        existing_expense = db.scalar(select(Expense).where(Expense.op_key == op_key))
+
+        if existing_expense is not None:
+
+            return _expense_payload(existing_expense)
+
     expense = Expense(
 
         id=f"e-{uuid4()}",
@@ -16283,9 +16563,31 @@ def create_expense(
 
         resource_group=payload.resourceGroup,
 
+        op_key=op_key,
+
     )
 
     db.add(expense)
+
+    try:
+
+        # T3: форсируем проверку op_key до sync_expense_piggy_transaction,
+        # чьи SELECT иначе размазали бы IntegrityError через autoflush.
+        db.flush()
+
+    except IntegrityError as exc:
+
+        db.rollback()
+
+        if op_key:
+
+            winner = _find_by_op_key(db, Expense, op_key)
+
+            if winner is not None:
+
+                return _expense_payload(winner)
+
+        raise
 
     sync_expense_piggy_transaction(db, expense)
 
@@ -16427,6 +16729,17 @@ def create_income(
 
     _ensure_staff_role(session_data, {"owner", "admin"})
 
+    op_key = (payload.clientRequestId or "").strip() or None
+
+    if op_key:
+
+        # T3: повтор POST с тем же ключом — replay.
+        existing_income = db.scalar(select(Income).where(Income.op_key == op_key))
+
+        if existing_income is not None:
+
+            return _income_payload(existing_income)
+
     income = Income(
 
         id=str(uuid4()),
@@ -16443,11 +16756,32 @@ def create_income(
 
         resource_group=payload.resourceGroup,
 
+        op_key=op_key,
+
         created_at=_now(),
 
     )
 
     db.add(income)
+
+    try:
+
+        db.flush()
+
+    except IntegrityError:
+
+        # T3: гонка двух POST с одним ключом — возвращаем победителя.
+        db.rollback()
+
+        if op_key:
+
+            winner = _find_by_op_key(db, Income, op_key)
+
+            if winner is not None:
+
+                return _income_payload(winner)
+
+        raise
 
     db.commit()
 
@@ -16831,17 +17165,29 @@ def get_piggy_bank(
                         dop_master += money_int(int(asvc.price or 0) * (alink.percent or 0) / 100)
             dop_remainder = max(0, int(asvc.price or 0) - _asvc_paid_amount(asvc))
             # Кредит: допы тоже без проводок — в копилку 0 (см. _booking_main_split).
-            dop_piggy = 0 if (booking.payment_type or "") == "credit" else (
-                money_int(dop_remainder * 24 / 100) if dop_remainder > 0 else 0
-            )
-            if dop_group == WASH_RESOURCE_GROUP:
+            # Иначе — по настройкам самой доп-услуги (R1), банк — её piggyTarget (R2).
+            if (booking.payment_type or "") == "credit":
+                dop_piggy = 0
+                dop_bank = _dop_piggy_bank(dop_svc, dop_group)
+            else:
+                dop_piggy, dop_bank = _dop_remainder_piggy(dop_remainder, dop_svc, dop_group)
+            if dop_bank == WASH_RESOURCE_GROUP:
                 wash_asvc_revenue += int(asvc.price or 0)
                 wash_asvc_master += dop_master
                 wash_asvc_piggy += dop_piggy
-            elif dop_group == "detailing":
+            elif dop_bank == "detailing":
                 detailing_asvc_revenue += int(asvc.price or 0)
                 detailing_asvc_master += dop_master
                 detailing_asvc_piggy += dop_piggy
+            else:
+                # Банк general/другой: выручка/мастера допа относятся к группе допа,
+                # вклад уже учтён фактическими транзакциями ниже (general_net_piggy).
+                if dop_group == WASH_RESOURCE_GROUP:
+                    wash_asvc_revenue += int(asvc.price or 0)
+                    wash_asvc_master += dop_master
+                elif dop_group == "detailing":
+                    detailing_asvc_revenue += int(asvc.price or 0)
+                    detailing_asvc_master += dop_master
     # FIX piggy-cleanup hang: «В копилку» мойки/допов считаем по фактическим
     # НЕудалённым piggy-транзакциям, а не пересчётом сплита броней.
     # Иначе удаление копилки через Очистку данных опустошает историю/balance,
@@ -18765,6 +19111,7 @@ def _deposit_add_transaction(
     date: str,
     booking_id: str | None = None,
     created_by_id: str | None = None,
+    op_key: str | None = None,
 ) -> DepositTransaction:
     amount_dec = Decimal(str(amount))
     balance_after = _deposit_balance(db, client_id) + amount_dec
@@ -18778,10 +19125,16 @@ def _deposit_add_transaction(
         description=description,
         booking_id=booking_id,
         created_by_id=created_by_id,
+        op_key=op_key,
         created_at=_now(),
     )
     db.add(txn)
     return txn
+
+
+def _deposit_replay_by_op_key(db: Session, op_key: str):
+    """Replay депозитной операции (T5): вернуть существующую или None."""
+    return db.scalar(select(DepositTransaction).where(DepositTransaction.op_key == op_key))
 
 
 def _deposit_txn_payload(db: Session, txn: DepositTransaction) -> DepositTransactionPayload:
@@ -19164,6 +19517,12 @@ def deposit_topup(
     if not client.deposit_active:
         raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
     date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    op_key = (payload.clientRequestId or "").strip() or None
+    if op_key:
+        # T5: повтор POST с тем же ключом — replay существующей операции.
+        existing_txn = _deposit_replay_by_op_key(db, op_key)
+        if existing_txn is not None:
+            return _deposit_txn_payload(db, existing_txn)
     txn = _deposit_add_transaction(
         db,
         client_id,
@@ -19171,7 +19530,18 @@ def deposit_topup(
         float(payload.amount),
         payload.note.strip() or "Пополнение депозита",
         date=date,
+        op_key=op_key,
     )
+    try:
+        db.flush()
+    except IntegrityError:
+        # T5: гонка двух POST с одним ключом — возвращаем победителя.
+        db.rollback()
+        if op_key:
+            winner = _deposit_replay_by_op_key(db, op_key)
+            if winner is not None:
+                return _deposit_txn_payload(db, winner)
+        raise
     db.commit()
     db.refresh(txn)
     return _deposit_txn_payload(db, txn)
@@ -19191,6 +19561,12 @@ def deposit_adjust(
     if not client.deposit_active:
         raise HTTPException(status_code=400, detail="Клиент не является абонентом депозита")
     date = payload.date or datetime.now().strftime("%d.%m.%Y")
+    op_key = (payload.clientRequestId or "").strip() or None
+    if op_key:
+        # T5: повтор POST с тем же ключом — replay (баланс уже учтён).
+        existing_txn = _deposit_replay_by_op_key(db, op_key)
+        if existing_txn is not None:
+            return _deposit_overview(db, client_id, client)
     _deposit_add_transaction(
         db,
         client_id,
@@ -19198,7 +19574,16 @@ def deposit_adjust(
         float(payload.amount),
         payload.note.strip() or "Корректировка депозита",
         date=date,
+        op_key=op_key,
     )
+    try:
+        db.flush()
+    except IntegrityError:
+        # T5: гонка двух POST с одним ключом — победитель уже в базе.
+        db.rollback()
+        if op_key and _deposit_replay_by_op_key(db, op_key) is not None:
+            return _deposit_overview(db, client_id, client)
+        raise
     db.commit()
     return _deposit_overview(db, client_id, client)
 
@@ -19366,7 +19751,9 @@ def deposit_settle_month(
         raise HTTPException(status_code=400, detail="Месяц уже закрыт")
 
     wash_total = _deposit_month_wash_total_for(db, client_id, month)
-    subscription = float(client.deposit_monthly or 0)
+    # T5: точные деньги — модель хранит Numeric, квантуем на записи.
+    subscription = money(client.deposit_monthly or 0)
+    wash_total = money(wash_total)
 
     carryover_washes = 0
     if (
@@ -19384,7 +19771,7 @@ def deposit_settle_month(
             month=month,
             subscription=subscription,
             wash_total=wash_total,
-            balance_after=_deposit_balance(db, client_id),
+            balance_after=money(_deposit_balance(db, client_id)),
             carryover_washes=carryover_washes,
             closed_at=_now(),
             created_at=_now(),
@@ -19396,16 +19783,16 @@ def deposit_settle_month(
     # (сверх лимита остаются списанными); per_wash — возврат не делается (оплата за мойку).
     refund = wash_total
     if _deposit_plan_key(client.deposit_plan or "") == "per_wash":
-        refund = 0.0
+        refund = money(0)
     elif _deposit_plan_key(client.deposit_plan or "") == "washes":
-        refund = max(0.0, wash_total - _deposit_month_wash_extra(db, client, month))
+        refund = money(max(0, float(wash_total) - _deposit_month_wash_extra(db, client, month)))
 
     if refund > 0:
         db.add(
             PiggyBankTransaction(
                 id=f"pb-{uuid4()}",
                 booking_id=None,
-                amount=refund,
+                amount=money(refund),
                 transaction_type="deposit_return",
                 purpose=f"Депозит {client.name}: возврат моек за {month} в копилку мойки",
                 material_name=None,
@@ -19419,12 +19806,26 @@ def deposit_settle_month(
             db,
             client_id,
             "month_return",
-            refund,
+            float(refund),
             f"Закрытие {month}: возврат моек в копилку",
             date=datetime.now().strftime("%d.%m.%Y"),
         )
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # T5: гонка двух закрытий месяца — побеждает одна, второй replay.
+        # Последовательный повтор отклонён выше 400-й ("Месяц уже закрыт").
+        db.rollback()
+        existing_month = db.scalar(
+            select(DepositMonth).where(
+                DepositMonth.client_id == client_id,
+                DepositMonth.month == month,
+            )
+        )
+        if existing_month is not None:
+            return _deposit_overview(db, client_id, client)
+        raise
     return _deposit_overview(db, client_id, client)
 
 
@@ -21591,63 +21992,12 @@ def sync_google_calendar_now(
     return {**result, "lastSyncAt": last.get("at")}
 
 
-@app.get("/api/cron/google-sync")
-def run_google_calendar_sync_cron(
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Cron-эндпоинт Vercel: обратная синхронизация Google Calendar -> CRM.
-
-    Вызывается каждые 5 минут (vercel.json -> crons). Защищён CRON_SECRET:
-    запрос без секрета получает 503/401, как и остальные cron-эндпоинты.
-    """
-    if not settings.cron_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
-        )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid cron secret",
-        )
-    result = pull_calendar_changes(db, settings)
-    db.commit()
-    return result
 
 
-@app.get("/api/cron/reminders", response_model=OwnerReminderDispatchPayload)
-def run_reminders_cron(
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-) -> OwnerReminderDispatchPayload:
-    """Cron-роут Vercel: напоминания о ближайших записях и повторных визитах.
-
-    Требует CRON_SECRET (см. vercel.json -> crons). Без настроенного секрета
-    возвращает 503/401, чтобы не обрабатывать посторонние cron-запросы.
-    """
-    if not settings.cron_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
-        )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid cron secret",
-        )
-    dispatch = _dispatch_booking_reminders(db)
-    return_visits = _dispatch_return_visit_reminders(db)
-    db.commit()
-    return OwnerReminderDispatchPayload(
-        message=dispatch.message,
-        targetDate=dispatch.targetDate,
-        clientReminders=dispatch.clientReminders + return_visits,
-        workerReminders=dispatch.workerReminders,
-        telegramDelivered=dispatch.telegramDelivered + return_visits,
-    )
+# ── T7: эндпоинты переехали в app/routers/cron.py (контракты те же) ──
 
 
+# ── T7: owner-напоминания остались в main (не cron-домен) ──
 @app.post("/api/owner/inactive-clients/remind-admin", response_model=GenericMessage)
 def remind_admin_about_inactive_clients(
     session_data: dict = Depends(_require_session),
@@ -21724,51 +22074,6 @@ def dispatch_owner_booking_reminders(
         telegramDelivered=dispatch.telegramDelivered + return_visits,
     )
 
-
-@app.get("/api/cron/reports")
-def run_reports_cron(
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Cron-роут Vercel: ежедневные сводные отчёты владельцам с Telegram.
-
-    Требует CRON_SECRET. Для каждого владельца с привязанным Telegram
-    отправляет daily-отчёт по сегментам wash и detailing; сбой одного
-    получателя не прерывает рассылку остальным.
-    """
-    if not settings.cron_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
-        )
-    if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid cron secret",
-        )
-    recipients = _all_owner_telegram_recipients(db)
-    sent = 0
-    failed = 0
-    seen_owner_ids: set[str] = set()
-    for recipient in recipients:
-        if recipient.id in seen_owner_ids:
-            continue
-        seen_owner_ids.add(recipient.id)
-        for segment in ("wash", "detailing"):
-            try:
-                report = _owner_summary_report(db, recipient.id, "daily", segment)
-                export_file = _owner_summary_export_file(db, recipient.id, "daily", segment)
-                _send_owner_summary_report(db, recipient.id, report, export_file)
-                sent += 1
-            except Exception:
-                logger.exception(
-                    "Daily report delivery failed for owner %s segment %s",
-                    recipient.id,
-                    segment,
-                )
-                failed += 1
-    db.commit()
-    return {"owners": len(seen_owner_ids), "reportsSent": sent, "reportsFailed": failed}
 
 
 @app.put("/api/settings/owner/security", response_model=OwnerSecurityPayload)
@@ -22771,7 +23076,11 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
         .order_by(PiggyBankTransaction.created_at.asc())
     ).all()
     deposit_txs = [t for t in all_txs if t.transaction_type == "deposit_24percent"]
-    piggy_effective = int(sum(t.amount for t in deposit_txs)) if deposit_txs else split["piggy_deposit"]
+    is_credit = (booking.payment_type or "") == "credit"
+    # Кредит: проводок копилки нет (возврат lump-суммой через settle-month),
+    # поэтому эффективный вклад = факт (0), а не авто-расчёт (R6).
+    # Авто-значения piggyDepositAuto/ownersTotalAuto остаются для прозрачности.
+    piggy_effective = int(sum(t.amount for t in deposit_txs)) if deposit_txs else (0 if is_credit else split["piggy_deposit"])
 
     owner_shares: list[BookingMoneySplitOwnerItem] = []
     owner_by_owner_effective: dict[str, int] = {}
@@ -22792,7 +23101,8 @@ def _booking_money_split_detail(db: Session, booking: Booking) -> BookingMoneySp
             )
         )
         owner_by_owner_effective[share.owner_id] = owner_by_owner_effective.get(share.owner_id, 0) + int(share.amount)
-    owners_effective = sum(owner_by_owner_effective.values()) if owner_shares else split["owners_total"]
+    # Кредит: долей владельцев нет до settle-month — эффективный итог 0, авто остаётся.
+    owners_effective = sum(owner_by_owner_effective.values()) if owner_shares else (0 if is_credit else split["owners_total"])
 
     piggy_svc = db.get(Service, booking.service_id) if booking.service_id else None
     piggy_target = (piggy_svc.piggy_target or "").strip() if piggy_svc else ""
@@ -23182,6 +23492,9 @@ def get_owner_bookings_history_totals(
                 entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
                 entry["amount"] += int(txn.amount or 0)
                 entry["booking_ids"].add(booking.id)
+            continue
+        # Кредит без проводок: авто-расчёт не показываем (R6) — вернётся через settle-month.
+        if (booking.payment_type or "") == "credit":
             continue
         asvc_sum = sum(int(d.get("amount") or 0) for d in split.get("asvc_piggy_deposits") or [])
         main_dep = max(0, int(split.get("piggy_deposit") or 0) - asvc_sum)
@@ -26771,3 +27084,10 @@ def change_password(
 
     return GenericMessage(message="Пароль обновлён")
 
+
+# ── T7: доменные роутеры (вынос без смены контрактов) ──
+from .routers.cron import router as _cron_router
+from .routers.debug import router as _debug_router
+
+app.include_router(_cron_router)
+app.include_router(_debug_router)

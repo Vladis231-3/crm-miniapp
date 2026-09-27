@@ -50,6 +50,9 @@ class Settings:
     allow_demo_seed_data: bool
     run_embedded_bot: bool
     allow_insecure_client_auth: bool
+    authz_enforce: bool
+    outbox_google_enabled: bool
+    outbox_tg_enabled: bool
     api_host: str
     api_port: int
     cors_origins: tuple[str, ...]
@@ -277,6 +280,9 @@ def get_settings() -> Settings:
             _parse_bool(os.getenv("ALLOW_INSECURE_CLIENT_AUTH"), False)
             and not strong_environment
         ),
+        authz_enforce=_parse_bool(os.getenv("AUTHZ_ENFORCE"), True),
+        outbox_google_enabled=_parse_bool(os.getenv("OUTBOX_GOOGLE_ENABLED"), True),
+        outbox_tg_enabled=_parse_bool(os.getenv("OUTBOX_TG_ENABLED"), True),
         api_host=os.getenv("API_HOST", "0.0.0.0"),
         api_port=int(os.getenv("API_PORT", "8000")),
         cors_origins=origins,

@@ -257,7 +257,16 @@ export type BookingCreateInput = Omit<Booking, 'id' | 'createdAt' | 'services' |
   materials?: BookingMaterial[];
   materialsWrittenOff?: boolean;
   referralSource?: string;
+  // T3: ключ идемпотентности (бэкенд возвращает существующую запись на повтор).
+  clientRequestId?: string;
 };
+
+/** T3: стабильный ключ операции; randomUUID с fallback для старых WebView. */
+export function newClientRequestId(): string {
+  const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
+  if (g.crypto && typeof g.crypto.randomUUID === 'function') return g.crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 export type BookingUpdateInput = Partial<Booking> & {
   notifyWorkers?: boolean;
@@ -1450,12 +1459,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function addBooking(booking: BookingCreateInput) {
+    // T3: ключ вызывающего побеждает — повтор той же формы replay'ится бэкендом.
+    const keyed = { clientRequestId: newClientRequestId(), ...booking };
     const created = normalizeBootstrap({
       session: session as SessionInfo,
       clientProfile,
       staffProfile,
       clients: [],
-      bookings: [await apiRequest<BootstrapPayload['bookings'][number]>('/api/bookings', { method: 'POST', body: booking })],
+      bookings: [await apiRequest<BootstrapPayload['bookings'][number]>('/api/bookings', { method: 'POST', body: keyed })],
       notifications: [],
       stockItems: [],
       stockCategories: [],

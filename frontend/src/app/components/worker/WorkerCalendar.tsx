@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import type { Booking, ScheduleDay, Worker } from '../../context/AppContext';

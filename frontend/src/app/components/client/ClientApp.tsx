@@ -4,7 +4,7 @@ import {
   ArrowLeft,
   Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
-import { useApp, Booking, BookingSlotAvailability, Service } from '../../context/AppContext';
+import { useApp, Booking, BookingSlotAvailability, Service, newClientRequestId } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
 import { normalizePlateInput } from '../../utils/validation';
 import { useTelegramMainButton } from '../../hooks/useTelegramMainButton';
@@ -68,6 +68,9 @@ export function ClientApp() {
   } = useApp();
   const [page, setPage] = useState<Page>('catalog');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  // T3: стабильный ключ попытки — дабл-клик/ретрай той же формы replay'ится,
+  // а не двоится. Обновляется после успеха.
+  const confirmKeyRef = useRef<string>(newClientRequestId());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(upcomingDates[0] || '');
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
@@ -234,6 +237,7 @@ export function ClientApp() {
     }
     const primaryVehicle = selectedBookingVehicle;
     const booking = await addBooking({
+      clientRequestId: confirmKeyRef.current,
       clientId: session.actorId,
       clientName: clientProfile.name,
       clientPhone: clientProfile.phone,
@@ -256,6 +260,7 @@ export function ClientApp() {
       notes: detailingNote.trim() || undefined,
     });
     setConfirmedBookingId(booking.id);
+    confirmKeyRef.current = newClientRequestId();
     setPage('confirm');
   };
 

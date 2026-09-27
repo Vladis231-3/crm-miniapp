@@ -542,7 +542,15 @@ type MoneyServiceDraft = {
   materials?: Array<{ stockItemId: string; name: string; qty: number; unit: string }>;
   splitOrder?: string[];
   piggyTarget?: string;
+  resourceGroup?: string;
+  category?: string;
 };
+
+function defaultPiggyGroup(service: MoneyServiceDraft): string {
+  const rg = (service.resourceGroup || '').trim().toLowerCase();
+  if (rg === 'wash' || rg === 'detailing' || rg === 'general') return rg;
+  return '';
+}
 
 const ORDER_STEPS = [
   { id: 'materials', label: 'Материалы' },
@@ -569,7 +577,9 @@ function serviceMoneySummary(service: MoneyServiceDraft) {
         ? `копилка: весь остаток${piggyTargetLabel}`
         : service.piggyPayType === 'none'
           ? 'копилка: нет'
-          : `копилка: 24%${piggyTargetLabel}`;
+          : (defaultPiggyGroup(service) === 'general' || defaultPiggyGroup(service) === ''
+            ? `копилка: нет (стандарт 24% только для мойки/детейлинга)${piggyTargetLabel}`
+            : `копилка: 24%${piggyTargetLabel}`);
   const owners = service.ownerSplitEnabled === false
     ? 'владельцы: нет'
     : service.ownerPayType === 'percent'
@@ -604,11 +614,13 @@ function previewServiceSplit(
     return { total: Math.round(base * samplePercent / 100), label: `${samplePercent}% (из профиля)` };
   };
   const computePiggy = (base: number) => {
-    if (piggyType === 'fixed') return { total: service.piggyPayValue ?? 0, label: 'фикс' };
+    if (piggyType === 'fixed') return { total: Math.min(service.piggyPayValue ?? 0, Math.max(0, base)), label: 'фикс' };
     if (piggyType === 'percent') return { total: Math.round(base * (service.piggyPayValue ?? 0) / 100), label: `${service.piggyPayValue ?? 0}%` };
     if (piggyType === 'rest') return { total: base, label: 'весь остаток' };
     if (piggyType === 'none') return { total: 0, label: 'нет' };
-    return { total: Math.round(base * 24 / 100), label: '24%' };
+    const grp = defaultPiggyGroup(service);
+    if (grp === 'wash' || grp === 'detailing') return { total: Math.round(base * 24 / 100), label: '24%' };
+    return { total: 0, label: 'нет (general без %)' };
   };
   if (!pipeline) {
     const m = computeMaster(net);
@@ -616,7 +628,8 @@ function previewServiceSplit(
     const p = piggyType === 'rest'
       ? { total: Math.max(0, net - master), label: 'весь остаток' }
       : computePiggy(net);
-    piggy = p.total; piggyLabel = p.label;
+    // Кламп как в бэкенде: мастер + копилка не превышают базу (кроме rest — уже остаток).
+    piggy = piggyType === 'rest' ? p.total : Math.max(0, Math.min(p.total, Math.max(0, net - master))); piggyLabel = p.label;
     const afterMasterPiggy = Math.max(0, net - master - piggy);
     if (service.ownerSplitEnabled !== false && afterMasterPiggy > 0) {
       if (service.ownerPayType === 'percent') {
@@ -7076,11 +7089,13 @@ paymentSettled: false,
                         const mainPiggyDeposit = Math.max(0, splitDetail.piggyDeposit - asvcPiggyTotal);
                         const piggyHow = splitDetail.piggyPayType === 'rest'
                           ? ' (весь остаток)'
-                          : splitDetail.piggyPayValue > 0
-                            ? ` (${splitDetail.piggyPayValue}% от базы)`
-                            : splitDetail.piggyPayType === 'fixed'
-                              ? ` (фикс ${splitDetail.piggyPayValue.toLocaleString('ru')} ₽)`
-                              : '';
+                          : splitDetail.piggyPayType === 'fixed'
+                            ? ` (фикс ${(splitDetail.piggyPayValue ?? 0).toLocaleString('ru')} ₽)`
+                            : splitDetail.piggyPayType === 'percent'
+                              ? ` (${splitDetail.piggyPayValue ?? 0}% от базы)`
+                              : splitDetail.piggyPayType === 'none'
+                                ? ' (нет)'
+                                : ' (24%)';
                         return (
                           <>
                             <button className="flex justify-between text-xs w-full text-left hover:opacity-80"
@@ -10394,11 +10409,13 @@ paymentSettled: false,
                         const mainPiggyDeposit = Math.max(0, piggyBookingSplit.piggyDeposit - asvcPiggyTotal);
                         const piggyHow = piggyBookingSplit.piggyPayType === 'rest'
                           ? ' (весь остаток)'
-                          : piggyBookingSplit.piggyPayValue > 0
-                            ? ` (${piggyBookingSplit.piggyPayValue}% от базы)`
-                            : piggyBookingSplit.piggyPayType === 'fixed'
-                              ? ` (фикс ${piggyBookingSplit.piggyPayValue.toLocaleString('ru')} ₽)`
-                              : '';
+                          : piggyBookingSplit.piggyPayType === 'fixed'
+                            ? ` (фикс ${(piggyBookingSplit.piggyPayValue ?? 0).toLocaleString('ru')} ₽)`
+                            : piggyBookingSplit.piggyPayType === 'percent'
+                              ? ` (${piggyBookingSplit.piggyPayValue ?? 0}% от базы)`
+                              : piggyBookingSplit.piggyPayType === 'none'
+                                ? ' (нет)'
+                                : ' (24%)';
                         return (
                           <>
                             <button className="flex justify-between w-full text-left hover:opacity-80" onClick={() => gotoPiggyBank()}>
@@ -10465,6 +10482,8 @@ paymentSettled: false,
                 </div>
 
                 {/* Edit buttons */}
+                {/* T1.2-хвост: бухгалтер брони не правит (бэкенд даёт 403) — скрываем. */}
+                {!isAccountant && (
                 <div className={`${glass} rounded-2xl p-4`}>
                   <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>РЕДАКТИРОВАТЬ</div>
                   <div className="grid grid-cols-2 gap-2">
@@ -10501,8 +10520,10 @@ paymentSettled: false,
                     ))}
                   </div>
                 </div>
+                )}
 
                 {/* Add additional service button */}
+                {!isAccountant && (
                 <div className={`${glass} rounded-2xl p-4`}>
                   <button
                     onClick={handleOpenOwnerAddService}
@@ -10512,6 +10533,7 @@ paymentSettled: false,
                     <Plus size={15} strokeWidth={1.75} />Добавить доп. услугу
                   </button>
                 </div>
+                )}
 
                 {/* Edit panels */}
                 {ownerBookingEditMode === 'status' && (
@@ -10906,7 +10928,7 @@ paymentSettled: false,
                     <AlertCircle size={14} strokeWidth={1.75} />{ownerBookingEditError}
                   </div>
                 )}
-                {selectedBooking?.status !== 'cancelled' && (
+                {selectedBooking?.status !== 'cancelled' && !isAccountant && (
                   <button onClick={() => { void handleCancelOwnerBooking(); }} className={`w-full py-3 rounded-xl text-sm font-medium ${glass} text-red-500 hover:bg-red-500/10 transition-colors`}>
                     <XCircle size={15} strokeWidth={1.75} className="inline mr-1.5 -mt-0.5" />Отменить запись
                   </button>
@@ -12453,12 +12475,19 @@ paymentSettled: false,
                         )}
                       </div>
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру</label>
+                        <label className={`text-xs ${sub} block mb-1`}>Оплата мастеру — % считается от базы (цена − материалы − вычеты)</label>
                         <select className={selectCls} value={svc.masterPayType || ''} onChange={e => patch({ masterPayType: e.target.value })}>
                           <option value="">% из профиля (как сейчас)</option>
-                          <option value="percent">% от цены (общая, делится между мастерами)</option>
-                          <option value="fixed">Фиксированная сумма (общая)</option>
+                          <option value="percent">% от базы (общий котёл, делится между мастерами)</option>
+                          <option value="fixed">Фиксированная сумма (общий котёл, ₽)</option>
                         </select>
+                        <p className={`text-[11px] ${sub} mt-1`}>
+                          {svc.masterPayType === 'fixed'
+                            ? `Мастера получат ${svc.masterPayValue ?? 0} ₽ общей суммой (поделят по % из профиля). Если больше базы — расчёт упрётся в базу, владельцы получат 0.`
+                            : svc.masterPayType === 'percent'
+                              ? `Мастера получат ${svc.masterPayValue ?? 0}% от базы общей суммой.`
+                              : `Мастера получат свои % из профиля от базы (пример в предпросмотре: ${samplePercent}%).`}
+                        </p>
                       </div>
                       {svc.masterPayType === 'fixed' && (
                         <div>
@@ -12473,14 +12502,26 @@ paymentSettled: false,
                         </div>
                       )}
                       <div>
-                        <label className={`text-xs ${sub} block mb-1`}>В копилку</label>
+                        <label className={`text-xs ${sub} block mb-1`}>В копилку — % и фикс считаются от базы (цена − материалы − вычеты)</label>
                         <select className={selectCls} value={svc.piggyPayType || ''} onChange={e => patch({ piggyPayType: e.target.value })}>
-                          <option value="">Стандарт (24%)</option>
-                          <option value="percent">% от цены</option>
-                          <option value="fixed">Фиксированная сумма</option>
-                          <option value="rest">Весь остаток</option>
-                          <option value="none">Нет</option>
+                          <option value="">Стандарт: 24% для мойки/детейлинга, 0 для общей</option>
+                          <option value="percent">% от базы</option>
+                          <option value="fixed">Фиксированная сумма (₽)</option>
+                          <option value="rest">Весь остаток после мастеров</option>
+                          <option value="none">Не отчислять</option>
                         </select>
+                        <p className={`text-[11px] ${sub} mt-1`}>
+                          {svc.piggyPayType === 'fixed'
+                            ? `В копилку уйдёт фикс ${svc.piggyPayValue ?? 0} ₽ (не больше базы после мастеров).`
+                            : svc.piggyPayType === 'percent'
+                              ? `В копилку уйдёт ${svc.piggyPayValue ?? 0}% от базы.`
+                              : svc.piggyPayType === 'rest'
+                                ? 'В копилку уйдёт всё, что осталось после мастеров. Владельцы получат 0.'
+                                : svc.piggyPayType === 'none'
+                                  ? 'В копилку ничего не уйдёт — остаток заберут владельцы (если включены).'
+                                  : 'Мойка/детейлинг — 24% от базы. Общая услуга без настройки — 0.'}
+                          {' '}Доп-услуги считают по своим настройкам копилки из остатка «цена − оплата» (дефолт допа — тоже 24%/0).
+                        </p>
                       </div>
                       {svc.piggyPayType && svc.piggyPayType !== 'none' && svc.piggyPayType !== 'rest' && svc.piggyPayType !== '' && (
                         <div>
@@ -12491,11 +12532,12 @@ paymentSettled: false,
                       <div>
                         <label className={`text-xs ${sub} block mb-1`}>Куда падает депозит</label>
                         <select className={selectCls} value={svc.piggyTarget || ''} onChange={e => patch({ piggyTarget: e.target.value })}>
-                          <option value="">Авто (по типу услуги)</option>
+                          <option value="">Авто (мойка → мойка, детейлинг → детейлинг, общая → общая)</option>
                           <option value="wash">Мойка</option>
                           <option value="detailing">Детейлинг</option>
                           <option value="general">Общая</option>
                         </select>
+                        <p className={`text-[11px] ${sub} mt-1`}>Основной вклад — сюда. Вклады доп-услуг — в свой банк по их настройкам (их редирект тоже работает).</p>
                       </div>
                       <div className={`${glass} rounded-2xl p-3 space-y-2`}>
                         <label className="flex items-center justify-between gap-3 text-sm">
@@ -12537,7 +12579,9 @@ paymentSettled: false,
                     <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Порядок расчёта</div>
                     <div className={`${glass} rounded-2xl p-3 space-y-1`}>
                       {(() => {
-                        const pipelineActive = effectiveOrder.join(',') !== ORDER_STEPS.map(o => o.id).join(',');
+                        // Как в бэкенде: любой непустой порядок != классики = конвейер (R4).
+                        const rawOrder = (svc.splitOrder ?? []).filter(s => ORDER_STEPS.some(o => o.id === s));
+                        const pipelineActive = rawOrder.length > 0 && rawOrder.join(',') !== ORDER_STEPS.map(o => o.id).join(',');
                         return pipelineActive ? (
                           <div className="text-[11px] font-medium px-2 py-1 rounded-lg mb-1 bg-emerald-500/10 text-emerald-600">
                             ✓ Конвейер: % считаются от текущего остатка по шагам
@@ -12566,7 +12610,18 @@ paymentSettled: false,
                         );
                       })}
                     </div>
-                    <p className={`text-xs ${sub} mt-1.5`}>% и 24% считаются от текущего остатка в этом порядке. Владельцы забирают весь остаток, если стоят последними (иначе 50%).</p>
+                    <p className={`text-xs ${sub} mt-1.5`}>Классика: % от полной базы (цена − материалы − вычеты). Конвейер (любой порядок ≠ классики, даже частичный): каждый % от текущего остатка по шагам. Владельцы забирают весь остаток, если стоят последними (иначе 50% или свой %).</p>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: primary }}>Как считается (точно как бэкенд)</div>
+                    <div className={`${glass} rounded-2xl p-3 text-[11px] leading-relaxed ${sub}`}>
+                      <div>1. База = цена − материалы − вычеты (subtract-допы).</div>
+                      <div>2. Мастера → копилка → владельцы (или ваш порядок). Фикс/процент упираются в остаток.</div>
+                      <div>3. Доп-услуги: мастеру — своё, остаток «цена − оплата» — в копилку допа по его настройкам, остальное — владельцам.</div>
+                      <div>4. Кредит: в копилку и владельцам — 0 до закрытия месяца (вернётся через settle-month в мойку).</div>
+                      <div>5. Если мастеров несколько — общий котёл делится по их % из профиля.</div>
+                    </div>
                   </div>
 
                   <div>
@@ -12582,6 +12637,10 @@ paymentSettled: false,
                         <div className="flex justify-between">
                           <span className={sub}>Цена</span>
                           <span>{samplePrice.toLocaleString('ru')} ₽</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className={sub}>База расчёта (цена − материалы)</span>
+                          <span>{preview.net.toLocaleString('ru')} ₽</span>
                         </div>
                         {preview.materials > 0 && (
                           <div className="flex justify-between">
@@ -12636,10 +12695,19 @@ paymentSettled: false,
                             <span className="font-medium text-red-500">{(samplePrice - distributed).toLocaleString('ru')} ₽</span>
                           </div>
                         )}
+                        {(!svc.piggyPayType || svc.piggyPayType === '') && defaultPiggyGroup(svc) === 'general' && (
+                          <div className="text-[11px] text-amber-600">Общая услуга без настройки копилки: вклад будет 0. Выберите % или фикс, если нужны отчисления.</div>
+                        )}
+                        {svc.ownerSplitEnabled === false && distributed < samplePrice - 1 && (
+                          <div className="text-[11px] text-amber-600">Владельцы выключены: остаток никому не уйдёт и останется нераспределённым.</div>
+                        )}
+                        {(svc.masterPayType === 'fixed' || svc.piggyPayType === 'fixed') && preview.owners === 0 && preview.net > 0 && (
+                          <div className="text-[11px] text-amber-600">Фикс упёрся в базу: владельцы получат 0. Уменьшите фикс или поднимите цену.</div>
+                        )}
                       </div>
                     </div>
                     <p className={`text-xs ${sub} mt-2`}>
-                      Порядок: сначала материалы, потом мастера, копилка, остаток  -  владельцам. Если мастеров несколько, сумма мастера делится пропорционально их % из профиля.
+                      Предпросмотр — упрощённый (без жалоб, ручных правок, допов, вычетов и кредита). Точный расчёт — в карточке записи после завершения. Если мастеров несколько, сумма делится по их % из профиля.
                     </p>
                   </div>
                   </>

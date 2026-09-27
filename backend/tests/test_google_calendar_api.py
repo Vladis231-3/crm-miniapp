@@ -49,6 +49,10 @@ class GoogleCalendarApiTests(unittest.TestCase):
         # Фоновый поток обратной синхронизации не должен вмешиваться в моки.
         self._sync_thread_patch = patch("app.main.start_google_sync_thread")
         self._sync_thread_patch.start()
+        # T4: outbox-воркер тоже не стартует в тестах (иначе daemon-потоки
+        # держат sqlite-файлы и валят teardown соседних тестов WinError 32).
+        self._outbox_thread_patch = patch("app.main.start_outbox_worker_if_configured")
+        self._outbox_thread_patch.start()
 
         self.client_manager = TestClient(app)
         self.client = self.client_manager.__enter__()
@@ -62,6 +66,16 @@ class GoogleCalendarApiTests(unittest.TestCase):
         engine.dispose()
         self.client_manager.__exit__(None, None, None)
         self._sync_thread_patch.stop()
+        self._outbox_thread_patch.stop()
+        # T4: GOOGLE_* env не должен утекать в соседние тесты — иначе их
+        # стартапы увидят настроенный Google и поднимут фоновые потоки.
+        for _key in (
+            "GOOGLE_CALENDAR_CLIENT_ID",
+            "GOOGLE_CALENDAR_CLIENT_SECRET",
+            "GOOGLE_CALENDAR_REDIRECT_URI",
+            "GOOGLE_CALENDAR_TIMEZONE",
+        ):
+            os.environ.pop(_key, None)
         reset_app_modules()
         for suffix in ("", "-wal", "-shm"):
             path = Path(f"{self.db_path}{suffix}")
@@ -501,9 +515,12 @@ class GoogleCalendarApiTests(unittest.TestCase):
         self.assertEqual(response_missing.status_code, 404)
 
     def test_create_booking_calls_google_sync(self) -> None:
+        # T4: прямой вызов заменён outbox'ом — создание кладёт задание,
+        # доставка идёт итерацией воркера (тот же sync_booking_to_calendar).
         token = self.login_owner()
         from app.database import SessionLocal
-        from app.models import AppSetting
+        from app.models import AppSetting, Outbox
+        from sqlalchemy import select
 
         # Подключаем интеграцию как в тесте выше
         with patch("app.main.build_auth_url", return_value="https://accounts.google.com/consent"):
@@ -517,7 +534,7 @@ class GoogleCalendarApiTests(unittest.TestCase):
             ):
                 self.client.get("/api/owner/integrations/google/callback", params={"code": "c", "state": state})
 
-        with patch("app.main.sync_booking_to_calendar", return_value=("evt-1", True)) as mock_sync:
+        with patch("app.google_calendar.sync_booking_to_calendar", return_value=("evt-1", True)) as mock_sync:
             response = self.client.post(
                 "/api/bookings",
                 headers=self.auth_headers(token),
@@ -536,7 +553,21 @@ class GoogleCalendarApiTests(unittest.TestCase):
                     "box": "Бокс 1",
                 },
             )
-        self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.status_code, 200, response.text)
+            booking_id = response.json()["id"]
+            # прямого вызова в реквесте больше нет — только задание
+            mock_sync.assert_not_called()
+            with SessionLocal() as db:
+                rows = db.scalars(
+                    select(Outbox).where(Outbox.booking_id == booking_id)
+                ).all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].status, "pending")
+            self.assertEqual(rows[0].kind, "google_upsert")
+            from app.outbox import process_outbox_batch
+
+            stats = process_outbox_batch()
+        self.assertEqual(stats["sent"], 1)
         mock_sync.assert_called_once()
         args = mock_sync.call_args
         self.assertEqual(args.kwargs.get("action"), "upsert")

@@ -1,5 +1,3 @@
-import React from 'react';
-
 export function sourceBadgeMeta(source?: string | null): { label: string; cls: string } | null {
   if (!source) return null;
   const map: Record<string, { label: string; cls: string }> = {

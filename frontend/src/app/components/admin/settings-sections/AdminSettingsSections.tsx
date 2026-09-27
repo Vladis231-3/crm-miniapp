@@ -389,11 +389,12 @@ function splitSummary(svc: PricingService): string {
   const master = svc.masterPayType === 'fixed' ? `котёл ${svc.masterPayValue || 0} ₽`
     : svc.masterPayType === 'percent' ? `${svc.masterPayValue || 0}%`
     : 'проценты';
+  const rg = (svc.resourceGroup || '').trim().toLowerCase();
   const piggy = svc.piggyPayType === 'fixed' ? `фикс ${svc.piggyPayValue || 0} ₽`
     : svc.piggyPayType === 'percent' ? `${svc.piggyPayValue || 0}%`
     : svc.piggyPayType === 'rest' ? 'остаток'
     : svc.piggyPayType === 'none' ? 'нет'
-    : '24%';
+    : (rg === 'wash' || rg === 'detailing' ? '24%' : 'нет (general без %)');
   const owners = svc.ownerPayType === 'percent' ? `${svc.ownerPayValue || 0}% остатка` : 'остаток';
   return `мастера: ${master} · копилка: ${piggy} · владельцам: ${owners}`;
 }

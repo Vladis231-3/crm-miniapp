@@ -22,7 +22,7 @@ URL_RE = re.compile(r"""['"`](\/api\/[^'"`\s]*)['"`]""")
 METHOD_RE = re.compile(r"""method\s*:\s*['"](GET|POST|PUT|PATCH|DELETE)['"]""")
 NEXT_CALL_RE = re.compile(r"(apiRequest|apiDownload|fetch)\s*(?:<(?:[^<>]|<[^<>]*>)*>)?\s*\(")
 ROUTE_RE = re.compile(
-    r"""@app\.(get|post|put|delete|patch)\(\s*["']([^"']+)["']"""
+    r"""@(?:app|router)\.(get|post|put|delete|patch)\(\s*["']([^"']+)["']"""
 )
 # декоратор может быть разорван: @app.post(\n    "/api/...",\n ...
 ROUTE_MULTILINE_RE = re.compile(
@@ -129,15 +129,26 @@ def frontend_calls() -> dict[tuple[str, str], list[str]]:
 
 
 def backend_routes() -> dict[tuple[str, str], str]:
-    """(METHOD, path) -> handler."""
+    """(METHOD, path) -> handler (main.py + T7-роутеры)."""
     routes: dict[tuple[str, str], str] = {}
-    tree_lines = MAIN.read_text(encoding="utf-8").splitlines()
-    # склеить разорванные декораторы: от "@app.<method>(" до баланса скобок
+    sources = [MAIN] + sorted(
+        path
+        for path in (REPO / "backend" / "app" / "routers").glob("*.py")
+        if path.name != "__init__.py"
+    )
+    for source in sources:
+        _routes_from_source(source, routes)
+    return routes
+
+
+def _routes_from_source(source, routes: dict[tuple[str, str], str]) -> None:
+    tree_lines = source.read_text(encoding="utf-8").splitlines()
+    # склеить разорванные декораторы: от "@app/router.<method>(" до баланса скобок
     joined: list[str] = []
     index = 0
     while index < len(tree_lines):
         line = tree_lines[index]
-        if re.match(r"""\s*@app\.(get|post|put|delete|patch)\(""", line):
+        if re.match(r"""\s*@(app|router)\.(get|post|put|delete|patch)\(""", line):
             depth = line.count("(") - line.count(")")
             lookahead = 0
             while depth > 0 and lookahead < 8 and index + lookahead + 1 < len(tree_lines):
@@ -164,7 +175,6 @@ def backend_routes() -> dict[tuple[str, str], str]:
                     handler = func.group(1)
                     break
             routes[(method, path)] = handler
-    return routes
 
 
 def main() -> int:

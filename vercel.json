@@ -25,6 +25,10 @@
     {
       "path": "/api/cron/google-sync",
       "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/cron/outbox",
+      "schedule": "*/15 * * * *"
     }
   ],
   "headers": [
