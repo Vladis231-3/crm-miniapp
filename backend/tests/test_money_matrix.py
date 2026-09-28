@@ -613,6 +613,54 @@ class MoneyMatrixTests(unittest.TestCase):
         self.assertEqual(dops[0]["resourceGroup"], "detailing")
         self.assertEqual(split["asvcOwnerExtra"], 760)
 
+    def test_dop_classic_owner_percent(self) -> None:
+        """Доп-классика: owner % доп-услуги режет доп-долю (как у основной)."""
+        self.reset_services()
+        self.cfg("s2", owner_pay_type="percent", owner_pay_value=50)
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], serviceId="s2", name="Доп", price=2000,
+                     priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
+        booking = self.complete(booking["id"])
+        split = self.split_of(booking["id"])
+        # Остаток 1000 → копилка 240, владельцам 50% от 760 = 380.
+        self.assertEqual(split["asvcOwnerExtra"], 380)
+        self.assertEqual(split["ownersTotal"], 4600 + 380)
+        self.assertEqual(split["piggyDeposit"], 2640)
+        total = split["masterTotal"] + split["piggyDeposit"] + split["ownersTotal"]
+        self.assertLessEqual(total, 12000)
+
+    def test_dop_classic_owner_disabled(self) -> None:
+        """Доп-классика: владельцы допа выкл — доп-доли нет (видно как нераспределённые)."""
+        self.reset_services()
+        self.cfg("s2", owner_split_enabled=False)
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], serviceId="s2", name="Доп", price=2000,
+                     priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
+        booking = self.complete(booking["id"])
+        split = self.split_of(booking["id"])
+        self.assertEqual(split["asvcOwnerExtra"], 0)
+        self.assertEqual(split["ownersTotal"], 4600)
+        self.assertEqual([d["amount"] for d in split["asvcPiggyDeposits"]], [240])
+
+    def test_dop_pipeline_owner_disabled(self) -> None:
+        """Доп-конвейер: владельцы выкл — копилка считается от полного остатка."""
+        self.reset_services()
+        self.cfg("s2", piggy_pay_type="percent", piggy_pay_value=10,
+                 owner_split_enabled=False,
+                 split_order=["materials", "master", "owners", "piggy"])
+        booking = self.make_booking(*S1, 10000)
+        self.add_dop(booking["id"], serviceId="s2", name="Доп", price=2000,
+                     priceMode="add",
+                     workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
+        booking = self.complete(booking["id"])
+        split = self.split_of(booking["id"])
+        dops = split["asvcPiggyDeposits"]
+        self.assertEqual(len(dops), 1)
+        self.assertEqual(dops[0]["amount"], 100)
+        self.assertEqual(split["asvcOwnerExtra"], 0)
+
     def test_cancelled_booking_drops_owner_accrual(self) -> None:
         """F5: отмена completed-записи убирает её pending-доли из ЗП владельцев."""
         self.reset_services()

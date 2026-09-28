@@ -13752,7 +13752,20 @@ def _booking_money_split(
                         "label": _dop_piggy_label(asvc_remainder, asvc_svc, asvc.name),
                     }
                 )
-            asvc_owner_extra_total += asvc_remainder - asvc_piggy_amount
+            # Доля владельцев допа — по его настройкам, как у основной услуги:
+            # выключено → 0, процент → % от остатка, иначе весь остаток.
+            dop_base_extra = asvc_remainder - asvc_piggy_amount
+            dop_owner_enabled = (asvc_svc.owner_split_enabled if asvc_svc else True) is not False
+            dop_owner_type = asvc_svc.owner_pay_type if asvc_svc else ""
+            dop_owner_value = int(asvc_svc.owner_pay_value or 0) if asvc_svc else 0
+            if not dop_owner_enabled:
+                dop_extra = 0
+            elif dop_owner_type == "percent":
+                dop_extra = money_int(dop_base_extra * dop_owner_value / 100)
+            else:
+                dop_extra = dop_base_extra
+            # Кламп к остатку: legacy-процент >100% не раздувает итог сверх чека.
+            asvc_owner_extra_total += max(0, min(dop_extra, dop_base_extra))
             continue
         dop_pool = asvc_remainder
         dop_owner_type = asvc_svc.owner_pay_type if asvc_svc else ""
@@ -17390,8 +17403,10 @@ def get_piggy_bank(
         # Реальный сплит вместо захардкоженных 10/90 и 40/60: учитывает
         # материалы, вычеты, жалобы, кастомные режимы услуги и ручные правки.
         # Иначе баланс мойки/детейлинга врёт при любом кастомном сплите.
+        # Группа — нормализованная (сырой мусор legacy не роняет выручку мимо корзин).
         main_master, main_piggy = _booking_main_split(booking)
-        if svc is not None and svc.resource_group == WASH_RESOURCE_GROUP:
+        svc_group = _service_resource_group(svc) if svc is not None else ""
+        if svc is not None and svc_group == WASH_RESOURCE_GROUP:
             if svc.wash_type == "self_service":
                 self_service_revenue += main_price
                 self_service_master += main_master
@@ -17400,7 +17415,7 @@ def get_piggy_bank(
                 classic_revenue += main_price
                 classic_master += main_master
                 classic_piggy += main_piggy
-        elif svc is not None and svc.resource_group == "detailing":
+        elif svc is not None and svc_group == "detailing":
             detailing_main_revenue += main_price
             detailing_main_master += main_master
         for asvc in add_dops:
@@ -17473,7 +17488,8 @@ def get_piggy_bank(
             else:
                 _b = _completed_by_id.get(_t.booking_id) if _t.booking_id else None
                 _svc2 = services_map.get(_b.service_id) if _b is not None else None
-                if _svc2 is not None and _svc2.resource_group == WASH_RESOURCE_GROUP and getattr(_svc2, "wash_type", None) == "self_service":
+                _svc2_group = _service_resource_group(_svc2) if _svc2 is not None else ""
+                if _svc2 is not None and _svc2_group == WASH_RESOURCE_GROUP and getattr(_svc2, "wash_type", None) == "self_service":
                     _tx_self_piggy += _amt
                 else:
                     _tx_classic_piggy += _amt

@@ -1259,13 +1259,20 @@ export function OwnerApp() {
   const [simPercent, setSimPercent] = useState('');
   const [simCredit, setSimCredit] = useState(false);
   const [simComplaintPp, setSimComplaintPp] = useState('');
-  const [simDopPrice, setSimDopPrice] = useState('');
-  const [simDopPercent, setSimDopPercent] = useState('50');
-  const [simDopFixed, setSimDopFixed] = useState('');
-  const [simOutsource, setSimOutsource] = useState(false);
-  const [simOutsourceAmount, setSimOutsourceAmount] = useState('');
-  const [simSubtract, setSimSubtract] = useState('');
-  const [simDopServiceId, setSimDopServiceId] = useState('');
+  interface SimDopRow {
+    key: string; serviceId: string; name: string; price: string;
+    mode: 'add' | 'subtract'; payType: 'percent' | 'fixed'; percent: string;
+    fixed: string; outsourceAmount: string;
+  }
+  const [simDops, setSimDops] = useState<SimDopRow[]>([]);
+  const addSimDop = () => setSimDops(p => [...p, {
+    key: `${Date.now()}-${p.length}`, serviceId: '', name: `Доп ${p.length + 1}`,
+    price: '', mode: 'add', payType: 'percent', percent: '50', fixed: '',
+    outsourceAmount: '',
+  }]);
+  const patchSimDop = (key: string, patch: Partial<SimDopRow>) =>
+    setSimDops(p => p.map(r => (r.key === key ? { ...r, ...patch } : r)));
+  const removeSimDop = (key: string) => setSimDops(p => p.filter(r => r.key !== key));
   useEffect(() => {
     const jobs: Array<{ key: string; body: unknown; cur: PreviewSlot; apply: (d: CanonicalSplitPreview) => void; live: () => { key: string; body: unknown } | null }> = [];
     const pd = previewDraftRef.current;
@@ -11361,6 +11368,31 @@ paymentSettled: false,
                   }}
                 />
               </div>
+              {(() => {
+                const picked = liveServices.find(s => s.id === ownerAddServiceDraft.serviceId);
+                if (!picked) return null;
+                const [mSum, pSum, oSum] = serviceMoneySummary(picked);
+                const rawOrder = (picked.splitOrder ?? []).filter(s => ORDER_STEPS.some(o => o.id === s));
+                const isClassic = rawOrder.length === 0 || rawOrder.join(',') === ORDER_STEPS.map(o => o.id).join(',');
+                const orderTxt = isClassic
+                  ? 'классика: материалы → мастера → копилка → владельцы'
+                  : `конвейер: ${rawOrder.map(id => ORDER_STEPS.find(o => o.id === id)?.label ?? id).join(' → ')}`;
+                return (
+                  <div className={`${glass} rounded-2xl p-3 mt-2`}>
+                    <div className="text-xs font-medium mb-1">Как посчитается доп</div>
+                    <div className={`text-xs ${sub}`}>{mSum} · {pSum} · {oSum}</div>
+                    <div className={`text-[11px] ${sub} mt-0.5`}>Порядок: {orderTxt}</div>
+                    <div className={`text-[11px] ${sub} mt-0.5`}>Остаток «цена − оплата» — по этим правилам; мастера назначаются ниже.</div>
+                    <button
+                      onClick={() => { setShowOwnerAddService(false); setEditingServiceId(picked.id); setShowServiceSettings(true); }}
+                      className="mt-2 w-full py-2 rounded-xl text-xs font-semibold"
+                      style={{ background: `${primary}15`, color: primary }}
+                    >
+                      Настроить раздел денег «{picked.name}»
+                    </button>
+                  </div>
+                );
+              })()}
 
               <div className="border-t my-4" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }} />
 
@@ -12470,28 +12502,31 @@ paymentSettled: false,
           const simPriceNum = simPrice === '' ? samplePrice : Math.max(0, numberFromInput(simPrice) || 0);
           const simPercentNum = simPercent === '' ? samplePercent : Math.max(0, Number(simPercent) || 0);
           const simComplaintNum = Math.max(0, Number(simComplaintPp) || 0);
-          const simDops: Array<Record<string, unknown>> = [];
-          const simDopPriceNum = Math.max(0, numberFromInput(simDopPrice) || 0);
-          const simSubtractNum = Math.max(0, numberFromInput(simSubtract) || 0);
-          if (simDopPriceNum > 0) {
-            const fixedAmt = simDopFixed === '' ? null : Math.max(0, numberFromInput(simDopFixed) || 0);
-            simDops.push({
-              serviceId: simDopServiceId || null,
-              name: 'Доп', price: simDopPriceNum, priceMode: 'add',
-              isOutsource: simOutsource,
-              outsourceAmount: simOutsource ? Math.max(0, numberFromInput(simOutsourceAmount) || 0) : null,
-              workers: simOutsource ? [] : (fixedAmt !== null
-                ? [{ percent: 0, payType: 'fixed', fixedAmount: fixedAmt }]
-                : [{ percent: Math.max(0, Number(simDopPercent) || 0), payType: 'percent', fixedAmount: null }]),
-            });
-          }
-          if (simSubtractNum > 0) {
-            simDops.push({ name: 'Вычет', price: simSubtractNum, priceMode: 'subtract', isOutsource: false, outsourceAmount: null, workers: [] });
-          }
+          const simDopsBody = simDops
+            .map((r, i) => {
+              const rowPrice = Math.max(0, numberFromInput(r.price) || 0);
+              if (rowPrice <= 0) return null;
+              const rowFixed = r.payType === 'fixed' ? Math.max(0, numberFromInput(r.fixed) || 0) : null;
+              const rowOutsource = r.outsourceAmount !== '';
+              return {
+                serviceId: r.serviceId || null,
+                name: r.name.trim() || `Доп ${i + 1}`,
+                price: rowPrice,
+                priceMode: r.mode,
+                isOutsource: rowOutsource,
+                outsourceAmount: rowOutsource ? Math.max(0, numberFromInput(r.outsourceAmount) || 0) : null,
+                workers: rowOutsource
+                  ? []
+                  : (rowFixed !== null
+                    ? [{ percent: 0, payType: 'fixed', fixedAmount: rowFixed }]
+                    : [{ percent: Math.max(0, Number(r.percent) || 0), payType: 'percent', fixedAmount: null }]),
+              };
+            })
+            .filter((d): d is Exclude<typeof d, null> => d !== null);
           const simBody = {
             service: servicePayloadForPreview,
             samplePrice: simPriceNum, samplePercent: simPercentNum,
-            complaintPenaltyPp: simComplaintNum, dops: simDops,
+            complaintPenaltyPp: simComplaintNum, dops: simDopsBody,
           };
           const simKey = JSON.stringify(simBody);
           simDraftRef.current = { key: simKey, body: simBody };
@@ -12942,53 +12977,90 @@ paymentSettled: false,
                           <label className={`text-xs ${sub} block mb-1`}>Жалоба −п.п.</label>
                           <input className={inputCls} type="number" min={0} max={100} placeholder="0" value={simComplaintPp} onChange={e => setSimComplaintPp(e.target.value)} />
                         </div>
-                        <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Вычет subtract (₽)</label>
-                          <input className={inputCls} type="number" min={0} placeholder="0" value={simSubtract} onChange={e => setSimSubtract(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Доп: цена (₽)</label>
-                          <input className={inputCls} type="number" min={0} placeholder="0" value={simDopPrice} onChange={e => setSimDopPrice(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Доп: % мастеру</label>
-                          <input className={inputCls} type="number" min={0} max={100} placeholder="50" value={simDopPercent} onChange={e => setSimDopPercent(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Доп: фикс мастеру (₽)</label>
-                          <input className={inputCls} type="number" min={0} placeholder="вместо %" value={simDopFixed} onChange={e => setSimDopFixed(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className={`text-xs ${sub} block mb-1`}>Аутсорс допа (₽)</label>
-                          <input className={inputCls} type="number" min={0} placeholder="0" value={simOutsourceAmount} onChange={e => setSimOutsourceAmount(e.target.value)} />
+                        <div className="flex items-end">
+                          <label className="flex items-center gap-2 text-xs pb-2">
+                            <SwitchToggle value={simCredit} onChange={() => setSimCredit(v => !v)} />
+                            <span>Кредит (депозит)</span>
+                          </label>
                         </div>
                       </div>
-                      <div className="mb-2">
-                        <label className={`text-xs ${sub} block mb-1`}>Доп как услуга из справочника (копилка — по её настройкам)</label>
-                        <select className={selectCls} value={simDopServiceId} onChange={e => setSimDopServiceId(e.target.value)}>
-                          <option value="">По умолчанию (24% мойка/детейлинг, 0 общая)</option>
-                          {services.map(s => (
-                            <option key={s.id} value={s.id}>{s.name} — {s.category}</option>
-                          ))}
-                        </select>
-                        {(() => {
-                          const dopSvc = services.find(s => s.id === simDopServiceId);
-                          if (!dopSvc) return null;
-                          return (
-                            <div className={`text-[11px] ${sub} mt-1`}>У допа: {serviceMoneySummary(dopSvc)[1]}</div>
-                          );
-                        })()}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-medium uppercase tracking-wider" style={{ color: primary }}>Допы сценария</div>
+                        <button onClick={addSimDop} className={`text-xs px-2.5 py-1.5 rounded-xl font-medium ${glass}`} style={{ color: primary }}>
+                          + Добавить доп
+                        </button>
                       </div>
-                      <div className="flex items-center gap-4 mb-2">
-                        <label className="flex items-center gap-2 text-xs">
-                          <SwitchToggle value={simCredit} onChange={() => setSimCredit(v => !v)} />
-                          <span>Кредит (депозит)</span>
-                        </label>
-                        <label className="flex items-center gap-2 text-xs">
-                          <SwitchToggle value={simOutsource} onChange={() => setSimOutsource(v => !v)} />
-                          <span>Доп — аутсорс</span>
-                        </label>
-                      </div>
+                      {simDops.length === 0 && (
+                        <div className={`text-[11px] ${sub} mb-2`}>Без допов — добавьте, чтобы проверить вычеты, аутсорс и дележ остатка.</div>
+                      )}
+                      {simDops.map((row, ri) => {
+                        const rowSvc = row.serviceId ? services.find(s => s.id === row.serviceId) : undefined;
+                        return (
+                          <div key={row.key} className={`${glass} rounded-2xl p-3 mb-2`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <input
+                                className={`${inputCls} flex-1 min-w-0 text-sm font-medium`} placeholder={`Доп ${ri + 1}`}
+                                value={row.name} onChange={e => patchSimDop(row.key, { name: e.target.value })}
+                              />
+                              <button onClick={() => removeSimDop(row.key)} className="p-1.5 text-red-500 shrink-0" aria-label="Убрать доп">
+                                <X size={14} strokeWidth={1.75} />
+                              </button>
+                            </div>
+                            <div>
+                              <label className={`text-xs ${sub} block mb-1`}>Услуга из справочника (порядок и копилка — из её карточки)</label>
+                              <select className={selectCls} value={row.serviceId} onChange={e => patchSimDop(row.key, { serviceId: e.target.value })}>
+                                <option value="">Свои цифры (дефолт 24%/0)</option>
+                                {services.map(s => (
+                                  <option key={s.id} value={s.id}>{s.name} — {s.category}</option>
+                                ))}
+                              </select>
+                              {rowSvc && (
+                                <div className={`text-[11px] ${sub} mt-1`}>У допа: {serviceMoneySummary(rowSvc)[1]}</div>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 mt-2">
+                              <div>
+                                <label className={`text-xs ${sub} block mb-1`}>Цена (₽)</label>
+                                <input className={inputCls} type="number" min={0} placeholder="0" value={row.price} onChange={e => patchSimDop(row.key, { price: e.target.value })} />
+                              </div>
+                              <div>
+                                <label className={`text-xs ${sub} block mb-1`}>Режим</label>
+                                <select className={selectCls} value={row.mode} onChange={e => patchSimDop(row.key, { mode: e.target.value as 'add' | 'subtract' })}>
+                                  <option value="add">+ Плюс</option>
+                                  <option value="subtract">− Вычет</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className={`text-xs ${sub} block mb-1`}>Мастеру</label>
+                                <select className={selectCls} value={row.payType} onChange={e => patchSimDop(row.key, { payType: e.target.value as 'percent' | 'fixed' })}>
+                                  <option value="percent">% цены</option>
+                                  <option value="fixed">Фикс ₽</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              {row.payType === 'percent' ? (
+                                <div>
+                                  <label className={`text-xs ${sub} block mb-1`}>% мастеру допа</label>
+                                  <input className={inputCls} type="number" min={0} max={100} placeholder="50" value={row.percent} onChange={e => patchSimDop(row.key, { percent: e.target.value })} />
+                                </div>
+                              ) : (
+                                <div>
+                                  <label className={`text-xs ${sub} block mb-1`}>Фикс мастеру (₽)</label>
+                                  <input className={inputCls} type="number" min={0} placeholder="0" value={row.fixed} onChange={e => patchSimDop(row.key, { fixed: e.target.value })} />
+                                </div>
+                              )}
+                              <div>
+                                <label className={`text-xs ${sub} block mb-1`}>Аутсорс (₽)</label>
+                                <input className={inputCls} type="number" min={0} placeholder="0 — свой мастер" value={row.outsourceAmount} onChange={e => patchSimDop(row.key, { outsourceAmount: e.target.value, outsource: e.target.value !== '' })} />
+                              </div>
+                            </div>
+                            {row.mode === 'subtract' && (
+                              <div className={`text-[11px] ${sub} mt-1.5`}>Вычет уменьшает базу основной услуги; остаток — в копилку допа (или владельцам при «не отчислять»).</div>
+                            )}
+                          </div>
+                        );
+                      })}
                       {!sim && <div className={`text-xs ${sub} py-2 text-center`}>Считаю сценарий...</div>}
                       {sim && (() => {
                         const simAsvcPiggy = (sim.asvcPiggy ?? []).reduce((s, d) => s + (d.amount || 0), 0);
@@ -13016,6 +13088,40 @@ paymentSettled: false,
                                 <span className="font-medium">{d.amount.toLocaleString('ru')} ₽</span>
                               </div>
                             ))}
+                            {simDopsBody.length > 0 && (
+                              <div className="pt-1">
+                                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${sub}`}>Допы построчно</div>
+                                {simDopsBody.map((r, ri) => {
+                                  const w0 = r.workers[0];
+                                  const pays = r.isOutsource
+                                    ? (r.outsourceAmount ?? 0)
+                                    : (!w0 ? 0
+                                      : w0.payType === 'fixed'
+                                        ? Math.min(w0.fixedAmount ?? 0, r.price)
+                                        : Math.round(r.price * (w0.percent ?? 0) / 100));
+                                  const remainder = Math.max(0, r.price - pays);
+                                  const rowPiggy = (sim.asvcPiggy ?? [])
+                                    .filter(d => d.name === r.name)
+                                    .reduce((s, d) => s + (d.amount || 0), 0);
+                                  const rowOwners = Math.max(0, remainder - rowPiggy);
+                                  const rowBank = (sim.asvcPiggy ?? []).find(d => d.name === r.name)?.resourceGroup ?? '';
+                                  return (
+                                    <div key={`sim-row-${ri}`} className="flex justify-between gap-2">
+                                      <span className={`${sub} truncate`} title={`«${r.name}» (${r.price.toLocaleString('ru')} ₽${r.mode === 'subtract' ? ', вычет' : ''}${r.isOutsource ? ', аутсорс' : ''})`}>
+                                        · «{r.name}»{r.mode === 'subtract' ? ' −' : ''}
+                                      </span>
+                                      <span className="font-medium shrink-0">
+                                        {r.isOutsource
+                                          ? `аутсорс ${pays.toLocaleString('ru')} ₽`
+                                          : `мастеру ${pays.toLocaleString('ru')} ₽`}
+                                        {rowPiggy > 0 ? ` · в ${piggyBankLabel(rowBank)} ${rowPiggy.toLocaleString('ru')} ₽` : ''}
+                                        {rowOwners > 0 ? ` · влад. ${rowOwners.toLocaleString('ru')} ₽` : ''}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className={sub}>Владельцы</span>
                               <span style={{ color: primary }}>{sim.ownersTotal.toLocaleString('ru')} ₽</span>

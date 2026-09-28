@@ -51,6 +51,6 @@ URL собран в переменную — проверить вручную.
 | `/api/owner/database-reset/start` | frontend\src\app\context\AppContext.tsx:2021 |
 | `/api/owner/exports/{id}` | frontend\src\app\context\AppContext.tsx:1777 |
 | `/api/owner/exports/{id}/telegram` | frontend\src\app\context\AppContext.tsx:1792 |
-| `/api/owner/piggy-bank` | frontend\src\app\components\owner\OwnerApp.tsx:1489 |
-| `/api/owner/wallet` | frontend\src\app\components\owner\OwnerApp.tsx:1506 |
+| `/api/owner/piggy-bank` | frontend\src\app\components\owner\OwnerApp.tsx:1541 |
+| `/api/owner/wallet` | frontend\src\app\components\owner\OwnerApp.tsx:1558 |
 | `/api/shift-checklists` | frontend\src\app\context\AppContext.tsx:1931 |

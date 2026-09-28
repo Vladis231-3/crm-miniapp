@@ -245,6 +245,30 @@ class ServiceSettingsGuardsTests(unittest.TestCase):
         self.assertEqual(preview["asvcMaster"], 1000)
         self.assertEqual([d["amount"] for d in preview["asvcPiggy"]], [240])
 
+    def test_preview_with_add_and_subtract_dops(self) -> None:
+        token = self.login_staff("owner", "owner")
+        response = self.client.post(
+            "/api/settings/services/split-preview",
+            headers=self.auth_headers(token),
+            json={"service": self._wash_draft(token), "samplePrice": 10000,
+                  "samplePercent": 30.0,
+                  "dops": [{"name": "Доп", "price": 2000, "priceMode": "add",
+                            "workers": [{"percent": 50, "payType": "percent"}]},
+                           {"name": "Вычет", "price": 500, "priceMode": "subtract",
+                            "workers": [{"percent": 0, "payType": "percent"}]}]},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        preview = response.json()
+        self.assertEqual(preview["totalPrice"], 12000)
+        self.assertEqual(preview["splitBase"], 9500)
+        self.assertEqual(preview["masterTotal"], 3850)
+        self.assertEqual(preview["piggyDeposit"], 3020)
+        self.assertEqual(preview["ownersTotal"], 5130)
+        by_name = {d["name"]: d["amount"] for d in preview["asvcPiggy"]}
+        self.assertEqual(by_name, {"Вычет": 500, "Доп": 240})
+        trace_dops = [s for s in preview["steps"] if s["step"] == "dop"]
+        self.assertEqual(len(trace_dops), 2)
+
     def test_preview_with_subtract_dop(self) -> None:
         token = self.login_staff("owner", "owner")
         response = self.client.post(
