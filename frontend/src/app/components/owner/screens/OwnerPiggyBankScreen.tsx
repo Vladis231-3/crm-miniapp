@@ -368,7 +368,7 @@ export function OwnerPiggyBankScreen({
           <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>🚗 КОПИЛКА · МОЙКА</div>
           {/* Self-service */}
           <div className="mb-3">
-            <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание (1 000 ₽/ч)</div>
+            <div className={`text-xs font-medium ${sub} mb-2`}>▸ Самообслуживание / Аренда бокса</div>
             <div className="flex justify-between py-1.5 text-sm">
               <span className={sub}>Выручка</span><span className="font-semibold tabular-nums">{piggyBank.wash.selfServiceRevenue.toLocaleString('ru')} ₽</span>
             </div>

@@ -10904,6 +10904,14 @@ def _is_box_rental_service(service: Service | None) -> bool:
 
 
 
+def _is_self_service_wash(service: Service | None) -> bool:
+    if service is None:
+        return False
+    if getattr(service, "wash_type", "") == "self_service":
+        return True
+    return _is_box_rental_service(service)
+
+
 def _is_detailing_service(service: Service | None) -> bool:
 
     return (
@@ -17407,7 +17415,7 @@ def get_piggy_bank(
         main_master, main_piggy = _booking_main_split(booking)
         svc_group = _service_resource_group(svc) if svc is not None else ""
         if svc is not None and svc_group == WASH_RESOURCE_GROUP:
-            if svc.wash_type == "self_service":
+            if _is_self_service_wash(svc):
                 self_service_revenue += main_price
                 self_service_master += main_master
                 self_service_piggy += main_piggy
@@ -17489,7 +17497,7 @@ def get_piggy_bank(
                 _b = _completed_by_id.get(_t.booking_id) if _t.booking_id else None
                 _svc2 = services_map.get(_b.service_id) if _b is not None else None
                 _svc2_group = _service_resource_group(_svc2) if _svc2 is not None else ""
-                if _svc2 is not None and _svc2_group == WASH_RESOURCE_GROUP and getattr(_svc2, "wash_type", None) == "self_service":
+                if _svc2 is not None and _svc2_group == WASH_RESOURCE_GROUP and _is_self_service_wash(_svc2):
                     _tx_self_piggy += _amt
                 else:
                     _tx_classic_piggy += _amt
