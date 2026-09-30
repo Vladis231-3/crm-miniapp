@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-09-27 19:14 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-09-30 05:47 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -13,7 +13,7 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 ## Статистика
 
 - Файлов кода: **555**
-- Строк кода: **223 841**
+- Строк кода: **223 879**
 - По расширениям: `.js`: 3, `.mjs`: 5, `.py`: 202, `.ts`: 37, `.tsx`: 308
 
 ## Архитектура
@@ -4537,7 +4537,7 @@ concept1.0/
 - `openTopupFor` (стр. 453) — локальный
 - `val` (стр. 1162) — локальный
 
-### frontend/src/app/components/owner/OwnerApp.tsx (13563 строк)
+### frontend/src/app/components/owner/OwnerApp.tsx (13601 строк)
 
 - `stockCategoryIdsWithDescendants` (стр. 46) — локальный
 - `map` (стр. 47) — локальный
@@ -5736,12 +5736,12 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-30 08:45)
+- `scripts/.project-map-watch.lock` (2026-09-30 08:34)
 - `audit/reports/api_drift.md` (2026-09-27 22:14)
-- `scripts/.project-map-watch.lock` (2026-09-27 20:58)
 - `backend/app/main.py` (2026-09-27 19:53)
 - `backend/tests/test_money_matrix.py` (2026-09-27 19:36)
 - `backend/tests/test_service_settings_guards.py` (2026-09-27 19:29)
-- `frontend/src/app/components/owner/OwnerApp.tsx` (2026-09-27 19:26)
 - `backend/app/migrations_extra.py` (2026-09-27 18:28)
 - `backend/app/schemas.py` (2026-09-27 18:08)
 - `audit/reports/route_matrix.md` (2026-09-27 17:33)

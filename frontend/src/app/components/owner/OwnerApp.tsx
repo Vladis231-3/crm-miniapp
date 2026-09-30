@@ -3741,6 +3741,8 @@ export function OwnerApp() {
       const worker = workers.find((candidate) => candidate.id === item.id);
       if (worker) selectedWorkers.push({ workerId: worker.id, workerName: worker.name, percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount });
     });
+    // Мягкое напоминание: услуга выбрана, но мастер не назначен — не блокируем сохранение
+    const withoutMasterReminder = !bookingForm.isOutsource && Boolean(bookingForm.service) && selectedWorkers.length === 0;
 
     try {
       const booking = await addBooking({
@@ -3772,8 +3774,8 @@ export function OwnerApp() {
       }
       setShowCreateBooking(false);
       resetBookingForm();
-      setBottomToast(bookingForm.status === 'completed' ? 'Прошлая запись добавлена в историю клиента' : 'Запись создана и клиент уведомлён');
-      setTimeout(() => setBottomToast(null), 3000);
+      setBottomToast(withoutMasterReminder ? 'Запись создана без мастера — услуга назначена, не забудьте выбрать исполнителя' : bookingForm.status === 'completed' ? 'Прошлая запись добавлена в историю клиента' : 'Запись создана и клиент уведомлён');
+      setTimeout(() => setBottomToast(null), 4000);
     } catch (error) {
       setBottomToast(error instanceof Error ? error.message : 'Не удалось создать запись');
       setTimeout(() => setBottomToast(null), 4000);
@@ -3873,6 +3875,8 @@ paymentSettled: false,
       const worker = ownerNewBookingMasterWorkers.find((candidate) => candidate.id === item.id);
       return { workerId: item.id, workerName: worker?.name || '', percent: item.percent === '' ? 0 : item.percent, payType: item.payType || 'percent', fixedAmount: item.fixedAmount };
     });
+    // Мягкое напоминание: услуга назначена, но мастер забыт — не блокируем сохранение
+    const withoutMasterReminder = !ownerNewBookingForm.isOutsource && Boolean(ownerNewBookingForm.serviceId) && createdWorkers.length === 0;
     const normalizedDate = parsedDate ? formatDate(parsedDate) : '';
     try {
       setOwnerNewBookingSaving(true);
@@ -3912,6 +3916,10 @@ paymentSettled: false,
       await addNotification({ recipientRole: 'owner', message: `${clientLabel} вЂў ${carLabel} вЂў ${requestScheduleLabel}`, read: false });
       await addNotification({ recipientRole: 'admin', message: `Новая запись: ${clientLabel} • ${requestScheduleLabel}`, read: false });
       setOwnerNewBookingSaveSuccess(notify ? 'notify' : 'silent');
+      if (withoutMasterReminder) {
+        setBottomToast('Запись сохранена без мастера — услуга назначена, не забудьте выбрать исполнителя');
+        setTimeout(() => setBottomToast(null), 4000);
+      }
       setTimeout(() => {
         closeOwnerNewBookingModal();
       }, 1800);
@@ -4725,6 +4733,16 @@ paymentSettled: false,
                   <h3 className="font-semibold text-sm">Сегодня  -  {todayLabel}</h3>
                   <span className={`text-sm ${sub}`}>{todayBookings.length} записей</span>
                 </div>
+                {(() => {
+                  const withoutMaster = todayBookings.filter((b) => !b.isOutsource && (!b.workers || b.workers.length === 0) && b.status !== 'cancelled' && b.status !== 'completed');
+                  if (withoutMaster.length === 0) return null;
+                  return (
+                    <div className="flex items-center gap-2 text-amber-600 text-xs rounded-2xl px-3 py-2.5 mb-3" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                      <AlertCircle size={14} strokeWidth={1.75} className="shrink-0" />
+                      <span>Напоминание: {withoutMaster.length} {withoutMaster.length === 1 ? 'запись без мастера' : 'записей без мастера'} — услуга назначена, исполнитель не выбран</span>
+                    </div>
+                  );
+                })()}
                 <div className="space-y-3">
                   {todayBookings.length === 0 ? (
                     <div className={`${glass} rounded-2xl p-8 text-center`}>
@@ -4758,7 +4776,7 @@ paymentSettled: false,
                             <span className={`text-xs ${sub}`}>{booking.box} · {booking.duration} мин</span>
                             <span className="text-sm font-semibold">{booking.price.toLocaleString('ru')} ₽</span>
                           </div>
-                          {booking.workers.length > 0 && (
+                          {booking.workers.length > 0 ? (
                             <div className={`text-xs ${sub} mt-1`}>Мастера: {booking.workers.map(w => {
                               const _fixed = isFixedMasterService(services, booking.serviceId, booking.service);
                               if (_fixed) return `${w.workerName} · фикс ${formatFixedMasterAmount()}`;
@@ -4770,7 +4788,11 @@ paymentSettled: false,
                               const _earned = Math.round(_base * _pct / 100);
                               return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
                             }).join(', ')}</div>
-                          )}
+                          ) : !booking.isOutsource && booking.status !== 'cancelled' ? (
+                            <div className="flex items-center gap-1.5 text-amber-600 text-xs mt-1.5 font-medium">
+                              <AlertCircle size={13} strokeWidth={1.75} className="shrink-0" />Мастер не назначен — нажмите, чтобы назначить
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </motion.button>
@@ -10302,6 +10324,11 @@ paymentSettled: false,
                     })}
                   </div>
                 </div>
+                {bookingForm.service && bookingWorkers.length === 0 && (
+                  <div className="flex items-center gap-2 text-amber-600 text-xs rounded-xl px-3 py-2" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                    <AlertCircle size={14} strokeWidth={1.75} />Услуга выбрана, но мастер не назначен — запись сохранится без исполнителя
+                  </div>
+                )}
                 <label className={`${glass} rounded-2xl px-3 py-3 text-sm flex items-center justify-between gap-3 ${bookingForm.status === 'completed' ? 'opacity-60' : ''}`}>
                   <span>Уведомить мастеров</span>
                   <input
@@ -10450,6 +10477,12 @@ paymentSettled: false,
                       const _earned = Math.round(_base * _pct / 100);
                       return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
                     }).join(', ') : 'Не назначены'}</div>
+                    {selectedBooking.workers.length === 0 && !selectedBooking.isOutsource && selectedBooking.status !== 'cancelled' && (
+                      <div className="flex items-center gap-2 text-amber-600 text-xs rounded-xl px-3 py-2 mt-1" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                        <AlertCircle size={14} strokeWidth={1.75} className="shrink-0" />
+                        <span>Напоминание: услуга «{selectedBooking.service}» назначена, но мастер не выбран. Назначьте исполнителя кнопкой «Мастера» ниже.</span>
+                      </div>
+                    )}
                     <div className={sub}>Телефон: {selectedBooking.clientPhone || 'Не указан'}</div>
                     <div className={sub}>Комментарий: {selectedBooking.notes?.trim() || 'Нет'}</div>
                   </div>
@@ -12052,6 +12085,11 @@ paymentSettled: false,
                 </div>
                   );
                 })()}
+                {!ownerNewBookingForm.isOutsource && ownerNewBookingForm.serviceId && ownerNewBookingWorkers.length === 0 && (
+                  <div className="flex items-center gap-2 text-amber-600 text-xs rounded-xl px-3 py-2" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                    <AlertCircle size={14} strokeWidth={1.75} />Услуга назначена, но мастер не выбран — не забудьте назначить исполнителя
+                  </div>
+                )}
                 {/* Materials section */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
