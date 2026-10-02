@@ -13458,7 +13458,7 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
     """Фактическая стоимость материалов по записи; fallback — материалы услуги со склада."""
     materials_cost = 0
     for bm in (booking.materials or []):
-        materials_cost += int(round((bm.qty or 0) * float(bm.unit_price or 0)))
+        materials_cost += money_int((bm.qty or 0) * float(bm.unit_price or 0))
     if materials_cost > 0:
         return materials_cost
     svc = db.get(Service, booking.service_id) if booking.service_id else None
@@ -13466,7 +13466,7 @@ def _booking_materials_cost_actual(db: Session, booking: Booking) -> int:
         for mat in (svc.materials or []):
             si = db.get(StockItem, mat.get("stockItemId")) if mat.get("stockItemId") else None
             if si:
-                materials_cost += int(round((mat.get("qty") or 0) * float(si.unit_price or 0)))
+                materials_cost += money_int((mat.get("qty") or 0) * float(si.unit_price or 0))
         if materials_cost > 0:
             return materials_cost
         return int(svc.material_consumption or 0)
@@ -13853,10 +13853,19 @@ def _booking_money_split(
                     )
                 ).all()
             weights = _owner_payout_weights(db)
+            def _distribute_legacy() -> None:
+                owners_sorted = sorted(owners, key=lambda owner: owner.id)
+                if len(owners_sorted) == 1:
+                    # Один активный владелец получает всю долю
+                    owner_by_owner[owners_sorted[0].id] = owners_total
+                elif len(owners_sorted) >= 2:
+                    first_share = owners_total // 2
+                    owner_by_owner[owners_sorted[0].id] = first_share
+                    owner_by_owner[owners_sorted[1].id] = owners_total - first_share
             if weights:
                 # Явные веса: пул + владельцы из весов с весом > 0.
-                # Пустой итог при кривой конфигурации — осознанно: деньги не
-                # уходят не тем людям (видно как нераспределённые).
+                # Кривая конфигурация (веса есть, получателей нет) — фолбэк
+                # на legacy 50/50, чтобы деньги не исчезали из отчётности.
                 by_id = {owner.id: owner for owner in owners}
                 extra = db.scalars(
                     select(StaffUser).where(
@@ -13886,16 +13895,9 @@ def _booking_money_split(
                         owner_by_owner[remainders[index][1]] += 1
                     owner_by_owner = {oid: amt for oid, amt in owner_by_owner.items() if amt > 0}
                 else:
-                    print(f"[PROFIT_DEBUG] owner weights set but no eligible owners — distributing nothing")
+                    _distribute_legacy()
             else:
-                owners_sorted = sorted(owners, key=lambda owner: owner.id)
-                if len(owners_sorted) == 1:
-                    # Один активный владелец получает всю долю
-                    owner_by_owner[owners_sorted[0].id] = owners_total
-                elif len(owners_sorted) >= 2:
-                    first_share = owners_total // 2
-                    owner_by_owner[owners_sorted[0].id] = first_share
-                    owner_by_owner[owners_sorted[1].id] = owners_total - first_share
+                _distribute_legacy()
         return owners_total, owner_by_owner
 
     # Пошаговая трассировка для симулятора: [{step, name, amount, pool_after, bank}].
@@ -14096,14 +14098,7 @@ def _process_piggy_bank_for_booking(
     обычный сплит: вклады ложатся по piggyPayType/Value/Target услуги.
     """
 
-    print(f"[PIGGY_DEBUG] booking.id={booking.id} booking.service_id={booking.service_id!r} booking.status={booking.status} booking.payment_settled={booking.payment_settled}")
-
     service = db.get(Service, booking.service_id) if booking.service_id else None
-
-    if service is None:
-        print(f"[PIGGY_DEBUG] service is None — no service with id={booking.service_id!r}")
-    else:
-        print(f"[PIGGY_DEBUG] service.id={service.id} service.name={service.name!r} piggy_pay_type={service.piggy_pay_type!r} piggy_pay_value={service.piggy_pay_value} master_pay_type={service.master_pay_type!r} master_pay_value={service.master_pay_value} owner_split_enabled={service.owner_split_enabled}")
 
     rg = _service_resource_group(service)
 
@@ -14152,6 +14147,14 @@ def _process_piggy_bank_for_booking(
     outstanding = total_withdrawn - total_repaid
 
     if outstanding > 0:
+        # Группа возврата — группа исходных снятий (модальная), а не текущая
+        # услуга: иначе смена услуги уводит возврат в чужую копилку.
+        _rg_counter: dict[str, int] = {}
+        for _w in withdrawals:
+            if _w.amount < 0:
+                _g = (_w.resource_group or "").strip() or rg
+                _rg_counter[_g] = _rg_counter.get(_g, 0) + abs(float(_w.amount or 0))
+        repay_rg = max(_rg_counter, key=lambda k: _rg_counter[k]) if _rg_counter else rg
 
         db.add(
 
@@ -14173,7 +14176,7 @@ def _process_piggy_bank_for_booking(
 
                 date=date_str,
 
-                resource_group=rg,
+                resource_group=repay_rg,
 
                 created_at=_now(),
 
@@ -14190,21 +14193,12 @@ def _process_piggy_bank_for_booking(
         db, booking, _complaints_by_worker(_load_penalties(db))
     )
 
-    piggy_type = split["piggy_pay_type"]
-    piggy_val = split["piggy_deposit"]
-
-    print(f"[PIGGY_DEBUG] piggy_type={piggy_type!r} piggy_val={piggy_val} rg={rg!r} net={split['net']} materials_cost={split['materials_cost']}")
-
-    deposit_amount = piggy_val
-
-    print(f"[PIGGY_DEBUG] deposit_amount={deposit_amount} booking.price={booking.price}")
+    deposit_amount = split["piggy_deposit"]
 
     # Вклады доп услуг депозитируются отдельными транзакциями в свои группы —
     # из основной суммы их вычитаем, чтобы не задвоить
     asvc_piggy_sum = sum(int(d["amount"]) for d in split.get("asvc_piggy_deposits") or [])
     deposit_amount = max(0, deposit_amount - asvc_piggy_sum)
-
-    print(f"[PIGGY_DEBUG] deposit_amount_after_asvc={deposit_amount} asvc_piggy_sum={asvc_piggy_sum}")
 
     # Идемпотентность: повторный триггер (например, toggle paymentSettled false→true)
     # не должен дублировать вклады. Main-депозит и вклады доп. услуг проверяем отдельно.
@@ -14221,7 +14215,6 @@ def _process_piggy_bank_for_booking(
     )
 
     if booking.payment_type == "credit" and not force_credit_replay:
-        print(f"[PIGGY_DEBUG] credit booking {booking.id} — 24% deposit deferred to month settle")
         return
 
     if deposit_amount > 0 and not main_deposit_exists:
@@ -14248,8 +14241,6 @@ def _process_piggy_bank_for_booking(
         else:
 
             purpose = f"24% от заказа {booking.service} ({booking.client_name})"
-
-        print(f"[PIGGY_DEBUG] ADDING deposit amount={deposit_amount} purpose={purpose!r} target={piggy_target or rg}")
 
         db.add(
 
@@ -14294,10 +14285,7 @@ def _process_piggy_bank_for_booking(
         dep_purpose = f"Доп. услуга: {dep_name} в копилку {dep_label} ({booking.client_name})"
 
         if dep_purpose in existing_purposes:
-            print(f"[PIGGY_DEBUG] SKIP asvc deposit (already exists): {dep_purpose!r}")
             continue
-
-        print(f"[PIGGY_DEBUG] ADDING asvc deposit amount={dep['amount']} purpose={dep_purpose!r} group={dep_group}")
 
         db.add(
 
@@ -14329,6 +14317,90 @@ def _process_piggy_bank_for_booking(
 
 
 
+def _reconcile_piggy_for_booking(db: Session, booking: Booking) -> None:
+    """Сверка piggy-проводок завершённой записи с текущим сплитом.
+
+    Правка цены/услуги/допов после complete оставляла stale-депозиты
+    (идемпотентность по purpose не ловила смену суммы/имени).
+    Здесь: main-депозит UPDATE по сумме/группе/дате, лишние asvc — DELETE,
+    недостающие — CREATE, purpose пересобирается (старые имена удаляются).
+    Кредит без replay не трогаем.
+    """
+    if booking.status != "completed":
+        return
+    if (booking.payment_type or "") == "credit":
+        return
+    split = _booking_money_split(db, booking, _complaints_by_worker(_load_penalties(db)))
+    service = db.get(Service, booking.service_id) if booking.service_id else None
+    rg = _service_resource_group(service)
+    svc_for_piggy = service
+    piggy_target = ((svc_for_piggy.piggy_target or "").strip() if svc_for_piggy else "")
+    if piggy_target not in ("detailing", "wash", "general"):
+        piggy_target = ""
+    expected_rg = piggy_target or rg
+    asvc_piggy_sum = sum(int(d["amount"]) for d in split.get("asvc_piggy_deposits") or [])
+    expected_main = max(0, int(split.get("piggy_deposit") or 0) - asvc_piggy_sum)
+
+    existing = db.scalars(
+        select(PiggyBankTransaction).where(
+            PiggyBankTransaction.booking_id == booking.id,
+            PiggyBankTransaction.transaction_type == "deposit_24percent",
+            PiggyBankTransaction.deleted_at.is_(None),
+        )
+    ).all()
+    main_txs = [t for t in existing if not (t.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX)]
+    asvc_txs = [t for t in existing if (t.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX)]
+
+    # Main: один депозит — обновляем, дубли схлопываем, ноль — удаляем.
+    if expected_main > 0:
+        if main_txs:
+            keep = main_txs[0]
+            keep.amount = expected_main
+            keep.date = booking.date
+            keep.resource_group = expected_rg
+            for dup in main_txs[1:]:
+                db.delete(dup)
+        # else: создаст _process ниже при следующем триггере; здесь не дублируем
+    else:
+        for t in main_txs:
+            db.delete(t)
+
+    # Asvc: строим ожидаемые purpose→(amount, group) как в _process.
+    dep_labels = {"wash": "мойки", "detailing": "детейлинга", "general": "общей копилки"}
+    expected: dict[str, tuple[int, str]] = {}
+    for dep in split.get("asvc_piggy_deposits") or []:
+        dep_group = dep.get("resource_group") or rg
+        dep_label = dep_labels.get(dep_group, dep_group)
+        dep_name = dep.get("label") or f"остаток от «{dep.get('name', 'доп. услуги')}»"
+        dep_purpose = f"Доп. услуга: {dep_name} в копилку {dep_label} ({booking.client_name})"
+        expected[dep_purpose] = (int(dep.get("amount") or 0), dep_group)
+    for t in asvc_txs:
+        want = expected.pop(t.purpose or "", None)
+        if want is None:
+            db.delete(t)
+        else:
+            t.amount = want[0]
+            t.resource_group = want[1]
+            t.date = booking.date
+    for purpose, (amount, group) in expected.items():
+        if amount <= 0:
+            continue
+        db.add(
+            PiggyBankTransaction(
+                id=f"pb-{uuid4()}",
+                booking_id=booking.id,
+                amount=amount,
+                transaction_type="deposit_24percent",
+                purpose=purpose,
+                material_name=None,
+                material_cost=None,
+                date=booking.date,
+                resource_group=group,
+                created_at=_now(),
+            )
+        )
+
+
 def _process_owner_profit_share(
     db: Session, booking: Booking, *, force_credit_replay: bool = False
 ) -> None:
@@ -14340,7 +14412,6 @@ def _process_owner_profit_share(
     """
 
     if booking.payment_type == "credit" and not force_credit_replay:
-        print(f"[PROFIT_DEBUG] credit booking {booking.id} — owner share deferred to month settle")
         return
 
     # Сплит с учётом жалоб — доли владельцев должны сходиться с расчёткой
@@ -14349,16 +14420,12 @@ def _process_owner_profit_share(
         db, booking, _complaints_by_worker(_load_penalties(db))
     )
 
-    print(f"[PROFIT_DEBUG] booking.id={booking.id} rg={split['resource_group']} net={split['net']} materials_cost={split['materials_cost']} total_master={split['master_total']} piggy_deposit={split['piggy_deposit']} owners_total={split['owners_total']} owner_split={split['has_custom'] or split['resource_group'] in ('detailing', 'wash')}")
-
     # Only process for detailing/wash or services with custom piggy/master settings
 
     if not _should_persist_owner_shares(split):
-        print(f"[PROFIT_DEBUG] early return: rg={split['resource_group']} has_custom={split['has_custom']}")
         return
 
     if split["owners_total"] <= 0:
-        print(f"[PROFIT_DEBUG] owners_total={split['owners_total']} — nothing to distribute")
         return
 
     # Check if already processed
@@ -14374,7 +14441,6 @@ def _process_owner_profit_share(
     ).all()
 
     if existing:
-        print(f"[PROFIT_DEBUG] already processed: {len(existing)} existing records")
         return
 
     for owner_id, amt in split["owner_by_owner"].items():
@@ -14382,8 +14448,6 @@ def _process_owner_profit_share(
         if amt <= 0:
 
             continue
-
-        print(f"[PROFIT_DEBUG] creating OwnerProfitShare owner_id={owner_id} amount={amt}")
 
         db.add(
 
@@ -14884,6 +14948,15 @@ def update_booking(
     if payload.materials is not None:
         _sync_booking_materials(db, booking, next_materials)
 
+    # T1.1: смена цены/материалов может сделать существующий вычет больше базы.
+    # Проверяем инвариант M-002 и здесь, а не только при add/update допа.
+    _current_subtract = sum(
+        asvc.price for asvc in (booking.additional_services or [])
+        if asvc.price_mode == "subtract"
+    )
+    if _current_subtract > 0:
+        _ensure_subtract_fits_net(db, booking, _current_subtract)
+
 
     client_notification_parts: list[str] = []
 
@@ -15000,13 +15073,19 @@ def update_booking(
 
     if booking_just_completed or payment_just_settled:
 
-        print(f"[PROFIT_DEBUG] === CONDITION MET === booking_just_completed={booking_just_completed} payment_just_settled={payment_just_settled} next_payment_settled={next_payment_settled}")
-
         _write_off_booking_materials(db, booking)
 
-        _process_piggy_bank_for_booking(db, booking)
+        # Деньги в копилку/доли — только по оплаченным (кроме кредита:
+        # его доиграет settle-month). Неоплаченный complete материалы
+        # списывает, но копилку не растит.
+        if next_payment_settled:
+            _process_piggy_bank_for_booking(db, booking)
 
-        _process_owner_profit_share(db, booking)
+            _process_owner_profit_share(db, booking)
+        elif booking.status == "completed" and not booking_just_completed:
+            # Правка уже завершённой записи: сверяем проводки с новым сплитом
+            # (цены/допы/услуга могли измениться).
+            _reconcile_piggy_for_booking(db, booking)
 
         # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
         _freeze_booking_split(db, booking)
@@ -15222,6 +15301,24 @@ def delete_booking(
         )
 
     booking.deleted_at = _now()
+
+    # Удаление записи гасит её следы в копилке/доле: иначе orphan-депозиты
+    # висят в balance, а карточки их уже не видят (дрейф).
+    try:
+        _now_ts = _now()
+        for _ptx in db.scalars(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.booking_id == booking_id,
+                PiggyBankTransaction.deleted_at.is_(None),
+            )
+        ).all():
+            _ptx.deleted_at = _now_ts
+        for _ops in db.scalars(
+            select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking_id)
+        ).all():
+            db.delete(_ops)
+    except Exception:
+        pass
 
     if settings.outbox_google_enabled:
 
@@ -17232,13 +17329,14 @@ def get_piggy_bank(
 
         if not d:
 
-            return True
+            return not (parsed_from or parsed_to)
 
         parsed = _parse_date_str(d)
 
         if not parsed:
 
-            return True
+            # Битые даты в фильтрованном виде исключаем, без фильтра — показываем.
+            return not (parsed_from or parsed_to)
 
         if parsed_from and parsed < parsed_from:
 
@@ -17260,7 +17358,12 @@ def get_piggy_bank(
 
     ).all()
 
-    balance = sum(t.amount for t in all_tx)
+    _BALANCE_TYPES = {
+        "deposit_24percent", "material_repayment",
+        "material_withdrawal", "other_withdrawal", "debt_repayment",
+        "adjust", "deposit_return", "month_return",
+    }
+    balance = sum(t.amount for t in all_tx if t.transaction_type in _BALANCE_TYPES)
 
     # keep full list for debt aggregation before filtering
     full_all_tx_for_debt = list(all_tx)
@@ -17560,13 +17663,35 @@ def get_piggy_bank(
 
     all_incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None))).all()
 
+    # Свои расходы (source=own: компенсация bonus в ЗП, копилка не тронута)
+    # не должны срезать остаток копилки. Отличаем от repay (payout) по kind.
+    try:
+        _own_expense_ids = {
+            str(getattr(_pe, "expense_id", "") or "")
+            for _pe in db.scalars(
+                select(PayrollEntry).where(
+                    PayrollEntry.deleted_at.is_(None),
+                    PayrollEntry.kind == "bonus",
+                    PayrollEntry.expense_id.is_not(None),
+                )
+            ).all()
+            if getattr(_pe, "expense_id", None)
+        }
+    except Exception:
+        _own_expense_ids = set()
+    def _is_own_expense(_e: Any) -> bool:
+        try:
+            return str(getattr(_e, "id", "")) in _own_expense_ids
+        except Exception:
+            return False
 
 
-    wash_expenses = sum(e.amount for e in all_expenses if e.resource_group == WASH_RESOURCE_GROUP and _in_range(e.date))
+
+    wash_expenses = sum(e.amount for e in all_expenses if e.resource_group == WASH_RESOURCE_GROUP and _in_range(e.date) and not _is_own_expense(e))
 
     wash_incomes = sum(i.amount for i in all_incomes if i.resource_group == WASH_RESOURCE_GROUP and _in_range(i.date))
 
-    detailing_expenses = sum(e.amount for e in all_expenses if e.resource_group == "detailing" and _in_range(e.date))
+    detailing_expenses = sum(e.amount for e in all_expenses if e.resource_group == "detailing" and _in_range(e.date) and not _is_own_expense(e))
 
     detailing_incomes = sum(i.amount for i in all_incomes if i.resource_group == "detailing" and _in_range(i.date))
 
@@ -17576,7 +17701,18 @@ def get_piggy_bank(
 
 
 
-    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing" and _in_range(t.date))
+    def _is_live_deposit(_t: Any) -> bool:
+        try:
+            if getattr(_t, "transaction_type", "") != "deposit_24percent":
+                return True
+            _bid = getattr(_t, "booking_id", None)
+            if not _bid:
+                return True
+            return _bid in _completed_by_id
+        except Exception:
+            return True
+
+    deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing" and _in_range(t.date) and _is_live_deposit(t))
 
     withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing" and _in_range(t.date))
 
@@ -17589,14 +17725,14 @@ def get_piggy_bank(
     net_piggy = deposits_24 + repayments - withdrawals - debt_repay_out
 
     # Wash net piggy (from actual transactions, same methodology)
-    wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash" and _in_range(t.date))
+    wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash" and _in_range(t.date) and _is_live_deposit(t))
     wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash" and _in_range(t.date))
     wash_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "wash" and _in_range(t.date))
     wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash" and _in_range(t.date))
     wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals - wash_debt_repay_out
 
     # General piggy bank (deposits targeted to "general")
-    general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general" and _in_range(t.date))
+    general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general" and _in_range(t.date) and _is_live_deposit(t))
     general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general" and _in_range(t.date))
     general_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "general" and _in_range(t.date))
     general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general" and _in_range(t.date))
@@ -17626,15 +17762,9 @@ def get_piggy_bank(
 
     # Owner profit shares
 
-    owner_ids_for_pb = [sid for sid, _, _, _ in PERMANENT_TELEGRAM_OWNERS]
-
     all_owner_shares = db.scalars(
 
-        select(OwnerProfitShare).where(
-
-            OwnerProfitShare.owner_id.in_(owner_ids_for_pb),
-
-        ).order_by(OwnerProfitShare.created_at.desc())
+        select(OwnerProfitShare).order_by(OwnerProfitShare.created_at.desc())
 
     ).all()
 
@@ -17691,7 +17821,9 @@ def get_piggy_bank(
             owner_total_paid += s.amount
 
     # --- Debts: нетто-долг копилки человеку (кто покупал на свои) ---
-    # Списания (material/other_withdrawal, amount < 0) — сколько взято/потрачено.
+    # Списания БЕЗ привязки к записи (личные покупки) — сколько взято.
+    # Снятия с booking_id (закупка под заказ) — не личный долг: их гасит
+    # авто-возврат material_repayment при complete, а не POST /repay.
     # Возвраты долга (debt_repayment, amount < 0 через POST /repay) — сколько
     # копилка уже вернула человеку наружу: уменьшают долг и баланс копилки.
     # Старі начисления «Погашение долга по копилке» (bonus через старую кнопку,
@@ -17702,6 +17834,8 @@ def get_piggy_bank(
         if tx.transaction_type not in ("material_withdrawal", "other_withdrawal", "debt_repayment"):
             continue
         if tx.amount >= 0:
+            continue
+        if tx.transaction_type != "debt_repayment" and getattr(tx, "booking_id", None):
             continue
         name = (getattr(tx, "spent_by_name", None) or "").strip()
         sid = getattr(tx, "spent_by_id", None)
@@ -17759,9 +17893,11 @@ def get_piggy_bank(
     # - detailing/general: как netPiggy (депозиты + возвраты − снятия +
     #   корректировки; тип expense и прочие игнор-лист карточки — тоже игнор);
     # - wash: как remaining (брони − выходы − расходы + доходы + adjust).
-    # Расходы недели — то, что уменьшает карточку: detailing/general только
-    # material/other_withdrawal; wash плюс прямые расходы без зеркал и смены.
-    _WEEKLY_PIGGY_WD = {"material_withdrawal", "other_withdrawal", "debt_repayment"}
+    # Расходы недели — то, что уменьшает карточку: detailing/general снятия
+    # из истории + отрицательные корректировки среди недели (иначе adjust−
+    # виден только со следующей субботы); wash плюс прямые расходы без
+    # зеркал и смены.
+    _WEEKLY_PIGGY_WD = {"material_withdrawal", "other_withdrawal", "debt_repayment", "adjust"}
     _CARD_PIGGY_TYPES = {
         "deposit_24percent", "material_repayment",
         "material_withdrawal", "other_withdrawal", "debt_repayment", "adjust",
@@ -17787,6 +17923,11 @@ def get_piggy_bank(
             _booking_parsed.append((_parse_date_str(_b.date) if getattr(_b, "date", None) else None, _b))
         _exp_parsed: list[tuple[date | None, Any]] = []
         for _e in all_expenses:
+            try:
+                if _is_own_expense(_e):
+                    continue
+            except Exception:
+                pass
             _exp_parsed.append((_parse_date_str(_e.date) if getattr(_e, "date", None) else None, _e))
         _inc_parsed: list[tuple[date | None, Any]] = []
         for _i in all_incomes:
@@ -17977,47 +18118,46 @@ def get_piggy_bank(
                                 pass
                 except Exception:
                     _shift_events = []
+            _week_expenses_sorted = sorted(_week_expenses, key=lambda _x: (_x[0], _x[1] or datetime.min))
+            _shift_sorted = sorted(_shift_events, key=lambda _x: _x[0])
+            _cum_piggy = 0.0
+            _ei = 0
+            _si = 0
             for _t in _lst_sorted:
                 _tdate = _tx_parsed_date.get(_t.id) or date.min
                 _tcr = _created_key(_t)
-                _cum2 = 0.0
-                for _pt in _lst_sorted:
-                    _pd = _tx_parsed_date.get(_pt.id) or date.min
-                    if _pd > _tdate:
-                        continue
-                    try:
-                        if _pd == _tdate and _created_key(_pt) > _tcr:
-                            continue
-                    except Exception:
-                        pass
-                    try:
-                        # detailing/general: только снятия из истории
-                        # (методология карточки netPiggy);
-                        # wash: любая отрицательная операция копилки.
-                        if _is_wash:
-                            _counts = float(_pt.amount or 0) < 0
-                        else:
-                            _counts = (
-                                _pt.transaction_type in _WEEKLY_PIGGY_WD
-                                and float(_pt.amount or 0) < 0
-                            )
-                        if _counts:
-                            _cum2 += abs(float(_pt.amount))
-                    except (TypeError, ValueError):
-                        pass
-                for (_ed, _ecr, _eamt) in _week_expenses:
-                    if _ed < _tdate:
-                        _cum2 += _eamt
-                    elif _ed == _tdate:
-                        try:
-                            if (_ecr is None) or (_tcr is None) or (_ecr <= _tcr):
-                                _cum2 += _eamt
-                        except Exception:
-                            _cum2 += _eamt
-                for (_sd, _samt) in _shift_events:
-                    if _sd <= _tdate:
-                        _cum2 += _samt
-                _cum2 = round(_cum2, 2)
+                try:
+                    # detailing/general: снятия + adjust− из истории
+                    # (методология карточки netPiggy);
+                    # wash: любая отрицательная операция копилки.
+                    if _is_wash:
+                        _counts = float(_t.amount or 0) < 0
+                    else:
+                        _counts = (
+                            _t.transaction_type in _WEEKLY_PIGGY_WD
+                            and float(_t.amount or 0) < 0
+                        )
+                    if _counts:
+                        _cum_piggy += abs(float(_t.amount))
+                except (TypeError, ValueError):
+                    pass
+                while _ei < len(_week_expenses_sorted) and (
+                    _week_expenses_sorted[_ei][0] < _tdate
+                    or (
+                        _week_expenses_sorted[_ei][0] == _tdate
+                        and (
+                            _week_expenses_sorted[_ei][1] is None
+                            or _tcr is None
+                            or _week_expenses_sorted[_ei][1] <= _tcr
+                        )
+                    )
+                ):
+                    _cum_piggy += _week_expenses_sorted[_ei][2]
+                    _ei += 1
+                while _si < len(_shift_sorted) and _shift_sorted[_si][0] <= _tdate:
+                    _cum_piggy += _shift_sorted[_si][1]
+                    _si += 1
+                _cum2 = round(_cum_piggy, 2)
                 _weekly = round(_sat_bal - _cum2, 2)
                 _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly, _cum2)
 
@@ -18313,6 +18453,8 @@ def get_piggy_bank(
         remainingInPiggyBank=remaining,
 
         combinedBalance=combined_balance,
+
+        generalNetPiggy=general_net_piggy,
 
         archives=[
 
@@ -18952,7 +19094,8 @@ def piggy_bank_repay(
     repay_key = worker.id
 
     # Нетто-долг этого человека (та же методология, что GET /piggy-bank):
-    # списания − уже возвращённое (debt_repayment) − старые bonus-погашения без транзакции.
+    # личные списания без booking_id − уже возвращённое (debt_repayment)
+    # − старые bonus-погашения без транзакции.
     _all_tx = db.scalars(
         select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None))
     ).all()
@@ -18968,6 +19111,8 @@ def piggy_bank_repay(
             continue
         if _tt in ("material_withdrawal", "other_withdrawal"):
             if float(getattr(_t, "amount", 0) or 0) >= 0:
+                continue
+            if getattr(_t, "booking_id", None):
                 continue
             _spent_total += _amt
             _rg = getattr(_t, "resource_group", "") or "detailing"
@@ -19341,13 +19486,12 @@ def delete_piggy_bank_transaction(
         "adjust",
         "material_withdrawal",
         "other_withdrawal",
-        "material_repayment",
         "debt_repayment",
         "expense",
     }:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Системную операцию удалить нельзя (начисление от заказа)",
+            detail="Системную операцию удалить нельзя (начисление/авто-возврат от заказа)",
         )
     linked_expense_id = getattr(tx, "expense_id", None)
     # Сначала удаляем саму транзакцию, чтобы разорвать FK piggy->expense:
@@ -20065,7 +20209,8 @@ def deposit_settle_month(
     # месяца (копилка по piggyPayType/Value/Target + доли владельцев).
     # Мастера уже получили зарплату при записи, их не трогаем.
     # Планы: fee/unlimited — все записи; washes — только включённые в лимит
-    # (сверх лимита остаются списанными); per_wash — возврата нет.
+    # (сверх лимита остаются списанными); per_wash — возврата нет
+    # (тариф списан при мойке, копилка не участвует — см. test_per_wash).
     plan_key = _deposit_plan_key(client.deposit_plan or "")
     month_rows = _deposit_month_bookings_for(db, client_id, month)
     if plan_key == "per_wash":

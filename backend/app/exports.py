@@ -1839,6 +1839,9 @@ def build_piggy_bank_export(
     other_withdrawals = -_period_sum(
         lambda t: t.transaction_type == "other_withdrawal" and t.amount < 0
     )
+    # Зеркала бюджета (type expense) в карточках UI не участвуют (мойка считает
+    # Expenses таблицей, detailing/general их игнорируют) — в дельту не включаем,
+    # иначе Excel расходится с UI. Считаем отдельно для справки.
     expense_outflows = -_period_sum(
         lambda t: t.transaction_type == "expense" and t.amount < 0
     )
@@ -1859,13 +1862,12 @@ def build_piggy_bank_export(
         + adjustments
         - material_withdrawals
         - other_withdrawals
-        - expense_outflows
         - debt_repays
     )
-    wash_delta = _period_sum(lambda t: t.resource_group == "wash")
-    detailing_delta = _period_sum(lambda t: t.resource_group == "detailing")
+    wash_delta = _period_sum(lambda t: t.resource_group == "wash" and t.transaction_type != "expense")
+    detailing_delta = _period_sum(lambda t: t.resource_group == "detailing" and t.transaction_type != "expense")
     general_delta = _period_sum(
-        lambda t: t.resource_group not in ("wash", "detailing")
+        lambda t: t.resource_group == "general" and t.transaction_type != "expense"
     )
 
     def money(value: float) -> str:

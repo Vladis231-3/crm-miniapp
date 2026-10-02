@@ -275,6 +275,7 @@ interface PiggyBankData {
   detailingIncomes: number;
   remainingInPiggyBank: number;
   combinedBalance: number;
+  generalNetPiggy?: number;
   spenderDebts?: PiggySpenderDebt[];
   weeklyFormula?: string | null;
   currentWeekStart?: string | null;
@@ -953,14 +954,14 @@ export function OwnerApp() {
   const [piggyBankLoading, setPiggyBankLoading] = useState(false);
   const [piggyBank, setPiggyBank] = useState<PiggyBankData | null>(null);
   const [piggyTxExpanded, setPiggyTxExpanded] = useState(false);
-  const [piggyTab, setPiggyTab] = useState<'all' | 'wash' | 'detailing'>('all');
+  const [piggyTab, setPiggyTab] = useState<'all' | 'wash' | 'detailing' | 'general'>('all');
   const [piggyDateFrom, setPiggyDateFrom] = useState('');
   const [piggyDateTo, setPiggyDateTo] = useState('');
   const [walletDateFrom, setWalletDateFrom] = useState('');
   const [walletDateTo, setWalletDateTo] = useState('');
   const [showPiggyWithdraw, setShowPiggyWithdraw] = useState(false);
   const [showPiggyAdjust, setShowPiggyAdjust] = useState(false);
-  const [piggyAdjustResourceGroup, setPiggyAdjustResourceGroup] = useState<'wash' | 'detailing'>('wash');
+  const [piggyAdjustResourceGroup, setPiggyAdjustResourceGroup] = useState<'wash' | 'detailing' | 'general'>('wash');
   const [piggyAdjustCurrentBalance, setPiggyAdjustCurrentBalance] = useState(0);
   const [piggyAdjustForm, setPiggyAdjustForm] = useState({ newBalance: '', purpose: '', date: todayLabel });
   const [showArchivesModal, setShowArchivesModal] = useState(false);

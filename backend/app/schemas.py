@@ -1990,6 +1990,7 @@ class PiggyBankResponse(BaseModel):
     detailingIncomes: float = 0
     remainingInPiggyBank: float = 0
     combinedBalance: float = 0
+    generalNetPiggy: float = 0
     archives: list[WeeklyArchivePayload] = Field(default_factory=list)
     ownerProfitShares: list[OwnerProfitShareItem] = Field(default_factory=list)
     ownerProfitTotal: float = 0

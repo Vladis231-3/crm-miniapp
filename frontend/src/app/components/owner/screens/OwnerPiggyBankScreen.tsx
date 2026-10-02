@@ -4,7 +4,7 @@ import { ChevronRight, Download, Edit3, Minus, RefreshCw, Trash2, X } from 'luci
 import { useApp, type Booking } from '../../../context/AppContext';
 import { toast, EditAmountPencil } from '../../atmosfera';
 
-type PiggyTab = 'all' | 'wash' | 'detailing';
+type PiggyTab = 'all' | 'wash' | 'detailing' | 'general';
 
 /** Структурные копии локальных интерфейсов родителя (OwnerApp.tsx:229-253, 773-781). */
 interface PiggyBankTx {
@@ -55,6 +55,7 @@ interface PiggyBankScreenData {
   detailingIncomes: number;
   remainingInPiggyBank: number;
   combinedBalance: number;
+  generalNetPiggy?: number;
   archives?: Array<{ id: number }>;
   spenderDebts?: PiggySpenderDebt[];
   weeklyFormula?: string | null;
@@ -195,15 +196,19 @@ export function OwnerPiggyBankScreen({
       {(function() {
         const tabBalance = piggyTab === 'all' ? (piggyBank?.combinedBalance ?? piggyBankBalance)
           : piggyTab === 'wash' ? (piggyBank?.remainingInPiggyBank ?? 0)
+          : piggyTab === 'general' ? (piggyBank?.generalNetPiggy ?? 0)
           : (piggyBank?.detailing?.netPiggy ?? 0);
         const tabLabel = piggyTab === 'all' ? 'Баланс копилки'
           : piggyTab === 'wash' ? 'Баланс · Мойка'
+          : piggyTab === 'general' ? 'Баланс · Общая'
           : 'Баланс · Детейлинг';
         const weeklyNow = piggyTab === 'all' ? (piggyBank?.combinedWeeklyBalance ?? null)
           : piggyTab === 'wash' ? (piggyBank?.washWeeklyBalance ?? null)
+          : piggyTab === 'general' ? (piggyBank?.generalWeeklyBalance ?? null)
           : (piggyBank?.detailingWeeklyBalance ?? null);
         const weeklyStart = piggyTab === 'all' ? (piggyBank?.currentWeekStart ?? null)
           : piggyTab === 'wash' ? (piggyBank?.washWeekStart ?? piggyBank?.currentWeekStart ?? null)
+          : piggyTab === 'general' ? null
           : (piggyBank?.detailingWeekStart ?? piggyBank?.currentWeekStart ?? null);
         return (
         <div className={`${glass} rounded-2xl p-5 mb-4 text-center`}>
@@ -239,6 +244,7 @@ export function OwnerPiggyBankScreen({
           { id: 'all' as const, label: 'Всё' },
           { id: 'wash' as const, label: '🚗 Мойка' },
           { id: 'detailing' as const, label: '✨ Детейлинг' },
+          { id: 'general' as const, label: '📦 Общая' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setPiggyTab(tab.id)}
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${piggyTab === tab.id ? 'bg-white/10 text-white' : sub}`}
@@ -435,7 +441,6 @@ export function OwnerPiggyBankScreen({
         </div>
       )}
 
-      {/* ── TAB: DETAILING ── */}
       {piggyTab === 'detailing' && piggyBank?.detailing && (
         <div className={`${glass} rounded-2xl p-4 mb-4`}>
           <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>✨ КОПИЛКА · ДЕТЕЙЛИНГ</div>
@@ -490,6 +495,28 @@ export function OwnerPiggyBankScreen({
             </span>
             <span className="tabular-nums" style={{ color: (piggyBank.detailing.netPiggy ?? 0) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
               {(piggyBank.detailing.netPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank.detailing.netPiggy ?? 0).toLocaleString('ru')} ₽
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 mt-4">
+            <button onClick={() => onOpenWithdraw()} className="w-full py-3 rounded-xl text-white font-medium text-sm" style={{ background: 'var(--status-success)' }}>
+              <Minus size={16} strokeWidth={1.75} className="inline mr-1" aria-hidden />Снять на расходы
+            </button>
+          </div>
+        </div>
+      )}
+
+      {piggyTab === 'general' && (
+        <div className={`${glass} rounded-2xl p-4 mb-4`}>
+          <div className={`text-xs font-medium ${sub} uppercase tracking-wider mb-3`}>📦 КОПИЛКА · ОБЩАЯ</div>
+          <div className="flex justify-between py-2 text-sm">
+            <span className={sub}>Начислено (депозиты/возвраты/правки)</span><span className="tabular-nums" style={{ color: 'var(--status-success)' }}>+{((piggyBank?.generalNetPiggy ?? 0) >= 0 ? (piggyBank?.generalNetPiggy ?? 0) : 0).toLocaleString('ru')} ₽</span>
+          </div>
+          <div className="flex justify-between py-3 text-base font-bold border-t mt-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+            <span className="flex items-center gap-1.5">🏦 Нетто в копилке
+              <EditAmountPencil primary={primary} title="Изменить сумму · 📦 Общая" onClick={() => onOpenAdjust('general')} />
+            </span>
+            <span className="tabular-nums" style={{ color: (piggyBank?.generalNetPiggy ?? 0) >= 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
+              {(piggyBank?.generalNetPiggy ?? 0) >= 0 ? '' : '−'}{Math.abs(piggyBank?.generalNetPiggy ?? 0).toLocaleString('ru')} ₽
             </span>
           </div>
           <div className="grid grid-cols-1 gap-2 mt-4">
@@ -608,6 +635,7 @@ export function OwnerPiggyBankScreen({
       {piggyTxExpanded && (() => {
         const filteredTxs = piggyTab === 'all' ? piggyBankTxs
           : piggyTab === 'wash' ? piggyBankTxs.filter(tx => tx.resourceGroup === 'wash')
+          : piggyTab === 'general' ? piggyBankTxs.filter(tx => tx.resourceGroup === 'general')
           : piggyBankTxs.filter(tx => tx.resourceGroup === 'detailing');
         if (filteredTxs.length === 0) {
           return <div className={`text-center py-8 text-sm ${sub}`}>Пока нет операций</div>;

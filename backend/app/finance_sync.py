@@ -30,14 +30,6 @@ def sync_expense_piggy_transaction(db: Session, expense: Expense) -> None:
       за расходом, а группа — за переездами внутри групп копилки
       (уход расхода из групп историю копилки не стирает).
     """
-    # Зарплатные расходы (премии/авансы/выплаты/корректировки) не являются
-    # расходами копилки: их зеркало создавать нельзя, иначе списание из
-    # копилки задваивается при каждом редактировании такого расхода.
-    linked_payroll = db.scalar(
-        select(PayrollEntry).where(PayrollEntry.expense_id == expense.id).limit(1)
-    )
-    if linked_payroll is not None:
-        return
     transaction = db.scalar(
         select(PiggyBankTransaction).where(
             PiggyBankTransaction.expense_id == expense.id
@@ -45,11 +37,21 @@ def sync_expense_piggy_transaction(db: Session, expense: Expense) -> None:
     )
     group = (expense.resource_group or "").strip()
     if transaction is not None and transaction.transaction_type != "expense":
-        sign = -1 if transaction.amount < 0 else 1
+        # Пара withdraw/repay + расход: сумма/дата следуют за расходом даже
+        # когда у расхода есть зарплатная строка (repay создаёт payout).
+        sign = -1 if float(transaction.amount or 0) < 0 else 1
         transaction.amount = sign * money(expense.amount)
         transaction.date = expense.date
         if group in PAIR_RESOURCE_GROUPS:
             transaction.resource_group = group
+        return
+    # Зарплатные расходы (премии/авансы/выплаты/корректировки) не являются
+    # расходами копилки: их зеркало создавать нельзя, иначе списание из
+    # копилки задваивается при каждом редактировании такого расхода.
+    linked_payroll = db.scalar(
+        select(PayrollEntry).where(PayrollEntry.expense_id == expense.id).limit(1)
+    )
+    if linked_payroll is not None:
         return
     if group not in MIRROR_RESOURCE_GROUPS:
         if transaction is not None:
