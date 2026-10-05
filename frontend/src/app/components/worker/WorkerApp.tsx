@@ -8,6 +8,7 @@ import {
 import { useApp, Booking, type PaymentType, type Service } from '../../context/AppContext';
 import { SourceBadge } from '../shared/SourceBadge';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
+import { dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
 import { WorkerTodayScreen } from './screens/WorkerTodayScreen';
 import { WorkerScheduleScreen } from './screens/WorkerScheduleScreen';
 import { WorkerEarningsScreen } from './screens/WorkerEarningsScreen';
@@ -76,14 +77,16 @@ function bookingBasePrice(booking: Booking) {
 }
 
 // Доля мастера по основной услуге (та же логика, что во вкладке «Заработок»).
-// База = цена − допы(add) − работы в составе; точная сумма — salary-detail с бэка
-// (там ещё вычитаются материалы/subtract, жалобы и кастомный master_pay_type).
+// База = цена − допы(add) − работы в составе; котёл мастеров (masterPayType)
+// делится строго по весам, как на бэкенде. Точная сумма — salary-detail с бэка
+// (там ещё вычитаются материалы/subtract и жалобы).
 function bookingBaseWorkerEarned(booking: Booking, workerId: string, services: Service[]) {
   const link = booking.workers.find(w => w.workerId === workerId);
   if (!link) return 0;
   if (link.payType === 'fixed') return link.fixedAmount || 0;
   if (isFixedMasterService(services, booking.serviceId, booking.service)) return FIXED_MASTER_EARNED;
-  return Math.round(bookingBasePrice(booking) * (link.percent || 0) / 100);
+  const svc = services.find(s => s.id === booking.serviceId);
+  return mainWorkerEarned(bookingBasePrice(booking), svc, booking.workers, workerId);
 }
 
 function formatBookingInstant(value: string | Date | null | undefined) {
@@ -358,7 +361,7 @@ export function WorkerApp() {
                           ) : isMyService && as.workers.filter(w => w.workerId === workerId).map(w => (
                             <div key={w.workerId} className="flex justify-between items-center mt-0.5">
                               <span className={`text-xs ${sub}`}>Ваша доля: {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
-                              <span className="text-xs font-medium text-green-500">+{(w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)).toLocaleString('ru')} ₽</span>
+                              <span className="text-xs font-medium text-green-500">+{dopWorkerEarned(as.price, w).toLocaleString('ru')} ₽</span>
                             </div>
                           ))}
                         </div>
@@ -391,7 +394,7 @@ export function WorkerApp() {
                 const myAdditionalServices = (selectedTask.additionalServices || []).filter(as => as.workers.some(w => w.workerId === workerId));
                 if (!myBaseLink && myAdditionalServices.length === 0) return null;
                 const baseEarned = bookingBaseWorkerEarned(selectedTask, workerId, services);
-                const additionalEarned = myAdditionalServices.reduce((sum, as) => sum + as.workers.filter(w => w.workerId === workerId).reduce((s, w) => s + (w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)), 0), 0);
+                const additionalEarned = myAdditionalServices.reduce((sum, as) => sum + as.workers.filter(w => w.workerId === workerId).reduce((s, w) => s + dopWorkerEarned(as.price, w), 0), 0);
                 const total = baseEarned + additionalEarned;
                 return (
                   <div className={`${glass} rounded-2xl p-4 mb-3`}>
@@ -403,7 +406,7 @@ export function WorkerApp() {
                       </div>
                     )}
                     {myAdditionalServices.map(as => {
-                      const earned = as.workers.filter(w => w.workerId === workerId).reduce((s, w) => s + (w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100)), 0);
+                      const earned = as.workers.filter(w => w.workerId === workerId).reduce((s, w) => s + dopWorkerEarned(as.price, w), 0);
                       return (
                         <div key={as.id} className="flex justify-between items-center text-sm py-0.5">
                           <span>{as.name}</span>

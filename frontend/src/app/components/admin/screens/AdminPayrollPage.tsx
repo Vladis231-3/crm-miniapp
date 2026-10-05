@@ -96,6 +96,7 @@ export function AdminPayrollPage() {
       // '' → 0: backend ждёт float (ge=0 le=100), пустая строка даёт 422
       await saveAdminWorkerPayroll(
         payrollSettings.map((worker) => ({ ...worker, percent: worker.percent === '' ? 0 : worker.percent })),
+        { period: payrollPeriod, dateFrom: payrollDateFrom, dateTo: payrollDateTo },
       );
       loadPayrollData();
       setSaved(true);

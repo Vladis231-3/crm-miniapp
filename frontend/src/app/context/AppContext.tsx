@@ -954,7 +954,7 @@ interface AppContextType {
   saveOwnerIntegrations: (settings: OwnerIntegrations) => Promise<void>;
   saveOwnerSecurity: (settings: OwnerSecurity) => Promise<void>;
   saveWorkerSettings: (settings: EmployeeSetting[]) => Promise<void>;
-  saveAdminWorkerPayroll: (settings: EmployeeSetting[]) => Promise<void>;
+  saveAdminWorkerPayroll: (settings: EmployeeSetting[], period?: { period: string; dateFrom?: string; dateTo?: string }) => Promise<void>;
   setOwnerMasterRole: (ownerId: string, worksAsMaster: boolean) => Promise<Worker>;
   saveContent: (content: ContentData) => Promise<void>;
   content: ContentData;
@@ -1888,8 +1888,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWorkers(saved.map((worker) => normalizeWorker(worker)));
   }
 
-  async function saveAdminWorkerPayroll(nextSettings: EmployeeSetting[]) {
-    const saved = await apiRequest<Worker[]>('/api/admin/workers/payroll', { method: 'PUT', body: nextSettings });
+  async function saveAdminWorkerPayroll(nextSettings: EmployeeSetting[], period?: { period: string; dateFrom?: string; dateTo?: string }) {
+    // Период в query — чтобы ответные сводки совпадали с просматриваемым
+    // периодом (иначе all-time сводки briefly затирали month/week в сторе).
+    const params = new URLSearchParams({ period: period?.period || 'all' });
+    if ((period?.period || 'all') === 'custom') {
+      if (period?.dateFrom) params.set('date_from', period.dateFrom);
+      if (period?.dateTo) params.set('date_to', period.dateTo);
+    }
+    const saved = await apiRequest<Worker[]>(`/api/admin/workers/payroll?${params.toString()}`, { method: 'PUT', body: nextSettings });
     const normalized = saved.map((worker) => normalizeWorker(worker));
     setWorkers((current) => current.map((worker) => {
       const nextWorker = normalized.find((item) => item.id === worker.id);

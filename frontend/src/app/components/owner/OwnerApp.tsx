@@ -39,6 +39,7 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
+import { dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
 import { formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
@@ -10474,8 +10475,8 @@ paymentSettled: false,
                       const _addTotal = (selectedBooking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
                       const _legacyTotal = (selectedBooking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
                       const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal);
-                      const _pct = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
-                      const _earned = Math.round(_base * _pct / 100);
+                      const _svcSettings = services.find(s => s.id === selectedBooking.serviceId);
+                      const _earned = mainWorkerEarned(_base, _svcSettings, selectedBooking.workers, w.workerId);
                       return `${w.workerName} ${w.percent === '' ? 0 : w.percent}% · ${_earned.toLocaleString('ru')} ₽`;
                     }).join(', ') : 'Не назначены'}</div>
                     {selectedBooking.workers.length === 0 && !selectedBooking.isOutsource && selectedBooking.status !== 'cancelled' && (
@@ -10503,7 +10504,7 @@ paymentSettled: false,
                             </div>
                           ) : (
                             as.workers.map(w => {
-                              const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
+                              const earned = dopWorkerEarned(as.price, w);
                               return (
                                 <div key={w.workerId} className="flex justify-between items-center mt-1">
                                   <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
@@ -10527,7 +10528,7 @@ paymentSettled: false,
                             <span className="font-semibold">{s.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {selectedBooking.workers.length > 0 && selectedBooking.workers.map(w => {
-                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(s.price * (w.percent || 0) / 100);
+                            const earned = dopWorkerEarned(s.price, { payType: w.payType, fixedAmount: w.fixedAmount, percent: w.percent });
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
                                 <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
@@ -11576,7 +11577,7 @@ paymentSettled: false,
                     ) : ownerAddServiceWorkers.length > 0 && ownerAddServiceWorkers.map(item => {
                       const w = workers.find(wk => wk.id === item.id);
                       const pct = item.percent === '' ? 0 : item.percent;
-                      const earned = item.payType === 'fixed' ? (item.fixedAmount || 0) : Math.round(ownerAddServiceDraft.price * pct / 100);
+                      const earned = dopWorkerEarned(ownerAddServiceDraft.price, { payType: item.payType, fixedAmount: item.fixedAmount, percent: pct });
                       const _svc = services.find(s => s.id === ownerAddServiceDraft.serviceId);
                       const _fixed = isFixedMasterService(services, _svc?.id, _svc?.name);
                       return (
@@ -13131,13 +13132,9 @@ paymentSettled: false,
                               <div className="pt-1">
                                 <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${sub}`}>Допы построчно</div>
                                 {simDopsBody.map((r, ri) => {
-                                  const w0 = r.workers[0];
                                   const pays = r.isOutsource
                                     ? (r.outsourceAmount ?? 0)
-                                    : (!w0 ? 0
-                                      : w0.payType === 'fixed'
-                                        ? Math.min(w0.fixedAmount ?? 0, r.price)
-                                        : Math.round(r.price * (w0.percent ?? 0) / 100));
+                                    : (r.workers || []).reduce((s: number, w: any) => s + dopWorkerEarned(r.price, w), 0);
                                   const remainder = Math.max(0, r.price - pays);
                                   const rowPiggy = (sim.asvcPiggy ?? [])
                                     .filter(d => d.name === r.name)

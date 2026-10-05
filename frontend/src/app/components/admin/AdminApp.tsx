@@ -48,6 +48,7 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { FIXED_MASTER_EARNED, formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
+import { dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
 // Helper for unlimited category nesting — returns categoryId + all descendant ids
@@ -2118,7 +2119,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                             </div>
                           ) : (
                             as.workers.map(w => {
-                              const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(as.price * w.percent / 100);
+                              const earned = dopWorkerEarned(as.price, w);
                               return (
                                 <div key={w.workerId} className="flex justify-between items-center mt-1">
                                   <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
@@ -2142,7 +2143,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                             <span className="font-semibold">{svc.price.toLocaleString('ru')} ₽</span>
                           </div>
                           {selectedBooking.workers.length > 0 && selectedBooking.workers.map(w => {
-                            const earned = w.payType === 'fixed' ? (w.fixedAmount || 0) : Math.round(svc.price * (w.percent || 0) / 100);
+                            const earned = dopWorkerEarned(svc.price, { payType: w.payType, fixedAmount: w.fixedAmount, percent: w.percent });
                             return (
                               <div key={w.workerId} className="flex justify-between items-center mt-1">
                                 <span className={`text-xs ${sub}`}>{w.workerName} · {w.payType === 'fixed' ? `${(w.fixedAmount || 0).toLocaleString('ru')} ₽` : `${w.percent}%`}</span>
@@ -2228,8 +2229,8 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                     const _addTotal = (selectedBooking.additionalServices || []).reduce((s: number, as: any) => s + (as.priceMode === 'subtract' ? 0 : Number(as.price) || 0), 0);
                     const _legacyTotal = (selectedBooking.services || []).reduce((s: number, svc: any) => s + (Number(svc.price) || 0), 0);
                     const _base = Math.max(0, (Number(selectedBooking.price) || 0) - _addTotal - _legacyTotal);
-                    const _pct = w.percent === '' || w.percent == null ? 0 : Number(w.percent) || 0;
-                    const _earned = Math.round(_base * _pct / 100);
+                    const _svc = services.find(s => s.id === selectedBooking.serviceId);
+                    const _earned = mainWorkerEarned(_base, _svc, selectedBooking.workers, w.workerId);
                     return (
                       <div key={w.workerId} className="flex justify-between items-center py-1">
                         <div className="flex items-center gap-2">
@@ -2455,11 +2456,10 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                       </div>
                     ) : addServiceWorkers.length > 0 && addServiceWorkers.map(item => {
                       const w = masterWorkers.find(wk => wk.id === item.id);
-                      const pct = item.percent === '' ? 0 : item.percent;
-                      const earned = item.payType === 'fixed' ? (item.fixedAmount || 0) : Math.round(addServiceDraft.price * pct / 100);
+                      const earned = dopWorkerEarned(addServiceDraft.price, item);
                       return (
                         <div key={item.id} className="flex justify-between items-center">
-                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'} · {item.payType === 'fixed' ? `фикс ${item.fixedAmount || 0}₽` : `${pct}%`}</span>
+                          <span className={`text-sm ${sub}`}>{w?.name || 'Мастер'} · {item.payType === 'fixed' ? `фикс ${item.fixedAmount || 0}₽` : `${item.percent === '' ? 0 : item.percent}%`}</span>
                           <span className="text-sm font-medium text-green-500">{earned.toLocaleString('ru')} ₽</span>
                         </div>
                       );

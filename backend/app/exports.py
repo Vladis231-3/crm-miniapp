@@ -15,7 +15,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 
-from .finance import money_int
+from .finance import money_int, salary_base_for_period
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -1701,6 +1701,10 @@ def build_owner_export(
 
     db: Session | None = None,
 
+    salary_from: date | None = None,
+
+    salary_to: date | None = None,
+
 ) -> GeneratedExport:
 
     data = _build_export_data(
@@ -1730,6 +1734,10 @@ def build_owner_export(
         piggy_transactions=piggy_transactions or [],
 
         db=db,
+
+        salary_from=salary_from,
+
+        salary_to=salary_to,
 
     )
 
@@ -2250,6 +2258,12 @@ def _build_export_data(
 
     db: Session | None = None,
 
+    # Строгий период оклада: как на странице ЗП (salary_base_for_period).
+    # Без диапазона — полный месячный оклад (all-time отчёты, backward compat).
+    salary_from: date | None = None,
+
+    salary_to: date | None = None,
+
 ) -> OwnerExportData:
 
     # Ленивый импорт, чтобы избежать циклического импорта с main (main импортирует exports на верхнем уровне).
@@ -2497,12 +2511,25 @@ def _build_export_data(
         adjustment_total = sum(e.amount for e in worker_entries if e.kind == "adjustment")
 
 
+        # Строго как на странице ЗП: оклад пропорционален периоду отчёта,
+        # а не полный месячный при фильтре по датам.
+        if salary_from is not None and salary_to is not None:
+            try:
+                period_base_salary = money_int(
+                    salary_base_for_period(
+                        worker.salary_base, salary_from, salary_to, period="custom"
+                    )
+                )
+            except ValueError:
+                period_base_salary = money_int(worker.salary_base or 0)
+        else:
+            period_base_salary = money_int(worker.salary_base or 0)
 
         total_accrued = (
 
             earned
 
-            + worker.salary_base
+            + period_base_salary
 
             + (shift_pay_by_worker or {}).get(worker.id, 0)
 
@@ -2536,7 +2563,7 @@ def _build_export_data(
 
             worker.default_percent,
 
-            worker.salary_base,
+            period_base_salary,
 
             len(worker_completed),
 

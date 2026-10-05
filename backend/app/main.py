@@ -9865,16 +9865,33 @@ def _owner_export_file(
 
 
     # Compute shift pay for each worker to include in export
-
+    # Строго за период отчёта (как на странице ЗП), а не за всё время:
+    # при фильтре по датам смены и оклад пропорциональны диапазону.
     from datetime import date as _date
 
     inspections = _admin_shift_inspections_state(db)
 
     shift_pay_map: dict[str, int] = {}
 
+    _salary_from: _date | None = None
+    _salary_to: _date | None = None
+    if date_from or date_to:
+        try:
+            _salary_from = _parse_date(date_from) if date_from else None
+            _salary_to = _parse_date(date_to) if date_to else None
+        except (ValueError, TypeError, AttributeError):
+            _salary_from = _salary_to = None
+        if _salary_from is None and _salary_to is None:
+            _salary_from = _salary_to = None
+
+    _shift_from = _salary_from or _date(2000, 1, 1)
+    _shift_to = _salary_to or _date.today()
+    if _shift_from > _shift_to:
+        _shift_from, _shift_to = _shift_to, _shift_from
+
     for worker in workers:
 
-        sc, _ = _compute_shift_attendance(inspections, worker.id, _date(2000, 1, 1), _date.today())
+        sc, _ = _compute_shift_attendance(inspections, worker.id, _shift_from, _shift_to)
 
         shift_pay_map[worker.id] = sc * (getattr(worker, "salary_per_shift", 0) or 0)
 
@@ -9909,6 +9926,10 @@ def _owner_export_file(
         piggy_transactions=list(piggy_transactions),
 
         db=db,
+
+        salary_from=_salary_from if (_salary_from and _salary_to) else None,
+
+        salary_to=_salary_to if (_salary_from and _salary_to) else None,
 
     )
 
@@ -13333,6 +13354,16 @@ def create_booking(
         # T4: задание доставки — в той же транзакции, что и бронь.
         enqueue_google_sync(db, booking.id, "upsert")
 
+    # Создание сразу завершённой записи: тот же денежный конвейер, что при
+    # переводе в completed через PATCH (иначе копилка/доли/снапшот молча
+    # пропускались — строгий учёт требует проводок по настройкам услуги).
+    if booking.status == "completed":
+        _write_off_booking_materials(db, booking)
+        if booking.payment_settled:
+            _process_piggy_bank_for_booking(db, booking)
+            _process_owner_profit_share(db, booking)
+        _freeze_booking_split(db, booking)
+
     db.commit()
 
     db.refresh(booking)
@@ -13560,8 +13591,20 @@ def _should_persist_owner_shares(split: dict) -> bool:
     H2: раньше карточка и архив показывали ownersTotalAuto общей услуги без
     кастома как живые деньги, хотя доли никогда не создавались (фантомы).
     Единый гард для _process_owner_profit_share и деталей сплита.
+    Строго по настройкам услуги: кастом = любой из master/piggy/owner/порядка.
+    Доп-доля владельцев (asvc_owner_extra) тоже требует персиста, иначе
+    остаток допа с owner-настройками терялся для general-услуг.
     """
-    return split["resource_group"] in ("detailing", "wash") or bool(split.get("has_custom"))
+    if split.get("resource_group") in ("detailing", "wash"):
+        return True
+    if bool(split.get("has_custom")):
+        return True
+    try:
+        if int(split.get("asvc_owner_extra") or 0) > 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
 
 
 def _booking_money_split(
@@ -14005,7 +14048,9 @@ def _booking_money_split(
         "owner_by_owner": owner_by_owner,
         "master_pay_type": master_pay_type,
         "piggy_pay_type": piggy_pay_type,
-        "has_custom": bool(master_pay_type) or bool(piggy_pay_type) or pipeline_mode,
+        "owner_pay_type": owner_pay_type,
+        "owner_split_enabled": owner_split_enabled,
+        "has_custom": bool(master_pay_type) or bool(piggy_pay_type) or bool(owner_pay_type) or (owner_split_enabled is False) or pipeline_mode,
         "trace": trace,
     }
 
@@ -14016,6 +14061,14 @@ _SNAPSHOT_REQUIRED_KEYS = (
     "asvc_owner_extra", "piggy_deposit", "owners_total", "owner_by_owner",
     "master_pay_type", "piggy_pay_type", "has_custom",
 )
+
+# Опциональные ключи снапшота v1 (строгая owner-часть настроек услуги).
+# Старые снапшоты их не имеют — читаем через .get с дефолтом, живой пересчёт
+# новых записей всегда пишет их (_booking_money_split).
+_SNAPSHOT_OPTIONAL_DEFAULTS = {
+    "owner_pay_type": "",
+    "owner_split_enabled": True,
+}
 
 
 def _freeze_booking_split(
@@ -14053,6 +14106,25 @@ def _booking_split_auto(
                 raise KeyError("asvc_piggy_deposits")
             for dep in frozen["asvc_piggy_deposits"]:
                 int(dep.get("amount") or 0)
+            # Backfill старых снапшотов (без owner-ключей): суммы заморожены и не
+            # трогаем, но owner-часть и has_custom выводим строго из текущих
+            # настроек услуги — иначе general+ownerPercent история вечно пряталась
+            # до ручного PUT-refresh. Новые снапшоты несут ключи с собой.
+            if "owner_pay_type" not in snap or "owner_split_enabled" not in snap:
+                _live_svc = db.get(Service, booking.service_id) if booking.service_id else None
+                _live_owner_type = (_live_svc.owner_pay_type if _live_svc else "") or ""
+                _live_enabled = (_live_svc.owner_split_enabled if _live_svc else True) is not False
+                _live_custom = (
+                    bool(_live_owner_type)
+                    or (_live_enabled is False)
+                )
+                _owner_type = _live_owner_type
+                _owner_enabled = _live_enabled
+                _has_custom = bool(frozen["has_custom"]) or _live_custom
+            else:
+                _owner_type = str(snap.get("owner_pay_type", _SNAPSHOT_OPTIONAL_DEFAULTS["owner_pay_type"]) or "")
+                _owner_enabled = bool(snap.get("owner_split_enabled", _SNAPSHOT_OPTIONAL_DEFAULTS["owner_split_enabled"]) is not False)
+                _has_custom = bool(frozen["has_custom"])
             return {
                 "resource_group": str(frozen["resource_group"]),
                 "main_price": int(frozen["main_price"]),
@@ -14077,7 +14149,9 @@ def _booking_split_auto(
                 "owner_by_owner": {str(k): int(v) for k, v in frozen["owner_by_owner"].items()},
                 "master_pay_type": str(frozen["master_pay_type"] or ""),
                 "piggy_pay_type": str(frozen["piggy_pay_type"] or ""),
-                "has_custom": bool(frozen["has_custom"]),
+                "owner_pay_type": _owner_type,
+                "owner_split_enabled": _owner_enabled,
+                "has_custom": _has_custom,
             }
         except (KeyError, TypeError, ValueError):
             pass
@@ -15084,8 +15158,11 @@ def update_booking(
             _process_owner_profit_share(db, booking)
         elif booking.status == "completed" and not booking_just_completed:
             # Правка уже завершённой записи: сверяем проводки с новым сплитом
-            # (цены/допы/услуга могли измениться).
+            # (цены/допы/услуга могли измениться). Доли владельцев до-создаём,
+            # если их нет (ремонт записей, завершённых до строгого has_custom):
+            # _process_owner_profit_share идемпотентен (есть доли — no-op).
             _reconcile_piggy_for_booking(db, booking)
+            _process_owner_profit_share(db, booking)
 
         # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
         _freeze_booking_split(db, booking)
@@ -22844,6 +22921,82 @@ def save_worker_settings(
 
 
 
+def _payroll_period_data(
+    db: Session,
+    worker_ids: list[str],
+    *,
+    period: str,
+    date_from: str,
+    date_to: str,
+) -> tuple[list[Booking], list[PayrollEntry], date | None, date | None]:
+    """Единая выборка ведомости за период (GET и PUT сверяются одинаково).
+
+    Возвращает (завершённые записи, зарплатные операции, начало/конец смен).
+    Строго как на странице ЗП: записи и операции фильтруются диапазоном,
+    смены — тем же диапазоном (all — всё время). Раньше PUT после сохранения
+    возвращал all-time сводки, и глобальное состояние briefly врало при
+    просмотре месяца/недели.
+    """
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    booking_options = (
+        joinedload(Booking.worker_links),
+        joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+    )
+    booking_filter = and_(
+        Booking.deleted_at.is_(None),
+        Booking.status == "completed",
+        or_(
+            Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
+            Booking.additional_services.any(
+                BookingAdditionalService.worker_links.any(
+                    AdditionalServiceWorker.worker_id.in_(worker_ids)
+                )
+            ),
+        ),
+    )
+    if period == "all":
+        completed_bookings = db.scalars(
+            select(Booking)
+            .options(*booking_options)
+            .where(booking_filter)
+            .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+        ).unique().all()
+    else:
+        date_col_key = (
+            func.substr(Booking.date, 7, 4).concat(
+                func.substr(Booking.date, 4, 2)
+            ).concat(
+                func.substr(Booking.date, 1, 2)
+            )
+        )
+        completed_bookings = db.scalars(
+            select(Booking)
+            .options(*booking_options)
+            .where(
+                booking_filter,
+                date_col_key >= date_from_key,
+                date_col_key <= date_to_key,
+            )
+            .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
+        ).unique().all()
+    entries_query = select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.worker_id.in_(worker_ids))
+    if period != "all":
+        entries_query = entries_query.where(
+            _payroll_entry_period_condition(
+                PayrollEntry.worker_id.in_(worker_ids), date_from, date_to
+            )
+        )
+    entries = db.scalars(entries_query.order_by(PayrollEntry.created_at.desc())).all()
+    if period == "all":
+        shift_from: date | None = None
+        shift_to: date | None = None
+    else:
+        shift_from = datetime.strptime(date_from, "%d.%m.%Y").date()
+        shift_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+    return completed_bookings, entries, shift_from, shift_to
+
+
 @app.get("/api/admin/workers/payroll", response_model=list[WorkerPayload])
 def get_admin_workers_payroll(
     period: str = "month",
@@ -22864,79 +23017,15 @@ def get_admin_workers_payroll(
         date_to = _parse_booking_date_param(date_to)
     else:
         date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
-    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
-    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
     workers_list = db.scalars(
         select(StaffUser)
         .where(or_(StaffUser.role == "worker", _owner_master_condition()))
         .order_by(StaffUser.name.asc())
     ).all()
     worker_ids = [w.id for w in workers_list]
-    if period == "all":
-        completed_bookings = db.scalars(
-            select(Booking)
-            .options(
-                joinedload(Booking.worker_links),
-                joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
-            )
-            .where(
-                Booking.deleted_at.is_(None),
-                Booking.status == "completed",
-                or_(
-                    Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
-                    Booking.additional_services.any(
-                        BookingAdditionalService.worker_links.any(
-                            AdditionalServiceWorker.worker_id.in_(worker_ids)
-                        )
-                    ),
-                ),
-            )
-            .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
-        ).unique().all()
-    else:
-        date_col_key = (
-            func.substr(Booking.date, 7, 4).concat(
-                func.substr(Booking.date, 4, 2)
-            ).concat(
-                func.substr(Booking.date, 1, 2)
-            )
-        )
-        completed_bookings = db.scalars(
-            select(Booking)
-            .options(
-                joinedload(Booking.worker_links),
-                joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
-            )
-            .where(
-                Booking.deleted_at.is_(None),
-                Booking.status == "completed",
-                or_(
-                    Booking.worker_links.any(BookingWorker.worker_id.in_(worker_ids)),
-                    Booking.additional_services.any(
-                        BookingAdditionalService.worker_links.any(
-                            AdditionalServiceWorker.worker_id.in_(worker_ids)
-                        )
-                    ),
-                ),
-                date_col_key >= date_from_key,
-                date_col_key <= date_to_key,
-            )
-            .order_by(Booking.date.desc(), Booking.time.desc(), Booking.created_at.desc())
-        ).unique().all()
-    entries_query = select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None), PayrollEntry.worker_id.in_(worker_ids))
-    if period != "all":
-        entries_query = entries_query.where(
-            _payroll_entry_period_condition(
-                PayrollEntry.worker_id.in_(worker_ids), date_from, date_to
-            )
-        )
-    entries = db.scalars(entries_query.order_by(PayrollEntry.created_at.desc())).all()
-    if period == "all":
-        shift_from: date | None = None
-        shift_to: date | None = None
-    else:
-        shift_from = datetime.strptime(date_from, "%d.%m.%Y").date()
-        shift_to = datetime.strptime(date_to, "%d.%m.%Y").date()
+    completed_bookings, entries, shift_from, shift_to = _payroll_period_data(
+        db, worker_ids, period=period, date_from=date_from, date_to=date_to,
+    )
     payroll_summaries = _worker_payroll_summaries_from_data(
         db, workers_list, completed_bookings, entries, _complaints_by_worker(_load_penalties(db)),
         shift_from=shift_from, shift_to=shift_to, period=period,
@@ -22952,6 +23041,12 @@ def save_admin_worker_payroll(
 
     payload: list[EmployeeSettingPayload],
 
+    period: str = "all",
+
+    date_from: str | None = None,
+
+    date_to: str | None = None,
+
     session_data: dict = Depends(_require_session),
 
     db: Session = Depends(get_db),
@@ -22959,6 +23054,20 @@ def save_admin_worker_payroll(
 ) -> list[WorkerPayload]:
 
     _ensure_staff_role(session_data, {"admin", "accountant"})
+
+    # Период сводок в ответе — тот же, что смотрит фронт (дефолт all =
+    # прежнее поведение). Раньше ответ всегда был all-time и briefly затирал
+    # month/week-сводки в глобальном состоянии до следующего GET.
+    valid_periods = {"day", "week", "month", "all", "custom"}
+    if period not in valid_periods:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    if period == "custom":
+        if not date_from or not date_to:
+            raise HTTPException(status_code=400, detail="date_from and date_to are required for custom period")
+        date_from = _parse_booking_date_param(date_from)
+        date_to = _parse_booking_date_param(date_to)
+    else:
+        date_from, date_to = _salary_date_range(period, custom_from=date_from, custom_to=date_to)
 
     workers = {
 
@@ -23000,10 +23109,13 @@ def save_admin_worker_payroll(
 
     ).all()
 
-    payroll_summaries = _worker_payroll_summaries(
-
-        db, refreshed, _complaints_by_worker(_load_penalties(db))
-
+    refreshed_ids = [w.id for w in refreshed]
+    completed_bookings, entries, shift_from, shift_to = _payroll_period_data(
+        db, refreshed_ids, period=period, date_from=date_from, date_to=date_to,
+    )
+    payroll_summaries = _worker_payroll_summaries_from_data(
+        db, refreshed, completed_bookings, entries, _complaints_by_worker(_load_penalties(db)),
+        shift_from=shift_from, shift_to=shift_to, period=period,
     )
 
     return [
@@ -25190,6 +25302,71 @@ def update_owner_booking_money_split(
 
 
 
+@app.post("/api/admin/maintenance/repair-owner-shares")
+def repair_missing_owner_shares(
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Одноразовый ремонт истории под строгий has_custom (идемпотентен).
+
+    Чинит два остаточных расхождения без переписывания замороженных сумм:
+    1. Завершённые оплаченные записи без долей владельцев, хотя живой сплит по
+       текущим настройкам услуги требует персиста (general + ownerPercent,
+       завершённые до строгого has_custom) — доли до-создаются.
+    2. Старые снапшоты без owner-ключей — ключи дописываются из текущих
+       настроек услуги, суммы не трогаем (заморозка истории сохраняется).
+    Кредитные записи без settle-month не трогаем (доли появятся в settle).
+    """
+    _ensure_staff_role(session_data, {"admin", "owner"})
+    complaints = _complaints_by_worker(_load_penalties(db))
+    bookings = db.scalars(
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed")
+        .order_by(Booking.date.asc(), Booking.time.asc())
+    ).unique().all()
+    repaired_shares = 0
+    backfilled_snapshots = 0
+    for booking in bookings:
+        if (booking.payment_type or "") == "credit":
+            continue
+        if not booking.payment_settled:
+            continue
+        live = _booking_money_split(db, booking, complaints)
+        if _should_persist_owner_shares(live) and int(live.get("owners_total") or 0) > 0:
+            existing = db.scalar(
+                select(OwnerProfitShare.id).where(OwnerProfitShare.booking_id == booking.id)
+            )
+            if existing is None:
+                _process_owner_profit_share(db, booking)
+                repaired_shares += 1
+        snap = getattr(booking, "money_split_snapshot", None)
+        if isinstance(snap, dict) and snap.get("v") == 1 and (
+            "owner_pay_type" not in snap or "owner_split_enabled" not in snap
+        ):
+            svc = db.get(Service, booking.service_id) if booking.service_id else None
+            owner_type = (svc.owner_pay_type if svc else "") or ""
+            enabled = (svc.owner_split_enabled if svc else True) is not False
+            patched = dict(snap)
+            patched["owner_pay_type"] = owner_type
+            patched["owner_split_enabled"] = enabled
+            patched["has_custom"] = bool(snap.get("has_custom")) or bool(owner_type) or (enabled is False)
+            booking.money_split_snapshot = patched
+            backfilled_snapshots += 1
+    log_action(
+        db,
+        action="maintenance.repair-owner-shares",
+        session_data=session_data,
+        detail=f"repaired_shares={repaired_shares} backfilled={backfilled_snapshots}",
+    )
+    db.commit()
+    return {"repairedShares": repaired_shares, "backfilledSnapshots": backfilled_snapshots}
+
+
+
 # ── Salary detail (owner) ─────────────────────────────────────────────────
 
 
@@ -25275,6 +25452,67 @@ def _resource_group_for_service(db: Session, service_id: str) -> str:
     svc = db.get(Service, service_id)
 
     return svc.resource_group if svc else "wash"
+
+
+
+def _worker_segment_earnings(
+    db: Session,
+    worker_id: str,
+    *,
+    date_from: str,
+    date_to: str,
+    complaints_by_worker: dict[str, list],
+) -> dict[str, int]:
+    """Заработок мастера по сегментам за период — строго из единого сплита.
+
+    Используется, чтобы выплата с segment=all легла в ту копилку, где деньги
+    реально заработаны, а не молча в wash. Возвращает {"wash": x, "detailing": y}.
+    """
+    date_from_key = date_from[6:10] + date_from[3:5] + date_from[0:2]
+    date_to_key = date_to[6:10] + date_to[3:5] + date_to[0:2]
+    date_col_key = (
+        func.substr(Booking.date, 7, 4).concat(
+            func.substr(Booking.date, 4, 2)
+        ).concat(
+            func.substr(Booking.date, 1, 2)
+        )
+    )
+    completed = db.scalars(
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
+        .where(
+            Booking.deleted_at.is_(None),
+            or_(
+                Booking.worker_links.any(BookingWorker.worker_id == worker_id),
+                Booking.additional_services.any(
+                    BookingAdditionalService.worker_links.any(
+                        AdditionalServiceWorker.worker_id == worker_id
+                    )
+                ),
+            ),
+            Booking.status == "completed",
+            date_col_key >= date_from_key,
+            date_col_key <= date_to_key,
+        )
+        .order_by(Booking.date.desc(), Booking.time.desc())
+    ).unique().all()
+    earned: dict[str, int] = {"wash": 0, "detailing": 0}
+    for b in completed:
+        split = _booking_money_split(db, b, complaints_by_worker)
+        link = next((item for item in b.worker_links if item.worker_id == worker_id), None)
+        if link is not None and link.override_earned is not None:
+            amount = int(link.override_earned)
+        else:
+            amount = int(split["master_by_worker"].get(worker_id, 0))
+        if amount <= 0:
+            continue
+        rg = _resource_group_for_service(db, b.service_id)
+        if rg in earned:
+            earned[rg] += amount
+    return earned
 
 
 
@@ -25621,8 +25859,23 @@ def owner_worker_salary_detail(
 
             )
         else:
-            # Worker is only on additional services, use default percent
-            percent = worker.default_percent
+            # Мастер только на доп. услугах: строгая жалоба-коррекция + фактический
+            # процент допа (как в _worker_payroll_summaries_from_data), а не сырой
+            # default_percent без учёта жалоб. При нескольких допах — первый линк.
+            _asvc_pcts = [
+                alink.percent
+                for asvc in (b.additional_services or [])
+                for alink in asvc.worker_links
+                if alink.worker_id == worker_id
+            ]
+            _base_pct = _asvc_pcts[0] if _asvc_pcts else worker.default_percent
+            percent = adjusted_booking_percent(
+                _base_pct,
+                worker_complaints,
+                date_value=b.date,
+                time_value=b.time,
+                fallback=b.created_at,
+            )
 
         rg = _resource_group_for_service(db, b.service_id)
 
@@ -26376,15 +26629,49 @@ def owner_worker_pay_salary(
 
 
 
-    # Determine resource_group from segment
-
+    # Строгая копилка выплаты: явный wash/detailing — как выбрано; all — туда,
+    # где деньги реально заработаны за период (раньше detailing-заработок молча
+    # падал в wash-бюджет). Ноль в обоих сегментах (выплата только оклада/смен)
+    # — wash для совместимости. Заработок в обоих — 400: нужны две выплаты,
+    # иначе один расход неизбежно припишет чужой сегмент.
     if payload.segment == "detailing":
-
         resource_group = "detailing"
-
-    else:
-
+    elif payload.segment == "wash":
         resource_group = "wash"
+    else:
+        _seg_from, _seg_to = _salary_date_range(
+            payload.period,
+            custom_from=(
+                _parse_booking_date_param(payload.dateFrom)
+                if payload.period == "custom" and payload.dateFrom
+                else None
+            ),
+            custom_to=(
+                _parse_booking_date_param(payload.dateTo)
+                if payload.period == "custom" and payload.dateTo
+                else None
+            ),
+        )
+        _seg_earned = _worker_segment_earnings(
+            db,
+            worker.id,
+            date_from=_seg_from,
+            date_to=_seg_to,
+            complaints_by_worker=_complaints_by_worker(_load_penalties(db)),
+        )
+        _wash_e = int(_seg_earned.get("wash") or 0)
+        _det_e = int(_seg_earned.get("detailing") or 0)
+        if _wash_e > 0 and _det_e > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Выплата за весь период: мастер заработал и на мойке "
+                    f"({_wash_e} ₽), и на детейлинге ({_det_e} ₽). "
+                    "Проведите две выплаты отдельно по сегментам, иначе расход "
+                    "припишется чужой копилке."
+                ),
+            )
+        resource_group = "detailing" if _det_e > 0 else "wash"
 
 
 
