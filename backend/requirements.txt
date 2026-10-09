@@ -8,3 +8,4 @@ openpyxl==3.1.5
 python-dotenv==1.2.2
 python-multipart==0.0.31
 requests==2.34.2
+urllib3>=2.8.0

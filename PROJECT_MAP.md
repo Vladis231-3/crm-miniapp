@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-10-05 06:57 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-10-09 17:02 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -12,9 +12,9 @@ python scripts/generate_project_map.py --install-hook  # git pre-commit хук (
 
 ## Статистика
 
-- Файлов кода: **569**
-- Строк кода: **226 971**
-- По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 211, `.ts`: 38, `.tsx`: 308
+- Файлов кода: **510**
+- Строк кода: **181 392**
+- По расширениям: `.js`: 3, `.mjs`: 9, `.py`: 152, `.ts`: 38, `.tsx`: 308
 
 ## Архитектура
 
@@ -577,73 +577,9 @@ concept1.0/
 │   └── reel.html
 ├── training/
 │   ├── backend/
-│   │   ├── app/
-│   │   │   ├── __init__.py
-│   │   │   ├── complaints.py
-│   │   │   ├── config.py
-│   │   │   ├── database.py
-│   │   │   ├── date_utils.py
-│   │   │   ├── exports.py
-│   │   │   ├── finance.py
-│   │   │   ├── finance_sync.py
-│   │   │   ├── google_calendar.py
-│   │   │   ├── main.py
-│   │   │   ├── models.py
-│   │   │   ├── schemas.py
-│   │   │   ├── security.py
-│   │   │   ├── seed.py
-│   │   │   └── telegram_linking.py
-│   │   ├── data/
-│   │   │   ├── diag_asvc.py
-│   │   │   └── diag_asvc2.py
-│   │   ├── migrations/
-│   │   │   ├── add_materials_written_off.py
-│   │   │   ├── add_pay_type_to_workers.py
-│   │   │   ├── add_plate_type.py
-│   │   │   ├── add_referral_source.py
-│   │   │   ├── add_service_times.py
-│   │   │   ├── add_stock_write_offs.py
-│   │   │   ├── add_write_off_booking_fields.py
-│   │   │   ├── change_int_to_float.py
-│   │   │   ├── finance_consistency.py
-│   │   │   ├── migrate_additional_services.py
-│   │   │   └── sync_client_schema.py
-│   │   ├── tests/
-│   │   │   ├── __init__.py
-│   │   │   ├── test_additional_service_validation.py
-│   │   │   ├── test_archive.py
-│   │   │   ├── test_attendance_endpoints.py
-│   │   │   ├── test_booking_logic.py
-│   │   │   ├── test_booking_money_split.py
-│   │   │   ├── test_broadcast_edge_cases.py
-│   │   │   ├── test_config.py
-│   │   │   ├── test_content.py
-│   │   │   ├── test_database_config.py
-│   │   │   ├── test_deposit.py
-│   │   │   ├── test_finance_batch3.py
-│   │   │   ├── test_finance_calculations.py
-│   │   │   ├── test_finance_edit.py
-│   │   │   ├── test_finance_integration_batch3.py
-│   │   │   ├── test_finance_migration.py
-│   │   │   ├── test_google_calendar.py
-│   │   │   ├── test_google_calendar_api.py
-│   │   │   ├── test_google_calendar_pull.py
-│   │   │   ├── test_html_and_headers.py
-│   │   │   ├── test_income_endpoints.py
-│   │   │   ├── test_owner_export_stock_decimal.py
-│   │   │   ├── test_owner_masters.py
-│   │   │   ├── test_owner_salary_asvc_only.py
-│   │   │   ├── test_piggy_bank_adjust.py
-│   │   │   ├── test_security_hardening.py
-│   │   │   ├── test_training_help.py
-│   │   │   ├── test_upload_security.py
-│   │   │   ├── test_worker_additional_services.py
-│   │   │   ├── test_worker_calendar.py
-│   │   │   └── test_worker_car_search.py
-│   │   ├── .env.example
-│   │   ├── bot.py
-│   │   ├── requirements.txt
-│   │   └── run.py
+│   │   └── data/
+│   │       ├── diag_asvc.py
+│   │       └── diag_asvc2.py
 │   └── frontend/
 │       ├── guidelines/
 │       │   └── Guidelines.md
@@ -815,7 +751,7 @@ concept1.0/
 - `parse_date_paramdef parse_date_param(value: str) -> date: """Accept strict DD.MM.YYYY or ISO YYYY-MM-DD query dates.""" try: return parse_dmy(value) except ValueError: parsed = date.fromisoformat(` (стр. 23)
 - `validate_rangedef validate_range(date_from: date, date_to: date) -> None: if date_from > date_to: raise ValueError("date_from must not be after date_to")` (стр. 34)
 
-### backend/app/error_notifier.py (380 строк)
+### backend/app/error_notifier.py (381 строк)
 
 Классы и функции (26):
 
@@ -840,11 +776,11 @@ concept1.0/
 - `_submitdef _submit(*, fingerprint: str, message: str) -> bool: if not _enabled():` (стр. 260)
 - `notify_exceptiondef notify_exception(exc: BaseException, *, context: str = "") -> bool: """Отправить исключение владельцам в Telegram. Никогда не бросает.""" try: frames = traceback.extract_tb(exc` (стр. 272)
 - `notify_error_messagedef notify_error_message(message: str, *, context: str = "", source: str = "") -> bool: """Отправить произвольный текст ошибки владельцам в Telegram.""" try: fingerprint_source = f` (стр. 296)
-- `class TelegramErrorNotifyHandler(logging.Handler):` (стр. 317)
-- `TelegramErrorNotifyHandler.__init__def __init__(self, level: int = logging.ERROR) -> None: super().__init__(level=level)` (стр. 320)
-- `TelegramErrorNotifyHandler.emitdef emit(self, record: logging.LogRecord) -> None: if _is_own_record(record):` (стр. 323)
-- `install_error_notifyingdef install_error_notifying() -> None: """Идемпотентно подключает logging-handler к корневому логгеру. Проверка по имени класса (а не по флагу модуля): тесты выгружают и заново имп` (стр. 350)
-- `unhandled_exception_handlerasync def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse: """FastAPI/Starlette handler для несловленных исключений (HTTP 500).""" notify_exception(ex` (стр. 365)
+- `class TelegramErrorNotifyHandler(logging.Handler):` (стр. 318)
+- `TelegramErrorNotifyHandler.__init__def __init__(self, level: int = logging.ERROR) -> None: super().__init__(level=level)` (стр. 321)
+- `TelegramErrorNotifyHandler.emitdef emit(self, record: logging.LogRecord) -> None: if _is_own_record(record):` (стр. 324)
+- `install_error_notifyingdef install_error_notifying() -> None: """Идемпотентно подключает logging-handler к корневому логгеру. Проверка по имени класса (а не по флагу модуля): тесты выгружают и заново имп` (стр. 351)
+- `unhandled_exception_handlerasync def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse: """FastAPI/Starlette handler для несловленных исключений (HTTP 500).""" notify_exception(ex` (стр. 366)
 
 ### backend/app/exports.py (3851 строк)
 
@@ -5817,7 +5753,10 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
-- `backend/app/main.py` (2026-10-05 09:57)
+- `backend/app/main.py` (2026-10-09 19:59)
+- `backend/requirements.txt` (2026-10-09 19:59)
+- `backend/app/error_notifier.py` (2026-10-09 19:58)
+- `scripts/.project-map-watch.lock` (2026-10-09 19:29)
 - `backend/tests/test_risk_removal.py` (2026-10-05 09:56)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-10-05 09:51)
 - `frontend/src/app/components/worker/WorkerApp.tsx` (2026-10-05 09:51)
@@ -5826,9 +5765,6 @@ concept1.0/
 - `frontend/src/app/components/admin/screens/AdminPayrollPage.tsx` (2026-10-05 09:48)
 - `frontend/src/app/context/AppContext.tsx` (2026-10-05 09:48)
 - `backend/app/exports.py` (2026-10-05 09:27)
-- `scripts/.project-map-watch.lock` (2026-10-05 08:43)
 - `showreel/film90/README.md` (2026-10-04 17:18)
 - `showreel/film90/film90.vertical.html` (2026-10-04 16:51)
 - `showreel/film90/film90.html` (2026-10-04 16:51)
-- `showreel/film90/film.template.html` (2026-10-04 16:51)
-- `showreel/film90/src/build.py` (2026-10-04 16:08)

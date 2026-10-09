@@ -13381,10 +13381,10 @@ def create_booking(
 def _write_off_booking_materials(db: Session, booking: Booking) -> None:
 
     if booking.materials_written_off:
-        print(f"[WRITE_OFF] skip booking {booking.id[:8]} — already written off")
+        logger.debug(f"[WRITE_OFF] skip booking {booking.id[:8]} — already written off")
         return
 
-    print(f"[WRITE_OFF] booking {booking.id[:8]} materials_written_off=False, {len(booking.materials)} materials")
+    logger.debug(f"[WRITE_OFF] booking {booking.id[:8]} materials_written_off=False, {len(booking.materials)} materials")
 
     service = db.get(Service, booking.service_id) if booking.service_id else None
     rg = _service_resource_group(service)
@@ -13393,7 +13393,7 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
         for mat in service.materials:
             si = db.get(StockItem, mat.get("stockItemId")) if mat.get("stockItemId") else None
             if not si:
-                print(f"[WRITE_OFF] service material '{mat.get('name')}' stock item NOT FOUND — skipped")
+                logger.debug(f"[WRITE_OFF] service material '{mat.get('name')}' stock item NOT FOUND — skipped")
                 continue
             booking.materials.append(
                 BookingMaterial(
@@ -13406,17 +13406,17 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                 )
             )
         db.flush()
-        print(f"[WRITE_OFF] auto-filled {len(booking.materials)} materials from service '{service.name}'")
+        logger.debug(f"[WRITE_OFF] auto-filled {len(booking.materials)} materials from service '{service.name}'")
 
     total_cost = 0
     material_details = []
 
     for bm in booking.materials:
-        print(f"[WRITE_OFF] material '{bm.name}' stock_item_id={bm.stock_item_id} qty={bm.qty} unit_price={bm.unit_price}")
+        logger.debug(f"[WRITE_OFF] material '{bm.name}' stock_item_id={bm.stock_item_id} qty={bm.qty} unit_price={bm.unit_price}")
         if bm.stock_item_id:
             stock_item = db.get(StockItem, bm.stock_item_id)
             if stock_item:
-                print(f"[WRITE_OFF] stock '{stock_item.name}' before={stock_item.qty}, deducting {bm.qty}")
+                logger.debug(f"[WRITE_OFF] stock '{stock_item.name}' before={stock_item.qty}, deducting {bm.qty}")
                 # T3: атомарное списание одним UPDATE — иначе параллельные
                 # брони теряют обновления (read-modify-write). Семантика
                 # clamp max(0, ..) сохранена, вычисление на стороне БД.
@@ -13450,9 +13450,9 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                     created_at=_now(),
                 ))
             else:
-                print(f"[WRITE_OFF] stock_item {bm.stock_item_id} NOT FOUND")
+                logger.debug(f"[WRITE_OFF] stock_item {bm.stock_item_id} NOT FOUND")
         else:
-            print(f"[WRITE_OFF] material '{bm.name}' has NO stock_item_id — skipped")
+            logger.debug(f"[WRITE_OFF] material '{bm.name}' has NO stock_item_id — skipped")
 
     if total_cost > 0 and material_details:
         db.add(
@@ -13468,13 +13468,13 @@ def _write_off_booking_materials(db: Session, booking: Booking) -> None:
                 created_at=_now(),
             )
         )
-        print(f"[WRITE_OFF] expense created: {total_cost} ₽ ({', '.join(material_details)})")
+        logger.debug(f"[WRITE_OFF] expense created: {total_cost} ₽ ({', '.join(material_details)})")
     else:
-        print(f"[WRITE_OFF] no expense — total_cost={total_cost}")
+        logger.debug(f"[WRITE_OFF] no expense — total_cost={total_cost}")
 
     booking.materials_written_off = True
     db.flush()
-    print(f"[WRITE_OFF] booking {booking.id[:8]} done, materials_written_off=True")
+    logger.debug(f"[WRITE_OFF] booking {booking.id[:8]} done, materials_written_off=True")
 
 
 def _booking_materials_cost(db: Session, booking: Booking) -> int:
@@ -17827,11 +17827,11 @@ def get_piggy_bank(
 
     combined_balance = remaining + net_piggy + general_net_piggy
 
-    # Weekly archives
+    # Weekly archives (последние 26 недель; полная история — отдельным эндпоинтом архивов)
 
     archives_db = db.scalars(
 
-        select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc())
+        select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc()).limit(26)
 
     ).all()
 
@@ -20483,15 +20483,15 @@ def get_wallet(
 
 
 
-    # Piggy bank balance (all-time)
-
-    all_piggy = db.scalars(
-
-        select(PiggyBankTransaction).where(PiggyBankTransaction.deleted_at.is_(None)).order_by(PiggyBankTransaction.created_at.desc())
-
-    ).all()
-
-    piggy_balance = sum(t.amount for t in all_piggy)
+    # Piggy bank balance (all-time): SUM на стороне SQL, без загрузки всех строк.
+    piggy_balance = (
+        db.scalar(
+            select(func.coalesce(func.sum(PiggyBankTransaction.amount), 0)).where(
+                PiggyBankTransaction.deleted_at.is_(None)
+            )
+        )
+        or 0
+    )
 
 
 
@@ -20499,7 +20499,7 @@ def get_wallet(
 
     archives_db = db.scalars(
 
-        select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc())
+        select(WeeklyArchive).order_by(WeeklyArchive.week_start.desc()).limit(26)
 
     ).all()
 

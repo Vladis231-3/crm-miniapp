@@ -180,7 +180,7 @@ def _exception_fingerprint(exc: BaseException) -> str:
     digest_input = f"{type(exc).__name__}|{site}|{str(exc)[:200]}".encode(
         "utf-8", errors="ignore"
     )
-    digest = hashlib.md5(digest_input).hexdigest()[:8]
+    digest = hashlib.md5(digest_input, usedforsecurity=False).hexdigest()[:8]
     return f"exc:{type(exc).__name__}:{site}:{digest}"
 
 
@@ -298,7 +298,8 @@ def notify_error_message(message: str, *, context: str = "", source: str = "") -
     try:
         fingerprint_source = f"{source}|{message[:200]}"
         digest = hashlib.md5(
-            fingerprint_source.encode("utf-8", errors="ignore")
+            fingerprint_source.encode("utf-8", errors="ignore"),
+            usedforsecurity=False,
         ).hexdigest()[:8]
         text = _build_message(
             kind="ошибка",
