@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, DollarSign } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
@@ -97,7 +97,7 @@ export function WorkerEarningsScreen({ workerId, onSelectBooking }: WorkerEarnin
 
   const inputCls =
     'border border-[var(--input,var(--border))] rounded-xl bg-[var(--input-background,#EEEFF3)] px-3 py-2.5 w-full text-sm text-foreground outline-none focus:border-[var(--ring)] dark:bg-white/[.06]';
-  const glass = 'border border-border bg-[var(--card)]';
+  const glass = 'panel';
   const sub = 'text-[var(--fg-secondary,#5A6072)]';
 
   return (

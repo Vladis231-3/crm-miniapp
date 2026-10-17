@@ -22,7 +22,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={cn(
-        'rounded-2xl border',
+        'rounded-[9px] border',
         variant === 'solid' && 'border-border bg-[var(--card)]',
         variant === 'glass' && 'glass-1',
         variant === 'action' &&

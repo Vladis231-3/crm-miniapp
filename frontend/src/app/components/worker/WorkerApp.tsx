@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Bell, Sun, Moon, CalendarDays, Play,
+  Bell, CalendarDays, Play,
   ArrowLeft, Phone, X, Check,
   CalendarClock, Wallet, UserRound
 } from 'lucide-react';
@@ -46,21 +46,21 @@ function workerStatusLabel(status: Booking['status']) {
 function workerStatusBadge(status: Booking['status']) {
   switch (status) {
     case 'new':
-      return 'bg-indigo-500/15 text-indigo-600';
+      return 'bg-[#edf3f7] text-[#7e9bb3]';
     case 'confirmed':
-      return 'bg-cyan-500/15 text-cyan-600';
+      return 'bg-[#edf5ed] text-[#77976a]';
     case 'scheduled':
-      return 'bg-blue-500/15 text-blue-600';
+      return 'bg-[#edf5ed] text-[#77976a]';
     case 'in_progress':
-      return 'bg-yellow-500/15 text-yellow-600';
+      return 'bg-[#f9f4e7] text-[#b29958]';
     case 'completed':
-      return 'bg-green-500/15 text-green-600';
+      return 'bg-[#edf5ed] text-[#77976a]';
     case 'admin_review':
-      return 'bg-amber-500/15 text-amber-600';
+      return 'bg-[#f9f4e7] text-[#b29958]';
     case 'no_show':
-      return 'bg-orange-500/15 text-orange-600';
+      return 'bg-[#f9efec] text-[#b37e75]';
     default:
-      return 'bg-red-500/15 text-red-500';
+      return 'bg-[#f9efec] text-[#b37e75]';
   }
 }
 
@@ -100,7 +100,6 @@ function formatBookingInstant(value: string | Date | null | undefined) {
 export function WorkerApp() {
   const {
     isDark,
-    toggleTheme,
     bookings,
     updateBooking,
     notifications,
@@ -190,12 +189,12 @@ export function WorkerApp() {
 
   const formatTimer = (s: number) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
-  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
-  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
-  const primary = isDark ? '#6E76F2' : '#4F46E5';
-  const accent = isDark ? '#34D399' : '#10B981';
+  const glass = 'panel';
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#f6f8f7]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#273b34]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#8a9690]';
+  const primary = isDark ? '#77C79F' : '#2b5d49';
+  const accent = isDark ? '#34D399' : '#315f45';
   const surface = isDark ? '#1C1C1F' : '#ffffff';
 
   const handleStartTask = (task: Booking) => {
@@ -273,12 +272,12 @@ export function WorkerApp() {
     : 'Профиль';
 
   return (
-    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell personal-app ${bg} ${text} min-h-screen flex flex-col`}>
       {/* Header */}
-      <div className={`work-header ${glass} flex items-center justify-between`}>
+      <div className="work-header bg-white flex items-center justify-between" style={{ background: '#fff', borderBottom: '1px solid #e8ede9', backdropFilter: 'none', paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center gap-2">
           {(showDetail || profileSection) && (
-            <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className={`p-2 rounded-xl ${glass} mr-1`}><ArrowLeft size={18} strokeWidth={1.75} /></button>
+            <button onClick={() => { setShowDetail(false); setProfileSection(null); }} className="p-2 rounded-[7px] mr-1" style={{ background: '#f3f6f3' }}><ArrowLeft size={18} strokeWidth={1.75} /></button>
           )}
           <div>
             <div className="text-[15px] font-bold tracking-tight leading-tight">{headerTitle}</div>
@@ -287,16 +286,15 @@ export function WorkerApp() {
         </div>
         <div className="flex items-center gap-1.5">
           {tab === 'today' && !showDetail && !profileSection && (
-            <button onClick={() => setFilterMine(!filterMine)} className="px-3 py-1.5 rounded-lg text-xs transition-all"
-              style={filterMine ? { background: primary, color: 'white' } : { background: `${primary}15`, color: primary }}>
+            <button onClick={() => setFilterMine(!filterMine)} className="px-3 py-1.5 rounded-[6px] text-xs transition-all"
+              style={filterMine ? { background: '#315f45', color: 'white' } : { background: '#edf5ed', color: '#2b5d49' }}>
               Только мои
             </button>
           )}
-          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead('worker'); }} className={`p-2 rounded-xl ${glass} relative`}>
+          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead('worker'); }} className="p-2 rounded-[7px] relative" style={{ background: '#f3f6f3' }}>
             <Bell size={18} strokeWidth={1.75} />
-            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#b37e75] text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}</button>
         </div>
       </div>
 
@@ -530,26 +528,23 @@ export function WorkerApp() {
         </AnimatePresence>
       </div>
 
-      {/* Bottom Nav */}
-      <div className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
+      {/* Bottom Nav — нижняя навигация макета */}
+      <div className="bottom-nav">
         {[
           { id: 'today', icon: CalendarClock, label: 'Сегодня' },
           { id: 'schedule', icon: CalendarDays, label: 'Расписание' },
           { id: 'earnings', icon: Wallet, label: 'Доход' },
           { id: 'profile', icon: UserRound, label: 'Профиль' },
-        ].map(t => {
-          const isActive = tab === t.id;
-          return (
-          <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`}>
-            {isActive && (
-              <motion.span layoutId="worker-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
-            )}
-            <t.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
-            <span className={`relative whitespace-nowrap ${isActive ? '' : 'hidden'}`} style={{ color: isActive ? '#fff' : undefined }}>{t.label}</span>
-            {!isActive && <span className={`sr-only`}>{t.label}</span>}
+        ].map(t => (
+          <button
+            key={t.id}
+            className={tab === t.id ? 'active' : undefined}
+            onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setTab(t.id as WorkerTab); setShowDetail(false); setProfileSection(null); setSelectedCompletedOrder(null); }}
+          >
+            <t.icon size={19} strokeWidth={1.8} />
+            <span>{t.label}</span>
           </button>
-          );
-        })}
+        ))}
       </div>
 
       {/* ── START CONFIRMATION  -  DS Dialog ── */}
@@ -670,7 +665,7 @@ export function WorkerApp() {
                 <button onClick={() => setShowNotifications(false)} className={`p-1.5 rounded-lg ${glass}`}><X size={16} strokeWidth={1.75} /></button>
               </div>
               <div className="p-4 space-y-2">
-                {taskActionError && <div className="text-xs rounded-xl px-3 py-2" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>{taskActionError}</div>}
+                {taskActionError && <div className="text-xs rounded-xl px-3 py-2" style={{ background: 'rgba(179,126,117,0.14)', color: '#b37e75' }}>{taskActionError}</div>}
                 {myNotifications.length === 0 ? (
                   <p className={`text-sm ${sub} text-center py-8`}>Нет уведомлений</p>
                 ) : myNotifications.map(n => {
@@ -680,24 +675,24 @@ export function WorkerApp() {
                     className={isOwnerMsg ? 'rounded-xl p-3 cursor-pointer border-2' : `${glass} rounded-xl p-3 cursor-pointer border-l-2`}
                     style={isOwnerMsg
                       ? (isDark
-                        ? { background: 'linear-gradient(135deg, rgba(234,179,8,0.28), rgba(249,115,22,0.28))', borderColor: '#EAB308', boxShadow: '0 0 14px rgba(234,179,8,0.4)' }
-                        : { background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', borderColor: '#F59E0B', boxShadow: '0 2px 14px rgba(245,158,11,0.4)' })
+                        ? { background: 'linear-gradient(135deg, rgba(178,153,88,0.30), rgba(179,126,117,0.30))', borderColor: '#b29958', boxShadow: '0 0 14px rgba(234,179,8,0.4)' }
+                        : { background: 'linear-gradient(135deg, #f9f4e7, #f0e6c8)', borderColor: '#b29958', boxShadow: '0 2px 14px rgba(245,158,11,0.4)' })
                       : { borderLeftColor: n.read ? 'transparent' : primary }}>
                     <div className="flex items-start gap-2">
-                      <Bell size={isOwnerMsg ? 16 : 13} strokeWidth={1.75} style={{ color: isOwnerMsg ? (isDark ? '#FBBF24' : '#D97706') : primary }} className="mt-0.5 shrink-0" />
+                      <Bell size={isOwnerMsg ? 16 : 13} strokeWidth={1.75} style={{ color: isOwnerMsg ? (isDark ? '#b29958' : '#b29958') : primary }} className="mt-0.5 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        {isOwnerMsg && <div className="text-[11px] font-bold mb-1 inline-block rounded-full px-2 py-0.5" style={isDark ? { background: 'rgba(234,179,8,0.3)', color: '#FDE68A' } : { background: '#F59E0B', color: 'white' }}>👑🔥 От владельца · мастерам ✨</div>}
+                        {isOwnerMsg && <div className="text-[11px] font-bold mb-1 inline-block rounded-full px-2 py-0.5" style={isDark ? { background: 'rgba(234,179,8,0.3)', color: '#FDE68A' } : { background: '#b29958', color: 'white' }}>👑🔥 От владельца · мастерам ✨</div>}
                         <p className={isOwnerMsg ? 'text-sm font-semibold' : 'text-sm'}>{n.message}</p>
                         <p className={`text-xs ${sub} mt-1`}>{n.createdAt.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</p>
                         {isBroadcast(n.message) && taskStatusById[n.id] === 'taken' && (
-                          <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(234,179,8,0.15)', color: '#A16207' }}>🔧 В работе — владелец уведомлён</div>
+                          <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(178,153,88,0.15)', color: '#b29958' }}>🔧 В работе — владелец уведомлён</div>
                         )}
                         {isBroadcast(n.message) && taskStatusById[n.id] === 'done' && (
-                          <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(52,211,153,0.15)', color: accent }}>✅ Выполнено — владелец уведомлён</div>
+                          <div className="mt-2 text-xs font-semibold rounded-xl px-3 py-2" style={{ background: 'rgba(146,171,121,0.18)', color: accent }}>✅ Выполнено — владелец уведомлён</div>
                         )}
                         {isBroadcast(n.message) && !taskStatusById[n.id] && (
                           <div className="flex gap-2 mt-2" onClick={e => e.stopPropagation()}>
-                            <button disabled={taskActionId === n.id} onClick={() => { setTaskActionError(null); setTaskActionId(n.id); takeNotificationToWork(n.id).then(() => setTaskStatusById(prev => ({ ...prev, [n.id]: 'taken' }))).catch(e => setTaskActionError(e instanceof Error ? e.message : 'Не удалось взять в работу')).finally(() => setTaskActionId(null)); }} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: '#EAB308' }}>
+                            <button disabled={taskActionId === n.id} onClick={() => { setTaskActionError(null); setTaskActionId(n.id); takeNotificationToWork(n.id).then(() => setTaskStatusById(prev => ({ ...prev, [n.id]: 'taken' }))).catch(e => setTaskActionError(e instanceof Error ? e.message : 'Не удалось взять в работу')).finally(() => setTaskActionId(null)); }} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: '#b29958' }}>
                               {taskActionId === n.id ? '...' : 'Взять в работу'}
                             </button>
                             <button disabled={taskActionId === n.id} onClick={() => { setTaskActionError(null); setTaskActionId(n.id); completeNotificationTask(n.id).then(() => setTaskStatusById(prev => ({ ...prev, [n.id]: 'done' }))).catch(e => setTaskActionError(e instanceof Error ? e.message : 'Не удалось завершить')).finally(() => setTaskActionId(null)); }} className="flex-1 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50" style={{ background: accent }}>

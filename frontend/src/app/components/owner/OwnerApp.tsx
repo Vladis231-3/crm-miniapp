@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRef } from 'react';
 import {
@@ -437,9 +437,9 @@ function ownerCalendarDayHours(schedule: ScheduleDay[], dateLabel: string): { op
 }
 
 const OWNER_CALENDAR_LOAD_COLORS = {
-  empty: '#22C55E',
+  empty: '#77976a',
   medium: '#EAB308',
-  heavy: '#EF4444',
+  heavy: '#b37e75',
 } as const;
 
 function ownerCalendarLoadTone(count: number, maxCount: number): keyof typeof OWNER_CALENDAR_LOAD_COLORS {
@@ -1957,17 +1957,17 @@ export function OwnerApp() {
   ] : [];
   const resetExecuteLocked = resetStage !== 'armed' || !resetRequestId || resetCountdown > 0 || resetLoadingStep === 'execute';
 
-  const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
-  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
-  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
-  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const glass = 'panel';
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#f6f8f7]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#273b34]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#8a9690]';
   // muted — тот же приглушённый цвет, но как hex для inline style.color
   // (класс text-[...] в style.color — невалидный CSS и игнорируется браузером,
   // из-за чего кнопки сегмент-контролов периода теряли цвет текста).
-  const muted = isDark ? '#A1A1AA' : '#71717A';
+  const muted = isDark ? '#A1A1AA' : '#8a9690';
   const segTrack = { background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' } as const;
-  const primary = isDark ? '#6E76F2' : '#4F46E5';
-  const accent = isDark ? '#34D399' : '#10B981';
+  const primary = isDark ? '#77C79F' : '#2b5d49';
+  const accent = isDark ? '#34D399' : '#315f45';
   const surface = isDark ? '#1C1C1F' : '#ffffff';
   const inputCls = `${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const selectCls = `${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
@@ -4236,7 +4236,7 @@ paymentSettled: false,
       label: 'На уточнении',
       value: pipelineCounts.adminReview,
       icon: Users,
-      color: '#F59E0B',
+      color: '#b29958',
       action: () => setShowStatusList('admin_review'),
     },
   ];
@@ -4258,11 +4258,11 @@ paymentSettled: false,
   });
 
   const statusData = [
-    { name: 'Новые', status: 'new' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'new').length, color: '#6366F1' },
-    { name: 'Подтверждены', status: 'confirmed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Новые', status: 'new' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'new').length, color: '#7e9bb3' },
+    { name: 'Подтверждены', status: 'confirmed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'confirmed').length, color: '#7e9bb3' },
     { name: 'Запланировано', status: 'scheduled' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
     { name: 'В работе', status: 'in_progress' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
-    { name: 'Завершено', status: 'completed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'Завершено', status: 'completed' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'completed').length, color: '#77976a' },
     { name: 'Не приехал', status: 'no_show' as BookingStatus, value: weeklyBookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
   ].filter(s => s.value > 0);
   const topServiceName = [...byService].sort((left, right) => right.revenue - left.revenue)[0]?.name || 'Нет данных';
@@ -4387,7 +4387,7 @@ paymentSettled: false,
   return (
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`} data-owner-build="2026-04-03-5">
       {/* Header */}
-      <div className={`work-header ${glass} flex items-center justify-between`}>
+      <div className="work-header bg-white flex items-center justify-between" style={{ background: '#fff', borderBottom: '1px solid #e8ede9', backdropFilter: 'none', paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="min-w-0">
           <div className="text-[16px] font-bold tracking-tight leading-tight">{financeRoleTitle}</div>
           <div className={`text-[11px] uppercase tracking-[.14em] ${sub}`}>ATMOSFERA</div>
@@ -4400,17 +4400,17 @@ paymentSettled: false,
                 if (nextRole && nextRole !== session?.role) {
                   void switchRole(nextRole as Role);
                 }
-              }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
+              }} className="px-2 py-1.5 rounded-[6px] text-xs font-medium" style={{ color: primary, background: '#edf5ed' }}>
                 {session?.role === 'owner' ? 'Владелец  →  Админ' : session?.role === 'admin' ? 'Админ  →  Владелец' : 'Сменить роль'}
               </button>
             </div>
           )}
-          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead(financeNotificationRole); }} className={`p-2 rounded-xl ${glass} relative`}>
+          <button onClick={() => { setShowNotifications(true); markAllNotificationsRead(financeNotificationRole); }} className="p-2 rounded-[7px] relative" style={{ background: '#f3f6f3' }}>
             <Bell size={18} strokeWidth={1.75} />
-            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#b37e75] text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={() => { setShowFinancePanel(true); void loadPiggyBank(); }} className={`p-2 rounded-xl ${glass}`}><Wallet size={18} strokeWidth={1.75} /></button>
-          <button onClick={() => setShowOwnerNewBooking(true)} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
+          <button onClick={() => { setShowFinancePanel(true); void loadPiggyBank(); }} className="p-2 rounded-[7px]" style={{ background: '#f3f6f3' }}><Wallet size={18} strokeWidth={1.75} /></button>
+          <button onClick={() => setShowOwnerNewBooking(true)} className="p-2 rounded-[7px] text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
         </div>
       </div>
 
@@ -4807,8 +4807,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={revenueWeek} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#8a9690' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#8a9690' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[3, 3, 0, 0]} name="Выручка" />
                     <Bar dataKey="expenses" fill="#FF6B6B" radius={[3, 3, 0, 0]} name="Расходы" />
@@ -4840,8 +4840,8 @@ paymentSettled: false,
                   {
                     label: 'Топ-услуга',
                     value: topServiceName,
-                    color: '#312E81',
-                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: '#312E81', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
+                    color: '#173e32',
+                    action: () => setKpiModal({ kind: 'services', title: 'Услуги за неделю', color: '#173e32', services: [...byService].sort((a, b) => b.revenue - a.revenue) }),
                   },
                   {
                     label: 'Не приехали',
@@ -4875,8 +4875,8 @@ paymentSettled: false,
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#06B6D4' },
-                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#F59E0B' },
+                    { status: 'confirmed' as BookingStatus, label: 'Подтверждены', value: pipelineCounts.confirmed, color: '#7e9bb3' },
+                    { status: 'admin_review' as BookingStatus, label: 'На уточнении', value: pipelineCounts.adminReview, color: '#b29958' },
                     { status: 'scheduled' as BookingStatus, label: 'Запланированы', value: pipelineCounts.scheduled, color: '#3B82F6' },
                     { status: 'in_progress' as BookingStatus, label: 'В работе', value: pipelineCounts.inProgress, color: '#EAB308' },
                   ].map((item) => (
@@ -4898,12 +4898,12 @@ paymentSettled: false,
                       ]
                     : [
                         { label: 'Создать запись', icon: Plus, color: primary, action: () => { resetBookingForm(); setShowCreateBooking(true); }, disabled: false },
-                        { label: 'Новый клиент', icon: Users, color: '#06B6D4', action: () => setShowCreateClient(true), disabled: false },
+                        { label: 'Новый клиент', icon: Users, color: '#7e9bb3', action: () => setShowCreateClient(true), disabled: false },
                         { label: 'Добавить расход', icon: DollarSign, color: '#FF6B6B', action: () => { setExpenseForm(p => ({ ...p, date: todayLabel })); setShowAddExpense(true); }, disabled: false },
                         { label: exportingKind === 'report' ? 'Выгрузка...' : 'Экспорт Excel', icon: Download, color: accent, action: () => { void handleExport('report'); }, disabled: exportingKind !== null },
-                        { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#EC4899', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
-                        { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#F59E0B', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
-                        { label: 'Настройки', icon: Settings, color: '#312E81', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
+                        { label: sendingReminders ? 'Отправка...' : 'Напомнить о записях', icon: RefreshCw, color: '#b29958', action: () => { void handleDispatchReminders(); }, disabled: sendingReminders },
+                        { label: sendingInactiveReminder ? 'Отправка...' : 'Обзвон 2+ недель', icon: Phone, color: '#b29958', action: () => { void handleInactiveClientsReminder(); }, disabled: sendingInactiveReminder },
+                        { label: 'Настройки', icon: Settings, color: '#173e32', action: () => { setPage('settings'); setSettingsSection(null); }, disabled: false },
                       ]).map(a => (
                   <motion.button key={a.label} whileTap={{ scale: 0.96 }} onClick={a.action} disabled={a.disabled} className={`${glass} rounded-2xl p-4 flex flex-col items-center gap-2 text-center disabled:opacity-60`}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${a.color}20` }}><a.icon size={20} strokeWidth={1.75} style={{ color: a.color }} /></div>
@@ -5032,7 +5032,7 @@ paymentSettled: false,
                 <div className={`text-xs ${sub} mb-1 flex items-center gap-1.5`}>Аутсорс за период
                   <EditAmountPencil primary={primary} size={11} title="Аутсорс считается из доп. услуг — правится в записи" onClick={() => setPage('calendar')} />
                 </div>
-                <div className="font-bold text-xl" style={{ color: '#0EA5E9' }}>{outsourcePayroll.total.toLocaleString('ru')} ₽</div>
+                <div className="font-bold text-xl" style={{ color: '#7e9bb3' }}>{outsourcePayroll.total.toLocaleString('ru')} ₽</div>
                 <div className="mt-2 space-y-1">
                   {outsourcePayroll.rows.map(row => (
                     <div key={row.name} className="flex justify-between text-xs">
@@ -5057,7 +5057,7 @@ paymentSettled: false,
                   <input className={inputCls} placeholder="Название жалобы" value={penaltyForm.title} onChange={e => setPenaltyForm(p => ({ ...p, title: e.target.value }))} />
                 </div>
                 <textarea className={`${inputCls} h-20 resize-none mb-3`} placeholder="Причина или комментарий" value={penaltyForm.reason} onChange={e => setPenaltyForm(p => ({ ...p, reason: e.target.value }))} />
-                <button onClick={handleAddPenalty} className="w-full py-3 rounded-2xl text-white font-semibold" style={{ background: '#EF4444' }}>
+                <button onClick={handleAddPenalty} className="w-full py-3 rounded-2xl text-white font-semibold" style={{ background: '#b37e75' }}>
                   Выдать жалобу
                 </button>
               </div>}
@@ -5210,11 +5210,11 @@ paymentSettled: false,
                             <div className={`text-xs ${sub}`}>Долг по копилке</div>
                             <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
-                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                          <div className="text-sm font-bold" style={{ color: '#b29958' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
                         <div className="flex gap-2">
                           <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayAmounts(p => ({ ...p, [worker.id]: e.target.value }))} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
-                          <button onClick={() => handleRepayPiggyDebt(worker.id, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
+                          <button onClick={() => handleRepayPiggyDebt(worker.id, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#b29958' }}>Погасить</button>
                         </div>
                         {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                       </div>
@@ -5347,7 +5347,7 @@ paymentSettled: false,
                     <div key={owner.ownerId}
                       id={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? archiveHighlightId(archiveHighlight) : undefined}
                       className={`${glass} rounded-2xl p-4 mb-3`}
-                      style={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? { boxShadow: '0 0 0 2px #10B981' } : undefined}>
+                      style={archiveHighlight?.target === 'owner' && archiveHighlight.ownerId === owner.ownerId ? { boxShadow: '0 0 0 2px #77976a' } : undefined}>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
                           {ownerDisplayName.charAt(0)}
@@ -5395,7 +5395,7 @@ paymentSettled: false,
                                 <div className={`text-[11px] ${sub}`}>Заработано с заказов</div>
                               </div>
                               <div className={`${glass} rounded-xl p-3 text-center`}>
-                                <div className="text-sm font-semibold" style={{ color: linked.complaintState.effectivePercent !== linked.worker.defaultPercent ? '#ef4444' : accent }}>{linked.complaintState.effectivePercent}%</div>
+                                <div className="text-sm font-semibold" style={{ color: linked.complaintState.effectivePercent !== linked.worker.defaultPercent ? '#b37e75' : accent }}>{linked.complaintState.effectivePercent}%</div>
                                 <div className={`text-[11px] ${sub}`}>Текущий % · база {linked.worker.defaultPercent}%</div>
                               </div>
                               <div className={`${glass} rounded-xl p-3 text-center`}>
@@ -5437,11 +5437,11 @@ paymentSettled: false,
                                 <div className={`text-xs ${sub}`}>Долг по копилке</div>
                                 <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                               </div>
-                              <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                              <div className="text-sm font-bold" style={{ color: '#b29958' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                             </div>
                             <div className="flex gap-2">
                               <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayAmounts(p => ({ ...p, [repayId]: e.target.value }))} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
-                              <button onClick={() => handleRepayPiggyDebt(repayId, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
+                              <button onClick={() => handleRepayPiggyDebt(repayId, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#b29958' }}>Погасить</button>
                             </div>
                             {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                           </div>
@@ -5469,7 +5469,7 @@ paymentSettled: false,
                           title="Перейти к выплате"
                           className={`${glass} rounded-xl p-3 text-center cursor-pointer transition outline-none hover:border-[var(--primary-600)]/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98]`}
                         >
-                          <div className="text-sm font-semibold" style={{ color: '#ef4444' }}>{owner.totalPaid.toLocaleString('ru')} ₽</div>
+                          <div className="text-sm font-semibold" style={{ color: '#b37e75' }}>{owner.totalPaid.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Выплачено</div>
                         </button>
                         <button
@@ -5483,7 +5483,7 @@ paymentSettled: false,
                           title="Перейти к выплате остатка"
                           className={`${glass} rounded-xl p-3 text-center cursor-pointer transition outline-none hover:border-[var(--primary-600)]/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-[0.98]`}
                         >
-                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#22c55e' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
+                          <div className="text-sm font-semibold" style={{ color: owner.balanceToPay > 0 ? '#77976a' : sub }}>{owner.balanceToPay.toLocaleString('ru')} ₽</div>
                           <div className={`text-[11px] ${sub}`}>Остаток</div>
                         </button>
                       </div>
@@ -5555,7 +5555,7 @@ paymentSettled: false,
                   {salaryDetail && (
                     <div id={archiveHighlight?.target === 'worker' && archiveHighlight.workerId === selectedSalaryWorkerId ? archiveHighlightId(archiveHighlight) : undefined}
                       className="flex items-center gap-3 mb-2 rounded-xl"
-                      style={archiveHighlight?.target === 'worker' && archiveHighlight.workerId === selectedSalaryWorkerId ? { boxShadow: '0 0 0 2px #10B981' } : undefined}>
+                      style={archiveHighlight?.target === 'worker' && archiveHighlight.workerId === selectedSalaryWorkerId ? { boxShadow: '0 0 0 2px #77976a' } : undefined}>
                       <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold" style={{ background: primary }}>
                         {salaryDetail.workerName.charAt(0)}
                       </div>
@@ -5630,13 +5630,13 @@ paymentSettled: false,
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Заработано{((salaryDetail.totalAsvcEarned || 0) > 0) ? ` · осн. ${(salaryDetail.totalMainEarned ?? (salaryDetail.totalEarned - (salaryDetail.totalAsvcEarned || 0))).toLocaleString('ru')} + допы ${(salaryDetail.totalAsvcEarned || 0).toLocaleString('ru')}` : ''}</div>
                     </div>
                     <div role="button" tabIndex={0} onClick={() => setSalaryBreakdown('paid')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSalaryBreakdown('paid'); } }} title="Выплачено — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
-                      <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽
+                      <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: '#b37e75' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽
                         <EditAmountPencil primary={primary} size={10} title="Изменить сумму — открыть форму выплаты ниже" onClick={() => flashSalaryForm('salary-payout')} />
                       </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>Выплачено</div>
                     </div>
                     <div role="button" tabIndex={0} onClick={() => setSalaryBreakdown('balance')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSalaryBreakdown('balance'); } }} title="К выплате — нажмите для деталей" className={`${glass} rounded-xl p-3 text-center cursor-pointer transition active:opacity-70 hover:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}>
-                      <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽
+                      <div className="text-sm font-semibold flex items-center justify-center gap-1" style={{ color: salaryDetail.balanceToPay > 0 ? '#77976a' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽
                         <EditAmountPencil primary={primary} size={10} title="Изменить сумму — открыть форму штрафа ниже" onClick={() => flashSalaryForm('salary-fine')} />
                       </div>
                       <div className={`text-[10px] ${sub} underline decoration-dotted underline-offset-2`}>К выплате</div>
@@ -5655,11 +5655,11 @@ paymentSettled: false,
                             <div className={`text-xs ${sub}`}>Долг по копилке</div>
                             <div className={`text-[11px] ${sub}`}>{debt.count} списаний · долг {debt.totalSpent.toLocaleString('ru')} ₽</div>
                           </div>
-                          <div className="text-sm font-bold" style={{ color: '#F59E0B' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
+                          <div className="text-sm font-bold" style={{ color: '#b29958' }}>-{debt.totalSpent.toLocaleString('ru')} ₽</div>
                         </div>
                         <div className="flex gap-2">
                           <input type="number" inputMode="numeric" min={1} max={Math.round(debt.totalSpent)} value={repayVal} onChange={e => setRepayDetailAmount(e.target.value)} placeholder={String(Math.round(debt.totalSpent))} className={`${inputCls} flex-1 text-sm py-2 px-3 rounded-xl`} />
-                          <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#F59E0B' }}>Погасить</button>
+                          <button onClick={() => handleRepayPiggyDebt(selectedSalaryWorkerId!, repayNum)} disabled={!isValid} className="px-4 rounded-xl text-xs font-medium text-white disabled:opacity-40" style={{ background: '#b29958' }}>Погасить</button>
                         </div>
                         {!isValid && repayVal && <div className="text-[11px] text-red-500 mt-1">Введите сумму от 1 до {Math.round(debt.totalSpent).toLocaleString('ru')} ₽</div>}
                       </div>
@@ -5736,13 +5736,13 @@ paymentSettled: false,
 
                   {/* Bonus form */}
                   <div id="salary-actions" className={`${glass} rounded-2xl p-4 mb-3`}>
-                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#22c55e' }}>Премия мастеру</h3>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#77976a' }}>Премия мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={bonusAmount}
                         onChange={e => setBonusAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={handleAddBonus}
-                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#22c55e' }}>
+                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#77976a' }}>
                         Начислить
                       </button>
                     </div>
@@ -5753,13 +5753,13 @@ paymentSettled: false,
 
                   {/* Fine form */}
                   <div id="salary-fine" className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
-                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Штраф мастеру</h3>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#b37e75' }}>Штраф мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={fineAmount}
                         onChange={e => setFineAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={handleAddFine}
-                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#ef4444' }}>
+                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#b37e75' }}>
                         Выписать штраф
                       </button>
                     </div>
@@ -5770,13 +5770,13 @@ paymentSettled: false,
 
                   {/* Write-off form */}
                   <div id="salary-writeoff" className={`${glass} rounded-2xl p-4 mb-3 scroll-mt-24`}>
-                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>Списание мастеру</h3>
+                    <h3 className="font-semibold text-sm mb-3" style={{ color: '#b37e75' }}>Списание мастеру</h3>
                     <div className="flex gap-2 mb-3">
                       <input type="number" placeholder="Сумма" value={writeOffAmount}
                         onChange={e => setWriteOffAmount(e.target.value)}
                         className={`flex-1 ${inputCls} rounded-xl px-3 py-2 text-sm`} />
                       <button onClick={handleAddWriteOff}
-                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#ef4444' }}>
+                        className="px-4 rounded-xl text-sm font-semibold text-white" style={{ background: '#b37e75' }}>
                         Списать
                       </button>
                     </div>
@@ -5889,8 +5889,8 @@ paymentSettled: false,
                         // Legacy: старые штрафы хранятся как deduction — различаем по примечанию
                         const resolvedKind = e.kind === 'deduction' ? (isWriteOffNote(e.note) ? 'deduction' : 'fine') : e.kind;
                         const kindColor: Record<string, string> = {
-                          bonus: '#22c55e', deduction: '#ef4444', fine: '#ef4444', payout: isDark ? '#E4E4E7' : '#131316',
-                          advance: '#f59e0b', adjustment: '#3b82f6',
+                          bonus: '#77976a', deduction: '#b37e75', fine: '#b37e75', payout: isDark ? '#E4E4E7' : '#131316',
+                          advance: '#b29958', adjustment: '#3b82f6',
                         };
                         const canEdit = e.kind === 'payout' || e.kind === 'deduction' || e.kind === 'fine' || e.kind === 'bonus' || e.kind === 'advance' || e.kind === 'adjustment';
                         return (
@@ -5900,7 +5900,7 @@ paymentSettled: false,
                                 <div className="flex gap-2 mb-1">
                                   <input type="number" value={editAmount} onChange={e2 => setEditAmount(e2.target.value)} className={`${inputCls} flex-1 text-xs py-1 px-2 rounded-lg`} />
                                   <button onClick={handleUpdateEntry} className="p-1 rounded-lg text-white" style={{ background: primary }}><Check size={14} strokeWidth={1.75} /></button>
-                                  <button onClick={() => { void handleDeleteEntry(); }} title="Удалить операцию" className="p-1 rounded-lg border" style={{ borderColor: '#ef444440', color: '#ef4444' }}><Trash2 size={14} strokeWidth={1.75} /></button>
+                                  <button onClick={() => { void handleDeleteEntry(); }} title="Удалить операцию" className="p-1 rounded-lg border" style={{ borderColor: '#b37e7540', color: '#b37e75' }}><Trash2 size={14} strokeWidth={1.75} /></button>
                                   <button onClick={() => setEditingEntryId(null)} className="p-1 rounded-lg border" style={{ borderColor: `${primary}40`, color: muted }}><X size={14} strokeWidth={1.75} /></button>
                                 </div>
                                 <input type="text" value={editNote} onChange={e2 => setEditNote(e2.target.value)} placeholder="Примечание" className={`${inputCls} w-full text-xs py-1 px-2 rounded-lg`} />
@@ -5992,7 +5992,7 @@ paymentSettled: false,
                                   ))}
                                   <div className="flex justify-between pt-2 text-sm font-bold">
                                     <span>Итого выплачено</span>
-                                    <span style={{ color: '#ef4444' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span>
+                                    <span style={{ color: '#b37e75' }}>{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span>
                                   </div>
                                 </>
                               );
@@ -6014,16 +6014,16 @@ paymentSettled: false,
                                   <div className="flex justify-between"><span className={sub}>С услуг</span><span className="font-medium">{salaryDetail.totalEarned.toLocaleString('ru')} ₽</span></div>
                                   <div className="flex justify-between"><span className={sub}>Оклад</span><span className="font-medium">{salaryDetail.salaryBase.toLocaleString('ru')} ₽</span></div>
                                   <div className="flex justify-between"><span className={sub}>За смены</span><span className="font-medium">{shiftPay.toLocaleString('ru')} ₽ <span className={`text-xs ${sub}`}>({salaryDetail.shiftCount} × {salaryDetail.salaryPerShift.toLocaleString('ru')} ₽)</span></span></div>
-                                  {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span className="font-medium" style={{ color: '#22c55e' }}>+{bonuses.toLocaleString('ru')} ₽</span></div>}
-                                  {adjustments > 0 && <div className="flex justify-between"><span className={sub}>Корректировки +</span><span className="font-medium" style={{ color: '#22c55e' }}>+{adjustments.toLocaleString('ru')} ₽</span></div>}
-                                  {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span className="font-medium" style={{ color: '#f59e0b' }}>-{advances.toLocaleString('ru')} ₽</span></div>}
-                                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span className="font-medium" style={{ color: '#ef4444' }}>-{deductions.toLocaleString('ru')} ₽</span></div>}
-                                  {fines > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span className="font-medium" style={{ color: '#ef4444' }}>-{fines.toLocaleString('ru')} ₽</span></div>}
-                                  {adjustments < 0 && <div className="flex justify-between"><span className={sub}>Корректировки −</span><span className="font-medium" style={{ color: '#ef4444' }}>{adjustments.toLocaleString('ru')} ₽</span></div>}
-                                  <div className="flex justify-between"><span className={sub}>Выплачено</span><span className="font-medium" style={{ color: '#ef4444' }}>-{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span></div>
+                                  {bonuses > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span className="font-medium" style={{ color: '#77976a' }}>+{bonuses.toLocaleString('ru')} ₽</span></div>}
+                                  {adjustments > 0 && <div className="flex justify-between"><span className={sub}>Корректировки +</span><span className="font-medium" style={{ color: '#77976a' }}>+{adjustments.toLocaleString('ru')} ₽</span></div>}
+                                  {advances > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span className="font-medium" style={{ color: '#b29958' }}>-{advances.toLocaleString('ru')} ₽</span></div>}
+                                  {deductions > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span className="font-medium" style={{ color: '#b37e75' }}>-{deductions.toLocaleString('ru')} ₽</span></div>}
+                                  {fines > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span className="font-medium" style={{ color: '#b37e75' }}>-{fines.toLocaleString('ru')} ₽</span></div>}
+                                  {adjustments < 0 && <div className="flex justify-between"><span className={sub}>Корректировки −</span><span className="font-medium" style={{ color: '#b37e75' }}>{adjustments.toLocaleString('ru')} ₽</span></div>}
+                                  <div className="flex justify-between"><span className={sub}>Выплачено</span><span className="font-medium" style={{ color: '#b37e75' }}>-{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span></div>
                                   <div className="mt-1.5 flex justify-between border-t pt-1.5 text-base font-bold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
                                     <span>К выплате</span>
-                                    <span style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</span>
+                                    <span style={{ color: salaryDetail.balanceToPay > 0 ? '#77976a' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</span>
                                   </div>
                                 </>
                               );
@@ -6171,7 +6171,7 @@ paymentSettled: false,
                 </div>
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-4`}>
-                <div className="text-xs text-[#71717A] mb-3">Сводные Telegram-отчёты</div>
+                <div className="text-xs text-[#8a9690] mb-3">Сводные Telegram-отчёты</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { period: 'daily', segment: 'wash', label: 'День · мойка' },
@@ -6197,9 +6197,9 @@ paymentSettled: false,
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
                   { label: 'Средний чек', value: `${reportAverageCheck.toLocaleString('ru')} ₽`, color: primary },
-                  { label: 'Топ-услуга', value: reportTopServiceName, color: '#312E81' },
+                  { label: 'Топ-услуга', value: reportTopServiceName, color: '#173e32' },
                   { label: 'Активных клиентов', value: clientInsights.filter((client) => client.activeCount > 0).length, color: accent },
-                  { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#EF4444' },
+                  { label: 'Долги клиентов', value: `${clientInsights.reduce((sum, client) => sum + client.debtBalance, 0).toLocaleString('ru')} ₽`, color: '#b37e75' },
                 ].map((item) => (
                   <div key={item.label} className={`${glass} rounded-2xl p-4`}>
                     <div className={`text-xs ${sub} flex items-center gap-1.5`}>{item.label}
@@ -6221,7 +6221,7 @@ paymentSettled: false,
                   { label: 'Доп. доходы', value: `${reportTotalIncomes.toLocaleString('ru')} ₽`, color: primary },
                   { label: 'Расходы', value: `${reportTotalExpenses.toLocaleString('ru')} ₽`, color: '#FF6B6B' },
                   { label: 'Прибыль', value: `${Math.abs(reportProfit).toLocaleString('ru')} ₽${reportProfit < 0 ? ' (убыток)' : ''}`, color: reportProfit >= 0 ? accent : '#FF6B6B' },
-                  { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#312E81' },
+                  { label: 'Маржа', value: `${reportTotalRevenue > 0 ? Math.round((reportProfit / reportTotalRevenue) * 100) : 0}%`, color: '#173e32' },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between py-2.5 border-b last:border-0" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                     <span className="text-sm flex items-center gap-1.5">{r.label}
@@ -6250,7 +6250,7 @@ paymentSettled: false,
                         <PieChart>
                           <Pie data={reportReferralData} dataKey="count" nameKey="label" innerRadius={36} outerRadius={62} paddingAngle={2} strokeWidth={0}>
                             {reportReferralData.map((entry, idx) => {
-                              const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
+                              const palette = ['#7e9bb3', '#92ab79', '#2b5d49', '#b29958', '#b37e75', '#77976a', '#b29958', '#8a9690'];
                               return <Cell key={entry.label} fill={palette[idx % palette.length]} />;
                             })}
                           </Pie>
@@ -6260,7 +6260,7 @@ paymentSettled: false,
                     </div>
                     <div className="flex-1 space-y-2">
                       {reportReferralData.map((row, idx) => {
-                        const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
+                        const palette = ['#7e9bb3', '#92ab79', '#2b5d49', '#b29958', '#b37e75', '#77976a', '#b29958', '#8a9690'];
                         const pct = reportReferralTotal > 0 ? Math.round((row.count / reportReferralTotal) * 100) : 0;
                         return (
                           <div key={row.label} className="flex items-center justify-between gap-2 text-xs">
@@ -6344,8 +6344,8 @@ paymentSettled: false,
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={reportByService} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#71717A' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: isDark ? '#A1A1AA' : '#8a9690' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8, fill: isDark ? '#A1A1AA' : '#8a9690' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Bar dataKey="revenue" fill={primary} radius={[4, 4, 0, 0]} name="Выручка" />
                   </BarChart>
@@ -6551,21 +6551,21 @@ paymentSettled: false,
                 <div className={`${glass} rounded-2xl p-8 text-center text-sm ${sub}`}>Нет данных за период</div>
               ) : (() => {
                 const s = moneyFlowData.summary;
-                const kindColor: Record<string, string> = { in: '#10B981', out: '#EF4444', allocation: '#8B5CF6', move: '#94A3B8' };
+                const kindColor: Record<string, string> = { in: '#77976a', out: '#b37e75', allocation: '#92ab79', move: '#94A3B8' };
                 const typeMeta: Record<string, { color: string; label: string }> = {
-                  booking_payment: { color: '#10B981', label: 'Выручка' },
-                  booking_deposit_payment: { color: '#0EA5E9', label: 'Оплата с депозита' },
-                  booking_unpaid: { color: '#F59E0B', label: 'Не оплачено' },
-                  income: { color: '#22C55E', label: 'Доход' },
-                  deposit_topup: { color: '#0EA5E9', label: 'Пополнение депозита' },
-                  deposit_adjust: { color: '#0EA5E9', label: 'Корректировка депозита' },
-                  expense: { color: '#EF4444', label: 'Расход' },
-                  payout_worker: { color: '#F59E0B', label: 'Выплата мастеру' },
-                  payout_owner: { color: '#8B5CF6', label: 'Выплата владельцу' },
+                  booking_payment: { color: '#77976a', label: 'Выручка' },
+                  booking_deposit_payment: { color: '#7e9bb3', label: 'Оплата с депозита' },
+                  booking_unpaid: { color: '#b29958', label: 'Не оплачено' },
+                  income: { color: '#77976a', label: 'Доход' },
+                  deposit_topup: { color: '#7e9bb3', label: 'Пополнение депозита' },
+                  deposit_adjust: { color: '#7e9bb3', label: 'Корректировка депозита' },
+                  expense: { color: '#b37e75', label: 'Расход' },
+                  payout_worker: { color: '#b29958', label: 'Выплата мастеру' },
+                  payout_owner: { color: '#92ab79', label: 'Выплата владельцу' },
                   advance: { color: '#F97316', label: 'Аванс' },
-                  salary_bonus: { color: '#22C55E', label: 'Премия' },
-                  salary_deduction: { color: '#EF4444', label: 'Списание' },
-                  salary_fine: { color: '#EF4444', label: 'Штраф' },
+                  salary_bonus: { color: '#77976a', label: 'Премия' },
+                  salary_deduction: { color: '#b37e75', label: 'Списание' },
+                  salary_fine: { color: '#b37e75', label: 'Штраф' },
                   salary_adjustment: { color: '#64748B', label: 'Корректировка зарплаты' },
                   piggy_withdrawal: { color: '#94A3B8', label: 'Снятие из копилки' },
                   piggy_adjust: { color: '#94A3B8', label: 'Корректировка копилки' },
@@ -6602,7 +6602,7 @@ paymentSettled: false,
                         <span className={`text-xs font-medium ${sub} flex items-center gap-1.5`}>КАССА ЗА ПЕРИОД
                           <EditAmountPencil primary={primary} size={11} title="Касса считается автоматически — скорректировать через доход/расход" onClick={() => { setIncomeForm(p => ({ ...p, date: todayLabel })); setShowAddIncome(true); }} />
                         </span>
-                        <span className="text-xs font-semibold" style={{ color: s.cashBalance >= 0 ? '#10B981' : '#EF4444' }}>{fmt(s.cashBalance)}</span>
+                        <span className="text-xs font-semibold" style={{ color: s.cashBalance >= 0 ? '#77976a' : '#b37e75' }}>{fmt(s.cashBalance)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => setMoneyFlowFilter('in')} className="rounded-xl p-3 text-left" style={{ background: `${kindColor.in}14` }}>
@@ -6642,11 +6642,11 @@ paymentSettled: false,
                         <div className={`text-xs font-medium ${sub} mb-1.5`}>РАСПРЕДЕЛЕНО ПО ЗАПИСЯМ</div>
                         <div className="space-y-1.5">
                           {[
-                            { label: 'Мастерам начислено', v: s.allocatedWorkers, c: '#F59E0B' },
-                            { label: 'В копилку', v: s.allocatedPiggy, c: '#F59E0B' },
-                            { label: 'Владельцам', v: s.allocatedOwners, c: '#8B5CF6' },
-                            { label: 'Материалы', v: s.allocatedMaterials, c: '#EF4444' },
-                            { label: 'Аутсорс', v: s.allocatedOutsource, c: '#0EA5E9' },
+                            { label: 'Мастерам начислено', v: s.allocatedWorkers, c: '#b29958' },
+                            { label: 'В копилку', v: s.allocatedPiggy, c: '#b29958' },
+                            { label: 'Владельцам', v: s.allocatedOwners, c: '#92ab79' },
+                            { label: 'Материалы', v: s.allocatedMaterials, c: '#b37e75' },
+                            { label: 'Аутсорс', v: s.allocatedOutsource, c: '#7e9bb3' },
                           ].filter(r => r.v !== 0).map(r => (
                             <div key={r.label} className="flex justify-between text-xs">
                               <span className={sub}>{r.label}</span>
@@ -6664,15 +6664,15 @@ paymentSettled: false,
                         <div className="space-y-2">
                           {workersPeople.map(p => (
                             <div key={p.personId} className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#F59E0B18' }}>
-                                <Users size={14} strokeWidth={1.75} style={{ color: '#F59E0B' }} />
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#b2995818' }}>
+                                <Users size={14} strokeWidth={1.75} style={{ color: '#b29958' }} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{p.personName}</div>
                                 <div className={`text-[11px] ${sub}`}>Начислено {p.accrued.toLocaleString('ru-RU')} · Выплачено {p.paid.toLocaleString('ru-RU')}</div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#10B981' : p.balance < 0 ? '#EF4444' : '#94A3B8' }}>
+                                <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#77976a' : p.balance < 0 ? '#b37e75' : '#94A3B8' }}>
                                   {p.balance > 0 ? '+' : ''}{p.balance.toLocaleString('ru-RU')} ₽
                                 </div>
                                 {p.balance > 0 && <div className={`text-[11px] ${sub}`}>к выплате</div>}
@@ -6681,15 +6681,15 @@ paymentSettled: false,
                           ))}
                           {ownersPeople.map(p => (
                             <div key={p.personId} className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#8B5CF618' }}>
-                                <Crown size={14} strokeWidth={1.75} style={{ color: '#8B5CF6' }} />
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#92ab7918' }}>
+                                <Crown size={14} strokeWidth={1.75} style={{ color: '#92ab79' }} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{p.personName}</div>
                                 <div className={`text-[11px] ${sub}`}>Доля прибыли {p.accrued.toLocaleString('ru-RU')} · Выплачено {p.paid.toLocaleString('ru-RU')}</div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#8B5CF6' : '#94A3B8' }}>
+                                <div className={`text-sm font-semibold tabular-nums`} style={{ color: p.balance > 0 ? '#92ab79' : '#94A3B8' }}>
                                   {p.balance.toLocaleString('ru-RU')} ₽
                                 </div>
                                 {p.balance > 0 && <div className={`text-[11px] ${sub}`}>к выплате</div>}
@@ -6753,11 +6753,11 @@ paymentSettled: false,
                                 <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: 'rgba(148,163,184,0.12)' }}>
                                   <div className="space-y-1.5 mt-2">
                                     {[
-                                      { label: 'Материалы', v: d.materialsCost, c: '#EF4444', key: 'materials' },
-                                      ...d.workers.map((w, i) => ({ label: `Мастер: ${w.workerName}`, v: w.earned, c: '#F59E0B', key: `w${i}` })),
-                                      { label: 'Аутсорс', v: d.outsourceTotal, c: '#0EA5E9', key: 'outsource' },
-                                      { label: 'Копилка', v: d.piggyDeposit, c: '#F59E0B', key: 'piggy' },
-                                      ...d.owners.map((o, i) => ({ label: `Владелец: ${o.ownerName}${o.status === 'paid' ? ' ✓ выплачено' : ''}`, v: o.amount, c: '#8B5CF6', key: `o${i}` })),
+                                      { label: 'Материалы', v: d.materialsCost, c: '#b37e75', key: 'materials' },
+                                      ...d.workers.map((w, i) => ({ label: `Мастер: ${w.workerName}`, v: w.earned, c: '#b29958', key: `w${i}` })),
+                                      { label: 'Аутсорс', v: d.outsourceTotal, c: '#7e9bb3', key: 'outsource' },
+                                      { label: 'Копилка', v: d.piggyDeposit, c: '#b29958', key: 'piggy' },
+                                      ...d.owners.map((o, i) => ({ label: `Владелец: ${o.ownerName}${o.status === 'paid' ? ' ✓ выплачено' : ''}`, v: o.amount, c: '#92ab79', key: `o${i}` })),
                                     ].filter(r => r.v !== 0).map(r => (
                                       <div key={r.key} className="flex justify-between text-xs">
                                         <span className={sub}>{r.label}</span>
@@ -6795,24 +6795,24 @@ paymentSettled: false,
               <h2 className="font-semibold mb-4">Настройки</h2>
               {[
                 { id: 'company', icon: Building2, label: 'Профиль компании', desc: company.name?.trim() || 'Название не задано', color: primary },
-                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' · ') || 'График не задан', color: '#F59E0B' },
-                { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#F59E0B' },
-                { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#312E81' },
+                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleState.filter(d => d.active).map(d => `${d.day} ${d.open}-${d.close}`).join(' · ') || 'График не задан', color: '#b29958' },
+                { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${boxes.filter(b => b.active).length} активных бокса`, color: '#b29958' },
+                { id: 'services', icon: Sliders, label: 'Услуги и цены', desc: `${services.filter(s => s.active).length} активных услуг`, color: '#173e32' },
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${employeeSettings.filter(e => e.active).length} мастера`, color: accent },
                 { id: 'shift', icon: Clock, label: 'Открытие смены', desc: 'Открыть смену для мастеров', color: accent },
-                { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#0EA5E9' },
-                { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#22C55E' },
-                { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#F59E0B' },
-                { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#0EA5E9' },
-                { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#8B5CF6' },
-                { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#6366F1' },
-                { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#10B981' },
-                { id: 'cleanup', icon: Trash2, label: 'Очистка данных', desc: 'Выборочное удаление за период и корзина', color: '#EF4444' },
-                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: [notifSettings.telegramBot && 'Telegram', notifSettings.emailReports && 'Email', notifSettings.smsReminders && 'SMS'].filter(Boolean).join(', ') || 'Все каналы выключены', color: '#EC4899' },
-                { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#06B6D4' },
-                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#0EA5E9' },
-                { id: 'reports', icon: FileText, label: 'Отчёты', desc: 'Сводные отчёты по мойке и детейлингу', color: '#F59E0B' },
-                { id: 'security', icon: Shield, label: 'Безопасность', desc: twoFactor ? '2FA включена' : '2FA выключена', color: '#EF4444' },
+                { id: 'clients', icon: Phone, label: 'Клиенты', desc: `${clients.length} карточек клиентов`, color: '#7e9bb3' },
+                { id: 'finance', icon: BarChart3, label: 'Финансы', desc: 'Отчёт по мойке и детейлингу', color: '#77976a' },
+                { id: 'deposit', icon: Wallet, label: 'Депозит', desc: 'Абонентские клиенты, мойки в долг', color: '#b29958' },
+                { id: 'wallet', icon: Wallet, label: 'Кошелёк', desc: 'Доходы и расходы за неделю', color: '#7e9bb3' },
+                { id: 'money-flow', icon: ArrowLeftRight, label: 'Движение денег', desc: 'Все приходы, распределения и выплаты', color: '#92ab79' },
+                { id: 'bookings-history', icon: History, label: 'История записей', desc: 'Распределение денег по записям', color: '#7e9bb3' },
+                { id: 'archive', icon: Archive, label: 'Архив', desc: 'Главная библиотека: все записи и расчёты', color: '#77976a' },
+                { id: 'cleanup', icon: Trash2, label: 'Очистка данных', desc: 'Выборочное удаление за период и корзина', color: '#b37e75' },
+                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: [notifSettings.telegramBot && 'Telegram', notifSettings.emailReports && 'Email', notifSettings.smsReminders && 'SMS'].filter(Boolean).join(', ') || 'Все каналы выключены', color: '#b29958' },
+                { id: 'integrations', icon: Globe, label: 'Интеграции', desc: `${Object.values(integrations).filter(Boolean).length} подключено`, color: '#7e9bb3' },
+                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'Главный экран, о студии, портфолио', color: '#7e9bb3' },
+                { id: 'reports', icon: FileText, label: 'Отчёты', desc: 'Сводные отчёты по мойке и детейлингу', color: '#b29958' },
+                { id: 'security', icon: Shield, label: 'Безопасность', desc: twoFactor ? '2FA включена' : '2FA выключена', color: '#b37e75' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => {
@@ -7026,7 +7026,7 @@ paymentSettled: false,
                   <button key={option.id || 'all'}
                     onClick={() => setHistoryStatusFilter(option.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${historyStatusFilter === option.id ? 'text-white' : `${glass} ${sub}`}`}
-                    style={historyStatusFilter === option.id ? { background: '#6366F1' } : undefined}>
+                    style={historyStatusFilter === option.id ? { background: '#7e9bb3' } : undefined}>
                     {option.label}
                   </button>
                 ))}
@@ -7044,7 +7044,7 @@ paymentSettled: false,
                   />
                 </div>
                 <button onClick={() => setHistoryQuery(historySearchInput.trim())}
-                  className="px-4 rounded-xl text-sm font-semibold text-white shrink-0" style={{ background: '#6366F1' }}>
+                  className="px-4 rounded-xl text-sm font-semibold text-white shrink-0" style={{ background: '#7e9bb3' }}>
                   Найти
                 </button>
               </div>
@@ -7141,7 +7141,7 @@ paymentSettled: false,
                           onClick={() => openHistoryBooking(item.id)}
                           className={`${glass} rounded-2xl p-3.5 w-full text-left mb-2`}>
                           <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-bold" style={{ background: '#6366F1' }}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-bold" style={{ background: '#7e9bb3' }}>
                               {item.time}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -7255,7 +7255,7 @@ paymentSettled: false,
                           <button key={`ledger-w-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)}
                             className="flex justify-between text-xs w-full text-left hover:opacity-80">
                             <span className={`${sub} truncate`} title={`Мастер: ${w.workerName}`}>· {w.workerName} ({how})</span>
-                            <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                            <span className="font-medium shrink-0" style={{ color: '#7e9bb3' }}>{w.earned.toLocaleString('ru')} ₽</span>
                           </button>
                         );
                       })}
@@ -7266,7 +7266,7 @@ paymentSettled: false,
                           <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName}  -  ${w.additionalServiceName}`}>
                             · {w.workerName}  -  «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
                           </span>
-                          <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                          <span className="font-medium shrink-0" style={{ color: '#7e9bb3' }}>{w.earned.toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
 
@@ -7287,7 +7287,7 @@ paymentSettled: false,
                             <button className="flex justify-between text-xs w-full text-left hover:opacity-80"
                               onClick={() => gotoPiggyBank()}>
                               <span className={`${sub} truncate`}>· в {piggyBankLabel(splitDetail.piggyTarget)}{piggyHow}</span>
-                              <span className="font-medium shrink-0" style={{ color: '#F59E0B' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
+                              <span className="font-medium shrink-0" style={{ color: '#b29958' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
                             </button>
                             {splitDetail.asvcPiggyDeposits.map(d => (
                               <div key={`ledger-ap-${d.name}-${d.amount}`} className="flex justify-between text-xs">
@@ -7307,7 +7307,7 @@ paymentSettled: false,
                           <span className={`${sub} truncate`}>
                             · {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}
                           </span>
-                          <span className="font-medium shrink-0" style={{ color: '#312E81' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
+                          <span className="font-medium shrink-0" style={{ color: '#173e32' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
 
@@ -7487,7 +7487,7 @@ paymentSettled: false,
                         <button onClick={() => void handleResetMoneySplit()}
                           disabled={splitSaving}
                           className="w-full py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60 mb-4"
-                          style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          style={{ color: '#b37e75', border: '1px solid rgba(239,68,68,0.3)' }}>
                           <RefreshCw size={15} strokeWidth={1.75} />Сбросить к автоматическому расчёту
                         </button>
                       )}
@@ -7517,7 +7517,7 @@ paymentSettled: false,
                   <button key={option.id}
                     onClick={() => setArchivePeriod(option.id as typeof archivePeriod)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${archivePeriod === option.id ? 'text-white' : `${glass} ${sub}`}`}
-                    style={archivePeriod === option.id ? { background: '#10B981' } : undefined}>
+                    style={archivePeriod === option.id ? { background: '#77976a' } : undefined}>
                     {option.label}
                   </button>
                 ))}
@@ -7561,7 +7561,7 @@ paymentSettled: false,
                             <button key={y}
                               onClick={() => { setArchiveCalendarYear(y); setArchiveCalendarStep('month'); }}
                               className={`py-2 rounded-xl text-sm font-semibold transition-colors ${archiveCalendarYear === y ? 'text-white' : `${glass}`}`}
-                              style={archiveCalendarYear === y ? { background: '#10B981' } : undefined}>
+                              style={archiveCalendarYear === y ? { background: '#77976a' } : undefined}>
                               {y}
                             </button>
                           ));
@@ -7581,7 +7581,7 @@ paymentSettled: false,
                             <button key={m}
                               onClick={() => { setArchiveCalendarMonth(idx); setArchiveCalendarStep('week'); }}
                               className={`py-2 rounded-xl text-sm font-medium transition-colors ${archiveCalendarMonth === idx ? 'text-white' : `${glass}`}`}
-                              style={archiveCalendarMonth === idx ? { background: '#10B981' } : undefined}>
+                              style={archiveCalendarMonth === idx ? { background: '#77976a' } : undefined}>
                               {m.slice(0, 3)}
                             </button>
                           ))}
@@ -7617,19 +7617,19 @@ paymentSettled: false,
               ) : !archiveData ? (
                 <div className="text-center py-12">
                   <div className={`text-sm ${sub} mb-3`}>Не удалось загрузить архив</div>
-                  <button onClick={() => void fetchArchive()} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: '#10B98120', color: '#10B981' }}>Повторить</button>
+                  <button onClick={() => void fetchArchive()} className={`px-4 py-2 rounded-xl text-sm font-medium`} style={{ background: '#77976a20', color: '#77976a' }}>Повторить</button>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {[
-                      { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#10B981', onClick: gotoHistory, hint: 'История записей' },
+                      { label: 'Выручка (нетто)', value: archiveData.summary.net, color: '#77976a', onClick: gotoHistory, hint: 'История записей' },
                       { label: 'Прибыль', value: archiveData.summary.profit, color: accent, onClick: gotoWallet, hint: 'Кошелёк' },
-                      { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#6366F1', onClick: gotoPayroll, hint: 'Зарплаты' },
-                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#312E81', onClick: gotoPayroll, hint: 'Зарплаты' },
-                      { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#22C55E', onClick: gotoWallet, hint: 'Кошелёк' },
-                      { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#EF4444', onClick: gotoWallet, hint: 'Кошелёк' },
-                      { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#F59E0B', onClick: () => gotoPiggyBank(), hint: 'Копилка' },
+                      { label: 'Мастера', value: archiveData.summary.masterTotal, color: '#7e9bb3', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Владельцы', value: archiveData.summary.ownersAccrued, color: '#173e32', onClick: gotoPayroll, hint: 'Зарплаты' },
+                      { label: 'Доходы', value: archiveData.summary.totalIncome, color: '#77976a', onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Расходы', value: archiveData.summary.totalExpense, color: '#b37e75', onClick: gotoWallet, hint: 'Кошелёк' },
+                      { label: 'Копилка', value: archiveData.summary.piggyDeposit, color: '#b29958', onClick: () => gotoPiggyBank(), hint: 'Копилка' },
                     ].map(card => (
                       <button key={card.label} onClick={card.onClick}
                         className={`${glass} rounded-2xl p-3 text-left transition active:scale-[0.98]`}>
@@ -7654,7 +7654,7 @@ paymentSettled: false,
                       <button key={option.id}
                         onClick={() => setArchiveTab(option.id as ArchiveTab)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${archiveTab === option.id ? 'text-white' : `${glass} ${sub}`}`}
-                        style={archiveTab === option.id ? { background: '#10B981' } : undefined}>
+                        style={archiveTab === option.id ? { background: '#77976a' } : undefined}>
                         {option.label}{option.count > 0 ? ` (${option.count})` : ''}
                       </button>
                     ))}
@@ -7687,15 +7687,15 @@ paymentSettled: false,
                                   {b.workers.map((w, i) => (
                                     <button key={`${b.id}-${w.workerId}`}
                                       onClick={(e) => { e.stopPropagation(); gotoWorkerSalary(w.workerId); }}
-                                      className="font-semibold hover:opacity-70" style={{ color: '#6366F1' }}>
+                                      className="font-semibold hover:opacity-70" style={{ color: '#7e9bb3' }}>
                                       {i > 0 ? ' · ' : ''}{w.workerName} +{w.earned.toLocaleString('ru')} ₽
                                     </button>
                                   ))}
                                 </span>
                               )}
-                              <span className={sub}>Копилка: <b className="font-semibold" style={{ color: '#F59E0B' }}>+{b.piggyDeposit.toLocaleString('ru')} ₽</b></span>
-                              <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#312E81' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
-                              <span className={sub}>Нетто: <b className="font-semibold" style={{ color: '#10B981' }}>{b.net.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Копилка: <b className="font-semibold" style={{ color: '#b29958' }}>+{b.piggyDeposit.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Владельцы: <b className="font-semibold" style={{ color: '#173e32' }}>+{b.ownersTotal.toLocaleString('ru')} ₽</b></span>
+                              <span className={sub}>Нетто: <b className="font-semibold" style={{ color: '#77976a' }}>{b.net.toLocaleString('ru')} ₽</b></span>
                             </div>
                             {b.additionalServices.map(a => (
                               <div key={`${b.id}-${a.name}`} className="flex justify-between text-[11px] mt-1">
@@ -7706,7 +7706,7 @@ paymentSettled: false,
                             {b.materialsCost > 0 && (
                               <div className="flex justify-between text-[11px] mt-1">
                                 <span className={sub}>Материалы</span>
-                                <span className="font-medium" style={{ color: '#EF4444' }}>-{b.materialsCost.toLocaleString('ru')} ₽</span>
+                                <span className="font-medium" style={{ color: '#b37e75' }}>-{b.materialsCost.toLocaleString('ru')} ₽</span>
                               </div>
                             )}
                           </div>
@@ -7725,13 +7725,13 @@ paymentSettled: false,
                             id={archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? archiveHighlightId(archiveHighlight) : undefined}
                             onClick={() => gotoWalletItem('income', i.id)}
                             className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}
-                            style={archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? { boxShadow: '0 0 0 2px #10B981' } : undefined}>
+                            style={archiveHighlight?.target === 'income' && archiveHighlight.incomeId === i.id ? { boxShadow: '0 0 0 2px #77976a' } : undefined}>
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{i.source}</div>
                                 <div className={`text-xs ${sub} mt-0.5`}>{i.date}{i.note ? ` · ${i.note}` : ''}</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#22C55E' }}>+{i.amount.toLocaleString('ru')} ₽</div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#77976a' }}>+{i.amount.toLocaleString('ru')} ₽</div>
                             </div>
                           </button>
                         ))}
@@ -7749,13 +7749,13 @@ paymentSettled: false,
                             id={archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? archiveHighlightId(archiveHighlight) : undefined}
                             onClick={() => gotoWalletItem('expense', e.id)}
                             className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}
-                            style={archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? { boxShadow: '0 0 0 2px #EF4444' } : undefined}>
+                            style={archiveHighlight?.target === 'expense' && archiveHighlight.expenseId === e.id ? { boxShadow: '0 0 0 2px #b37e75' } : undefined}>
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{e.title}</div>
                                 <div className={`text-xs ${sub} mt-0.5`}>{e.category} · {e.date}{e.resourceGroup ? ` · ${e.resourceGroup === 'wash' ? '🚗 Мойка' : '✨ Детейлинг'}` : ''}</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#EF4444' }}>-{e.amount.toLocaleString('ru')} ₽</div>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#b37e75' }}>-{e.amount.toLocaleString('ru')} ₽</div>
                             </div>
                           </button>
                         ))}
@@ -7792,7 +7792,7 @@ paymentSettled: false,
                               id={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? archiveHighlightId(archiveHighlight) : undefined}
                               onClick={() => gotoPiggyBank(tx.id)}
                               className={`${glass} rounded-2xl p-3 w-full text-left transition active:scale-[0.98]`}
-                              style={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? { boxShadow: '0 0 0 2px #F59E0B' } : undefined}>
+                              style={archiveHighlight?.target === 'piggy' && archiveHighlight.txId === tx.id ? { boxShadow: '0 0 0 2px #b29958' } : undefined}>
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -7806,7 +7806,7 @@ paymentSettled: false,
                                     {tx.date}{tx.bookingInfo ? ` · ${tx.bookingInfo}` : ''}{tx.purpose ? ` · ${tx.purpose}` : ''}
                                   </div>
                                 </div>
-                                <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#22C55E' : '#EF4444' }}>
+                                <div className="font-bold text-sm shrink-0" style={{ color: isDeposit ? '#77976a' : '#b37e75' }}>
                                   {isDeposit ? '+' : '-'}{Math.abs(tx.amount).toLocaleString('ru')} ₽
                                   {weeklyToShow != null && (
                                     <div className={`font-normal text-[10px] mt-0.5 tabular-nums ${sub}`} title={weekStartToShow ? `Неделя с ${weekStartToShow} · начало ${(weekStartBalToShow ?? 0).toLocaleString('ru')} · расходы ${(weeklyWdToShow ?? 0).toLocaleString('ru')}` : 'Остаток без дохода недели'}>
@@ -7846,7 +7846,7 @@ paymentSettled: false,
                                   )}
                                 </div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: w.balance >= 0 ? '#6366F1' : '#EF4444' }}>
+                              <div className="font-bold text-sm shrink-0" style={{ color: w.balance >= 0 ? '#7e9bb3' : '#b37e75' }}>
                                 {w.balance.toLocaleString('ru')} ₽
                               </div>
                             </div>
@@ -7869,7 +7869,7 @@ paymentSettled: false,
                                 <div className="text-sm font-medium truncate">{o.ownerName}</div>
                                 <div className={`text-[11px] ${sub} mt-0.5`}>{o.bookingCount} записей · начислено: +{o.totalAccrued.toLocaleString('ru')} ₽ · выплачено: -{o.totalPaid.toLocaleString('ru')} ₽</div>
                               </div>
-                              <div className="font-bold text-sm shrink-0" style={{ color: '#312E81' }}>
+                              <div className="font-bold text-sm shrink-0" style={{ color: '#173e32' }}>
                                 {(o.totalAccrued - o.totalPaid).toLocaleString('ru')} ₽
                               </div>
                             </div>
@@ -8402,7 +8402,7 @@ paymentSettled: false,
                     <div className={`text-xs ${sub}`}>Двусторонняя синхронизация расписания</div>
                   </div>
                   {integrations.googleCalendar ? (
-                    <span className="text-[11px] px-2 py-1 rounded-full shrink-0" style={{ background: '#22C55E18', color: '#22C55E' }}>Подключено</span>
+                    <span className="text-[11px] px-2 py-1 rounded-full shrink-0" style={{ background: '#77976a18', color: '#77976a' }}>Подключено</span>
                   ) : (
                     <button
                       onClick={() => { void handleGoogleConnect(); }}
@@ -8453,7 +8453,7 @@ paymentSettled: false,
                     </div>
                     <label
                       className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
-                      style={{ color: googleJsonFile ? '#22C55E' : '#4285F4', background: googleJsonFile ? '#22C55E18' : '#4285F418' }}>
+                      style={{ color: googleJsonFile ? '#77976a' : '#4285F4', background: googleJsonFile ? '#77976a18' : '#4285F418' }}>
                       {googleJsonFile ? `✓ ${googleJsonFile}` : 'Загрузить файл настроек (.json)'}
                       <span className="hidden">
                         <input
@@ -8546,7 +8546,7 @@ paymentSettled: false,
                               onClick={() => { void handleGoogleRemoveConnection(conn.id); }}
                               title="Отключить этот календарь"
                               className="text-[11px] px-2 py-1 rounded-lg shrink-0 font-medium"
-                              style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` }}>
+                              style={{ color: '#b37e75', background: `${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` }}>
                               Убрать
                             </button>
                           </div>
@@ -8644,7 +8644,7 @@ paymentSettled: false,
                     <button
                       onClick={() => { void handleGoogleDisconnect(); }}
                       className="w-full py-2 rounded-xl text-xs font-medium"
-                      style={{ color: '#EF4444', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
+                      style={{ color: '#b37e75', background: `${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}` }}>
                       Отключить Google Календарь
                     </button>
                     <button
@@ -8732,7 +8732,7 @@ paymentSettled: false,
               </div>
               <div className={`${glass} rounded-2xl p-4 mb-3 border ${isDark ? 'border-red-400/20' : 'border-red-200'}`}>
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: isDark ? 'rgba(239,68,68,0.16)' : '#FEE2E2', color: '#EF4444' }}>
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: isDark ? 'rgba(239,68,68,0.16)' : '#FEE2E2', color: '#b37e75' }}>
                     <AlertCircle size={18} strokeWidth={1.75} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -8791,7 +8791,7 @@ paymentSettled: false,
                       onClick={() => void handleStartOwnerReset()}
                       disabled={resetLoadingStep === 'start'}
                       className="flex-1 py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
-                      style={{ background: '#EF4444' }}
+                      style={{ background: '#b37e75' }}
                     >
                       {resetLoadingStep === 'start' ? 'Запрашиваем код...' : resetStage === 'idle' ? 'Запросить код создателя' : 'Запросить новый код'}
                     </button>
@@ -8895,7 +8895,7 @@ paymentSettled: false,
                 onClick={handleSaveSettings}
                 disabled={Boolean(password.current || password.new_ || password.confirm) && (!password.current || !password.new_ || !password.confirm || password.new_.length < 8 || password.new_ !== password.confirm)}
                 className="w-full py-3 rounded-2xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: '#EF4444' }}
+                style={{ background: '#b37e75' }}
               >
                 <Shield size={16} strokeWidth={1.75} />{securitySaved ? 'Сохранено!' : password.current || password.new_ || password.confirm ? 'Изменить пароль' : 'Сохранить безопасность'}
               </button>
@@ -9183,8 +9183,8 @@ paymentSettled: false,
         </div>
       )}
 
-      {/* Bottom Nav */}
-      <div className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`} style={{ scrollbarWidth: 'none' }}>
+      {/* Bottom Nav — нижняя навигация макета */}
+      <div className="bottom-nav">
         {(isAccountant
           ? [
               { id: 'dashboard', icon: LayoutDashboard, label: 'Главная' },
@@ -9206,25 +9206,17 @@ paymentSettled: false,
           if (t.id === 'clients') {
             const isActive = page === 'settings' && settingsSection === 'clients';
             return (
-              <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setPage('settings'); setSettingsSection('clients'); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label="Клиенты">
-                {isActive && (
-                  <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
-                )}
-                <t.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
-                {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{t.label}</span>}
-                {!isActive && <span className="sr-only">{t.label}</span>}
+              <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setPage('settings'); setSettingsSection('clients'); }} className={isActive ? 'active' : undefined} aria-label="Клиенты">
+                <t.icon size={18} strokeWidth={1.8} />
+                <span>{t.label}</span>
               </button>
             );
           }
           const isActive = t.id === 'settings' ? (page === 'settings' && settingsSection === null) : (page === t.id);
           return (
-          <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setPage(t.id as OwnerPage); setSettingsSection(null); }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label={t.label}>
-            {isActive && (
-              <motion.span layoutId="owner-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
-            )}
-            <t.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
-            {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{t.label}</span>}
-            {!isActive && <span className="sr-only">{t.label}</span>}
+          <button key={t.id} onClick={() => { (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); setPage(t.id as OwnerPage); setSettingsSection(null); }} className={isActive ? 'active' : undefined} aria-label={t.label}>
+            <t.icon size={18} strokeWidth={1.8} />
+            <span>{t.label}</span>
           </button>
           );
         })}
@@ -10589,7 +10581,7 @@ paymentSettled: false,
                         return (
                           <button key={`bm-w-${w.linkId}`} onClick={() => gotoWorkerSalary(w.workerId)} className="flex justify-between w-full text-left hover:opacity-80">
                             <span className={`${sub} truncate`}>· {w.workerName} ({how})</span>
-                            <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                            <span className="font-medium shrink-0" style={{ color: '#7e9bb3' }}>{w.earned.toLocaleString('ru')} ₽</span>
                           </button>
                         );
                       })}
@@ -10598,7 +10590,7 @@ paymentSettled: false,
                           <span className={`${sub} truncate`} title={`Мастер доп. услуги: ${w.workerName} — ${w.additionalServiceName}`}>
                             · {w.workerName} — «{w.additionalServiceName}»{w.payType === 'fixed' ? ` (фикс ${(w.fixedAmount ?? 0).toLocaleString('ru')} ₽)` : ` (${w.percent}%)`}
                           </span>
-                          <span className="font-medium shrink-0" style={{ color: '#6366F1' }}>{w.earned.toLocaleString('ru')} ₽</span>
+                          <span className="font-medium shrink-0" style={{ color: '#7e9bb3' }}>{w.earned.toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
                       {(() => {
@@ -10617,7 +10609,7 @@ paymentSettled: false,
                           <>
                             <button className="flex justify-between w-full text-left hover:opacity-80" onClick={() => gotoPiggyBank()}>
                               <span className={`${sub} truncate`}>· в {piggyBankLabel(piggyBookingSplit.piggyTarget)}{piggyHow}</span>
-                              <span className="font-medium shrink-0" style={{ color: '#F59E0B' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
+                              <span className="font-medium shrink-0" style={{ color: '#b29958' }}>{mainPiggyDeposit.toLocaleString('ru')} ₽</span>
                             </button>
                             {piggyBookingSplit.asvcPiggyDeposits.map(d => (
                               <button key={`bm-ap-${d.name}-${d.amount}`} className="flex justify-between w-full text-left hover:opacity-80" onClick={() => gotoPiggyBank()}>
@@ -10633,7 +10625,7 @@ paymentSettled: false,
                       {piggyBookingSplit.ownerShares.map(o => (
                         <button key={`bm-o-${o.ownerId}`} onClick={() => gotoOwnerSalary(o.ownerId)} className="flex justify-between w-full text-left hover:opacity-80">
                           <span className={`${sub} truncate`}>· {o.ownerName}{o.status === 'paid' ? ' (выплачено)' : ' (к выплате)'}</span>
-                          <span className="font-medium shrink-0" style={{ color: '#312E81' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
+                          <span className="font-medium shrink-0" style={{ color: '#173e32' }}>{Math.round(o.amount).toLocaleString('ru')} ₽</span>
                         </button>
                       ))}
                       {piggyBookingSplit.piggyTransactions.length > 0 && (
@@ -10642,7 +10634,7 @@ paymentSettled: false,
                           {piggyBookingSplit.piggyTransactions.map(tx => (
                             <button key={`bm-tx-${tx.id}`} onClick={() => gotoPiggyBank(tx.id)} className="flex justify-between w-full text-left hover:opacity-80 py-0.5">
                               <span className={`${sub} truncate`}>· {piggyDepositLabel(tx.purpose)} · {piggyBankLabel(tx.resourceGroup)}{tx.date ? ` · ${tx.date}` : ''}</span>
-                              <span className="font-medium shrink-0" style={{ color: tx.amount >= 0 ? '#22C55E' : '#EF4444' }}>{tx.amount >= 0 ? '+' : '−'}{Math.abs(tx.amount).toLocaleString('ru')} ₽</span>
+                              <span className="font-medium shrink-0" style={{ color: tx.amount >= 0 ? '#77976a' : '#b37e75' }}>{tx.amount >= 0 ? '+' : '−'}{Math.abs(tx.amount).toLocaleString('ru')} ₽</span>
                             </button>
                           ))}
                         </div>
@@ -11328,7 +11320,7 @@ paymentSettled: false,
                 <div className="space-y-2">
                   {[
                     { label: 'Выручка за неделю', value: kpiModal.revenue, color: accent },
-                    { label: 'Доходы за неделю', value: kpiModal.incomes, color: '#06B6D4' },
+                    { label: 'Доходы за неделю', value: kpiModal.incomes, color: '#7e9bb3' },
                     { label: 'Расходы за неделю', value: -kpiModal.expenses, color: '#FF6B6B' },
                     { label: 'Прибыль за неделю', value: kpiModal.profit, color: kpiModal.color },
                   ].map(row => (
@@ -11459,7 +11451,7 @@ paymentSettled: false,
                   <button
                     onClick={() => setOwnerAddServiceDraft(p => ({ ...p, priceMode: 'subtract' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
-                    style={ownerAddServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
+                    style={ownerAddServiceDraft.priceMode === 'subtract' ? { background: '#b37e75', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#b37e75' }}
                   >
                     - Минус
                   </button>
@@ -11650,7 +11642,7 @@ paymentSettled: false,
                   <button
                     onClick={() => setOwnerEditAsvcDraft(p => ({ ...p, priceMode: 'subtract' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
-                    style={ownerEditAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
+                    style={ownerEditAsvcDraft.priceMode === 'subtract' ? { background: '#b37e75', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#b37e75' }}
                   >
                     - Минус
                   </button>
@@ -13424,12 +13416,12 @@ paymentSettled: false,
                         <div className="flex justify-between"><span className={sub}>С услуг</span><span className="font-medium">+{salaryDetail.totalEarned.toLocaleString('ru')} ₽</span></div>
                         <div className="flex justify-between"><span className={sub}>Оклад</span><span className="font-medium">+{(salaryDetail.salaryBase || 0).toLocaleString('ru')} ₽</span></div>
                         <div className="flex justify-between"><span className={sub}>За смены ({salaryDetail.shiftCount})</span><span className="font-medium">+{shiftPay.toLocaleString('ru')} ₽</span></div>
-                        {bonus > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: '#22c55e' }}>+{bonus.toLocaleString('ru')} ₽</span></div>}
-                        {advance > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: '#ef4444' }}>-{advance.toLocaleString('ru')} ₽</span></div>}
-                        {deduction > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span style={{ color: '#ef4444' }}>-{deduction.toLocaleString('ru')} ₽</span></div>}
-                        {fine > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: '#ef4444' }}>-{fine.toLocaleString('ru')} ₽</span></div>}
-                        <div className="flex justify-between"><span className={sub}>Выплачено</span><span style={{ color: '#ef4444' }}>-{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span></div>
-                        <div className="flex justify-between border-t pt-1.5 text-base font-bold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}><span>К выплате</span><span style={{ color: salaryDetail.balanceToPay > 0 ? '#22c55e' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</span></div>
+                        {bonus > 0 && <div className="flex justify-between"><span className={sub}>Бонусы</span><span style={{ color: '#77976a' }}>+{bonus.toLocaleString('ru')} ₽</span></div>}
+                        {advance > 0 && <div className="flex justify-between"><span className={sub}>Авансы</span><span style={{ color: '#b37e75' }}>-{advance.toLocaleString('ru')} ₽</span></div>}
+                        {deduction > 0 && <div className="flex justify-between"><span className={sub}>Списания</span><span style={{ color: '#b37e75' }}>-{deduction.toLocaleString('ru')} ₽</span></div>}
+                        {fine > 0 && <div className="flex justify-between"><span className={sub}>Штрафы</span><span style={{ color: '#b37e75' }}>-{fine.toLocaleString('ru')} ₽</span></div>}
+                        <div className="flex justify-between"><span className={sub}>Выплачено</span><span style={{ color: '#b37e75' }}>-{salaryDetail.totalPaid.toLocaleString('ru')} ₽</span></div>
+                        <div className="flex justify-between border-t pt-1.5 text-base font-bold" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}><span>К выплате</span><span style={{ color: salaryDetail.balanceToPay > 0 ? '#77976a' : muted }}>{salaryDetail.balanceToPay.toLocaleString('ru')} ₽</span></div>
                       </div>
                     );
                   })()

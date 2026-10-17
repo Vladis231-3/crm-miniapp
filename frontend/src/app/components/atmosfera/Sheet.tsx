@@ -102,8 +102,8 @@ export function Sheet({ open, onClose, title, children, footer, side = 'bottom',
             className={cn(
               'absolute flex flex-col bg-[var(--card-raised,var(--card))] text-foreground shadow-xl',
               dockRight
-                ? 'inset-y-0 right-0 w-full max-w-md rounded-l-3xl'
-                : 'inset-x-0 bottom-0 max-h-[88vh] rounded-t-[20px]',
+                ? 'inset-y-0 right-0 w-full max-w-md rounded-l-[14px]'
+                : 'inset-x-0 bottom-0 max-h-[88vh] rounded-t-[14px]',
             )}
             initial={dockRight ? { x: '100%' } : { y: '100%' }}
             animate={dockRight ? { x: 0 } : { y: 0 }}
