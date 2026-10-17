@@ -198,7 +198,7 @@ export function AdminStatsPage() {
     return Array.from(map.values()).sort((a, b) => b.value - a.value);
   }, [filtered]);
 
-  const glass = 'panel';
+  const glass = 'border border-border bg-[var(--card)]';
   const sub = 'text-[var(--fg-secondary,#5A6072)]';
   const tooltipStyle = {
     background: 'var(--card-raised,var(--card))',
@@ -334,7 +334,7 @@ export function AdminStatsPage() {
               <PieChart>
                 <Pie data={referralStats} dataKey="value" innerRadius={40} outerRadius={65} paddingAngle={2} strokeWidth={0}>
                   {referralStats.map((entry, idx) => {
-                    const palette = ['#7e9bb3', '#77976a', '#2b5d49', '#b29958', '#b37e75', '#92ab79', '#a9b8ab', '#8a9690'];
+                    const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
                     return <Cell key={entry.name} fill={palette[idx % palette.length]} />;
                   })}
                 </Pie>
@@ -343,7 +343,7 @@ export function AdminStatsPage() {
             </ResponsiveContainer>
             <div className="min-w-0 flex-1 space-y-1">
               {referralStats.map((entry, idx) => {
-                const palette = ['#7e9bb3', '#77976a', '#2b5d49', '#b29958', '#b37e75', '#92ab79', '#a9b8ab', '#8a9690'];
+                const palette = ['#0EA5E9', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#71717A'];
                 const total = referralStats.reduce((s, r) => s + r.value, 0);
                 const pct = total > 0 ? Math.round((entry.value / total) * 100) : 0;
                 return (

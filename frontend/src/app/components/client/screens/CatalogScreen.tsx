@@ -1,28 +1,20 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Clock, Search } from 'lucide-react';
-import { useApp, type Service, type Booking } from '../../../context/AppContext';
-import { Money } from '../../atmosfera';
+import { Clock } from 'lucide-react';
+import { useApp, type Service } from '../../../context/AppContext';
+import { ServiceSearchInput } from '../../shared/ServiceSearchInput';
+import { Button, Money } from '../../atmosfera';
 
 export interface CatalogScreenProps {
   onSelectService: (service: Service) => void;
-  /** Ближайшая предстоящая запись клиента — панель next-booking из макета. */
-  nextBooking?: Booking | null;
-}
-
-const SERVICE_SYMBOL = ['💧', '✨', '🧼', '🅿', '🛞', '🔧'];
-
-function symbolFor(service: Service, index: number): string {
-  if (service.category === 'Аренда бокса') return '🅿';
-  return SERVICE_SYMBOL[index % SERVICE_SYMBOL.length];
 }
 
 /**
- * CatalogScreen — «Главная» клиента в стиле дизайн-макета (fa/):
- * hero (client-hero) + ближайшая запись (next-booking) + сетка услуг (.service-grid).
+ * CatalogScreen — вырезка из ClientApp (§6.1, Фаза 2).
+ * Отличие от исходника: карточка цены через Money; классы на токенах.
  * Услуги показываются все, включая неактивные (текущее поведение — см. комментарий в AppContext).
  */
-export function CatalogScreen({ onSelectService, nextBooking }: CatalogScreenProps) {
+export function CatalogScreen({ onSelectService }: CatalogScreenProps) {
   const { services } = useApp();
 
   const [serviceSearchQuery, setServiceSearchQuery] = useState('');
@@ -38,111 +30,83 @@ export function CatalogScreen({ onSelectService, nextBooking }: CatalogScreenPro
     );
   });
 
-  const manualScheduling = nextBooking ? nextBooking.status === 'admin_review' && (!nextBooking.time || nextBooking.time === '00:00') : false;
-
   return (
     <motion.div
       key="catalog"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.22 }}
-      className="page-content px-4"
     >
-      {/* HERO */}
-      <div className="client-hero">
-        <div className="hero-orbit" aria-hidden />
-        <h2>Время для Вашего авто</h2>
-        <p>Выберите услугу и удобное время — запись займёт минуту, остальное возьмём на себя.</p>
-      </div>
-
-      {/* Ближайшая запись */}
-      {nextBooking && (
-        <button type="button" className="panel next-booking" style={{ marginTop: 18 }} onClick={() => {}} aria-label="Мои записи">
-          <span className="service-symbol" style={{ width: 46, height: 46, fontSize: 18 }} aria-hidden>🗓</span>
-          <span>
-            <strong style={{ fontSize: 13 }}>
-              {manualScheduling ? 'Ожидайте подтверждения' : `${nextBooking.date} · ${nextBooking.time}`}
-            </strong>
-            <p>{nextBooking.service}</p>
-          </span>
-        </button>
-      )}
-
-      {/* ЗАГОЛОВОК + ПОИСК */}
-      <div className="section-title" style={{ marginTop: 24 }}>
-        <h2>
-          Услуги
-          <span className="count">{filteredServices.length}</span>
-        </h2>
-      </div>
-
-      <div className="relative" style={{ marginBottom: 10 }}>
-        <Search size={15} strokeWidth={1.75} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[#98a19a]" aria-hidden />
-        <input
+      {/* Поиск */}
+      <div className="px-4 pt-4">
+        <ServiceSearchInput
           value={serviceSearchQuery}
-          onChange={(event) => setServiceSearchQuery(event.target.value)}
-          placeholder="Поиск услуги"
-          aria-label="Поиск услуги"
+          onChange={(v) => {
+            setServiceSearchQuery(v);
+            if (v.trim()) setActiveCategory('Все');
+          }}
+          inputCls="w-full rounded-xl border border-[var(--input,var(--border))] bg-[var(--input-background,#EEEFF3)] px-3 py-2.5 text-sm text-foreground placeholder:text-[var(--fg-muted,#8A91A0)] outline-none focus:border-[var(--ring)]"
+          iconCls="text-[var(--fg-muted,#8A91A0)]"
         />
       </div>
 
-      {/* КАТЕГОРИИ */}
-      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-        {categories.map((category) => {
-          const active = activeCategory === category;
+      {/* Категории */}
+      <div className="flex gap-2 overflow-x-auto px-4 py-3" style={{ scrollbarWidth: 'none' }}>
+        {categories.map((cat) => {
+          const active = activeCategory === cat;
           return (
             <button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              className="shrink-0 rounded-[6px] border px-3 py-2 text-[12px] transition-colors outline-none"
-              style={
-                active
-                  ? { background: '#315f45', borderColor: '#315f45', color: '#fff' }
-                  : { background: '#fff', borderColor: '#e1e7e1', color: '#6a7b6e' }
-              }
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] outline-none ${
+                active ? 'text-white' : 'border border-border bg-[var(--card-raised,var(--card))] text-[var(--fg-secondary,#5A6072)]'
+              }`}
+              style={active ? { background: 'var(--primary-600)' } : undefined}
             >
-              {category}
+              {cat}
             </button>
           );
         })}
       </div>
 
-      {/* СЕТКА УСЛУГ */}
-      <div className="personal-app service-grid" style={{ marginTop: 16 }}>
-        {filteredServices.map((service, index) => (
-          <motion.button
+      {/* Услуги */}
+      <div className="grid grid-cols-1 gap-3 px-4">
+        {filteredServices.map((service, i) => (
+          <motion.div
             key={service.id}
-            type="button"
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(index * 0.04, 0.3) }}
-            onClick={() => onSelectService(service)}
-            className="panel service-card"
+            transition={{ delay: i * 0.05 }}
+            className="rounded-2xl border border-border bg-[var(--card)] p-4"
           >
-            <span className="service-symbol" aria-hidden>{symbolFor(service, index)}</span>
-            <small style={{ textTransform: 'uppercase' }}>{service.category}</small>
-            <strong style={{ marginTop: 0 }}>{service.name}</strong>
-            <p>{service.desc}</p>
-            <strong>
-              <Money amount={service.price} /> <span>· {service.duration} мин</span>
-            </strong>
-            <Clock size={15} strokeWidth={1.75} color="#92ab79" aria-hidden />
-          </motion.button>
+            <div className="mb-2 flex items-start justify-between">
+              <div>
+                <h3 className="font-semibold">{service.name}</h3>
+                <span className="mt-1 inline-block rounded-full bg-[var(--primary-50)] px-2 py-0.5 text-xs text-[var(--primary-700)] dark:text-[var(--primary-300)]">
+                  {service.category}
+                </span>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">
+                  <Money amount={service.price} />
+                </div>
+                <div className="mt-0.5 flex items-center justify-end gap-1 text-xs text-[var(--fg-secondary,#5A6072)]">
+                  <Clock size={11} strokeWidth={1.75} aria-hidden />
+                  {service.duration} мин
+                </div>
+              </div>
+            </div>
+            <p className="mb-3 line-clamp-2 text-sm text-[var(--fg-secondary,#5A6072)]">{service.desc}</p>
+            <Button className="w-full" onClick={() => onSelectService(service)}>
+              Записаться
+            </Button>
+          </motion.div>
         ))}
       </div>
-
       {filteredServices.length === 0 && services.length > 0 && (
-        <div className="empty">
-          <span aria-hidden>🔍</span>
-          <p>По запросу «{serviceSearchQuery.trim()}» ничего не найдено</p>
-        </div>
-      )}
-      {services.length === 0 && (
-        <div className="empty">
-          <span aria-hidden>📅</span>
-          <p>Каталог услуг появится совсем скоро</p>
+        <div className="px-4 py-6 text-center text-sm text-[var(--fg-secondary,#5A6072)]">
+          По запросу «{serviceSearchQuery.trim()}» услуг не найдено
         </div>
       )}
     </motion.div>

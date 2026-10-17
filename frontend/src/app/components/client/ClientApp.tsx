@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
-  Bell, X, CalendarDays, LayoutGrid, User
+  Bell, Sun, Moon, X, CalendarDays, LayoutGrid, User
 } from 'lucide-react';
 import { useApp, Booking, BookingSlotAvailability, Service, newClientRequestId } from '../../context/AppContext';
 import { formatDate, getScheduleDayIndex, parseFlexibleDate } from '../../utils/date';
@@ -48,6 +48,8 @@ function isManualSchedulingBooking(booking: Booking) {
 
 export function ClientApp() {
   const {
+    isDark,
+    toggleTheme,
     bookings,
     deleteBooking,
     notifications,
@@ -207,14 +209,17 @@ export function ClientApp() {
     : (clientProfile.car || clientProfile.plate ? [{ car: clientProfile.car || '', plate: clientProfile.plate || '' }] : []);
   const selectedBookingVehicle = bookingVehicles[selectedBookingVehicleIndex] || bookingVehicles[0] || { car: clientProfile.car || '', plate: clientProfile.plate || '' };
 
+  const glass = isDark
+    ? 'bg-white/5 backdrop-blur-md border border-white/10'
+    : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
+
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
   const slotCards = slotAvailability.filter((slot) => slot.available || slot.occupiedBoxes > 0);
   const availableSlotCards = slotCards.filter((slot) => slot.available).length;
   const occupiedSlotCards = slotCards.filter((slot) => !slot.available).length;
-  const slotAvailabilityEmptyLabel = selectedServiceIsBoxRental
-    ? (boxRentalHours > 1
-        ? 'Свободных боксов на выбранные дату и часы нет — попробуйте другой день или меньше часов'
-        : 'Свободных боксов на выбранный день нет — попробуйте другой день')
-    : (selectedService === null ? '' : 'Свободных слотов на этот день нет — попробуйте другой день');
 
   const handleConfirmBooking = async () => {
     if (!selectedService || !session) return;
@@ -299,54 +304,89 @@ export function ClientApp() {
   );
 
   return (
-    <div className="personal-app atmosfera-shell min-h-screen flex flex-col relative">
+    <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col relative`}>
       {/* Header */}
-      {(page === 'detail' || page === 'slots' || page === 'confirm' || page === 'bookings' || page === 'profile') && (
-        <div className="work-header flex items-center justify-between" style={{ background: '#fff', borderBottom: '1px solid #e8ede9', backdropFilter: 'none' }}>
-          <div className="flex items-center gap-3">
-            {(page === 'detail' || page === 'slots' || page === 'confirm' || page === 'bookings') && (
-              <button
-                onClick={() => {
-                  if (page === 'detail') setPage('catalog');
-                  else if (page === 'slots') setPage('detail');
-                  else if (page === 'confirm') setPage('slots');
-                  else if (page === 'bookings') setPage('catalog');
-                }}
-                className="icon-button"
-                aria-label="Назад"
-              >
-                <ArrowLeft size={18} strokeWidth={1.75} />
-              </button>
-            )}
-            <strong style={{ fontSize: 13 }}>
-              {page === 'bookings' ? 'Мои записи' : page === 'profile' ? 'Профиль' : 'Запись'}
-            </strong>
-          </div>
-          <div className="flex items-center gap-2">
+      <div className={`work-header ${glass} flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          {(page === 'detail' || page === 'slots' || page === 'confirm' || page === 'bookings') && (
             <button
               onClick={() => {
-                markAllNotificationsRead('client');
-                setPage('bookings');
+                if (page === 'detail') setPage('catalog');
+                else if (page === 'slots') setPage('detail');
+                else if (page === 'confirm') setPage('slots');
+                else if (page === 'bookings') setPage('catalog');
               }}
-              className="icon-button notification"
-              aria-label="Уведомления"
+              className={`p-2 rounded-xl ${glass} mr-1`}
             >
-              <Bell size={17} strokeWidth={1.75} />
-              {unreadCount > 0 && <i aria-hidden />}
+              <ArrowLeft size={18} strokeWidth={1.75} />
             </button>
+          )}
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: primary }}>
+            {clientProfile.name ? clientProfile.name.charAt(0).toUpperCase() : 'A'}
+          </div>
+          <div className="min-w-0">
+            <span className="text-base font-bold tracking-tight leading-tight block truncate">{clientProfile.name || 'ATMOSFERA'}</span>
+            {clientProfile.car && page === 'catalog' && (
+              <div className={`text-[11px] ${sub}`}>{clientProfile.car} · {clientProfile.plate}</div>
+            )}
           </div>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              markAllNotificationsRead('client');
+              setPage('bookings');
+            }}
+            className={`p-2 rounded-xl ${glass} relative`}
+          >
+            <Bell size={18} strokeWidth={1.75} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>
+            )}
+          </button>
+          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>
+            {isDark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Nav */}
+      <div className="role-nav"><div className="role-nav__scroll">
+        <button
+          onClick={() => setPage('catalog')}
+          className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all`}
+        >
+          <LayoutGrid size={20} strokeWidth={1.75} style={{ color: page === 'catalog' ? primary : undefined }} className={page !== 'catalog' ? sub : ''} />
+          <span className="text-xs" style={{ color: page === 'catalog' ? primary : undefined }}>Каталог</span>
+        </button>
+        <button
+          onClick={() => setPage('bookings')}
+          className="flex-1 py-3 flex flex-col items-center gap-1 relative"
+        >
+          <CalendarDays size={20} strokeWidth={1.75} style={{ color: page === 'bookings' ? primary : undefined }} className={page !== 'bookings' ? sub : ''} />
+          <span className="text-xs" style={{ color: page === 'bookings' ? primary : undefined }}>Мои записи</span>
+          {upcomingBookings.length > 0 && (
+            <span className="absolute top-2 right-8 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+              {upcomingBookings.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setPage('profile')}
+          className="flex-1 py-3 flex flex-col items-center gap-1"
+        >
+          <User size={20} strokeWidth={1.75} style={{ color: page === 'profile' ? primary : undefined }} className={page !== 'profile' ? sub : ''} />
+          <span className="text-xs" style={{ color: page === 'profile' ? primary : undefined }}>Профиль</span>
+        </button>
+      </div></div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-24">
         <AnimatePresence mode="wait">
-          {/* CATALOG (Главная: hero + услуги) */}
+          {/* CATALOG PAGE */}
+          {/* CATALOG */}
           {page === 'catalog' && (
-            <CatalogScreen
-              onSelectService={(service) => { setSelectedService(service); setPage('detail'); }}
-              nextBooking={upcomingBookings[0] ?? null}
-            />
+            <CatalogScreen onSelectService={(service) => { setSelectedService(service); setPage('detail'); }} />
           )}
 
           {/* DETAIL */}
@@ -414,8 +454,9 @@ export function ClientApp() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.25 }}
-              className="page-content px-4 py-4"
+              className="px-4 py-4"
             >
+              <h2 className="text-lg font-semibold mb-4">Мои записи</h2>
               <BookingsScreen
                 onNavigateToCatalog={() => setPage('catalog')}
                 onRequestCancel={setShowCancelConfirm}
@@ -424,36 +465,9 @@ export function ClientApp() {
           )}
 
           {page === 'profile' && (
-            <div className="page-content px-4 py-4">
-              <ProfileScreen upcomingCount={upcomingBookings.length} completedCount={completedBookings.length} totalSpent={totalSpent} />
-            </div>
+            <ProfileScreen upcomingCount={upcomingBookings.length} completedCount={completedBookings.length} totalSpent={totalSpent} />
           )}
         </AnimatePresence>
-      </div>
-
-      {/* Bottom Nav — нижняя навигация макета */}
-      <div className="bottom-nav">
-        <button
-          onClick={() => setPage('catalog')}
-          className={page === 'catalog' ? 'active' : undefined}
-        >
-          <LayoutGrid size={19} strokeWidth={1.9} />
-          <span>Главная</span>
-        </button>
-        <button
-          onClick={() => setPage('bookings')}
-          className={page === 'bookings' ? 'active' : undefined}
-        >
-          <CalendarDays size={19} strokeWidth={1.9} />
-          <span>Мои записи</span>
-        </button>
-        <button
-          onClick={() => setPage('profile')}
-          className={page === 'profile' ? 'active' : undefined}
-        >
-          <User size={19} strokeWidth={1.9} />
-          <span>Профиль</span>
-        </button>
       </div>
 
       {/* Slot confirmation  -  DS Sheet (состояние в ClientApp: TG MainButton/BackButton) */}

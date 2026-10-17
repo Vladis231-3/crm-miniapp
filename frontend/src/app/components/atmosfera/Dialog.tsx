@@ -51,7 +51,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
             aria-modal="true"
             aria-label={title}
             className={cn(
-              'relative w-full max-w-sm rounded-[14px] bg-[var(--card-raised,var(--card))] p-5 text-foreground shadow-xl',
+              'relative w-full max-w-sm rounded-3xl bg-[var(--card-raised,var(--card))] p-5 text-foreground shadow-xl',
               className,
             )}
             initial={{ opacity: 0, scale: 0.96, y: 6 }}

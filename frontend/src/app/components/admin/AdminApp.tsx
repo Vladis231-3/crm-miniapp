@@ -4,7 +4,7 @@ import { AttendanceTable } from '../shared/AttendanceTable';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Menu, Bell, Plus, X, Phone, Edit3, Play, CheckCircle, XCircle,
-  Users, Calendar, Settings, BarChart3, Check, AlertCircle,
+  Users, Sun, Moon, Calendar, Settings, BarChart3, Check, AlertCircle,
   User, ChevronRight, ArrowLeft, TrendingUp, Clock, Box, CreditCard,
   Shield, Sliders, BellOff, Save, Eye, EyeOff, DollarSign, FileText, Search, History, Package,
   CalendarDays, UsersRound, ChartNoAxesColumn, Settings2, Wallet
@@ -330,6 +330,7 @@ export function AdminApp() {
   const {
     session,
     isDark,
+    toggleTheme,
     bookings,
     clients: registeredClients,
     addClient,
@@ -674,12 +675,12 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
   const completedAll = bookings.filter(b => b.status === 'completed');
   const totalRevenue = completedAll.reduce((s, b) => s + b.price, 0);
 
-  const glass = 'panel';
-  const bg = isDark ? 'bg-[#131316]' : 'bg-[#f6f8f7]';
-  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#273b34]';
-  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#8a9690]';
-  const primary = isDark ? '#77C79F' : '#2b5d49';
-  const accent = '#92ab79';
+  const glass = isDark ? 'bg-white/5 backdrop-blur-md border border-white/10' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm';
+  const bg = isDark ? 'bg-[#131316]' : 'bg-[#F7F7F8]';
+  const text = isDark ? 'text-[#E4E4E7]' : 'text-[#131316]';
+  const sub = isDark ? 'text-[#A1A1AA]' : 'text-[#71717A]';
+  const primary = isDark ? '#6E76F2' : '#4F46E5';
+  const accent = '#10B981';
   const surface = isDark ? '#1C1C1F' : '#ffffff';
   const inputCls = `${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] placeholder-zinc-500 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] placeholder-zinc-400 focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
   const selectCls = `${isDark ? 'bg-white/[.07] border-transparent text-[#E4E4E7] focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/25 focus:bg-white/[.09]' : 'bg-black/[.05] border-transparent text-[#131316] focus:bg-white focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20'} border rounded-xl px-3 py-2.5 w-full text-sm outline-none`;
@@ -700,21 +701,21 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
   })).filter(s => s.count > 0);
 
   const byStatus = [
-    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#7e9bb3' },
-    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#77976a' },
-    { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#92ab79' },
-    { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#b29958' },
-    { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#285f4f' },
-    { name: 'На уточнении', value: bookings.filter(b => b.status === 'admin_review').length, color: '#b29958' },
-    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#b37e75' },
-    { name: 'Отменено', value: bookings.filter(b => b.status === 'cancelled').length, color: '#b37e75' },
+    { name: 'Новые', value: bookings.filter(b => b.status === 'new').length, color: '#6366F1' },
+    { name: 'Подтверждены', value: bookings.filter(b => b.status === 'confirmed').length, color: '#06B6D4' },
+    { name: 'Запланировано', value: bookings.filter(b => b.status === 'scheduled').length, color: '#3B82F6' },
+    { name: 'В работе', value: bookings.filter(b => b.status === 'in_progress').length, color: '#EAB308' },
+    { name: 'Завершено', value: bookings.filter(b => b.status === 'completed').length, color: '#22C55E' },
+    { name: 'На уточнении', value: bookings.filter(b => b.status === 'admin_review').length, color: '#F59E0B' },
+    { name: 'Не приехал', value: bookings.filter(b => b.status === 'no_show').length, color: '#F97316' },
+    { name: 'Отменено', value: bookings.filter(b => b.status === 'cancelled').length, color: '#EF4444' },
   ].filter(s => s.value > 0);
 
   const byPayment = [
     { name: 'Наличные', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'cash').length, color: accent },
     { name: 'Перевод', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'transfer').length, color: primary },
-    { name: 'По счёту', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'invoice').length, color: '#5b7c6c' },
-    { name: 'Не оплачено', value: bookings.filter(b => !b.paymentSettled).length, color: '#b37e75' },
+    { name: 'По счёту', value: bookings.filter(b => b.paymentSettled && b.paymentType === 'invoice').length, color: '#312E81' },
+    { name: 'Не оплачено', value: bookings.filter(b => !b.paymentSettled).length, color: '#EF4444' },
   ].filter(p => p.value > 0);
 
   const workerStats = masterWorkers.map(w => ({
@@ -1575,8 +1576,8 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
   return (
     <div className={`${isDark ? 'dark' : ''} atmosfera-shell ${bg} ${text} min-h-screen flex flex-col`}>
       {/* Header */}
-      <div className="work-header bg-white flex items-center justify-between" style={{ background: '#fff', borderBottom: '1px solid #e8ede9', backdropFilter: 'none', paddingTop: 'env(safe-area-inset-top)' }}>
-        <button onClick={() => setShowMenu(true)} className="p-2 rounded-[7px]" style={{ background: '#f3f6f3' }}><Menu size={20} strokeWidth={1.75} /></button>
+      <div className={`work-header ${glass} flex items-center justify-between`}>
+        <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl ${glass}`}><Menu size={20} strokeWidth={1.75} /></button>
         <div className="text-center min-w-0">
           <div className="text-[15px] font-bold tracking-tight leading-tight">{staffRoleTitle}</div>
           <div className={`text-[11px] tracking-wide ${sub}`}>{todayLabel}</div>
@@ -1589,16 +1590,17 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                 if (nextRole && nextRole !== session?.role) {
                   void switchRole(nextRole as Role);
                 }
-              }} className="px-2 py-1.5 rounded-[6px] text-xs font-medium" style={{ color: primary, background: '#edf5ed' }}>
+              }} className={`px-2 py-1.5 rounded-xl text-xs font-medium ${glass}`} style={{ color: primary }}>
                 {session?.role === 'admin' ? 'Админ  →  Владелец' : session?.role === 'owner' ? 'Владелец  →  Админ' : 'Сменить роль'}
               </button>
             </div>
           )}
-          <button onClick={() => { setShowNotifPanel(true); markAllNotificationsRead(staffNotificationsRole); }} className="p-2 rounded-[7px] relative" style={{ background: '#f3f6f3' }}>
+          <button onClick={() => { setShowNotifPanel(true); markAllNotificationsRead(staffNotificationsRole); }} className={`p-2 rounded-xl ${glass} relative`}>
             <Bell size={18} strokeWidth={1.75} />
-            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#b37e75] text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button onClick={openNewBookingModal} className="p-2 rounded-[7px] text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
+          <button onClick={toggleTheme} className={`p-2 rounded-xl ${glass}`}>{isDark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}</button>
+          <button onClick={openNewBookingModal} className="p-2 rounded-xl text-white" style={{ background: primary }}><Plus size={18} strokeWidth={1.75} /></button>
         </div>
       </div>
 
@@ -1646,14 +1648,14 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
               {[
                 { id: 'employees', icon: Users, label: 'Сотрудники', desc: `${masterWorkers.filter(m => m.active).length} мастеров`, color: accent },
                 { id: 'boxes', icon: Box, label: 'Управление боксами', desc: `${settingsBoxes.filter(box => box.active).length} активных бокса`, color: primary },
-                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#b29958' },
-                { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#77976a' },
-                { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#7e9bb3' },
-                { id: 'attendance', icon: TrendingUp, label: 'Посещаемость', desc: 'Выходы мастеров на смену', color: '#92ab79' },
-                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#173e32' },
+                { id: 'schedule', icon: Clock, label: 'Расписание работы', desc: scheduleSummary, color: '#F59E0B' },
+                { id: 'pricing', icon: DollarSign, label: 'Цены на услуги', desc: `${services.length} услуг`, color: '#10B981' },
+                { id: 'shift', icon: CheckCircle, label: 'Открытие смены', desc: 'Фото, расходники и мастера', color: '#0EA5E9' },
+                { id: 'attendance', icon: TrendingUp, label: 'Посещаемость', desc: 'Выходы мастеров на смену', color: '#8B5CF6' },
+                { id: 'notifications', icon: Bell, label: 'Уведомления', desc: 'Email, Telegram', color: '#312E81' },
                 { id: 'profile', icon: User, label: 'Профиль', desc: 'admin@atmosfera.ru', color: accent },
-                { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#b37e75' },
-                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'О студии, услуги, портфолио', color: '#7e9bb3' },
+                { id: 'security', icon: Shield, label: 'Безопасность', desc: 'Изменить пароль', color: '#EF4444' },
+                { id: 'content', icon: FileText, label: 'Контент сайта', desc: 'О студии, услуги, портфолио', color: '#06B6D4' },
               ].map(item => (
                 <motion.button key={item.id} whileTap={{ scale: 0.98 }}
                   onClick={() => item.id === 'employees' ? setPage('employees') : setSettingsSection(item.id as SettingsSection)}
@@ -1951,8 +1953,8 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
         </AnimatePresence>
       </div>
 
-      {/* Bottom nav — нижняя навигация макета */}
-      <div className="bottom-nav">
+      {/* Bottom nav */}
+      <div className={`fixed bottom-[calc(.9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex gap-1 rounded-full border p-1.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-1.5rem)] overflow-x-auto ${isDark ? 'bg-[#1C1C1F]/92 border-white/10' : 'bg-white/92 border-black/[.06]'}`}>
         {[
           { id: 'calendar', icon: CalendarDays, label: 'Календарь' },
           { id: 'stats', icon: ChartNoAxesColumn, label: 'Статистика' },
@@ -1961,16 +1963,22 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
           { id: 'payroll', icon: Wallet, label: 'Зарплаты' },
           { id: 'employees', icon: Users, label: 'Сотрудники' },
           { id: 'settings', icon: Settings2, label: 'Настройки' },
-        ].map(tab => (
+        ].map(tab => {
+          const isActive = page === tab.id;
+          return (
           <button key={tab.id} onClick={() => {
             (window as any).Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
             setPage(tab.id as AdminPage);
             setSettingsSection(null);
-          }} className={page === tab.id ? 'active' : undefined} aria-label={tab.label}>
-            <tab.icon size={18} strokeWidth={1.8} />
-            <span>{tab.label}</span>
+          }} className={`relative flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'pl-3 pr-4' : ''}`} aria-label={tab.label}>
+            {isActive && (
+              <motion.span layoutId="admin-nav-pill" transition={{ type: 'spring', stiffness: 480, damping: 38 }} className="absolute inset-0 rounded-full" style={{ background: 'var(--primary, #4F46E5)' }} />
+            )}
+            <tab.icon size={19} strokeWidth={1.75} fill={isActive ? 'currentColor' : 'none'} className="relative" style={{ color: isActive ? '#fff' : undefined }} />
+            {isActive && <span className="relative whitespace-nowrap" style={{ color: '#fff' }}>{tab.label}</span>}
+            {!isActive && <span className="sr-only">{tab.label}</span>}
           </button>
-        ))}
+        )})}
       </div>
 
       {/* HAMBURGER MENU */}
@@ -1996,7 +2004,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                 <button
                   onClick={() => { setPage('settings'); setSettingsSection('shift'); setShowMenu(false); }}
                   className="w-full rounded-2xl px-4 py-4 text-left text-white"
-                  style={{ background: `linear-gradient(135deg, ${primary}, #7e9bb3)` }}
+                  style={{ background: `linear-gradient(135deg, ${primary}, #0EA5E9)` }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
@@ -2329,7 +2337,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   <button
                     onClick={() => setAddServiceDraft(p => ({ ...p, priceMode: 'subtract' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
-                    style={addServiceDraft.priceMode === 'subtract' ? { background: '#b37e75', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#b37e75' }}
+                    style={addServiceDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
                     - Минус
                   </button>
@@ -2514,7 +2522,7 @@ const [assignedWorkers, setAssignedWorkers] = useState<{ id: string; percent: nu
                   <button
                     onClick={() => setEditAsvcDraft(p => ({ ...p, priceMode: 'subtract' }))}
                     className="py-2.5 rounded-xl text-sm font-semibold transition"
-                    style={editAsvcDraft.priceMode === 'subtract' ? { background: '#b37e75', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#b37e75' }}
+                    style={editAsvcDraft.priceMode === 'subtract' ? { background: '#EF4444', color: 'white' } : { background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}
                   >
                     - Минус
                   </button>

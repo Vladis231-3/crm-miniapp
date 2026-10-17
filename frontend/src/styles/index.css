@@ -2,7 +2,3 @@
 @import './tailwind.css';
 @import './tokens.css';
 @import './theme.css';
-/* MOCKUP DESIGN SYSTEM — CSS-прототип «Atmosfera CRM» (fa/), подключён последним:
-   его классы и element-styles задают итоговый вид. Легаси-классы theme.css ниже не перебиваются,
-   т.к. неслойрованный CSS всегда выигрывает у @layer. */
-@import './mockup.css';

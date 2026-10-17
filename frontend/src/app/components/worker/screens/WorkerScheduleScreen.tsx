@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import type { Booking, ScheduleDay, Worker } from '../../../context/AppContext';
 import { apiRequest } from '../../../api';
@@ -156,7 +156,7 @@ export function WorkerScheduleScreen({
             schedule={schedule}
             workerId={workerId}
             todayLabel={upcomingDates[0] ?? ''}
-            glass="panel"
+            glass="border border-border bg-[var(--card)]"
             isDark={isDark}
             sub="text-[var(--fg-secondary,#5A6072)]"
             primary="var(--primary-600)"

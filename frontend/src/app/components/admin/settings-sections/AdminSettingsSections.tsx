@@ -102,7 +102,7 @@ export function SettingsSaveButton({
   );
 }
 
-const glassCls = 'panel';
+const glassCls = 'border border-border bg-[var(--card)]';
 const subCls = 'text-[var(--fg-secondary,#5A6072)]';
 const inputCls =
   'w-full rounded-xl border border-[var(--input,var(--border))] bg-[var(--input-background,#EEEFF3)] px-3 py-2.5 text-sm text-foreground outline-none focus:border-[var(--ring)] dark:bg-white/[.06]';

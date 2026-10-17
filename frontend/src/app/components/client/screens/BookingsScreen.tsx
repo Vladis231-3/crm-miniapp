@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { CalendarDays, Trash2 } from 'lucide-react';
 import { useApp, Booking } from '../../../context/AppContext';
 import { EmptyState } from '../../shared/EmptyState';
-import { Button, Money, StatusBadge, StatTile } from '../../atmosfera';
+import { Button, Money, StatTile, StatusBadge } from '../../atmosfera';
 
 const UPCOMING_STATUSES = new Set<Booking['status']>(['new', 'confirmed', 'scheduled', 'in_progress', 'admin_review']);
 const HISTORY_STATUSES = new Set<Booking['status']>(['completed', 'cancelled', 'no_show']);
@@ -20,8 +20,8 @@ export interface BookingsScreenProps {
 }
 
 /**
- * BookingsScreen — «Мои записи» в стиле дизайн-макета (fa/):
- * карточки panel.booking-card с крупным временем (booking-time) + статусы макета.
+ * BookingsScreen — вырезка из ClientApp (REDESIGN_PLAN.md §6.1, Фаза 2).
+ * Карточки на DS: Money + StatusBadge (statusMap вместо локальных мап).
  */
 export function BookingsScreen({ onNavigateToCatalog, onRequestCancel }: BookingsScreenProps) {
   const { bookings, session } = useApp();
@@ -41,14 +41,14 @@ export function BookingsScreen({ onNavigateToCatalog, onRequestCancel }: Booking
   return (
     <>
       {clientBookings.length === 0 ? (
-        <div className="panel">
+        <div className="rounded-2xl border border-border">
           <EmptyState
             icon={CalendarDays}
             title="У вас пока нет записей"
             subtitle="Выберите услугу и удобное время  -  это займёт минуту"
           />
           <div className="-mt-2 flex justify-center pb-6">
-            <Button size="md" onClick={onNavigateToCatalog}>
+            <Button size="md" onClick={onNavigateToCatalog} className="rounded-full px-6">
               Записаться
             </Button>
           </div>
@@ -62,30 +62,21 @@ export function BookingsScreen({ onNavigateToCatalog, onRequestCancel }: Booking
           </div>
 
           {/* Предстоящие */}
-          <div className="section-title" style={{ marginTop: 18 }}>
-            <h2 style={{ fontSize: 13 }}>Предстоящие</h2>
-            <span className="count">{upcomingBookings.length}</span>
-          </div>
-          {upcomingBookings.length > 0 ? (
-            <div className="booking-cards" style={{ gridTemplateColumns: '1fr' }}>
-              {upcomingBookings.map((booking) => (
-                <BookingCard key={booking.id} booking={booking} onCancel={() => onRequestCancel(booking.id)} />
-              ))}
-            </div>
-          ) : (
-            <p className="py-2 text-center text-[12px] text-[#96a28f]">Нет предстоящих записей</p>
+          <div className="section-kicker mb-2">Предстоящие</div>
+          {upcomingBookings.map((booking) => (
+            <BookingCard key={booking.id} booking={booking} onCancel={() => onRequestCancel(booking.id)} />
+          ))}
+          {upcomingBookings.length === 0 && (
+            <p className="py-2 text-center text-sm text-[var(--fg-secondary,#5A6072)]">
+              Нет предстоящих записей
+            </p>
           )}
 
           {/* Прошедшие */}
-          <div className="section-title" style={{ marginTop: 24 }}>
-            <h2 style={{ fontSize: 13 }}>История</h2>
-            <span className="count">{pastBookings.length}</span>
-          </div>
-          <div className="booking-cards" style={{ gridTemplateColumns: '1fr' }}>
-            {pastBookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} onCancel={() => onRequestCancel(booking.id)} />
-            ))}
-          </div>
+          <div className="section-kicker mb-2 mt-4">Прошедшие</div>
+          {pastBookings.map((booking) => (
+            <BookingCard key={booking.id} booking={booking} onCancel={() => onRequestCancel(booking.id)} />
+          ))}
         </div>
       )}
     </>
@@ -99,38 +90,35 @@ interface BookingCardProps {
 
 function BookingCard({ booking, onCancel }: BookingCardProps) {
   const manualScheduling = isManualSchedulingBooking(booking);
-  const upcoming = UPCOMING_STATUSES.has(booking.status);
-  const bigTime = manualScheduling ? '— : —' : upcoming ? booking.time || '' : booking.date.slice(5);
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="panel booking-card"
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="rounded-2xl border border-border bg-[var(--card)] p-4"
     >
-      <div>
-        <span className="status">
-          <i aria-hidden />
-          {upcoming ? 'ПРЕДСТОЯЩАЯ' : 'ЗАВЕРШЕНА'}
-        </span>
+      <div className="mb-2 flex items-start justify-between">
+        <div>
+          <div className="font-semibold">{booking.service}</div>
+          <div className="text-sm text-[var(--fg-secondary,#5A6072)]">
+            {manualScheduling ? 'Время уточнит администратор' : `${booking.date} в ${booking.time}`}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-semibold">
+            <Money amount={booking.price} />
+          </div>
+          <StatusBadge status={booking.status} className="mt-1" />
+        </div>
       </div>
-      <div className="booking-time">{bigTime || booking.date.slice(5)}</div>
-      <strong style={{ fontSize: 13, color: '#273b34' }}>{booking.service}</strong>
-      <p>{manualScheduling ? 'Администратор свяжется и уточнит время' : `${booking.date} · ${booking.box} · ${booking.duration} мин`}</p>
-      <div className="booking-card-footer">
-        <StatusBadge status={booking.status} />
-        <strong><Money amount={booking.price} /></strong>
+      <div className="mb-3 text-xs text-[var(--fg-secondary,#5A6072)]">
+        {manualScheduling ? 'Запрос принят и ждёт согласования' : `${booking.box} · ${booking.duration} мин`}
       </div>
       {CANCELLABLE_STATUSES.has(booking.status) && (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-button"
-          style={{ color: '#b37e75', marginTop: 10, alignSelf: 'flex-start' }}
-        >
-          <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+        <Button variant="secondary" size="sm" className="w-full text-[var(--status-danger)]" onClick={onCancel}>
+          <Trash2 size={14} strokeWidth={1.75} aria-hidden />
           Отменить запись
-        </button>
+        </Button>
       )}
     </motion.div>
   );

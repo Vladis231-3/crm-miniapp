@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes } fro
 import { cn } from '../ui/utils';
 
 const baseField =
-  'w-full rounded-[7px] border border-[#dfe6e1] bg-white px-3 py-2.5 text-[13px] text-[#42534a] placeholder:text-[#98a19a] outline-none transition-colors focus:border-[#9db3a6] focus-visible:ring-2 focus-visible:ring-[#2b5d4918] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--status-danger)]';
+  'w-full rounded-xl border border-[var(--input,var(--border))] bg-[var(--input-background,var(--sunken,#EEEFF3))] px-3.5 py-2.5 text-[15px] text-foreground placeholder:text-[var(--fg-muted,#8A91A0)] outline-none transition-colors focus:border-[var(--ring)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-[var(--status-danger)]';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Показывает error-состояние границы (§4.8 №2). */
@@ -17,7 +17,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     <input
       ref={ref}
       aria-invalid={invalid || undefined}
-      className={cn(baseField, 'h-10', className)}
+      className={cn(baseField, 'h-11', className)}
       {...rest}
     />
   );
