@@ -151,7 +151,7 @@ export function AdminPayrollPage() {
   };
 
   // ── Токенные стили ──
-  const glass = 'border border-border bg-[var(--card)]';
+  const glass = 'panel';
   const sub = 'text-[var(--fg-secondary,#5A6072)]';
   const inputCls =
     'w-full rounded-xl border border-[var(--input,var(--border))] bg-[var(--input-background,#EEEFF3)] px-3 py-2.5 text-sm text-foreground outline-none focus:border-[var(--ring)] dark:bg-white/[.06]';
