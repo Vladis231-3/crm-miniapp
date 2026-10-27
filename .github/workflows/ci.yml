@@ -27,7 +27,7 @@ jobs:
           pip install pytest httpx ruff pytest-cov pip-audit
 
       - name: Ruff (critical errors only)
-        run: python -m ruff check app bot.py --select F821,F811
+        run: python -m ruff check app bot.py --select F821,F811,E9
 
       - name: pip-audit (pinned requirements)
         run: python -m pip_audit -r requirements.txt
@@ -55,6 +55,10 @@ jobs:
 
       - name: Unit tests
         run: npm run test
+
+      - name: Typecheck (non-blocking, debt paydown in progress)
+        run: npm run typecheck
+        continue-on-error: true
 
       - name: Build
         run: npm run build

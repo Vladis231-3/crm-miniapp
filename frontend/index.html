@@ -8,6 +8,10 @@
     <meta http-equiv="Expires" content="0" />
     <meta http-equiv="Content-Language" content="ru" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <!-- CSP осознанно не строгий: миниапп грузится внутри Telegram WebView и тянет
+         https://telegram.org/js/telegram-web-app.js. Строгий CSP добавляется
+         HTTP-заголовками на хостинге (см. vercel.json headers), не meta-тегом. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="format-detection" content="telephone=no" />

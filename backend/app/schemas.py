@@ -755,6 +755,8 @@ class ServicePayload(BaseModel):
     materials: list[dict] = Field(default_factory=list)
     splitOrder: list[str] = Field(default_factory=list)
     piggyTarget: str = ""
+    # Только в ответе: причина, по которой формула оставляет хвост (None — ок).
+    formulaError: str | None = None
 
     @field_validator("materialConsumption", mode="before")
     @classmethod

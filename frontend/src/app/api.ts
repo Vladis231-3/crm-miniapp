@@ -74,7 +74,12 @@ type RequestOptions = {
 };
 
 function getInitData(): string {
-  return window.Telegram?.WebApp?.initData || import.meta.env.VITE_MOCK_INIT_DATA || '';
+  const fromTelegram = window.Telegram?.WebApp?.initData || '';
+  if (fromTelegram) return fromTelegram;
+  // P0: мок только для локальной разработки. В прод-сборке (import.meta.env.PROD)
+  // VITE_MOCK_INIT_DATA игнорируется, иначе любая сборка с этим env обходит Telegram-auth.
+  if (import.meta.env.DEV) return import.meta.env.VITE_MOCK_INIT_DATA || '';
+  return '';
 }
 
 // Строгий детерминированный ремонт mojibake: строка является UTF-8 байтами,
@@ -310,6 +315,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       throw new Error(
         'Сессия устарела: закройте миниапп и откройте его заново, затем повторите действие. ' +
           'Если вы долго не пользовались  -  это нормально.' +
+          (detail && detail !== `Ошибка сервера (${response.status})` ? ` Детали: ${detail}` : ''),
+      );
+    }
+    if (response.status === 403) {
+      throw new Error(
+        'Нет доступа (403): роль или сессия не позволяет выполнить действие. ' +
+          'Обновите миниапп; если не помогло — войдите заново.' +
           (detail && detail !== `Ошибка сервера (${response.status})` ? ` Детали: ${detail}` : ''),
       );
     }

@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import threading
 import time
 import traceback
@@ -135,6 +136,41 @@ def _truncate(text: str, limit: int) -> str:
     return text[: max(limit - 20, 0)].rstrip() + "\n…[сообщение обрезано]"
 
 
+_PHONE_RE = re.compile(r"(\+7|8)[\s\-()]*\d[\d\s\-()]{8,}\d")
+_LONG_DIGITS_RE = re.compile(r"\b\d{7,}\b")
+_BEARER_RE = re.compile(r"(Bearer\s+)[A-Za-z0-9\-._~+/=]{8,}", re.IGNORECASE)
+_TOKEN_KV_RE = re.compile(
+    r"((?:bot[_-]?token|app[_-]?secret|telegram_init_data|initdata|password|passwd)\s*[:=]\s*)([^\s,;]+)",
+    re.IGNORECASE,
+)
+
+
+def _redact_pii(text: str) -> str:
+    """Маскирует телефоны/длинные id/токены перед отправкой в Telegram-чат и логи.
+
+    Нотификатор уходит в сторонний мессенджер с историей — телефоны клиентов,
+    chat_id и секреты из str(exc)/traceback не должны оседать там в открытом виде.
+    """
+    if not text:
+        return text
+    redacted = _PHONE_RE.sub("[телефон скрыт]", text)
+    redacted = _TOKEN_KV_RE.sub(r"\1[скрыто]", redacted)
+    redacted = _BEARER_RE.sub(r"\1[скрыто]", redacted)
+
+    # Длинные цифровые последовательности (chat_id, telegram id) — только вне уже
+    # вставленных плейсхолдеров [...]. Проверяем, что совпадение не внутри скобок:
+    # ближайшая открывающая '[' левее должна быть закрыта ']' до начала совпадения.
+    def _mask_long_digits(m: re.Match) -> str:
+        start = m.start()
+        open_idx = redacted.rfind("[", 0, start)
+        if open_idx != -1 and "]" not in redacted[open_idx:start]:
+            return m.group(0)
+        return "[id скрыт]"
+
+    redacted = _LONG_DIGITS_RE.sub(_mask_long_digits, redacted)
+    return redacted
+
+
 def _build_message(
     *,
     kind: str,
@@ -146,11 +182,11 @@ def _build_message(
 ) -> str:
     lines = [f"🚨 Ошибка в CRM ({kind})"]
     if context:
-        lines.append(f"Контекст: {context}")
+        lines.append(f"Контекст: {_redact_pii(context)}")
     if error_type:
-        lines.append(f"Тип: {error_type}")
+        lines.append(f"Тип: {_redact_pii(error_type)}")
     if message:
-        lines.append(f"Сообщение: {_truncate(message, 1000)}")
+        lines.append(f"Сообщение: {_truncate(_redact_pii(message), 1000)}")
     if where:
         lines.append(f"Где: {where}")
 
@@ -159,7 +195,7 @@ def _build_message(
         tail_header = "\n\nСтек (хвост):\n"
         budget = _TELEGRAM_TEXT_LIMIT - len(head) - len(tail_header) - 30
         if budget > 0:
-            shown = tb_text[-budget:]
+            shown = _redact_pii(tb_text)[-budget:]
             marker = "…[стек обрезано]\n" if len(shown) < len(tb_text) else ""
             head += f"{tail_header}{marker}{shown}"
     return _truncate(head, _TELEGRAM_TEXT_LIMIT)

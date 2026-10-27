@@ -27,6 +27,7 @@ function formatFixedMasterAmount(): string {
 }
 
 import { FIXED_MASTER_EARNED } from '../../ui/utils';
+import { formulaTailError } from '../../../utils/moneySplit';
 
 /* Общая оболочка секции настроек: назад + заголовок */
 function SectionShell({
@@ -346,7 +347,7 @@ const PIGGY_TARGET_OPTIONS = [
 ] as const;
 
 const OWNER_PAY_OPTIONS = [
-  { value: '', label: 'Остаток после копилки' },
+  { value: '', label: 'Весь остаток (где стоят в порядке)' },
   { value: 'percent', label: 'Процент от остатка (%)' },
 ] as const;
 
@@ -496,6 +497,11 @@ export function PricingSection({
                 <div className={`pb-2 pt-1 text-[11px] ${subCls}`}>
                   Действует на новые записи. Точный расчёт — в карточке записи и ведомости ЗП.
                 </div>
+                {formulaTailError(svc) && (
+                  <div className="pb-2 text-[11px] text-[var(--status-danger)]">
+                    Нераспределённый хвост — сохранить не получится: {formulaTailError(svc)}
+                  </div>
+                )}
                 <div className="space-y-2 pb-2">
                   <div>
                     <label className={`mb-1 block text-xs ${subCls}`}>Мастера</label>

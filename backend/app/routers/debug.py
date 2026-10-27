@@ -52,7 +52,10 @@ def debug_db(
     except Exception as e:
         import traceback
 
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()[:3000]}
+        logger = __import__("logging").getLogger(__name__)
+        logger.exception("debug.db failed")
+        # P1: стек наружу не отдаём даже владельцу — только короткий текст в лог.
+        return {"ok": False, "error": str(e)[:500]}
 
 
 def _mojibake_scan_rows(db: Session) -> list[dict]:

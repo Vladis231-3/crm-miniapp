@@ -88,3 +88,29 @@ export function mainWorkerEarned(
   }
   return Math.round((pool * weights[idx]) / sum);
 }
+
+export interface SplitFormulaSettings {
+  piggyPayType?: string | null;
+  piggyPayValue?: number | null;
+  ownerPayType?: string | null;
+  ownerPayValue?: number | null;
+  ownerSplitEnabled?: boolean | null;
+}
+
+/**
+ * Mirror of backend money_formula.formula_tail_error: формула обязана иметь
+ * шаг, забирающий весь остаток (владельцы без % / 100% или копилка «остаток»
+ * / 100%). Иначе хвост никому не уходит — сохранение блокируется.
+ */
+export function formulaTailError(svc: SplitFormulaSettings): string | null {
+  const ownersEnabled = svc.ownerSplitEnabled !== false;
+  const ownerType = svc.ownerPayType || '';
+  const ownerValue = Math.trunc(num(svc.ownerPayValue));
+  const piggyType = svc.piggyPayType || '';
+  if (ownersEnabled && (ownerType === '' || (ownerType === 'percent' && ownerValue >= 100))) return null;
+  if (piggyType === 'rest' || (piggyType === 'percent' && Math.trunc(num(svc.piggyPayValue)) >= 100)) return null;
+  if (!ownersEnabled) {
+    return 'владельцы выключены, а копилка не забирает остаток — часть денег никому не уйдёт. Включите владельцев или поставьте копилке «Весь остаток».';
+  }
+  return `владельцам ${ownerValue}% остатка, а копилка не забирает остаток — ${100 - ownerValue}% остатка никому не уйдёт. Поставьте владельцам «Весь остаток» или копилке «Весь остаток».`;
+}

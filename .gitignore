@@ -43,3 +43,7 @@ scripts/.project-map-watch.lock
 
 .backups/
 .skill-staging/
+
+# Heavy / generated / local-only (audit 09.10.2026)
+showreel/
+training/backend/

@@ -103,7 +103,7 @@ def _telegram_call(
     while True:
         attempt += 1
         try:
-            with request.urlopen(req, timeout=60) as response:
+            with request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="ignore")
@@ -150,7 +150,7 @@ def _telegram_multipart_call(
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=60) as response:
+        with request.urlopen(req, timeout=15) as response:
             result = json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="ignore")

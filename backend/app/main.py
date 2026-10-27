@@ -26,7 +26,7 @@ from pathlib import Path
 
 from threading import Event, Thread
 
-from typing import Any
+from typing import Any, Callable
 
 from uuid import uuid4
 
@@ -81,6 +81,7 @@ from .config import get_settings, PERSISTENT_DATA_DIR
 from .date_utils import parse_date_param, parse_dmy, validate_range
 from .finance import money, money_int, salary_base_for_period
 from .finance_sync import sync_expense_piggy_transaction
+from .money_formula import formula_tail_error
 
 from .google_calendar import (
     GOOGLE_CALENDAR_INVITES_KEY,
@@ -754,7 +755,9 @@ OWNER_DATABASE_RESET_CONFIRMATION_PHRASE = "ПОДТВЕРЖДАЮ ПОЛНУЮ 
 
 OWNER_DATABASE_RESET_CODE_LIFETIME_MINUTES = 10
 
-OWNER_DATABASE_RESET_DELAY_SECONDS = 10
+# P0: полный вайп за 10 секунд — ворота необратимой потери. В проде даём
+# сутки на отмену (тесты форсируют finalizeAfter напрямую, им всё равно).
+OWNER_DATABASE_RESET_DELAY_SECONDS = 86400
 
 # Выборочная очистка за период: корзина живёт 30 дней, потом purge.
 DATA_CLEANUP_TRASH_DAYS = 30
@@ -5198,6 +5201,13 @@ def _service_payload(service: Service) -> ServicePayload:
         materials=service.materials or [],
         splitOrder=service.split_order or [],
         piggyTarget=service.piggy_target or "",
+        formulaError=formula_tail_error(
+            piggy_pay_type=service.piggy_pay_type,
+            piggy_pay_value=service.piggy_pay_value,
+            owner_pay_type=service.owner_pay_type,
+            owner_pay_value=service.owner_pay_value,
+            owner_split_enabled=service.owner_split_enabled,
+        ),
 
     )
 
@@ -6235,6 +6245,19 @@ def _read_role_preview(db: Session, telegram_id: str) -> dict:
     actor_id = _safe_text(value.get("actorId")).strip()
     if not actor_id:
         return {}
+    # P1: бессрочная имперсонация — ворота при компрометации initData создателя.
+    # TTL 24ч: просроченное состояние чистим и считаем отсутствующим.
+    try:
+        set_at = datetime.fromisoformat(str(value.get("setAt", "")))
+        if set_at.tzinfo is not None:
+            set_at = set_at.astimezone(timezone.utc).replace(tzinfo=None)
+        if _now() - set_at > timedelta(hours=24):
+            if row is not None:
+                db.delete(row)
+                db.commit()
+            return {}
+    except (ValueError, TypeError):
+        return {}
     return {"role": role, "actorId": actor_id}
 
 
@@ -6248,10 +6271,12 @@ def _write_role_preview(db: Session, telegram_id: str, state: dict | None) -> No
             db.delete(row)
             db.commit()
         return
+    stamped = dict(state)
+    stamped["setAt"] = _now().isoformat()
     if row is None:
-        db.add(AppSetting(key=key, value=state))
+        db.add(AppSetting(key=key, value=stamped))
     else:
-        row.value = state
+        row.value = stamped
     db.commit()
 
 
@@ -6337,6 +6362,8 @@ def _apply_role_preview(db: Session, authorization: str, session_data: dict) -> 
     if not CREATOR_TELEGRAM_IDS:
         return session_data
     telegram_id = _telegram_id_from_init_data(authorization)
+    if not telegram_id or telegram_id not in CREATOR_TELEGRAM_IDS:
+        return session_data
     preview = _read_role_preview(db, telegram_id)
     if not preview:
         return session_data
@@ -6470,6 +6497,7 @@ def register_or_login_client(
     request: Request,
     db: Session = Depends(get_db),
 ) -> BootstrapPayload:
+    _check_rate_limit(_request_ip(request))
     authorization = (request.headers.get("authorization") or "").strip()
     if not authorization:
         authorization = (payload.initData or "").strip()
@@ -6651,6 +6679,7 @@ async def authenticate_via_telegram(
     request: Request,
     db: Session = Depends(get_db),
 ) -> BootstrapPayload:
+    _check_rate_limit(_request_ip(request))
     authorization = (request.headers.get("authorization") or "").strip()
     if not authorization:
         try:
@@ -7608,7 +7637,8 @@ def _dispatch_booking_reminders(
         )
     else:
         # часовой режим: ищем записи где точное время записи ≈ now + reminder_hours (± window)
-        assert target_dt is not None and window is not None
+        if target_dt is None or window is None:
+            raise RuntimeError("reminder hourly mode requires target_dt and window")
         all_candidates = (
             db.scalars(
                 select(Booking)
@@ -8656,6 +8686,8 @@ def _owner_database_reset_warnings(
 
         f"Сохранятся только аккаунты владельцев ({preview.ownersPreserved}).",
 
+        "СДЕЛАЙТЕ БЭКАП БД перед выполнением: операция необратима, откат только из внешней копии.",
+
     ]
 
 
@@ -8743,6 +8775,11 @@ def start_owner_database_reset(
 ) -> OwnerDatabaseResetStartPayload:
     """Шаг 1 сброса базы: подтверждение паролем, код уходит владельцу в Telegram."""
     _ensure_staff_role(session_data, {"owner"})
+    if settings.is_production and os.getenv("ALLOW_DATABASE_RESET", "false").strip().lower() not in {"1", "true", "yes", "on"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Сброс базы отключён в production (ALLOW_DATABASE_RESET=true + бэкап вне приложения)",
+        )
     staff = db.get(StaffUser, session_data["actorId"])
     if staff is None or not verify_password(payload.password, staff.password_hash):
         raise HTTPException(
@@ -12359,9 +12396,12 @@ def _detected_image_format(header: bytes) -> str | None:
 
 
 def _upload_headers(filename: str) -> dict[str, str]:
+    # P2: filename отражается в заголовке — режем кавычки/CRLF, иначе header injection.
+    # Имена генерируются как uuid4hex+ext, но защита в глубину обязательна.
+    safe = re.sub(r'[^A-Za-z0-9._-]', '_', filename)[:64] or "file"
     return {
         "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Disposition": f'inline; filename="{safe}"',
         "X-Content-Type-Options": "nosniff",
     }
 
@@ -13823,7 +13863,6 @@ def _booking_money_split(
         dop_owner_value = int(asvc_svc.owner_pay_value or 0) if asvc_svc else 0
         dop_owner_enabled = (asvc_svc.owner_split_enabled if asvc_svc else True) is not False
         dop_steps = [s for s in dop_order if s in ("piggy", "owners")]
-        dop_last = dop_steps[-1] if dop_steps else "owners"
         for dop_step in dop_steps:
             if dop_step == "piggy":
                 step_piggy, step_bank = _dop_remainder_piggy(dop_pool, asvc_svc, rg)
@@ -13840,12 +13879,11 @@ def _booking_money_split(
             else:
                 if not dop_owner_enabled:
                     continue
+                # Владельцы без % = весь текущий остаток в любой позиции (скрытых 50% нет).
                 if dop_owner_type == "percent":
                     dop_claimed = money_int(dop_pool * dop_owner_value / 100)
-                elif dop_step == dop_last:
-                    dop_claimed = dop_pool
                 else:
-                    dop_claimed = money_int(dop_pool * 50 / 100)
+                    dop_claimed = dop_pool
                 dop_owners = max(0, min(dop_claimed, dop_pool))
                 asvc_owner_extra_total += dop_owners
                 dop_pool = max(0, dop_pool - dop_owners)
@@ -13960,7 +13998,7 @@ def _booking_money_split(
         piggy_deposit = 0
         owners_total = 0
         owner_by_owner: dict[str, int] = {}
-        for index, step in enumerate(split_order):
+        for step in split_order:
             trace_before = pool
             trace_added = 0
             if step == "materials":
@@ -13973,17 +14011,15 @@ def _booking_money_split(
                 piggy_deposit = max(0, min(_compute_piggy(pool), pool))
                 pool = max(0, pool - piggy_deposit)
             elif step == "owners":
-                is_last = index == len(split_order) - 1
                 if asvc_owner_extra_total > 0:
                     # Доп. доля владельцев от остатка не-вычитаемых доп услуг
                     pool += asvc_owner_extra_total
                     trace_added = asvc_owner_extra_total
+                # Владельцы без % = весь текущий остаток в любой позиции (скрытых 50% нет).
                 if owner_pay_type == "percent":
                     claimed = money_int(pool * owner_pay_value / 100)
-                elif is_last:
-                    claimed = pool
                 else:
-                    claimed = money_int(pool * 50 / 100)
+                    claimed = pool
                 owners_total, owner_by_owner = _allocate_owners(claimed, pool)
                 pool = max(0, pool - owners_total)
             trace.append({"step": step, "name": "", "amount": max(0, trace_before + trace_added - pool),
@@ -14161,6 +14197,19 @@ def _booking_split_auto(
 ASVC_PIGGY_PURPOSE_PREFIX = "Доп. услуга:"
 
 
+def _main_piggy_purpose(booking: Booking, split: dict, svc: Service | None) -> str:
+    """Назначение основного вклада в копилку по типу копилки услуги."""
+    value = int(svc.piggy_pay_value or 0) if svc else 0
+    pay_type = split.get("piggy_pay_type") or ""
+    if pay_type == "fixed":
+        return f"Фикс {value}₽ в копилку: {booking.service} ({booking.client_name})"
+    if pay_type == "percent":
+        return f"{value}% от заказа в копилку: {booking.service} ({booking.client_name})"
+    if pay_type == "rest":
+        return f"Остаток в копилку: {booking.service} ({booking.client_name})"
+    return f"24% от заказа {booking.service} ({booking.client_name})"
+
+
 def _process_piggy_bank_for_booking(
     db: Session, booking: Booking, *, force_credit_replay: bool = False
 ) -> None:
@@ -14191,6 +14240,8 @@ def _process_piggy_bank_for_booking(
             PiggyBankTransaction.booking_id == booking.id,
 
             PiggyBankTransaction.transaction_type == "material_withdrawal",
+
+            PiggyBankTransaction.deleted_at.is_(None),
 
         )
 
@@ -14294,27 +14345,10 @@ def _process_piggy_bank_for_booking(
     if deposit_amount > 0 and not main_deposit_exists:
 
         svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
-        piggy_percent_value = int(svc_for_piggy.piggy_pay_value or 0) if svc_for_piggy else 0
-        piggy_fixed_value = piggy_percent_value
         piggy_target = (svc_for_piggy.piggy_target or "").strip() if svc_for_piggy else ""
         if piggy_target not in ("detailing", "wash", "general"):
             piggy_target = ""
-
-        if split["piggy_pay_type"] == "fixed":
-
-            purpose = f"Фикс {piggy_fixed_value}₽ в копилку: {booking.service} ({booking.client_name})"
-
-        elif split["piggy_pay_type"] == "percent":
-
-            purpose = f"{piggy_percent_value}% от заказа в копилку: {booking.service} ({booking.client_name})"
-
-        elif split["piggy_pay_type"] == "rest":
-
-            purpose = f"Остаток в копилку: {booking.service} ({booking.client_name})"
-
-        else:
-
-            purpose = f"24% от заказа {booking.service} ({booking.client_name})"
+        purpose = _main_piggy_purpose(booking, split, svc_for_piggy)
 
         db.add(
 
@@ -14391,7 +14425,13 @@ def _process_piggy_bank_for_booking(
 
 
 
-def _reconcile_piggy_for_booking(db: Session, booking: Booking) -> None:
+def _reconcile_piggy_for_booking(
+    db: Session,
+    booking: Booking,
+    *,
+    include_credit: bool = False,
+    complaints_by_worker: dict[str, list] | None = None,
+) -> None:
     """Сверка piggy-проводок завершённой записи с текущим сплитом.
 
     Правка цены/услуги/допов после complete оставляла stale-депозиты
@@ -14402,9 +14442,11 @@ def _reconcile_piggy_for_booking(db: Session, booking: Booking) -> None:
     """
     if booking.status != "completed":
         return
-    if (booking.payment_type or "") == "credit":
+    if (booking.payment_type or "") == "credit" and not include_credit:
         return
-    split = _booking_money_split(db, booking, _complaints_by_worker(_load_penalties(db)))
+    if complaints_by_worker is None:
+        complaints_by_worker = _complaints_by_worker(_load_penalties(db))
+    split = _booking_money_split(db, booking, complaints_by_worker)
     service = db.get(Service, booking.service_id) if booking.service_id else None
     rg = _service_resource_group(service)
     svc_for_piggy = service
@@ -14434,7 +14476,22 @@ def _reconcile_piggy_for_booking(db: Session, booking: Booking) -> None:
             keep.resource_group = expected_rg
             for dup in main_txs[1:]:
                 db.delete(dup)
-        # else: создаст _process ниже при следующем триггере; здесь не дублируем
+        else:
+            # Вклада нет (формула раньше давала 0 / вклад потерялся) — создаём.
+            db.add(
+                PiggyBankTransaction(
+                    id=f"pb-{uuid4()}",
+                    booking_id=booking.id,
+                    amount=expected_main,
+                    transaction_type="deposit_24percent",
+                    purpose=_main_piggy_purpose(booking, split, service),
+                    material_name=None,
+                    material_cost=None,
+                    date=booking.date,
+                    resource_group=expected_rg,
+                    created_at=_now(),
+                )
+            )
     else:
         for t in main_txs:
             db.delete(t)
@@ -14473,6 +14530,66 @@ def _reconcile_piggy_for_booking(db: Session, booking: Booking) -> None:
                 created_at=_now(),
             )
         )
+
+
+def _reconcile_owner_shares_for_booking(
+    db: Session, booking: Booking, complaints_by_worker: dict[str, list] | None = None
+) -> dict:
+    """Привести pending-доли владельцев записи к текущему сплиту.
+
+    Выплаченные (paid) доли не трогаем: их сумма вычитается из ожидаемой,
+    переплата сверх формулы возвращается как paid_mismatch (для отчёта).
+    Возвращает {"before": доли_до, "after": доли_после, "paid_mismatch": int}.
+    """
+    if complaints_by_worker is None:
+        complaints_by_worker = _complaints_by_worker(_load_penalties(db))
+    split = _booking_money_split(db, booking, complaints_by_worker)
+    expected: dict[str, int] = {}
+    if _should_persist_owner_shares(split) and int(split.get("owners_total") or 0) > 0:
+        expected = {
+            str(k): int(v) for k, v in (split.get("owner_by_owner") or {}).items() if int(v) > 0
+        }
+    shares = db.scalars(
+        select(OwnerProfitShare).where(OwnerProfitShare.booking_id == booking.id)
+    ).all()
+    before = sum(int(sh.amount or 0) for sh in shares)
+    paid_by_owner: dict[str, int] = {}
+    pending_by_owner: dict[str, list] = {}
+    for sh in shares:
+        if sh.status == "paid":
+            paid_by_owner[sh.owner_id] = paid_by_owner.get(sh.owner_id, 0) + int(sh.amount or 0)
+        else:
+            pending_by_owner.setdefault(sh.owner_id, []).append(sh)
+    paid_mismatch = 0
+    after = 0
+    for owner_id in sorted(set(expected) | set(paid_by_owner) | set(pending_by_owner)):
+        paid = paid_by_owner.get(owner_id, 0)
+        pending_want = expected.get(owner_id, 0) - paid
+        if pending_want < 0:
+            # Выплачено больше, чем положено по формуле — не откатываем, в отчёт.
+            paid_mismatch += -pending_want
+            pending_want = 0
+        rows = pending_by_owner.get(owner_id, [])
+        if pending_want > 0 and rows:
+            rows[0].amount = pending_want
+            rows[0].date = booking.date
+            rows = rows[1:]
+        elif pending_want > 0:
+            db.add(
+                OwnerProfitShare(
+                    id=f"ops-{uuid4()}",
+                    booking_id=booking.id,
+                    owner_id=owner_id,
+                    amount=pending_want,
+                    status="pending",
+                    date=booking.date,
+                    created_at=_now(),
+                )
+            )
+        for row in rows:
+            db.delete(row)
+        after += paid + pending_want
+    return {"before": before, "after": after, "paid_mismatch": paid_mismatch}
 
 
 def _process_owner_profit_share(
@@ -15162,7 +15279,8 @@ def update_booking(
             # если их нет (ремонт записей, завершённых до строгого has_custom):
             # _process_owner_profit_share идемпотентен (есть доли — no-op).
             _reconcile_piggy_for_booking(db, booking)
-            _process_owner_profit_share(db, booking)
+            if (booking.payment_type or "") != "credit":
+                _reconcile_owner_shares_for_booking(db, booking)
 
         # Заморозка: дальнейшая смена настроек услуги историю не перепишет.
         _freeze_booking_split(db, booking)
@@ -17435,13 +17553,6 @@ def get_piggy_bank(
 
     ).all()
 
-    _BALANCE_TYPES = {
-        "deposit_24percent", "material_repayment",
-        "material_withdrawal", "other_withdrawal", "debt_repayment",
-        "adjust", "deposit_return", "month_return",
-    }
-    balance = sum(t.amount for t in all_tx if t.transaction_type in _BALANCE_TYPES)
-
     # keep full list for debt aggregation before filtering
     full_all_tx_for_debt = list(all_tx)
 
@@ -17740,43 +17851,44 @@ def get_piggy_bank(
 
     all_incomes = db.scalars(select(Income).where(Income.deleted_at.is_(None))).all()
 
-    # Свои расходы (source=own: компенсация bonus в ЗП, копилка не тронута)
-    # не должны срезать остаток копилки. Отличаем от repay (payout) по kind.
+    # Единая формула копилки группы G (карточки, «Все», all-time, недели):
+    #   живые вклады + возвраты (deposit/month_return, материалы) + adjust
+    #   + снятия/возврат долга (amount < 0) − обычные расходы G + обычные доходы G.
+    # ЗП копилку не трогает: расходы/доходы, привязанные к PayrollEntry
+    # (выплаты, авансы, премии, корректировки, штрафы/удержания) и категория
+    # «Зарплата» исключены; оплата смен не вычитается. Списание материалов
+    # (Expense с booking_id) исключено — материалы уже вычтены из базы сплита.
+    # Расходы-пары снятий/возвратов исключены — их считает сама транзакция.
+    # Зеркала type "expense" не суммируем — расход берём из таблицы Expense.
     try:
-        _own_expense_ids = {
-            str(getattr(_pe, "expense_id", "") or "")
-            for _pe in db.scalars(
-                select(PayrollEntry).where(
-                    PayrollEntry.deleted_at.is_(None),
-                    PayrollEntry.kind == "bonus",
-                    PayrollEntry.expense_id.is_not(None),
-                )
-            ).all()
-            if getattr(_pe, "expense_id", None)
-        }
+        _payroll_rows = db.scalars(
+            select(PayrollEntry).where(PayrollEntry.deleted_at.is_(None))
+        ).all()
+        _payroll_expense_ids = {str(_pe.expense_id) for _pe in _payroll_rows if getattr(_pe, "expense_id", None)}
+        _payroll_income_ids = {str(_pe.income_id) for _pe in _payroll_rows if getattr(_pe, "income_id", None)}
     except Exception:
-        _own_expense_ids = set()
+        _payroll_expense_ids = set()
+        _payroll_income_ids = set()
+    _pair_expense_ids = {
+        str(_t.expense_id)
+        for _t in full_all_tx_for_debt
+        if getattr(_t, "expense_id", None) and _t.transaction_type != "expense"
+    }
+
+    def _is_regular_expense(_e: Any) -> bool:
+        _eid = str(getattr(_e, "id", ""))
+        return (
+            _eid not in _payroll_expense_ids
+            and _eid not in _pair_expense_ids
+            and (getattr(_e, "category", "") or "") != "Зарплата"
+            and not getattr(_e, "booking_id", None)
+        )
+
+    def _is_regular_income(_i: Any) -> bool:
+        return str(getattr(_i, "id", "")) not in _payroll_income_ids
+
     def _is_own_expense(_e: Any) -> bool:
-        try:
-            return str(getattr(_e, "id", "")) in _own_expense_ids
-        except Exception:
-            return False
-
-
-
-    wash_expenses = sum(e.amount for e in all_expenses if e.resource_group == WASH_RESOURCE_GROUP and _in_range(e.date) and not _is_own_expense(e))
-
-    wash_incomes = sum(i.amount for i in all_incomes if i.resource_group == WASH_RESOURCE_GROUP and _in_range(i.date))
-
-    detailing_expenses = sum(e.amount for e in all_expenses if e.resource_group == "detailing" and _in_range(e.date) and not _is_own_expense(e))
-
-    detailing_incomes = sum(i.amount for i in all_incomes if i.resource_group == "detailing" and _in_range(i.date))
-
-
-
-    remaining = total_piggy - total_daily_outputs - wash_expenses + wash_incomes
-
-
+        return not _is_regular_expense(_e)
 
     def _is_live_deposit(_t: Any) -> bool:
         try:
@@ -17789,41 +17901,49 @@ def get_piggy_bank(
         except Exception:
             return True
 
+    _BUCKET_TX_TYPES = {
+        "deposit_24percent", "deposit_return", "month_return", "material_repayment",
+        "adjust", "material_withdrawal", "other_withdrawal", "debt_repayment",
+    }
+
+    def _bucket(group: str, pred: Callable[[str | None], bool]) -> float:
+        total = sum(
+            float(t.amount or 0) for t in full_all_tx_for_debt
+            if t.transaction_type in _BUCKET_TX_TYPES
+            and (t.resource_group or "") == group
+            and pred(t.date)
+            and _is_live_deposit(t)
+        )
+        total -= sum(
+            float(e.amount or 0) for e in all_expenses
+            if e.resource_group == group and pred(e.date) and _is_regular_expense(e)
+        )
+        total += sum(
+            float(i.amount or 0) for i in all_incomes
+            if i.resource_group == group and pred(i.date) and _is_regular_income(i)
+        )
+        return round(total, 2)
+
+    balance = sum(_bucket(_g, lambda _d: True) for _g in (WASH_RESOURCE_GROUP, "detailing", "general"))
+
+    wash_expenses = sum(e.amount for e in all_expenses if e.resource_group == WASH_RESOURCE_GROUP and _in_range(e.date) and _is_regular_expense(e))
+
+    wash_incomes = sum(i.amount for i in all_incomes if i.resource_group == WASH_RESOURCE_GROUP and _in_range(i.date) and _is_regular_income(i))
+
+    detailing_expenses = sum(e.amount for e in all_expenses if e.resource_group == "detailing" and _in_range(e.date) and _is_regular_expense(e))
+
+    detailing_incomes = sum(i.amount for i in all_incomes if i.resource_group == "detailing" and _in_range(i.date) and _is_regular_income(i))
+
     deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "detailing" and _in_range(t.date) and _is_live_deposit(t))
 
     withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "detailing" and _in_range(t.date))
 
-    # Возвраты долга копилки человеку (debt_repayment, amount < 0) — деньги
-    # УХОДЯТ из копилки наружу: уменьшают нетто как списания.
-    debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "detailing" and _in_range(t.date))
-
     repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "detailing" and _in_range(t.date))
 
-    net_piggy = deposits_24 + repayments - withdrawals - debt_repay_out
-
-    # Wash net piggy (from actual transactions, same methodology)
-    wash_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "wash" and _in_range(t.date) and _is_live_deposit(t))
-    wash_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "wash" and _in_range(t.date))
-    wash_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "wash" and _in_range(t.date))
-    wash_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "wash" and _in_range(t.date))
-    wash_net_piggy = wash_deposits_24 + wash_repayments - wash_withdrawals - wash_debt_repay_out
-
-    # General piggy bank (deposits targeted to "general")
-    general_deposits_24 = sum(t.amount for t in all_tx if t.transaction_type == "deposit_24percent" and t.resource_group == "general" and _in_range(t.date) and _is_live_deposit(t))
-    general_withdrawals = sum(abs(t.amount) for t in all_tx if t.transaction_type in ("material_withdrawal", "other_withdrawal") and t.amount < 0 and t.resource_group == "general" and _in_range(t.date))
-    general_debt_repay_out = sum(abs(t.amount) for t in all_tx if t.transaction_type == "debt_repayment" and t.amount < 0 and t.resource_group == "general" and _in_range(t.date))
-    general_repayments = sum(t.amount for t in all_tx if t.transaction_type == "material_repayment" and t.resource_group == "general" and _in_range(t.date))
-    general_net_piggy = general_deposits_24 + general_repayments - general_withdrawals - general_debt_repay_out
-
-    # Manual adjustments (transaction_type == "adjust") — affect every bucket
-    detailing_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "detailing" and _in_range(t.date))
-    wash_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "wash" and _in_range(t.date))
-    general_adjustments = sum(t.amount for t in all_tx if t.transaction_type == "adjust" and t.resource_group == "general" and _in_range(t.date))
-
-    remaining = remaining + wash_adjustments
-    net_piggy = net_piggy + detailing_adjustments
-    wash_net_piggy = wash_net_piggy + wash_adjustments
-    general_net_piggy = general_net_piggy + general_adjustments
+    remaining = _bucket(WASH_RESOURCE_GROUP, _in_range)
+    net_piggy = _bucket("detailing", _in_range)
+    general_net_piggy = _bucket("general", _in_range)
+    wash_net_piggy = remaining
 
     combined_balance = remaining + net_piggy + general_net_piggy
 
@@ -17964,141 +18084,71 @@ def get_piggy_bank(
 
     # ── Недельный остаток без учёта дохода (суббота → снятия) ──
     # Подчёркнутая сумма = остаток СВОЕЙ копилки на утро субботы
-    # (в ТОЙ ЖЕ методологии, что карточка баланса) минус расходы недели.
+    # (та же формула _bucket, что у карточки) минус расходы недели.
     # Доходы недели игнорируются. В субботу равно балансу копилки.
-    # Методология остатка обязана совпадать с карточкой, иначе суббота не сойдётся:
-    # - detailing/general: как netPiggy (депозиты + возвраты − снятия +
-    #   корректировки; тип expense и прочие игнор-лист карточки — тоже игнор);
-    # - wash: как remaining (брони − выходы − расходы + доходы + adjust).
-    # Расходы недели — то, что уменьшает карточку: detailing/general снятия
-    # из истории + отрицательные корректировки среди недели (иначе adjust−
-    # виден только со следующей субботы); wash плюс прямые расходы без
-    # зеркал и смены.
-    _WEEKLY_PIGGY_WD = {"material_withdrawal", "other_withdrawal", "debt_repayment", "adjust"}
-    _CARD_PIGGY_TYPES = {
-        "deposit_24percent", "material_repayment",
-        "material_withdrawal", "other_withdrawal", "debt_repayment", "adjust",
-    }
+    # Расходы недели — всё, что уменьшает карточку: отрицательные операции
+    # копилки (снятия, возврат долга, adjust−) + обычные расходы группы.
+    # ЗП и оплата смен не учитываются (как и в карточке).
+    def _pdate(ds: str | None) -> date | None:
+        return _parse_date_str(ds) if ds else None
+
+    def _before(limit: date) -> Callable[[str | None], bool]:
+        def _pred(ds: str | None) -> bool:
+            _p = _pdate(ds)
+            return _p is not None and _p < limit
+        return _pred
+
+    def _created_key(_x: Any) -> Any:
+        _ca = getattr(_x, "created_at", None)
+        if not isinstance(_ca, datetime):
+            return datetime.min
+        # aware/naive вперемешку не сравниваются — приводим к naive.
+        return _ca.replace(tzinfo=None)
+
+    _weekly_base_txs = full_all_tx_for_debt if not booking_id else []
+    _tx_parsed_date: dict[str, date | None] = {_t.id: _pdate(getattr(_t, "date", None)) for _t in _weekly_base_txs}
+
+    def _outflows(grp: str, start: date, end: date) -> list[tuple[date, Any, float]]:
+        """Отток копилки группы за [start, end]: (дата, created_at, сумма > 0)."""
+        _events: list[tuple[date, Any, float]] = []
+        for _t in _weekly_base_txs:
+            if _t.transaction_type not in _BUCKET_TX_TYPES or (_t.resource_group or "") != grp:
+                continue
+            _d = _tx_parsed_date.get(_t.id)
+            if _d is None or not (start <= _d <= end):
+                continue
+            try:
+                _amt = float(_t.amount or 0)
+            except (TypeError, ValueError):
+                continue
+            if _amt < 0:
+                _events.append((_d, _created_key(_t), abs(_amt)))
+        for _e in all_expenses:
+            if (_e.resource_group or "") != grp or not _is_regular_expense(_e):
+                continue
+            _d = _pdate(getattr(_e, "date", None))
+            if _d is None or not (start <= _d <= end):
+                continue
+            try:
+                _amt = float(_e.amount or 0)
+            except (TypeError, ValueError):
+                continue
+            if _amt > 0:
+                _events.append((_d, _created_key(_e), _amt))
+        return _events
+
+    _PIGGY_GROUPS = (WASH_RESOURCE_GROUP, "detailing", "general")
     try:
         def _saturday_of(d: date) -> date:
             return d - timedelta(days=(d.weekday() - 5) % 7)
 
-        _weekly_base_txs = full_all_tx_for_debt if not booking_id else []
-        _tx_parsed_date: dict[str, date | None] = {}
-        for _t in _weekly_base_txs:
-            _tx_parsed_date[_t.id] = _parse_date_str(_t.date) if getattr(_t, "date", None) else None
-
-        _distinct_saturdays: dict[date, None] = {}
-        for _d in _tx_parsed_date.values():
-            if _d is not None:
-                _distinct_saturdays[_saturday_of(_d)] = None
-        _saturdays = sorted(_distinct_saturdays.keys())
-
         _sat_cache: dict[date, dict[str, float]] = {}
-        _booking_parsed: list[tuple[date | None, Any]] = []
-        for _b in all_completed_bookings:
-            _booking_parsed.append((_parse_date_str(_b.date) if getattr(_b, "date", None) else None, _b))
-        _exp_parsed: list[tuple[date | None, Any]] = []
-        for _e in all_expenses:
-            try:
-                if _is_own_expense(_e):
-                    continue
-            except Exception:
-                pass
-            _exp_parsed.append((_parse_date_str(_e.date) if getattr(_e, "date", None) else None, _e))
-        _inc_parsed: list[tuple[date | None, Any]] = []
-        for _i in all_incomes:
-            _inc_parsed.append((_parse_date_str(_i.date) if getattr(_i, "date", None) else None, _i))
 
-        for _sat in _saturdays:
-            # Detailing/general: строго методология карточки netPiggy
-            # (см. deposits_24/repayments/withdrawals/adjustments выше).
-            _det_sat = 0.0
-            _gen_sat = 0.0
-            for _t in _weekly_base_txs:
-                _d = _tx_parsed_date.get(_t.id)
-                if _d is None or not (_d < _sat):
-                    continue
-                if _t.transaction_type not in _CARD_PIGGY_TYPES:
-                    continue
-                try:
-                    _amt = float(_t.amount or 0)
-                except (TypeError, ValueError):
-                    _amt = 0.0
-                if _t.resource_group == "detailing":
-                    _det_sat += _amt
-                elif _t.resource_group == "general":
-                    _gen_sat += _amt
-            # FIX cleanup-consistency: остаток мойки на субботу считаем по
-            # фактическим НЕудалённым транзакциям (как карточка remaining),
-            # а не пересчётом сплита броней. Иначе после очистки piggy
-            # субботний остаток висит (booking-derived), а карточка уже 0.
-            _total_piggy_before = 0.0
-            for _t in _weekly_base_txs:
-                _d = _tx_parsed_date.get(_t.id)
-                if _d is None or not (_d < _sat):
-                    continue
-                if (_t.resource_group or "") != WASH_RESOURCE_GROUP:
-                    continue
-                if _t.transaction_type not in ("deposit_24percent", "deposit_return"):
-                    continue
-                try:
-                    _amt = float(_t.amount or 0)
-                except (TypeError, ValueError):
-                    continue
-                if _amt == 0:
-                    continue
-                # Игнор orphan-начислений удалённых записей (как в карточке).
-                if getattr(_t, "booking_id", None) and _t.transaction_type == "deposit_24percent":
-                    try:
-                        _bid_in_map = _t.booking_id in _completed_by_id
-                    except Exception:
-                        _bid_in_map = False
-                    if not _bid_in_map:
-                        continue
-                _total_piggy_before += _amt
-            _outputs_before = 0
-            try:
-                _sat_exclusive_end = _sat - timedelta(days=1)
-                _base_start = date(2000, 1, 1)
-                for _w in workers_list:
-                    _sal = getattr(_w, "salary_per_shift", 0) or 0
-                    if not _sal:
-                        continue
-                    _cnt, _dates = _compute_shift_attendance(inspections, _w.id, _base_start, _sat_exclusive_end)
-                    _outputs_before += _cnt * _sal
-            except Exception:
-                _outputs_before = 0
-            _wash_exp_before = 0.0
-            for _ed, _e in _exp_parsed:
-                if _ed is not None and _ed < _sat and _e.resource_group == WASH_RESOURCE_GROUP:
-                    try:
-                        _wash_exp_before += float(_e.amount or 0)
-                    except (TypeError, ValueError):
-                        pass
-            _wash_inc_before = 0.0
-            for _iid, _i in _inc_parsed:
-                if _iid is not None and _iid < _sat and _i.resource_group == WASH_RESOURCE_GROUP:
-                    try:
-                        _wash_inc_before += float(_i.amount or 0)
-                    except (TypeError, ValueError):
-                        pass
-            _wash_adj_before = 0.0
-            for _t in _weekly_base_txs:
-                _d = _tx_parsed_date.get(_t.id)
-                if _d is None or not (_d < _sat):
-                    continue
-                if _t.transaction_type == "adjust" and _t.resource_group == WASH_RESOURCE_GROUP:
-                    try:
-                        _wash_adj_before += float(_t.amount or 0)
-                    except (TypeError, ValueError):
-                        pass
-            _wash_sat = float(_total_piggy_before - _outputs_before - _wash_exp_before + _wash_inc_before + _wash_adj_before)
-            _sat_cache[_sat] = {
-                "detailing": round(float(_det_sat), 2),
-                "general": round(float(_gen_sat), 2),
-                "wash": round(float(_wash_sat), 2),
-            }
+        def _sat_balances(_sat: date) -> dict[str, float]:
+            if _sat not in _sat_cache:
+                _pred = _before(_sat)
+                _sat_cache[_sat] = {_g: round(float(_bucket(_g, _pred)), 2) for _g in _PIGGY_GROUPS}
+            return _sat_cache[_sat]
 
         from collections import defaultdict as _dd
         _grouped: dict[tuple[str, date], list[Any]] = _dd(list)
@@ -18106,144 +18156,33 @@ def get_piggy_bank(
             _d = _tx_parsed_date.get(_t.id)
             if _d is None:
                 continue
-            _sat = _saturday_of(_d)
-            _grouped[(_t.resource_group or "detailing", _sat)].append(_t)
-
-        def _created_key(_t: Any) -> Any:
-            _ca = getattr(_t, "created_at", None)
-            try:
-                return _ca if _ca is not None else datetime.min
-            except Exception:
-                return datetime.min
+            _grouped[(_t.resource_group or "detailing", _saturday_of(_d))].append(_t)
 
         _weekly_map: dict[str, tuple[str, float, float, float]] = {}
         _WEEK_END_DELTA = timedelta(days=6)
         for (_grp, _sat), _lst in _grouped.items():
+            _sat_bal = float(_sat_balances(_sat).get(_grp, 0.0))
+            _events = sorted(
+                _outflows(_grp, _sat, _sat + _WEEK_END_DELTA),
+                key=lambda _x: (_x[0], _x[1]),
+            )
             _lst_sorted = sorted(_lst, key=lambda _x: ((_tx_parsed_date.get(_x.id) or date.min), _created_key(_x)))
-            _sat_bal = float((_sat_cache.get(_sat) or {}).get(_grp, 0.0))
-            _week_end = _sat + _WEEK_END_DELTA
-            # Прямые расходы и смены — только для мойки (её карточка их включает).
-            # У detailing/general карточка их не знает, недельный остаток —
-            # только снятия из истории, иначе суббота не сойдётся с карточкой.
-            _is_wash = (_grp == WASH_RESOURCE_GROUP)
-            _week_expenses: list[tuple[date, Any, float]] = []
-            _shift_events: list[tuple[date, float]] = []
-            if _is_wash:
-                # Прямые расходы бюджета недели (без зеркал piggy, чтобы не задвоить).
-                _mirrored_ids: set[str] = set()
-                for _t in _lst:
-                    _eid = getattr(_t, "expense_id", None)
-                    if _eid:
-                        _mirrored_ids.add(str(_eid))
-                _unlinked_wd: list[tuple[date, float]] = []
-                for _t in _lst:
-                    try:
-                        _neg = float(_t.amount or 0) < 0
-                    except (TypeError, ValueError):
-                        _neg = False
-                    if _neg and not getattr(_t, "expense_id", None):
-                        _dd2 = _tx_parsed_date.get(_t.id)
-                        if _dd2 is not None and _sat <= _dd2 <= _week_end:
-                            try:
-                                _unlinked_wd.append((_dd2, round(abs(float(_t.amount)), 2)))
-                            except (TypeError, ValueError):
-                                pass
-                _candidate_exp: list[tuple[Any, date, Any, float]] = []
-                for _ed, _e in _exp_parsed:
-                    if _ed is None or not (_sat <= _ed <= _week_end):
-                        continue
-                    if (_e.resource_group or "") != _grp:
-                        continue
-                    try:
-                        _eamt = round(abs(float(_e.amount or 0)), 2)
-                    except (TypeError, ValueError):
-                        continue
-                    if _eamt <= 0:
-                        continue
-                    if str(getattr(_e, "id", "")) in _mirrored_ids:
-                        continue
-                    _candidate_exp.append((_e, _ed, getattr(_e, "created_at", None), _eamt))
-                _fallback_excluded: set[str] = set()
-                for (_wdate, _wamt) in _unlinked_wd:
-                    for (_e, _ed, _ecr, _eamt) in _candidate_exp:
-                        _eid2 = str(getattr(_e, "id", ""))
-                        if _eid2 in _fallback_excluded:
-                            continue
-                        if _ed == _wdate and _eamt == _wamt:
-                            _fallback_excluded.add(_eid2)
-                            break
-                for (_e, _ed, _ecr, _eamt) in _candidate_exp:
-                    if str(getattr(_e, "id", "")) not in _fallback_excluded:
-                        _week_expenses.append((_ed, _ecr, _eamt))
-                # Выходы мастеров недели — только для мойки.
-                try:
-                    for _w in workers_list:
-                        _sal = getattr(_w, "salary_per_shift", 0) or 0
-                        if not _sal:
-                            continue
-                        try:
-                            _cnt, _date_strs = _compute_shift_attendance(inspections, _w.id, _sat, _week_end)
-                        except Exception:
-                            continue
-                        for _ds in (_date_strs or []):
-                            _sd = _parse_date_str(_ds) if _ds else None
-                            if _sd is None or not (_sat <= _sd <= _week_end):
-                                continue
-                            try:
-                                _shift_events.append((_sd, float(_sal)))
-                            except (TypeError, ValueError):
-                                pass
-                except Exception:
-                    _shift_events = []
-            _week_expenses_sorted = sorted(_week_expenses, key=lambda _x: (_x[0], _x[1] or datetime.min))
-            _shift_sorted = sorted(_shift_events, key=lambda _x: _x[0])
-            _cum_piggy = 0.0
+            _cum = 0.0
             _ei = 0
-            _si = 0
             for _t in _lst_sorted:
-                _tdate = _tx_parsed_date.get(_t.id) or date.min
-                _tcr = _created_key(_t)
-                try:
-                    # detailing/general: снятия + adjust− из истории
-                    # (методология карточки netPiggy);
-                    # wash: любая отрицательная операция копилки.
-                    if _is_wash:
-                        _counts = float(_t.amount or 0) < 0
-                    else:
-                        _counts = (
-                            _t.transaction_type in _WEEKLY_PIGGY_WD
-                            and float(_t.amount or 0) < 0
-                        )
-                    if _counts:
-                        _cum_piggy += abs(float(_t.amount))
-                except (TypeError, ValueError):
-                    pass
-                while _ei < len(_week_expenses_sorted) and (
-                    _week_expenses_sorted[_ei][0] < _tdate
-                    or (
-                        _week_expenses_sorted[_ei][0] == _tdate
-                        and (
-                            _week_expenses_sorted[_ei][1] is None
-                            or _tcr is None
-                            or _week_expenses_sorted[_ei][1] <= _tcr
-                        )
-                    )
-                ):
-                    _cum_piggy += _week_expenses_sorted[_ei][2]
+                _key = (_tx_parsed_date.get(_t.id) or date.min, _created_key(_t))
+                while _ei < len(_events) and (_events[_ei][0], _events[_ei][1]) <= _key:
+                    _cum += _events[_ei][2]
                     _ei += 1
-                while _si < len(_shift_sorted) and _shift_sorted[_si][0] <= _tdate:
-                    _cum_piggy += _shift_sorted[_si][1]
-                    _si += 1
-                _cum2 = round(_cum_piggy, 2)
-                _weekly = round(_sat_bal - _cum2, 2)
-                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), _weekly, _cum2)
+                _cum2 = round(_cum, 2)
+                _weekly_map[_t.id] = (_sat.strftime("%d.%m.%Y"), round(_sat_bal, 2), round(_sat_bal - _cum2, 2), _cum2)
 
         for _p in transaction_payloads:
             _info = _weekly_map.get(_p.id)
             if _info is not None:
                 _p.weekStart, _p.weekStartBalance, _p.weeklyBalance, _p.weeklyWithdrawn = _info
     except Exception:
-        pass
+        logger.exception("piggy weekly balances failed")
 
     # ── Снимок текущей недели на сейчас (без учёта заработка недели) ──
     # Отдельной строкой в UI: «остаток без заработка сейчас» =
@@ -18266,220 +18205,25 @@ def get_piggy_bank(
     try:
         if not booking_id:
             _today = date.today()
-
-            def _cur_saturday_of(d: date) -> date:
-                return d - timedelta(days=(d.weekday() - 5) % 7)
-
-            _cur_sat = _cur_saturday_of(_today)
+            _cur_sat = _today - timedelta(days=(_today.weekday() - 5) % 7)
             _cur_week_start_str = _cur_sat.strftime("%d.%m.%Y")
+            _cur_pred = _before(_cur_sat)
 
-            # Балансы на утро субботы (та же методология, что _sat_cache выше).
-            # Если суббота уже посчитана — берём из кэша, иначе считаем заново.
-            try:
-                _cur_sat_bal = dict(_sat_cache.get(_cur_sat) or {})
-            except Exception:
-                _cur_sat_bal = {}
-            if not _cur_sat_bal or not all(k in _cur_sat_bal for k in ("wash", "detailing", "general")):
-                _det_sat = 0.0
-                _gen_sat = 0.0
-                for _t in _weekly_base_txs:
-                    _d = _tx_parsed_date.get(_t.id)
-                    if _d is None or not (_d < _cur_sat):
-                        continue
-                    if _t.transaction_type not in _CARD_PIGGY_TYPES:
-                        continue
-                    try:
-                        _amt = float(_t.amount or 0)
-                    except (TypeError, ValueError):
-                        _amt = 0.0
-                    if _t.resource_group == "detailing":
-                        _det_sat += _amt
-                    elif _t.resource_group == "general":
-                        _gen_sat += _amt
-                # FIX cleanup-consistency (текущая суббота): как выше — по транзакциям.
-                _total_piggy_before = 0.0
-                for _t in _weekly_base_txs:
-                    _d = _tx_parsed_date.get(_t.id)
-                    if _d is None or not (_d < _cur_sat):
-                        continue
-                    if (_t.resource_group or "") != WASH_RESOURCE_GROUP:
-                        continue
-                    if _t.transaction_type not in ("deposit_24percent", "deposit_return"):
-                        continue
-                    try:
-                        _amt = float(_t.amount or 0)
-                    except (TypeError, ValueError):
-                        continue
-                    if _amt == 0:
-                        continue
-                    if getattr(_t, "booking_id", None) and _t.transaction_type == "deposit_24percent":
-                        try:
-                            _bid_in_map = _t.booking_id in _completed_by_id
-                        except Exception:
-                            _bid_in_map = False
-                        if not _bid_in_map:
-                            continue
-                    _total_piggy_before += _amt
-                _outputs_before = 0
-                try:
-                    _sat_exclusive_end = _cur_sat - timedelta(days=1)
-                    _base_start = date(2000, 1, 1)
-                    for _w in workers_list:
-                        _sal = getattr(_w, "salary_per_shift", 0) or 0
-                        if not _sal:
-                            continue
-                        _cnt, _dates = _compute_shift_attendance(inspections, _w.id, _base_start, _sat_exclusive_end)
-                        _outputs_before += _cnt * _sal
-                except Exception:
-                    _outputs_before = 0
-                _wash_exp_before = 0.0
-                for _ed, _e in _exp_parsed:
-                    if _ed is not None and _ed < _cur_sat and _e.resource_group == WASH_RESOURCE_GROUP:
-                        try:
-                            _wash_exp_before += float(_e.amount or 0)
-                        except (TypeError, ValueError):
-                            pass
-                _wash_inc_before = 0.0
-                for _iid, _i in _inc_parsed:
-                    if _iid is not None and _iid < _cur_sat and _i.resource_group == WASH_RESOURCE_GROUP:
-                        try:
-                            _wash_inc_before += float(_i.amount or 0)
-                        except (TypeError, ValueError):
-                            pass
-                _wash_adj_before = 0.0
-                for _t in _weekly_base_txs:
-                    _d = _tx_parsed_date.get(_t.id)
-                    if _d is None or not (_d < _cur_sat):
-                        continue
-                    if _t.transaction_type == "adjust" and _t.resource_group == WASH_RESOURCE_GROUP:
-                        try:
-                            _wash_adj_before += float(_t.amount or 0)
-                        except (TypeError, ValueError):
-                            pass
-                _wash_sat = float(_total_piggy_before - _outputs_before - _wash_exp_before + _wash_inc_before + _wash_adj_before)
-                _cur_sat_bal = {
-                    "detailing": round(float(_det_sat), 2),
-                    "general": round(float(_gen_sat), 2),
-                    "wash": round(float(_wash_sat), 2),
-                }
+            def _snapshot(_grp: str) -> tuple[float, float]:
+                _sb = round(float(_bucket(_grp, _cur_pred)), 2)
+                _cw = round(sum(_x[2] for _x in _outflows(_grp, _cur_sat, _today)), 2)
+                return _sb, _cw
 
-            # Расходы с субботы по сегодня включительно (будущие дни недели не считаем).
-            def _cum_for_group(_grp: str) -> float:
-                _cum = 0.0
-                _is_wash = (_grp == WASH_RESOURCE_GROUP)
-                for _t in _weekly_base_txs:
-                    if (_t.resource_group or "detailing") != _grp:
-                        continue
-                    _d = _tx_parsed_date.get(_t.id)
-                    if _d is None or not (_cur_sat <= _d <= _today):
-                        continue
-                    try:
-                        if _is_wash:
-                            _counts = float(_t.amount or 0) < 0
-                        else:
-                            _counts = (
-                                _t.transaction_type in _WEEKLY_PIGGY_WD
-                                and float(_t.amount or 0) < 0
-                            )
-                        if _counts:
-                            _cum += abs(float(_t.amount))
-                    except (TypeError, ValueError):
-                        pass
-                if _is_wash:
-                    _mirrored_ids: set[str] = set()
-                    for _t in _weekly_base_txs:
-                        if (_t.resource_group or "") != _grp:
-                            continue
-                        _d = _tx_parsed_date.get(_t.id)
-                        if _d is None or not (_cur_sat <= _d <= _today):
-                            continue
-                        _eid = getattr(_t, "expense_id", None)
-                        if _eid:
-                            _mirrored_ids.add(str(_eid))
-                    _unlinked: list[tuple[date, float]] = []
-                    for _t in _weekly_base_txs:
-                        if (_t.resource_group or "") != _grp:
-                            continue
-                        try:
-                            _neg = float(_t.amount or 0) < 0
-                        except (TypeError, ValueError):
-                            _neg = False
-                        if _neg and not getattr(_t, "expense_id", None):
-                            _dd = _tx_parsed_date.get(_t.id)
-                            if _dd is not None and _cur_sat <= _dd <= _today:
-                                try:
-                                    _unlinked.append((_dd, round(abs(float(_t.amount)), 2)))
-                                except (TypeError, ValueError):
-                                    pass
-                    _candidate: list[tuple[Any, date, Any, float]] = []
-                    for _ed, _e in _exp_parsed:
-                        if _ed is None or not (_cur_sat <= _ed <= _today):
-                            continue
-                        if (_e.resource_group or "") != _grp:
-                            continue
-                        try:
-                            _eamt = round(abs(float(_e.amount or 0)), 2)
-                        except (TypeError, ValueError):
-                            continue
-                        if _eamt <= 0:
-                            continue
-                        if str(getattr(_e, "id", "")) in _mirrored_ids:
-                            continue
-                        _candidate.append((_e, _ed, getattr(_e, "created_at", None), _eamt))
-                    _fallback_excluded: set[str] = set()
-                    for (_wdate, _wamt) in _unlinked:
-                        for (_e, _ed, _ecr, _eamt) in _candidate:
-                            _eid2 = str(getattr(_e, "id", ""))
-                            if _eid2 in _fallback_excluded:
-                                continue
-                            if _ed == _wdate and _eamt == _wamt:
-                                _fallback_excluded.add(_eid2)
-                                break
-                    for (_e, _ed, _ecr, _eamt) in _candidate:
-                        if str(getattr(_e, "id", "")) not in _fallback_excluded:
-                            _cum += _eamt
-                    try:
-                        for _w in workers_list:
-                            _sal = getattr(_w, "salary_per_shift", 0) or 0
-                            if not _sal:
-                                continue
-                            try:
-                                _cnt, _date_strs = _compute_shift_attendance(inspections, _w.id, _cur_sat, _today)
-                            except Exception:
-                                continue
-                            for _ds in (_date_strs or []):
-                                _sd = _parse_date_str(_ds) if _ds else None
-                                if _sd is None or not (_cur_sat <= _sd <= _today):
-                                    continue
-                                try:
-                                    _cum += float(_sal)
-                                except (TypeError, ValueError):
-                                    pass
-                    except Exception:
-                        pass
-                return round(_cum, 2)
-
-            _wash_sat_bal = round(float(_cur_sat_bal.get("wash", 0.0)), 2)
-            _det_sat_bal = round(float(_cur_sat_bal.get("detailing", 0.0)), 2)
-            _gen_sat_bal = round(float(_cur_sat_bal.get("general", 0.0)), 2)
-            _wash_cum = _cum_for_group("wash")
-            _det_cum = _cum_for_group("detailing")
-            _gen_cum = _cum_for_group("general")
-            _wash_ws = _cur_week_start_str
-            _wash_wsb = _wash_sat_bal
-            _wash_wdw = _wash_cum
-            _wash_wb = round(_wash_sat_bal - _wash_cum, 2)
-            _det_ws = _cur_week_start_str
-            _det_wsb = _det_sat_bal
-            _det_wdw = _det_cum
-            _det_wb = round(_det_sat_bal - _det_cum, 2)
-            _gen_ws = _cur_week_start_str
-            _gen_wsb = _gen_sat_bal
-            _gen_wdw = _gen_cum
-            _gen_wb = round(_gen_sat_bal - _gen_cum, 2)
+            _wash_wsb, _wash_wdw = _snapshot(WASH_RESOURCE_GROUP)
+            _det_wsb, _det_wdw = _snapshot("detailing")
+            _gen_wsb, _gen_wdw = _snapshot("general")
+            _wash_ws = _det_ws = _gen_ws = _cur_week_start_str
+            _wash_wb = round(_wash_wsb - _wash_wdw, 2)
+            _det_wb = round(_det_wsb - _det_wdw, 2)
+            _gen_wb = round(_gen_wsb - _gen_wdw, 2)
             _combined_wb = round(_wash_wb + _det_wb + _gen_wb, 2)
     except Exception:
-        pass
+        logger.exception("piggy current week snapshot failed")
 
     return PiggyBankResponse(
 
@@ -21683,6 +21427,25 @@ def save_services(
 
     _ensure_staff_role(session_data, {"admin", "owner"})
 
+    # Формула обязана распределять чек целиком: хвост, который никому не
+    # уходит, делал копилки/доли кривыми — такую формулу не сохраняем.
+    formula_errors = []
+    for item in payload:
+        reason = formula_tail_error(
+            piggy_pay_type=item.piggyPayType,
+            piggy_pay_value=item.piggyPayValue,
+            owner_pay_type=item.ownerPayType,
+            owner_pay_value=item.ownerPayValue,
+            owner_split_enabled=item.ownerSplitEnabled,
+        )
+        if reason:
+            formula_errors.append(f"«{item.name}»: {reason}")
+    if formula_errors:
+        raise HTTPException(
+            status_code=400,
+            detail="Формула раздела денег с нераспределённым хвостом:\n" + "\n".join(formula_errors),
+        )
+
     existing = {service.id: service for service in db.scalars(select(Service)).all()}
 
     submitted_ids = {item.id for item in payload}
@@ -24216,22 +23979,9 @@ def get_owner_bookings_history_totals(
         split = _booking_split_auto(db, booking, complaints_by_worker)
         factual = deposit_by_booking.get(booking.id, [])
         if factual:
-            main_dep = sum(
-                int(t.amount or 0) for t in factual
-                if not (t.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX)
-            )
-            if main_dep > 0:
-                svc_for_piggy = db.get(Service, booking.service_id) if booking.service_id else None
-                piggy_target = (svc_for_piggy.piggy_target or "").strip() if svc_for_piggy else ""
-                if piggy_target not in ("detailing", "wash", "general"):
-                    piggy_target = ""
-                bank = piggy_target or split.get("resource_group") or "general"
-                entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
-                entry["amount"] += main_dep
-                entry["booking_ids"].add(booking.id)
+            # Банк — где вклад реально лежит (txn.resource_group), а не текущий
+            # piggyTarget услуги: смена настройки не переносит старые вклады.
             for txn in factual:
-                if not (txn.purpose or "").startswith(ASVC_PIGGY_PURPOSE_PREFIX):
-                    continue
                 bank = txn.resource_group or split.get("resource_group") or "general"
                 entry = piggy_totals.setdefault(bank, {"amount": 0, "booking_ids": set()})
                 entry["amount"] += int(txn.amount or 0)
@@ -25364,6 +25114,132 @@ def repair_missing_owner_shares(
     )
     db.commit()
     return {"repairedShares": repaired_shares, "backfilledSnapshots": backfilled_snapshots}
+
+
+@app.post("/api/admin/maintenance/recalc-money")
+def recalc_money_by_formulas(
+    dryRun: bool = True,
+    session_data: dict = Depends(_require_session),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Пересчитать всю историю по текущим формулам услуг.
+
+    По каждой завершённой оплаченной записи: вклады в копилки и pending-доли
+    владельцев приводятся к живому сплиту, снапшот перезамораживается.
+    Кредит — только если месяц уже закрыт (вклады/доли есть). Выплаченные
+    доли и ЗП не трогаем: переплаты по формуле попадают в отчёт.
+    dryRun=true — всё считается и откатывается, возвращается сводка.
+    """
+    _ensure_staff_role(session_data, {"owner"})
+    invalid = []
+    for svc in db.scalars(select(Service)).all():
+        reason = formula_tail_error(
+            piggy_pay_type=svc.piggy_pay_type,
+            piggy_pay_value=svc.piggy_pay_value,
+            owner_pay_type=svc.owner_pay_type,
+            owner_pay_value=svc.owner_pay_value,
+            owner_split_enabled=svc.owner_split_enabled,
+        )
+        if reason:
+            invalid.append(f"«{svc.name}»: {reason}")
+    if invalid:
+        raise HTTPException(
+            status_code=409,
+            detail="Сначала исправьте формулы услуг:\n" + "\n".join(invalid),
+        )
+
+    def _piggy_by_group() -> dict[str, int]:
+        totals: dict[str, int] = {}
+        for txn in db.scalars(
+            select(PiggyBankTransaction).where(
+                PiggyBankTransaction.deleted_at.is_(None),
+                PiggyBankTransaction.booking_id.is_not(None),
+                PiggyBankTransaction.transaction_type == "deposit_24percent",
+            )
+        ).all():
+            group = txn.resource_group or "general"
+            totals[group] = totals.get(group, 0) + int(txn.amount or 0)
+        return totals
+
+    complaints = _complaints_by_worker(_load_penalties(db))
+    bookings = db.scalars(
+        select(Booking)
+        .options(
+            joinedload(Booking.worker_links),
+            joinedload(Booking.additional_services).joinedload(BookingAdditionalService.worker_links),
+        )
+        .where(Booking.deleted_at.is_(None), Booking.status == "completed")
+        .order_by(Booking.date.asc(), Booking.time.asc())
+    ).unique().all()
+
+    piggy_before = _piggy_by_group()
+    owners_before = 0
+    owners_after = 0
+    processed = 0
+    paid_mismatches: list[dict] = []
+    for booking in bookings:
+        if not booking.payment_settled:
+            continue
+        if (booking.payment_type or "") == "credit":
+            has_money = db.scalar(
+                select(PiggyBankTransaction.id).where(
+                    PiggyBankTransaction.booking_id == booking.id,
+                    PiggyBankTransaction.transaction_type == "deposit_24percent",
+                    PiggyBankTransaction.deleted_at.is_(None),
+                ).limit(1)
+            ) or db.scalar(
+                select(OwnerProfitShare.id).where(OwnerProfitShare.booking_id == booking.id).limit(1)
+            )
+            if not has_money:
+                continue
+        _reconcile_piggy_for_booking(
+            db, booking, include_credit=True, complaints_by_worker=complaints
+        )
+        result = _reconcile_owner_shares_for_booking(db, booking, complaints)
+        owners_before += result["before"]
+        owners_after += result["after"]
+        if result["paid_mismatch"] > 0:
+            paid_mismatches.append(
+                {
+                    "bookingId": booking.id,
+                    "date": booking.date,
+                    "service": booking.service,
+                    "client": booking.client_name,
+                    "overpaid": result["paid_mismatch"],
+                }
+            )
+        _freeze_booking_split(db, booking, complaints)
+        processed += 1
+    db.flush()
+    piggy_after = _piggy_by_group()
+
+    groups = sorted(set(piggy_before) | set(piggy_after))
+    summary = {
+        "dryRun": dryRun,
+        "bookings": processed,
+        "piggy": [
+            {
+                "resourceGroup": g,
+                "before": piggy_before.get(g, 0),
+                "after": piggy_after.get(g, 0),
+                "delta": piggy_after.get(g, 0) - piggy_before.get(g, 0),
+            }
+            for g in groups
+        ],
+        "owners": {"before": owners_before, "after": owners_after, "delta": owners_after - owners_before},
+        "paidMismatches": paid_mismatches,
+    }
+    if dryRun:
+        db.rollback()
+        return summary
+    log_action(
+        db,
+        action="maintenance.recalc-money",
+        session_data=session_data,
+        detail=f"bookings={processed} owners_delta={owners_after - owners_before}",
+    )
+    db.commit()
+    return summary
 
 
 

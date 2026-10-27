@@ -42,4 +42,6 @@ EXPOSE 8000
 
 USER app:app
 WORKDIR /app/backend
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers: за Render/Amvera реальный IP клиента приходит в X-Forwarded-For.
+# Без этого rate-limit видит IP прокси и даёт ложные общие 429.
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

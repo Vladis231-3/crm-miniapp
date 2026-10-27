@@ -210,7 +210,10 @@ class ReproPiggyCleanup(unittest.TestCase):
         }, ensure_ascii=False, indent=2))
 
         # Хард-проверки бага: после удаления ВСЕХ piggy-транзакций
-        self.assertEqual(a["balance"], 0, "balance = сумма транзакций, должен быть 0")
+        # Единая формула: после очистки piggy-транзакций в копилке мойки
+        # остаются только обычные доход/расход группы (5000 − 700).
+        self.assertEqual(a["balance"], 4300, "balance = вклады/снятия + обычные доходы − расходы")
+        self.assertEqual(a["balance"], a["combinedBalance"], "all-time balance == «Все» без фильтра")
         self.assertEqual(len(a["transactions"]), 0, "история должна быть пустой")
         print("\nBUG CHECK:")
         print(f"  combinedBalance after = {a['combinedBalance']} (ожидалось бы ~0)")

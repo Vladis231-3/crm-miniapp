@@ -590,13 +590,11 @@ class MoneyMatrixTests(unittest.TestCase):
                      workers=[{"workerId": "w1", "workerName": "Иван", "percent": 50}])
         booking = self.complete(booking["id"])
         split = self.split_of(booking["id"])
-        # Остаток 1000: сначала владельцы 50% = 500, потом копилка 10% от 500 = 50.
-        dops = split["asvcPiggyDeposits"]
-        self.assertEqual(len(dops), 1)
-        self.assertEqual(dops[0]["amount"], 50)
-        self.assertEqual(split["asvcOwnerExtra"], 500)
-        self.assertEqual(split["piggyDeposit"], 2400 + 50)
-        self.assertEqual(split["ownersTotal"], 4600 + 500)
+        # Остаток 1000: владельцы без % забирают весь остаток, копилке после них — 0.
+        self.assertEqual(split["asvcPiggyDeposits"], [])
+        self.assertEqual(split["asvcOwnerExtra"], 1000)
+        self.assertEqual(split["piggyDeposit"], 2400)
+        self.assertEqual(split["ownersTotal"], 4600 + 1000)
 
     def test_dop_classic_unchanged_without_custom_order(self) -> None:
         """H8: доп без своего порядка — классика как раньше (24% + остаток владельцам)."""

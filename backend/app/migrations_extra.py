@@ -75,9 +75,10 @@ def upgrade_slot_unique_index() -> str:
         return "applied"
     with engine.connect() as connection:
         dups = connection.execute(
+            # predicate собран только из внутренних констант через _quote_literal - инъекции нет
             text(
                 "SELECT box, date, time, COUNT(*) AS n FROM bookings "
-                f"WHERE {predicate} "
+                f"WHERE {predicate} "  # nosec: B608
                 "AND box <> '' AND box <> :detail "
                 "GROUP BY box, date, time HAVING COUNT(*) > 1 LIMIT 20"
             ),

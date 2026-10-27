@@ -88,6 +88,8 @@ export default defineConfig({
   // compile the module graph. OwnerApp/AdminApp are >250KB each and take
   // seconds through Babel on cold transforms.
   server: {
+    // IPv4-only binding: IPv6 loopback (::1) is broken on this machine
+    host: '127.0.0.1',
     warmup: {
       clientFiles: [
         './src/main.tsx',

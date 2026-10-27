@@ -41,7 +41,7 @@ def run_google_calendar_sync_cron(
     if not settings.cron_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
+            detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
     if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
@@ -65,7 +65,7 @@ def run_outbox_cron(
     if not settings.cron_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
+            detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
     if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
@@ -88,7 +88,7 @@ def run_reminders_cron(
     if not settings.cron_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
+            detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
     if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(
@@ -121,7 +121,7 @@ def run_reports_cron(
     if not settings.cron_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured",
+            detail="CRON_SECRET is not configured (set it in the hosting dashboard)",
         )
     if not authorization or not hmac_mod.compare_digest(authorization, f"Bearer {settings.cron_secret}"):
         raise HTTPException(

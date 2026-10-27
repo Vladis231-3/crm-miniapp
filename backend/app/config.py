@@ -283,7 +283,7 @@ def get_settings() -> Settings:
         authz_enforce=_parse_bool(os.getenv("AUTHZ_ENFORCE"), True),
         outbox_google_enabled=_parse_bool(os.getenv("OUTBOX_GOOGLE_ENABLED"), True),
         outbox_tg_enabled=_parse_bool(os.getenv("OUTBOX_TG_ENABLED"), True),
-        api_host=os.getenv("API_HOST", "0.0.0.0"),
+        api_host=os.getenv("API_HOST", "127.0.0.1"),
         api_port=int(os.getenv("API_PORT", "8000")),
         cors_origins=origins,
         database_url=database_url,

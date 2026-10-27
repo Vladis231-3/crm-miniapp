@@ -39,7 +39,8 @@ import {
   type PlateType,
 } from '../../utils/validation';
 import { useVisualViewport } from '../../utils/useVisualViewport';
-import { dopWorkerEarned, mainWorkerEarned } from '../../utils/moneySplit';
+import { dopWorkerEarned, formulaTailError, mainWorkerEarned } from '../../utils/moneySplit';
+import { MoneyRecalcCard } from './MoneyRecalcCard';
 import { formatFixedMasterAmount, isFixedMasterService } from '../ui/utils';
 import { REFERRAL_SOURCES } from '../../constants/referralSources';
 
@@ -572,8 +573,8 @@ const SERVICE_SPLIT_PRESETS: Array<{ key: string; label: string; desc: string; p
   { key: 'master-fixed', label: 'Котёл мастеров фикс', desc: '2000 ₽ на всех', patch: { masterPayType: 'fixed', masterPayValue: 2000 } },
   { key: 'piggy-general', label: 'Копилка → общая', desc: 'редирект вклада', patch: { piggyTarget: 'general' } },
   { key: 'piggy-first', label: 'Копилка до мастеров', desc: 'конвейер', patch: { splitOrder: ['materials', 'piggy', 'master', 'owners'] } },
-  { key: 'owners-percent', label: 'Владельцам 50% остатка', desc: 'остальное не делится', patch: { ownerSplitEnabled: true, ownerPayType: 'percent', ownerPayValue: 50 } },
-  { key: 'no-owners', label: 'Без долей владельцам', desc: 'остаток не делится', patch: { ownerSplitEnabled: false } },
+  { key: 'owners-percent', label: 'Владельцам 50% остатка', desc: 'остальное — в копилку', patch: { ownerSplitEnabled: true, ownerPayType: 'percent', ownerPayValue: 50, piggyPayType: 'rest', piggyPayValue: 0, splitOrder: ['materials', 'master', 'owners', 'piggy'] } },
+  { key: 'no-owners', label: 'Без долей владельцам', desc: 'остаток — в копилку', patch: { ownerSplitEnabled: false, piggyPayType: 'rest', piggyPayValue: 0 } },
 ];
 
 function serviceMoneySummary(service: MoneyServiceDraft) {
@@ -622,11 +623,13 @@ function previewServiceSplit(
   let owners = 0;
   let ownersLabel: string;
   const computeMaster = (base: number) => {
+    // Как бэкенд: котёл мастеров не больше базы.
+    const cap = Math.max(0, base);
     if (service.masterPayType === 'fixed') {
-      return { total: service.masterPayValue ?? 0, label: 'фикс' };
+      return { total: Math.min(Math.max(0, service.masterPayValue ?? 0), cap), label: 'фикс' };
     }
     if (service.masterPayType === 'percent') {
-      return { total: Math.round(base * (service.masterPayValue ?? 0) / 100), label: `${service.masterPayValue ?? 0}%` };
+      return { total: Math.min(Math.round(base * (service.masterPayValue ?? 0) / 100), cap), label: `${service.masterPayValue ?? 0}%` };
     }
     return { total: Math.round(base * samplePercent / 100), label: `${samplePercent}% (из профиля)` };
   };
@@ -662,7 +665,7 @@ function previewServiceSplit(
     }
   } else {
     let pool = samplePrice;
-    order.forEach((step, index) => {
+    order.forEach((step) => {
       if (step === 'materials') {
         pool = Math.max(0, pool - materials);
       } else if (step === 'master') {
@@ -674,15 +677,15 @@ function previewServiceSplit(
         piggy = Math.min(p.total, pool); piggyLabel = p.label;
         pool = Math.max(0, pool - piggy);
       } else if (step === 'owners') {
-        const isLast = index === order.length - 1;
+        // Владельцы без % = весь текущий остаток в любой позиции (как бэкенд).
         const claimed = service.ownerPayType === 'percent'
           ? Math.round(pool * (service.ownerPayValue ?? 0) / 100)
-          : isLast ? pool : Math.round(pool * 50 / 100);
+          : pool;
         if (service.ownerSplitEnabled !== false && claimed > 0) {
           owners = Math.min(claimed, pool);
           ownersLabel = service.ownerPayType === 'percent'
             ? `${service.ownerPayValue ?? 0}% остатка`
-            : isLast ? 'остаток' : '50% остатка';
+            : 'остаток';
         } else {
           owners = 0;
           ownersLabel = service.ownerSplitEnabled === false ? 'выключено' : '0';
@@ -8075,6 +8078,7 @@ paymentSettled: false,
                 <Search size={15} strokeWidth={1.75} className={`absolute left-3 top-1/2 -translate-y-1/2 ${sub}`} />
                 <input className={`${inputCls} pl-9`} type="text" placeholder="Поиск услуг..." value={servicesSearchQuery} onChange={e => setServicesSearchQuery(e.target.value)} />
               </div>
+              <MoneyRecalcCard glass={glass} sub={sub} primary={primary} />
               {services.length === 0 && (
                 <div className={`${glass} rounded-2xl p-4 mb-3 text-sm ${sub}`}>
                   Услуг пока нет. Добавьте первую услугу и сохраните изменения.
@@ -8127,6 +8131,9 @@ paymentSettled: false,
                     </div>
                   </div>
                   <div className={`${isDark ? 'bg-white/5' : 'bg-black/5'} rounded-xl px-3 py-2 text-xs space-y-0.5`}>
+                    {formulaTailError(service) && (
+                      <div className="text-red-500">Формула оставляет хвост: {formulaTailError(service)}</div>
+                    )}
                     {summaryLines.map((line, li) => (
                       <div key={li} className={`flex items-center gap-2 ${sub}`}>
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: [accent, '#EAB308', primary][li % 3] }} />
@@ -12587,6 +12594,7 @@ paymentSettled: false,
             : localPreview;
           const total = Math.max(1, preview.materials + preview.master + preview.piggy + preview.owners);
           const distributed = Math.min(samplePrice, preview.materials + preview.master + preview.piggy + preview.owners);
+          const formulaError = formulaTailError(svc);
           return (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50" onClick={() => setShowServiceSettings(false)}>
               <motion.div
@@ -12907,7 +12915,7 @@ paymentSettled: false,
                         );
                       })}
                     </div>
-                    <p className={`text-xs ${sub} mt-1.5`}>Классика: % от полной базы (цена − материалы − вычеты). Конвейер (любой порядок ≠ классики, даже частичный): каждый % от текущего остатка по шагам. Владельцы забирают весь остаток, если стоят последними (иначе 50%, свой % или веса владельцев).</p>
+                    <p className={`text-xs ${sub} mt-1.5`}>Классика: % от полной базы (цена − материалы − вычеты). Конвейер (любой порядок ≠ классики, даже частичный): каждый % от текущего остатка по шагам. Владельцы без % забирают весь текущий остаток там, где стоят, — шаги после них получают 0. Формулу, где часть денег никому не уходит, сохранить нельзя.</p>
                   </div>
 
                   <div>
@@ -13229,7 +13237,12 @@ paymentSettled: false,
                   </>
                   )}
                 </div>
-                <button onClick={() => void handleServiceSettingsDone()} disabled={serviceSettingsSaving} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-60" style={{ background: primary }}>
+                {formulaError && (
+                  <div className="mb-2 rounded-2xl px-3 py-2 text-xs text-red-500 bg-red-500/10">
+                    Нераспределённый хвост: {formulaError}
+                  </div>
+                )}
+                <button onClick={() => void handleServiceSettingsDone()} disabled={serviceSettingsSaving || Boolean(formulaError)} className="w-full py-3.5 rounded-2xl font-semibold text-white disabled:opacity-60" style={{ background: primary }}>
                   {serviceSettingsSaving ? 'Сохранение...' : 'Готово'}
                 </button>
               </motion.div>

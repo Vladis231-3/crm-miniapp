@@ -9,4 +9,13 @@ run:
     APP_ENV: production
     ALLOW_DEMO_SEED_DATA: "false"
     PERSISTENT_DATA_DIR: /data
+    # Amvera has a persistent disk (/data), so uploads stay ON here,
+    # unlike Vercel/Render where the filesystem is ephemeral (OFF there).
     UPLOADS_ENABLED: "true"
+    # --- MUST be set in Amvera dashboard (secret env), never committed: ---
+    # APP_SECRET: >=32 chars, non-default (required in production, see config.py)
+    # TELEGRAM_BOT_TOKEN: bot token
+    # WEBAPP_URL: https://<frontend-domain>
+    # CORS_ORIGINS: https://<frontend-domain>
+    # DATABASE_URL: postgresql+psycopg://...?sslmode=require (SQLite only for local dev)
+    # CRON_SECRET: random >=32 chars; cron endpoints return 503/401 without it

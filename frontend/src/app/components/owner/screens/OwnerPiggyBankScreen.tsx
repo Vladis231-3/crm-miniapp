@@ -286,9 +286,6 @@ export function OwnerPiggyBankScreen({
               </div>
             </>
           )}
-          <div className="flex justify-between py-1.5 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            <span className={sub}>Выход мастеров</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
-          </div>
           <div className="flex justify-between py-1.5 text-sm font-semibold items-center">
             <span className="flex items-center gap-1.5">Остаток
               <button onClick={() => onOpenAdjust('wash')} className="p-1 rounded-lg hover:brightness-125 transition active:scale-95"
@@ -415,9 +412,6 @@ export function OwnerPiggyBankScreen({
           </div>
           <div className="flex justify-between py-2 text-sm">
             <span className={sub}>ЗП мастеров всего</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{piggyBank.wash.totalMaster.toLocaleString('ru')} ₽</span>
-          </div>
-          <div className="flex justify-between py-2 text-sm border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            <span className={sub}>Выход мастеров (смены)</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.masterDailyOutputs ?? 0).toLocaleString('ru')} ₽</span>
           </div>
           <div className="flex justify-between py-2 text-sm">
             <span className={sub}>Расходы на мойку</span><span className="tabular-nums" style={{ color: 'var(--status-danger)' }}>−{(piggyBank.washExpenses ?? 0).toLocaleString('ru')} ₽</span>
