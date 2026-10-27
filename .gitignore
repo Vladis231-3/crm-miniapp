@@ -47,3 +47,4 @@ scripts/.project-map-watch.lock
 # Heavy / generated / local-only (audit 09.10.2026)
 showreel/
 training/backend/
+_backup/

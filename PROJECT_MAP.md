@@ -1,6 +1,6 @@
 # PROJECT_MAP — карта проекта
 
-> Автосгенерировано 2026-10-27 16:23 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
+> Автосгенерировано 2026-10-27 16:25 UTC. **НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.**
 
 **Обновление:**
 
@@ -5847,6 +5847,7 @@ concept1.0/
 
 ## Недавно изменённые файлы
 
+- `.gitignore` (2026-10-27 19:25)
 - `scripts/.project-map-watch.lock` (2026-10-27 18:43)
 - `frontend/src/app/components/admin/settings-sections/AdminSettingsSections.tsx` (2026-10-27 11:37)
 - `frontend/src/app/components/owner/OwnerApp.tsx` (2026-10-27 11:37)
@@ -5861,4 +5862,3 @@ concept1.0/
 - `frontend/vite.config.ts` (2026-10-27 11:30)
 - `frontend/src/app/components/owner/screens/OwnerPiggyBankScreen.tsx` (2026-10-27 11:30)
 - `frontend/src/app/components/landing/Footer.tsx` (2026-10-27 11:30)
-- `frontend/src/app/api.ts` (2026-10-27 11:30)
