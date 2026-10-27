@@ -1,0 +1,10 @@
+{
+  "description": "A comprehensive CRM system designed for service businesses, offering tailored interfaces for owners, administrators, masters, clients, and accountants to streamline operations and enhance user experience.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
